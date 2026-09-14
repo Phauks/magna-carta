@@ -82,16 +82,17 @@
       </div>
       <div class="flex items-baseline justify-between gap-16">
         <dt class="text-text-muted">Ceiling</dt>
-        <dd class="text-right tabular-nums">
-          {money(ceiling)}
+        <dd class="flex flex-col items-end gap-4 text-right">
+          <span class="tabular-nums">{money(ceiling)}</span>
+          <!-- What bounds the ceiling is a fact of the ceiling, so it is the row's second line and
+               never a paragraph loose beneath the list. -->
+          <span class="text-xs text-text-subtle">
+            This matter's own unpaid share of this bill. Once the trust ledger can be read it is
+            also bounded by what the matter's leaf holds, net of holds.
+          </span>
         </dd>
       </div>
     </dl>
-    <p class="text-xs text-text-subtle">
-      A transfer may not draw more than this matter's own unpaid share of this bill. The ceiling
-      will narrow further once the trust ledger can be read, because it is also bounded by what
-      the matter's leaf actually holds, net of holds.
-    </p>
 
     {#if delivery !== null && delivery.delivered && delivery.deliveredOn !== null}
       <p class="flex items-start gap-8 text-sm text-text-muted">

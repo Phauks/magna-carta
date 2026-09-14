@@ -6180,6 +6180,13 @@
               "string",
               "null"
             ]
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 320
           }
         },
         "required": [
@@ -6222,11 +6229,38 @@
               "null"
             ]
           },
+          "timeZone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "numberCode": {
             "type": [
               "string",
               "null"
             ]
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "addresses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LocationAddress"
+            }
+          },
+          "members": {
+            "type": "integer"
+          },
+          "hasLetterheadLogo": {
+            "type": "boolean"
+          },
+          "firmDefault": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -6234,7 +6268,91 @@
           "name",
           "status",
           "jurisdiction",
-          "numberCode"
+          "timeZone",
+          "numberCode",
+          "email",
+          "addresses",
+          "members",
+          "hasLetterheadLogo",
+          "firmDefault"
+        ]
+      },
+      "LocationAddress": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "physical",
+              "mailing"
+            ]
+          },
+          "street": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "streetTwo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dependentLocality": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "region": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "postal": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sortingCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "country": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "street",
+          "streetTwo",
+          "dependentLocality",
+          "city",
+          "region",
+          "postal",
+          "sortingCode",
+          "country",
+          "phone"
         ]
       },
       "LocationDetail": {
@@ -6289,8 +6407,43 @@
               "null"
             ]
           },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "addresses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LocationAddress"
+            }
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LocationMember"
+            }
+          },
+          "firmDefault": {
+            "type": "boolean"
+          },
           "letterheadLogo": {
             "$ref": "#/components/schemas/LetterheadLogo"
+          },
+          "letterheadSource": {
+            "type": "string",
+            "enum": [
+              "office",
+              "firm",
+              "none"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
           }
         },
         "required": [
@@ -6303,7 +6456,41 @@
           "addressBlock",
           "footer",
           "remitTo",
-          "letterheadLogo"
+          "email",
+          "addresses",
+          "members",
+          "firmDefault",
+          "letterheadLogo",
+          "letterheadSource",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "LocationMember": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "deactivated"
+            ]
+          },
+          "isPrimary": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "userId",
+          "displayName",
+          "status",
+          "isPrimary"
         ]
       },
       "LetterheadLogo": {
@@ -6387,6 +6574,13 @@
               "string",
               "null"
             ]
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 320
           }
         }
       },
@@ -6429,6 +6623,18 @@
                     "null"
                   ]
                 },
+                "streetTwo": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "dependentLocality": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
                 "city": {
                   "type": [
                     "string",
@@ -6447,6 +6653,20 @@
                     "null"
                   ]
                 },
+                "sortingCode": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "country": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "minLength": 2,
+                  "maxLength": 2
+                },
                 "phone": {
                   "type": [
                     "string",
@@ -6463,6 +6683,14 @@
         "required": [
           "addresses"
         ]
+      },
+      "LocationMemberRequest": {
+        "type": "object",
+        "properties": {
+          "isPrimary": {
+            "type": "boolean"
+          }
+        }
       },
       "MemberLocationsRequest": {
         "type": "object",
@@ -10668,15 +10896,27 @@
           }
         }
       },
-      "CreatedConflictsCheckResponse": {
+      "OpenedConflictsCheckResponse": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string"
+          },
+          "checkNumber": {
+            "type": "string"
+          },
+          "runId": {
+            "type": "string"
+          },
+          "ordinal": {
+            "type": "integer"
           }
         },
         "required": [
-          "id"
+          "id",
+          "checkNumber",
+          "runId",
+          "ordinal"
         ]
       },
       "CreateConflictsCheckRequest": {
@@ -10740,46 +10980,22 @@
               "balanced",
               "over_inclusive"
             ]
-          },
-          "depth": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 6
-          },
-          "edgeClassBudgets": {
-            "type": "object",
-            "properties": {
-              "control": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 6
-              },
-              "family": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 6
-              },
-              "representation": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 6
-              }
-            }
-          },
-          "closureCap": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 5000
-          },
-          "candidateCap": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 9500
           }
         },
         "required": [
           "sources",
           "strictness"
+        ]
+      },
+      "NextConflictsCheckNumberResponse": {
+        "type": "object",
+        "properties": {
+          "checkNumber": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "checkNumber"
         ]
       },
       "ConflictsCheckPage": {
@@ -10809,19 +11025,8 @@
           "id": {
             "type": "string"
           },
-          "trigger": {
-            "type": "string",
-            "enum": [
-              "preliminary",
-              "comprehensive",
-              "new_party",
-              "entity_merged",
-              "entity_renamed",
-              "relationship_recorded",
-              "identifier_recorded",
-              "personnel_changed",
-              "periodic_rescan"
-            ]
+          "checkNumber": {
+            "type": "string"
           },
           "matterId": {
             "type": [
@@ -10829,20 +11034,44 @@
               "null"
             ]
           },
-          "strictness": {
-            "type": "string",
-            "enum": [
-              "balanced",
-              "over_inclusive"
+          "createdAt": {
+            "type": "string"
+          },
+          "createdByUserId": {
+            "type": [
+              "string",
+              "null"
             ]
           },
-          "depth": {
+          "runCount": {
             "type": "integer"
           },
-          "floorRaised": {
-            "type": "boolean"
+          "latestRunId": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
-          "actorUserId": {
+          "runStatus": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "failed",
+              null
+            ]
+          },
+          "latestRunAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "trigger": {
             "type": [
               "string",
               "null"
@@ -10854,24 +11083,52 @@
               "null"
             ]
           },
-          "hitCount": {
-            "type": "integer"
+          "actorUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
-          "createdAt": {
-            "type": "string"
+          "strictness": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "balanced",
+              "over_inclusive",
+              null
+            ]
+          },
+          "floorRaised": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "hitCount": {
+            "type": [
+              "integer",
+              "null"
+            ]
           }
         },
         "required": [
           "id",
-          "trigger",
+          "checkNumber",
           "matterId",
-          "strictness",
-          "depth",
-          "floorRaised",
-          "actorUserId",
+          "createdAt",
+          "createdByUserId",
+          "runCount",
+          "latestRunId",
+          "runStatus",
+          "latestRunAt",
+          "trigger",
           "triggerSource",
-          "hitCount",
-          "createdAt"
+          "actorUserId",
+          "strictness",
+          "floorRaised",
+          "hitCount"
         ]
       },
       "ConflictsPolicyResponse": {
@@ -10896,21 +11153,6 @@
               "over_inclusive"
             ]
           },
-          "defaultDepth": {
-            "type": "integer"
-          },
-          "edgeClassBudgets": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "integer"
-            }
-          },
-          "closureCap": {
-            "type": "integer"
-          },
-          "candidateCap": {
-            "type": "integer"
-          },
           "balancedNameRoles": {
             "type": "array",
             "items": {
@@ -10921,10 +11163,6 @@
         "required": [
           "floorSources",
           "floorStrictness",
-          "defaultDepth",
-          "edgeClassBudgets",
-          "closureCap",
-          "candidateCap",
           "balancedNameRoles"
         ]
       },
@@ -10950,35 +11188,6 @@
               "over_inclusive"
             ]
           },
-          "defaultDepth": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "edgeClassBudgets": {
-            "type": "object",
-            "properties": {
-              "control": {
-                "type": "integer",
-                "minimum": 0
-              },
-              "family": {
-                "type": "integer",
-                "minimum": 0
-              },
-              "representation": {
-                "type": "integer",
-                "minimum": 0
-              }
-            }
-          },
-          "closureCap": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "candidateCap": {
-            "type": "integer",
-            "minimum": 0
-          },
           "balancedNameRoles": {
             "type": "array",
             "items": {
@@ -10988,19 +11197,220 @@
           }
         }
       },
-      "CreatedConflictsRecheckResponse": {
+      "FiledConflictsCheckResponse": {
         "type": "object",
         "properties": {
-          "checkId": {
+          "id": {
+            "type": "string"
+          },
+          "matterId": {
             "type": "string"
           }
         },
         "required": [
-          "checkId"
+          "id",
+          "matterId"
         ]
       },
-      "ConflictsCheckWithHitsResponse": {
+      "FileConflictsCheckOnMatterRequest": {
         "type": "object",
+        "properties": {
+          "matterId": {
+            "type": "string",
+            "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "matterId"
+        ]
+      },
+      "ConflictsCheckWithRunsResponse": {
+        "type": "object",
+        "properties": {
+          "check": {
+            "$ref": "#/components/schemas/ConflictsNumberedCheck"
+          },
+          "runs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConflictsRunSummary"
+            }
+          },
+          "run": {
+            "$ref": "#/components/schemas/ConflictsRunSummary"
+          },
+          "record": {
+            "$ref": "#/components/schemas/ConflictsCheckRecord"
+          }
+        },
+        "required": [
+          "check",
+          "runs",
+          "run",
+          "record"
+        ]
+      },
+      "ConflictsNumberedCheck": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "checkNumber": {
+            "type": "string"
+          },
+          "matterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdByUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "latestRunId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "checkNumber",
+          "matterId",
+          "createdByUserId",
+          "createdAt",
+          "latestRunId"
+        ]
+      },
+      "ConflictsRunSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "ordinal": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "failed"
+            ]
+          },
+          "stage": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "sources",
+              "walking",
+              "matching",
+              "candidates",
+              null
+            ]
+          },
+          "progress": {
+            "$ref": "#/components/schemas/ConflictsRunProgress"
+          },
+          "trigger": {
+            "type": "string"
+          },
+          "triggerSource": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requestedByUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "finishedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "failure": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hitCount": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "ordinal",
+          "status",
+          "stage",
+          "progress",
+          "trigger",
+          "triggerSource",
+          "requestedByUserId",
+          "createdAt",
+          "startedAt",
+          "finishedAt",
+          "failure",
+          "hitCount"
+        ]
+      },
+      "ConflictsRunProgress": {
+        "type": "object",
+        "properties": {
+          "sourcesSearched": {
+            "type": "integer"
+          },
+          "subjectParties": {
+            "type": "integer"
+          },
+          "entitiesReached": {
+            "type": "integer"
+          },
+          "entitiesMatched": {
+            "type": "integer"
+          },
+          "candidatesSurfaced": {
+            "type": "integer"
+          },
+          "candidatesRecorded": {
+            "type": "integer"
+          }
+        }
+      },
+      "ConflictsCheckRecord": {
+        "type": [
+          "object",
+          "null"
+        ],
         "properties": {
           "check": {
             "$ref": "#/components/schemas/ConflictsCheckDetail"
@@ -11154,6 +11564,15 @@
           "null"
         ],
         "properties": {
+          "followedToClosure": {
+            "type": "boolean"
+          },
+          "longestPathLength": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "edgeClassBudgets": {
             "type": "object",
             "additionalProperties": {
@@ -11189,6 +11608,8 @@
           }
         },
         "required": [
+          "followedToClosure",
+          "longestPathLength",
           "edgeClassBudgets",
           "closureCap",
           "truncated",
@@ -11306,6 +11727,9 @@
           },
           "disposition": {
             "$ref": "#/components/schemas/ConflictsDispositionDetail"
+          },
+          "previouslyAnswered": {
+            "$ref": "#/components/schemas/ConflictsPriorConclusion"
           }
         },
         "required": [
@@ -11318,7 +11742,8 @@
           "graphPath",
           "coParty",
           "createdAt",
-          "disposition"
+          "disposition",
+          "previouslyAnswered"
         ]
       },
       "ConflictsHitParty": {
@@ -11463,6 +11888,38 @@
           "givenOn"
         ]
       },
+      "ConflictsPriorConclusion": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "checkId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "cleared",
+              "waiver_obtained",
+              "wall_erected",
+              "representation_declined"
+            ]
+          },
+          "reviewerUserId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "checkId",
+          "kind",
+          "reviewerUserId",
+          "createdAt"
+        ]
+      },
       "ConflictsDispositionTrailResponse": {
         "type": "object",
         "properties": {
@@ -11595,6 +12052,12 @@
           "id": {
             "type": "string"
           },
+          "checkNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "createdAt": {
             "type": "string"
           },
@@ -11628,6 +12091,7 @@
         },
         "required": [
           "id",
+          "checkNumber",
           "createdAt",
           "trigger",
           "actorUserId",
@@ -11716,30 +12180,11 @@
               "firmFloor",
               "ranUnder"
             ]
-          },
-          "depth": {
-            "type": [
-              "object",
-              "null"
-            ],
-            "properties": {
-              "firmDefault": {
-                "type": "integer"
-              },
-              "ranAt": {
-                "type": "integer"
-              }
-            },
-            "required": [
-              "firmDefault",
-              "ranAt"
-            ]
           }
         },
         "required": [
           "sources",
-          "strictness",
-          "depth"
+          "strictness"
         ]
       },
       "ConflictsPosturePendingRecheck": {
@@ -21378,10 +21823,35 @@
           },
           "remainingDailyTurns": {
             "type": "number"
+          },
+          "model": {
+            "$ref": "#/components/schemas/MagnusAnsweringModel"
           }
         },
         "required": [
           "state"
+        ]
+      },
+      "MagnusAnsweringModel": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "modelId": {
+            "type": "string"
+          },
+          "snapshotId": {
+            "type": "string"
+          },
+          "zeroDataRetention": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "modelId",
+          "snapshotId",
+          "zeroDataRetention"
         ]
       },
       "MagnusAcknowledgement": {
@@ -21511,11 +21981,18 @@
               "data",
               "nextCursor"
             ]
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MagnusConversationAttachment"
+            }
           }
         },
         "required": [
           "conversation",
-          "turns"
+          "turns",
+          "attachments"
         ]
       },
       "MagnusTurn": {
@@ -21602,6 +22079,52 @@
           "completedAt"
         ]
       },
+      "MagnusConversationAttachment": {
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "attachedAt": {
+            "type": "string"
+          },
+          "textStatus": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "sent",
+              "cut",
+              "unreadable"
+            ]
+          },
+          "textBytes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "fileId",
+          "name",
+          "matterId",
+          "attachedAt",
+          "textStatus",
+          "textBytes"
+        ]
+      },
       "MagnusRenameConversationRequest": {
         "type": "object",
         "properties": {
@@ -21615,6 +22138,33 @@
         },
         "required": [
           "title"
+        ]
+      },
+      "MagnusMoveConversationRequest": {
+        "type": "object",
+        "properties": {
+          "matterId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "matterId"
+        ]
+      },
+      "MagnusAttachFileRequest": {
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "string",
+            "pattern": "^file_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "fileId"
         ]
       },
       "MagnusSubmitTurnResponse": {
@@ -32722,6 +33272,134 @@
           }
         }
       },
+      "FirmBrandImagesResponse": {
+        "type": "object",
+        "properties": {
+          "primary": {
+            "$ref": "#/components/schemas/FirmBrandImage"
+          },
+          "additional": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FirmBrandImage"
+            }
+          },
+          "additionalLimit": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "primary",
+          "additional",
+          "additionalLimit"
+        ]
+      },
+      "FirmBrandImage": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "sha256": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "primary",
+              "additional"
+            ]
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer"
+          },
+          "widthPixels": {
+            "type": "integer"
+          },
+          "heightPixels": {
+            "type": "integer"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sha256",
+          "role",
+          "label",
+          "contentType",
+          "sizeBytes",
+          "widthPixels",
+          "heightPixels",
+          "updatedAt"
+        ]
+      },
+      "FirmBrandImageAck": {
+        "type": "object",
+        "properties": {
+          "sha256": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sha256"
+        ]
+      },
+      "SetFirmBrandImageRequest": {
+        "type": "object",
+        "properties": {
+          "imageBase64": {
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "primary",
+              "additional"
+            ]
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 80
+          }
+        },
+        "required": [
+          "imageBase64",
+          "role"
+        ]
+      },
+      "UpdateFirmBrandImageRequest": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "primary",
+              "additional"
+            ]
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 80
+          }
+        }
+      },
       "FirmProfileResponse": {
         "type": "object",
         "properties": {
@@ -32852,6 +33530,27 @@
           "model": {
             "$ref": "#/components/schemas/AiModelFacts"
           },
+          "models": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AiModelChoice"
+            }
+          },
+          "catalog": {
+            "type": "object",
+            "properties": {
+              "version": {
+                "type": "integer"
+              },
+              "effectiveDate": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "version",
+              "effectiveDate"
+            ]
+          },
           "magnus": {
             "type": "object",
             "properties": {
@@ -32871,6 +33570,8 @@
         "required": [
           "aiProcessing",
           "model",
+          "models",
+          "catalog",
           "magnus"
         ]
       },
@@ -32891,13 +33592,70 @@
           },
           "noTraining": {
             "type": "boolean"
+          },
+          "selection": {
+            "type": "string",
+            "enum": [
+              "platform",
+              "chosen"
+            ]
           }
         },
         "required": [
           "modelId",
           "snapshotId",
           "zeroDataRetention",
-          "noTraining"
+          "noTraining",
+          "selection"
+        ]
+      },
+      "AiModelChoice": {
+        "type": "object",
+        "properties": {
+          "modelId": {
+            "type": "string"
+          },
+          "snapshotId": {
+            "type": "string"
+          },
+          "zeroDataRetention": {
+            "type": "boolean"
+          },
+          "noTraining": {
+            "type": "boolean"
+          },
+          "verifiedOn": {
+            "type": "string"
+          },
+          "availabilityVerifiedOn": {
+            "type": "string"
+          },
+          "retirementNotBefore": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tier": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "platformDefault": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "modelId",
+          "snapshotId",
+          "zeroDataRetention",
+          "noTraining",
+          "verifiedOn",
+          "availabilityVerifiedOn",
+          "retirementNotBefore",
+          "tier",
+          "platformDefault"
         ]
       },
       "PatchFirmAiSettingsRequest": {
@@ -32910,6 +33668,21 @@
                 "type": "boolean"
               }
             }
+          },
+          "model": {
+            "type": "object",
+            "properties": {
+              "modelId": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1
+              }
+            },
+            "required": [
+              "modelId"
+            ]
           },
           "magnus": {
             "type": "object",
@@ -45330,7 +46103,7 @@
     },
     "/api/v1/matters/{id}/close": {
       "post": {
-        "description": "Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close preconditions first; a matter whose client trust ledger still holds money, or carries an active disputed-funds hold, is refused with the balance and the movements that clear it. Refuses a matter that is already closed, so its recorded close date never moves. The response also carries advisory notices — things worth knowing about the matter being closed, such as physical originals the firm still holds against it. A notice never blocks a close and never becomes a refusal; the matter in the response is closed.",
+        "description": "Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close preconditions first; a matter whose client trust ledger still holds money, or carries an active disputed-funds hold, is refused with the balance and the movements that clear it. Refuses a matter that is already closed, so its recorded close date never moves. The response also carries advisory notices — things worth knowing about the matter being closed, such as physical originals the firm still holds against it. A notice never blocks a close and never becomes a refusal; the matter in the response is closed. A consultation closes the same way: the firm decided against it. It keeps its tentative number and draws no matter number, and the same preconditions run, which a consultation with nothing on its ledgers passes.",
         "operationId": "matters.close",
         "tags": [
           "matters"
@@ -45454,7 +46227,7 @@
     },
     "/api/v1/matters/{id}/hold": {
       "post": {
-        "description": "Puts an open matter on hold: the firm has stopped working it without closing it, for the reason given (a client who has stopped paying, a party who has gone quiet, an instruction to wait). The matter keeps its number; nothing is drawn or surrendered. It leaves the active lists and stays on the docket wearing its status. Refuses a matter that is not open.",
+        "description": "Puts an open matter or a consultation on hold: the firm has stopped working it without closing it, for the reason given (a client who has stopped paying, a party who has gone quiet, a prospect who is thinking it over, an instruction to wait). The matter keeps whichever number it wears; nothing is drawn or surrendered. An active matter leaves the active lists and stays on the docket wearing its status. Refuses an intake, which has nothing yet to pause, and a matter that is already on hold or closed.",
         "operationId": "matters.hold",
         "tags": [
           "matters"
@@ -45554,7 +46327,7 @@
             }
           },
           "409": {
-            "description": "The matter is not open, or a request with this Idempotency-Key is still in progress",
+            "description": "The matter is neither open nor a consultation, or a request with this Idempotency-Key is still in progress",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -45588,7 +46361,7 @@
     },
     "/api/v1/matters/{id}/release": {
       "post": {
-        "description": "Releases a hold: the matter returns to open, and the reason and the instant of the hold are cleared from it (the audit trail keeps that it was held). Refuses a matter that is not on hold.",
+        "description": "Releases a hold: the matter returns to where the hold found it — open if it had been opened, else consultation — and the reason and the instant of the hold are cleared from it (the audit trail keeps that it was held). Refuses a matter that is not on hold.",
         "operationId": "matters.release",
         "tags": [
           "matters"
@@ -45628,7 +46401,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The hold was released and the matter is open",
+            "description": "The hold was released and the matter is back where the hold found it",
             "content": {
               "application/json": {
                 "schema": {
@@ -48014,6 +48787,344 @@
         }
       }
     },
+    "/api/v1/locations/{id}/letterhead-logo": {
+      "get": {
+        "description": "Streams the mark this office's letterhead prints: the office's own logo, or the firm's primary brand image where the office has set none. 404 where neither exists.",
+        "operationId": "locations.getLetterheadLogo",
+        "tags": [
+          "locations"
+        ],
+        "x-mc-operationId": "locations.getLetterheadLogo",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "location",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "locations"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^location_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The image bytes",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the location is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "description": "Sets the office's letterhead logo — the mark documents assembled for this office's matters are drawn with. The image must be a PNG or a JPEG, decided by reading the file rather than by what the request calls it. Only a printed width is given: the height follows from the image's own proportions, so the mark can never print stretched. Replacing a logo replaces it everywhere at once; already-assembled documents keep the mark they were produced with.",
+        "operationId": "locations.setLetterheadLogo",
+        "tags": [
+          "locations"
+        ],
+        "x-mc-operationId": "locations.setLetterheadLogo",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "locations:manage",
+        "x-mc-resource": "location",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "locations"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^location_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LetterheadLogoRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The letterhead logo was set",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks locations:manage",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the location is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, or the firm-default cannot be closed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the file is not a PNG or a JPEG, it is too large, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Removes the office's letterhead logo. Templates that draw one then assemble with a visible marker where the mark would be, rather than silently losing the letterhead.",
+        "operationId": "locations.clearLetterheadLogo",
+        "tags": [
+          "locations"
+        ],
+        "x-mc-operationId": "locations.clearLetterheadLogo",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "locations:manage",
+        "x-mc-resource": "location",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "locations.setLetterheadLogo"
+        },
+        "x-mc-tags": [
+          "locations"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^location_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The letterhead logo was removed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks locations:manage",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the location is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, or the firm-default cannot be closed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/locations/{id}": {
       "get": {
         "description": "Returns one Location's detail.",
@@ -48345,14 +49456,14 @@
         }
       }
     },
-    "/api/v1/locations/{id}/letterhead-logo": {
+    "/api/v1/locations/{id}/addresses": {
       "put": {
-        "description": "Sets the office's letterhead logo — the mark documents assembled for this office's matters are drawn with. The image must be a PNG or a JPEG, decided by reading the file rather than by what the request calls it. Only a printed width is given: the height follows from the image's own proportions, so the mark can never print stretched. Replacing a logo replaces it everywhere at once; already-assembled documents keep the mark they were produced with.",
-        "operationId": "locations.setLetterheadLogo",
+        "description": "Replaces a Location's address set (at most one physical and one mailing address for letterhead).",
+        "operationId": "locations.setAddresses",
         "tags": [
           "locations"
         ],
-        "x-mc-operationId": "locations.setLetterheadLogo",
+        "x-mc-operationId": "locations.setAddresses",
         "x-mc-surface": "app",
         "x-mc-authenticated": true,
         "x-mc-permission": "locations:manage",
@@ -48390,140 +49501,14 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/LetterheadLogoRequest"
+                "$ref": "#/components/schemas/LocationAddressesRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "The letterhead logo was set",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LocationAck"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Missing Idempotency-Key (this operation requires one)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The session member lacks locations:manage",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The firm is unreachable, the member is deactivated, or the location is unknown",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "A request with this Idempotency-Key is in progress, or the firm-default cannot be closed",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "The request is invalid, the file is not a PNG or a JPEG, it is too large, or the Idempotency-Key was reused with a different payload",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limit exceeded",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "description": "Removes the office's letterhead logo. Templates that draw one then assemble with a visible marker where the mark would be, rather than silently losing the letterhead.",
-        "operationId": "locations.clearLetterheadLogo",
-        "tags": [
-          "locations"
-        ],
-        "x-mc-operationId": "locations.clearLetterheadLogo",
-        "x-mc-surface": "app",
-        "x-mc-authenticated": true,
-        "x-mc-permission": "locations:manage",
-        "x-mc-resource": "location",
-        "x-mc-audited": true,
-        "x-mc-idempotency": "required",
-        "x-mc-rateLimit": "default",
-        "x-mc-firmlessSession": "reject",
-        "x-mc-reversal": {
-          "kind": "inverse",
-          "by": "locations.setLetterheadLogo"
-        },
-        "x-mc-tags": [
-          "locations"
-        ],
-        "x-mc-deprecated": false,
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "pattern": "^location_[A-Za-z0-9_-]{21}$"
-            },
-            "required": true,
-            "name": "id",
-            "in": "path"
-          },
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            },
-            "required": true,
-            "name": "idempotency-key",
-            "in": "header"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The letterhead logo was removed",
+            "description": "The addresses were set",
             "content": {
               "application/json": {
                 "schema": {
@@ -48605,14 +49590,292 @@
         }
       }
     },
-    "/api/v1/locations/{id}/addresses": {
+    "/api/v1/locations/{id}/members/{userId}": {
       "put": {
-        "description": "Replaces a Location's address set (at most one physical and one mailing address for letterhead).",
-        "operationId": "locations.setAddresses",
+        "description": "Puts a member at this office. Their first office is their primary whatever the body says; a later one is primary only when asked, which demotes the office that was.",
+        "operationId": "locations.addMember",
         "tags": [
           "locations"
         ],
-        "x-mc-operationId": "locations.setAddresses",
+        "x-mc-operationId": "locations.addMember",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "locations:manage",
+        "x-mc-resource": "location",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "locations"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^location_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^user_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "userId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LocationMemberRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The member is at the office",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks locations:manage",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the location is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, or the firm-default cannot be closed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Takes a member off this office. Where it was their primary and others remain, the first remaining office becomes primary.",
+        "operationId": "locations.removeMember",
+        "tags": [
+          "locations"
+        ],
+        "x-mc-operationId": "locations.removeMember",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "locations:manage",
+        "x-mc-resource": "location",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "locations.addMember"
+        },
+        "x-mc-tags": [
+          "locations"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^location_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^user_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "userId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The member is no longer at the office",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks locations:manage",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the location is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, or the firm-default cannot be closed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/locations/{id}/firm-default": {
+      "put": {
+        "description": "Makes this office the firm's default: what a matter with no office of its own numbers and prints against, and the one office that cannot be closed. Refuses a closed office.",
+        "operationId": "locations.setFirmDefault",
+        "tags": [
+          "locations"
+        ],
+        "x-mc-operationId": "locations.setFirmDefault",
         "x-mc-surface": "app",
         "x-mc-authenticated": true,
         "x-mc-permission": "locations:manage",
@@ -48645,19 +49908,9 @@
             "in": "header"
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LocationAddressesRequest"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
-            "description": "The addresses were set",
+            "description": "The office is the firm's default",
             "content": {
               "application/json": {
                 "schema": {
@@ -49957,7 +51210,7 @@
         }
       },
       "delete": {
-        "description": "Soft-deletes a file: it leaves the default listing and download but its rows and bytes are retained for the recovery window.",
+        "description": "Soft-deletes a file: it leaves the default listing and download but its rows and bytes are retained, indefinitely by default. Bytes are never destroyed while another file, live or deleted, holds the same content; only a retention policy destroys them, and only once the last file holding them is gone.",
         "operationId": "files.delete",
         "tags": [
           "files"
@@ -56678,7 +57931,7 @@
     },
     "/api/v1/conflicts/checks": {
       "post": {
-        "description": "Runs a conflicts-of-interest check against the directory corpus for the given subject parties (and, when a matter is supplied, its existing parties too), and records the search — what was asked for, what actually ran, and what it found — as a new entry in the append-only conflicts log. The trigger must always be supplied; no check ever runs on its own.",
+        "description": "Opens a conflicts check: draws the firm's next check number, records the search that was asked for as the check's first run, and answers at once with the check's handle and number. The search itself runs after the response and follows every recorded relationship to closure; reading the check says where the run has got to until it settles, and then carries the record of what was searched, what actually ran, and what it found. The trigger must always be supplied; no check ever runs on its own.",
         "operationId": "conflicts.runCheck",
         "tags": [
           "conflicts"
@@ -56718,12 +57971,12 @@
           }
         },
         "responses": {
-          "201": {
-            "description": "The completed check",
+          "202": {
+            "description": "The check, opened; its first run is queued",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CreatedConflictsCheckResponse"
+                  "$ref": "#/components/schemas/OpenedConflictsCheckResponse"
                 }
               }
             }
@@ -56801,7 +58054,7 @@
         }
       },
       "get": {
-        "description": "The checks this firm has run, newest first, keyset-paginated. Filter by `matterId` for one matter's own history. Each line carries what set the run going, who asked for it where anybody did, the strictness and depth it ran at, whether the firm's floor raised the scope above what was requested, and how many candidates surfaced — never a conclusion about any of them, which is a reviewer's act recorded as a disposition. A run nobody asked for carries no actor, and that is a fact about the run rather than a missing value.",
+        "description": "The checks this firm refers to, newest first, keyset-paginated: one line per numbered check carrying its latest run's facts and how many runs it has had. Filter by `matterId` for the checks filed on one matter. Each line carries what set the latest run going, who asked for it where anybody did, the band it ran under, whether the firm's floor raised the scope above what was requested, and how many candidates surfaced — never a conclusion about any of them, which is a reviewer's act recorded as a disposition.",
         "operationId": "conflicts.listChecks",
         "tags": [
           "conflicts"
@@ -56892,9 +58145,73 @@
         }
       }
     },
+    "/api/v1/conflicts/checks/next-number": {
+      "get": {
+        "description": "The number the next check this firm opens would draw. A preview rather than a reservation: two members opening a check at the same moment both see it, and one of them draws the number after it. Shown on the New Check panel so a check is identified before it is saved.",
+        "operationId": "conflicts.nextCheckNumber",
+        "tags": [
+          "conflicts"
+        ],
+        "x-mc-operationId": "conflicts.nextCheckNumber",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "conflicts:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "conflicts"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The next check number",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NextConflictsCheckNumberResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/firm/conflicts-policy": {
       "get": {
-        "description": "The firm's conflicts floor: the source classes every check must search whatever a caller asks for, the strictness band it must reach, and the traversal and candidate bounds a run is held to. A per-run scope may only ADD to the floor, never subtract from it — otherwise narrowing a request would manufacture a check that searched less than the firm requires while the log faithfully recorded that a check happened. It reads on conflicts:read because every member who can read a check is held to this, and a reviewer looking at a check that fell short of the floor has to be able to see what the floor is.",
+        "description": "The firm's conflicts floor: the source classes every check must search whatever a caller asks for, the strictness band it must reach, and which of a party's names the narrower band compares. A per-run scope may only ADD to the floor, never subtract from it — otherwise narrowing a request would manufacture a check that searched less than the firm requires while the log faithfully recorded that a check happened. It reads on conflicts:read because every member who can read a check is held to this, and a reviewer looking at a check that fell short of the floor has to be able to see what the floor is.",
         "operationId": "conflicts.firmPolicy",
         "tags": [
           "conflicts"
@@ -56956,7 +58273,7 @@
         }
       },
       "put": {
-        "description": "Sets the firm's conflicts floor. PUT rather than PATCH because the floor is one value: a partial update would let two administrators saving different halves of the same screen compose a floor neither of them chose, and the floor is what every future check is held to. It writes on conflicts:configure rather than conflicts:run, which is a narrower key seeded to Owner and Admin alone — this does not act on a check, it decides what every LATER check searches, and no single check row records that a person chose that. The stored value is normalized first and the normalized value is returned, so what a firm is shown is what its checks will actually run: a floor with every source deselected comes back carrying `party`, and a candidate cap above what one atomic batch can carry comes back clamped. Changing the floor writes no check and re-runs nothing — a matter whose last check no longer covers the new floor reports the shortfall on its own posture read, computed live, which is why raising the floor takes effect everywhere at once with no sweep.",
+        "description": "Sets the firm's conflicts floor. PUT rather than PATCH because the floor is one value: a partial update would let two administrators saving different halves of the same screen compose a floor neither of them chose, and the floor is what every future check is held to. It writes on conflicts:configure rather than conflicts:run, which is a narrower key seeded to Owner and Admin alone — this does not act on a check, it decides what every LATER check searches, and no single check row records that a person chose that. The stored value is normalized first and the normalized value is returned, so what a firm is shown is what its checks will actually run: a floor with every source deselected comes back carrying `party`. Changing the floor writes no check and re-runs nothing — a matter whose last check no longer covers the new floor reports the shortfall on its own posture read, computed live, which is why raising the floor takes effect everywhere at once with no sweep.",
         "operationId": "conflicts.setFirmPolicy",
         "tags": [
           "conflicts"
@@ -57071,7 +58388,7 @@
     },
     "/api/v1/matters/{matterId}/conflicts-rechecks": {
       "post": {
-        "description": "Runs a fresh comprehensive check against this matter's own live parties, now, because a member asked for one. It takes NO scope, and that is the point of it existing beside the general check route: 're-check this matter' has no scope for a caller to state, and asking for one invites a screen to invent a narrower search than the firm requires. The firm's own policy floor is what runs. The check is recorded as a manual run naming the member who asked, and carries no cause — a cause is a corpus change the platform noticed, and a person asking now is not one. It neither reads nor satisfies the automatic re-check ledger: an open cause stays open, because the interval between a cause and the check that answered it is evidence about the firm's procedure and a manual run did not answer it.",
+        "description": "Runs a fresh comprehensive check against this matter's own live parties, now, because a member asked for one. It takes NO scope, and that is the point of it existing beside the general check route: 're-check this matter' has no scope for a caller to state, and asking for one invites a screen to invent a narrower search than the firm requires. The firm's own policy floor is what runs. It opens a further run under the check most recently filed on the matter, or a new numbered check where the matter has none, and answers at once; the search runs after the response. The run is recorded as a manual run naming the member who asked, and carries no cause — a cause is a corpus change the platform noticed, and a person asking now is not one. It neither reads nor satisfies the automatic re-check ledger: an open cause stays open, because the interval between a cause and the check that answered it is evidence about the firm's procedure and a manual run did not answer it.",
         "operationId": "conflicts.recheckMatter",
         "tags": [
           "conflicts"
@@ -57110,12 +58427,270 @@
           }
         ],
         "responses": {
-          "201": {
-            "description": "The check that ran",
+          "202": {
+            "description": "The run, queued",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CreatedConflictsRecheckResponse"
+                  "$ref": "#/components/schemas/OpenedConflictsCheckResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conflicts/checks/{checkId}/runs": {
+      "post": {
+        "description": "Runs a check again: opens a further run under the same check and number, performing the search the check was opened with against the matter the check is filed on today, and answers at once. The earlier runs and their records stay exactly as they were; the check's history gains one entry.",
+        "operationId": "conflicts.rerunCheck",
+        "tags": [
+          "conflicts"
+        ],
+        "x-mc-operationId": "conflicts.rerunCheck",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "conflicts:run",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "conflicts"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^conflictsCheck_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "checkId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "The further run, queued under the check",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenedConflictsCheckResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conflicts/checks/{checkId}/matter": {
+      "put": {
+        "description": "Files a check on a matter. A check run before there was a matter is the ordinary case — the pre-engagement screen happens before there is a file — and the moment a matter exists is the moment somebody is reading the report. Filing moves the check into that matter's own history and makes the next run search with the matter's parties; no search record is touched, because each record says which matter its search actually ran against.",
+        "operationId": "conflicts.fileCheckOnMatter",
+        "tags": [
+          "conflicts"
+        ],
+        "x-mc-operationId": "conflicts.fileCheckOnMatter",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "conflicts:run",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "conflicts"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^conflictsCheck_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "checkId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FileConflictsCheckOnMatterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The check, filed on the matter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FiledConflictsCheckResponse"
                 }
               }
             }
@@ -57195,7 +58770,7 @@
     },
     "/api/v1/conflicts/checks/{checkId}": {
       "get": {
-        "description": "Returns a completed conflicts check and every hit it surfaced, including each hit's current disposition when a reviewer has already adjudicated it, alongside a plain-language statement of what the search did: which sources ran and with what settings, which could not run and why, and how many candidates surfaced. The statement reports the search and reaches no conclusion about the matter — a search that surfaced nothing ends by saying so, which is a fact about the search and not about whether an interest is adverse. Deciding that is a reviewer's act and is recorded as a disposition naming them. A disposition recording a waiver carries the waiver's own record and, where the platform does not hold the whole of it, what that record is short of.",
+        "description": "Returns a conflicts check with every run under it, and the record of the run asked for (the latest, unless `run` names another). A run still in flight reports its stage and counts so far and carries no record; a settled run carries its record: the recorded scope, every hit it surfaced with each hit's current disposition, and a plain-language statement of what the search did. The statement reports the search and reaches no conclusion about the matter — a search that surfaced nothing ends by saying so, which is a fact about the search and not about whether an interest is adverse. Deciding that is a reviewer's act and is recorded as a disposition naming them. The address accepts the check's own handle or any run's handle, so an address written before runs existed still lands on the check it named. A run that stopped reporting is settled as failed by this read, and says so.",
         "operationId": "conflicts.getCheck",
         "tags": [
           "conflicts"
@@ -57222,15 +58797,24 @@
             "required": true,
             "name": "checkId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^conflictsCheck_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "run",
+            "in": "query"
           }
         ],
         "responses": {
           "200": {
-            "description": "The check, the statement of what it searched, and its hits",
+            "description": "The check, its runs, and the selected run's record where it has one",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConflictsCheckWithHitsResponse"
+                  "$ref": "#/components/schemas/ConflictsCheckWithRunsResponse"
                 }
               }
             }
@@ -57257,6 +58841,16 @@
           },
           "404": {
             "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -57497,7 +59091,7 @@
     },
     "/api/v1/matters/{matterId}/conflicts-posture": {
       "get": {
-        "description": "Where a matter stands on conflicts: the most recent check with the scope it actually ran under, which of the firm's current policy requirements that check did not meet, how many of its hits no reviewer has answered (by evidence tier), how its answered hits were disposed of and by whom, every re-check the platform knows is owed because the firm's records moved under this matter — each naming what changed and when — whether the firm's scheduled re-screening is switched on and how often it runs, and every source that could not be searched with the reason it could not. A matter that has never been checked reports that as its own distinct state, separate from a check that searched and surfaced nothing. Every field is computed from the log at the moment of the request and nothing is stored, so raising the firm's policy shows up here immediately. The response reports what was searched and what was found and asserts nothing about whether an interest is adverse: there is no summary field and no single verdict, because concluding is a lawyer's act and the record says whose.",
+        "description": "Where a matter stands on conflicts: the most recent check with the scope it actually ran under, which of the firm's current policy requirements that check did not meet, how many of its hits no reviewer has answered (by evidence tier), how its answered hits were disposed of and by whom, every re-check the platform knows is owed because the firm's records moved under this matter — each naming what changed and when — whether the firm's scheduled re-screening is switched on and how often it runs, and every source that could not be searched with the reason it could not. A matter that has never been checked reports that as its own distinct state, separate from a check that searched and surfaced nothing. A check filed on the matter after it ran counts as the matter's own. Every field is computed from the log at the moment of the request and nothing is stored, so raising the firm's policy shows up here immediately. The response reports what was searched and what was found and asserts nothing about whether an interest is adverse: there is no summary field and no single verdict, because concluding is a lawyer's act and the record says whose.",
         "operationId": "conflicts.matterPosture",
         "tags": [
           "conflicts"
@@ -76560,7 +78154,7 @@
         }
       },
       "get": {
-        "description": "The caller's own conversations, newest first. A member holding the read-all-conversations permission may pass `scope=firm` to list every member's instead; that read is audited. The optional matter filter narrows the page to the conversations kept on one matter's file, which is what a matter's own assistant surface reads; it narrows the RECORD and says nothing about what any of those conversations was built from.",
+        "description": "The caller's own conversations, in the order `sort` names: `date` (newest first, the default), `name` (by the member's own title, with unnamed conversations after the named ones, ordered by when they started), or `matter` (grouped by the matter they are kept on, by its title, with conversations on no matter last). The order is applied to the whole record and the cursor pages within it. A member holding the read-all-conversations permission may pass `scope=firm` to list every member's instead; that read is audited. The optional matter filter narrows the page to the conversations kept on one matter's file, which is what a matter's own assistant surface reads; it narrows the RECORD and says nothing about what any of those conversations was built from.",
         "operationId": "magnus.listConversations",
         "tags": [
           "magnus"
@@ -76606,6 +78200,19 @@
             },
             "required": false,
             "name": "matterId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "date",
+                "name",
+                "matter"
+              ]
+            },
+            "required": false,
+            "name": "sort",
             "in": "query"
           }
         ],
@@ -76983,6 +78590,387 @@
                   "required": [
                     "id"
                   ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission, or the firm has not opted in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/magnus/conversations/{conversationId}/matter": {
+      "patch": {
+        "description": "Keeps a conversation on another matter's file, or on none. Which matter a transcript is kept on is what decides who may read it, so this is an access decision as much as a filing one, and the audit row names both matters. The caller must be able to read the conversation (their own, or anyone's under the read-all-conversations permission) and the target matter must be one the firm still writes to: a closed matter and the platform's own matters are refused. The conversation's attachments go with the move, because each is one of the OLD matter's files. The link still scopes only the record: nothing of the matter's content reaches the assistant.",
+        "operationId": "magnus.moveConversation",
+        "tags": [
+          "magnus"
+        ],
+        "x-mc-operationId": "magnus.moveConversation",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "magnus:converse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "magnus"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^magnusConversation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "conversationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MagnusMoveConversationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The conversation is now kept where the request said",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MagnusConversation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission, or the firm has not opted in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The target matter is closed, is the platform's own, or does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/magnus/conversations/{conversationId}/attachments": {
+      "post": {
+        "description": "Attaches one of the conversation's matter's files to the conversation, BY REFERENCE. The attachment copies nothing: on each later question, the file's current version is read, its readable text is taken through the platform's own extraction, and that text is sent ahead of the question under a heading naming the file, within a bounded budget. A conversation kept on no matter can attach nothing, because files are matter-rooted. At most 10 per conversation.",
+        "operationId": "magnus.attachFile",
+        "tags": [
+          "magnus"
+        ],
+        "x-mc-operationId": "magnus.attachFile",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "magnus:converse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "magnus"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^magnusConversation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "conversationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MagnusAttachFileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The file is attached; the conversation's attachments after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MagnusConversationAttachment"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission, or the firm has not opted in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The conversation is on no matter, the file is not one of that matter's, or the conversation already carries as many files as it may",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/magnus/conversations/{conversationId}/attachments/{fileId}": {
+      "delete": {
+        "description": "Takes a file off the conversation. Nothing of the file was ever copied, so nothing is erased; later questions simply travel without it.",
+        "operationId": "magnus.detachFile",
+        "tags": [
+          "magnus"
+        ],
+        "x-mc-operationId": "magnus.detachFile",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "magnus:converse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "magnus.attachFile"
+        },
+        "x-mc-tags": [
+          "magnus"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^magnusConversation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "conversationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^file_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "fileId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file is no longer attached; the conversation's attachments after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MagnusConversationAttachment"
+                  }
                 }
               }
             }
@@ -84179,7 +86167,7 @@
         }
       },
       "get": {
-        "description": "Lists cost entries in either of two shapes. By matter: that matter's whole cost record, in every status unless one is named. By a `from`/`to` span of incurred dates: the period listing across every matter, which is what the firm's cost record is asked for at the end of a month, narrowable to one matter, one status and to billable or not. Both are CURSOR-PAGED, most recently incurred first, over the same statement, so a cost reads back identically whichever shape found it. Returns an empty list when neither a matter nor a span is named, rather than scanning the whole table.",
+        "description": "Lists cost entries, most recently incurred first, cursor-paged. Nothing named is the firm's whole cost record; `matterId` narrows it to one matter, `from` and `to` bound the incurred dates (each on its own or together), and `status`, `billable` and `search` narrow further. Every narrowing is the server's, so the firm's Costs screen can send its column filters here and have them hold across every page, and a cost reads back identically whichever narrowing found it because every shape runs over one statement.",
         "operationId": "costs.list",
         "tags": [
           "costs"
@@ -84219,10 +86207,10 @@
             "schema": {
               "type": "string",
               "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-              "description": "The first incurred date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — the question the firm's cost record is asked at the end of a month, and the one a per-matter listing cannot answer without walking every matter first."
+              "description": "The first incurred date the listing covers, inclusive. Either bound stands alone: a listing with only `from` runs to the present, one with only `to` runs from the first cost the firm ever recorded, and one with neither is the firm's whole record. This is the screen's Date column filter, honoured here so it is true across every page rather than over the page in hand."
             },
             "required": false,
-            "description": "The first incurred date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — the question the firm's cost record is asked at the end of a month, and the one a per-matter listing cannot answer without walking every matter first.",
+            "description": "The first incurred date the listing covers, inclusive. Either bound stands alone: a listing with only `from` runs to the present, one with only `to` runs from the first cost the firm ever recorded, and one with neither is the firm's whole record. This is the screen's Date column filter, honoured here so it is true across every page rather than over the page in hand.",
             "name": "from",
             "in": "query"
           },
@@ -84230,10 +86218,10 @@
             "schema": {
               "type": "string",
               "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-              "description": "The last incurred date of a period listing, inclusive. Required alongside `from`."
+              "description": "The last incurred date the listing covers, inclusive."
             },
             "required": false,
-            "description": "The last incurred date of a period listing, inclusive. Required alongside `from`.",
+            "description": "The last incurred date the listing covers, inclusive.",
             "name": "to",
             "in": "query"
           },
@@ -84244,28 +86232,57 @@
                 "true",
                 "false"
               ],
-              "description": "Narrows a period listing to the costs that are billable, or to those that are not. Omitted, it answers with both."
+              "description": "Narrows the listing to the costs that are billable, or to those that are not. Omitted, it answers with both."
             },
             "required": false,
-            "description": "Narrows a period listing to the costs that are billable, or to those that are not. Omitted, it answers with both.",
+            "description": "Narrows the listing to the costs that are billable, or to those that are not. Omitted, it answers with both.",
             "name": "billable",
             "in": "query"
           },
           {
             "schema": {
-              "type": "string",
-              "enum": [
-                "draft",
-                "submitted",
-                "approved",
-                "billed",
-                "void"
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "draft",
+                    "submitted",
+                    "approved",
+                    "billed",
+                    "void"
+                  ]
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "submitted",
+                      "approved",
+                      "billed",
+                      "void"
+                    ]
+                  }
+                }
               ],
-              "description": "Narrows the listing to one status. Omitted, it answers with every status the matter carries, which is what a matter's cost record is."
+              "description": "Narrows the listing to one status, or to several given repeatedly (`status=draft&status=submitted`): the screen's Status column filter, honoured here so it holds across every page. Omitted, it answers with every status the record carries, which is what a cost record is."
             },
             "required": false,
-            "description": "Narrows the listing to one status. Omitted, it answers with every status the matter carries, which is what a matter's cost record is.",
+            "description": "Narrows the listing to one status, or to several given repeatedly (`status=draft&status=submitted`): the screen's Status column filter, honoured here so it holds across every page. Omitted, it answers with every status the record carries, which is what a cost record is.",
             "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "Matched against the description, the matter's title and number, and the payee's name. The screen's search, honoured here so a word absent from the page in hand is looked for across the whole record."
+            },
+            "required": false,
+            "description": "Matched against the description, the matter's title and number, and the payee's name. The screen's search, honoured here so a word absent from the page in hand is looked for across the whole record.",
+            "name": "search",
             "in": "query"
           }
         ],
@@ -85441,7 +87458,7 @@
         }
       },
       "get": {
-        "description": "Lists fee entries, most recent service date first. Narrowed to one matter with `matterId`, or across every matter with a `from`/`to` span of service dates; either shape takes an optional status and billable filter. With neither a matter nor a span the listing answers empty rather than walking the whole table.",
+        "description": "Lists fee entries, most recent service date first, cursor-paged. Nothing named is the firm's whole record; `matterId` narrows it to one matter, `from` and `to` bound the service dates (each on its own or together), and `status`, `billable` and `search` narrow further. Every narrowing is the server's, so the firm's Fees screen can send its column filters here and have them hold across every page.",
         "operationId": "fees.list",
         "tags": [
           "fees"
@@ -85481,10 +87498,10 @@
             "schema": {
               "type": "string",
               "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-              "description": "The first service date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — what the firm charged for work done in a period, which a per-matter listing cannot answer without walking every matter first."
+              "description": "The first service date the listing covers, inclusive. Either bound stands alone: a listing with only `from` runs to the present, one with only `to` runs from the first fee the firm ever recorded, and one with neither is the firm's whole record. This is the screen's Date column filter, honoured here so it is true across every page rather than over the page in hand."
             },
             "required": false,
-            "description": "The first service date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — what the firm charged for work done in a period, which a per-matter listing cannot answer without walking every matter first.",
+            "description": "The first service date the listing covers, inclusive. Either bound stands alone: a listing with only `from` runs to the present, one with only `to` runs from the first fee the firm ever recorded, and one with neither is the firm's whole record. This is the screen's Date column filter, honoured here so it is true across every page rather than over the page in hand.",
             "name": "from",
             "in": "query"
           },
@@ -85492,10 +87509,10 @@
             "schema": {
               "type": "string",
               "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-              "description": "The last service date of a period listing, inclusive. Required alongside `from`."
+              "description": "The last service date the listing covers, inclusive."
             },
             "required": false,
-            "description": "The last service date of a period listing, inclusive. Required alongside `from`.",
+            "description": "The last service date the listing covers, inclusive.",
             "name": "to",
             "in": "query"
           },
@@ -85515,17 +87532,48 @@
           },
           {
             "schema": {
-              "type": "string",
-              "enum": [
-                "draft",
-                "submitted",
-                "approved",
-                "billed",
-                "void"
-              ]
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "draft",
+                    "submitted",
+                    "approved",
+                    "billed",
+                    "void"
+                  ]
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "submitted",
+                      "approved",
+                      "billed",
+                      "void"
+                    ]
+                  }
+                }
+              ],
+              "description": "Narrows to one status, or to several given repeatedly (`status=draft&status=submitted`): the screen's Status column filter, honoured here so it holds across every page."
             },
             "required": false,
+            "description": "Narrows to one status, or to several given repeatedly (`status=draft&status=submitted`): the screen's Status column filter, honoured here so it holds across every page.",
             "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "Matched against the description, the matter's title and number, and the timekeeper's name. The screen's search, honoured here so a word absent from the page in hand is looked for across the whole record."
+            },
+            "required": false,
+            "description": "Matched against the description, the matter's title and number, and the timekeeper's name. The screen's search, honoured here so a word absent from the page in hand is looked for across the whole record.",
+            "name": "search",
             "in": "query"
           }
         ],
@@ -90431,15 +92479,44 @@
           },
           {
             "schema": {
-              "type": "string",
-              "enum": [
-                "draft",
-                "final",
-                "void"
-              ]
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "draft",
+                    "final",
+                    "void"
+                  ]
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "final",
+                      "void"
+                    ]
+                  }
+                }
+              ],
+              "description": "Narrows to one status, or to several given repeatedly (`status=draft&status=void`): the firm's Billing screen's Status column filter, honoured here so it holds across every page."
             },
             "required": false,
+            "description": "Narrows to one status, or to several given repeatedly (`status=draft&status=void`): the firm's Billing screen's Status column filter, honoured here so it holds across every page.",
             "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "Matched against the invoice number and the client's name. The screen's search, honoured here so a client absent from the page in hand is looked for across the whole register."
+            },
+            "required": false,
+            "description": "Matched against the invoice number and the client's name. The screen's search, honoured here so a client absent from the page in hand is looked for across the whole register.",
+            "name": "search",
             "in": "query"
           },
           {
@@ -94793,7 +96870,7 @@
         }
       },
       "get": {
-        "description": "Lists time entries three ways. By timekeeper and work date: the daily view, complete in one page by construction, so its cursor is always null. By matter: the matter's own record, CURSOR-PAGED newest work date first — a matter that has been billing for years is not a single response, and this read carried no bound at all until it was. By a `from`/`to` span of work dates: the period listing across every matter, cursor-paged the same way, narrowable to one timekeeper, one matter and one status. A period listing that names no timekeeper covers the whole firm and requires the time:viewFirm capability; one that names somebody other than the session member requires it too. A request matching none of the three answers with an empty list rather than scanning the table.",
+        "description": "Lists time entries three ways. By timekeeper and work date: the daily view, complete in one page by construction, so its cursor is always null. By matter alone: the matter's own record, CURSOR-PAGED newest work date first — a matter that has been billing for years is not a single response, and this read carried no bound at all until it was. Otherwise the period listing across every matter, cursor-paged the same way: bounded by `from` and `to` (each on its own or together; neither is the whole record), narrowable to one timekeeper, one matter and one status. A period listing that names no timekeeper covers the whole firm and requires the time:viewFirm capability; one that names somebody other than the session member requires it too.",
         "operationId": "timeEntries.list",
         "tags": [
           "timeEntries"
@@ -94843,10 +96920,10 @@
             "schema": {
               "type": "string",
               "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-              "description": "The first work date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — the question a timekeeper asks of their own week and a supervisor asks of the firm's. Without a timekeeper the span covers everybody, which requires the time:viewFirm capability."
+              "description": "The first work date the period listing covers, inclusive. Either bound stands alone: a listing with only `from` runs to the present, one with only `to` runs from the first entry ever recorded, and one with neither is the whole record for whoever is named. This is the firm's Time screen's Date column filter, honoured here so it is true across every page rather than over the page in hand. Without a timekeeper the listing covers everybody, which requires the time:viewFirm capability."
             },
             "required": false,
-            "description": "The first work date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — the question a timekeeper asks of their own week and a supervisor asks of the firm's. Without a timekeeper the span covers everybody, which requires the time:viewFirm capability.",
+            "description": "The first work date the period listing covers, inclusive. Either bound stands alone: a listing with only `from` runs to the present, one with only `to` runs from the first entry ever recorded, and one with neither is the whole record for whoever is named. This is the firm's Time screen's Date column filter, honoured here so it is true across every page rather than over the page in hand. Without a timekeeper the listing covers everybody, which requires the time:viewFirm capability.",
             "name": "from",
             "in": "query"
           },
@@ -94854,28 +96931,57 @@
             "schema": {
               "type": "string",
               "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-              "description": "The last work date of a period listing, inclusive. Required alongside `from`."
+              "description": "The last work date the period listing covers, inclusive."
             },
             "required": false,
-            "description": "The last work date of a period listing, inclusive. Required alongside `from`.",
+            "description": "The last work date the period listing covers, inclusive.",
             "name": "to",
             "in": "query"
           },
           {
             "schema": {
-              "type": "string",
-              "enum": [
-                "draft",
-                "submitted",
-                "approved",
-                "billed",
-                "void"
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "draft",
+                    "submitted",
+                    "approved",
+                    "billed",
+                    "void"
+                  ]
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "submitted",
+                      "approved",
+                      "billed",
+                      "void"
+                    ]
+                  }
+                }
               ],
-              "description": "Narrows a per-matter or period listing to one status. Omitted, the listing answers with every status the scope carries, which is what a time record is."
+              "description": "Narrows the listing to one status, or to several given repeatedly (`status=draft&status=submitted`): the firm's Time screen's Status column filter, honoured here so it holds across every page. Omitted, the listing answers with every status the scope carries, which is what a time record is."
             },
             "required": false,
-            "description": "Narrows a per-matter or period listing to one status. Omitted, the listing answers with every status the scope carries, which is what a time record is.",
+            "description": "Narrows the listing to one status, or to several given repeatedly (`status=draft&status=submitted`): the firm's Time screen's Status column filter, honoured here so it holds across every page. Omitted, the listing answers with every status the scope carries, which is what a time record is.",
             "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "Matched against the narrative, the entry number, the matter's title and number, and the timekeeper's name, on the period listing. The screen's search, honoured here so a word absent from the page in hand is looked for across the whole record."
+            },
+            "required": false,
+            "description": "Matched against the narrative, the entry number, the matter's title and number, and the timekeeper's name, on the period listing. The screen's search, honoured here so a word absent from the page in hand is looked for across the whole record.",
+            "name": "search",
             "in": "query"
           },
           {
@@ -100223,6 +102329,533 @@
         }
       }
     },
+    "/api/v1/firm/profile/brand-images": {
+      "get": {
+        "description": "The firm's brand images: its primary mark, and the additional images kept beside it. The set is small by construction, which is why it answers whole rather than by page.",
+        "operationId": "firmProfile.listBrandImages",
+        "tags": [
+          "firmProfile"
+        ],
+        "x-mc-operationId": "firmProfile.listBrandImages",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "firmProfile"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's marks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmBrandImagesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "description": "Adds a brand image, or re-files one the firm already holds under a new role or caption. The image must be a PNG or a JPEG, decided by reading the file. Adding a primary demotes the previous primary to an additional image rather than removing it.",
+        "operationId": "firmProfile.setBrandImage",
+        "tags": [
+          "firmProfile"
+        ],
+        "x-mc-operationId": "firmProfile.setBrandImage",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageProfile",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "firmProfile"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetFirmBrandImageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The image is held",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmBrandImageAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:manageProfile",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the file is not a PNG or a JPEG, it is too large, the firm already holds as many additional images as it may, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/firm/profile/brand-images/{sha256}/content": {
+      "get": {
+        "description": "Streams one brand image's bytes, in the type they were read to be when stored.",
+        "operationId": "firmProfile.getBrandImageContent",
+        "tags": [
+          "firmProfile"
+        ],
+        "x-mc-operationId": "firmProfile.getBrandImageContent",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "firmProfile"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$/u"
+            },
+            "required": true,
+            "name": "sha256",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The image bytes",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/firm/profile/brand-images/{sha256}": {
+      "patch": {
+        "description": "Changes what a held image is: makes it the primary mark, or gives it a different caption.",
+        "operationId": "firmProfile.updateBrandImage",
+        "tags": [
+          "firmProfile"
+        ],
+        "x-mc-operationId": "firmProfile.updateBrandImage",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageProfile",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "firmProfile"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$/u"
+            },
+            "required": true,
+            "name": "sha256",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFirmBrandImageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The image was changed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmBrandImageAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:manageProfile",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The name is empty or too long, or the Idempotency-Key was reused with a different body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Removes a brand image. Documents already produced keep the mark they were produced with; an office whose letterhead fell back to a removed primary prints no mark until another is set.",
+        "operationId": "firmProfile.removeBrandImage",
+        "tags": [
+          "firmProfile"
+        ],
+        "x-mc-operationId": "firmProfile.removeBrandImage",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageProfile",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "firmProfile.setBrandImage"
+        },
+        "x-mc-tags": [
+          "firmProfile"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$/u"
+            },
+            "required": true,
+            "name": "sha256",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The image was removed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmBrandImageAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:manageProfile",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The name is empty or too long, or the Idempotency-Key was reused with a different body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/firm/profile": {
       "put": {
         "description": "Sets what the firm is called to its clients. The name reaches invoices, the client portal and generated documents from the moment it is saved; documents already produced keep the name they were produced under. Read it from the session bootstrap, which resolves it for every request already.",
@@ -100816,7 +103449,7 @@
         }
       },
       "patch": {
-        "description": "Updates the firm's AI settings. Sparse: an absent field is left alone, and an empty patch changes nothing and records nothing. The model in force is reported, never written. Returns the settings after the write.",
+        "description": "Updates the firm's AI settings. Sparse: an absent field is left alone, and an empty patch changes nothing and records nothing. `model.modelId` pins the firm to one of the roster's verified models; `model.modelId: null` returns the firm to following the platform's current model. A model not on the roster is refused. Returns the settings after the write.",
         "operationId": "firmAiSettings.update",
         "tags": [
           "firmAiSettings"

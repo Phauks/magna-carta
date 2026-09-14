@@ -20,7 +20,7 @@
    * The platform ships no plans. This list starts empty in every firm, on purpose.
    */
   import * as Alert from "@magna-carta/design-system/alert";
-  import * as Select from "@magna-carta/design-system/select";
+  import ChoicePicker from "$lib/components/choice-picker.svelte";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
@@ -34,6 +34,7 @@
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
+  import SettingsScrollRegion from "$lib/settings/components/settings-scroll-region.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import {
@@ -74,6 +75,14 @@
   let stepPriority = $state<TaskPriority>("normal");
   let stepRole = $state("");
   let stepAnchor = $state<PlanDueAnchor>("none");
+  const DUE_ANCHOR_CHOICES: readonly { value: PlanDueAnchor; label: string }[] = [
+    { value: "none", label: "No date" },
+    { value: "matter_opened", label: "Days after the matter opens" },
+  ];
+  const PRIORITY_CHOICES = TASK_PRIORITIES.map((priority) => ({
+    value: priority,
+    label: PRIORITY_LABELS[priority],
+  }));
   let stepOffset = $state("");
 
   $effect(() => {
@@ -149,8 +158,7 @@
   posture={canManage ? "draft" : "readOnly"}
 />
 
-<div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
-  <div class="flex flex-col gap-24 p-24">
+<SettingsScrollRegion>
   <SettingsDescription>What a kind of matter takes, as a list the firm offers when one is opened.</SettingsDescription>
 
     <Alert.Root variant="info">
@@ -377,18 +385,18 @@
                         <div class="flex flex-wrap items-end gap-16">
                           <div class="flex flex-col gap-4">
                             <Label for="step-anchor">Due</Label>
-                            <Select.Root type="single" bind:value={stepAnchor} disabled={saving}>
-                              <Select.Trigger id="step-anchor" class="w-224">
-                                {stepAnchor === "none" ? "No date" : "Days after the matter opens"}
-                              </Select.Trigger>
-                              <Select.Content>
-                                <Select.Item value="none" label="No date" />
-                                <Select.Item
-                                  value="matter_opened"
-                                  label="Days after the matter opens"
-                                />
-                              </Select.Content>
-                            </Select.Root>
+                            <div class="w-xs">
+                              <ChoicePicker
+                                options={DUE_ANCHOR_CHOICES}
+                                inputId="step-anchor"
+                                label="Due"
+                                disabled={saving}
+                                bind:value={
+                                  () => stepAnchor,
+                                  (next) => (stepAnchor = next === "matter_opened" ? "matter_opened" : "none")
+                                }
+                              />
+                            </div>
                           </div>
                           {#if stepAnchor !== "none"}
                             <div class="flex flex-col gap-4">
@@ -404,16 +412,21 @@
                           {/if}
                           <div class="flex flex-col gap-4">
                             <Label for="step-priority">Priority</Label>
-                            <Select.Root type="single" bind:value={stepPriority} disabled={saving}>
-                              <Select.Trigger id="step-priority" class="w-128">
-                                {PRIORITY_LABELS[stepPriority]}
-                              </Select.Trigger>
-                              <Select.Content>
-                                {#each TASK_PRIORITIES as priority (priority)}
-                                  <Select.Item value={priority} label={PRIORITY_LABELS[priority]} />
-                                {/each}
-                              </Select.Content>
-                            </Select.Root>
+                            <div class="w-3xs">
+                              <ChoicePicker
+                                options={PRIORITY_CHOICES}
+                                inputId="step-priority"
+                                label="Priority"
+                                disabled={saving}
+                                bind:value={
+                                  () => stepPriority,
+                                  (next) => {
+                                    const chosen = TASK_PRIORITIES.find((priority) => priority === next);
+                                    if (chosen !== undefined) stepPriority = chosen;
+                                  }
+                                }
+                              />
+                            </div>
                           </div>
                           <div class="flex flex-col gap-4">
                             <Label for="step-role">Give it to (role)</Label>
@@ -422,7 +435,7 @@
                               bind:value={stepRole}
                               disabled={saving}
                               placeholder="assigned_paralegal"
-                              class="w-192"
+                              class="w-3xs"
                             />
                           </div>
                         </div>
@@ -490,5 +503,4 @@
         </ul>
       {/if}
     </LoadingRegion>
-  </div>
-</div>
+</SettingsScrollRegion>

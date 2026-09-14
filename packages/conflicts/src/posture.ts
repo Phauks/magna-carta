@@ -58,6 +58,8 @@ export interface ScopeInForce {
 
 export interface LatestCheckRecord {
   readonly id: string;
+  // The number of the check this record is a run of, or null on a record no numbered check names.
+  readonly checkNumber: string | null;
   readonly createdAt: string;
   readonly trigger: string;
   // Null when no acting member is on the row.
@@ -81,10 +83,6 @@ export interface ScopeShortfall {
   readonly sources: readonly SourceClass[];
   // Present when the firm's floor strictness now outranks the strictness the check ran under.
   readonly strictness: { readonly firmFloor: Strictness; readonly ranUnder: string } | null;
-  // Present when the check traversed shallower than the firm's current default depth. Depth is a
-  // DEFAULT rather than a floor — a caller may deliberately search shallower and that is honoured —
-  // so this reports a difference, not a refusal.
-  readonly depth: { readonly firmDefault: number; readonly ranAt: number } | null;
 }
 
 // A source in the latest check's scope that recorded `unavailable`, with why. Never conflated with
@@ -171,27 +169,57 @@ interface CheckRow {
   readonly floor_raised: number;
   readonly actor_user_id: string | null;
   readonly created_at: string;
+  readonly check_number: string | null;
 }
 
-// The most recent check naming this matter. `created_at DESC` walks the
-// (subject_matter_id, created_at, id) index; `rowid DESC` breaks a same-millisecond tie the way the
-// disposition read does, and for the same reason — identifiers are random tokens with no time order,
-// so a lexical tie-break could name the older row as the latest and report the wrong scope.
+const CHECK_ROW_COLUMNS =
+  "record.id, record.trigger, record.scope_json, record.strictness, record.depth, record.inputs_json, record.floor_raised, record.actor_user_id, record.created_at, numbered.check_number";
+
+// The most recent search record for this matter — the newer of two indexed reads, because a matter's
+// record arrives two ways. A search that RAN against the matter carries it on the record row, and
+// the (subject_matter_id, created_at, id) index serves that. A check FILED on the matter after it
+// ran (docs/conventions/conflicts-rulings.md, R3) carries the matter on the numbered check, and the
+// numbered check's own matter index serves that; its runs' records are the matter's history from
+// the moment it is filed. Two reads rather than one OR, so each walks its index instead of scanning.
+//
+// `rowid DESC` breaks a same-millisecond tie the way the disposition read does, and for the same
+// reason — identifiers are random tokens with no time order, so a lexical tie-break could name the
+// older row as the latest and report the wrong scope.
 async function readLatestCheckRow(
   database: SqlDatabase,
   matterId: string,
 ): Promise<CheckRow | null> {
-  const { results } = await database
+  const ranAgainst = await database
     .prepare(
-      `SELECT id, trigger, scope_json, strictness, depth, inputs_json, floor_raised, actor_user_id, created_at
-         FROM ${CONFLICTS_CHECK_TABLE}
-        WHERE subject_matter_id = ?1
-        ORDER BY created_at DESC, rowid DESC
+      `SELECT ${CHECK_ROW_COLUMNS}
+         FROM ${CONFLICTS_CHECK_TABLE} AS record
+         LEFT JOIN conflicts_check_run AS run ON run.id = record.id
+         LEFT JOIN conflicts_numbered_check AS numbered ON numbered.id = run.numbered_check_id
+        WHERE record.subject_matter_id = ?1
+        ORDER BY record.created_at DESC, record.rowid DESC
         LIMIT 1`,
     )
     .bind(matterId)
     .all<CheckRow>();
-  return results[0] ?? null;
+  const filedOn = await database
+    .prepare(
+      `SELECT ${CHECK_ROW_COLUMNS}
+         FROM conflicts_numbered_check AS numbered
+         JOIN conflicts_check_run AS run ON run.numbered_check_id = numbered.id
+         JOIN ${CONFLICTS_CHECK_TABLE} AS record ON record.id = run.id
+        WHERE numbered.subject_matter_id = ?1
+        ORDER BY record.created_at DESC, record.rowid DESC
+        LIMIT 1`,
+    )
+    .bind(matterId)
+    .all<CheckRow>();
+  const candidates = [ranAgainst.results[0], filedOn.results[0]].filter(
+    (row): row is CheckRow => row !== undefined,
+  );
+  const newest = candidates.toSorted((left, right) =>
+    right.created_at.localeCompare(left.created_at),
+  )[0];
+  return newest ?? null;
 }
 
 // A stored JSON blob is read defensively throughout: the log is append-only and years old rows outlive
@@ -222,9 +250,16 @@ export function parseCheckScope(scopeJson: string): Record<string, SourceAvailab
 // the depth version of reporting an unsearchable source as searched and clean, and both are the same
 // failure — the platform telling a firm it looked somewhere it did not look.
 export interface TraversalRecord {
-  // The hop budget per budgeted edge class, as resolved for that run. Empty on a check written before
-  // the traversal record existed, which reads as "not recorded" rather than as "no budget".
+  // True on a run that followed every relationship to closure — every row written since the hop
+  // budgets were removed. False on an older row, whose `edgeClassBudgets` say how far it went.
+  readonly followedToClosure: boolean;
+  // The longest chain of relationships the walk followed. Null on a row that did not record it.
+  readonly longestPathLength: number | null;
+  // The hop budget per budgeted edge class, as resolved for an OLDER run. Empty on a check that
+  // followed relationships to closure, and on one written before the traversal record existed.
   readonly edgeClassBudgets: Readonly<Record<string, number>>;
+  // The most entities the walk was allowed to reach: the platform's ceiling on a run that followed
+  // relationships to closure, the firm's cap on an older one. Null when the row does not say.
   readonly closureCap: number | null;
   readonly truncated: boolean;
   // Present only on a truncated walk.
@@ -325,6 +360,8 @@ function parseTraversalRecord(value: unknown): TraversalRecord | null {
     }
   }
   return {
+    followedToClosure: record["followedToClosure"] === true,
+    longestPathLength: finiteNumber(record["longestPathLength"]),
     edgeClassBudgets: budgets,
     closureCap: finiteNumber(record["closureCap"]),
     truncated: record["truncated"] === true,
@@ -418,7 +455,7 @@ function rankOfStoredStrictness(stored: string): number {
       -1;
 }
 
-const NO_SHORTFALL: ScopeShortfall = { sources: [], strictness: null, depth: null };
+const NO_SHORTFALL: ScopeShortfall = { sources: [], strictness: null };
 
 const ZERO_UNDISPOSED_BY_TIER: readonly UndisposedTierCount[] = [
   { tier: 1, count: 0 },
@@ -548,10 +585,6 @@ export async function readMatterConflictsPosture(
       storedStrictnessRank < STRICTNESS_RANK[policy.floorStrictness]
         ? { firmFloor: policy.floorStrictness, ranUnder: checkRow.strictness }
         : null,
-    depth:
-      checkRow.depth < policy.defaultDepth
-        ? { firmDefault: policy.defaultDepth, ranAt: checkRow.depth }
-        : null,
   };
 
   return {
@@ -559,6 +592,7 @@ export async function readMatterConflictsPosture(
     neverChecked: false,
     latestCheck: {
       id: checkRow.id,
+      checkNumber: checkRow.check_number,
       createdAt: checkRow.created_at,
       trigger: checkRow.trigger,
       actorUserId: checkRow.actor_user_id,

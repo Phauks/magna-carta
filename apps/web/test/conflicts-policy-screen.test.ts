@@ -34,9 +34,8 @@ describe("the conflicts settings section", () => {
   });
 
   it("commits as a draft rather than instantly", () => {
-    // Not a style choice. Instant apply would let a half-typed cap — "5" on the way to "500" — be
-    // the firm's bound for as long as it took to finish the number, and the bound decides how much
-    // of a search a check may actually do.
+    // Not a style choice. Instant apply would make a floor of whatever a half-finished edit
+    // happened to say, and the floor decides what every later check must search.
     expect(section?.commitMode).toBe("draft");
   });
 });

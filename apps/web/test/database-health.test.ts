@@ -282,8 +282,8 @@ describe("copyLineForDatabaseHealth", () => {
  * run in a plain node pool, and rendering a design-system component pulls bits-ui, which a
  * deliberate boundary gate keeps out of every config outside the design system.
  */
-describe("the panel's folding sections", () => {
-  const chip = stripComments(source("lib/versions/version-chip.svelte"));
+describe("the panel's two folding sections", () => {
+  const chip = stripComments(source("lib/versions/version-report.svelte"));
   const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
   const panelSection = stripComments(source("lib/versions/version-panel-section.svelte"));
   const preferences = source("lib/versions/version-panel-preferences.svelte.ts");
@@ -313,7 +313,7 @@ describe("the panel's folding sections", () => {
     const registered = preferences.match(/createSectionFold\("[a-z]+"\)/g) ?? [];
     expect(new Set(registered).size).toBe(4);
     expect(preferences).toContain("`magna-carta.version-panel-${sectionId}`");
-    expect(preferences).toMatch(/\["expanded", "collapsed"\], "expanded"/);
+    expect(preferences).toMatch(/\["expanded", "collapsed"\],\s*"expanded",/);
     expect(preferences).toContain("followAcrossTabs()");
   });
 
@@ -380,12 +380,10 @@ describe("the panel's folding sections", () => {
 
   it("does not read anything until the panel is opened", () => {
     // The chip is on every screen in the app; a standing health poll behind it would be a request
-    // on every page load to answer a question nobody has asked. The open flag lives outside the
-    // component now (build-panel.svelte.ts) so the command palette can reach the panel; the guard
-    // is unchanged.
-    expect(chip).toMatch(
-      /if \(!buildPanel\.isOpen \|\| !readsAggregate\) return;[\s\S]*void refreshHealth\(\);/,
-    );
+    // on every page load to answer a question nobody has asked. The report reads only while the
+    // surface holding it says it is on screen — the chip passes its popover state (which now lives
+    // in build-panel.svelte.ts so the command palette can open it), the Versions page passes true.
+    expect(chip).toMatch(/if \(!open \|\| !readsAggregate\) return;[\s\S]*void refreshHealth\(\);/);
   });
 });
 

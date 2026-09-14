@@ -262,8 +262,9 @@
           {@render meterRow("Heap ceiling", `≈ ${formatBytes(memoryLimitBytes)}`)}
         {/if}
       {/if}
+      <!-- A fact a reader needs to read the figures correctly is a row of the list, not a caption. -->
+      {@render meterRow("Accuracy", "Approximate; the browser quantizes and delays these")}
     </dl>
-    <p class="text-xs text-text-muted">Approximate — the browser quantizes and delays these.</p>
   </div>
 
   <div class="flex flex-col gap-8">
@@ -278,10 +279,8 @@
       {#if frameIntervalMilliseconds !== null}
         {@render meterRow("Frame interval", formatMilliseconds(frameIntervalMilliseconds))}
       {/if}
+      {@render meterRow("CPU", "Not exposed by browsers; lag and long tasks stand in")}
     </dl>
-    <p class="text-xs text-text-muted">
-      Browsers expose no CPU percentage — lag and long tasks are the honest stand-in.
-    </p>
   </div>
 
   <div class="flex flex-col gap-8">
@@ -307,10 +306,8 @@
     <dl class="flex flex-col gap-4">
       {@render meterRow("Requests (last 60s)", String(recentRequestCount))}
       {@render meterRow("Transferred (last 60s)", formatBytes(recentTransferBytes))}
+      {@render meterRow("Counted", "Completed requests only; cross-origin sizes may read as zero")}
     </dl>
-    <p class="text-xs text-text-muted">
-      Recent completed requests — not in flight; cross-origin sizes may report as zero.
-    </p>
   </div>
 
   <div class="flex flex-col gap-8">

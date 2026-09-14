@@ -1,5 +1,6 @@
 import { env, runInDurableObject } from "cloudflare:test";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import { insertMemberStatement } from "@magna-carta/data-access/member-statements";
 import { writeFirmSettingStatement } from "@magna-carta/data-access/setting-statements";
 import { readTokenUsage } from "@magna-carta/data-access/token-usage-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -11,9 +12,16 @@ import type {
 } from "@magna-carta/identifiers/types";
 import { aiProcessingEligibilityDefinition } from "@magna-carta/inference/settings";
 import { STUB_RESPONSE_MARKER } from "@magna-carta/inference/stub";
-import { startConversation } from "@magna-carta/magnus/conversation";
+import {
+  commitVersionStatement,
+  fileVersionKey,
+  insertFileStatement,
+  insertFileVersionStatement,
+  setFileCurrentVersionStatement,
+} from "@magna-carta/file-manager/file-statements";
+import { attachConversationFile, startConversation } from "@magna-carta/magnus/conversation";
 import { magnusEnabledDefinition } from "@magna-carta/magnus/settings";
-import { readTurn } from "@magna-carta/magnus/statements";
+import { listAttachments, readTurn } from "@magna-carta/magnus/statements";
 import { completeTurn, submitTurn } from "@magna-carta/magnus/turn";
 import { WINDOW_MAX_TURNS } from "@magna-carta/magnus/window";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -91,6 +99,12 @@ beforeAll(async () => {
   firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmId);
   await writeSetting(aiProcessingEligibilityDefinition, true);
   await writeSetting(magnusEnabledDefinition, true);
+  // A member row for the acting user, so a matter can name them as its responsible member.
+  await insertMemberStatement(firmDatabase, {
+    userId: USER,
+    displayName: "Magnus Consumer Tester",
+    now: clock.now(),
+  }).run();
 });
 
 describe("the assistant queue consumer", () => {
@@ -181,6 +195,105 @@ describe("the assistant queue consumer", () => {
     const turn = await readTurn(firmDatabase, final.magnusTurnId);
     expect(turn?.status).toBe("complete");
     expect(turn?.contextTruncated).toBe(true);
+  });
+
+  it("sends an attached file's readable text ahead of the question, and records what reached the model", async () => {
+    // A matter with one committed plain-text file, attached to a conversation kept on it.
+    const matterId = newIdentifier("matter");
+    await firmDatabase
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Attach Test', 'open', ?3, ?2, ?2)",
+      )
+      .bind(matterId, clock.now(), USER)
+      .run();
+    const fileId = newIdentifier("file");
+    const versionId = newIdentifier("fileVersion");
+    const objectKey = fileVersionKey(fileId, versionId);
+    const fileText = "The lease runs to 30 June and renews unless notice is given by 31 March.";
+    await env.R2.put(objectKey, new TextEncoder().encode(fileText));
+    await commitEffectBatch(
+      firmDatabase,
+      {
+        statements: [
+          insertFileStatement(firmDatabase, {
+            id: fileId,
+            matterId,
+            folderId: null,
+            name: "lease-notes.txt",
+            documentTypeId: null,
+            createdAt: clock.now(),
+          }),
+          insertFileVersionStatement(firmDatabase, {
+            id: versionId,
+            fileId,
+            versionNumber: 1,
+            r2Key: objectKey,
+            declaredContentType: "text/plain",
+            uploadedBy: USER,
+            createdAt: clock.now(),
+          }),
+          commitVersionStatement(firmDatabase, {
+            versionId,
+            sizeBytes: fileText.length,
+            sniffedContentType: "text/plain",
+            contentSha256: "0".repeat(64),
+            scanVerdict: "clean",
+            scanEngineVersion: null,
+            scanDetail: null,
+            committedAt: clock.now(),
+          }),
+          setFileCurrentVersionStatement(firmDatabase, fileId, versionId, clock.now()),
+        ],
+        outboxMessages: [],
+      },
+      { now: clock.now },
+    );
+
+    const context = { clock, actorUserId: USER };
+    const started = startConversation(firmDatabase, context, {
+      title: null,
+      createdBy: USER,
+      matterId,
+    });
+    await commitEffectBatch(firmDatabase, started.effect, { now: clock.now });
+    await commitEffectBatch(
+      firmDatabase,
+      attachConversationFile(firmDatabase, context, {
+        conversationId: started.conversationId,
+        fileId,
+      }),
+      { now: clock.now },
+    );
+    const submission = submitTurn(firmDatabase, context, {
+      conversationId: started.conversationId,
+      content: "when does notice have to be given",
+      nextSequence: 0,
+      disclosureVersion: 1,
+    });
+    if (!submission.ok) throw new Error("submission refused");
+    await commitEffectBatch(firmDatabase, submission.effect, { now: clock.now });
+
+    await handleMagnusTurnJob(
+      { ...consumerEnv(), DB_CONTROL: env.DB_CONTROL, R2: env.R2 } as unknown as Bindings,
+      {
+        firmId,
+        conversationId: started.conversationId,
+        magnusTurnId: submission.magnusTurnId,
+        outboxId: newIdentifier("outbox"),
+      },
+    );
+
+    // The stub echoes the last member message, so what reached the port is legible in the answer:
+    // the file's text under its heading, then the question.
+    const turn = await readTurn(firmDatabase, submission.magnusTurnId);
+    expect(turn?.status).toBe("complete");
+    expect(turn?.content).toContain("--- Attached file: lease-notes.txt ---");
+    expect(turn?.content).toContain("renews unless notice is given");
+    expect(turn?.content).toContain("when does notice have to be given");
+
+    const [attachment] = await listAttachments(firmDatabase, started.conversationId);
+    expect(attachment?.textStatus).toBe("sent");
+    expect(attachment?.textBytes).toBe(fileText.length);
   });
 
   it("a redelivery neither re-calls the port nor double-meters", async () => {

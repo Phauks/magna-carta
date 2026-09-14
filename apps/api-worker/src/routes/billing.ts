@@ -857,13 +857,33 @@ const applicationParam = z.object({
 // string — the same shape the invoice list's clientEntityId filter takes.
 const clientParam = z.object({ clientEntityId: z.string().min(1) });
 const retainerStatusQuery = z.object({ trustAccountId: identifierField("trustAccount") });
+const invoiceStatusField = z.enum(["draft", "final", "void"]);
 const listQuery = z.object({
   clientEntityId: z.string().min(1).optional(),
   matterId: z.string().min(1).optional().openapi({
     description:
       "Narrows to the bills that charge this matter, drafts included, and adds that matter's own share to every row. Without it the listing answers for the whole firm, or for one client when clientEntityId is given.",
   }),
-  status: z.enum(["draft", "final", "void"]).optional(),
+  status: z
+    .union([invoiceStatusField, z.array(invoiceStatusField)])
+    .optional()
+    .openapi({
+      description:
+        "Narrows to one status, or to several given repeatedly (`status=draft&status=void`): " +
+        "the firm's Billing screen's Status column filter, honoured here so it holds across " +
+        "every page.",
+    }),
+  search: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .openapi({
+      description:
+        "Matched against the invoice number and the client's name. The screen's search, " +
+        "honoured here so a client absent from the page in hand is looked for across the whole " +
+        "register.",
+    }),
   cursor: z.string().optional(),
 });
 const agingQuery = z.object({ asOfDate: civilDate.optional() });

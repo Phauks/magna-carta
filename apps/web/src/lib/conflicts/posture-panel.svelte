@@ -210,6 +210,9 @@
       <section class="flex flex-col gap-8 border-t border-border-default pt-12">
         <FieldLabel as="h3">The Latest Check</FieldLabel>
         <dl class="flex flex-col gap-4 text-sm">
+          {#if latest.checkNumber !== null}
+            {@render fact("Check", latest.checkNumber, "The number the firm refers to this check by.")}
+          {/if}
           {@render fact("Run", formatInstant(latest.createdAt))}
           {@render fact(
             "Trigger",
@@ -230,7 +233,7 @@
         </dl>
         {#if checkHref !== undefined}
           <a class="text-sm underline underline-offset-2" href={checkHref(latest.id)}>
-            Read the check
+            {latest.checkNumber === null ? "Read the check" : `Read ${latest.checkNumber}`}
           </a>
         {/if}
       </section>
@@ -241,7 +244,7 @@
       </section>
     {/if}
 
-    {#if posture.scopeShortfall.sources.length > 0 || posture.scopeShortfall.strictness !== null || posture.scopeShortfall.depth !== null}
+    {#if posture.scopeShortfall.sources.length > 0 || posture.scopeShortfall.strictness !== null}
       <section class="flex flex-col gap-8 border-t border-border-default pt-12">
         <FieldLabel as="h3">Below The Firm's Current Policy</FieldLabel>
         <dl class="flex flex-col gap-4 text-sm">
@@ -258,13 +261,6 @@
             {@render fact(
               "Strictness",
               `Ran under ${strictnessVocabulary(posture.scopeShortfall.strictness.ranUnder).label}; the firm's floor is now ${strictnessVocabulary(posture.scopeShortfall.strictness.firmFloor).label}`,
-            )}
-          {/if}
-          {#if posture.scopeShortfall.depth !== null}
-            {@render fact(
-              "Traversal Budget",
-              `Ran at ${String(posture.scopeShortfall.depth.ranAt)}; the firm's default is ${String(posture.scopeShortfall.depth.firmDefault)}`,
-              "Depth is a default rather than a floor, so a shallower run is honoured. This reports the difference, not a refusal.",
             )}
           {/if}
         </dl>

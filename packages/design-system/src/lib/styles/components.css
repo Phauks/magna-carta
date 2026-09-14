@@ -50,6 +50,7 @@
 @import "../components/progress/progress.css";
 @import "../components/progress-steps/progress-steps.css";
 @import "../components/event-rail/event-rail.css";
+@import "../components/definition-list/definition-list.css";
 /* The transcript reads in the same record register the event rail does, and dresses only native
    elements of its own, so it sits beside it and overrides nothing. */
 @import "../components/conversation/conversation.css";
@@ -86,6 +87,7 @@
 @import "../components/data-table/data-table.css";
 @import "../components/sidebar/sidebar.css";
 @import "../components/resizable/resizable.css";
+@import "../components/navigation-layout/navigation-layout.css";
 /* The merge-field family. The chip is imported before the picker and the review list because both
    of those render chips, so the chip's base recipe must already be in the cascade. */
 @import "../components/merge-field-chip/merge-field-chip.css";

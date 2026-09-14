@@ -72,3 +72,11 @@ source, because the node pool cannot mount a design-system component — the rig
 rules pin, and unable to tell you the panel opens at all. `e2e/build-panel.spec.ts` drives the real
 thing: the sections settle, a fold survives a reload, the palette opens it, and a signed-out panel
 issues no authenticated request.
+
+**Merged onto the report extraction, not around it.** `main` split the panel into a shared
+`version-report.svelte` rendered by both the chip and the new Settings · Versions page while this
+branch was open. Everything above is applied to that component, so the page gets all of it too: the
+same paste, the same links, the same latency, the same failure blocks. The chip keeps what is the
+chip's — the build environment badge, and the popover state the palette opens. One regression from
+that extraction is repaired on the way past: the health row had lost its `badgeVariant` passthrough,
+so a readiness check reading "Not applicable" was rendering green rather than neutral.

@@ -1,53 +1,44 @@
 <script lang="ts">
   /*
-   * The New Check panel's RIGHT pane: the engine's own settings.
+   * The New Check panel's RIGHT pane: where the check searches, and how it compares names.
    *
-   * The owner's direction, 2026-09-08: "we need more modular control, rather than these one off
-   * buttons… left would be general information, right would be advanced and technical settings…
-   * right side is the engine settings." And, on the settings themselves: "you have so many settings
-   * and i don't know what half of them mean, meaning we need better naming."
+   * TWO TABS (owner's ruling, 2026-09-11). Locations is the tab a member actually uses: the places
+   * the product can search, listed as places — Directory, Files, Messaging, Magnus — with what the
+   * Directory search does beneath it behind a caret, so the reader chooses where first and tunes
+   * how second. Advanced Settings holds the rest: how names are compared, and the two dimensions
+   * that are not places. A pane that grows by stacking is a pane that has to be redesigned to grow
+   * again; a place the product learns to search is one more entry in the list.
    *
-   * SO EVERY CONTROL SAYS WHAT IT SEARCHES, IN PLACE. A hover title is not a label — it does not
-   * exist on a touch device and a screen reader reaches it only by asking — and every one of these
-   * settings is a fact about a search nobody can watch run. Each therefore carries a line of its
-   * own under it, in the reader's words, and the words are the ones in conflicts-vocabulary.ts so
-   * this pane and the log's own columns cannot come to call the same thing two things.
+   * THE PANE SAYS LESS (the same ruling). No line of explanation under a control. What a place
+   * searches is its name; what a band catches is the example beside it in the dropdown. The one
+   * sentence a control still carries is the one it owes: a place the product cannot search yet is
+   * drawn, disabled, marked Soon, and says what it waits on — and the check records that place as
+   * not searched, so a reader of the log can never mistake "never searched" for "searched and
+   * nothing surfaced".
    *
-   * THE FOUR GROUPS, IN THE ORDER A SEARCH USES THEM: where to look, how names are compared, how
-   * far relationships are followed, and where the walk stops. The middle one is where sound-alike
-   * matching lives, and it says so out loud rather than hiding inside a word like "strictness" —
-   * which is what the owner was asking about when they asked what strictness searched for.
+   * NOTHING HERE LIMITS THE SEARCH. The hop budgets and the two caps are gone: a check follows every
+   * recorded relationship to closure, and the one bound on a run is the platform's, stated on the
+   * record when it is reached.
    *
-   * A NUMBER LEFT BLANK IS THE FIRM'S OWN, and each field says so where the field is: the firm's
-   * setting is the placeholder inside the box. The panel used to state that once, at the bottom,
-   * over a block reading "Firm floor · Party · Balanced · depth 1 · closure cap 500" — four facts
-   * in a shorthand nobody who had not built the engine could read.
-   *
-   * WHAT THE FIRM REQUIRES IS DIFFERENT FROM WHAT IT DEFAULTS TO, and only the first is a floor: a
-   * narrower choice of SOURCES or of name matching is raised back up before the search runs, and
-   * the check records that it was raised. The bounds below are defaults and may genuinely be run
-   * narrower. The line at the head of this pane is the one place that distinction is stated.
+   * A NARROWER CHOICE IS RAISED TO THE FIRM'S FLOOR, and the check records that it was. That is
+   * the one thing the pane still states in words, because it is the difference between a setting
+   * and a minimum.
    */
+  import * as Accordion from "@magna-carta/design-system/accordion";
+  import * as Tabs from "@magna-carta/design-system/tabs";
   import Checkbox from "@magna-carta/design-system/checkbox";
   import FieldLabel from "@magna-carta/design-system/field-label";
-  import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
-  import * as RadioGroup from "@magna-carta/design-system/radio-group";
   import { MaturityBadge, soonControlProperties } from "@magna-carta/design-system/maturity";
-  import type { FirmConflictsPolicy } from "./conflicts-api.ts";
+  import ChoicePicker from "$lib/components/choice-picker.svelte";
+  import type { FirmConflictsPolicy, Strictness } from "./conflicts-api.ts";
   import type { CheckDraft } from "./check-draft.svelte.ts";
   import {
-    CANDIDATE_LIMIT_LABEL,
-    RELATED_PARTY_LIMIT_LABEL,
-  } from "./check-request.ts";
-  import {
-    BUDGETED_EDGE_CLASSES,
-    EDGE_CLASS_VOCABULARY,
+    ADVANCED_DIMENSIONS,
+    DIRECTORY_SPECIFICS,
     NAME_MATCHING_LABEL,
-    SOURCE_VOCABULARY,
-    STRICTNESS_LEVELS,
-    STRICTNESS_VOCABULARY,
-    edgeClassLabel,
+    NAME_MATCHING_OPTIONS,
+    SEARCH_LOCATIONS,
     sourceVocabulary,
     strictnessVocabulary,
   } from "./conflicts-vocabulary.ts";
@@ -57,200 +48,154 @@
     policy = null,
     matterNamed = false,
     busy = false,
+    tab = $bindable("locations"),
   }: {
     draft: CheckDraft;
-    /** The firm's own policy, read so a blank field can show the number it will take. */
+    /** The firm's own floor, read so the pane can state what a narrower choice is raised to. */
     policy?: FirmConflictsPolicy | null;
     /** Whether the check names a matter. Without one there is nothing to impute against. */
     matterNamed?: boolean;
     busy?: boolean;
+    /** Which tab is showing. Bindable so a surface can open the pane on a particular one. */
+    tab?: string;
   } = $props();
 
   const fieldPrefix = $props.id();
-  const ownPeopleDescription = `${fieldPrefix}-own-people`;
-  const contentDescription = `${fieldPrefix}-content`;
 
-  /** What the document-and-message source waits on. A standing fact about the platform. */
-  const CONTENT_DEPENDENCY =
-    "an index over document text and a wired message-body index, neither of which exists";
-
-  const soonContent = soonControlProperties(CONTENT_DEPENDENCY, contentDescription);
-
-  /** A bound's placeholder: the firm's own number, so a blank box says what it will take. */
-  function firmNumber(value: number | undefined): string {
-    return value === undefined ? "The firm's own" : String(value);
+  /** The Soon affordance for a place or a dimension the engine cannot search yet. */
+  function soon(key: string, waitsOn: string) {
+    return soonControlProperties(waitsOn, `${fieldPrefix}-${key}-waits`);
   }
 
   const floorSentence = $derived.by(() => {
     if (policy === null) return null;
     const sources = policy.floorSources.map((source) => sourceVocabulary(source).label).join(", ");
     const band = strictnessVocabulary(policy.floorStrictness).label.toLowerCase();
-    return `This firm requires every check to search ${sources} at ${band} name matching or wider. A narrower choice here is raised back up before the search runs, and the check records that it was raised.`;
+    return `This firm searches ${sources} at ${band} name matching or wider on every check. A narrower choice is raised back up before the search runs, and the check records that it was.`;
   });
 </script>
 
-<div class="flex flex-col gap-24">
-  <section class="flex flex-col gap-8">
-    <FieldLabel as="h4">Search Settings</FieldLabel>
-    <p class="text-xs text-text-muted">
-      How widely the engine searches. Everything here can be left alone.
-    </p>
-    {#if floorSentence !== null}
-      <p class="text-xs text-text-muted">{floorSentence}</p>
-    {/if}
-  </section>
+<Tabs.Root bind:value={tab} class="flex flex-col gap-16">
+  <Tabs.List>
+    <Tabs.Trigger value="locations">Locations</Tabs.Trigger>
+    <Tabs.Trigger value="advanced">Advanced Settings</Tabs.Trigger>
+  </Tabs.List>
 
-  <section class="flex flex-col gap-12 border-t border-border-default pt-16">
-    <FieldLabel as="h4">Where To Look</FieldLabel>
+  <Tabs.Content value="locations" class="flex flex-col gap-16">
+    <FieldLabel as="h4">Search Locations</FieldLabel>
 
-    <div class="flex flex-col gap-4">
-      <div class="flex items-center gap-8">
-        <Checkbox
-          id="{fieldPrefix}-source-party"
-          checked
-          disabled
-          title="Every check searches this. It is the firm-wide floor rather than a choice."
-        />
-        <Label for="{fieldPrefix}-source-party">{SOURCE_VOCABULARY.party?.label}</Label>
-      </div>
-      <p class="text-xs text-text-muted">{SOURCE_VOCABULARY.party?.meaning}</p>
-    </div>
-
-    <div class="flex flex-col gap-4">
-      <div class="flex items-center gap-8">
-        <Checkbox
-          id="{fieldPrefix}-source-graph"
-          bind:checked={draft.searchRelationships}
-          disabled={busy}
-        />
-        <Label for="{fieldPrefix}-source-graph">{SOURCE_VOCABULARY.graph?.label}</Label>
-      </div>
-      <p class="text-xs text-text-muted">{SOURCE_VOCABULARY.graph?.meaning}</p>
-    </div>
-
-    <div class="flex flex-col gap-4">
-      <div class="flex items-center gap-8">
-        <Checkbox
-          id="{fieldPrefix}-source-imputation"
-          bind:checked={draft.searchOwnPeople}
-          disabled={busy || !matterNamed}
-          aria-describedby={ownPeopleDescription}
-        />
-        <Label for="{fieldPrefix}-source-imputation">{SOURCE_VOCABULARY.imputation?.label}</Label>
-      </div>
-      <p id={ownPeopleDescription} class="text-xs text-text-muted">
-        {SOURCE_VOCABULARY.imputation?.meaning}{matterNamed
-          ? ""
-          : " No matter is named, so this check records it as not searched."}
-      </p>
-    </div>
-
-    <div class="flex flex-col gap-4">
-      <div class="flex items-center gap-8">
-        <Checkbox id="{fieldPrefix}-source-content" checked={false} {...soonContent} />
-        <Label for="{fieldPrefix}-source-content">{SOURCE_VOCABULARY.content?.label}</Label>
-        <MaturityBadge stage="soon" />
-      </div>
-      <p id={contentDescription} class="text-xs text-text-muted">{soonContent.title}</p>
-    </div>
-  </section>
-
-  <section class="flex flex-col gap-12 border-t border-border-default pt-16">
-    <FieldLabel as="h4" id="{fieldPrefix}-name-matching">{NAME_MATCHING_LABEL}</FieldLabel>
-    <!-- Named rather than left to a word: sound-alike matching is on in both bands, and a reader
-         asking whether the firm can find Stephen from Steven should not have to open a tooltip. -->
-    <p class="text-xs text-text-muted">
-      How many ways a name may be written and still count. Both settings match names that SOUND
-      alike — Stephen and Steven, Mohammed and Muhammad — and widening only ever adds candidates.
-    </p>
-    <RadioGroup.Root
-      bind:value={draft.nameMatching}
-      aria-labelledby="{fieldPrefix}-name-matching"
-      disabled={busy}
-    >
-      {#each STRICTNESS_LEVELS as level (level)}
-        {@const word = STRICTNESS_VOCABULARY[level]}
-        <div class="flex flex-col gap-4">
-          <div class="flex items-center gap-8">
-            <RadioGroup.Item value={level} id="{fieldPrefix}-name-matching-{level}" />
-            <Label for="{fieldPrefix}-name-matching-{level}">{word.label}</Label>
-          </div>
-          <p class="text-xs text-text-muted">{word.meaning}</p>
-        </div>
+    <ul class="flex flex-col gap-12">
+      {#each SEARCH_LOCATIONS as entry (entry.location)}
+        {#if entry.waitsOn === null}
+          <li class="flex flex-col gap-8">
+            <div class="flex items-center gap-8">
+              <!-- Every check searches the Directory: it is the firm's floor, not a choice. -->
+              <Checkbox
+                id="{fieldPrefix}-{entry.location}"
+                checked
+                disabled
+                title="Every check searches this. It is the firm-wide floor rather than a choice."
+              />
+              <Label for="{fieldPrefix}-{entry.location}">{entry.label}</Label>
+            </div>
+            <!-- The specifics sit beneath the place, behind a caret: where first, how second. -->
+            <Accordion.Root type="multiple" class="ps-24">
+              <Accordion.Item value="specifics">
+                <Accordion.Trigger>What it searches there</Accordion.Trigger>
+                <Accordion.Content class="flex flex-col gap-8">
+                  {#each DIRECTORY_SPECIFICS as specific (specific.source)}
+                    <div class="flex items-center gap-8">
+                      {#if specific.source === "party"}
+                        <Checkbox
+                          id="{fieldPrefix}-source-party"
+                          checked
+                          disabled
+                          title="Every check searches this. It is the firm-wide floor rather than a choice."
+                        />
+                      {:else if specific.source === "graph"}
+                        <Checkbox
+                          id="{fieldPrefix}-source-graph"
+                          bind:checked={draft.searchRelationships}
+                          disabled={busy}
+                          title="Followed to closure: every recorded relationship, as far as the chain goes."
+                        />
+                      {:else}
+                        <Checkbox
+                          id="{fieldPrefix}-source-imputation"
+                          bind:checked={draft.searchOwnPeople}
+                          disabled={busy || !matterNamed}
+                          title={matterNamed
+                            ? undefined
+                            : "No matter is named, so this check records it as not searched."}
+                        />
+                      {/if}
+                      <Label for="{fieldPrefix}-source-{specific.source}">{specific.label}</Label>
+                    </div>
+                  {/each}
+                  {#if !matterNamed}
+                    <p class="text-xs text-text-muted">
+                      No matter is named, so this check records the firm's own people as not
+                      searched.
+                    </p>
+                  {/if}
+                </Accordion.Content>
+              </Accordion.Item>
+            </Accordion.Root>
+          </li>
+        {:else}
+          {@const affordance = soon(entry.location, entry.waitsOn)}
+          <li class="flex flex-col gap-4">
+            <div class="flex items-center gap-8">
+              <Checkbox id="{fieldPrefix}-{entry.location}" checked={false} {...affordance} />
+              <Label for="{fieldPrefix}-{entry.location}">{entry.label}</Label>
+              <MaturityBadge stage="soon" />
+            </div>
+            <!-- The one line a Soon control owes: what it waits on. The check records the place as
+                 not searched. -->
+            <p id={affordance["aria-describedby"]} class="ps-24 text-xs text-text-muted">
+              {affordance.title}
+            </p>
+          </li>
+        {/if}
       {/each}
-    </RadioGroup.Root>
-  </section>
+    </ul>
+  </Tabs.Content>
 
-  <section class="flex flex-col gap-12 border-t border-border-default pt-16">
-    <FieldLabel as="h4">How Far To Follow Relationships</FieldLabel>
-    <p class="text-xs text-text-muted">
-      How many relationships the search may walk through, counted separately for each kind: one
-      number cannot say "follow a rename chain forever, but do not walk from a spouse to her
-      employer's other directors".
-    </p>
-
-    {#each BUDGETED_EDGE_CLASSES as edgeClass (edgeClass)}
-      <div class="flex flex-col gap-4">
-        <Label for="{fieldPrefix}-hops-{edgeClass}">{edgeClassLabel(edgeClass)}</Label>
-        <Input
-          id="{fieldPrefix}-hops-{edgeClass}"
-          type="number"
-          min="0"
-          max="6"
-          inputmode="numeric"
-          placeholder={firmNumber(policy?.edgeClassBudgets[edgeClass] ?? policy?.defaultDepth)}
-          disabled={busy || !draft.searchRelationships}
-          value={draft.relationshipHops[edgeClass]}
-          oninput={(event) => draft.setHops(edgeClass, event.currentTarget.value)}
-        />
-        <p class="text-xs text-text-muted">{EDGE_CLASS_VOCABULARY[edgeClass]?.meaning}</p>
-      </div>
-    {/each}
-
-    <div class="flex flex-col gap-4">
-      <Label>{EDGE_CLASS_VOCABULARY.corporate?.label}</Label>
-      <!-- Stated rather than offered: a rename, merger or successor chain of any length is the same
-           legal person continuing, so it carries no hop budget for anyone to set. -->
-      <p class="text-sm">Followed all the way, however long the chain runs.</p>
-      <p class="text-xs text-text-muted">{EDGE_CLASS_VOCABULARY.corporate?.meaning}</p>
-    </div>
-  </section>
-
-  <section class="flex flex-col gap-12 border-t border-border-default pt-16">
-    <FieldLabel as="h4">Where The Search Stops</FieldLabel>
-
-    <div class="flex flex-col gap-4">
-      <Label for="{fieldPrefix}-related-party-limit">{RELATED_PARTY_LIMIT_LABEL}</Label>
-      <Input
-        id="{fieldPrefix}-related-party-limit"
-        type="number"
-        min="0"
-        inputmode="numeric"
-        placeholder={firmNumber(policy?.closureCap)}
+  <Tabs.Content value="advanced" class="flex flex-col gap-16">
+    <div class="flex flex-col gap-8">
+      <Label for="{fieldPrefix}-name-matching">{NAME_MATCHING_LABEL}</Label>
+      <!-- A dropdown whose rows show a name each band catches: that is the whole explanation a band
+           needs. -->
+      <ChoicePicker
+        options={NAME_MATCHING_OPTIONS}
+        value={draft.nameMatching}
+        inputId="{fieldPrefix}-name-matching"
+        label={NAME_MATCHING_LABEL}
         disabled={busy}
-        bind:value={draft.relatedPartyLimit}
+        onchange={(value) => (draft.nameMatching = value as Strictness)}
       />
-      <p class="text-xs text-text-muted">
-        The most connected parties the walk may reach before it stops walking. Blank takes the
-        firm's own, shown in the box.
-      </p>
     </div>
 
-    <div class="flex flex-col gap-4">
-      <Label for="{fieldPrefix}-candidate-limit">{CANDIDATE_LIMIT_LABEL}</Label>
-      <Input
-        id="{fieldPrefix}-candidate-limit"
-        type="number"
-        min="0"
-        inputmode="numeric"
-        placeholder={firmNumber(policy?.candidateCap)}
-        disabled={busy}
-        bind:value={draft.candidateLimit}
-      />
-      <p class="text-xs text-text-muted">
-        The most possible matches this check will write down. Reaching it truncates the check, and
-        the check says on its own record that it was truncated.
-      </p>
-    </div>
-  </section>
-</div>
+    <ul class="flex flex-col gap-12 border-t border-border-default pt-16">
+      {#each ADVANCED_DIMENSIONS as dimension (dimension.source)}
+        {@const affordance = soon(dimension.source, dimension.waitsOn)}
+        <li class="flex flex-col gap-4">
+          <div class="flex items-center gap-8">
+            <Checkbox id="{fieldPrefix}-{dimension.source}" checked={false} {...affordance} />
+            <Label for="{fieldPrefix}-{dimension.source}">
+              {sourceVocabulary(dimension.source).label}
+            </Label>
+            <MaturityBadge stage="soon" />
+          </div>
+          <p id={affordance["aria-describedby"]} class="ps-24 text-xs text-text-muted">
+            {affordance.title}
+          </p>
+        </li>
+      {/each}
+    </ul>
+
+    {#if floorSentence !== null}
+      <p class="border-t border-border-default pt-16 text-xs text-text-muted">{floorSentence}</p>
+    {/if}
+  </Tabs.Content>
+</Tabs.Root>

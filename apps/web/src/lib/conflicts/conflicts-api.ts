@@ -1,20 +1,26 @@
 /*
- * The conflicts surface's response shapes and calls. Mirrors the four conflicts operations in
- * apps/api-worker/openapi/openapi.json, plus the two Directory reads this surface needs to put a
- * NAME on an entity; the transport envelope lives in $lib/api/request.ts.
+ * The conflicts surface's response shapes and calls. Mirrors the conflicts operations in
+ * apps/api-worker/openapi/openapi.json, plus nothing from the Directory: naming an entity is the
+ * Directory surface's own read; the transport envelope lives in $lib/api/request.ts.
  *
  * `apps/web` does not depend on the generated client, so each surface hand-writes the shapes it
- * reads. Four facts about this contract shape every screen above it, and all four are recorded here
- * rather than rediscovered:
+ * reads. The facts about this contract that shape every screen above it are recorded here rather
+ * than rediscovered:
  *
+ *   - A CHECK IS A NUMBERED RECORD WITH RUNS UNDER IT, since 2026-09-11. Asking for a check OPENS
+ *     it: the server draws the firm's next number, queues the first run and answers at once. The
+ *     search runs after the response, and reading the check says where the run has got to until it
+ *     settles; then it carries that run's record. A check can be run again (a further run under the
+ *     same number) and filed on a matter after it ran. The address takes the check's handle or any
+ *     run's handle.
  *   - THE SERVER NAMES THE ENTITY, since 2026-09-02. A hit carries `party` — the kind and the name
  *     the Directory holds for it TODAY, resolved on the read rather than copied onto the append-only
  *     log, so a reviewer deciding now sees the current name. It is null when the entity does not
  *     resolve at all, which the log's append-only rule makes reachable (a merge can reshape an
  *     entity an old hit names); that is an unresolved party and is never rendered as no party.
- *   - THE CHECKS A FIRM HAS RUN ARE LISTABLE, since 2026-09-02: `listConflictsChecks` pages them
- *     newest first, optionally narrowed to one matter. A line names what set the run going and who
- *     asked where anybody did, and never a conclusion about what it found.
+ *   - THE LOG LISTS CHECKS, NOT RUNS: `listConflictsChecks` pages the numbered checks newest first,
+ *     one line each carrying the latest run's facts and how many runs there have been, optionally
+ *     narrowed to the checks filed on one matter. Never a conclusion about what any of them found.
  *   - THE STATEMENT IS THE SERVER'S OWN WORDS. `statement` arrives as a list of sentences the
  *     platform wrote about its own search. Nothing here rewrites, summarizes, or reorders them: the
  *     whole value of the sentence is that the firm can defend the one its system produced.
@@ -62,21 +68,21 @@ export type SourceAvailability = "searched" | "unavailable";
 /** Ordering only. 1 is the strongest evidence, and no tier is ever filtered out. */
 export type EvidenceTier = 1 | 2 | 3 | 4;
 
-/** The edge classes that carry a hop budget. Corporate family is traversed transitively. */
-export type BudgetedEdgeClass = "control" | "family" | "representation";
+/** Where a run of a check is in its life. */
+export type RunStatus = "queued" | "running" | "completed" | "failed";
+
+/** Where a running search is, in the order the engine actually works. */
+export type RunStage = "sources" | "walking" | "matching" | "candidates";
 
 // ---- what a check is asked for ---------------------------------------------------------------
 
+/**
+ * What a check searches and how names are compared. Nothing about how far or how much: a check
+ * follows relationships to closure, and the bound on a run is the platform's, not a caller's.
+ */
 export interface ScopeRequest {
   sources: SourceClass[];
   strictness: Strictness;
-  /** Omitted means the firm's configured default. An explicit 0 is honoured as given. */
-  depth?: number;
-  edgeClassBudgets?: Partial<Record<BudgetedEdgeClass, number>>;
-  /** The most entities the traversal may reach. Omitted means the firm's setting. */
-  closureCap?: number;
-  /** The most candidates the run may record. Omitted means the firm's setting. */
-  candidateCap?: number;
 }
 
 export interface RunCheckRequest {
@@ -87,9 +93,13 @@ export interface RunCheckRequest {
   scope: ScopeRequest;
 }
 
-/** What the run answers: the identity of the check it wrote. */
-export interface RunCheckResponse {
+/** What opening a check, or a further run of one, answers. The search has not run yet. */
+export interface OpenedCheck {
+  /** The check's handle — its first run's — which is what the check's address is. */
   id: string;
+  checkNumber: string;
+  runId: string;
+  ordinal: number;
 }
 
 // ---- what a check says about itself ----------------------------------------------------------
@@ -150,7 +160,6 @@ export interface DispositionDetail {
   createdAt: string;
 }
 
-/** Who a hit is about, as the Directory names them today. */
 /**
  * One act on a hit's trail. The same fields the check response's `disposition` carries, and a
  * separate type for the same reason the wire keeps them separate: there, null means nobody has
@@ -173,25 +182,32 @@ export interface DispositionTrail {
 }
 
 /**
- * One line of the firm's check history. Narrow on purpose: the whole check — its recorded scope, its
- * statement, its hits — is one identifier away, and a listing that carried all of it would read
- * every check's inputs for a surface that shows none of them.
+ * One line of the firm's log: a numbered check, carrying its latest run's facts and how many runs it
+ * has had. Narrow on purpose: the whole check — its runs, its record, its hits — is one identifier
+ * away, and a listing that carried all of it would read every check's record for a surface that
+ * shows none of it.
  */
 export interface ConflictsCheckSummary {
   id: string;
-  trigger: ConflictsTrigger;
-  /** Null for a check against a prospective party set with no matter. Not every check has one. */
+  checkNumber: string;
+  /** Where the check is filed. Null for the pre-engagement screen, until somebody files it. */
   matterId: string | null;
-  strictness: Strictness;
-  depth: number;
-  /** True when the firm's floor raised the scope above what was asked for — it searched WIDER. */
-  floorRaised: boolean;
-  /** Null on an automated run, which is nobody's act. Never the same as a manual run's actor. */
-  actorUserId: string | null;
-  /** manual, event or schedule. Null on a row written before the column existed. */
-  triggerSource: string | null;
-  hitCount: number;
   createdAt: string;
+  createdByUserId: string | null;
+  runCount: number;
+  latestRunId: string | null;
+  runStatus: RunStatus | null;
+  latestRunAt: string | null;
+  trigger: ConflictsTrigger | null;
+  /** manual, event or schedule. Null on a row that does not say. */
+  triggerSource: string | null;
+  /** Who asked for the latest run. Null on an automated run, which is nobody's act. */
+  actorUserId: string | null;
+  /** The latest run's record, where it has one. Null while the run has no record yet. */
+  strictness: Strictness | null;
+  /** True when the firm's floor raised the scope above what was asked for — it searched WIDER. */
+  floorRaised: boolean | null;
+  hitCount: number | null;
 }
 
 export interface ConflictsCheckPage {
@@ -199,15 +215,14 @@ export interface ConflictsCheckPage {
   nextCursor: string | null;
 }
 
-/** The firm's mandatory minimum for every check. A per-run scope may add to it, never subtract. */
+/**
+ * The firm's mandatory minimum for every check. A per-run scope may add to it, never subtract.
+ * Nothing about depth or bounds: a firm no longer decides how far a check follows relationships or
+ * where it stops.
+ */
 export interface FirmConflictsPolicy {
   floorSources: SourceClass[];
   floorStrictness: Strictness;
-  /** A default rather than a floor: a caller may search shallower, and the check records what ran. */
-  defaultDepth: number;
-  edgeClassBudgets: Record<string, number>;
-  closureCap: number;
-  candidateCap: number;
   /** The name rows the balanced band compares. Never empty. */
   balancedNameRoles: string[];
 }
@@ -260,14 +275,20 @@ export interface MatchingRecord {
   nameRoles: string[] | null;
 }
 
-/** How far the walk was allowed to go, and whether it got there. */
+/** How the walk went, and whether it got to the end. */
 export interface TraversalRecord {
+  /** True on a run that followed every relationship to closure; false on an older record. */
+  followedToClosure: boolean;
+  /** The longest chain of relationships the walk followed. Null where the record does not say. */
+  longestPathLength: number | null;
+  /** The hop budget per edge class an OLDER run resolved. Empty on a walk to closure. */
   edgeClassBudgets: Record<string, number>;
+  /** The most entities the walk could reach: the platform's ceiling, or an older run's firm cap. */
   closureCap: number | null;
-  /** True when the closure cap stopped the walk. A truncated walk is never a completed one. */
+  /** True when the bound stopped the walk. A truncated walk is never a completed one. */
   truncated: boolean;
   entitiesReached: number | null;
-  /** Entities the cap refused to admit. These were never matched. */
+  /** Entities the bound refused to admit. These were never matched. */
   unexploredFrontierSize: number | null;
   /** Entities that are in the closure and were matched, but whose own edges were never read. */
   unexpandedReachedCount: number | null;
@@ -278,8 +299,9 @@ export interface RefusedTierCount {
   count: number;
 }
 
-/** How many candidates the run wrote, and how many the cap refused. */
+/** How many candidates the run wrote, and how many the platform's bound refused. */
 export interface CandidateRecord {
+  /** The most one record can carry: the platform's bound, never a firm's setting. */
   candidateCap: number | null;
   truncated: boolean;
   candidatesSurfaced: number | null;
@@ -288,14 +310,17 @@ export interface CandidateRecord {
   refusedByTier: RefusedTierCount[];
 }
 
+/** One run's search record: what ran, over what, under which settings. */
 export interface CheckDetail {
   id: string;
   trigger: string;
+  /** The matter the search actually ran against — the record's own fact, which never moves. */
   matterId: string | null;
   subjectEntityIds: string[];
   /** Every registered source with the availability the check recorded, keyed by source. */
   scope: Record<string, SourceAvailability>;
   strictness: string;
+  /** How deep the walk ran on a walk to closure, or the widest hop budget on an older record. */
   depth: number;
   /** True when the requested scope fell below the firm's floor and was raised to it. */
   floorRaised: boolean;
@@ -307,12 +332,87 @@ export interface CheckDetail {
   createdAt: string;
 }
 
+/** A completed run's record: the search's own account, its recorded scope, and every hit. */
 export interface CheckWithHits {
   check: CheckDetail;
   /** The platform's account of its own search, one sentence per line, in reading order. */
   statement: string[];
   hits: HitDetail[];
 }
+
+/** What a running search has counted so far. A stage reports what it has and no others. */
+export interface RunProgress {
+  sourcesSearched?: number;
+  subjectParties?: number;
+  entitiesReached?: number;
+  entitiesMatched?: number;
+  candidatesSurfaced?: number;
+  candidatesRecorded?: number;
+}
+
+/** One run of a check: its place in the history, where it is, and what it came to. */
+export interface RunSummary {
+  id: string;
+  ordinal: number;
+  status: RunStatus;
+  /** Null before the run starts and once it settles: a settled run's account is its record. */
+  stage: RunStage | null;
+  progress: RunProgress;
+  trigger: string;
+  triggerSource: string | null;
+  /** Null on an automated run, which is nobody's act. */
+  requestedByUserId: string | null;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  /** Why a failed run failed, in a sentence a person can act on. Null unless it failed. */
+  failure: string | null;
+  /** How many candidates this run's record holds. Null while it has no record. */
+  hitCount: number | null;
+}
+
+/** The numbered check itself: what a person refers to. */
+export interface NumberedCheck {
+  id: string;
+  checkNumber: string;
+  /** Where the check is filed. Null until somebody files it. */
+  matterId: string | null;
+  createdByUserId: string | null;
+  createdAt: string;
+  latestRunId: string | null;
+}
+
+/** A check, its runs, and the selected run's record where it has one. */
+export interface CheckRead {
+  check: NumberedCheck;
+  /** Every run, oldest first: the check's history. */
+  runs: RunSummary[];
+  /** The run this read is at — the one asked for, else the latest. */
+  run: RunSummary;
+  /** That run's record, or null while it has none (queued, running, or failed). */
+  record: CheckWithHits | null;
+  /**
+   * The selected run's candidates, or none while it has no record. The same rows `record.hits`
+   * carries, reachable without narrowing the record first — a caller that only wants to count what
+   * surfaced should not have to know that a run in flight has no record yet.
+   */
+  hits: HitDetail[];
+}
+
+/** Whether a run is still doing something, i.e. whether a screen should keep asking. */
+export function runInFlight(run: RunSummary): boolean {
+  return run.status === "queued" || run.status === "running";
+}
+
+/** How often a screen asks after a run in flight. A search takes seconds; a second is the cadence. */
+export const RUN_POLL_INTERVAL_MILLISECONDS = 1000;
+
+/**
+ * The longest a caller waits on one run before giving up on it. Past two minutes without a heartbeat
+ * the server settles a run as failed on the next read, so a wait this long always ends in a settled
+ * run or a read that could not be made.
+ */
+const RUN_WAIT_CEILING_MILLISECONDS = 3 * 60 * 1000;
 
 // ---- where a matter stands -------------------------------------------------------------------
 
@@ -351,6 +451,8 @@ export function scopeOfCheck(check: CheckDetail): ScopeInForceRecord {
 
 export interface PostureLatestCheck {
   id: string;
+  /** The number of the check this record is a run of. */
+  checkNumber: string | null;
   createdAt: string;
   trigger: string;
   actorUserId: string | null;
@@ -365,7 +467,6 @@ export interface PostureLatestCheck {
 export interface PostureScopeShortfall {
   sources: SourceClass[];
   strictness: { firmFloor: Strictness; ranUnder: string } | null;
-  depth: { firmDefault: number; ranAt: number } | null;
 }
 
 export interface PostureUndisposedTier {
@@ -456,14 +557,14 @@ export interface RecordDispositionResponse {
 // ---- the calls -------------------------------------------------------------------------------
 
 /**
- * Run a check. The idempotency key is required by the contract, so a retried submit cannot write a
- * second check into the firm's append-only conflicts log.
+ * Open a check. The idempotency key is required by the contract, so a retried submit cannot open a
+ * second check under a second number. The search runs after the response; read the check to follow it.
  */
-export function runConflictsCheck(
+export function openConflictsCheck(
   fetchImpl: typeof fetch,
   request: RunCheckRequest,
   idempotencyKey: string,
-): Promise<ApiOutcome<RunCheckResponse>> {
+): Promise<ApiOutcome<OpenedCheck>> {
   return requestJson(fetchImpl, "/api/v1/conflicts/checks", {
     method: "POST",
     body: request,
@@ -471,12 +572,92 @@ export function runConflictsCheck(
   });
 }
 
-/** One completed check, the statement of what it searched, and every hit it surfaced. */
-export function readConflictsCheck(
+/** The number the next check would draw. A preview, never a reservation. */
+export function readNextConflictsCheckNumber(
+  fetchImpl: typeof fetch,
+): Promise<ApiOutcome<{ checkNumber: string }>> {
+  return requestJson(fetchImpl, "/api/v1/conflicts/checks/next-number");
+}
+
+/** Run a check again: a further run under the same number, with the check's search as it stands. */
+export function rerunConflictsCheck(
   fetchImpl: typeof fetch,
   checkId: string,
-): Promise<ApiOutcome<CheckWithHits>> {
-  return requestJson(fetchImpl, `/api/v1/conflicts/checks/${encodeURIComponent(checkId)}`);
+  idempotencyKey: string,
+): Promise<ApiOutcome<OpenedCheck>> {
+  return requestJson(fetchImpl, `/api/v1/conflicts/checks/${encodeURIComponent(checkId)}/runs`, {
+    method: "POST",
+    body: {},
+    idempotencyKey,
+  });
+}
+
+/** File a check on a matter. No search record moves; the next run searches with the matter's parties. */
+export function fileConflictsCheckOnMatter(
+  fetchImpl: typeof fetch,
+  checkId: string,
+  matterId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ id: string; matterId: string }>> {
+  return requestJson(fetchImpl, `/api/v1/conflicts/checks/${encodeURIComponent(checkId)}/matter`, {
+    method: "PUT",
+    body: { matterId },
+    idempotencyKey,
+  });
+}
+
+/**
+ * One check with its runs, and the selected run's record where it has one. `runId` picks a run out
+ * of the history; omitted, the read is at the latest.
+ */
+export async function readConflictsCheck(
+  fetchImpl: typeof fetch,
+  checkId: string,
+  runId?: string,
+): Promise<ApiOutcome<CheckRead>> {
+  const query = runId === undefined ? "" : `?run=${encodeURIComponent(runId)}`;
+  const outcome = await requestJson<Omit<CheckRead, "hits">>(
+    fetchImpl,
+    `/api/v1/conflicts/checks/${encodeURIComponent(checkId)}${query}`,
+  );
+  if (outcome.kind !== "ok") return outcome;
+  return { kind: "ok", value: { ...outcome.value, hits: outcome.value.record?.hits ?? [] } };
+}
+
+/**
+ * Wait for a run to settle, reading the check the way its screen does until the run is no longer
+ * in flight. Answers the settled read, or the first read that could not be made. Bounded: a run
+ * that never settles ends as a failed run on the server's own stale rule, not as a wait forever.
+ */
+export async function awaitConflictsRun(
+  fetchImpl: typeof fetch,
+  checkId: string,
+  runId: string,
+): Promise<ApiOutcome<CheckRead>> {
+  const startedAt = Date.now();
+  for (;;) {
+    const outcome = await readConflictsCheck(fetchImpl, checkId, runId);
+    if (outcome.kind !== "ok" || !runInFlight(outcome.value.run)) return outcome;
+    if (Date.now() - startedAt > RUN_WAIT_CEILING_MILLISECONDS) return outcome;
+    await new Promise((resolve) => setTimeout(resolve, RUN_POLL_INTERVAL_MILLISECONDS));
+  }
+}
+
+/**
+ * Open a check and wait for its first run to settle, for a caller that wants the finished check in
+ * one call — the new-matter panel, which runs a check as part of opening the file and then counts
+ * what surfaced. The check's own screen does not use this: it shows the run as it goes.
+ */
+export async function runConflictsCheck(
+  fetchImpl: typeof fetch,
+  request: RunCheckRequest,
+  idempotencyKey: string,
+): Promise<ApiOutcome<OpenedCheck>> {
+  const opened = await openConflictsCheck(fetchImpl, request, idempotencyKey);
+  if (opened.kind !== "ok") return opened;
+  const settled = await awaitConflictsRun(fetchImpl, opened.value.id, opened.value.runId);
+  if (settled.kind !== "ok") return settled;
+  return opened;
 }
 
 /**
@@ -512,10 +693,9 @@ export function readFirmConflictsPolicy(
  * every later check is held to.
  *
  * WHAT COMES BACK IS WHAT WAS STORED, not what was sent. The platform normalizes on the way in — the
- * party class is unioned back into the floor, `current` back into the name roles, the candidate cap
- * clamped to what one atomic batch can carry — so a caller that displays the RESPONSE is showing the
- * floor its checks will actually run, and one that re-displays its own request is not. Always render
- * the response.
+ * party class is unioned back into the floor, `current` back into the name roles — so a caller that
+ * displays the RESPONSE is showing the floor its checks will actually run, and one that re-displays
+ * its own request is not. Always render the response.
  */
 export function writeFirmConflictsPolicy(
   fetchImpl: typeof fetch,
@@ -533,13 +713,14 @@ export function writeFirmConflictsPolicy(
  * Run a fresh check against one matter's live parties, now, because a member asked.
  *
  * It sends NO scope, and there is none to send: the firm's floor is what runs. A screen composing a
- * scope here would be a screen deciding how thoroughly the firm searches.
+ * scope here would be a screen deciding how thoroughly the firm searches. It opens a further run
+ * under the matter's own check, or a new one where the matter has none.
  */
 export function recheckMatterConflicts(
   fetchImpl: typeof fetch,
   matterId: string,
   writeKey: string,
-): Promise<ApiOutcome<{ checkId: string }>> {
+): Promise<ApiOutcome<OpenedCheck>> {
   return requestJson(
     fetchImpl,
     `/api/v1/matters/${encodeURIComponent(matterId)}/conflicts-rechecks`,
@@ -548,11 +729,10 @@ export function recheckMatterConflicts(
 }
 
 /**
- * The checks this firm has run, newest first, one page at a time.
+ * The checks this firm refers to, newest first, one page at a time.
  *
- * `matterId` narrows to one matter's own history, which is also the shape the table's index serves
- * directly; the firm-wide read has its own index, added when the load-profile plan probe measured
- * it as a full table scan of a log that only grows.
+ * `matterId` narrows to the checks filed on one matter, which is also the shape the table's index
+ * serves directly.
  */
 export function listConflictsChecks(
   fetchImpl: typeof fetch,
@@ -592,14 +772,6 @@ export function recordConflictsDisposition(
     { method: "POST", body: request, idempotencyKey },
   );
 }
-
-// ---- the Directory reads this surface needs --------------------------------------------------
-//
-// There are none here, deliberately. Picking a subject party, naming the entity a hit landed on and
-// telling a person from an organization are all the Directory surface's own reads, and they live in
-// $lib/directory/directory-api.ts with the presentation beside them in entity-presentation.ts. A
-// second copy of the Directory's transport in this file would be a second answer to what an entity
-// is called, and the two would drift the first time either was corrected.
 
 // ---- the permissions these routes name --------------------------------------------------------
 

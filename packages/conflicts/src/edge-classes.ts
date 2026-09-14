@@ -1,40 +1,24 @@
 import { EDGE_TYPES } from "@magna-carta/directory/types";
 
-// WHY A CLASS AND NOT A NUMBER. One integer cannot express "follow a corporate rename chain forever
-// but do not walk from a spouse to her employer's other directors". The two are different questions
-// about what a relationship MEANS, and a single hop budget answers them with the same number because
-// it cannot tell them apart. So traversal is budgeted per edge class, and the classes are named here
-// once so the expansion, the settings, and the recorded scope can never disagree about which class an
-// edge type belongs to.
-
-// Corporate family is deliberately absent from the budgeted classes: it is traversed transitively at
-// zero cost and bounded only by the per-run closure cap. A rename, merger, or successor chain of any
-// length is the same legal person continuing, so bounding it by hops would miss exactly what the
-// search exists to find.
-export const BUDGETED_EDGE_CLASSES = ["control", "family", "representation"] as const;
-export type BudgetedEdgeClass = (typeof BUDGETED_EDGE_CLASSES)[number];
-
-export const EDGE_CLASSES = ["corporate", ...BUDGETED_EDGE_CLASSES] as const;
+// WHAT A RELATIONSHIP MEANS, so a path can say it. The classes used to decide how far a walk could
+// follow each kind of edge; the owner removed those budgets on 2026-09-11
+// (docs/conventions/conflicts-rulings.md, E1) and the walk now follows every class to closure. What survives is the vocabulary: a reviewer reading a path still needs to know that one
+// hop was a corporate parent and the next a spouse, and the report groups what it walked by class.
+export const EDGE_CLASSES = ["corporate", "control", "family", "representation"] as const;
 export type EdgeClass = (typeof EDGE_CLASSES)[number];
 
 // The Directory's edge-type catalogue, partitioned. Every well-known type appears exactly once, and
-// the fitness test below the map proves it stays that way as the catalogue grows.
+// the fitness test over the map proves it stays that way as the catalogue grows.
 //
 //   corporate      — the same legal person continuing under another name or another shell.
 //   control        — who directs whom. An adverse organization and its principals are the case the
-//                    Rule 1.7 comments describe; the principals' OTHER directorships are a further
-//                    hop and unbounded in practice, which is what the budget is for.
+//                    Rule 1.7 comments describe.
 //   family         — the opposing party's spouse the firm represented elsewhere.
 //   representation — a role-link recorded as an edge rather than as a matter_party row.
 //
-// The membership family is classed `control` whole for now — the officers who can bind the
-// organization AND the employees, members and shareholders who cannot — because the class a
-// constituent belongs in is a budget question for the conflicts pass that has not happened yet:
-// a fifth, tighter `constituent` class needs its own default in settings, its own row in the
-// recorded scope, and the check runner's budget field, and none of those exists. Until it does,
-// over-inclusion is the safe direction: every constituent is walked at the control budget, so no
-// conflict the engine looked for before goes unlooked for. A point of contact is a constituent
-// too, and lands in the same class for the same reason.
+// The membership family is classed `control` whole — the officers who can bind the organization AND
+// the employees, members and shareholders who cannot. A point of contact is a constituent too, and
+// lands in the same class for the same reason.
 export const EDGE_TYPES_BY_CLASS: Readonly<Record<EdgeClass, readonly string[]>> = Object.freeze({
   corporate: ["corporate_parent", "corporate_subsidiary", "corporate_successor"],
   control: [
@@ -60,18 +44,16 @@ const CLASS_BY_EDGE_TYPE = new Map<string, EdgeClass>(
   ),
 );
 
-// Corporate-family edge types, kept as a named export because the traversal reads them as "the
-// zero-cost class" rather than as three strings.
+// Corporate-family edge types, kept as a named export because a reader of a path treats "the same
+// legal person continuing" differently from a relationship between two people.
 export const CORPORATE_EDGE_TYPES: readonly string[] = EDGE_TYPES_BY_CLASS.corporate;
 
 // The class an edge type falls in, or null when this build has never heard of it.
 //
 // `directory_edge.edge_type` carries only a `length > 0` CHECK, so a value outside the catalogue is
 // storable and a future catalogue entry will reach this function before anyone updates the map above.
-// Returning null rather than guessing is deliberate: the caller decides what an unclassified type
-// costs, and `budgetForEdgeType` gives it the WIDEST budgeted allowance rather than the narrowest,
-// because a new relationship type that silently became unwalkable is a conflict the engine stopped
-// looking for without anybody choosing that.
+// Returning null rather than guessing is deliberate: the walk follows the edge either way, and the
+// caller decides what to call it.
 export function edgeClassOf(edgeType: string): EdgeClass | null {
   return CLASS_BY_EDGE_TYPE.get(edgeType) ?? null;
 }

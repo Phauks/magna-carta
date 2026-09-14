@@ -8,6 +8,10 @@
    * It is the Tools screen's framework because a catalogue of things a member can open is the same
    * screen whatever the things are — which is the whole reason the framework was lifted out of the
    * two of them.
+   *
+   * It is the landing of a two-sided screen: the Reports layout draws the reports column beside
+   * it, and this index fills the content column so the column is never beside nothing. The column
+   * carries names; this screen carries the question each report answers, the search and the views.
    */
   import CatalogueScreen from "$lib/catalogue/catalogue-screen.svelte";
   import { createCatalogueViewPreference } from "$lib/catalogue/catalogue-view-preference.svelte.ts";

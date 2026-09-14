@@ -38,25 +38,27 @@
   <title>Magnus · Magna Carta</title>
 </svelte:head>
 
-<div class="flex h-full min-h-0 flex-col gap-16">
-  <ScreenHeader title="Magnus">
-    {#snippet actions()}
-      <CreateControl
-        title="Start a conversation with Magnus, on no matter."
-        refusal={createRefusal}
-        onpress={() => surface?.startNew()}
-      />
-    {/snippet}
-  </ScreenHeader>
-
-  <MagnusSurface
-    bind:this={surface}
-    bind:createRefusal
-    subject="magnus"
-    matterId={null}
-    rail="column"
-    showMatter
-    emptyTitle="Nothing Asked Yet"
-    emptyDescription="You have not asked Magnus anything. Type a question below to start a conversation."
-  />
-</div>
+<!-- The surface is the design system's two-sided screen and takes the whole canvas; the header
+     rides inside its content column, beside the conversation it names. -->
+<MagnusSurface
+  bind:this={surface}
+  bind:createRefusal
+  subject="magnus"
+  matterId={null}
+  rail="column"
+  showMatter
+  emptyTitle="Nothing Asked Yet"
+  emptyDescription="You have not asked Magnus anything. Type a question below to start a conversation."
+>
+  {#snippet header()}
+    <ScreenHeader title="Magnus">
+      {#snippet actions()}
+        <CreateControl
+          title="Start a conversation with Magnus, on no matter."
+          refusal={createRefusal}
+          onpress={() => surface?.startNew()}
+        />
+      {/snippet}
+    </ScreenHeader>
+  {/snippet}
+</MagnusSurface>

@@ -31,6 +31,11 @@
    *
    * WHAT IT WRITES IS APPEND-ONLY, so the commit carries an idempotency key: a retried submit must
    * not leave the firm's record showing two searches where a member asked for one.
+   *
+   * PRESSING RUN OPENS THE CHECK; IT DOES NOT WAIT FOR THE SEARCH. The server draws the check's
+   * number, queues the first run and answers at once, and the panel hands the surface the check's
+   * handle so the reader lands on the check's own screen and watches the run there. The number the
+   * check will draw is previewed on the panel, so a member can quote it before pressing anything.
    */
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
@@ -41,8 +46,9 @@
   import { CheckDraft } from "./check-draft.svelte.ts";
   import { checkPlan, composeCheck, type CheckSurface } from "./check-request.ts";
   import {
+    openConflictsCheck,
     readFirmConflictsPolicy,
-    runConflictsCheck,
+    readNextConflictsCheckNumber,
     type FirmConflictsPolicy,
   } from "./conflicts-api.ts";
 
@@ -69,7 +75,7 @@
     chooseMatter?: boolean;
     /** The signed-in member's permissions; null until the session lands. */
     permissions?: readonly string[] | null;
-    /** The check was written. Where that leads belongs to the surface. */
+    /** The check was opened and its first run queued. Where that leads belongs to the surface. */
     onRan: (checkId: string) => void;
   } = $props();
 
@@ -83,6 +89,8 @@
   let policy = $state<FirmConflictsPolicy | null>(null);
   let policyAsked = false;
   let failure = $state<StatedFailure | null>(null);
+  /** The number the next check would draw. A preview, never a reservation: two panels may show it. */
+  let nextNumber = $state<string | null>(null);
 
   /*
    * The firm's own policy, read so a blank bound can show the number it will actually take, and so
@@ -100,6 +108,16 @@
     })();
   });
 
+  // The number is read on EVERY opening: a check opened from another panel in between draws it.
+  $effect(() => {
+    if (!open) return;
+    nextNumber = null;
+    void (async () => {
+      const outcome = await readNextConflictsCheckNumber(fetch);
+      if (outcome.kind === "ok") nextNumber = outcome.value.checkNumber;
+    })();
+  });
+
   /** The matter the check is filed under: the surface's, or the one chosen in the left pane. */
   const surface: CheckSurface = $derived({
     matterId: matterId ?? draft.chosenMatter?.id ?? null,
@@ -111,7 +129,7 @@
   });
 
   const composed = $derived(composeCheck(draft, surface));
-  const plan = $derived(checkPlan(draft, surface, policy));
+  const plan = $derived(checkPlan(draft, surface));
 
   function reset(): void {
     draft = new CheckDraft();
@@ -122,8 +140,8 @@
     const asked = composed.request;
     if (asked === null) return "refused";
     failure = null;
-    // A retried submit must not write a second check into the firm's append-only log.
-    const outcome = await runConflictsCheck(fetch, asked, crypto.randomUUID());
+    // A retried submit must not open a second check under a second number.
+    const outcome = await openConflictsCheck(fetch, asked, crypto.randomUUID());
     if (outcome.kind === "ok") {
       onRan(outcome.value.id);
       return "committed";
@@ -142,8 +160,9 @@
 <ActionDialog
   bind:open
   heading="New Check"
+  subtitle={nextNumber === null ? undefined : `Will be ${nextNumber}`}
   commitLabel="Run Check"
-  commitBusyLabel="Running"
+  commitBusyLabel="Opening"
   commitRefusal={composed.refusal ?? undefined}
   unsavedChanges={composed.started}
   onOpen={reset}

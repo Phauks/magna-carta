@@ -68,6 +68,9 @@ export const DIAGNOSTIC_ACTIONS: readonly DiagnosticAction[] = [
       "upload readiness",
       "what is running",
     ],
+    // Always: the panel is on every screen, signed in or out. The Versions settings page renders the
+    // same report at page size and is already searchable through the settings-section registry, so
+    // this entry is the panel specifically — the answer without leaving the screen you are on.
     available: () => true,
     run: () => {
       buildPanel.open();

@@ -16,6 +16,10 @@
  * (packages/design-system/test/fitness/boundaries.test.ts). What matters most is negative — that a
  * signed-out panel issues no authenticated request at all — and a source assertion states it for
  * every path into the call rather than only the one a render happened to exercise.
+ *
+ * The source read is version-report.svelte: the body the chip's popover and the Versions settings
+ * page both render. The chip itself keeps only the trigger, and the one assertion about the
+ * trigger reads the chip.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -120,7 +124,7 @@ describe("the API-versus-web sync badge", () => {
     // A fixed "Different Builds" sentence read every difference as one alarm, which is wrong: the
     // two Workers deploy separately, so differing is a normal state most of the time. The colour
     // (syncStateBadgeVariant) carries that judgement now, not a standing sentence.
-    const chip = stripComments(source("lib/versions/version-chip.svelte"));
+    const chip = stripComments(source("lib/versions/version-report.svelte"));
     const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
     expect(chip).not.toContain("Different Builds");
     expect(chip).not.toContain("buildsDiffer");
@@ -371,7 +375,7 @@ describe("what each scope is allowed to read", () => {
 });
 
 describe("the chip in its public scope", () => {
-  const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const chip = stripComments(source("lib/versions/version-report.svelte"));
   const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
 
   it("reads each authenticated aggregate from exactly one place, and refuses the public scope", () => {
@@ -395,9 +399,10 @@ describe("the chip in its public scope", () => {
   });
 
   it("never opens the read on a public panel, however the panel was opened", () => {
-    // The open flag moved out of the component (build-panel.svelte.ts) so the command palette can
-    // reach the panel; the guard reads the same thing it always did, through its new home.
-    expect(chip).toContain("if (!buildPanel.isOpen || !readsAggregate) return;");
+    // The report reads only while its host says it is on screen. The chip's popover state moved out
+    // of the chip (build-panel.svelte.ts) so the command palette can open it, and arrives here as
+    // the `open` prop; the guard reads the same thing it always did.
+    expect(chip).toContain("if (!open || !readsAggregate) return;");
   });
 
   it("shows this build's own identity from the baked-in stamp, never from the network", () => {
@@ -439,7 +444,7 @@ describe("the chip in its public scope", () => {
 });
 
 describe("the chip's row identities and refresh", () => {
-  const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const chip = stripComments(source("lib/versions/version-report.svelte"));
   const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
 
   it("heads every row with one name and nothing else, monospaced only when it is a Worker's", () => {
@@ -581,7 +586,7 @@ describe("the chip's row identities and refresh", () => {
 });
 
 describe("the retired duplicate of magna-carta-web", () => {
-  const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const chip = stripComments(source("lib/versions/version-report.svelte"));
   const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
 
   it("drops the build line once the Worker that serves this page reports", () => {
@@ -641,9 +646,9 @@ describe("the retired duplicate of magna-carta-web", () => {
 });
 
 describe("the panel header", () => {
-  const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const chip = stripComments(source("lib/versions/version-report.svelte"));
   const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
-  const header = /<div class="flex flex-col gap-4">([\s\S]*?)\n    <\/div>/.exec(chip)?.[1] ?? "";
+  const header = /<div class="flex flex-col gap-4">([\s\S]*?)\n  <\/div>/.exec(chip)?.[1] ?? "";
 
   it("puts the services line under the header instead of beside the controls", () => {
     // Owner ruling 2026-08-31. The age line grows and shrinks as the clock ticks, and on the
@@ -695,7 +700,7 @@ describe("the panel header", () => {
 });
 
 describe("the fleet fold", () => {
-  const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const chip = stripComments(source("lib/versions/version-report.svelte"));
   const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
   const panelSection = stripComments(source("lib/versions/version-panel-section.svelte"));
   const preferences = source("lib/versions/version-panel-preferences.svelte.ts");
@@ -782,7 +787,7 @@ describe("the fleet fold", () => {
     // Arriving folded would hide an unreachable Worker from someone who opened the panel to find
     // one, so the fold is a choice this remembers, never the state it starts in.
     expect(preferences).toContain('"expanded"');
-    expect(preferences).toMatch(/\["expanded", "collapsed"\], "expanded"/);
+    expect(preferences).toMatch(/\["expanded", "collapsed"\],\s*"expanded",/);
     // On the shared primitive: storage hazards swallowed there, and two open tabs kept in step.
     expect(preferences).toContain("createPersistedPreference");
     expect(preferences).toContain("stringUnionPreference");
@@ -791,7 +796,7 @@ describe("the fleet fold", () => {
 });
 
 describe("the upstream-update notice", () => {
-  const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const chip = stripComments(source("lib/versions/version-report.svelte"));
   const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
   const svelteConfig = repositoryFile("apps/web/svelte.config.js");
 
@@ -827,7 +832,9 @@ describe("the upstream-update notice", () => {
   });
 
   it("signals on the always-visible chip, not only inside the panel", () => {
-    const trigger = /<Popover\.Trigger[\s\S]*?<\/Popover\.Trigger>/.exec(chip)?.[0] ?? "";
+    // The trigger is the chip's own; the report it opens is the file every other assertion reads.
+    const chipTrigger = stripComments(source("lib/versions/version-chip.svelte"));
+    const trigger = /<Popover\.Trigger[\s\S]*?<\/Popover\.Trigger>/.exec(chipTrigger)?.[0] ?? "";
     expect(trigger).toContain("{#if updateAvailable}");
   });
 });
