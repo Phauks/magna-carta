@@ -39,7 +39,7 @@ Email is not here. Mail lives in your own mailbox and is filed onto a matter fro
 
 ## Recording a call or a text
 
-1. Open **Messaging** in the sidebar and press **New Call**, at the top of the screen beside the
+1. Open **Messaging** in the sidebar and press **New Message**, at the top of the screen beside the
    search. Inside a matter, the same button is at the top of the matter screen and fills the matter
    in for you. The window is called **Record Communication**, whichever kind you are writing down —
    and it is the same window a row opens into, so there is only one place to learn.

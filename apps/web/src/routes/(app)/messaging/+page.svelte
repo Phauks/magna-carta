@@ -280,8 +280,10 @@
           appliedSearch = next;
         }}
       />
+      <!-- "Message", not "Call": the screen is the messaging log, and a call is one kind of message
+           it holds, not the thing the control creates (owner ruling, 2026-09-14). -->
       <CreateControl
-        noun="Call"
+        noun="Message"
         title="Record a call or a text that happened."
         refusal={createRefusal}
         onpress={openNew}
@@ -331,11 +333,11 @@
     {#snippet emptyBody()}
       A record of a call or a text is what the firm said, to whom, and when — the part of a case's
       history that otherwise lives only in somebody's memory of the phone call. Recording the first
-      one, with New Call at the top of the screen, starts the log.
+      one, with New Message at the top of the screen, starts the log.
     {/snippet}
     {#snippet emptyActions()}
       {#if createRefusal === undefined}
-        <Button onclick={openNew}>Record A Call</Button>
+        <Button onclick={openNew}>Record A Message</Button>
       {/if}
     {/snippet}
   </CommunicationLog>

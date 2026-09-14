@@ -718,4 +718,7 @@ a workspace branch holding no commits of its own. Neither note has been retired.
   are what is filed), and the queue's count stands in the counts strip as a `GridFigures` figure.
   One imperfection recorded: `GridFigures` prefixes "In view:" under any filter, which is right when
   the filter IS the queue and loose otherwise; a figure that does not narrow needs a way to say so
-  in the component.
+  in the component. The owner's follow-up of 2026-09-14 relabelled the screen's create control from
+  "New Call" to "New Message": the screen is the messaging log, and a call is one kind of message it
+  holds, not the thing the control creates. The matter section's own control still says "Call"
+  (`$lib/matters/sections.ts`, `createNoun`), outside this round's files.
