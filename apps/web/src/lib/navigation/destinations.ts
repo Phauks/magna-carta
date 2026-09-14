@@ -46,6 +46,7 @@ import Settings from "@lucide/svelte/icons/settings";
 import Vault from "@lucide/svelte/icons/vault";
 import ShieldAlert from "@lucide/svelte/icons/shield-alert";
 import Wrench from "@lucide/svelte/icons/wrench";
+import Microscope from "@lucide/svelte/icons/microscope";
 import MessageSquare from "@lucide/svelte/icons/message-square";
 import ChartColumn from "@lucide/svelte/icons/chart-column";
 import Sparkles from "@lucide/svelte/icons/sparkles";
@@ -469,11 +470,40 @@ const DESTINATION_LIST = [
   },
   // Firm
   {
+    /*
+     * Where a file that belongs to no matter is brought, and every file capability is run from.
+     * It leads the Firm group ahead of Tools because it is not one of them: the ten file utilities
+     * in the tool catalog are its own capability tabs, so the catalog was listing eleven doors into
+     * one room with the room itself filed between them. A surface whose entry gesture is DROPPING A
+     * FILE has to be reachable in one reach from wherever the reader already is, which a row inside
+     * a twenty-row catalogue is not.
+     *
+     * Firm rather than Workspace, and the test is scope, not importance: Workspace holds the
+     * matter-scoped daily surfaces, and this one is matter-free by construction — nothing brought
+     * here is filed, versioned, or remembered.
+     *
+     * It keeps its tool-catalog manifest row so the file context tag still has a tool to offer and
+     * the Tools listing still shows the host its file utilities are run from; the manifest names
+     * this address as its route, so nothing derives /tools/file-workbench any more.
+     */
+    id: "file-workbench",
+    label: "File Workbench",
+    href: "/file-workbench",
+    icon: Microscope,
+    description: "Read, verify, repair, and convert a file that belongs to no matter.",
+    group: "firm",
+    shipped: true,
+    // The surface, its file list and the Overview are built; the ten capability tabs each render
+    // the standard pending treatment with the dependency they are waiting on named beneath.
+    stage: "alpha",
+    defaultStarred: true,
+  },
+  {
     id: "tools",
     label: "Tools",
     href: "/tools",
     icon: Wrench,
-    description: "Standalone utilities — inspect, verify, repair, and convert files.",
+    description: "Standalone utilities for property, entities, licenses, domains, and diagnostics.",
     group: "firm",
     shipped: true,
     stage: "alpha",

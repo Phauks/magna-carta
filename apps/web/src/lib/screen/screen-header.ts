@@ -15,7 +15,6 @@
 import type { Component } from "svelte";
 import Terminal from "@lucide/svelte/icons/terminal";
 import FolderOpen from "@lucide/svelte/icons/folder-open";
-import LockOpen from "@lucide/svelte/icons/lock-open";
 import { destinationById, type DestinationId } from "$lib/navigation/destinations.ts";
 
 /** A screen the way back leads to, spelled out — for destinations outside the sidebar registry. */
@@ -68,15 +67,3 @@ export function matterFilesBack(
     icon: FolderOpen,
   };
 }
-
-/**
- * A password-recovery job's own screen — where Unlock's Recover control hands off to. Leads back to
- * the plain File Workbench address rather than one naming the Unlock tab: the back-navigation gate
- * matches a screen's `back` against its parent route's own path, and the workbench's tab is a
- * client-side reading of `?capability=` rather than a route of its own.
- */
-export const FILE_WORKBENCH_BACK: BackDestination = {
-  href: "/tools/file-workbench",
-  label: "File Workbench",
-  icon: LockOpen,
-};

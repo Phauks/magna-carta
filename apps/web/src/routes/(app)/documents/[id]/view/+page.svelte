@@ -532,7 +532,7 @@
           <p class="text-sm text-text-muted">
             Don't have the password? <a
               class="underline"
-              href="/tools/file-workbench?capability=unlock"
+              href="/file-workbench?capability=unlock"
               {...opensBeside("session")}>Try Password Recovery</a
             > in a new tab — download the document there first, since the recovery tool works on its
             own copy of a file.

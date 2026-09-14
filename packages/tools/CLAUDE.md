@@ -4,8 +4,14 @@ Pure presentation/IA layer for the Tools area — the single catalog feeding bot
 and contextual entry points. No D1, no Hono, no `env`, no Svelte, no network. Depends only on
 `@magna-carta/access-control` (the `Permission` type + validation).
 
-- A `ToolManifest` is `{ id, name, icon, subjectGroup, permission, contextTags, backing, matterContext }`.
-  Adding a tool is one row in `src/catalog.ts` (and, for the UI, one id->component mapping in the shell).
+- A `ToolManifest` is `{ id, name, icon, subjectGroup, permission, contextTags, backing, matterContext }`,
+  plus an optional `route`. Adding a tool is one row in `src/catalog.ts` (and, for the UI, one
+  id->component mapping in the shell).
+- **`route` is for a tool that has outgrown this area.** A tool is normally addressed at `/tools/<id>`;
+  one that has earned a sidebar destination of its own says where it lives instead, and keeps its
+  manifest row so the contextual surfacing path still has a tool to offer for its context tag.
+  `toolRoute(tool)` is the single derivation — no consumer builds `/tools/<id>` by hand. `file-workbench`
+  is the only such row today (`/file-workbench`).
 - `backing: "library"` = self-contained (a link generator OR an interactive widget) — no connection.
   `backing: { kind: "integration", category }` stores only the category string; the shell reflects that
   integration's connection state. This layer never touches the integration framework or credentials.

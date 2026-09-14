@@ -14,6 +14,7 @@
  * carries.
  */
 import { hasSurface } from "@magna-carta/design-system/maturity";
+import { toolRoute } from "@magna-carta/tools/catalog";
 import type { CatalogueEntry, CatalogueSection } from "../catalogue/catalogue.ts";
 import {
   SUBJECT_GROUP_LABELS,
@@ -42,7 +43,7 @@ export function toolCatalogueSections(): readonly CatalogueSection[] {
         description: presentation.description,
         stage: presentation.stage,
         icon: toolIcon(tool),
-        href: hasSurface(presentation.stage) ? `/tools/${tool.id}` : null,
+        href: hasSurface(presentation.stage) ? toolRoute(tool) : null,
         keywords: toolSearchKeywords(tool),
       };
     }),

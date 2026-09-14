@@ -108,6 +108,11 @@ export const CATALOG: readonly ToolManifest[] = [
     // definition — nothing here is attached to a matter, so there is no matter context to carry.
     backing: { kind: "library" },
     matterContext: "none",
+    // Addressed at the top level, because it is a sidebar destination in its own right rather than
+    // a utility reached through the Tools area (apps/web/src/lib/navigation/destinations.ts). It
+    // keeps its manifest row so that the file context tag still has a tool to offer, and so the
+    // listing that carries the ten file utilities still shows the host they are run from.
+    route: "/file-workbench",
   },
   {
     id: "file-converter",
@@ -224,3 +229,13 @@ export const CATALOG: readonly ToolManifest[] = [
     matterContext: "none",
   },
 ];
+
+/**
+ * Where a tool's surface is addressed. The ordinary tool lives inside the Tools area at a route
+ * named after its id; one that declares its own `route` has outgrown that area and is addressed
+ * where it declares. Every consumer that turns a manifest into a link goes through here, so the
+ * two facts a link needs — the address, and who is allowed to derive it — stay in one place.
+ */
+export function toolRoute(tool: ToolManifest): string {
+  return tool.route ?? `/tools/${tool.id}`;
+}

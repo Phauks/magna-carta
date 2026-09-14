@@ -7,7 +7,7 @@
  * one is a search that can run for hours on a cost-tier ladder — a job that outlives its own input,
  * unlike this panel's file, which the reader may discard the moment they press Recover. So the
  * panel starts the job and hands off to a screen addressed by the job's own id
- * (/tools/file-workbench/recovery/[jobId]), which the reader can leave and come back to.
+ * (/file-workbench/recovery/[jobId]), which the reader can leave and come back to.
  *
  * NEITHER OPERATION RETAINS THE FILE. Unlock's request and response both carry it once, over the
  * one call the reader asked for; recovery's coordinator receives only the extracted hash, never the

@@ -108,7 +108,7 @@
       const bytes = await file.readBytes();
       const outcome = await startRecovery(fetch, bytes);
       if (outcome.kind === "ok") {
-        await goto(`/tools/file-workbench/recovery/${encodeURIComponent(outcome.value.jobId)}`);
+        await goto(`/file-workbench/recovery/${encodeURIComponent(outcome.value.jobId)}`);
         return;
       }
       errorMessage = describeFailure(outcome);
