@@ -12,8 +12,10 @@ over [`docs/specs/2026-08-13-financial-reporting-design.md`](../../../../../docs
 ## Key files / entry points
 
 - `report-catalogue.ts` — the registry projected into the shared catalogue vocabulary
-  ([`$lib/catalogue`](../catalogue/CLAUDE.md)), which the `/reports` screen renders through. It is
-  the same framework the Tools screen uses; adding a report never touches it.
+  ([`$lib/catalogue`](../catalogue/CLAUDE.md)), which the `/reports` landing index renders through
+  AND the reports layout's navigation column reads (`routes/(app)/reports/+layout.svelte`, on the
+  design system's `NavigationLayout`, drawing `$lib/tools/catalogue-navigation.svelte`). One
+  projection feeds both sides of the two-sided screen; adding a report never touches either.
 - `report-registry.ts` — every report as data: family, name, the question it answers, its
   `reports:*` permission, its temporal contract, its scope controls, and (for a built report) the
   read and the presenter paired under one payload type by `built()`. A `soon` report has no ports.
@@ -26,8 +28,12 @@ over [`docs/specs/2026-08-13-financial-reporting-design.md`](../../../../../docs
 ## Local conventions
 
 - **Adding a report is one registry entry plus a presenter.** Never a route of its own. The run
-  screen draws the controls the declaration names and nothing else, and the catalogue picks the
-  report up from the registry with no edit of its own.
+  screen draws the controls the declaration names and nothing else, and the catalogue — the landing
+  index and the navigation column alike — picks the report up from the registry with no edit of
+  its own.
+- **The run screen renders in the content column of a two-sided screen and keeps
+  `back="reports"` on its header.** The column beside it is a finding aid, not the way back;
+  `pnpm run lint:back-navigation` reads the header.
 - **A presenter computes nothing.** Every figure printed is the payload's; a presenter formats
   and arranges. Its test asserts the printed figures are the payload's and that every entry reaches
   a row. A presenter that sums a column has become a second answer to a ledger question.

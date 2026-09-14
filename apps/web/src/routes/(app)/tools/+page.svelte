@@ -4,6 +4,10 @@
    * ($lib/catalogue): every tool the firm offers, grouped by subject, as a card grid or a dense
    * list, searchable from the masthead's action row. Runs outside any matter.
    *
+   * It is the landing of a two-sided screen: the Tools layout draws the tools column beside it,
+   * and this index fills the content column so the column is never beside nothing. The column
+   * carries names; this screen carries what each tool does, the search and the views.
+   *
    * The screen decides nothing about how a catalogue looks or narrows — that is the framework's,
    * shared with Reports — and nothing about what a tool is, which is the catalog's and its
    * presentation layer's. What is left is which catalogue this is: its sections, its title, and
