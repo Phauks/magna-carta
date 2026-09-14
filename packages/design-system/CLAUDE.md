@@ -32,6 +32,15 @@ properties; off-token values are machine-rejected.
   exists) belongs to the consumer
 - `src/lib/components/action-dialog/` — `ActionDialog`, the one panel an act is asked for in;
   `action-dialog-model.ts` holds the kind table (what each kind implies) as data, not `{#if}`
+- `src/lib/components/record-reference/` — what a modal's SUBTITLE is allowed to say. `types.ts` is
+  the contract (`RecordSubject` = an optional `RecordReference` plus short facts; a reference is
+  `kind`, `number` and a standing of `drawn | tentative | preview`), `record-reference-model.ts` is
+  the table that resolves a reference to what it reads as, `record-subject.svelte` renders the line,
+  and `previewed-number.svelte.ts` holds the number a record will take before the record exists —
+  the ticketed read that stops a stale answer landing on a newer one. It takes a reader answering a
+  number or nothing, so the app's transport and failure model stay in the app. EntityIdentity names
+  a PERSON OR ORGANIZATION from elsewhere; this names the RECORD a panel is acting on, by the number
+  somebody quotes. Asserted at the call sites by `pnpm run lint:modal-headers`
 - `src/lib/components/dropdown-menu/hover-open.ts` — the hover activation every DropdownMenu gets:
   the timing, the focus rules, and the one-hover-menu-at-a-time arbitration, shared from Root to
   Trigger/Content/SubContent through context (`openOnHover={false}` on Root keeps a menu click-only)
