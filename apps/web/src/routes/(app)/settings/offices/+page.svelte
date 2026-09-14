@@ -2,9 +2,9 @@
   /*
    * Settings · Offices — the firm's places of business, under Firm.
    *
-   * A REGISTER, not a settings form: the product's one table over the firm's offices, with the
-   * search and the create control above it and the counts strip beneath, exactly as every other
-   * list screen. A row opens the office's record window, which is where an office is entered,
+   * A REGISTER, not a settings form: the product's one table over the firm's offices in the
+   * settings anatomy (masthead, the shared scroll region, one plate), with the search and the
+   * create control above it and the counts strip beneath, exactly as the Users register. A row opens the office's record window, which is where an office is entered,
    * corrected, staffed, given its letterhead mark and closed — each act committed at once against
    * its own route, so the posture is "applies immediately" and nothing is staged.
    *
@@ -44,6 +44,8 @@
   } from "$lib/offices/offices-api.ts";
   import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
+  import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
+  import SettingsScrollRegion from "$lib/settings/components/settings-scroll-region.svelte";
 
   const canManage = $derived(sessionPermissions.holds(MANAGE_OFFICES_PERMISSION));
 
@@ -151,19 +153,17 @@
   showHistory={false}
 />
 
-<!-- The middle story: the one scroll area, reaching the canvas's true edges; the table holds the
-     vertical space it would occupy when full, so the screen never reflows as rows arrive. -->
-<div class="mc-scrollbar flex min-h-0 grow flex-col overflow-y-auto" style="scrollbar-gutter: stable">
-  <div class="flex min-h-0 grow flex-col gap-16 p-24">
-    <SettingsDescription>
-      Where the firm practises: each office with its addresses, its telephone and email, its time
-      zone, the code its matter numbers carry, who staffs it, and the mark its letterhead prints.
-    </SettingsDescription>
+<SettingsScrollRegion>
+  <SettingsDescription>
+    Where the firm practises: each office with its addresses, its telephone and email, its time
+    zone, the code its matter numbers carry, who staffs it, and the mark its letterhead prints.
+  </SettingsDescription>
 
-    <!-- The one compact action row: the search, then the create control, then the way out of a
-         narrowing. The search grows toward the inline start, so the control at the row's end never
+  <SettingsPlate heading="The Register">
+    <!-- The one compact action row: the way out of a narrowing, the search, then the create
+         control. The search grows toward the inline start, so the control at the row's end never
          moves when it opens. -->
-    <div class="flex items-center justify-end gap-8">
+    <div class="flex items-center justify-end gap-8 py-12">
       <DataTable.ClearFilters
         {grid}
         narrowing={{ narrowed, summary: `search "${appliedSearch.trim()}"`, clear: clearNarrowing }}
@@ -204,10 +204,10 @@
       {/if}
       <DataTable.Grid
         {grid}
-        class="min-h-0 flex-1"
         caption="The firm's offices"
         cell={officeCell}
         loading={offices === null}
+        placeholderCount={3}
       >
         {#snippet empty()}
           {#if narrowed}
@@ -225,8 +225,8 @@
 
       <DataTable.GridFooter {grid} />
     {/if}
-  </div>
-</div>
+  </SettingsPlate>
+</SettingsScrollRegion>
 
 {#snippet officeCell({ row, column, text }: DataTable.GridCellContext<OfficeSummary>)}
   {#if column.id === "status"}

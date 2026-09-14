@@ -32,6 +32,7 @@
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import Checkbox from "@magna-carta/design-system/checkbox";
+  import * as DefinitionList from "@magna-carta/design-system/definition-list";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import FileInput from "@magna-carta/design-system/file-input";
   import Input from "@magna-carta/design-system/input";
@@ -67,8 +68,9 @@
   } from "./office-draft.ts";
   import { officeSheet } from "./office-print-sheet.ts";
   import {
-    officeAddressKindLabel,
+    OFFICE_ADDRESS_KINDS,
     officeAddressLine,
+    officeAddressOfKind,
     officeCitation,
     officeStatusKey,
   } from "./office-vocabulary.ts";
@@ -517,7 +519,12 @@
 
   const logoFacts = $derived.by(() => {
     const logo = record?.letterheadLogo;
-    if (logo == null) return [];
+    if (logo == null) {
+      return [
+        { label: "Image", value: "" },
+        { label: "Prints At", value: "" },
+      ];
+    }
     return [
       { label: "Image", value: `${formatNumber(logo.widthPixels)} by ${formatNumber(logo.heightPixels)} pixels, ${logo.contentType === "image/png" ? "PNG" : "JPEG"}` },
       { label: "Prints At", value: `${formatNumber(logo.printedWidthPoints)} points wide` },
@@ -548,12 +555,9 @@
 {/snippet}
 
 {#snippet fact(label: string, value: string)}
-  {#if value !== ""}
-    <div class="flex items-baseline justify-between gap-16">
-      <dt class="text-text-muted">{label}</dt>
-      <dd class="text-right">{value}</dd>
-    </div>
-  {/if}
+  <!-- Every term stands, with the dash where nothing is recorded: the frame is the same whether an
+       office has filled it in or not, so a reader learns where each fact will be. -->
+  <DefinitionList.Row term={label} empty={value === ""}>{value}</DefinitionList.Row>
 {/snippet}
 
 {#snippet addressFields(which: "physical" | "mailing", identity: string)}
@@ -684,21 +688,24 @@
         {/if}
       </div>
 
-      <dl class="flex flex-col gap-4 text-sm">
+      <DefinitionList.Root class="text-sm">
         {@render fact("Jurisdiction", record.jurisdiction ?? "")}
         {@render fact("Time Zone", record.timeZone === null ? "" : timeZoneLabel(record.timeZone))}
         {@render fact("Numbering Code", record.numberCode ?? "")}
         {@render fact("Email", record.email ?? "")}
-      </dl>
+      </DefinitionList.Root>
 
-      {#each record.addresses as address (address.kind)}
+      <!-- Both addresses stand whether or not the office has them: the same frames on every office,
+           with the words about an absent one inside its frame. -->
+      {#each OFFICE_ADDRESS_KINDS as kind (kind.value)}
+        {@const address = officeAddressOfKind(record, kind.value)}
         <div class="flex flex-col gap-4">
-          <FieldLabel as="h3">{officeAddressKindLabel(address.kind)}</FieldLabel>
-          <dl class="flex flex-col gap-4 text-sm">
+          <FieldLabel as="h3">{kind.label}</FieldLabel>
+          <DefinitionList.Root class="text-sm">
             {@render fact("Address", officeAddressLine(address))}
             {@render fact(
               "Telephone",
-              address.phone === null
+              address?.phone == null
                 ? ""
                 : formatStoredPhone({
                     number: address.phone,
@@ -706,20 +713,23 @@
                     extension: null,
                   }),
             )}
-          </dl>
+            {#if address === undefined && kind.value === "mailing"}
+              <DefinitionList.Empty>Post goes to the street address.</DefinitionList.Empty>
+            {:else if address === undefined}
+              <DefinitionList.Empty>No street address is recorded.</DefinitionList.Empty>
+            {/if}
+          </DefinitionList.Root>
         </div>
       {/each}
 
-      {#if record.addressBlock !== null || record.footer !== null || record.remitTo !== null}
-        <div class="flex flex-col gap-4">
-          <FieldLabel as="h3">Letterhead</FieldLabel>
-          <dl class="flex flex-col gap-4 text-sm">
-            {@render fact("Address Block", record.addressBlock ?? "")}
-            {@render fact("Footer", record.footer ?? "")}
-            {@render fact("Remit To", record.remitTo ?? "")}
-          </dl>
-        </div>
-      {/if}
+      <div class="flex flex-col gap-4">
+        <FieldLabel as="h3">Letterhead</FieldLabel>
+        <DefinitionList.Root class="text-sm">
+          {@render fact("Address Block", record.addressBlock ?? "")}
+          {@render fact("Footer", record.footer ?? "")}
+          {@render fact("Remit To", record.remitTo ?? "")}
+        </DefinitionList.Root>
+      </div>
     {/if}
   </div>
 {/snippet}
@@ -811,34 +821,46 @@
     {#if logoProblem !== null}
       <FailureNotice failure={logoProblem.failure} fallback={logoProblem.fallback} />
     {/if}
-    {#if !creating && record !== null && officeId !== null}
-      {#if record.letterheadSource !== "none"}
-        <div class="flex flex-col gap-8">
-          <img
-            src={officeLetterheadLogoHref(officeId, logoVersion)}
-            alt="The mark {record.name}'s letterhead prints"
-            class="max-h-96 self-start object-contain"
-          />
-          <dl class="flex flex-col gap-4 text-sm">
-            {#if record.letterheadSource === "firm"}
-              {@render fact("Mark", "The firm's primary mark")}
-            {:else}
-              {#each logoFacts as entry (entry.label)}
-                {@render fact(entry.label, entry.value)}
-              {/each}
-            {/if}
-          </dl>
-        </div>
-      {:else}
-        <p class="text-sm text-text-muted">This office prints no mark: it has no logo of its own, and the firm has set no primary brand image.</p>
-      {/if}
-    {:else if pendingLogo !== null}
-      <dl class="flex flex-col gap-4 text-sm">
-        {@render fact("Chosen", pendingLogo.file.name)}
-        {@render fact("Prints At", `${formatNumber(pendingLogo.printedWidthPoints)} points wide`)}
-        {@render fact("Set", "When the office is saved")}
-      </dl>
+    {#if !creating && record !== null && officeId !== null && record.letterheadSource !== "none"}
+      <img
+        src={officeLetterheadLogoHref(officeId, logoVersion)}
+        alt="The mark {record.name}'s letterhead prints"
+        class="max-h-96 self-start object-contain"
+      />
     {/if}
+    <!-- The facts about the mark stand whether or not there is one: the same frame on every
+         office, with the words about an absent mark inside it. -->
+    <DefinitionList.Root class="text-sm">
+      {#if creating}
+        {@render fact("Chosen", pendingLogo?.file.name ?? "")}
+        {@render fact(
+          "Prints At",
+          pendingLogo === null ? "" : `${formatNumber(pendingLogo.printedWidthPoints)} points wide`,
+        )}
+        {#if pendingLogo === null}
+          <DefinitionList.Empty>
+            No logo chosen. The office prints the firm's mark until it has one of its own.
+          </DefinitionList.Empty>
+        {:else}
+          <DefinitionList.Empty>Set when the office is saved.</DefinitionList.Empty>
+        {/if}
+      {:else if record?.letterheadSource === "firm"}
+        {@render fact("Mark", "The firm's primary mark")}
+        <DefinitionList.Empty>
+          This office has no logo of its own, so its letterhead prints the firm's.
+        </DefinitionList.Empty>
+      {:else}
+        {#each logoFacts as entry (entry.label)}
+          {@render fact(entry.label, entry.value)}
+        {/each}
+        {#if record !== null && record.letterheadSource === "none"}
+          <DefinitionList.Empty>
+            This office prints no mark: it has no logo of its own, and the firm has set no primary
+            brand image.
+          </DefinitionList.Empty>
+        {/if}
+      {/if}
+    </DefinitionList.Root>
     {#if canManage}
       <LabelledField label="Logo" hint="A PNG or a JPEG. Its height follows from its own proportions.">
         {#snippet children({ props })}
