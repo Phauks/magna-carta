@@ -665,6 +665,17 @@ export const matter = sqliteTable(
     locationId: text("location_id")
       .$type<LocationId>()
       .references(() => location.id),
+    // Where the firm's own PAPER file for this matter is kept, which is a different fact from the
+    // owning office above and must never be collapsed into it: a matter run out of one office can
+    // have its folder boxed at another, or at a remote store the firm keeps as an office of its
+    // own, and closing the matter moves none of that. It points at an office rather than carrying
+    // free text so the file's whereabouts is the same record the rest of the product reads. What
+    // the folder physically sits INSIDE — a box, a drawer, a safe, a shelf — is deliberately not
+    // here: one container holds several matters' folders, so it is its own record a matter will
+    // point at, and a column here would have decided the medium for every firm.
+    physicalFileLocationId: text("physical_file_location_id")
+      .$type<LocationId>()
+      .references(() => location.id),
     responsibleMemberId: text("responsible_member_id")
       .notNull()
       .$type<UserId>()

@@ -99,6 +99,13 @@ async function get(path: string, cookie = ownerCookie): Promise<Response> {
     headers: { origin: "https://example.com", cookie },
   });
 }
+async function patch(path: string, body: unknown, cookie = ownerCookie): Promise<Response> {
+  return SELF.fetch(`https://example.com${path}`, {
+    method: "PATCH",
+    headers: authHeaders(cookie, true),
+    body: JSON.stringify(body),
+  });
+}
 
 const YEAR_COUNTER = [
   { kind: "year", digits: 4 },
@@ -545,5 +552,92 @@ describe("the matter detail read", () => {
     expect(body.locationName).toBeNull();
     // A consultation has not opened, and says so.
     expect(body.openedAt).toBeNull();
+  });
+});
+
+describe("the matter's paper file", () => {
+  it("is kept at an office of its own, which is not the office the matter is run out of", async () => {
+    const runOutOf = await post("/api/v1/locations", { name: "Carson City", numberCode: "CC" });
+    const store = await post("/api/v1/locations", { name: "Sparks Records Store" });
+    const runOutOfId = ((await runOutOf.json()) as { id: string }).id;
+    const storeId = ((await store.json()) as { id: string }).id;
+
+    const created = await post("/api/v1/matters", {
+      title: "Boxed Elsewhere",
+      status: "open",
+      responsibleMemberId: ownerUserId,
+      locationId: runOutOfId,
+    });
+    expect(created.status).toBe(201);
+    const matterId = ((await created.json()) as { matterId: string }).matterId;
+
+    // Nobody has said where the folder is, so the read says nothing rather than assuming it is
+    // wherever the matter is run out of. That assumption is the whole reason the two are separate.
+    const before = (await (await get(`/api/v1/matters/${matterId}`)).json()) as {
+      locationId: string | null;
+      physicalFileLocationId: string | null;
+      physicalFileLocationName: string | null;
+    };
+    expect(before.locationId).toBe(runOutOfId);
+    expect(before.physicalFileLocationId).toBeNull();
+    expect(before.physicalFileLocationName).toBeNull();
+
+    expect(
+      (await patch(`/api/v1/matters/${matterId}`, { physicalFileLocationId: storeId })).status,
+    ).toBe(200);
+
+    const after = (await (await get(`/api/v1/matters/${matterId}`)).json()) as {
+      locationId: string | null;
+      locationName: string | null;
+      physicalFileLocationId: string | null;
+      physicalFileLocationName: string | null;
+    };
+    expect(after.physicalFileLocationId).toBe(storeId);
+    expect(after.physicalFileLocationName).toBe("Sparks Records Store");
+    // Recording where the file is kept moves nothing about which office runs the matter.
+    expect(after.locationId).toBe(runOutOfId);
+    expect(after.locationName).toBe("Carson City");
+  });
+
+  it("can be un-recorded, because not knowing where a file is is a real answer", async () => {
+    const store = await post("/api/v1/locations", { name: "Reno Vault" });
+    const storeId = ((await store.json()) as { id: string }).id;
+    const created = await post("/api/v1/matters", {
+      title: "File Gone Walkabout",
+      status: "open",
+      responsibleMemberId: ownerUserId,
+    });
+    const matterId = ((await created.json()) as { matterId: string }).matterId;
+
+    await patch(`/api/v1/matters/${matterId}`, { physicalFileLocationId: storeId });
+    expect(
+      (await patch(`/api/v1/matters/${matterId}`, { physicalFileLocationId: null })).status,
+    ).toBe(200);
+
+    const detail = (await (await get(`/api/v1/matters/${matterId}`)).json()) as {
+      physicalFileLocationId: string | null;
+    };
+    expect(detail.physicalFileLocationId).toBeNull();
+  });
+
+  it("survives a patch that does not mention it", async () => {
+    const store = await post("/api/v1/locations", { name: "Elko Annex" });
+    const storeId = ((await store.json()) as { id: string }).id;
+    const created = await post("/api/v1/matters", {
+      title: "Retitled Later",
+      status: "open",
+      responsibleMemberId: ownerUserId,
+    });
+    const matterId = ((await created.json()) as { matterId: string }).matterId;
+
+    await patch(`/api/v1/matters/${matterId}`, { physicalFileLocationId: storeId });
+    await patch(`/api/v1/matters/${matterId}`, { title: "Retitled" });
+
+    const detail = (await (await get(`/api/v1/matters/${matterId}`)).json()) as {
+      title: string;
+      physicalFileLocationId: string | null;
+    };
+    expect(detail.title).toBe("Retitled");
+    expect(detail.physicalFileLocationId).toBe(storeId);
   });
 });
