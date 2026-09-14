@@ -9,6 +9,12 @@
  * a reader. A gate scans this tree for assertion vocabulary; the labels below are deliberately
  * facts about the search or about a named person's conclusion, and never about the matter.
  *
+ * A CHECK IS ASKED FOR BY PLACE, AND RECORDED BY TECHNIQUE (owner's direction, 2026-09-11). The
+ * panel offers the Directory, the firm's files, its messaging and its Magnus conversations; the log
+ * stores the technique keys it always stored. `SEARCH_LOCATIONS` is the one crossing between the
+ * two on this side of the wire, mirroring `packages/conflicts/src/sources.ts`, so an old record
+ * keyed by technique still reads as a place and a new place is one entry rather than a redesign.
+ *
  * WHY THE TONES LIVE HERE AND NOT IN THE SHARED STATUS REGISTER. The register is the one home for a
  * status WORD the whole product speaks — Draft, Paid, Void. None of these words is one of those:
  * they are this subsystem's vocabulary and appear nowhere else, which is the same reason a matter's
@@ -31,10 +37,13 @@
  */
 import type { BadgeVariant } from "@magna-carta/design-system/badge";
 import { statusEntry, type StatusKey } from "@magna-carta/design-system/status-register";
+import type { ChoiceOption } from "$lib/components/choice-picker.ts";
 import type {
   ConflictsTrigger,
   DispositionKind,
   EvidenceTier,
+  RunStage,
+  RunStatus,
   SourceClass,
   Strictness,
   WaiverShortfall,
@@ -92,12 +101,13 @@ export function evidenceTier(tier: EvidenceTier): VocabularyEntry {
 export const SOURCE_CLASSES: readonly SourceClass[] = ["party", "graph", "imputation", "content"];
 
 /**
- * Every source a check records, including the two that carry no class of their own. Both of those
+ * Every source a check records, including the three that carry no class of their own. All three
  * are registered precisely so a check reports them: a dimension quietly missing from a list of what
  * ran is indistinguishable from a dimension that was searched and found nothing.
  */
 export const PRIOR_FIRM_HISTORY_SOURCE = "prior_firm_history";
 export const NICKNAME_EQUIVALENCE_SOURCE = "nickname_equivalence";
+export const MAGNUS_CONVERSATIONS_SOURCE = "magnus_conversations";
 
 export const SOURCE_VOCABULARY: Readonly<Record<string, VocabularyEntry>> = {
   party: {
@@ -106,9 +116,9 @@ export const SOURCE_VOCABULARY: Readonly<Record<string, VocabularyEntry>> = {
       "The party's own name or identifier matched a record in the firm's Directory. Always searched.",
   },
   graph: {
-    label: "Relationship",
+    label: "Relationships",
     meaning:
-      "Reached by walking out from a party you named, through a relationship the Directory holds.",
+      "Reached by walking out from a party you named, through every relationship the Directory holds, as far as it goes.",
   },
   imputation: {
     label: "The firm's own people",
@@ -129,11 +139,103 @@ export const SOURCE_VOCABULARY: Readonly<Record<string, VocabularyEntry>> = {
     meaning:
       "Bob and Robert are not a phonetic relationship. The catalogue exists and is shipped empty.",
   },
+  [MAGNUS_CONVERSATIONS_SOURCE]: {
+    label: "Magnus conversations",
+    meaning: "A party named in a conversation with Magnus. Nothing indexes conversations yet.",
+  },
 };
 
 /** How one source reads. An unknown key prints itself rather than being explained away. */
 export function sourceVocabulary(source: string): VocabularyEntry {
   return SOURCE_VOCABULARY[source] ?? { label: source, meaning: "" };
+}
+
+// ---- the places a check searches ----------------------------------------------------------------
+
+/**
+ * Where a check looks, as the panel offers it and the check screen reads it back. Each place
+ * carries the recorded source keys it stands over, so an old record still reads as a place, and
+ * the one line a place that cannot be searched yet owes: what its arrival waits on.
+ *
+ * The Directory's specifics are the three things a check does there, listed beneath it. Files and
+ * Messaging both stand over the content class — the one corpus that would search document text and
+ * message bodies — until the two grow corpora of their own.
+ */
+export type SearchLocation = "directory" | "files" | "messaging" | "magnus";
+
+export interface SearchLocationEntry {
+  readonly location: SearchLocation;
+  readonly label: string;
+  /** The recorded source keys this place stands over. */
+  readonly sources: readonly string[];
+  /** What the place waits on, where the engine cannot search it yet. Null where it can. */
+  readonly waitsOn: string | null;
+}
+
+export const SEARCH_LOCATIONS: readonly SearchLocationEntry[] = [
+  {
+    location: "directory",
+    label: "Directory",
+    sources: ["party", "graph", "imputation"],
+    waitsOn: null,
+  },
+  {
+    location: "files",
+    label: "Files",
+    sources: ["content"],
+    waitsOn: "an index over document text, which does not exist yet",
+  },
+  {
+    location: "messaging",
+    label: "Messaging",
+    sources: ["content"],
+    waitsOn: "a wired message-body index, which does not exist yet",
+  },
+  {
+    location: "magnus",
+    label: "Magnus",
+    sources: [MAGNUS_CONVERSATIONS_SOURCE],
+    waitsOn: "an index over conversations, which does not exist yet",
+  },
+];
+
+/** What a place says it searches, in one line. Only the Directory's specifics are a reader's choice. */
+export const DIRECTORY_SPECIFICS: readonly {
+  readonly source: SourceClass;
+  readonly label: string;
+}[] = [
+  { source: "party", label: SOURCE_VOCABULARY.party?.label ?? "party" },
+  { source: "graph", label: SOURCE_VOCABULARY.graph?.label ?? "graph" },
+  { source: "imputation", label: SOURCE_VOCABULARY.imputation?.label ?? "imputation" },
+];
+
+/** The two dimensions that are not places, offered under Advanced Settings, both waiting. */
+export const ADVANCED_DIMENSIONS: readonly { readonly source: string; readonly waitsOn: string }[] =
+  [
+    {
+      source: PRIOR_FIRM_HISTORY_SOURCE,
+      waitsOn: "a record of what each lateral hire brought with them, which has no table yet",
+    },
+    {
+      source: NICKNAME_EQUIVALENCE_SOURCE,
+      waitsOn: "a curated catalogue of nicknames, which ships empty",
+    },
+  ];
+
+/**
+ * How a place read on a recorded check: searched, not searched, or the row does not say. A place
+ * stands over several sources; it was searched if any of them was, and it was not searched if all
+ * of them recorded unavailable. A record that names none of them predates the place.
+ */
+export type LocationReading = "searched" | "not-searched" | "not-recorded";
+
+export function locationReading(
+  entry: SearchLocationEntry,
+  scope: Readonly<Record<string, "searched" | "unavailable">>,
+): LocationReading {
+  const recorded = entry.sources.filter((source) => Object.hasOwn(scope, source));
+  if (recorded.length === 0) return "not-recorded";
+  return recorded.some((source) => scope[source] === "searched") ? "searched" : "not-searched";
 }
 
 // ---- strictness -------------------------------------------------------------------------------
@@ -163,6 +265,28 @@ export const STRICTNESS_VOCABULARY: Readonly<Record<Strictness, VocabularyEntry>
  * here, so they cannot come to call it three things.
  */
 export const NAME_MATCHING_LABEL = "Name matching";
+
+/**
+ * The bands as a dropdown offers them: each with an example of a name it catches beside it, which is
+ * the whole explanation a band needs (owner's direction, 2026-09-11 — "a band that says what it
+ * catches by showing a name it catches needs no paragraph").
+ */
+export const NAME_MATCHING_OPTIONS: readonly ChoiceOption[] = [
+  {
+    value: "balanced",
+    label: STRICTNESS_VOCABULARY.balanced.label,
+    aside: "Stephen finds Steven; a maiden name finds the married one",
+    meaning: STRICTNESS_VOCABULARY.balanced.meaning,
+    keywords: ["balanced", "default"],
+  },
+  {
+    value: "over_inclusive",
+    label: STRICTNESS_VOCABULARY.over_inclusive.label,
+    aside: "Also trading styles, also-known-as names, and every sound-alike encoder",
+    meaning: STRICTNESS_VOCABULARY.over_inclusive.meaning,
+    keywords: ["over inclusive", "wide", "everything"],
+  },
+];
 
 /** How one strictness band reads. An unrecognized stored word prints itself. */
 export function strictnessVocabulary(strictness: string): VocabularyEntry {
@@ -243,6 +367,47 @@ export function triggerVocabulary(trigger: string): VocabularyEntry {
  * and the reason it is still here, is the bound that derivation is held to.
  */
 export const OPERATOR_TRIGGERS: readonly ConflictsTrigger[] = ["preliminary", "comprehensive"];
+
+// ---- a run's life -------------------------------------------------------------------------------
+
+/** Where a run is, as the check screen and the log say it. A settled run's word is calm. */
+export const RUN_STATUS_VOCABULARY: Readonly<Record<RunStatus, ChipVocabularyEntry>> = {
+  queued: { label: "Queued", tone: "neutral", meaning: "The search is about to start." },
+  running: { label: "Running", tone: "neutral", meaning: "The search is under way." },
+  completed: {
+    label: "Completed",
+    tone: "neutral",
+    meaning: "The search finished and its record is on the log.",
+  },
+  failed: {
+    label: "Failed",
+    tone: "warning",
+    meaning: "The search stopped before it finished, and nothing was recorded.",
+  },
+};
+
+export function runStatusVocabulary(status: string): ChipVocabularyEntry {
+  return (
+    RUN_STATUS_VOCABULARY[status as RunStatus] ?? {
+      label: status,
+      tone: "neutral",
+      meaning: "A run state this build has not been told about.",
+    }
+  );
+}
+
+/**
+ * The stages a running search reports, in the engine's own order: it resolves what to search, walks
+ * the graph, matches the closure, then bounds and writes what surfaced.
+ */
+export const RUN_STAGES: readonly RunStage[] = ["sources", "walking", "matching", "candidates"];
+
+export const RUN_STAGE_VOCABULARY: Readonly<Record<RunStage, string>> = {
+  sources: "Resolving what to search",
+  walking: "Following relationships",
+  matching: "Comparing names and identifiers",
+  candidates: "Recording what surfaced",
+};
 
 // ---- disposition ------------------------------------------------------------------------------
 
@@ -370,9 +535,9 @@ export function causeTopicLabel(topic: string): string {
 // ---- the relationship graph --------------------------------------------------------------------
 
 /**
- * Which class an edge type belongs to. The classes exist because one integer cannot express "follow
- * a corporate rename chain forever but do not walk from a spouse to her employer's other
- * directors" — those are different questions about what a relationship MEANS.
+ * Which class an edge type belongs to, so a path can say what kind of relationship each hop was. A
+ * class used to carry a hop budget; it carries none now, because a check follows every class to
+ * closure. What survives is the reader's word for the relationship.
  */
 export const EDGE_CLASS_BY_TYPE: Readonly<Record<string, string>> = {
   corporate_parent: "corporate",
@@ -388,7 +553,7 @@ export const EDGE_CLASS_VOCABULARY: Readonly<Record<string, VocabularyEntry>> = 
   corporate: {
     label: "Corporate family",
     meaning:
-      "A parent, a subsidiary or a successor — the same business continuing under another name or another shell. Followed all the way, however long the chain runs.",
+      "A parent, a subsidiary or a successor — the same business continuing under another name or another shell.",
   },
   control: {
     label: "Ownership and control",
@@ -404,9 +569,6 @@ export const EDGE_CLASS_VOCABULARY: Readonly<Record<string, VocabularyEntry>> = 
     meaning: "Somebody recorded as acting for somebody else — counsel, an agent, a role on a file.",
   },
 };
-
-/** The three classes that carry a hop budget. Corporate family carries none, deliberately. */
-export const BUDGETED_EDGE_CLASSES = ["control", "family", "representation"] as const;
 
 /** How one edge type reads on a path. An unknown type prints itself rather than being guessed at. */
 export function edgeTypeLabel(edgeType: string): string {

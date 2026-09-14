@@ -2,8 +2,8 @@ import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { MatterId, MatterTaskId, UserId } from "@magna-carta/identifiers/types";
 import {
-  cancelMatterTask,
-  completeMatterTask,
+  archiveMatterTask,
+  moveMatterTaskToRung,
   createMatterTask,
 } from "@magna-carta/tasks/task-service";
 import { captureTimeEntry } from "@magna-carta/timekeeping/time-entry-service";
@@ -135,11 +135,17 @@ export async function generateTaskVolume(
   const timeLinked: { taskId: MatterTaskId; matterId: MatterId }[] = [];
 
   async function writeTask(matterId: MatterId | null, deep: boolean): Promise<MatterTaskId> {
-    const state = faker.helpers.weightedArrayElement([
-      { value: "open" as const, weight: Math.round(volume.openFraction * 100) },
+    // WHERE THE TASK ENDS UP. The open share is spread across the three open rungs, because a
+    // corpus where every unfinished task sits on To Do would measure a list nobody has worked.
+    // The remainder is archived — the disposal that keeps the row, so it still costs a read the
+    // filter has to exclude, which is the part worth measuring.
+    const resting = faker.helpers.weightedArrayElement([
+      { value: "to_do" as const, weight: Math.round(volume.openFraction * 60) },
+      { value: "in_progress" as const, weight: Math.round(volume.openFraction * 30) },
+      { value: "on_hold" as const, weight: Math.round(volume.openFraction * 10) },
       { value: "done" as const, weight: Math.round(volume.doneFraction * 100) },
       {
-        value: "cancelled" as const,
+        value: "archived" as const,
         weight: Math.max(1, Math.round((1 - volume.openFraction - volume.doneFraction) * 100)),
       },
     ]);
@@ -187,19 +193,19 @@ export async function generateTaskVolume(
     if (matterId !== null) previousOnMatter.set(matterId, created.taskId);
     if (deep) deepMatterTaskIds.push(created.taskId);
 
-    // A cancelled or completed task is a state a person put it in, so the corpus takes it there
-    // through the same writes the product does rather than by writing the terminal columns.
-    if (state !== "open") {
-      const closed =
-        state === "done"
-          ? await completeMatterTask(database, created.taskId, serviceOptions)
-          : await cancelMatterTask(
-              database,
-              created.taskId,
-              "Overtaken by the settlement",
-              serviceOptions,
-            );
-      await commit(closed.effect);
+    // A rung a task rests on and an archiving are both things a person did to it, so the corpus
+    // takes it there through the same writes the product does rather than by setting the columns.
+    if (resting === "archived") {
+      const archived = await archiveMatterTask(
+        database,
+        created.taskId,
+        "Overtaken by the settlement",
+        serviceOptions,
+      );
+      await commit(archived.effect);
+    } else if (resting !== "to_do") {
+      const moved = await moveMatterTaskToRung(database, created.taskId, resting, serviceOptions);
+      await commit(moved.effect);
     }
 
     if (matterId !== null && faker.number.float({ min: 0, max: 1 }) < volume.timeLinkedFraction) {

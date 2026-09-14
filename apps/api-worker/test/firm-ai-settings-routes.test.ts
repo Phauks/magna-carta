@@ -1,7 +1,11 @@
 import { env, SELF } from "cloudflare:test";
+import { isCivilDate } from "@magna-carta/civil-time/civil-date";
 import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
 import { insertMemberStatement } from "@magna-carta/data-access/member-statements";
-import { aiProcessingEligibilityDefinition } from "@magna-carta/inference/settings";
+import {
+  aiProcessingEligibilityDefinition,
+  primaryReasoningModelDefinition,
+} from "@magna-carta/inference/settings";
 import {
   magnusDailyTurnCeilingDefinition,
   magnusEnabledDefinition,
@@ -39,7 +43,15 @@ interface AiSettings {
     snapshotId: string;
     zeroDataRetention: boolean;
     noTraining: boolean;
+    selection: "platform" | "chosen";
   } | null;
+  models: Array<{
+    modelId: string;
+    zeroDataRetention: boolean;
+    verifiedOn: string;
+    platformDefault: boolean;
+  }>;
+  catalog: { version: number; effectiveDate: string };
   magnus: { enabled: boolean; dailyTurnCeiling: number };
 }
 
@@ -186,16 +198,47 @@ describe("the firm's AI settings", () => {
     );
   });
 
-  it("accepts no model field — the model is reported, never written", async () => {
-    const before = (await (await readSettings(ownerCookie)).json()) as AiSettings;
-    // An unknown key is dropped by the request schema rather than honoured, so the write is a no-op
-    // on the model and the stated facts are unchanged.
-    const response = await patchSettings(ownerCookie, {
+  it("offers the roster from the catalog, marks the platform's own choice, and states the catalog's date", async () => {
+    const body = (await (await readSettings(ownerCookie)).json()) as AiSettings;
+    expect(body.models.length).toBeGreaterThan(1);
+    // Every roster entry is ZDR-eligible: the catalog refuses a reasoning entry that is not.
+    for (const choice of body.models) {
+      expect(choice.zeroDataRetention).toBe(true);
+      expect(isCivilDate(choice.verifiedOn)).toBe(true);
+    }
+    expect(body.models.filter((choice) => choice.platformDefault)).toHaveLength(1);
+    expect(isCivilDate(body.catalog.effectiveDate)).toBe(true);
+    // A firm that has never chosen follows the platform.
+    expect(body.model?.selection).toBe("platform");
+  });
+
+  it("refuses a model that is not on the roster, and pins a chosen one until the firm chooses again", async () => {
+    const refused = await patchSettings(ownerCookie, {
       model: { modelId: "anthropic/not-a-real-model" },
     });
-    expect(response.status).toBe(200);
-    const after = (await (await readSettings(ownerCookie)).json()) as AiSettings;
-    expect(after.model).toEqual(before.model);
+    expect(refused.status).toBe(422);
+
+    const before = (await (await readSettings(ownerCookie)).json()) as AiSettings;
+    const other = before.models.find((choice) => !choice.platformDefault);
+    expect(other).toBeDefined();
+    if (other === undefined) return;
+
+    const chosen = await patchSettings(ownerCookie, { model: { modelId: other.modelId } });
+    expect(chosen.status).toBe(200);
+    const pinned = (await chosen.json()) as AiSettings;
+    expect(pinned.model?.modelId).toBe(other.modelId);
+    expect(pinned.model?.selection).toBe("chosen");
+    expect(await readFirmSetting(firmDatabase, primaryReasoningModelDefinition)).toBe(
+      other.modelId,
+    );
+
+    // Choosing the platform's option is the ABSENCE of a row, so the firm moves forward with the
+    // platform again rather than being pinned to today's default.
+    const released = await patchSettings(ownerCookie, { model: { modelId: null } });
+    expect(released.status).toBe(200);
+    const following = (await released.json()) as AiSettings;
+    expect(following.model?.selection).toBe("platform");
+    expect(following.model?.modelId).toBe(primaryReasoningModelDefinition.defaultValue);
   });
 
   // THE SEAM. What this screen writes is what the assistant's consent resolver reads: the route

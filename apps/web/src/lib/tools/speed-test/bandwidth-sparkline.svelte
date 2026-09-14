@@ -124,25 +124,27 @@
 
   <details class="mt-8">
     <summary class="cursor-pointer text-xs text-text-muted">Table view</summary>
-    {#if points.length > 0}
-      <DataTable.Root class="mt-8">
-        <DataTable.Header>
+    <!-- The table stands with its two column heads before a sample has landed, and says inside its
+         own body that nothing was measured, so the samples fill a shape the reader already has. -->
+    <DataTable.Root class="mt-8">
+      <DataTable.Header>
+        <DataTable.Row>
+          <DataTable.Head>Sample</DataTable.Head>
+          <DataTable.Head data-align="end">Speed</DataTable.Head>
+        </DataTable.Row>
+      </DataTable.Header>
+      <DataTable.Body>
+        {#each points as point, index (index)}
           <DataTable.Row>
-            <DataTable.Head>Sample</DataTable.Head>
-            <DataTable.Head data-align="end">Speed</DataTable.Head>
+            <DataTable.Cell>{index + 1}</DataTable.Cell>
+            <DataTable.Cell data-align="end">{formatBandwidth(point.bps)}</DataTable.Cell>
           </DataTable.Row>
-        </DataTable.Header>
-        <DataTable.Body>
-          {#each points as point, index (index)}
-            <DataTable.Row>
-              <DataTable.Cell>{index + 1}</DataTable.Cell>
-              <DataTable.Cell data-align="end">{formatBandwidth(point.bps)}</DataTable.Cell>
-            </DataTable.Row>
-          {/each}
-        </DataTable.Body>
-      </DataTable.Root>
-    {:else}
-      <p class="mt-8 text-sm text-text-muted">{ABSENT_DESCRIPTION}</p>
-    {/if}
+        {:else}
+          <DataTable.Row data-placeholder="true">
+            <DataTable.Cell colspan={2} class="mc-table-empty">{ABSENT_DESCRIPTION}</DataTable.Cell>
+          </DataTable.Row>
+        {/each}
+      </DataTable.Body>
+    </DataTable.Root>
   </details>
 </figure>

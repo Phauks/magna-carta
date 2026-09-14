@@ -4,27 +4,34 @@
    *
    * TWO SCHEMES, ONE PAGE. A firm numbers two things and shapes them separately: the permanent
    * matter number, drawn the moment a matter opens and frozen from then on, and the tentative
-   * number a consultation carries until (and after) it opens. Each is its own editor on this page,
+   * number a consultation carries until (and after) it opens. Each is its own plate on this page,
    * each saved in its own audited write, because a change to one is not a change to the other and a
    * firm that has set neither is numbering consultations from the built-in sequence already.
    *
-   * THE PAGE APPLIES ON SAVE, PER SCHEME. The settings surface's draft-and-footer anatomy is for a
-   * page of rows; a scheme is a list edited in place with a live preview beneath it, so each
-   * editor carries its own Save and Discard and the masthead states the posture without a page
-   * draft. The record of a change is the audit row the server writes, not a per-browser ledger.
+   * THE PAGE IS THE SETTINGS ANATOMY. Masthead, the one scroll region, a plate per scheme, and
+   * inside each plate the rows every settings page is made of — what is in force, the scheme to
+   * start from, the parts as a table, the preview — with the plate's own Save and Discard as its
+   * exit. The settings surface's page-level draft footer is for a page of rows staged together; a
+   * scheme is a list edited in place and saved on its own, so each plate keeps its exit and the
+   * masthead states the posture without a page draft. The record of a change is the audit row the
+   * server writes, not a per-browser ledger.
    *
    * NO NUMBER BEFORE ACTIVE, AND NONE CHANGED HERE. A matter draws its number when it opens and
    * never before; an intake and a consultation carry none. Saving a scheme reaches only the matters
-   * numbered from then on. A single matter's number is set by hand from the matter's own status
-   * window, never from here.
+   * numbered from then on, and the line beside each Save says so. A single matter's number is set
+   * by hand from the matter's own status window, never from here; the guide under docs/user/admin
+   * explains the whole of it, so this page carries no paragraph explaining itself.
    */
-  import * as Alert from "@magna-carta/design-system/alert";
   import NumberingSchemeEditor from "$lib/matters/numbering-scheme-editor.svelte";
   import { MANAGE_NUMBERING_PERMISSION } from "$lib/matters/numbering-api.ts";
+  import { numberingPurposeLabel } from "$lib/matters/numbering-scheme.ts";
   import { civilToday } from "$lib/billing/invoice-standing.ts";
   import { permissionRefusal } from "$lib/access/refusal.ts";
   import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
+  import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
+  import SettingsPlateNote from "$lib/settings/components/settings-plate-note.svelte";
+  import SettingsScrollRegion from "$lib/settings/components/settings-scroll-region.svelte";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
 
   let session = $state<SessionBootstrap | null>(null);
@@ -53,32 +60,24 @@
   showHistory={false}
 />
 
-<!-- The middle story: the one scroll area, reaching the canvas's true edges (the breathing
-     room rides INSIDE it); scrollbar-gutter keeps pages that scroll and pages that do not at
-     identical width. -->
-<div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
-  <div class="flex flex-col gap-24 p-24">
-    <SettingsDescription>The shape of every matter number and consultation number the firm draws.</SettingsDescription>
+<SettingsScrollRegion>
+  <SettingsDescription>
+    The shape of every matter number and consultation number the firm draws. A number is drawn
+    once, when the matter opens, and never changes.
+  </SettingsDescription>
 
-    <Alert.Root variant="info">
-      <Alert.Title>A Number Is Drawn Once, When The Matter Opens</Alert.Title>
-      <Alert.Description>
-        A matter number is drawn the moment a matter becomes active and never changes; an intake
-        and a consultation carry none. A consultation carries its own tentative number from its own
-        sequence, so a consultation the firm never takes on consumes no matter number. Each scheme
-        is an ordered list of parts with exactly one counter; a part marked to restart the count
-        starts the counter over for each of its values, the way a file room begins at 0001 every
-        January. Saving a scheme reaches only the matters numbered from then on.
-      </Alert.Description>
-    </Alert.Root>
-
-    {#if mayManage === false}
-      <p class="text-sm text-text-muted">
+  {#if mayManage === false}
+    <SettingsPlate heading={numberingPurposeLabel("matter")}>
+      <SettingsPlateNote>
         {permissionRefusal("Reading and changing the firm's numbering", MANAGE_NUMBERING_PERMISSION)}
-      </p>
-    {:else if mayManage === true}
+      </SettingsPlateNote>
+    </SettingsPlate>
+  {:else if mayManage === true}
+    <SettingsPlate heading={numberingPurposeLabel("matter")}>
       <NumberingSchemeEditor purpose="matter" canManage {today} />
+    </SettingsPlate>
+    <SettingsPlate heading={numberingPurposeLabel("consultation")}>
       <NumberingSchemeEditor purpose="consultation" canManage {today} />
-    {/if}
-  </div>
-</div>
+    </SettingsPlate>
+  {/if}
+</SettingsScrollRegion>

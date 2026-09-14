@@ -1,11 +1,16 @@
 /*
  * The firm's AI settings over the wire — the two consent gates, the assistant's daily allowance,
- * and the stated facts about the model in force. One read and one sparse write against
- * GET/PATCH /api/v1/firm/ai/settings, both behind `firm:manageAiSettings`.
+ * the model in force with its facts, and the roster the firm chooses a model from. One read and one
+ * sparse write against GET/PATCH /api/v1/firm/ai/settings, both behind `firm:manageAiSettings`.
  *
- * The MODEL is reported and never sent: the route accepts no model field. It travels with the gates
- * because consenting to third-party processing without being told which model receives the content,
- * what it retains, and whether it trains on it, is consent to nothing legible.
+ * THE ROSTER IS THE PLATFORM'S VERIFIED CATALOG. Neither the model gateway nor the AI binding lists
+ * models at runtime, and a list that did could not carry what the catalog carries: a person's
+ * recorded finding that the model keeps nothing and trains on nothing. So the roster is as current
+ * as the catalog, the response says which catalog that is, and the page states it.
+ *
+ * THE FIRM EITHER FOLLOWS THE PLATFORM OR HAS CHOSEN. A firm that has never chosen moves forward
+ * with the platform's current model; a firm that has chosen keeps its choice until it chooses
+ * again. Sending `null` returns a firm to following; sending a roster id pins it.
  */
 import { requestJson, type ApiOutcome } from "$lib/api/request.ts";
 
@@ -16,12 +21,32 @@ export interface AiModelFacts {
   snapshotId: string;
   zeroDataRetention: boolean;
   noTraining: boolean;
+  /** Whether the firm follows the platform's current model or has pinned this one itself. */
+  selection: "platform" | "chosen";
+}
+
+/** One model the firm may choose, with the facts a choice is made on. */
+export interface AiModelChoice {
+  modelId: string;
+  snapshotId: string;
+  zeroDataRetention: boolean;
+  noTraining: boolean;
+  /** When the retention and training facts were last re-checked against the provider. */
+  verifiedOn: string;
+  /** When the model was last confirmed still published and active. */
+  availabilityVerifiedOn: string;
+  retirementNotBefore: string | null;
+  tier: string | null;
+  /** True on the entry an unconfigured firm resolves to. */
+  platformDefault: boolean;
 }
 
 export interface FirmAiSettings {
   aiProcessing: { eligible: boolean };
   /** Null when the firm's stored model is no longer one the platform carries. */
   model: AiModelFacts | null;
+  models: AiModelChoice[];
+  catalog: { version: number; effectiveDate: string };
   magnus: { enabled: boolean; dailyTurnCeiling: number };
 }
 
@@ -41,6 +66,8 @@ export function readFirmAiSettings(fetchImpl: typeof fetch): Promise<ApiOutcome<
 
 export interface UpdateFirmAiSettingsRequest {
   aiProcessing?: { eligible?: boolean };
+  /** A roster id pins the firm to that model; null returns it to following the platform. */
+  model?: { modelId: string | null };
   magnus?: { enabled?: boolean; dailyTurnCeiling?: number };
 }
 

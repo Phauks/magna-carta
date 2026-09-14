@@ -13,12 +13,13 @@ import {
   signInForSessionCookie,
 } from "./support/test-auth.ts";
 
-// The conflicts route surface, driven through the chokepoint over real Miniflare bindings: running a
-// check against the directory corpus, reading it back with its hits, and recording a reviewer's
+// The conflicts route surface, driven through the chokepoint over real Miniflare bindings: opening a
+// check (its first run queued, the search running after the response), reading it back with its runs
+// and the selected run's record, running it again, filing it on a matter, and recording a reviewer's
 // disposition of a hit. conflicts:run and conflicts:read are seeded broadly (every default role,
 // including Owner/Admin); a caller with neither gets refused before any check runs. Mutations require
-// an Idempotency-Key (the chokepoint gate), and a repeated key replays the first check rather than
-// running a second.
+// an Idempotency-Key (the chokepoint gate), and a repeated key replays the first opening rather than
+// opening a second.
 
 let poolFirmId: FirmId;
 let ownerCookie: string;
@@ -44,30 +45,32 @@ async function mirrorMemberWithUnrelatedGrant(userId: UserId, displayName: strin
     .run();
 }
 
-beforeAll(async () => {
-  await applyControlPlaneMigrations(env.DB_CONTROL);
-  poolFirmId = (
-    await seedFirm({ name: "Conflicts Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
-  ).firmId;
+// Each block below adopts a firm of its own. The chokepoint's rate-limit key is `firm:<firmId>`
+// with a hundred requests a minute behind it, and a block that seeds parties, opens checks and reads
+// them back spends that window on its own; a second block on the same firm would start collecting
+// 429s that say nothing about the code under test. The helpers above read these module-level
+// handles, so adopting a firm is one call in a block's beforeAll.
+async function adoptFreshFirm(label: string): Promise<void> {
+  poolFirmId = (await seedFirm({ name: `Conflicts Test Firm ${label}` })).firmId;
   firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
 
-  const owner = await seedCredentialedUser("conflicts-owner@example.com", {
+  const owner = await seedCredentialedUser(`conflicts-owner-${label}@example.com`, {
     userName: "Conflicts Owner",
     firmId: poolFirmId,
   });
   await mirrorMemberWithOwnerRole(owner.userId, "Conflicts Owner", poolFirmId);
   ownerUserId = owner.userId;
-  ownerCookie = await signInForSessionCookie("conflicts-owner@example.com");
+  ownerCookie = await signInForSessionCookie(`conflicts-owner-${label}@example.com`);
 
-  const noPermission = await seedCredentialedUser("conflicts-nopermission@example.com", {
+  const noPermission = await seedCredentialedUser(`conflicts-nopermission-${label}@example.com`, {
     userName: "No Permission",
     firmId: poolFirmId,
   });
   await mirrorMemberWithUnrelatedGrant(noPermission.userId, "No Permission");
-  noPermissionCookie = await signInForSessionCookie("conflicts-nopermission@example.com");
+  noPermissionCookie = await signInForSessionCookie(`conflicts-nopermission-${label}@example.com`);
 
-  // A matter cannot be opened without an active numbering scheme, and the posture tests need real
-  // matters rather than fabricated handles.
+  // A matter cannot be opened without an active numbering scheme, and the tests that file a check
+  // on a matter need real matters rather than fabricated handles.
   await SELF.fetch("https://example.com/api/v1/numbering-scheme", {
     method: "PUT",
     headers: authHeaders(ownerCookie, true),
@@ -78,6 +81,10 @@ beforeAll(async () => {
       ],
     }),
   });
+}
+
+beforeAll(async () => {
+  await applyControlPlaneMigrations(env.DB_CONTROL);
 });
 
 function authHeaders(cookie: string, withKey = false): HeadersInit {
@@ -93,6 +100,13 @@ async function post(path: string, body: unknown, cookie = ownerCookie, withKey =
   return SELF.fetch(`https://example.com${path}`, {
     method: "POST",
     headers: authHeaders(cookie, withKey),
+    body: JSON.stringify(body),
+  });
+}
+async function put(path: string, body: unknown, cookie = ownerCookie) {
+  return SELF.fetch(`https://example.com${path}`, {
+    method: "PUT",
+    headers: authHeaders(cookie, true),
     body: JSON.stringify(body),
   });
 }
@@ -122,18 +136,209 @@ async function createPerson(given: string, family: string): Promise<string> {
   return id;
 }
 
+interface OpenedCheck {
+  readonly id: string;
+  readonly checkNumber: string;
+  readonly runId: string;
+  readonly ordinal: number;
+}
+
+interface RunSummary {
+  readonly id: string;
+  readonly ordinal: number;
+  readonly status: "queued" | "running" | "completed" | "failed";
+  readonly stage: string | null;
+  readonly progress: Record<string, number>;
+  readonly trigger: string;
+  readonly triggerSource: string | null;
+  readonly requestedByUserId: string | null;
+  readonly failure: string | null;
+  readonly hitCount: number | null;
+}
+
+interface CheckRead {
+  readonly check: {
+    readonly id: string;
+    readonly checkNumber: string;
+    readonly matterId: string | null;
+    readonly latestRunId: string | null;
+  };
+  readonly runs: RunSummary[];
+  readonly run: RunSummary;
+  readonly record: {
+    readonly check: {
+      readonly id: string;
+      readonly trigger: string;
+      readonly matterId: string | null;
+      readonly subjectEntityIds: string[];
+      readonly actorUserId: string | null;
+      readonly traversal: { followedToClosure: boolean; truncated: boolean } | null;
+    };
+    readonly statement: string[];
+    readonly hits: Array<{
+      id: string;
+      entityId: string;
+      party: { kind: string; displayName: string | null } | null;
+      disposition: {
+        kind: string;
+        waiver: unknown;
+        shortfalls: string[];
+      } | null;
+      previouslyAnswered: { checkId: string; kind: string } | null;
+    }>;
+  } | null;
+}
+
+// The search runs after the response, so a test that wants the record waits for the run to settle.
+// The wait watches the run row directly rather than polling the route: the chokepoint's rate-limit
+// key is `firm:<firmId>`, and a suite that spent a request every few milliseconds on waiting would
+// exhaust the firm's window and hand the NEXT case a 429 that says nothing about the code under
+// test. One read over the wire follows, the way the screen reads a check. Bounded, so a run that
+// never settles fails the test rather than hanging it.
+async function readSettled(checkId: string, runId?: string): Promise<CheckRead> {
+  const address = `/api/v1/conflicts/checks/${checkId}${runId === undefined ? "" : `?run=${runId}`}`;
+  const watched = runId ?? checkId;
+  let settled = false;
+  for (let attempt = 0; attempt < 400 && !settled; attempt += 1) {
+    const row = await firmDatabase
+      .prepare("SELECT status FROM conflicts_check_run WHERE id = ?1")
+      .bind(watched)
+      .first<{ status: string }>();
+    settled = row?.status === "completed" || row?.status === "failed";
+    if (!settled) await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  if (!settled) throw new Error(`the run of ${checkId} did not settle`);
+  const response = await get(address);
+  expect(response.status, await response.clone().text()).toBe(200);
+  return (await response.json()) as CheckRead;
+}
+
+// Opens a check and waits for its first run to complete, returning what was opened and the record.
+async function openAndSettle(body: unknown): Promise<{ opened: OpenedCheck; read: CheckRead }> {
+  const response = await post("/api/v1/conflicts/checks", body);
+  expect(response.status, await response.clone().text()).toBe(202);
+  const opened = (await response.json()) as OpenedCheck;
+  const read = await readSettled(opened.id);
+  expect(read.run.status, read.run.failure ?? "").toBe("completed");
+  return { opened, read };
+}
+
+const PARTY_SCOPE = { sources: ["party"], strictness: "balanced" };
+
 describe("conflicts check routes", () => {
-  it("runs a check and returns a handle", async () => {
+  beforeAll(() => adoptFreshFirm("checks"));
+
+  it("opens a check with a number, answers at once, and settles its first run after the response", async () => {
     const personId = await createPerson("Solo", "Subject");
 
     const response = await post("/api/v1/conflicts/checks", {
       trigger: "comprehensive",
       subjectEntityIds: [personId],
-      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+      scope: PARTY_SCOPE,
     });
-    expect(response.status).toBe(201);
-    const { id } = (await response.json()) as { id: string };
-    expect(id).toMatch(/^conflictsCheck_/);
+    expect(response.status, await response.clone().text()).toBe(202);
+    const opened = (await response.json()) as OpenedCheck;
+    expect(opened.id).toMatch(/^conflictsCheck_/);
+    expect(opened.checkNumber).toMatch(/^CC-\d{4,}$/);
+    // A check is identified by its first run's handle.
+    expect(opened.runId).toBe(opened.id);
+    expect(opened.ordinal).toBe(1);
+
+    const read = await readSettled(opened.id);
+    expect(read.check.checkNumber).toBe(opened.checkNumber);
+    expect(read.runs).toHaveLength(1);
+    expect(read.run.status).toBe("completed");
+    expect(read.run.requestedByUserId).toBe(ownerUserId);
+    expect(read.run.triggerSource).toBe("manual");
+    // A settled run carries its record, and a walk to closure says so on it.
+    expect(read.record?.check.id).toBe(opened.runId);
+    expect(read.record?.check.traversal?.followedToClosure).toBe(true);
+  });
+
+  it("previews the number the next check would draw, before anything is saved", async () => {
+    const preview = await get("/api/v1/conflicts/checks/next-number");
+    expect(preview.status, await preview.clone().text()).toBe(200);
+    const { checkNumber } = (await preview.json()) as { checkNumber: string };
+    expect(checkNumber).toMatch(/^CC-\d{4,}$/);
+
+    const { opened } = await openAndSettle({
+      trigger: "preliminary",
+      subjectEntityIds: [await createPerson("Next", "Number")],
+      scope: PARTY_SCOPE,
+    });
+    expect(opened.checkNumber).toBe(checkNumber);
+  });
+
+  it("runs a check again under the same number, and the check's history gains an entry", async () => {
+    const subjectId = await createPerson("Again", "Subject");
+    const { opened } = await openAndSettle({
+      trigger: "preliminary",
+      subjectEntityIds: [subjectId],
+      scope: PARTY_SCOPE,
+    });
+
+    const rerun = await post(`/api/v1/conflicts/checks/${opened.id}/runs`, {});
+    expect(rerun.status, await rerun.clone().text()).toBe(202);
+    const second = (await rerun.json()) as OpenedCheck;
+    expect(second.id).toBe(opened.id);
+    expect(second.checkNumber).toBe(opened.checkNumber);
+    expect(second.runId).not.toBe(opened.runId);
+    expect(second.ordinal).toBe(2);
+
+    const read = await readSettled(opened.id, second.runId);
+    expect(read.runs.map((run) => run.ordinal)).toEqual([1, 2]);
+    expect(read.check.latestRunId).toBe(second.runId);
+    expect(read.run.id).toBe(second.runId);
+    expect(read.record?.check.subjectEntityIds).toContain(subjectId);
+
+    // Either handle lands on the check, and the earlier run is still readable by name.
+    const byRun = await readSettled(second.runId, opened.runId);
+    expect(byRun.check.id).toBe(opened.id);
+    expect(byRun.run.ordinal).toBe(1);
+  });
+
+  it("files a check on a matter after it ran, and the matter's history then holds it", async () => {
+    const subjectId = await createPerson("Filed", "Later");
+    const { opened } = await openAndSettle({
+      trigger: "preliminary",
+      subjectEntityIds: [subjectId],
+      scope: PARTY_SCOPE,
+    });
+    const matter = await post("/api/v1/matters", {
+      title: "Filed after the screen",
+      status: "open",
+      responsibleMemberId: ownerUserId,
+      clientDisplayName: "Filed Client",
+    });
+    expect(matter.status, await matter.clone().text()).toBe(201);
+    const { matterId } = (await matter.json()) as { matterId: string };
+
+    const filed = await put(`/api/v1/conflicts/checks/${opened.id}/matter`, { matterId });
+    expect(filed.status, await filed.clone().text()).toBe(200);
+    expect(await filed.json()).toEqual({ id: opened.id, matterId });
+
+    const read = await readSettled(opened.id);
+    expect(read.check.matterId).toBe(matterId);
+    // The search record still says which matter it actually ran against: none.
+    expect(read.record?.check.matterId).toBeNull();
+
+    const narrowed = await get(`/api/v1/conflicts/checks?matterId=${matterId}`);
+    const page = (await narrowed.json()) as { data: Array<{ id: string }> };
+    expect(page.data.map((row) => row.id)).toContain(opened.id);
+
+    const posture = await get(`/api/v1/matters/${matterId}/conflicts-posture`);
+    const standing = (await posture.json()) as {
+      neverChecked: boolean;
+      latestCheck: { id: string; checkNumber: string | null } | null;
+    };
+    expect(standing.neverChecked).toBe(false);
+    expect(standing.latestCheck?.id).toBe(opened.runId);
+    expect(standing.latestCheck?.checkNumber).toBe(opened.checkNumber);
+
+    const unknownMatter = await put(`/api/v1/conflicts/checks/${opened.id}/matter`, {
+      matterId: newIdentifier("matter"),
+    });
+    expect(unknownMatter.status).toBe(422);
   });
 
   it("carries an earlier answer about the same party as context, leaving the hit unanswered", async () => {
@@ -145,20 +350,13 @@ describe("conflicts check routes", () => {
      */
     const subjectId = await createPerson("Twice", "Surfaced");
     const matchId = await createPerson("Twice", "Surfaced");
-    const scope = { sources: ["party"], strictness: "balanced", depth: 1 };
 
-    const first = await post("/api/v1/conflicts/checks", {
+    const first = await openAndSettle({
       trigger: "comprehensive",
       subjectEntityIds: [subjectId],
-      scope,
+      scope: PARTY_SCOPE,
     });
-    expect(first.status, await first.clone().text()).toBe(201);
-    const { id: firstCheckId } = (await first.json()) as { id: string };
-    const firstRead = await get(`/api/v1/conflicts/checks/${firstCheckId}`);
-    const firstBody = (await firstRead.json()) as {
-      hits: Array<{ id: string; entityId: string; previouslyAnswered: unknown }>;
-    };
-    const firstHit = firstBody.hits.find((hit) => hit.entityId === matchId);
+    const firstHit = first.read.record?.hits.find((hit) => hit.entityId === matchId);
     expect(firstHit).toBeDefined();
     // Nothing has been said about this party yet.
     expect(firstHit?.previouslyAnswered).toBeNull();
@@ -169,29 +367,19 @@ describe("conflicts check routes", () => {
     });
     expect(answered.status, await answered.clone().text()).toBe(201);
 
-    const second = await post("/api/v1/conflicts/checks", {
+    const second = await openAndSettle({
       trigger: "comprehensive",
       subjectEntityIds: [subjectId],
-      scope,
+      scope: PARTY_SCOPE,
     });
-    expect(second.status, await second.clone().text()).toBe(201);
-    const { id: secondCheckId } = (await second.json()) as { id: string };
-    const secondRead = await get(`/api/v1/conflicts/checks/${secondCheckId}`);
-    const secondBody = (await secondRead.json()) as {
-      hits: Array<{
-        entityId: string;
-        disposition: unknown;
-        previouslyAnswered: { checkId: string; kind: string } | null;
-      }>;
-    };
-    const secondHit = secondBody.hits.find((hit) => hit.entityId === matchId);
+    const secondHit = second.read.record?.hits.find((hit) => hit.entityId === matchId);
     expect(secondHit?.previouslyAnswered?.kind).toBe("cleared");
-    expect(secondHit?.previouslyAnswered?.checkId).toBe(firstCheckId);
+    expect(secondHit?.previouslyAnswered?.checkId).toBe(first.opened.runId);
     // The point of the ruling: context, not a conclusion. This hit is unanswered.
     expect(secondHit?.disposition).toBeNull();
   });
 
-  it("lists the checks the firm has run, newest first, and narrows to one matter", async () => {
+  it("lists the checks the firm refers to, newest first, one row per check, and narrows to one matter", async () => {
     const subjectId = await createPerson("History", "Subject");
     const matter = await post("/api/v1/matters", {
       title: "Check history",
@@ -204,47 +392,52 @@ describe("conflicts check routes", () => {
 
     // One check against the matter, one against a bare party set with no matter at all — which the
     // schema allows and a listing must not imply is impossible.
-    const forMatter = await post("/api/v1/conflicts/checks", {
+    const forMatter = await openAndSettle({
       trigger: "comprehensive",
       matterId,
       subjectEntityIds: [subjectId],
-      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+      scope: PARTY_SCOPE,
     });
-    expect(forMatter.status, await forMatter.clone().text()).toBe(201);
-    const { id: matterCheckId } = (await forMatter.json()) as { id: string };
-    const withoutMatter = await post("/api/v1/conflicts/checks", {
+    await openAndSettle({
       trigger: "preliminary",
       subjectEntityIds: [subjectId],
-      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+      scope: PARTY_SCOPE,
     });
-    expect(withoutMatter.status, await withoutMatter.clone().text()).toBe(201);
+    // A second run of the matter's check is one row with two runs, not two rows.
+    const rerun = await post(`/api/v1/conflicts/checks/${forMatter.opened.id}/runs`, {});
+    expect(rerun.status, await rerun.clone().text()).toBe(202);
+    const second = (await rerun.json()) as OpenedCheck;
+    await readSettled(forMatter.opened.id, second.runId);
 
     const all = await get("/api/v1/conflicts/checks");
     expect(all.status, await all.clone().text()).toBe(200);
     const page = (await all.json()) as {
       data: Array<{
         id: string;
+        checkNumber: string;
         matterId: string | null;
+        runCount: number;
+        runStatus: string | null;
         actorUserId: string | null;
         triggerSource: string | null;
-        hitCount: number;
+        hitCount: number | null;
       }>;
       nextCursor: string | null;
     };
     // Newest first, and the envelope is the uniform one — never a bare array.
     expect(page.data.length).toBeGreaterThanOrEqual(2);
     expect(page).toHaveProperty("nextCursor");
-    const listed = page.data.find((entry) => entry.id === matterCheckId);
+    const listed = page.data.find((entry) => entry.id === forMatter.opened.id);
+    expect(listed?.checkNumber).toBe(forMatter.opened.checkNumber);
     expect(listed?.matterId).toBe(matterId);
+    expect(listed?.runCount).toBe(2);
+    expect(listed?.runStatus).toBe("completed");
     // A person asked for it, so the row names them. An automated run would carry null here, and the
     // two must never read alike.
     expect(listed?.actorUserId).toBe(ownerUserId);
-    // And the row says a PERSON asked, not merely who. Unset, the check stores no trigger source at
-    // all — the shape of a row written before the column existed — and the firm's log then reads
-    // "the row does not say what started it" beside an actor it does in fact name. That is a
-    // different and worse claim than either of the two honest ones.
     expect(listed?.triggerSource).toBe("manual");
     expect(typeof listed?.hitCount).toBe("number");
+    expect(page.data.filter((entry) => entry.id === forMatter.opened.id)).toHaveLength(1);
 
     const narrowed = await get(`/api/v1/conflicts/checks?matterId=${matterId}`);
     expect(narrowed.status, await narrowed.clone().text()).toBe(200);
@@ -258,8 +451,8 @@ describe("conflicts check routes", () => {
     /*
      * The affordance a reviewer presses. It takes no scope on purpose: "re-check this matter" has
      * none for a caller to state, and asking would invite a screen to compose a narrower search than
-     * the firm requires. It also names no subjects — runConflictsCheck reads the matter's own live
-     * parties, so a party added since the last check is in the search without anybody listing them.
+     * the firm requires. It also names no subjects — the engine reads the matter's own live parties,
+     * so a party added since the last check is in the search without anybody listing them.
      */
     const clientId = await createPerson("Recheck", "Client");
     const matter = await post("/api/v1/matters", {
@@ -278,36 +471,47 @@ describe("conflicts check routes", () => {
     expect(party.status, await party.clone().text()).toBe(201);
 
     const recheck = await post(`/api/v1/matters/${matterId}/conflicts-rechecks`, {});
-    expect(recheck.status, await recheck.clone().text()).toBe(201);
-    const { checkId } = (await recheck.json()) as { checkId: string };
+    expect(recheck.status, await recheck.clone().text()).toBe(202);
+    const { id: checkId, runId, checkNumber } = (await recheck.json()) as OpenedCheck;
     expect(checkId).toMatch(/^conflictsCheck_/);
+    expect(checkNumber).toMatch(/^CC-/);
 
     // It is somebody's act, and the log says whose — unlike an automated run, which is nobody's.
-    const read = await get(`/api/v1/conflicts/checks/${checkId}`);
-    expect(read.status, await read.clone().text()).toBe(200);
-    const body = (await read.json()) as {
-      check: { matterId: string | null; actorUserId: string | null };
-    };
-    expect(body.check.matterId).toBe(matterId);
-    expect(body.check.actorUserId).toBe(ownerUserId);
+    const read = await readSettled(checkId, runId);
+    expect(read.run.status).toBe("completed");
+    expect(read.record?.check.matterId).toBe(matterId);
+    expect(read.record?.check.actorUserId).toBe(ownerUserId);
+    expect(read.record?.check.subjectEntityIds).toContain(clientId);
+
+    // Pressed again, it lands under the matter's own check as a further run.
+    const again = await post(`/api/v1/matters/${matterId}/conflicts-rechecks`, {});
+    expect(again.status, await again.clone().text()).toBe(202);
+    const second = (await again.json()) as OpenedCheck;
+    expect(second.id).toBe(checkId);
+    expect(second.runId).not.toBe(runId);
+    expect((await readSettled(checkId, second.runId)).runs).toHaveLength(2);
   });
 
-  it("serves the firm's conflicts floor, with the party class always in it", async () => {
+  it("serves the firm's conflicts floor, with the party class always in it and no bounds on it", async () => {
     const response = await get("/api/v1/firm/conflicts-policy");
     expect(response.status, await response.clone().text()).toBe(200);
-    const policy = (await response.json()) as {
-      floorSources: string[];
-      floorStrictness: string;
-      balancedNameRoles: string[];
-    };
+    const policy = (await response.json()) as Record<string, unknown>;
     // Never optional: conflicts impute across the whole firm, so a floor that could drop the party
     // corpus would be a floor that permits a check nobody should be able to ask for.
     expect(policy.floorSources).toContain("party");
     expect(policy.floorStrictness).toBeTruthy();
     // Never empty: an emptied set would compare no name rows at all — a check that runs and finds
     // nothing for a reason nothing on the row explains.
-    expect(policy.balancedNameRoles.length).toBeGreaterThan(0);
+    expect((policy.balancedNameRoles as string[]).length).toBeGreaterThan(0);
+    // A firm no longer decides how far a check walks or where it stops.
+    for (const bound of ["defaultDepth", "edgeClassBudgets", "closureCap", "candidateCap"]) {
+      expect(policy).not.toHaveProperty(bound);
+    }
   });
+});
+
+describe("conflicts hit routes", () => {
+  beforeAll(() => adoptFreshFirm("hits"));
 
   it("serves every answer on a hit, oldest first, with the reversed one still standing", async () => {
     /*
@@ -318,49 +522,37 @@ describe("conflicts check routes", () => {
      */
     const subjectId = await createPerson("Trailed", "Subject");
     const matchId = await createPerson("Trailed", "Subject");
-    const created = await post("/api/v1/conflicts/checks", {
+    const { read } = await openAndSettle({
       trigger: "comprehensive",
       subjectEntityIds: [subjectId],
-      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+      scope: PARTY_SCOPE,
     });
-    expect(created.status, await created.clone().text()).toBe(201);
-    const { id: checkId } = (await created.json()) as { id: string };
-
-    const read = await get(`/api/v1/conflicts/checks/${checkId}`);
-    const body = (await read.json()) as { hits: Array<{ id: string; entityId: string }> };
-    const hit = body.hits.find((candidate) => candidate.entityId === matchId);
+    const hit = read.record?.hits.find((candidate) => candidate.entityId === matchId);
     expect(hit).toBeDefined();
-
-    // Nobody has answered it yet: an empty trail, not a 404 and not an error.
-    const empty = await get(`/api/v1/conflicts/hits/${hit?.id}/dispositions`);
-    expect(empty.status, await empty.clone().text()).toBe(200);
-    const emptyBody = (await empty.json()) as { dispositions: unknown[] };
-    expect(emptyBody.dispositions).toEqual([]);
 
     const cleared = await post(`/api/v1/conflicts/hits/${hit?.id}/dispositions`, {
       kind: "cleared",
-      rationale: "former client, unrelated matter",
+      rationale: "unrelated on first look",
     });
     expect(cleared.status, await cleared.clone().text()).toBe(201);
     const reversed = await post(`/api/v1/conflicts/hits/${hit?.id}/dispositions`, {
       kind: "representation_declined",
-      rationale: "on review, the parent is a current client",
+      rationale: "on reflection the interests are directly adverse",
     });
     expect(reversed.status, await reversed.clone().text()).toBe(201);
 
     const trail = await get(`/api/v1/conflicts/hits/${hit?.id}/dispositions`);
     expect(trail.status, await trail.clone().text()).toBe(200);
-    const trailBody = (await trail.json()) as {
+    const body = (await trail.json()) as {
       hitId: string;
-      dispositions: Array<{ kind: string; rationale: string; shortfalls: string[] }>;
+      dispositions: Array<{ kind: string; rationale: string; reviewerUserId: string }>;
     };
-    expect(trailBody.hitId).toBe(hit?.id);
-    expect(trailBody.dispositions.map((entry) => entry.kind)).toEqual([
+    expect(body.hitId).toBe(hit?.id);
+    expect(body.dispositions.map((entry) => entry.kind)).toEqual([
       "cleared",
       "representation_declined",
     ]);
-    // The clearance keeps its own words, which is the whole point of not editing it.
-    expect(trailBody.dispositions[0]?.rationale).toBe("former client, unrelated matter");
+    for (const entry of body.dispositions) expect(entry.reviewerUserId).toBe(ownerUserId);
   });
 
   it("answers 404 for a hit that does not exist, rather than an empty trail", async () => {
@@ -378,24 +570,12 @@ describe("conflicts check routes", () => {
     const subjectId = await createPerson("Ines", "Herrera");
     const matchId = await createPerson("Ines", "Herrera");
 
-    const created = await post("/api/v1/conflicts/checks", {
+    const { read } = await openAndSettle({
       trigger: "comprehensive",
       subjectEntityIds: [subjectId],
-      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+      scope: PARTY_SCOPE,
     });
-    expect(created.status, await created.clone().text()).toBe(201);
-    const { id: checkId } = (await created.json()) as { id: string };
-
-    const read = await get(`/api/v1/conflicts/checks/${checkId}`);
-    expect(read.status, await read.clone().text()).toBe(200);
-    const body = (await read.json()) as {
-      hits: Array<{
-        entityId: string;
-        party: { kind: string; displayName: string | null } | null;
-      }>;
-    };
-
-    const hit = body.hits.find((candidate) => candidate.entityId === matchId);
+    const hit = read.record?.hits.find((candidate) => candidate.entityId === matchId);
     expect(hit, "the name-twin should surface as a hit").toBeDefined();
     expect(hit?.party).toEqual({ kind: "person", displayName: "Ines Herrera" });
   });
@@ -411,13 +591,11 @@ describe("conflicts check routes", () => {
      * API is to merge an entity away, which is a different subsystem's act.
      */
     const subjectId = await createPerson("Absent", "Reference");
-    const created = await post("/api/v1/conflicts/checks", {
+    const { opened } = await openAndSettle({
       trigger: "comprehensive",
       subjectEntityIds: [subjectId],
-      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+      scope: PARTY_SCOPE,
     });
-    expect(created.status, await created.clone().text()).toBe(201);
-    const { id: checkId } = (await created.json()) as { id: string };
 
     await firmDatabase
       .prepare(
@@ -427,18 +605,14 @@ describe("conflicts check routes", () => {
       )
       .bind(
         newIdentifier("conflictsHit"),
-        checkId,
+        opened.runId,
         "directoryPerson_mergedAwayAfterTheCheck",
         new Date().toISOString(),
       )
       .run();
 
-    const read = await get(`/api/v1/conflicts/checks/${checkId}`);
-    expect(read.status, await read.clone().text()).toBe(200);
-    const body = (await read.json()) as {
-      hits: Array<{ entityId: string; party: unknown }>;
-    };
-    const orphan = body.hits.find(
+    const read = await readSettled(opened.id);
+    const orphan = read.record?.hits.find(
       (candidate) => candidate.entityId === "directoryPerson_mergedAwayAfterTheCheck",
     );
     expect(orphan, "the unresolvable hit still comes back").toBeDefined();
@@ -450,26 +624,18 @@ describe("conflicts check routes", () => {
     const subjectId = await createPerson("Marguerite", "Castellane");
     const matchId = await createPerson("Marguerite", "Castellane");
 
-    const created = await post("/api/v1/conflicts/checks", {
+    const { opened, read } = await openAndSettle({
       trigger: "new_party",
       subjectEntityIds: [subjectId],
-      scope: { sources: ["party"], strictness: "over_inclusive", depth: 1 },
+      scope: { sources: ["party"], strictness: "over_inclusive" },
     });
-    expect(created.status).toBe(201);
-    const { id: checkId } = (await created.json()) as { id: string };
+    expect(read.record?.check.id).toBe(opened.runId);
+    expect(read.record?.check.trigger).toBe("new_party");
+    expect(read.record?.check.subjectEntityIds).toContain(subjectId);
+    expect(read.record?.hits.some((hit) => hit.entityId === matchId)).toBe(true);
+    expect(read.run.hitCount).toBe(read.record?.hits.length);
 
-    const read = await get(`/api/v1/conflicts/checks/${checkId}`);
-    expect(read.status).toBe(200);
-    const body = (await read.json()) as {
-      check: { id: string; trigger: string; subjectEntityIds: string[] };
-      hits: Array<{ id: string; entityId: string; disposition: unknown }>;
-    };
-    expect(body.check.id).toBe(checkId);
-    expect(body.check.trigger).toBe("new_party");
-    expect(body.check.subjectEntityIds).toContain(subjectId);
-    expect(body.hits.some((hit) => hit.entityId === matchId)).toBe(true);
-
-    const hit = body.hits.find((candidate) => candidate.entityId === matchId);
+    const hit = read.record?.hits.find((candidate) => candidate.entityId === matchId);
     expect(hit).toBeDefined();
     expect(hit?.disposition).toBeNull();
 
@@ -482,11 +648,8 @@ describe("conflicts check routes", () => {
     expect(dispositionId).toMatch(/^conflictsDisposition_/);
 
     // Reading the check again now shows the recorded disposition on the hit.
-    const readAgain = await get(`/api/v1/conflicts/checks/${checkId}`);
-    const bodyAgain = (await readAgain.json()) as {
-      hits: Array<{ id: string; disposition: { kind: string } | null }>;
-    };
-    const hitAgain = bodyAgain.hits.find((candidate) => candidate.id === hit?.id);
+    const readAgain = await readSettled(opened.id);
+    const hitAgain = readAgain.record?.hits.find((candidate) => candidate.id === hit?.id);
     expect(hitAgain?.disposition?.kind).toBe("cleared");
   });
 
@@ -494,15 +657,12 @@ describe("conflicts check routes", () => {
     const subjectId = await createPerson("Aurelien", "Vasseur");
     const matchId = await createPerson("Aurelien", "Vasseur");
 
-    const created = await post("/api/v1/conflicts/checks", {
+    const { opened, read } = await openAndSettle({
       trigger: "comprehensive",
       subjectEntityIds: [subjectId],
-      scope: { sources: ["party"], strictness: "over_inclusive", depth: 1 },
+      scope: { sources: ["party"], strictness: "over_inclusive" },
     });
-    const { id: checkId } = (await created.json()) as { id: string };
-    const read = await get(`/api/v1/conflicts/checks/${checkId}`);
-    const body = (await read.json()) as { hits: Array<{ id: string; entityId: string }> };
-    const hit = body.hits.find((candidate) => candidate.entityId === matchId);
+    const hit = read.record?.hits.find((candidate) => candidate.entityId === matchId);
     expect(hit).toBeDefined();
 
     // Given orally and not yet confirmed in writing — the shape that must be RECORDED rather than
@@ -518,18 +678,8 @@ describe("conflicts check routes", () => {
     });
     expect(disposed.status).toBe(201);
 
-    const readAgain = await get(`/api/v1/conflicts/checks/${checkId}`);
-    const bodyAgain = (await readAgain.json()) as {
-      hits: Array<{
-        id: string;
-        disposition: {
-          kind: string;
-          waiver: { givenByEntityId: string; confirmedInWriting: boolean; givenOn: string };
-          shortfalls: string[];
-        } | null;
-      }>;
-    };
-    const answered = bodyAgain.hits.find((candidate) => candidate.id === hit?.id);
+    const readAgain = await readSettled(opened.id);
+    const answered = readAgain.record?.hits.find((candidate) => candidate.id === hit?.id);
     expect(answered?.disposition?.kind).toBe("waiver_obtained");
     expect(answered?.disposition?.waiver).toEqual({
       givenByEntityId: matchId,
@@ -546,15 +696,12 @@ describe("conflicts check routes", () => {
   it("refuses a waiver that names nobody, and a waiver record on another kind (422)", async () => {
     const subjectId = await createPerson("Ottilie", "Brandwein");
     await createPerson("Ottilie", "Brandwein");
-    const created = await post("/api/v1/conflicts/checks", {
+    const { read } = await openAndSettle({
       trigger: "comprehensive",
       subjectEntityIds: [subjectId],
-      scope: { sources: ["party"], strictness: "over_inclusive", depth: 1 },
+      scope: { sources: ["party"], strictness: "over_inclusive" },
     });
-    const { id: checkId } = (await created.json()) as { id: string };
-    const read = await get(`/api/v1/conflicts/checks/${checkId}`);
-    const body = (await read.json()) as { hits: Array<{ id: string }> };
-    const hitId = body.hits[0]?.id;
+    const hitId = read.record?.hits[0]?.id;
     expect(hitId).toBeDefined();
 
     const noParty = await post(`/api/v1/conflicts/hits/${hitId}/dispositions`, {
@@ -579,11 +726,7 @@ describe("conflicts check routes", () => {
   it("refuses a caller lacking conflicts:run (403)", async () => {
     const response = await post(
       "/api/v1/conflicts/checks",
-      {
-        trigger: "comprehensive",
-        subjectEntityIds: [],
-        scope: { sources: ["party"], strictness: "balanced", depth: 1 },
-      },
+      { trigger: "comprehensive", subjectEntityIds: [], scope: PARTY_SCOPE },
       noPermissionCookie,
     );
     expect(response.status).toBe(403);
@@ -592,33 +735,55 @@ describe("conflicts check routes", () => {
   it("rejects a request omitting trigger (422)", async () => {
     const response = await post("/api/v1/conflicts/checks", {
       subjectEntityIds: [],
-      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+      scope: PARTY_SCOPE,
     });
     expect(response.status).toBe(422);
   });
 
-  it("dedups a repeated Idempotency-Key — the retry returns the first check's id", async () => {
+  it("answers 404 for a check that does not exist, and for a run the check does not have", async () => {
+    const missing = await get(`/api/v1/conflicts/checks/${newIdentifier("conflictsCheck")}`);
+    expect(missing.status).toBe(404);
+    const { opened } = await openAndSettle({
+      trigger: "preliminary",
+      subjectEntityIds: [await createPerson("Runless", "Subject")],
+      scope: PARTY_SCOPE,
+    });
+    const wrongRun = await get(
+      `/api/v1/conflicts/checks/${opened.id}?run=${newIdentifier("conflictsCheck")}`,
+    );
+    expect(wrongRun.status).toBe(404);
+    const missingRerun = await post(
+      `/api/v1/conflicts/checks/${newIdentifier("conflictsCheck")}/runs`,
+      {},
+    );
+    expect(missingRerun.status).toBe(404);
+  });
+
+  it("dedups a repeated Idempotency-Key — the retry returns the first check's handle and number", async () => {
     const key = crypto.randomUUID();
-    const body = {
-      trigger: "periodic_rescan",
-      subjectEntityIds: [],
-      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
-    };
+    const body = { trigger: "periodic_rescan", subjectEntityIds: [], scope: PARTY_SCOPE };
 
     const first = await postWithFixedKey("/api/v1/conflicts/checks", body, key);
-    expect(first.status).toBe(201);
-    const { id: firstId } = (await first.json()) as { id: string };
+    expect(first.status).toBe(202);
+    const opened = (await first.json()) as OpenedCheck;
 
     const replay = await postWithFixedKey("/api/v1/conflicts/checks", body, key);
-    expect(replay.status).toBe(201);
-    const { id: replayId } = (await replay.json()) as { id: string };
-    expect(replayId).toBe(firstId);
+    expect(replay.status).toBe(202);
+    const replayed = (await replay.json()) as OpenedCheck;
+    expect(replayed.id).toBe(opened.id);
+    expect(replayed.checkNumber).toBe(opened.checkNumber);
 
+    await readSettled(opened.id);
     const countResult = await firmDatabase
       .prepare("SELECT COUNT(*) AS c FROM conflicts_check WHERE id = ?1")
-      .bind(firstId)
+      .bind(opened.runId)
       .all<{ c: number }>();
     expect(countResult.results[0]?.c).toBe(1);
+    const runs = await firmDatabase
+      .prepare("SELECT COUNT(*) AS c FROM conflicts_check_run WHERE numbered_check_id = ?1")
+      .bind(opened.id)
+      .all<{ c: number }>();
+    expect(runs.results[0]?.c).toBe(1);
   });
 });
 
@@ -627,12 +792,15 @@ describe("conflicts contract", () => {
     const document = buildOpenAPIDocument();
     const operationIds = new Set<string>();
     for (const item of Object.values(document.paths ?? {})) {
-      for (const method of ["get", "post"] as const) {
+      for (const method of ["get", "post", "put"] as const) {
         const operation = (item as Record<string, { operationId?: string } | undefined>)[method];
         if (operation?.operationId) operationIds.add(operation.operationId);
       }
     }
     expect(operationIds.has("conflicts.runCheck")).toBe(true);
+    expect(operationIds.has("conflicts.rerunCheck")).toBe(true);
+    expect(operationIds.has("conflicts.fileCheckOnMatter")).toBe(true);
+    expect(operationIds.has("conflicts.nextCheckNumber")).toBe(true);
     expect(operationIds.has("conflicts.getCheck")).toBe(true);
     expect(operationIds.has("conflicts.matterPosture")).toBe(true);
     expect(operationIds.has("conflicts.recordDisposition")).toBe(true);
@@ -643,6 +811,8 @@ describe("conflicts contract", () => {
 // what is proved here is that the wire shape a caller actually receives carries no verdict, and that
 // the statement a caller renders says what the search did.
 describe("the reporting posture over the wire", () => {
+  beforeAll(() => adoptFreshFirm("posture"));
+
   interface PostureBody {
     readonly matterId: string;
     readonly neverChecked: boolean;
@@ -686,33 +856,35 @@ describe("the reporting posture over the wire", () => {
 
   it("distinguishes a checked matter that surfaced nothing from one never checked", async () => {
     const matterId = await createMatter("Checked and quiet");
-    const created = await post("/api/v1/conflicts/checks", {
+    await openAndSettle({
       trigger: "comprehensive",
       matterId,
       subjectEntityIds: [],
-      scope: { sources: ["party", "content"], strictness: "balanced", depth: 1 },
+      scope: { sources: ["party", "content"], strictness: "balanced" },
     });
-    expect(created.status).toBe(201);
 
     const body = (await (await readPosture(matterId)).json()) as PostureBody;
     expect(body.neverChecked).toBe(false);
     expect(body.latestCheck).not.toBeNull();
     expect(body.latestCheck?.hitCount).toBe(0);
     // The sources that could not run come back named, with why — never flattened into "searched".
-    expect(body.unavailableSources.map((entry) => entry.source)).toContain("content");
+    // Every place the product lists is among them, Magnus included.
+    const unavailable = body.unavailableSources.map((entry) => entry.source);
+    expect(unavailable).toContain("content");
+    expect(unavailable).toContain("magnus_conversations");
     for (const entry of body.unavailableSources) expect(entry.reason.length).toBeGreaterThan(0);
   });
 
   it("carries no verdict-shaped field anywhere in the response", async () => {
     const matterId = await createMatter("Shape check");
-    await post("/api/v1/conflicts/checks", {
+    await openAndSettle({
       trigger: "comprehensive",
       matterId,
       subjectEntityIds: [],
-      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+      scope: PARTY_SCOPE,
     });
     const raw = await (await readPosture(matterId)).text();
-    const verdictShaped = /"(clear|clean|ok|passed|conflictFree|status|severity)"\s*:/i;
+    const verdictShaped = /"(clear|clean|ok|passed|conflictFree|severity)"\s*:/i;
     expect(verdictShaped.test(raw)).toBe(false);
   });
 
@@ -724,21 +896,17 @@ describe("the reporting posture over the wire", () => {
 
   it("returns the statement of what a check searched, ending in what surfaced", async () => {
     const matterId = await createMatter("Statement");
-    const created = await post("/api/v1/conflicts/checks", {
+    const { read } = await openAndSettle({
       trigger: "comprehensive",
       matterId,
       subjectEntityIds: [],
-      scope: { sources: ["party", "graph", "content"], strictness: "balanced", depth: 1 },
+      scope: { sources: ["party", "graph", "content"], strictness: "balanced" },
     });
-    const { id: checkId } = (await created.json()) as { id: string };
-
-    const body = (await (await get(`/api/v1/conflicts/checks/${checkId}`)).json()) as {
-      statement: string[];
-      hits: unknown[];
-    };
-    expect(body.hits).toEqual([]);
-    expect(body.statement[0]).toMatch(/^Searched on .* trigger comprehensive\.$/);
-    expect(body.statement.some((line) => line.startsWith("Not searched:"))).toBe(true);
-    expect(body.statement.at(-1)).toBe("Nothing surfaced.");
+    expect(read.record?.hits).toEqual([]);
+    const statement = read.record?.statement ?? [];
+    expect(statement[0]).toMatch(/^Searched on .* trigger comprehensive\.$/);
+    expect(statement.some((line) => line.includes("followed to closure"))).toBe(true);
+    expect(statement.some((line) => line.startsWith("Not searched:"))).toBe(true);
+    expect(statement.at(-1)).toBe("Nothing surfaced.");
   });
 });

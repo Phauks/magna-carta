@@ -147,33 +147,46 @@ export function insertDispositionStatement(
 // ---- reading the log back ---------------------------------------------------------------------
 
 /*
- * The checks a firm has run, newest first, keyset-paginated over (created_at, id).
+ * The checks a firm refers to, newest first, keyset-paginated over the numbered check's
+ * (created_at, id).
  *
- * TWO SHAPES OF READ, ONE STATEMENT, AND THEY PLAN DIFFERENTLY. Filtered by matter, the table's
- * (subject_matter_id, created_at, id) index serves both the narrowing and the order — which is what
- * that index was added for. UNFILTERED, there is no index leading with created_at, so the firm-wide
- * listing sorts what it reads. That is measured rather than assumed: see the plan assertion in
- * packages/fixtures/src/load-profile/conflicts-measurements.ts, which is what would catch it
- * degrading into a scan of every check the firm has ever run.
+ * ONE ROW PER CHECK, NOT PER RUN. A check that has been run three times is one line of the log
+ * carrying its latest run's facts and how many runs it has had; the runs are read on the check
+ * (docs/conventions/conflicts-rulings.md, R7). The latest run's search record supplies the band it
+ * ran under, whether the floor widened it and how many candidates it surfaced; a run still in
+ * flight has no record yet and those read as absent.
  *
- * The row is deliberately NARROW — it is a listing, and the whole check with its hits and its
- * statement is one identifier away. Reading inputs_json here would carry the recorded scope of every
- * check on the page for a surface that shows none of it.
+ * TWO SHAPES OF READ, ONE STATEMENT. Filtered by matter, the (subject_matter_id, created_at, id)
+ * index serves both the narrowing and the order; unfiltered, the (created_at, id) index does. The
+ * matter narrowing is on where the check is FILED, which is the numbered check's matter, so a check
+ * filed on a matter after it first ran belongs to that matter's history from the moment it is filed.
+ *
+ * The row is deliberately NARROW — it is a listing, and the whole check with its runs, its record
+ * and its hits is one identifier away.
  */
 export interface ConflictsCheckSummaryRow {
   readonly id: string;
-  readonly trigger: string;
+  readonly check_number: string;
   readonly subject_matter_id: string | null;
-  readonly strictness: string;
-  readonly depth: number;
-  readonly floor_raised: number;
-  readonly actor_user_id: string | null;
-  readonly trigger_source: string | null;
   readonly created_at: string;
+  readonly created_by_user_id: string | null;
+  readonly latest_run_id: string | null;
+  readonly run_count: number;
+  readonly run_status: string | null;
+  readonly latest_run_at: string | null;
+  readonly trigger: string | null;
+  readonly trigger_source: string | null;
+  readonly requested_by_user_id: string | null;
+  readonly strictness: string | null;
+  readonly floor_raised: number | null;
   /** Counted in the same read: a listing that could not say how many candidates surfaced would
-   * make a reader open every row to find the one that matters. */
-  readonly hit_count: number;
+   * make a reader open every row to find the one that matters. Null while the latest run has no
+   * record yet. */
+  readonly hit_count: number | null;
 }
+
+const NUMBERED_CHECK_TABLE = "conflicts_numbered_check";
+const CHECK_RUN_TABLE = "conflicts_check_run";
 
 export function selectConflictsChecksStatement(
   database: SqlDatabase,
@@ -186,30 +199,32 @@ export function selectConflictsChecksStatement(
   const conditions: string[] = [];
   const bindings: unknown[] = [];
   if (options.matterId !== undefined) {
-    conditions.push(`${CONFLICTS_CHECK_TABLE}.subject_matter_id = ?`);
+    conditions.push(`numbered.subject_matter_id = ?`);
     bindings.push(options.matterId);
   }
   if (options.cursor !== undefined) {
-    conditions.push(
-      `(${CONFLICTS_CHECK_TABLE}.created_at < ? OR (${CONFLICTS_CHECK_TABLE}.created_at = ? AND ${CONFLICTS_CHECK_TABLE}.id < ?))`,
-    );
+    conditions.push(`(numbered.created_at < ? OR (numbered.created_at = ? AND numbered.id < ?))`);
     bindings.push(options.cursor.createdAt, options.cursor.createdAt, options.cursor.id);
   }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   bindings.push(options.limit);
   return database
     .prepare(
-      `SELECT ${CONFLICTS_CHECK_TABLE}.id, ${CONFLICTS_CHECK_TABLE}.trigger, ` +
-        `${CONFLICTS_CHECK_TABLE}.subject_matter_id, ${CONFLICTS_CHECK_TABLE}.strictness, ` +
-        `${CONFLICTS_CHECK_TABLE}.depth, ${CONFLICTS_CHECK_TABLE}.floor_raised, ` +
-        `${CONFLICTS_CHECK_TABLE}.actor_user_id, ${CONFLICTS_CHECK_TABLE}.trigger_source, ` +
-        `${CONFLICTS_CHECK_TABLE}.created_at, ` +
+      `SELECT numbered.id, numbered.check_number, numbered.subject_matter_id, numbered.created_at, ` +
+        `numbered.created_by_user_id, numbered.latest_run_id, ` +
+        `COALESCE(run.ordinal, 0) AS run_count, run.status AS run_status, run.created_at AS latest_run_at, ` +
+        `run.trigger, run.trigger_source, run.requested_by_user_id, ` +
+        `record.strictness, record.floor_raised, ` +
         // A correlated count rather than a GROUP BY join: the page is at most a few dozen rows, the
         // (check_id) index on conflicts_hit serves each one, and a join would have to de-duplicate
-        // the check row per hit before the limit could be applied.
-        `(SELECT COUNT(*) FROM ${CONFLICTS_HIT_TABLE} WHERE ${CONFLICTS_HIT_TABLE}.check_id = ${CONFLICTS_CHECK_TABLE}.id) AS hit_count ` +
-        `FROM ${CONFLICTS_CHECK_TABLE} ${where} ` +
-        `ORDER BY ${CONFLICTS_CHECK_TABLE}.created_at DESC, ${CONFLICTS_CHECK_TABLE}.id DESC LIMIT ?`,
+        // the check row per hit before the limit could be applied. Null, not zero, while the latest
+        // run has no record: a search still running has surfaced nothing YET, which is not a count.
+        `CASE WHEN record.id IS NULL THEN NULL ELSE (SELECT COUNT(*) FROM ${CONFLICTS_HIT_TABLE} WHERE ${CONFLICTS_HIT_TABLE}.check_id = record.id) END AS hit_count ` +
+        `FROM ${NUMBERED_CHECK_TABLE} AS numbered ` +
+        `LEFT JOIN ${CHECK_RUN_TABLE} AS run ON run.id = numbered.latest_run_id ` +
+        `LEFT JOIN ${CONFLICTS_CHECK_TABLE} AS record ON record.id = run.id ` +
+        `${where} ` +
+        `ORDER BY numbered.created_at DESC, numbered.id DESC LIMIT ?`,
     )
     .bind(...bindings);
 }

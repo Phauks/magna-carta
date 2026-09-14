@@ -31,10 +31,38 @@ import { countPhrase } from "./file-manager-vocabulary.ts";
 import { UPLOAD_STAGE_NARRATION, type UploadStage } from "./file-upload.ts";
 
 /**
- * Where one chosen file stands: not yet sent, one of the ceremony's steps, failed, or not sent
- * because the reader cancelled the batch before its turn came.
+ * Where one chosen file stands. BEFORE its turn comes it is being made ready — chosen and waiting
+ * to be read, being read ("hashing"), read and ready to go, read and found to be bytes the firm
+ * already holds (so nothing will be sent for it), or unreadable here. Once the transfer reaches it,
+ * it moves through the ceremony's steps, and ends uploaded, already on the matter, failed, or not
+ * sent because the reader cancelled the batch first.
  */
-export type IntakeStage = "chosen" | "hashing" | UploadStage | "skipped" | "failed" | "cancelled";
+export type IntakeStage =
+  | "chosen"
+  | "hashing"
+  | "ready"
+  | "held"
+  | "unread"
+  | UploadStage
+  | "failed"
+  | "skipped"
+  | "cancelled";
+
+/**
+ * The stages a file sits in before any byte of it has moved: what readiness is made of. A batch
+ * takes these files in turn; none of them is in flight, and none has finished.
+ */
+export const PRE_SEND_STAGES: ReadonlySet<IntakeStage> = new Set<IntakeStage>([
+  "chosen",
+  "hashing",
+  "ready",
+  "held",
+  "unread",
+]);
+
+export function isPreSendStage(stage: IntakeStage): boolean {
+  return PRE_SEND_STAGES.has(stage);
+}
 
 /**
  * What happens to a chosen file whose name is already taken in the folder it would land in. The
@@ -60,8 +88,13 @@ const NO_NAME_CLASH: IntakeNameClash = () => null;
 
 export interface IntakeProgress {
   readonly stage: IntakeStage;
-  /** Why it failed, when it did — the stage and the Error ID, in the reader's words. */
+  /** Why it failed, when it did — the whole sentence: the fault, the stage and the Error ID. */
   readonly reason?: string;
+  /**
+   * What failed, in one short line the row can show without being pointed at: the server's own
+   * problem detail where it gave one, the class of transport fault where it did not.
+   */
+  readonly failure?: string;
   /** Bytes the browser has sent so far, while the file is being sent. */
   readonly sentBytes?: number;
   /** Bytes read so far, while the file is being hashed. */
@@ -191,6 +224,14 @@ export interface IntakeFolderRow {
   readonly skipped: number;
   /** Bytes sent so far across the files beneath it; a settled file counts in full. */
   readonly sentBytes: number;
+  /** Files read and ready to go, before the transfer runs; the held ones are counted among them. */
+  readonly ready: number;
+  /** Files whose bytes the firm already holds, so nothing will be sent for them. */
+  readonly held: number;
+  /** Files that could not be read here, so the firm was not asked about them. */
+  readonly unread: number;
+  /** Files still being read. */
+  readonly reading: number;
   /** Whether the row is showing its children. */
   readonly expanded: boolean;
 }
@@ -205,6 +246,8 @@ export interface IntakeFileRow {
   readonly depth: number;
   readonly stage: IntakeStage;
   readonly reason?: string;
+  /** What failed, in one line, when the upload did. */
+  readonly failure?: string;
   /** Bytes sent so far, while the file is being sent. */
   readonly sentBytes: number;
   /** Bytes read so far, while the file is being hashed. */
@@ -256,6 +299,10 @@ interface Aggregate {
   inFlight: number;
   skipped: number;
   sentBytes: number;
+  ready: number;
+  held: number;
+  unread: number;
+  reading: number;
 }
 
 /** What a file's progress counts as sent: everything once the bytes are with the host, else what the browser reports. */
@@ -282,6 +329,10 @@ function aggregate(node: FolderNode, progress: ReadonlyMap<string, IntakeProgres
     inFlight: 0,
     skipped: 0,
     sentBytes: 0,
+    ready: 0,
+    held: 0,
+    unread: 0,
+    reading: 0,
   };
   for (const entry of node.files) {
     total.fileCount += 1;
@@ -294,6 +345,13 @@ function aggregate(node: FolderNode, progress: ReadonlyMap<string, IntakeProgres
     if (stage === "settled") total.uploaded += 1;
     else if (stage === "skipped") total.skipped += 1;
     else if (stage === "failed") total.failed += 1;
+    else if (stage === "hashing") total.reading += 1;
+    else if (stage === "ready") total.ready += 1;
+    else if (stage === "held") {
+      // Held is a kind of ready: the answer is in, and it is that nothing needs sending.
+      total.ready += 1;
+      total.held += 1;
+    } else if (stage === "unread") total.unread += 1;
     else if (stage !== "chosen" && stage !== "cancelled") total.inFlight += 1;
     total.sentBytes += sentBytesOf(entry.file.size, state);
   }
@@ -309,6 +367,10 @@ function aggregate(node: FolderNode, progress: ReadonlyMap<string, IntakeProgres
     total.inFlight += below.inFlight;
     total.skipped += below.skipped;
     total.sentBytes += below.sentBytes;
+    total.ready += below.ready;
+    total.held += below.held;
+    total.unread += below.unread;
+    total.reading += below.reading;
   }
   return total;
 }
@@ -337,6 +399,7 @@ function fileRow(
     depth,
     stage: state?.stage ?? "chosen",
     ...(state?.reason === undefined ? {} : { reason: state.reason }),
+    ...(state?.failure === undefined ? {} : { failure: state.failure }),
     sentBytes: sentBytesOf(entry.file.size, state),
     hashedBytes: Math.min(entry.file.size, state?.hashedBytes ?? 0),
     documentType: documentTypeName(key),
@@ -441,6 +504,9 @@ export function orderIntakeRows(
 export const INTAKE_STAGE_LABEL: Readonly<Record<IntakeStage, string>> = {
   chosen: "Chosen",
   hashing: "Reading",
+  ready: "Ready",
+  held: "Held",
+  unread: "Not read",
   matching: "Checking",
   reserving: "Reserving",
   uploading: "Sending",
@@ -456,6 +522,9 @@ export const INTAKE_STAGE_LABEL: Readonly<Record<IntakeStage, string>> = {
 export const INTAKE_STAGE_ORDER: readonly IntakeStage[] = [
   "chosen",
   "hashing",
+  "ready",
+  "held",
+  "unread",
   "matching",
   "reserving",
   "uploading",
@@ -492,12 +561,19 @@ export function intakeFileStatus(row: IntakeFileRow): string {
 
 /** The one sentence a row's stage says in full — the tooltip behind the status word. */
 export function intakeStageSentence(row: IntakeFileRow): string {
-  if (row.stage === "chosen") return "Chosen.";
+  if (row.stage === "chosen") return "Chosen, and waiting to be read.";
   if (row.stage === "failed") return row.reason ?? "Upload failed.";
   if (row.stage === "settled") return row.reason ?? "Uploaded.";
   if (row.stage === "hashing") {
     const read = formatBytes(row.hashedBytes);
     return `Reading the file to ask whether the firm already holds it: ${read} of ${formatBytes(row.entry.file.size)}.`;
+  }
+  if (row.stage === "ready") return "Read, and ready to be sent.";
+  if (row.stage === "held") {
+    return "The firm already holds a file with exactly these bytes, so nothing will be sent for it.";
+  }
+  if (row.stage === "unread") {
+    return "The file could not be read here, so the firm was not asked whether it holds it. It will be sent as it is.";
   }
   if (row.stage === "skipped") return row.reason ?? "Skipped: its name was already taken.";
   if (row.stage === "cancelled")
@@ -509,10 +585,17 @@ export function intakeStageSentence(row: IntakeFileRow): string {
   return UPLOAD_STAGE_NARRATION[row.stage];
 }
 
-/** A folder row's standing, as one phrase: what is chosen, or how its files are doing. */
+/**
+ * A folder row's standing, as one phrase. Before the transfer reaches anything beneath it, how
+ * many of its files are ready — "2 of 3 ready · 1 held"; once it has, how its files are doing.
+ */
 export function intakeFolderStatus(row: IntakeFolderRow): string {
   if (row.uploaded === 0 && row.failed === 0 && row.inFlight === 0 && row.skipped === 0) {
-    return "Chosen";
+    if (row.ready === 0 && row.unread === 0 && row.reading === 0) return "Chosen";
+    const parts = [`${String(row.ready)} of ${String(row.fileCount)} ready`];
+    if (row.held > 0) parts.push(`${String(row.held)} held`);
+    if (row.unread > 0) parts.push(`${String(row.unread)} not read`);
+    return parts.join(" · ");
   }
   const parts = [`${String(row.uploaded)} of ${String(row.fileCount)} uploaded`];
   if (row.skipped > 0) parts.push(`${String(row.skipped)} skipped`);

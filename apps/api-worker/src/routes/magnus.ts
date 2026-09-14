@@ -3,32 +3,59 @@ import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { assertPermission } from "@magna-carta/access-control/registry";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
-import { encodeCursor, decodeCursor } from "@magna-carta/data-access/cursor-pagination";
+import {
+  decodeCompositeCursor,
+  decodeCursor,
+  encodeCompositeCursor,
+  encodeCursor,
+} from "@magna-carta/data-access/cursor-pagination";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
-import type { MagnusConversationId, MagnusTurnId } from "@magna-carta/identifiers/types";
+import type {
+  FileId,
+  MagnusConversationId,
+  MagnusTurnId,
+  MatterId,
+} from "@magna-carta/identifiers/types";
+import { catalogEntryFor } from "@magna-carta/inference/catalog";
+import { primaryReasoningModelDefinition } from "@magna-carta/inference/settings";
 import {
   memberAcknowledgedAudit,
   conversationReadByAdministratorAudit,
 } from "@magna-carta/magnus/audit";
 import {
   CONVERSATION_TITLE_MAX_LENGTH,
+  attachConversationFile,
   deleteConversation,
+  detachConversationFile,
+  moveConversation,
   renameConversation,
   startConversation,
 } from "@magna-carta/magnus/conversation";
 import { MAGNUS_DISCLOSURE_VERSION } from "@magna-carta/magnus/disclosure";
-import { MEMBER_TURN_MAX_BYTES, exceedsMemberTurnCap } from "@magna-carta/magnus/limits";
+import {
+  CONVERSATION_ATTACHMENTS_MAX,
+  MEMBER_TURN_MAX_BYTES,
+  exceedsMemberTurnCap,
+} from "@magna-carta/magnus/limits";
 import { magnusDailyTurnCeilingDefinition } from "@magna-carta/magnus/settings";
 import {
   countMemberTurnsSince,
+  listAttachmentsWithFiles,
   listConversations,
   listTurns,
+  readAttachableFile,
   readConversation,
+  readMoveTarget,
   readNextSequence,
   recordAcknowledgementStatement,
 } from "@magna-carta/magnus/statements";
 import { submitTurn } from "@magna-carta/magnus/turn";
+import {
+  ATTACHMENT_TEXT_STATUSES,
+  CONVERSATION_SORTS,
+  type ConversationSort,
+} from "@magna-carta/magnus/types";
 import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
@@ -191,13 +218,41 @@ const TurnProgress = z
   })
   .openapi("MagnusTurnProgress");
 
+// Which model answers. Reported with the availability so the surface can say it beside the composer:
+// a firm chooses the model on its AI settings screen, and a member typing should be able to see the
+// choice without leaving the conversation.
+const AnsweringModel = z
+  .object({
+    modelId: z.string(),
+    snapshotId: z.string(),
+    zeroDataRetention: z.boolean(),
+  })
+  .openapi("MagnusAnsweringModel");
+
 const Availability = z
   .object({
     state: z.enum(["open", "firm-ineligible", "feature-disabled", "acknowledgement-required"]),
     disclosureVersion: z.number().optional(),
     remainingDailyTurns: z.number().optional(),
+    // Present when open. Null when the firm's stored model is one the platform no longer carries.
+    model: AnsweringModel.nullable().optional(),
   })
   .openapi("MagnusAvailability");
+
+// A file attached to a conversation by reference, as a reader meets it: the file's own name, and what
+// became of its text on the most recent question. `name` is null where the file has been deleted
+// since it was attached — stated rather than hidden, because the member may still remember attaching
+// it.
+const ConversationAttachment = z
+  .object({
+    fileId: z.string(),
+    name: z.string().nullable(),
+    matterId: z.string().nullable(),
+    attachedAt: z.string(),
+    textStatus: z.enum(ATTACHMENT_TEXT_STATUSES as [string, ...string[]]),
+    textBytes: z.number().nullable(),
+  })
+  .openapi("MagnusConversationAttachment");
 
 const AcknowledgementResponse = z
   .object({ disclosureVersion: z.number(), acknowledgedAt: z.string() })
@@ -205,6 +260,10 @@ const AcknowledgementResponse = z
 
 const conversationIdParam = z.object({
   conversationId: identifierPathParam("magnusConversation", "conversationId"),
+});
+const attachmentParams = z.object({
+  conversationId: identifierPathParam("magnusConversation", "conversationId"),
+  fileId: identifierPathParam("file", "fileId"),
 });
 const turnIdParams = z.object({
   conversationId: identifierPathParam("magnusConversation", "conversationId"),
@@ -286,15 +345,20 @@ const listConversationsRoute = defineOpenAPIRoute(readMeta("listConversations"),
   method: "get",
   path: "/api/v1/magnus/conversations",
   description:
-    "The caller's own conversations, newest first. A member holding the read-all-conversations " +
-    "permission may pass `scope=firm` to list every member's instead; that read is audited. The " +
-    "optional matter filter narrows the page to the conversations kept on one matter's file, which " +
-    "is what a matter's own assistant surface reads; it narrows the RECORD and says nothing about " +
-    "what any of those conversations was built from.",
+    "The caller's own conversations, in the order `sort` names: `date` (newest first, the default), " +
+    "`name` (by the member's own title, with unnamed conversations after the named ones, ordered by " +
+    "when they started), or `matter` (grouped by the matter they are kept on, by its title, with " +
+    "conversations on no matter last). The order is applied to the whole record and the cursor " +
+    "pages within it. A member holding the read-all-conversations permission may pass `scope=firm` " +
+    "to list every member's instead; that read is audited. The optional matter filter narrows the " +
+    "page to the conversations kept on one matter's file, which is what a matter's own assistant " +
+    "surface reads; it narrows the RECORD and says nothing about what any of those conversations " +
+    "was built from.",
   request: {
     query: cursorQuery.extend({
       scope: z.enum(["own", "firm"]).optional(),
       matterId: identifierField("matter").optional(),
+      sort: z.enum(CONVERSATION_SORTS as [ConversationSort, ...ConversationSort[]]).optional(),
     }),
   },
   responses: {
@@ -326,6 +390,7 @@ const getConversationRoute = defineOpenAPIRoute(readMeta("getConversation"), {
             .object({
               conversation: ConversationSummary,
               turns: paginated(TurnDetail),
+              attachments: z.array(ConversationAttachment),
             })
             .openapi("MagnusConversationDetail"),
         },
@@ -363,6 +428,104 @@ const renameConversationRoute = defineOpenAPIRoute(mutationMeta("renameConversat
     ...commonErrors,
   },
 });
+
+const moveConversationRoute = defineOpenAPIRoute(mutationMeta("moveConversation", true), {
+  method: "patch",
+  path: "/api/v1/magnus/conversations/{conversationId}/matter",
+  description:
+    "Keeps a conversation on another matter's file, or on none. Which matter a transcript is kept " +
+    "on is what decides who may read it, so this is an access decision as much as a filing one, " +
+    "and the audit row names both matters. The caller must be able to read the conversation (their " +
+    "own, or anyone's under the read-all-conversations permission) and the target matter must be " +
+    "one the firm still writes to: a closed matter and the platform's own matters are refused. The " +
+    "conversation's attachments go with the move, because each is one of the OLD matter's files. " +
+    "The link still scopes only the record: nothing of the matter's content reaches the assistant.",
+  request: {
+    params: conversationIdParam,
+    headers: idempotencyKeyHeader,
+    body: {
+      content: {
+        "application/json": {
+          schema: z
+            .object({ matterId: identifierField("matter").nullable() })
+            .openapi("MagnusMoveConversationRequest"),
+        },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      description: "The conversation is now kept where the request said",
+      content: { "application/json": { schema: ConversationSummary } },
+    },
+    ...commonErrors,
+    422: {
+      description: "The target matter is closed, is the platform's own, or does not exist",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
+const attachFileRoute = defineOpenAPIRoute(mutationMeta("attachFile", true), {
+  method: "post",
+  path: "/api/v1/magnus/conversations/{conversationId}/attachments",
+  description:
+    "Attaches one of the conversation's matter's files to the conversation, BY REFERENCE. The " +
+    "attachment copies nothing: on each later question, the file's current version is read, its " +
+    "readable text is taken through the platform's own extraction, and that text is sent ahead of " +
+    "the question under a heading naming the file, within a bounded budget. A conversation kept on " +
+    `no matter can attach nothing, because files are matter-rooted. At most ${CONVERSATION_ATTACHMENTS_MAX} per conversation.`,
+  request: {
+    params: conversationIdParam,
+    headers: idempotencyKeyHeader,
+    body: {
+      content: {
+        "application/json": {
+          schema: z.object({ fileId: identifierField("file") }).openapi("MagnusAttachFileRequest"),
+        },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    201: {
+      description: "The file is attached; the conversation's attachments after the write",
+      content: { "application/json": { schema: z.array(ConversationAttachment) } },
+    },
+    ...commonErrors,
+    422: {
+      description:
+        "The conversation is on no matter, the file is not one of that matter's, or the " +
+        "conversation already carries as many files as it may",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
+const detachFileRoute = defineOpenAPIRoute(
+  {
+    ...mutationMeta("detachFile", true),
+    // Nothing of the file was copied, so putting it back is attaching it again.
+    reversal: { kind: "inverse", by: "magnus.attachFile" },
+  },
+  {
+    method: "delete",
+    path: "/api/v1/magnus/conversations/{conversationId}/attachments/{fileId}",
+    description:
+      "Takes a file off the conversation. Nothing of the file was ever copied, so nothing is erased; " +
+      "later questions simply travel without it.",
+    request: { params: attachmentParams, headers: idempotencyKeyHeader },
+    responses: {
+      200: {
+        description:
+          "The file is no longer attached; the conversation's attachments after the write",
+        content: { "application/json": { schema: z.array(ConversationAttachment) } },
+      },
+      ...commonErrors,
+    },
+  },
+);
 
 const deleteConversationRoute = defineOpenAPIRoute(
   {
@@ -550,16 +713,27 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
           200,
         );
       }
-      const ceiling = await readFirmSetting(firm.firmDatabase, magnusDailyTurnCeilingDefinition);
-      const spent = await countMemberTurnsSince(
-        firm.firmDatabase,
-        utcDayStart(new Date().toISOString()),
-      );
+      const [ceiling, spent, modelId] = await Promise.all([
+        readFirmSetting(firm.firmDatabase, magnusDailyTurnCeilingDefinition),
+        countMemberTurnsSince(firm.firmDatabase, utcDayStart(new Date().toISOString())),
+        readFirmSetting(firm.firmDatabase, primaryReasoningModelDefinition),
+      ]);
+      // The model that will answer, read through the same setting the consumer reads, so what the
+      // composer says and what the queue sends can never name two models.
+      const entry = catalogEntryFor(modelId);
       return c.json(
         {
           state: "open" as const,
           disclosureVersion: consent.disclosureVersion,
           remainingDailyTurns: Math.max(ceiling - spent, 0),
+          model:
+            entry === undefined
+              ? null
+              : {
+                  modelId: entry.modelId,
+                  snapshotId: entry.snapshotId,
+                  zeroDataRetention: entry.zdrEligible,
+                },
         },
         200,
       );
@@ -676,7 +850,8 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
       const refusal = consentRefusal(c, consent);
       if (refusal !== null) return refusal;
 
-      const { cursor, scope, matterId } = c.req.valid("query");
+      const { cursor, scope, matterId, sort: requestedSort } = c.req.valid("query");
+      const sort = requestedSort ?? "date";
       // The firm-wide scope is a separate grant. Without it a member sees exactly their own, which is
       // the default and needs no opt-in.
       if (scope === "firm" && !requireChokepointPermissions(c).has(READ_ALL_PERMISSION)) {
@@ -689,14 +864,25 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
         });
       }
 
+      // The cursor's shape follows the order: the date order pages on the ordinary (created_at, id)
+      // pair, the two grouped orders on a composite whose primary is the group's sort key. Decoding
+      // the wrong shape yields undefined, which reads as the first page rather than a wrong one.
+      const decodedCursor = sort === "date" ? decodeCursor(cursor) : decodeCompositeCursor(cursor);
       const rows = await listConversations(firm.firmDatabase, {
         ...(scope === "firm" ? {} : { createdBy: userId }),
         ...(matterId !== undefined && { matterId }),
-        ...(decodeCursor(cursor) !== undefined && { cursor: decodeCursor(cursor) }),
+        sort,
+        ...(decodedCursor !== undefined && { cursor: decodedCursor }),
         limit: DEFAULT_PAGE_SIZE + 1,
       });
       const page = rows.slice(0, DEFAULT_PAGE_SIZE);
       const last = page[page.length - 1];
+      const nextCursor =
+        rows.length > DEFAULT_PAGE_SIZE && last !== undefined
+          ? sort === "date"
+            ? encodeCursor(last.createdAt, last.id)
+            : encodeCompositeCursor(last.sortKey, last.createdAt, last.id)
+          : null;
       return c.json(
         {
           data: page.map((row) => ({
@@ -708,10 +894,7 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
             createdAt: row.createdAt,
             updatedAt: row.updatedAt,
           })),
-          nextCursor:
-            rows.length > DEFAULT_PAGE_SIZE && last !== undefined
-              ? encodeCursor(last.createdAt, last.id)
-              : null,
+          nextCursor,
         },
         200,
       );
@@ -766,10 +949,13 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
         );
       }
 
-      const turns = await listTurns(firm.firmDatabase, conversationId, {
-        ...(decodeCursor(cursor) !== undefined && { cursor: decodeCursor(cursor) }),
-        limit: DEFAULT_PAGE_SIZE + 1,
-      });
+      const [turns, attachments] = await Promise.all([
+        listTurns(firm.firmDatabase, conversationId, {
+          ...(decodeCursor(cursor) !== undefined && { cursor: decodeCursor(cursor) }),
+          limit: DEFAULT_PAGE_SIZE + 1,
+        }),
+        listAttachmentsWithFiles(firm.firmDatabase, conversationId),
+      ]);
       const page = turns.slice(0, DEFAULT_PAGE_SIZE);
       const last = page[page.length - 1];
       return c.json(
@@ -783,6 +969,7 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
             createdAt: conversation.createdAt,
             updatedAt: conversation.updatedAt,
           },
+          attachments: attachments.map(attachmentBody),
           turns: {
             data: page.map((turn) => ({
               id: turn.id,
@@ -847,6 +1034,206 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
         return problemResponseForIdempotencyConflict(c, result);
       }
       return c.json({ id: conversationId }, 200);
+    },
+  );
+
+  // Move: keep the conversation on another matter, or on none.
+  app.openapi(
+    {
+      ...moveConversationRoute,
+      middleware: chokepointMiddleware(chokepoint, moveConversationRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const consent = await resolveMagnusConsent(firm.firmDatabase, userId);
+      const refusal = consentRefusal(c, consent);
+      if (refusal !== null) return refusal;
+
+      const { conversationId } = c.req.valid("param");
+      const { matterId } = c.req.valid("json");
+      // A conversation the caller can READ may be moved: their own, or anyone's under the
+      // administrative permission. Somebody else's is absent to a caller without it.
+      const readable = await requireReadableConversation(c, conversationId, userId);
+      if (readable === null) return notFound(c);
+      const conversation = await readConversation(firm.firmDatabase, conversationId);
+      if (conversation === undefined) return notFound(c);
+
+      // The target has to be a matter the firm still writes to. A closed matter takes no new
+      // work, and the platform's own matters are not a place a member keeps any.
+      if (matterId !== null) {
+        const target = await readMoveTarget(firm.firmDatabase, matterId as MatterId);
+        if (target === undefined || target.systemOwned) {
+          return problemJson(c, {
+            type: "validation",
+            title: "That matter cannot hold a conversation",
+            status: 422,
+            detail: "The matter does not exist in this firm, or is not one a member works on.",
+          });
+        }
+        if (target.status === "closed") {
+          return problemJson(c, {
+            type: "validation",
+            title: "That matter is closed",
+            status: 422,
+            detail: "A closed matter takes no new work. Reopen it first, or choose another.",
+          });
+        }
+      }
+
+      const attachments = await listAttachmentsWithFiles(firm.firmDatabase, conversationId);
+      const idempotency = requireChokepointIdempotency(c);
+      const now = () => new Date().toISOString();
+      const result = await runIdempotentEffect({
+        database: firm.firmDatabase,
+        key: idempotency.key,
+        fingerprint: idempotency.fingerprint,
+        now,
+        effect: async () => ({
+          write: moveConversation(
+            firm.firmDatabase,
+            { clock: { now }, actorUserId: userId, randomSource: cryptoRandomSource },
+            {
+              conversationId,
+              fromMatterId: conversation.matterId,
+              toMatterId: matterId === null ? null : (matterId as MatterId),
+              attachmentCount: attachments.length,
+            },
+          ),
+          responseCode: 200,
+          responseBody: canonicalJsonStringify({ id: conversationId }),
+        }),
+      });
+      if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
+        return problemResponseForIdempotencyConflict(c, result);
+      }
+      const moved = await readConversation(firm.firmDatabase, conversationId);
+      if (moved === undefined) return notFound(c);
+      return c.json(
+        {
+          id: moved.id,
+          title: moved.title,
+          createdBy: moved.createdBy,
+          matterId: moved.matterId,
+          state: moved.state,
+          createdAt: moved.createdAt,
+          updatedAt: moved.updatedAt,
+        },
+        200,
+      );
+    },
+  );
+
+  // Attach one of the matter's files, by reference.
+  app.openapi(
+    { ...attachFileRoute, middleware: chokepointMiddleware(chokepoint, attachFileRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const consent = await resolveMagnusConsent(firm.firmDatabase, userId);
+      const refusal = consentRefusal(c, consent);
+      if (refusal !== null) return refusal;
+
+      const { conversationId } = c.req.valid("param");
+      const { fileId } = c.req.valid("json");
+      const owned = await requireOwnConversation(c, conversationId, userId);
+      if (owned === null) return notFound(c);
+      const conversation = await readConversation(firm.firmDatabase, conversationId);
+      if (conversation === undefined) return notFound(c);
+
+      // Files are matter-rooted, so the conversation has to be on a matter, and the file has to be
+      // that matter's. Either failure is stated: a picker offers only the matter's own files, so a
+      // request that names another's is a stale picker or a hand-made request, and both deserve
+      // the reason rather than a bare refusal.
+      if (conversation.matterId === null) {
+        return problemJson(c, {
+          type: "validation",
+          title: "This conversation is kept on no matter",
+          status: 422,
+          detail: "Files belong to a matter. Keep the conversation on a matter first.",
+        });
+      }
+      const file = await readAttachableFile(firm.firmDatabase, fileId as FileId);
+      if (file === undefined || file.matterId !== conversation.matterId) {
+        return problemJson(c, {
+          type: "validation",
+          title: "That file is not one of this matter's",
+          status: 422,
+          detail: "Only a file kept on the conversation's own matter can be attached.",
+        });
+      }
+      const existing = await listAttachmentsWithFiles(firm.firmDatabase, conversationId);
+      const alreadyAttached = existing.some((attachment) => attachment.fileId === fileId);
+      if (!alreadyAttached && existing.length >= CONVERSATION_ATTACHMENTS_MAX) {
+        return problemJson(c, {
+          type: "validation",
+          title: "This conversation carries as many files as it may",
+          status: 422,
+          detail: `A conversation carries at most ${CONVERSATION_ATTACHMENTS_MAX} files. Take one off first.`,
+        });
+      }
+
+      const idempotency = requireChokepointIdempotency(c);
+      const now = () => new Date().toISOString();
+      const result = await runIdempotentEffect({
+        database: firm.firmDatabase,
+        key: idempotency.key,
+        fingerprint: idempotency.fingerprint,
+        now,
+        effect: async () => ({
+          write: attachConversationFile(
+            firm.firmDatabase,
+            { clock: { now }, actorUserId: userId, randomSource: cryptoRandomSource },
+            { conversationId, fileId: fileId as FileId },
+          ),
+          responseCode: 201,
+          responseBody: canonicalJsonStringify({ fileId }),
+        }),
+      });
+      if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
+        return problemResponseForIdempotencyConflict(c, result);
+      }
+      const attachments = await listAttachmentsWithFiles(firm.firmDatabase, conversationId);
+      return c.json(attachments.map(attachmentBody), 201);
+    },
+  );
+
+  // Detach.
+  app.openapi(
+    { ...detachFileRoute, middleware: chokepointMiddleware(chokepoint, detachFileRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const consent = await resolveMagnusConsent(firm.firmDatabase, userId);
+      const refusal = consentRefusal(c, consent);
+      if (refusal !== null) return refusal;
+
+      const { conversationId, fileId } = c.req.valid("param");
+      const owned = await requireOwnConversation(c, conversationId, userId);
+      if (owned === null) return notFound(c);
+
+      const idempotency = requireChokepointIdempotency(c);
+      const now = () => new Date().toISOString();
+      const result = await runIdempotentEffect({
+        database: firm.firmDatabase,
+        key: idempotency.key,
+        fingerprint: idempotency.fingerprint,
+        now,
+        effect: async () => ({
+          write: detachConversationFile(
+            firm.firmDatabase,
+            { clock: { now }, actorUserId: userId, randomSource: cryptoRandomSource },
+            { conversationId, fileId: fileId as FileId },
+          ),
+          responseCode: 200,
+          responseBody: canonicalJsonStringify({ fileId }),
+        }),
+      });
+      if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
+        return problemResponseForIdempotencyConflict(c, result);
+      }
+      const attachments = await listAttachmentsWithFiles(firm.firmDatabase, conversationId);
+      return c.json(attachments.map(attachmentBody), 200);
     },
   );
 
@@ -1092,4 +1479,23 @@ async function requireReadableConversation(
 
 function notFound(c: Context): ProblemResponse<404> {
   return problemJson(c, { type: "not-found", status: 404, title: "Conversation not found" });
+}
+
+// An attachment on the wire: the reference and its outcome, never the file's bytes or text.
+function attachmentBody(attachment: {
+  readonly fileId: string;
+  readonly fileName: string | null;
+  readonly fileMatterId: string | null;
+  readonly attachedAt: string;
+  readonly textStatus: string;
+  readonly textBytes: number | null;
+}) {
+  return {
+    fileId: attachment.fileId,
+    name: attachment.fileName,
+    matterId: attachment.fileMatterId,
+    attachedAt: attachment.attachedAt,
+    textStatus: attachment.textStatus,
+    textBytes: attachment.textBytes,
+  };
 }

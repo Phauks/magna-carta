@@ -39,7 +39,7 @@
     phoneCountries,
     phoneCountryShortLabel,
     phoneNumberPlaceholder,
-    splitTypedExtension,
+    rollTypedExtension,
   } from "./phone-entry.ts";
 
   let {
@@ -104,19 +104,29 @@
     number = formatPhoneAsTyped(region as CountryCode, number);
   }
 
+  /** What the last roll wrote into the extension, so the next roll can tell its own work apart. */
+  let rolledExtension = $state("");
+
   /**
    * A keystroke in the number half, with anything past the country's own length moved to the
    * extension.
    *
-   * The roll only ever ADDS to the extension: an extension already typed by hand is left alone,
-   * because the person who typed it knows something the digit count does not.
+   * The roll keeps rolling: digits typed past the number's end keep landing in the extension
+   * without the person leaving the field, and only an extension typed by hand is left alone
+   * (phone-entry.ts, rollTypedExtension).
    */
   function numberTyped(typed: string): string {
-    const formatted = formatPhoneAfterEdit(region as CountryCode, number, typed);
-    if (!withExtension) return formatted;
-    const split = splitTypedExtension(region as CountryCode, formatted);
-    if (split.extension !== "" && extension.trim() === "") extension = split.extension;
-    return split.extension === "" ? formatted : split.number;
+    if (!withExtension) return formatPhoneAfterEdit(region as CountryCode, number, typed);
+    const next = rollTypedExtension(
+      region as CountryCode,
+      number,
+      typed,
+      extension,
+      rolledExtension,
+    );
+    extension = next.extension;
+    rolledExtension = next.rolled;
+    return next.number;
   }
 </script>
 

@@ -49,6 +49,13 @@ import { entityKindText, surfacedAgainstText } from "./hit-columns.ts";
 
 /** What a sheet needs that the record itself does not carry. */
 export interface ReportContext {
+  /**
+   * The number the firm refers to the check by, and which run of it this is. The record is one
+   * run's account; the number is the check's, so it arrives with the context rather than the row.
+   * Absent, the run's handle prints — the citable thing the log holds when nothing better is known.
+   */
+  readonly checkNumber?: string;
+  readonly runOrdinal?: number;
   /** Directory names resolved so far, by entity handle. Missing means the handle prints. */
   readonly entityNames?: ReadonlyMap<string, string>;
   /** Member names by user handle, for the reviewer on an answer and the actor on a check. */
@@ -90,8 +97,7 @@ function countText(value: number | null): string {
 /** The scope the check actually ran under, stated so a reader never has to know what the word meant. */
 function scopeFields(check: CheckWithHits["check"]): PrintSheetField[] {
   const fields: PrintSheetField[] = [
-    { label: "Strictness", value: strictnessVocabulary(check.strictness).label },
-    { label: "Traversal Budget", value: `${String(check.depth)} hops (widest class)` },
+    { label: "Name Matching", value: strictnessVocabulary(check.strictness).label },
     { label: "Raised To The Firm's Floor", value: yesOrNo(check.floorRaised) },
   ];
   if (check.matching !== null) {
@@ -112,16 +118,35 @@ function scopeFields(check: CheckWithHits["check"]): PrintSheetField[] {
       },
     );
   }
-  if (check.traversal !== null) {
+  if (check.traversal === null) {
+    fields.push({ label: "Traversal Budget", value: `${String(check.depth)} hops (widest class)` });
+  } else if (check.traversal.followedToClosure) {
+    // A walk to closure has no budget to print; what it has is how far the longest chain ran, and
+    // the platform's ceiling, which is the only bound there was.
+    fields.push(
+      { label: "Relationships", value: "Every recorded relationship, followed to closure" },
+      {
+        label: "Longest Chain Followed",
+        value: countText(check.traversal.longestPathLength),
+      },
+      { label: "The Platform's Ceiling", value: countText(check.traversal.closureCap) },
+      { label: "Traversal Truncated", value: yesOrNo(check.traversal.truncated) },
+    );
+  } else {
+    // A run from before the walk went to closure ran under the firm's hop budgets of the day, and
+    // the paper says so: that is what it did.
     const budgets = Object.entries(check.traversal.edgeClassBudgets)
       .toSorted(([left], [right]) => left.localeCompare(right))
       .map(([edgeClass, budget]) => `${edgeClass} ${String(budget)}`)
       .join(", ");
     fields.push(
+      { label: "Traversal Budget", value: `${String(check.depth)} hops (widest class)` },
       { label: "Per-Class Budgets", value: budgets === "" ? "Not recorded" : budgets },
       { label: "Closure Cap", value: countText(check.traversal.closureCap) },
       { label: "Traversal Truncated", value: yesOrNo(check.traversal.truncated) },
     );
+  }
+  if (check.traversal !== null) {
     if (check.traversal.truncated) {
       fields.push(
         { label: "Entities Reached", value: countText(check.traversal.entitiesReached) },
@@ -138,7 +163,7 @@ function scopeFields(check: CheckWithHits["check"]): PrintSheetField[] {
   }
   if (check.candidates !== null) {
     fields.push(
-      { label: "Candidate Cap", value: countText(check.candidates.candidateCap) },
+      { label: "Record Bound", value: countText(check.candidates.candidateCap) },
       { label: "Candidate Set Truncated", value: yesOrNo(check.candidates.truncated) },
     );
     if (check.candidates.truncated) {
@@ -256,7 +281,10 @@ export function checkReportSheet(
       kind: "fields",
       title: "The Run",
       fields: [
-        { label: "Run", value: formatInstant(check.createdAt) },
+        ...(context.runOrdinal === undefined
+          ? []
+          : [{ label: "Run", value: `Run ${String(context.runOrdinal)} of this check` }]),
+        { label: "Ran", value: formatInstant(check.createdAt) },
         { label: "Trigger", value: triggerVocabulary(check.trigger).label },
         { label: "Run By", value: memberText(check.actorUserId, context.memberNames) },
         { label: "Subject Parties", value: String(check.subjectEntityIds.length) },
@@ -269,7 +297,7 @@ export function checkReportSheet(
   ];
   return {
     heading: "Conflicts Check Report",
-    reference: check.id,
+    reference: context.checkNumber ?? check.id,
     subtitle: check.matterId ?? "Firm-wide search",
     sections,
     footer: `Magna Carta · printed ${formatInstant(context.printedAt)}`,

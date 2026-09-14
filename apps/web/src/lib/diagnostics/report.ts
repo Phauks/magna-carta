@@ -35,6 +35,13 @@ export interface ProblemReport {
   readonly errorIds: readonly string[];
   /** Where the failure happened, as the app addresses it. */
   readonly route: string;
+  /**
+   * What the deployment was doing, from a surface that knew — the header's Build Information panel
+   * hands over its whole diagnosis so the reporter does not have to paste it, and so a report filed
+   * during an incident says which builds were live and whether the firm's database was answering.
+   * Absent from every other surface, which has nothing to put here.
+   */
+  readonly deployment?: string;
 }
 
 export interface FiledReport {
@@ -57,6 +64,7 @@ export function reportProblem(
         route: report.route,
         appVersion: buildIdentityLine(),
         clientAt: new Date().toISOString(),
+        ...(report.deployment === undefined ? {} : { deployment: report.deployment }),
       },
     },
   });

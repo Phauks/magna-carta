@@ -26,7 +26,11 @@
   type PopoverStoryArgs = ComponentProps<typeof PopoverRoot>;
 </script>
 
+<!-- The trigger sits at the right of a padded canvas, where a popover trigger usually is: the
+     panel opens end-aligned to it and grows toward the start, which the play function measures
+     (flush against the viewport edge, Bits would hold the panel the collision padding in). -->
 {#snippet template(args: PopoverStoryArgs)}
+  <div class="flex justify-end p-24">
   <Popover.Root {...args}>
     <Popover.Trigger class="mc-button mc-button-secondary mc-button-md">Add note</Popover.Trigger>
     <Popover.Content class="w-72">
@@ -43,6 +47,7 @@
       </div>
     </Popover.Content>
   </Popover.Root>
+  </div>
 {/snippet}
 
 <Story
@@ -59,6 +64,19 @@
       // The panel scale-fades in (mc-presence-scale-fade), starting at opacity 0, so poll until
       // the entrance settles rather than asserting on the first frame.
       await waitFor(() => expect(heading).toBeVisible());
+    });
+
+    await step("It opens end-aligned to the trigger, its end edge on the trigger's", async () => {
+      // The component's default, written nowhere in this story. The panel is the element carrying
+      // Bits' placement attributes; the heading is inside it.
+      const panel = body.getByText("Add a note to this matter").closest<HTMLElement>("[data-align]");
+      expect(panel).not.toBeNull();
+      await expect(panel as HTMLElement).toHaveAttribute("data-align", "end");
+      await waitFor(() => {
+        const box = (panel as HTMLElement).getBoundingClientRect();
+        const control = trigger.getBoundingClientRect();
+        expect(Math.abs(box.right - control.right)).toBeLessThanOrEqual(1);
+      });
     });
 
     await step("Escape closes the popover and returns focus to the trigger", async () => {

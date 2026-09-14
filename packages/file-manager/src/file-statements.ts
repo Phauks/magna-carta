@@ -254,6 +254,42 @@ export function selectCurrentCleanVersionsBySha256Statement(
     .bind(contentSha256);
 }
 
+// Every version row of one file with the object it points at and the bytes it holds — what the purge
+// guard walks. All statuses on purpose (fitness:allow-no-status): a pending or quarantined version has
+// an object too, and a guard that could not see it would destroy bytes a row still names.
+export function selectVersionObjectsOfFileStatement(
+  database: SqlDatabase,
+  fileId: FileId,
+): SqlStatement {
+  return (
+    database
+      // fitness:allow-no-status
+      .prepare(
+        `SELECT id, r2_key, content_sha256 FROM ${FILE_VERSION_TABLE} WHERE file_id = ?1 ORDER BY version_number ASC`,
+      )
+      .bind(fileId)
+  );
+}
+
+// How many OTHER version rows in the firm still name these bytes — by the hash of the content, or by
+// the very object key — across every file, live or soft-deleted, and every status
+// (fitness:allow-no-status). This is the reference count the purge guard reads: while it is above zero
+// the bytes belong to somebody else as well, and destroying the object would take theirs.
+export function countOtherVersionsHoldingBytesStatement(
+  database: SqlDatabase,
+  input: { versionId: FileVersionId; contentSha256: string | null; r2Key: string },
+): SqlStatement {
+  return (
+    database
+      // fitness:allow-no-status
+      .prepare(
+        `SELECT COUNT(*) AS held_by FROM ${FILE_VERSION_TABLE} ` +
+          `WHERE id != ?1 AND (r2_key = ?3 OR (?2 IS NOT NULL AND content_sha256 = ?2))`,
+      )
+      .bind(input.versionId, input.contentSha256, input.r2Key)
+  );
+}
+
 // A committed version's whole set of facts — what a server-side duplicate carries across unchanged,
 // because the bytes are the same bytes and the verdict the gate reached on them still holds.
 export function selectCleanVersionFactsStatement(
