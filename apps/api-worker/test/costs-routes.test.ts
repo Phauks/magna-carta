@@ -284,11 +284,14 @@ describe("cost entry list", () => {
     expect(body.data.every((entry) => entry.matterId === matterId)).toBe(true);
   });
 
-  it("GET /api/v1/costs without matterId returns an empty list", async () => {
+  it("GET /api/v1/costs without matterId answers the firm's whole record", async () => {
+    // Nothing named is every cost on every matter: the firm's Costs screen opens on it and narrows
+    // it with its columns. It used to answer empty, which left that screen no read at all.
     const response = await get("/api/v1/costs");
     expect(response.status).toBe(200);
-    const body = (await response.json()) as { data: unknown[] };
-    expect(body.data).toEqual([]);
+    const body = (await response.json()) as { data: { matterId: string }[] };
+    expect(body.data.length).toBeGreaterThanOrEqual(2);
+    expect(body.data.some((entry) => entry.matterId === matterId)).toBe(true);
   });
 });
 

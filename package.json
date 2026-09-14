@@ -36,6 +36,7 @@
     "lint:one-ui": "node tooling/lint-one-ui/index.mjs",
     "lint:page-inset": "node tooling/lint-page-inset/index.mjs",
     "lint:screen-headers": "node tooling/lint-screen-headers/index.mjs",
+    "lint:structured-empty": "node tooling/lint-structured-empty/index.mjs",
     "lint:scrollbar": "node tooling/lint-scrollbar/index.mjs",
     "lint:workspace-search": "node tooling/lint-workspace-search/index.mjs",
     "lint:matter-search-coverage": "node tooling/lint-matter-search-coverage/index.mjs",

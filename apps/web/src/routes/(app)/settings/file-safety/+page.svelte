@@ -8,10 +8,18 @@
    * access time — so what changes here reaches both without re-ingesting anything, and a save is
    * audited by the route rather than remembered by this browser.
    *
-   * The page stages through the shared server-backed draft, so the rows, the footer's pending count
-   * and its confirmation recap are the settings surface's own anatomy rather than a second copy of
-   * it. Nothing touches local storage: a firm setting with a server behind it must not keep a
-   * per-browser copy that can disagree with the firm.
+   * THE STANDARD PAGE, WITH ONE THING BENEATH ONE ROW. The rows, the footer's pending count and
+   * its confirmation recap are the settings surface's own anatomy (settings-page.svelte over the
+   * shared server-backed draft). What this page adds sits beneath Scan Depth: the engine every
+   * upload is scanned by, as it reports itself, and under it what the CHOSEN depth's rules are —
+   * revealed by the choice, so a depth is never explained inside the one-line option a person has
+   * to read it from. The engine's composite version is read from the score-histogram route, the
+   * one place the engine states it, behind the same permission the policy read names.
+   *
+   * WHAT THE DEPTH ROW CAN AND CANNOT SAY. Its meaning is stated from the verdict model and the
+   * engine's own build notes (scan-policy-draft.svelte.ts, scanTierMeaning). The rule families
+   * inside each depth are the upstream release's and are reported by nothing yet, so that line
+   * ships as the honest Soon seam rather than a list somebody invented.
    *
    * HISTORY IS WITHHELD, for the reason the calendar page withholds it: the record of a change is
    * the audit row the server writes, and a per-browser ledger would be one browser's recollection
@@ -23,20 +31,34 @@
    * how many rules it is about to start trusting. That control is its own piece of work; until it
    * lands the field is the plain number, which is honest and settable, rather than absent.
    */
+  import Badge from "@magna-carta/design-system/badge";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
-  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import {
     createScanPolicyDraft,
     FILE_SAFETY_DEFINITIONS,
     FILE_SAFETY_SECTION_ID,
+    SCAN_ENGINE_DEFINITION,
+    SCAN_TIER_DEFINITION,
+    SCAN_TIER_RULES_SOON_LINE,
+    scanTierFromValue,
+    scanTierRulesDefinition,
   } from "$lib/file-manager/scan-policy-draft.svelte.ts";
-  import { MANAGE_SCAN_POLICY_PERMISSION } from "$lib/file-manager/scan-policy-api.ts";
+  import {
+    MANAGE_SCAN_POLICY_PERMISSION,
+    readScanEngineVersion,
+  } from "$lib/file-manager/scan-policy-api.ts";
   import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
-  import SettingsCommitFooter from "$lib/settings/components/settings-commit-footer.svelte";
-  import SettingsDescription from "$lib/settings/components/settings-description.svelte";
-  import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
-  import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
+  import SettingsPage from "$lib/settings/components/settings-page.svelte";
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
+  import type { SettingDefinition } from "$lib/settings/settings-definitions.ts";
+  import {
+    decomposeScanEngineVersion,
+    SCAN_ENGINE_FIXTURE_PARTS,
+    SCAN_ENGINE_UNREPORTED_DETAIL,
+    SCAN_ENGINE_UNREPORTED_LABEL,
+    scanEngineReadingLines,
+    type ScanEngineParts,
+  } from "$lib/versions/scan-engine-version.ts";
 
   const draft = createScanPolicyDraft(fetch);
 
@@ -44,93 +66,103 @@
   // permission turns out to be missing reads as a broken page.
   const canEdit = $derived(sessionPermissions.holds(MANAGE_SCAN_POLICY_PERMISSION));
 
+  type ScanEngineState =
+    | { status: "loading" }
+    | { status: "reported"; parts: ScanEngineParts }
+    | { status: "unreported" };
+
+  let scanEngine = $state<ScanEngineState>({ status: "loading" });
+
+  async function readEngine(): Promise<void> {
+    scanEngine = { status: "loading" };
+    const outcome = await readScanEngineVersion(fetch);
+    if (outcome.kind !== "ok" || outcome.value.engineVersion === null) {
+      scanEngine = { status: "unreported" };
+      return;
+    }
+    const parts = decomposeScanEngineVersion(outcome.value.engineVersion);
+    scanEngine = parts === null ? { status: "unreported" } : { status: "reported", parts };
+  }
+
   $effect(() => {
-    void draft.load();
     void sessionPermissions.load(fetch);
+    void readEngine();
   });
 
-  /** The plates, in the order their definitions declare — the page never re-groups them itself. */
-  const plates = $derived.by(() => {
-    const grouped: { label: string; definitions: (typeof FILE_SAFETY_DEFINITIONS)[number][] }[] = [];
-    for (const definition of FILE_SAFETY_DEFINITIONS) {
-      const label = definition.plateLabel ?? "General";
-      const plate = grouped.find((candidate) => candidate.label === label);
-      if (plate === undefined) grouped.push({ label, definitions: [definition] });
-      else plate.definitions.push(definition);
-    }
-    return grouped;
-  });
+  // The depth the reader has CHOSEN, staged or committed: the rules row follows the choice as it
+  // is made, which is what makes choosing reveal rather than describe after the fact.
+  const chosenTier = $derived(scanTierFromValue(draft.stagedValue(SCAN_TIER_DEFINITION)));
+  const rulesDefinition = $derived(scanTierRulesDefinition(chosenTier));
 </script>
 
 <svelte:head>
   <title>File Safety & Scanning · Settings · Magna Carta</title>
 </svelte:head>
 
-<SettingsMasthead
+{#snippet engineReading(parts: ScanEngineParts)}
+  <dl class="flex flex-col items-end gap-4 text-sm">
+    {#each scanEngineReadingLines(parts) as line (line.label)}
+      <div class="flex items-baseline gap-8">
+        <dt class="text-text-muted">{line.label}</dt>
+        <dd class="font-mono tabular-nums">{line.value}</dd>
+      </div>
+    {/each}
+  </dl>
+{/snippet}
+
+{#snippet afterRow(definition: SettingDefinition)}
+  {#if definition.id === SCAN_TIER_DEFINITION.id}
+    <!-- The engine beneath the depth that runs against it, then what the chosen depth means. -->
+    <LoadingRegion
+      loading={scanEngine.status === "loading"}
+      label="Reading the scan engine's version"
+      onRetry={() => void readEngine()}
+      class="flex flex-col divide-y divide-border-default"
+    >
+      {#snippet fixture()}
+        <SettingsRow definition={SCAN_ENGINE_DEFINITION}>
+          {#snippet control()}
+            {@render engineReading(SCAN_ENGINE_FIXTURE_PARTS)}
+          {/snippet}
+        </SettingsRow>
+      {/snippet}
+      <SettingsRow definition={SCAN_ENGINE_DEFINITION}>
+        {#snippet control()}
+          {#if scanEngine.status === "reported"}
+            {@render engineReading(scanEngine.parts)}
+          {:else}
+            <div class="flex flex-col items-end gap-4">
+              <Badge variant="neutral">{SCAN_ENGINE_UNREPORTED_LABEL}</Badge>
+              <p class="text-end text-xs text-text-muted">{SCAN_ENGINE_UNREPORTED_DETAIL}</p>
+            </div>
+          {/if}
+        {/snippet}
+      </SettingsRow>
+    </LoadingRegion>
+    <SettingsRow definition={rulesDefinition}>
+      {#snippet control()}
+        <!-- The rule families are designed-but-unwired: the anatomy ships with the Soon device and
+             the one honest line saying what it waits on, never an invented list. -->
+        <div class="flex flex-col items-end gap-4">
+          <Badge variant="neutral">Soon</Badge>
+          <p class="text-end text-xs text-text-muted">{SCAN_TIER_RULES_SOON_LINE}</p>
+        </div>
+      {/snippet}
+    </SettingsRow>
+  {/if}
+{/snippet}
+
+<SettingsPage
   sectionId={FILE_SAFETY_SECTION_ID}
   title="File Safety & Scanning"
-  posture={canEdit ? "draft" : "readOnly"}
-  draft={canEdit ? draft : undefined}
-  showHistory={false}
+  meta="How the firm's uploads are scanned, and what it can do with a file the scan distrusts."
+  {draft}
+  definitions={FILE_SAFETY_DEFINITIONS}
+  {canEdit}
+  readLabel="Reading the firm's scan policy"
+  readFailureTitle="The Scan Policy Could Not Be Read"
+  readFailureFallback="The firm's scan policy was not read."
+  saveFailureFallback="The scan policy is unchanged. What you chose is still staged."
+  saveFailureWhenSilent="Nothing answered, so the scan policy is unchanged. What you chose is still staged."
+  {afterRow}
 />
-
-<!-- The middle story: the one scroll area, reaching the canvas's true edges (the breathing
-     room rides INSIDE it); scrollbar-gutter keeps pages that scroll and pages that do not at
-     identical width. -->
-<div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
-  <div class="flex flex-col gap-24 p-24">
-    <SettingsDescription>
-      How the firm's uploads are scanned, and what it can do with a file the scan distrusts.
-    </SettingsDescription>
-
-    {#if draft.saveFailure !== null}
-      <FailureNotice
-        failure={draft.saveFailure}
-        title="The Change Was Not Saved"
-        fallback="The scan policy is unchanged. What you chose is still staged."
-        whenSilent="Nothing answered, so the scan policy is unchanged. What you chose is still staged."
-        onRetry={() => void draft.commit()}
-      />
-    {/if}
-
-    {#each plates as plate (plate.label)}
-      <SettingsPlate heading={plate.label}>
-        <LoadingRegion
-          loading={!draft.loaded}
-          failed={draft.readFailure !== null && !draft.loaded}
-          label="Reading the firm's scan policy"
-          onRetry={() => void draft.load()}
-        >
-          {#snippet failure()}
-            {#if draft.readFailure !== null}
-              <FailureNotice
-                failure={draft.readFailure}
-                title="The Scan Policy Could Not Be Read"
-                fallback="The firm's scan policy was not read."
-                onRetry={() => void draft.load()}
-              />
-            {/if}
-          {/snippet}
-          <!-- The rows keep their own shape while the read is out: the setting's name stays
-               readable and its value grey, so the plate does not change height when it lands. -->
-          {#snippet fixture()}
-            {#each plate.definitions as definition (definition.id)}
-              <SettingsRow {definition} value={definition.defaultValue} />
-            {/each}
-          {/snippet}
-          {#each plate.definitions as definition (definition.id)}
-            {#if canEdit}
-              <SettingsRow {definition} {draft} />
-            {:else}
-              <SettingsRow {definition} value={draft.value(definition)} />
-            {/if}
-          {/each}
-        </LoadingRegion>
-      </SettingsPlate>
-    {/each}
-  </div>
-</div>
-
-{#if canEdit}
-  <SettingsCommitFooter {draft} />
-{/if}

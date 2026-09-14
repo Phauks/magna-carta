@@ -1,18 +1,26 @@
 import {
   appendCursorPredicate,
   DEFAULT_PAGE_SIZE,
+  type CompositeSortCursor,
   type SortCursor,
 } from "@magna-carta/data-access/cursor-pagination";
+// (appendCursorPredicate still serves the turn listing below; the conversation listing spells its
+// own predicate because its columns are qualified by the join alias.)
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { askableTerm, likePattern, LIKE_ESCAPE_CLAUSE } from "@magna-carta/data-access/like-search";
 import type {
+  FileId,
   MagnusConversationId,
   MagnusTurnId,
   MatterId,
   UserId,
 } from "@magna-carta/identifiers/types";
+import { CONVERSATION_ATTACHMENTS_MAX } from "./limits.ts";
 import type {
+  AttachmentTextStatus,
+  ConversationAttachmentRow,
   ConversationRow,
+  ConversationSort,
   ConversationState,
   MemberAcknowledgementRow,
   TurnFailureLabel,
@@ -21,7 +29,7 @@ import type {
   TurnStatus,
 } from "./types.ts";
 
-// SQL statement builders for the three Magnus tables. Table names are tracked against
+// SQL statement builders for the four Magnus tables. Table names are tracked against
 // @magna-carta/database's per-firm schema by the schema-name-sync fitness test. This module composes
 // statements and runs bounded reads; it holds no binding and crosses no firm — the caller supplies
 // the firm-scoped database handle.
@@ -30,6 +38,16 @@ import type {
 export const MAGNUS_CONVERSATION_TABLE = "magnus_conversation";
 export const MAGNUS_TURN_TABLE = "magnus_turn";
 export const MAGNUS_MEMBER_ACKNOWLEDGEMENT_TABLE = "magnus_member_acknowledgement";
+export const MAGNUS_CONVERSATION_ATTACHMENT_TABLE = "magnus_conversation_attachment";
+
+// Two tables this module READS and never writes, by their names in the per-firm schema: the matter a
+// conversation is kept on (for the matter-ordered listing, which orders by the matter's title) and
+// the file an attachment points at (for its name and its current version). Reading them here rather
+// than importing their owning packages keeps this package on its pure seam; the columns named are the
+// ones those tables have carried since their baseline.
+const MATTER_TABLE = "matter";
+const FILE_TABLE = "file";
+const FILE_VERSION_TABLE = "file_version";
 
 interface ConversationDatabaseRow {
   id: string;
@@ -175,6 +193,23 @@ export async function readConversation(
   return row === undefined ? undefined : toConversationRow(row);
 }
 
+// Re-pointing a conversation at another matter, or at none. Guarded on `state = 'active'` like a
+// rename: a deleted or archived conversation is not moved back into anybody's view.
+export function moveConversationStatement(
+  database: SqlDatabase,
+  options: {
+    readonly id: MagnusConversationId;
+    readonly matterId: MatterId | null;
+    readonly now: string;
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MAGNUS_CONVERSATION_TABLE} SET matter_id = ?2, updated_at = ?3 WHERE id = ?1 AND state = 'active'`,
+    )
+    .bind(options.id, options.matterId, options.now);
+}
+
 export interface ListConversationsOptions {
   // Absent = every member's conversations (the administrative read); present = one member's own.
   readonly createdBy?: UserId;
@@ -195,7 +230,10 @@ export interface ListConversationsOptions {
    * for words they typed, not words they named.
    */
   readonly search?: string;
-  readonly cursor?: SortCursor;
+  // The order the page is read in. `date` (the default) pages on the ordinary (created_at, id)
+  // cursor; `name` and `matter` page on a composite cursor whose primary is the sort key below.
+  readonly sort?: ConversationSort;
+  readonly cursor?: SortCursor | CompositeSortCursor;
   readonly limit?: number;
 }
 
@@ -208,18 +246,52 @@ export function searchesContent(options: ListConversationsOptions): boolean {
   return options.search !== undefined && options.search !== "" && options.createdBy !== undefined;
 }
 
+// A listed conversation carries the key it was ordered by, so the caller can mint the next cursor
+// without knowing how the key is composed. For the date order it is simply `createdAt`.
+export interface ListedConversationRow extends ConversationRow {
+  readonly sortKey: string;
+}
+
+// THE SORT KEYS, as SQL expressions over the joined row. Each is ONE string so the keyset can compare
+// it in a single column, and each is arranged so the rows a reader wants together come together:
+//
+//   name   — a named conversation orders by its lower-cased title; an unnamed one READS as the
+//            instant it started (nothing generates a title), so it orders by that instant, after
+//            every named one. The leading digit is what puts the two groups in that order.
+//   matter — a conversation on a matter orders by that matter's title, with the matter's own
+//            identifier appended so two matters with one title still group apart; a conversation on
+//            no matter comes after every one that has one.
+//
+// Within one key the order is newest first, the same as the date order, which is what the mixed
+// keyset below compares.
+const NAME_SORT_KEY = `CASE WHEN c.title IS NULL OR trim(c.title) = '' THEN '1' || c.created_at ELSE '0' || lower(c.title) END`;
+const MATTER_SORT_KEY = `CASE WHEN c.matter_id IS NULL THEN '1' ELSE '0' || lower(COALESCE(m.title, '')) || ' ' || c.matter_id END`;
+
+function sortKeyExpression(sort: ConversationSort): string | null {
+  if (sort === "name") return NAME_SORT_KEY;
+  if (sort === "matter") return MATTER_SORT_KEY;
+  return null;
+}
+
+// True when a cursor carries the composite shape the name and matter orders page on.
+function isCompositeCursor(
+  cursor: SortCursor | CompositeSortCursor | undefined,
+): cursor is CompositeSortCursor {
+  return cursor !== undefined && "primary" in cursor;
+}
+
 export async function listConversations(
   database: SqlDatabase,
   options: ListConversationsOptions,
-): Promise<readonly ConversationRow[]> {
-  const conditions: string[] = ["state <> 'deleted'"];
+): Promise<readonly ListedConversationRow[]> {
+  const conditions: string[] = ["c.state <> 'deleted'"];
   const bindings: unknown[] = [];
   if (options.createdBy !== undefined) {
-    conditions.push("created_by = ?");
+    conditions.push("c.created_by = ?");
     bindings.push(options.createdBy);
   }
   if (options.matterId !== undefined) {
-    conditions.push("matter_id = ?");
+    conditions.push("c.matter_id = ?");
     bindings.push(options.matterId);
   }
   const term = askableTerm(options.search);
@@ -228,29 +300,254 @@ export async function listConversations(
     if (searchesContent(options)) {
       // The member's own conversations, so what they SAID is in scope. The EXISTS is correlated
       // rather than a join: a conversation matches once however many of its turns match, and a join
-      // would have to de-duplicate the conversation row before the limit could be applied.
+      // would have to de-duplicate the conversation row before the limit could be applied — which
+      // the sort orders below could not then page over.
       conditions.push(
-        `(title LIKE ? ${LIKE_ESCAPE_CLAUSE} OR EXISTS (SELECT 1 FROM ${MAGNUS_TURN_TABLE} ` +
-          `WHERE ${MAGNUS_TURN_TABLE}.conversation_id = ${MAGNUS_CONVERSATION_TABLE}.id ` +
+        `(c.title LIKE ? ${LIKE_ESCAPE_CLAUSE} OR EXISTS (SELECT 1 FROM ${MAGNUS_TURN_TABLE} ` +
+          `WHERE ${MAGNUS_TURN_TABLE}.conversation_id = c.id ` +
           `AND ${MAGNUS_TURN_TABLE}.content LIKE ? ${LIKE_ESCAPE_CLAUSE}))`,
       );
       bindings.push(pattern, pattern);
     } else {
       // The administrative read. Titles only — see `search` on the options above.
-      conditions.push(`title LIKE ? ${LIKE_ESCAPE_CLAUSE}`);
+      conditions.push(`c.title LIKE ? ${LIKE_ESCAPE_CLAUSE}`);
       bindings.push(pattern);
     }
   }
-  appendCursorPredicate(conditions, bindings, options.cursor);
+  const sort = options.sort ?? "date";
+  const keyExpression = sortKeyExpression(sort);
+  const cursor = options.cursor;
+  let orderBy: string;
+  if (keyExpression === null) {
+    // The date order: the ordinary keyset over (created_at, id). A composite cursor minted under a
+    // different order is not honoured here; it reads as the first page rather than a wrong one.
+    if (cursor !== undefined && !isCompositeCursor(cursor)) {
+      conditions.push("(c.created_at < ? OR (c.created_at = ? AND c.id < ?))");
+      bindings.push(cursor.createdAt, cursor.createdAt, cursor.id);
+    }
+    orderBy = "c.created_at DESC, c.id DESC";
+  } else {
+    // The MIXED keyset: the sort key ascends while the instant and the identifier beneath it descend,
+    // so a page boundary falls exactly where the ORDER BY would put it. The data-access composite
+    // predicate runs every part one way, which would put the oldest conversation first within a
+    // name; this spells the three parts out so the direction can differ per part.
+    if (isCompositeCursor(cursor)) {
+      conditions.push(
+        `((${keyExpression}) > ? OR ((${keyExpression}) = ? AND c.created_at < ?) OR ((${keyExpression}) = ? AND c.created_at = ? AND c.id < ?))`,
+      );
+      bindings.push(
+        cursor.primary,
+        cursor.primary,
+        cursor.secondary,
+        cursor.primary,
+        cursor.secondary,
+        cursor.id,
+      );
+    }
+    orderBy = `sort_key ASC, c.created_at DESC, c.id DESC`;
+  }
   const limit = options.limit ?? DEFAULT_PAGE_SIZE;
   bindings.push(limit);
+  const join = sort === "matter" ? `LEFT JOIN ${MATTER_TABLE} m ON m.id = c.matter_id` : "";
   const { results } = await database
     .prepare(
-      `SELECT id, title, created_by, matter_id, state, created_at, updated_at, deleted_at FROM ${MAGNUS_CONVERSATION_TABLE} WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC, id DESC LIMIT ?`,
+      `SELECT c.id, c.title, c.created_by, c.matter_id, c.state, c.created_at, c.updated_at, c.deleted_at, ${keyExpression ?? "c.created_at"} AS sort_key FROM ${MAGNUS_CONVERSATION_TABLE} c ${join} WHERE ${conditions.join(" AND ")} ORDER BY ${orderBy} LIMIT ?`,
     )
     .bind(...bindings)
-    .all<ConversationDatabaseRow>();
-  return results.map(toConversationRow);
+    .all<ConversationDatabaseRow & { sort_key: string }>();
+  return results.map((row) => ({ ...toConversationRow(row), sortKey: row.sort_key }));
+}
+
+// ---------------------------------------------------------------------------------------------
+// Attachments: a matter's files, attached to a conversation by reference.
+
+interface AttachmentDatabaseRow {
+  conversation_id: string;
+  file_id: string;
+  attached_at: string;
+  text_status: string;
+  text_bytes: number | null;
+}
+
+function toAttachmentRow(row: AttachmentDatabaseRow): ConversationAttachmentRow {
+  return {
+    conversationId: row.conversation_id as MagnusConversationId,
+    fileId: row.file_id as FileId,
+    attachedAt: row.attached_at,
+    textStatus: row.text_status as AttachmentTextStatus,
+    textBytes: row.text_bytes,
+  };
+}
+
+// Attaching is idempotent on the pair: a retried attach of the same file to the same conversation is
+// the same attachment, not a second row.
+export function insertAttachmentStatement(
+  database: SqlDatabase,
+  row: {
+    readonly conversationId: MagnusConversationId;
+    readonly fileId: FileId;
+    readonly attachedAt: string;
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${MAGNUS_CONVERSATION_ATTACHMENT_TABLE} (conversation_id, file_id, attached_at, text_status, text_bytes) VALUES (?1, ?2, ?3, 'pending', NULL) ON CONFLICT(conversation_id, file_id) DO NOTHING`,
+    )
+    .bind(row.conversationId, row.fileId, row.attachedAt);
+}
+
+export function deleteAttachmentStatement(
+  database: SqlDatabase,
+  options: { readonly conversationId: MagnusConversationId; readonly fileId: FileId },
+): SqlStatement {
+  return database
+    .prepare(
+      `DELETE FROM ${MAGNUS_CONVERSATION_ATTACHMENT_TABLE} WHERE conversation_id = ?1 AND file_id = ?2`,
+    )
+    .bind(options.conversationId, options.fileId);
+}
+
+// Every attachment goes with its conversation: on a delete, and on a move, because an attachment is
+// one of the OLD matter's files and a conversation kept elsewhere has no claim on it.
+export function deleteConversationAttachmentsStatement(
+  database: SqlDatabase,
+  conversationId: MagnusConversationId,
+): SqlStatement {
+  return database
+    .prepare(`DELETE FROM ${MAGNUS_CONVERSATION_ATTACHMENT_TABLE} WHERE conversation_id = ?1`)
+    .bind(conversationId);
+}
+
+// What the consumer records after a question: how much of each attachment's text reached the model.
+export function markAttachmentTextStatement(
+  database: SqlDatabase,
+  options: {
+    readonly conversationId: MagnusConversationId;
+    readonly fileId: FileId;
+    readonly textStatus: AttachmentTextStatus;
+    readonly textBytes: number | null;
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MAGNUS_CONVERSATION_ATTACHMENT_TABLE} SET text_status = ?3, text_bytes = ?4 WHERE conversation_id = ?1 AND file_id = ?2`,
+    )
+    .bind(options.conversationId, options.fileId, options.textStatus, options.textBytes);
+}
+
+// A conversation's attachments, oldest first. Bounded by the attachment cap itself: a conversation
+// can never carry more rows than this read returns.
+export async function listAttachments(
+  database: SqlDatabase,
+  conversationId: MagnusConversationId,
+): Promise<readonly ConversationAttachmentRow[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT conversation_id, file_id, attached_at, text_status, text_bytes FROM ${MAGNUS_CONVERSATION_ATTACHMENT_TABLE} WHERE conversation_id = ?1 ORDER BY attached_at ASC, file_id ASC LIMIT ?2`,
+    )
+    .bind(conversationId, CONVERSATION_ATTACHMENTS_MAX)
+    .all<AttachmentDatabaseRow>();
+  return results.map(toAttachmentRow);
+}
+
+// An attachment as a surface names it, and as the consumer reads it: the file's own name and the
+// matter it belongs to, and the current clean version's storage key and content type. A file that
+// has been deleted since, or has no committed version, comes back with those facts null, which is
+// what a reader is told rather than a name that no longer resolves.
+export interface AttachmentWithFile extends ConversationAttachmentRow {
+  readonly fileName: string | null;
+  readonly fileMatterId: MatterId | null;
+  readonly versionNumber: number | null;
+  readonly objectKey: string | null;
+  readonly contentType: string | null;
+  readonly sizeBytes: number | null;
+}
+
+export async function listAttachmentsWithFiles(
+  database: SqlDatabase,
+  conversationId: MagnusConversationId,
+): Promise<readonly AttachmentWithFile[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT a.conversation_id, a.file_id, a.attached_at, a.text_status, a.text_bytes, ` +
+        `CASE WHEN f.deleted_at IS NULL THEN f.name ELSE NULL END AS file_name, f.matter_id AS file_matter_id, ` +
+        `v.version_number, v.r2_key AS object_key, v.sniffed_content_type AS content_type, v.size_bytes ` +
+        `FROM ${MAGNUS_CONVERSATION_ATTACHMENT_TABLE} a ` +
+        `LEFT JOIN ${FILE_TABLE} f ON f.id = a.file_id ` +
+        `LEFT JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id AND v.status = 'clean' AND f.deleted_at IS NULL ` +
+        `WHERE a.conversation_id = ?1 ORDER BY a.attached_at ASC, a.file_id ASC LIMIT ?2`,
+    )
+    .bind(conversationId, CONVERSATION_ATTACHMENTS_MAX)
+    .all<
+      AttachmentDatabaseRow & {
+        file_name: string | null;
+        file_matter_id: string | null;
+        version_number: number | null;
+        object_key: string | null;
+        content_type: string | null;
+        size_bytes: number | null;
+      }
+    >();
+  return results.map((row) => ({
+    ...toAttachmentRow(row),
+    fileName: row.file_name,
+    fileMatterId: row.file_matter_id as MatterId | null,
+    versionNumber: row.version_number,
+    objectKey: row.object_key,
+    contentType: row.content_type,
+    sizeBytes: row.size_bytes,
+  }));
+}
+
+// The one fact an attach has to check before it writes: that the file exists, is not deleted, and is
+// one of the given matter's files. Files are matter-rooted, so a conversation on no matter can attach
+// nothing, and a conversation on one matter cannot reach another's.
+export async function readAttachableFile(
+  database: SqlDatabase,
+  fileId: FileId,
+): Promise<
+  { readonly id: FileId; readonly matterId: MatterId; readonly name: string } | undefined
+> {
+  const { results } = await database
+    .prepare(
+      `SELECT id, matter_id, name FROM ${FILE_TABLE} WHERE id = ?1 AND deleted_at IS NULL LIMIT 1`,
+    )
+    .bind(fileId)
+    .all<{ id: string; matter_id: string; name: string }>();
+  const row = results[0];
+  return row === undefined
+    ? undefined
+    : { id: row.id as FileId, matterId: row.matter_id as MatterId, name: row.name };
+}
+
+// The matter a conversation may be moved onto: its title and lifecycle status, so the route can
+// refuse a closed one with the reason. `system_key` marks the platform's own matters, which are not a
+// place a member keeps work.
+export async function readMoveTarget(
+  database: SqlDatabase,
+  matterId: MatterId,
+): Promise<
+  | {
+      readonly id: MatterId;
+      readonly title: string;
+      readonly status: string;
+      readonly systemOwned: boolean;
+    }
+  | undefined
+> {
+  const { results } = await database
+    .prepare(`SELECT id, title, status, system_key FROM ${MATTER_TABLE} WHERE id = ?1 LIMIT 1`)
+    .bind(matterId)
+    .all<{ id: string; title: string; status: string; system_key: string | null }>();
+  const row = results[0];
+  return row === undefined
+    ? undefined
+    : {
+        id: row.id as MatterId,
+        title: row.title,
+        status: row.status,
+        systemOwned: row.system_key !== null,
+      };
 }
 
 export interface InsertTurnRow {

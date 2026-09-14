@@ -7,8 +7,8 @@
  *     recorded can say neither. Collapsing the last two — the tidy-up that is always one edit away
  *     — would have the register claim the firm's own system caught something that a person may in
  *     fact have clicked, which is precisely the claim the trigger column exists to keep honest.
- *   - THE RUN DATE ANCHORS THE ROW and is never hideable: a log read months later is read down its
- *     dates, and a register that could lose them is one nobody can walk.
+ *   - THE CHECK'S NUMBER ANCHORS THE ROW and is never hideable: it is how a check is referred to,
+ *     and a register that could lose it is one nobody can cite from. The opening date sorts it.
  *   - NO COLUMN IS A CONCLUSION. The candidate count is a count of what the search surfaced, and
  *     the model must not grow a column that grades it — that answer belongs to a named reviewer,
  *     recorded against one hit.
@@ -32,10 +32,15 @@ import {
 function check(overrides: Partial<ConflictsCheckSummary> = {}): ConflictsCheckSummary {
   return {
     id: "conflictsCheck_one",
+    checkNumber: "CC-0001",
     trigger: "comprehensive",
     matterId: "matter_one",
+    createdByUserId: "user_one",
+    runCount: 1,
+    latestRunId: "conflictsCheck_one",
+    runStatus: "completed",
+    latestRunAt: "2026-09-08T12:00:00.000Z",
     strictness: "balanced",
-    depth: 2,
     floorRaised: false,
     actorUserId: "user_one",
     triggerSource: "manual",
@@ -77,14 +82,29 @@ describe("the register's columns", () => {
   const columns = conflictsCheckColumns(roster);
   const byIdentifier = new Map(columns.map((column) => [column.id, column]));
 
-  it("anchors the row on when the check ran", () => {
-    const run = byIdentifier.get("createdAt");
-    expect(run?.anchored).toBe(true);
-    expect(run?.type).toBe("date");
+  it("anchors the row on the check's number and opens most recently opened first", () => {
+    const number = byIdentifier.get("checkNumber");
+    expect(number?.anchored).toBe(true);
+    expect(number?.value(check())).toBe("CC-0001");
+    expect(byIdentifier.get("createdAt")?.type).toBe("date");
     expect(CHECK_REGISTER_INITIAL_SORT).toEqual({
       columnId: "createdAt",
       direction: "descending",
     });
+  });
+
+  it("counts the runs and says where the latest one is, and carries no depth", () => {
+    expect(byIdentifier.get("runCount")?.value(check({ runCount: 3 }))).toBe(3);
+    expect(byIdentifier.get("runState")?.value(check())).toBe("Completed");
+    expect(byIdentifier.get("runState")?.value(check({ runStatus: null }))).toBeNull();
+    expect(byIdentifier.has("depth")).toBe(false);
+  });
+
+  it("leaves a run with no record yet blank rather than inventing a band or a floor", () => {
+    const pending = check({ strictness: null, floorRaised: null, hitCount: null });
+    expect(byIdentifier.get("strictness")?.value(pending)).toBeNull();
+    expect(byIdentifier.get("floorRaised")?.value(pending)).toBeNull();
+    expect(byIdentifier.get("hitCount")?.value(pending)).toBeNull();
   });
 
   it("offers every trigger the catalogue names, whether or not a loaded row carries it", () => {

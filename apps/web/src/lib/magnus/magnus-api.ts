@@ -29,12 +29,49 @@ export const MAGNUS_AVAILABILITY_STATES = [
 ] as const;
 export type MagnusAvailabilityState = (typeof MAGNUS_AVAILABILITY_STATES)[number];
 
+/** The model that answers, as the firm chose it on its AI settings screen. */
+export interface MagnusAnsweringModel {
+  modelId: string;
+  snapshotId: string;
+  zeroDataRetention: boolean;
+}
+
 export interface MagnusAvailability {
   state: MagnusAvailabilityState;
   /** The disclosure in force. Present when the member is being asked to accept it. */
   disclosureVersion?: number;
   /** What is left of the firm's daily allowance. Absent where the server did not say. */
   remainingDailyTurns?: number;
+  /**
+   * Which model answers. Present when open; null when the firm's stored model is one the platform
+   * no longer carries, which the composer states rather than naming a model that will not answer.
+   */
+  model?: MagnusAnsweringModel | null;
+}
+
+/**
+ * How a conversation listing is ordered: newest first (the default), by the member's own title, or
+ * grouped by the matter each is kept on. Honoured by the server over the whole record, so the rail
+ * never orders the page it happens to hold and calls that the order.
+ */
+export const CONVERSATION_SORTS = ["date", "name", "matter"] as const;
+export type ConversationSort = (typeof CONVERSATION_SORTS)[number];
+
+/** What became of an attached file's text on the most recent question that carried it. */
+export type AttachmentTextStatus = "pending" | "sent" | "cut" | "unreadable";
+
+/**
+ * A matter's file attached to a conversation by reference. `name` is null where the file has been
+ * deleted since; that is stated rather than hidden, because the member may remember attaching it.
+ */
+export interface MagnusAttachment {
+  fileId: string;
+  name: string | null;
+  matterId: string | null;
+  attachedAt: string;
+  textStatus: AttachmentTextStatus;
+  /** How many bytes of the file's text reached the model on the most recent question. */
+  textBytes: number | null;
 }
 
 /**
@@ -125,6 +162,7 @@ export interface MagnusTurnProgress {
 export interface MagnusConversationDetail {
   conversation: MagnusConversation;
   turns: Page<MagnusTurn>;
+  attachments: MagnusAttachment[];
 }
 
 export interface MagnusAcknowledgement {
@@ -210,6 +248,8 @@ export interface ConversationListFilters {
    * read and not something the rail does to the rows it already holds.
    */
   search?: string;
+  /** The order the record is read in. Absent means newest first. */
+  sort?: ConversationSort;
 }
 
 function conversationQuery(filters: ConversationListFilters, cursor?: string): string {
@@ -221,13 +261,14 @@ function conversationQuery(filters: ConversationListFilters, cursor?: string): s
   if (filters.search !== undefined && filters.search.trim() !== "") {
     query.set("search", filters.search.trim());
   }
+  if (filters.sort !== undefined && filters.sort !== "date") query.set("sort", filters.sort);
   return query.size === 0 ? "" : `?${query.toString()}`;
 }
 
 /**
- * The caller's own conversations, newest first. With a matter filter, only the ones kept on that
- * matter's file, which is what a matter's own assistant section reads; with a search, only the ones
- * whose title or transcript the term reaches.
+ * The caller's own conversations, in the order asked for (newest first by default). With a matter
+ * filter, only the ones kept on that matter's file, which is what a matter's own assistant section
+ * reads; with a search, only the ones whose title or transcript the term reaches.
  */
 export function listConversations(
   fetchImpl: typeof fetch,
@@ -307,6 +348,55 @@ export function renameConversation(
     fetchImpl,
     `/api/v1/magnus/conversations/${encodeURIComponent(conversationId)}`,
     { method: "PATCH", body: { title }, idempotencyKey },
+  );
+}
+
+/**
+ * Keeps a conversation on another matter's file, or on none. Which matter a transcript is kept on
+ * is what decides who may read it, so the dialog that calls this says so before the press. The
+ * conversation's attachments go with the move, because each is one of the old matter's files.
+ */
+export function moveConversation(
+  fetchImpl: typeof fetch,
+  conversationId: string,
+  matterId: string | null,
+  idempotencyKey: string,
+): Promise<ApiOutcome<MagnusConversation>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/magnus/conversations/${encodeURIComponent(conversationId)}/matter`,
+    { method: "PATCH", body: { matterId }, idempotencyKey },
+  );
+}
+
+/**
+ * Attaches one of the conversation's matter's files, by reference. Nothing is copied: on each later
+ * question the file's readable text is read fresh and sent ahead of the question, within a budget.
+ */
+export function attachFile(
+  fetchImpl: typeof fetch,
+  conversationId: string,
+  fileId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<MagnusAttachment[]>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/magnus/conversations/${encodeURIComponent(conversationId)}/attachments`,
+    { method: "POST", body: { fileId }, idempotencyKey },
+  );
+}
+
+/** Takes a file off the conversation. Nothing was copied, so nothing is erased. */
+export function detachFile(
+  fetchImpl: typeof fetch,
+  conversationId: string,
+  fileId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<MagnusAttachment[]>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/magnus/conversations/${encodeURIComponent(conversationId)}/attachments/${encodeURIComponent(fileId)}`,
+    { method: "DELETE", idempotencyKey },
   );
 }
 

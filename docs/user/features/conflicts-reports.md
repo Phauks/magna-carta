@@ -2,32 +2,49 @@
 
 _The conflicts search, its record, the per-matter report behind them, and the screens that read and
 configure them are all built. Automatic re-checks when your directory changes are built and have
-their own guide: [automatic conflicts re-checks](automatic-conflicts-rechecks.md). One thing is not
-built yet: the printable conflicts report you could hand to a court, which is why the print option
-gives you the check as a printed sheet rather than a filed document._
+their own guide: [automatic conflicts re-checks](automatic-conflicts-rechecks.md). The report you
+hand to a court is the check's printed sheet, which you can print or download as a PDF from the
+check's own screen; it is not yet a document filed on the matter._
 
 ## Where to find it
 
-**Conflicts Check in the sidebar** is your firm's whole picture: the log of every check your firm has
-run, across every matter, newest first. Each row says when the check ran, what set it going, who
-asked for it if anybody did, whether it was filed against a matter or against named parties with no
-matter yet, how widely it matched names, whether your firm's floor widened it, and how many
-candidates it turned up. Open a row to read that check in full. Narrow the log from any column's own
-heading — by trigger, by who asked, by name matching — and clear the narrowing from the control
-beside New Check.
+**Every check has a number** — CC-0001, CC-0002, and so on — drawn the moment it is opened. It is
+how a check is referred to: on its own screen, in the log, and on anything you print. A check is run
+as often as you need; every run belongs to the same number, and the check's screen lists them all.
 
-**New Check**, at the top right of that screen, opens the panel, which has two sides. The left side
-is what you are asking: the parties to search for, and the matter to file the check under if there
-is one. Under them it tells you, in plain sentences, what pressing **Run Check** will actually do —
-how far it will follow each kind of relationship, whether it can reach your own people, how names
-will be compared, and how the check will be filed. The right side is the search settings, each one
-saying what it searches. You can leave every one of them alone. Nothing runs until you press Run
-Check, because choosing the scope is part of the act.
+**Conflicts Check in the sidebar** is your firm's whole picture: the log of every check your firm has
+opened, across every matter, newest first. Each row leads with the check's number and says when it
+was opened, when it last ran, how many times it has run and where the latest run is, what set that
+run going, who asked for it if anybody did, whether the check is filed on a matter or stands over
+named parties with no matter yet, how widely it matched names, whether your firm's floor widened it,
+and how many candidates it turned up. Open a row to read that check in full. Narrow the log from any
+column's own heading — by trigger, by who asked, by run state — and clear the narrowing from the
+control beside New Check.
+
+**New Check**, at the top right of that screen, opens the panel, which has two sides, and shows the
+number the check will get. The left side is what you are asking: the parties to search for, and the
+matter to file the check under if there is one — once you have chosen a party, the matter field
+offers the matters that party is on first, with the rest of the docket searchable beneath. Under
+them it tells you, in plain sentences, what pressing **Run Check** will actually do. The right side
+has two tabs. **Locations** is the places the check searches; **Advanced Settings** is how names are
+compared, and two things it cannot search yet. You can leave every one of them alone. Pressing Run
+Check opens the check and takes you to its screen, where the search runs in front of you.
 
 **A check does not need a matter.** The matter is where the check is _filed_, not what it is checked
 _against_ — the whole point of a check is to find the matters that might conflict. Naming one adds
 that matter's own parties to the search and lets the check reach your own people; leaving it empty is
-what you do when all you have is a name somebody gave you on the telephone.
+what you do when all you have is a name somebody gave you on the telephone. A check you ran before
+there was a matter can be filed on one later, from the check's own screen, which is the ordinary
+case.
+
+**The check's screen** is titled by its number. What was asked for — the parties, the matter, the
+settings the run actually used — sits in one place, and what came back — the platform's own account
+of its search, then the candidates — in another, so the two are never read as one. While a run is
+under way the screen says which stage the search is at and what it has counted so far, and follows
+it until it finishes. **Runs** lists every run of the check with when it ran and what it came to;
+open any one of them. **Run Again** searches again with the same parties and settings, as a further
+run under the same number. **Print Report** and **Download Report**, at the top right, hand you the
+same sheet — the second as a PDF, kept in your Downloads.
 
 **The Conflicts tab on a matter**, next to Intake, is that one matter's record: when it was last
 checked and under what settings, anything nobody has answered yet, and whether your firm has since
@@ -42,45 +59,40 @@ A conflicts check also appears on the matter's activity history, and opens the c
 
 ## The search settings, and what each one searches
 
-The right side of the New Check panel is the search itself. Each setting says what it searches, under
-it, so nothing here needs looking up. In summary:
+The right side of the New Check panel is the search itself, in two tabs.
 
-**Where to look.**
+**Locations** is where the check looks, listed as places:
 
-- **Name or identifier** — every party your firm has ever recorded, matched on name and on the
-  identifiers you hold for them. Always searched: it is your firm's floor and not a choice.
-- **Relationship** — walks outwards from each party you named, through relationships your directory
-  holds, and reports whoever it reaches that way.
-- **The firm's own people** — joins your own members against the matter's parties by identity, never
-  by name. It needs a matter; without one the check records it as not searched rather than leaving it
-  out.
-- **Documents and messages** — designed, not built. There is no index of document text or message
-  bodies behind it yet, and the panel says so.
+- **Directory** — every party your firm has ever recorded. Always searched: it is your firm's floor
+  and not a choice. Beneath it, behind a caret, is what the Directory search does: **Name or
+  identifier** (every party, matched on name and on the identifiers you hold for them — always on),
+  **Relationships** (walks outwards from each party you named, through every relationship your
+  directory holds, as far as each chain goes), and **The firm's own people** (joins your own members
+  against the matter's parties by identity, never by name — it needs a matter, and without one the
+  check records it as not searched rather than leaving it out).
+- **Files**, **Messaging** and **Magnus** — shown, but not searchable yet. Each says what it is
+  waiting on, and every check records them as not searched, so a report can never read as if your
+  documents, messages or conversations were searched and came up empty.
 
-**Name matching** decides how many ways a name may be written and still count. There are two
-settings, and **both of them match names that sound alike** — Stephen and Steven, Smith and Smyth.
+**Advanced Settings** holds **name matching**, which decides how many ways a name may be written and
+still count. It is a dropdown, and each choice shows a name it would catch. **Both choices match
+names that sound alike** — Stephen and Steven, Smith and Smyth.
 
 - **Standard** compares the name rows your firm has chosen — current, former, maiden and alias out of
-  the box — under the main sound-alike encoder.
+  the box — under the main sound-alike encoder. Stephen finds Steven; a maiden name finds the married
+  one.
 - **Widest** compares every name your directory holds, trading styles and also-known-as names
   included, under every encoder. It is a strict superset of Standard: widening can only add
   candidates, never hide one.
 
-**How far to follow relationships** is a separate number for each kind, because one number cannot say
-"follow a company's renames and mergers as far as they go" and "do not walk from a spouse to her
-employer's other directors" at the same time. **Ownership and control** covers officers, directors,
-partners, trustees, owners, employees and agents; **Family and personal** covers spouses,
-beneficiaries and guardians; **Representation** covers somebody recorded as acting for somebody else.
-**Corporate family** — a parent, a subsidiary, a successor — is followed all the way and carries no
-number, because a rename or merger chain of any length is the same business continuing.
+The same tab shows two things a check cannot search yet — prior-firm history and nickname
+equivalents — each saying what it waits on.
 
-**Where the search stops** is two limits. **Related parties to reach** is the most connected parties
-one walk may pull in before it stops walking; **candidates to record** is the most possible matches
-one check may write down. A check that reaches either says so on its own record and says how much it
-did not reach.
-
-**Every number can be left blank**, and a blank one takes your firm's own setting — which is shown
-inside the box, so you can see the number you are accepting.
+**There is no limit to set.** A check follows every relationship your directory holds, as far as
+the chain goes, and there is no cap on how much it may look at or record. The platform keeps one
+ceiling of its own on a single search, far above any real corporate group; a run that reaches it
+says so on its own record and says how much it did not reach, so a search that stopped short is
+never shown as one that finished.
 
 **You are not asked whether the check is preliminary or comprehensive.** Those two words say _when_ a
 check ran, not how it searched: the screen before your firm takes a matter on, or the moment it
@@ -95,9 +107,9 @@ request is raised back up to it before it runs, and the check records that this 
 search below what your firm requires.
 
 The floor covers what a check searches (names and identifiers, relationships, your own people), how
-widely it must match names, which of a person's names standard matching compares — current, former,
-maiden, alias, and two more your firm can add — how far it follows each kind of relationship, and the
-two limits on how much one check may do.
+widely it must match names, and which of a person's names standard matching compares — current,
+former, maiden, alias, and two more your firm can add. How far a check follows relationships is not a
+setting: every check follows every recorded relationship to the end of the chain.
 
 Two things are shown but cannot be turned off, and the screen says why on each. **Names and
 identifiers** are always searched, because conflicts apply across your whole firm. And the **current name** is always
@@ -112,8 +124,8 @@ Three things worth knowing before you change it:
   records that somebody chose that. This is why the change is kept in your firm's audit trail and why
   only owners and administrators can make it.
 - **What you save is what you are shown.** If you ask for something the platform cannot store as
-  given — a limit above what one operation can carry, for instance — it is adjusted on save and the
-  screen tells you exactly what was adjusted, rather than leaving you to notice a box that moved.
+  given — a floor without the names-and-identifiers search, for instance — it is repaired on save and
+  the screen tells you exactly what was repaired, rather than leaving you to notice a box that moved.
 
 ## What it does
 
@@ -153,20 +165,20 @@ Every matter has a conflicts position you can read at any time. It answers six q
 answers them separately, because collapsing them into one answer is exactly what loses the
 information:
 
-- **When was it last checked, and by whom?** The most recent check, with the settings it actually
-  ran under — where it looked, how widely it matched names, how far it followed relationships.
-  These are the settings on the day it ran, read back word for word, so a check from March still means
-  in September what it meant in March.
+- **When was it last checked, and by whom?** The most recent check, by number, with the settings it
+  actually ran under — where it looked, how widely it matched names, how far the longest chain of
+  relationships ran. These are the settings on the day it ran, read back word for word, so a check
+  from March still means in September what it meant in March.
 - **Has your firm's policy moved since?** If you have since widened what a check must cover — added a
-  source, widened the name matching, deepened the search — the position says so, and keeps saying so until
-  a new check has actually run at the wider setting. Nothing is written to the old check; the
-  comparison is made fresh every time you look, so it is never out of date.
+  source, widened the name matching — the position says so, and keeps saying so until a new check
+  has actually run at the wider setting. Nothing is written to the old check; the comparison is made
+  fresh every time you look, so it is never out of date.
 - **What could not be searched, and why?** Every source that had nothing behind it, named, with the
   reason. A source that could not run is never reported as a source that ran and found nothing.
-- **Did the search of related people and companies finish?** How far the check was allowed to follow
-  relationships, and — if it hit the limit on how many connected records one check may look at — that
-  it stopped early, and how many further records it knew about and did not search. A search that
-  stopped early is never shown as one that finished.
+- **Did the search of related people and companies finish?** Every relationship is followed to the
+  end of its chain; if a run reached the platform's own ceiling on one search, the position says it
+  stopped early and how many further records it knew about and did not search. A search that stopped
+  early is never shown as one that finished.
 - **What has nobody answered?** How many of the check's results are still waiting for a person to look
   at them, grouped by how strong the evidence is. A result nobody has reviewed is shown as unanswered,
   not quietly aged out.
@@ -228,9 +240,10 @@ separate permission from running a check.
 
 ## Tips and edge cases
 
-- **A check is a photograph.** It reflects your directory as it stood at that moment. Adding a party
-  to the matter, or recording a company's parent months later, does not update a check that already
-  ran; a fresh one does. Magna Carta now notices those changes and re-runs the check itself — see
+- **A run is a photograph.** It reflects your directory as it stood at that moment. Adding a party
+  to the matter, or recording a company's parent months later, does not update a run that already
+  finished; **Run Again** on the check does, as a further run under the same number, and both stay
+  on the check. Magna Carta now notices those changes and re-runs the check itself — see
   [automatic conflicts re-checks](automatic-conflicts-rechecks.md) for what sets one off, what
   deliberately does not, and how a matter tells you a re-check is owed before one has run.
 - **Widening your firm's policy does not re-run anything.** It marks every earlier check as having run
@@ -241,26 +254,21 @@ separate permission from running a check.
 - **Two parties on the same matter can surface against each other.** That is not a bug in the search:
   a company you are acting against turning out to be your client's parent is exactly the sort of thing
   worth seeing. It is marked so you can tell it apart from a clash with a different client.
-- **Following relationships has a limit, and the report tells you when it was hit.** A check follows
-  the relationships you have recorded — a company's parent, a person's spouse, who sits on which
-  board — outwards from the parties on the matter. How far it goes is your firm's setting, and it is
-  set separately for each kind of relationship, because "follow a company's renames and mergers as far
-  as they go" and "do not walk from a spouse to her employer's other directors" are different
-  instructions. There is also a limit on how many connected records one check may look at in total,
-  because a large corporate group can run to thousands. If a check reaches that limit it stops, says
-  so plainly, and tells you how many further records it knew were connected and did not search. That
-  sentence is the point of the limit: an incomplete search you know about is workable, and one you do
-  not know about is the failure this whole feature exists to prevent.
-- **There is a second limit, on how many results one check may record, and it works the same way.**
-  Following relationships and finding matches are two different costs. A check that follows a hundred
-  connected records asks about each of them across your whole directory, so the number of results it
-  can produce grows with the size of your directory rather than with the size of the corporate group.
-  Your firm sets a limit on that too. If a check goes past it, the report says the results were cut
-  short, how many it found, how many it recorded, and — the line to read first — how many of the ones
-  it left out were strong evidence rather than a loose name resemblance. Strong evidence is kept:
-  where something has to be left out, it is the weakest first, and a match between two parties on the
-  matter you are checking is never left out at all. If you see a check reporting this, it is worth
-  raising: it usually means the search is casting far wider than it needs to for your directory.
+- **Relationships are followed all the way, and the report tells you if a search was cut short.** A
+  check follows the relationships you have recorded — a company's parent, a person's spouse, who sits
+  on which board — outwards from the parties on the matter, as far as every chain goes. Nobody sets a
+  limit. The platform keeps one ceiling of its own on how many connected records a single search may
+  reach, far above any real corporate group; if a run reaches it, the run stops, says so plainly, and
+  tells you how many further records it knew were connected and did not search. That sentence is the
+  point: an incomplete search you know about is workable, and one you do not know about is the
+  failure this whole feature exists to prevent.
+- **There is one bound on how many results one run can record, and it works the same way.** It is
+  the most one record can carry, not a setting. If a run surfaces more than that, the report says the
+  results were cut short, how many it found, how many it recorded, and — the line to read first — how
+  many of the ones it left out were strong evidence rather than a loose name resemblance. Strong
+  evidence is kept: where something has to be left out, it is the weakest first, and a match between
+  two parties on the matter you are checking is never left out at all. If you see a check reporting
+  this, it is worth raising.
 - **Relationships that have ended are still followed.** A divorced spouse, a subsidiary sold last
   year, a directorship someone resigned — the check follows all of them, and marks on the result that
   the connection had already ended. That is deliberate: the rules that most often decide a conflict
@@ -270,9 +278,9 @@ separate permission from running a check.
 - **A record with hundreds of connections is never skipped for being busy.** A bank, a registered
   agent, or a state filing office can sit on hundreds of unrelated relationships, and it would be easy
   to make searches faster by stepping around them. Magna Carta does not, because a bank that appears
-  on five hundred of your matters is exactly where a positional conflict lives. The limit is on how
-  many records one check looks at in total, which the report can tell you about — never on which
-  records it is willing to look at, which it could not.
+  on five hundred of your matters is exactly where a positional conflict lives. The one ceiling is on
+  how many records a single search reaches in total, which the report can tell you about — never on
+  which records it is willing to look at, which it could not.
 - **Some kinds of identifier are never searched on their own.** A date of birth or the last four
   digits of a number match far too many people to be useful as a search on their own, so they are not
   used that way, and every report names them so you know they were left out.

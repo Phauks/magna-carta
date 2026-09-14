@@ -141,6 +141,8 @@ test("a truncated traversal is stated as an incomplete search, never as a comple
     {
       ...CHECK,
       traversal: {
+        followedToClosure: false,
+        longestPathLength: null,
         edgeClassBudgets: { control: 1, family: 1, representation: 1 },
         closureCap: 500,
         truncated: true,
@@ -171,6 +173,8 @@ test("a completed traversal states its budgets and claims no truncation", () => 
     {
       ...CHECK,
       traversal: {
+        followedToClosure: false,
+        longestPathLength: null,
         edgeClassBudgets: { control: 1, family: 2, representation: 1 },
         closureCap: 500,
         truncated: false,
@@ -187,6 +191,61 @@ test("a completed traversal states its budgets and claims no truncation", () => 
   expect(budgets).toContain("corporate family traversed transitively");
   expect(budgets).toContain("Ended relationships were traversed");
   expect(statements.some((statement) => statement.includes("TRUNCATED"))).toBe(false);
+});
+
+test("a walk to closure says so, says how deep it ran, and claims no truncation", () => {
+  const statements = describeCheck(
+    {
+      ...CHECK,
+      depth: 3,
+      traversal: {
+        followedToClosure: true,
+        longestPathLength: 3,
+        edgeClassBudgets: {},
+        closureCap: 10_000,
+        truncated: false,
+        entitiesReached: null,
+        unexploredFrontierSize: null,
+        unexpandedReachedCount: null,
+      },
+    },
+    [],
+    FULL_SOURCES,
+  );
+  expect(statements).toContainEqual(
+    "Graph — 43 entities reached from the subject parties; the longest chain followed ran 3 relationships.",
+  );
+  const traversal = statements.find((statement) => statement.startsWith("Traversal — "));
+  expect(traversal).toContain("followed to closure");
+  expect(traversal).toContain("Ended relationships were traversed");
+  // No budget line: there was no budget, and a sentence naming one would be describing a search
+  // that did not run.
+  expect(statements.some((statement) => statement.startsWith("Traversal budgets"))).toBe(false);
+  expect(statements.some((statement) => statement.includes("TRUNCATED"))).toBe(false);
+});
+
+test("a walk stopped by the platform's ceiling names the ceiling, never a cap the firm set", () => {
+  const statements = describeCheck(
+    {
+      ...CHECK,
+      traversal: {
+        followedToClosure: true,
+        longestPathLength: 6,
+        edgeClassBudgets: {},
+        closureCap: 10_000,
+        truncated: true,
+        entitiesReached: 10_000,
+        unexploredFrontierSize: 137,
+        unexpandedReachedCount: 42,
+      },
+    },
+    [],
+    FULL_SOURCES,
+  );
+  const truncation = statements.find((statement) => statement.includes("TRUNCATED"));
+  expect(truncation).toContain("10000 entities reached against the platform's ceiling of 10000");
+  expect(truncation).toContain("137 further entities were reachable and not searched");
+  expect(truncation).toContain("incomplete");
 });
 
 test("a check row that records no traversal says nothing about the walk, rather than implying it finished", () => {
@@ -219,7 +278,8 @@ test("a truncated candidate set is stated in words, with the refusal broken out 
   const truncation = statements.find((line) => line.includes("THE CANDIDATE SET WAS TRUNCATED"));
   expect(truncation).toBeDefined();
   expect(truncation).toContain("211199 candidates surfaced and 5000 were recorded");
-  expect(truncation).toContain("the cap in force was 5000");
+  // The bound is named as what it is — the most one record can carry — never as a cap somebody set.
+  expect(truncation).toContain("the bound in force was 5000, the most one record can carry");
   // The per-tier breakdown is the whole point: a run that refused only trigram overlap and one that
   // lost a phonetic match are not the same event, and one number would render them identically.
   expect(truncation).toContain("tier 3: 12");

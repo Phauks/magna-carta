@@ -16,6 +16,7 @@
   import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test";
   import * as ContextMenu from "../lib/components/context-menu/index.ts";
   import ContextMenuRoot from "../lib/components/context-menu/context-menu-root.svelte";
+  import * as Dialog from "../lib/components/dialog/index.ts";
 
   const { Story } = defineMeta({
     title: "Overlay/ContextMenu",
@@ -135,3 +136,73 @@
     });
   }}
 />
+
+<!--
+  Raised inside a dialog. A context menu stacks on the anchored layer, above modal, like every
+  other floating surface — on the old dropdown layer it painted UNDER the dialog's panel, there and
+  unreachable (the Upload dialog's queued-file menu). The story measures the stacking twice: the
+  point at the middle of a menu item hits the item, not the dialog, and the menu's layer is
+  numerically above the modal stage's.
+-->
+<Story
+  name="Inside a dialog"
+  play={async ({ canvas, step }) => {
+    const body = within(document.body);
+
+    await step("Opening the dialog", async () => {
+      await userEvent.click(canvas.getByRole("button", { name: "Upload files" }));
+      const dialog = await body.findByRole("dialog");
+      await waitFor(() => expect(dialog).toBeVisible());
+    });
+
+    await step("A right-click inside it raises the menu ABOVE the dialog, where it can be used", async () => {
+      await fireEvent.contextMenu(body.getByText("Right-click this queued file"));
+      const menu = await body.findByRole("menu");
+      await waitFor(() => expect(menu).toBeVisible());
+      const item = body.getByRole("menuitem", { name: "Remove from the queue" });
+      await waitFor(() => {
+        const rect = item.getBoundingClientRect();
+        const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+        expect(item.contains(hit)).toBe(true);
+      });
+      const stage = document.querySelector<HTMLElement>("[data-modal-stage]");
+      expect(stage).not.toBeNull();
+      const menuLayer = Number(getComputedStyle(menu.parentElement as HTMLElement).zIndex);
+      expect(menuLayer).toBeGreaterThan(Number(getComputedStyle(stage as HTMLElement).zIndex));
+    });
+
+    await step("Choosing an item closes the menu and leaves the dialog standing", async () => {
+      await userEvent.click(body.getByRole("menuitem", { name: "Remove from the queue" }));
+      await waitFor(() => expect(body.queryByRole("menu")).toBeNull());
+      await expect(body.getByRole("dialog")).toBeVisible();
+    });
+
+    await step("Escape then closes the dialog", async () => {
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(body.queryByRole("dialog")).toBeNull());
+    });
+  }}
+>
+  {#snippet template()}
+    <Dialog.Root>
+      <Dialog.Trigger class="mc-button mc-button-secondary mc-button-md">Upload files</Dialog.Trigger>
+      <Dialog.Content>
+        <Dialog.Title>Upload files</Dialog.Title>
+        <Dialog.Description>
+          One file is queued. Right-click it for what can be done with it before it is sent.
+        </Dialog.Description>
+        <ContextMenu.Root>
+          <ContextMenu.Trigger
+            class="flex items-center justify-center rounded-md border border-border-default bg-surface-raised p-8 text-sm text-text-muted"
+          >
+            Right-click this queued file
+          </ContextMenu.Trigger>
+          <ContextMenu.Content class="min-w-48">
+            <ContextMenu.Item>Rename before upload</ContextMenu.Item>
+            <ContextMenu.Item>Remove from the queue</ContextMenu.Item>
+          </ContextMenu.Content>
+        </ContextMenu.Root>
+      </Dialog.Content>
+    </Dialog.Root>
+  {/snippet}
+</Story>

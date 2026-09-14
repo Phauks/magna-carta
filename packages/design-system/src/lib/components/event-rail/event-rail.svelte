@@ -22,6 +22,13 @@
    * events are ruled to be first regardless (the one that says a record was entered, and the one
    * that says it moved between ledgers). A caller whose source arrives newest-first sorts it with
    * `orderedOldestFirst` rather than the rail second-guessing it.
+   *
+   * THE FRAME STANDS BEFORE THE FIRST EVENT. With nothing recorded the rail still draws its
+   * geometry — one hollow marker where the first event will land, and the words about the emptiness
+   * in the body beside it — so a history that is about to start is the same shape as one that has,
+   * and a reader learns where events go before any arrive. The words never stand loose on the
+   * canvas beside the rail: `emptyMessage` is inside the frame, and so is `note`, the one line a
+   * caller may hang beneath the events for what the history does not yet carry.
    */
   import type { HTMLAttributes } from "svelte/elements";
   import { mergeClasses } from "../../internal/merge-classes.ts";
@@ -38,6 +45,7 @@
     events,
     label = "History",
     emptyMessage = "Nothing has been recorded here yet.",
+    note = undefined,
     loading = false,
     loadingMessage = "Loading the history",
     placeholderCount = 3,
@@ -49,8 +57,14 @@
     events: readonly EventRailEvent[];
     /** The scroll region's accessible name. Name it for what this particular history is. */
     label?: string;
-    /** Shown instead of the rail when there is nothing recorded. */
+    /** The words inside the rail's frame when there is nothing recorded yet. */
     emptyMessage?: string;
+    /**
+     * One line beneath the events, inside the frame, for what this history does not yet carry —
+     * a source it will draw from once it exists, a fact a reader needs to read the events
+     * correctly. It is the rail's own last line, never a paragraph loose on the canvas beneath it.
+     */
+    note?: string | undefined;
     /** True while the events are being fetched: placeholder rows stand in for the real ones. */
     loading?: boolean;
     /** What a screen reader is told while the rail is loading. */
@@ -114,7 +128,22 @@
       {/each}
     </div>
   {:else if events.length === 0}
-    <p class="mc-event-rail-empty">{emptyMessage}</p>
+    <!-- The frame with nothing on it: the marker column and the body column of the first event,
+         so the words sit exactly where that event's action will. Not a list item, because there
+         is no event; the dot is hollow and dashed, which is the same absence the empty table
+         states by not lighting up. -->
+    <div class="mc-event-rail-events" data-empty="true">
+      <div class="mc-event-rail-event" data-placeholder="true">
+        <span class="mc-event-rail-track" aria-hidden="true">
+          <span class="mc-event-rail-marker">
+            <span class="mc-event-rail-dot mc-event-rail-dot-empty"></span>
+          </span>
+        </span>
+        <div class="mc-event-rail-body">
+          <p class="mc-event-rail-empty">{emptyMessage}</p>
+        </div>
+      </div>
+    </div>
   {:else}
     <ol class="mc-event-rail-events">
       {#each events as event, position (event.id)}
@@ -145,5 +174,15 @@
         </li>
       {/each}
     </ol>
+  {/if}
+  {#if note !== undefined && !loading}
+    <!-- The note takes an event's geometry with an empty marker column, so it reads as the rail's
+         own last line rather than as a caption that happens to sit beneath it. -->
+    <div class="mc-event-rail-event mc-event-rail-note-row">
+      <span class="mc-event-rail-track" aria-hidden="true">
+        <span class="mc-event-rail-marker"></span>
+      </span>
+      <p class="mc-event-rail-note">{note}</p>
+    </div>
   {/if}
 </div>

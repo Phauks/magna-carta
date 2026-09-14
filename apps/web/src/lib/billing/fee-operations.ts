@@ -36,37 +36,48 @@ export function listMatterFeeLedger(
   return requestJson(fetchImpl, `/api/v1/fees?${query.toString()}`);
 }
 
-/** How a period listing is narrowed beyond its span. */
+/** How the firm-wide listing is narrowed. Nothing named is the firm's whole fee record. */
 export interface FeePeriodScope {
-  /** The first service date, inclusive. */
-  readonly from: string;
-  /** The last service date, inclusive. */
-  readonly to: string;
+  /** The first service date, inclusive. Absent, the listing runs from the first fee recorded. */
+  readonly from?: string;
+  /** The last service date, inclusive. Absent, the listing runs to the present. */
+  readonly to?: string;
   readonly matterId?: string;
-  readonly status?: FeeRecord["status"];
+  /** The statuses the screen's Status column holds; empty or absent is every status. */
+  readonly statuses?: readonly FeeRecord["status"][];
   /** True for the billable fees, false for the absorbed; omitted, the listing answers both. */
   readonly billable?: boolean;
+  /** The screen's search: the description, the matter's title and number, the timekeeper's name. */
+  readonly search?: string;
   readonly cursor?: string;
 }
 
 /**
- * The firm's fees over a span of service dates, across every matter.
+ * The firm's fees across every matter, most recent service date first, narrowed by whatever the
+ * scope names.
  *
  * The listing's second shape, and the one the firm's Fees screen is built on: the per-matter read
  * above cannot answer "what did the firm charge for work done this month" without walking every
  * matter first. Each row names its own matter, resolved by the listing, so that screen never looks
- * one up.
+ * one up. THE NARROWINGS ARE THE SCREEN'S COLUMN FILTERS AND ITS SEARCH, sent here so they hold
+ * across every page rather than over the page in hand.
  */
 export function listFeeLedgerInPeriod(
   fetchImpl: typeof fetch,
   scope: FeePeriodScope,
 ): Promise<ApiOutcome<Page<FeeRecord>>> {
-  const query = new URLSearchParams({ from: scope.from, to: scope.to });
+  const query = new URLSearchParams();
+  if (scope.from !== undefined) query.set("from", scope.from);
+  if (scope.to !== undefined) query.set("to", scope.to);
   if (scope.matterId !== undefined) query.set("matterId", scope.matterId);
-  if (scope.status !== undefined) query.set("status", scope.status);
+  for (const status of scope.statuses ?? []) query.append("status", status);
   if (scope.billable !== undefined) query.set("billable", scope.billable ? "true" : "false");
+  if (scope.search !== undefined && scope.search.trim() !== "") {
+    query.set("search", scope.search.trim());
+  }
   if (scope.cursor !== undefined) query.set("cursor", scope.cursor);
-  return requestJson(fetchImpl, `/api/v1/fees?${query.toString()}`);
+  const suffix = query.toString();
+  return requestJson(fetchImpl, `/api/v1/fees${suffix === "" ? "" : `?${suffix}`}`);
 }
 
 /** One fee by its id — what a deep link hands the ledger when the row is not on the loaded page. */

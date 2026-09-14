@@ -124,6 +124,18 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // The entity/identifier references carried inside inputs_json and the free-text rationale are
   // content-level residue, out of this registry's structured scope (mirrors audit_log's metadata JSON).
   { table: "conflicts_check", subjectKey: "actor_user_id", action: "pseudonymize-keep" },
+  // The numbered check and its runs name the member who opened or asked for them, on the same
+  // terms as the check record: the row stays, the person becomes a pseudonym.
+  {
+    table: "conflicts_numbered_check",
+    subjectKey: "created_by_user_id",
+    action: "pseudonymize-keep",
+  },
+  {
+    table: "conflicts_check_run",
+    subjectKey: "requested_by_user_id",
+    action: "pseudonymize-keep",
+  },
   { table: "conflicts_hit", subjectKey: "entity_id", action: "pseudonymize-keep" },
   { table: "conflicts_disposition", subjectKey: "reviewer_user_id", action: "pseudonymize-keep" },
   // The re-check ledger resolves to the Directory entity its cause is about — a merged subordinate, a
@@ -155,6 +167,14 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     note: "deleted with its parent conversation; the free text inside a turn is the residue class the conversation-level delete is the instrument for",
   },
   { table: "magnus_member_acknowledgement", subjectKey: "user_id", action: "hard-delete" },
+  // A file attached to a conversation is a reference to the matter's file, holding nothing of
+  // it; it goes with the conversation it is attached to.
+  {
+    table: "magnus_conversation_attachment",
+    subjectKey: "conversation_id",
+    action: "hard-delete",
+    note: "deleted with its parent conversation; a reference to a file, holding nothing of it",
+  },
   // A record custodian is whose ELECTRONIC RECORDS were loaded into a review set — a person or an
   // organization named by the firm or by a production. It is the one discovery table with a
   // structured subject column: the optional Directory link, which resolves the custodian to an
@@ -875,6 +895,7 @@ export const NO_PII_TABLES: readonly string[] = [
   "location",
   "location_address",
   "member_location",
+  "firm_brand_image",
   // Matters, Locations & File Manager structure — classification catalogs, matter/folder shells, and
   // file-lifecycle bookkeeping.
   "matter_type",

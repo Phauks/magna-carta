@@ -1,18 +1,30 @@
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { MagnusConversationId, MatterId, UserId } from "@magna-carta/identifiers/types";
+import type {
+  FileId,
+  MagnusConversationId,
+  MatterId,
+  UserId,
+} from "@magna-carta/identifiers/types";
 import {
+  attachmentAddedAudit,
+  attachmentRemovedAudit,
   conversationDeletedAudit,
+  conversationMovedAudit,
   conversationRenamedAudit,
   conversationStartedAudit,
   type MagnusWriteContext,
 } from "./audit.ts";
 import {
   archiveConversationStatement,
+  deleteAttachmentStatement,
+  deleteConversationAttachmentsStatement,
   deleteConversationTurnsStatement,
+  insertAttachmentStatement,
   insertConversationStatement,
   markConversationDeletedStatement,
+  moveConversationStatement,
   renameConversationStatement,
 } from "./statements.ts";
 
@@ -92,6 +104,73 @@ export function renameConversation(
   };
 }
 
+// Moving a conversation onto another matter, or off every matter. The matter a transcript is kept
+// on is what decides who may read it, so this is an ACCESS decision as much as a filing one, and the
+// audit row names both matters. The attachments go: each is one of the OLD matter's files, and a
+// conversation kept elsewhere has no claim on it.
+export function moveConversation(
+  database: SqlDatabase,
+  context: MagnusWriteContext,
+  input: {
+    readonly conversationId: MagnusConversationId;
+    readonly fromMatterId: MatterId | null;
+    readonly toMatterId: MatterId | null;
+    readonly attachmentCount: number;
+  },
+): EffectWrite {
+  return {
+    statements: [
+      moveConversationStatement(database, {
+        id: input.conversationId,
+        matterId: input.toMatterId,
+        now: context.clock.now(),
+      }),
+      deleteConversationAttachmentsStatement(database, input.conversationId),
+      conversationMovedAudit(database, context, {
+        conversationId: input.conversationId,
+        fromMatterId: input.fromMatterId,
+        toMatterId: input.toMatterId,
+        detachedAttachments: input.attachmentCount,
+      }),
+    ],
+    outboxMessages: [],
+  };
+}
+
+// Attaching a matter's file by reference. The row copies nothing of the file; the caller has already
+// checked that the file is one of the conversation's own matter's.
+export function attachConversationFile(
+  database: SqlDatabase,
+  context: MagnusWriteContext,
+  input: { readonly conversationId: MagnusConversationId; readonly fileId: FileId },
+): EffectWrite {
+  return {
+    statements: [
+      insertAttachmentStatement(database, {
+        conversationId: input.conversationId,
+        fileId: input.fileId,
+        attachedAt: context.clock.now(),
+      }),
+      attachmentAddedAudit(database, context, input),
+    ],
+    outboxMessages: [],
+  };
+}
+
+export function detachConversationFile(
+  database: SqlDatabase,
+  context: MagnusWriteContext,
+  input: { readonly conversationId: MagnusConversationId; readonly fileId: FileId },
+): EffectWrite {
+  return {
+    statements: [
+      deleteAttachmentStatement(database, input),
+      attachmentRemovedAudit(database, context, input),
+    ],
+    outboxMessages: [],
+  };
+}
+
 export function archiveConversation(
   database: SqlDatabase,
   context: MagnusWriteContext,
@@ -120,6 +199,7 @@ export function deleteConversation(
   return {
     statements: [
       deleteConversationTurnsStatement(database, input.conversationId),
+      deleteConversationAttachmentsStatement(database, input.conversationId),
       markConversationDeletedStatement(database, { id: input.conversationId, now }),
       conversationDeletedAudit(database, context, {
         conversationId: input.conversationId,

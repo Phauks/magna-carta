@@ -23,10 +23,14 @@ const AT = "2026-01-01T00:00:00.000Z";
 const MEMBER = "user_logsearchreader0";
 const MATTER_A = "matter_logsearch0001";
 const MATTER_B = "matter_logsearch0002";
+const MATTER_C = "matter_logsearch0003";
 const CHECK_A = "conflictsCheck_00000000000001";
 const CHECK_B = "conflictsCheck_00000000000002";
 const CHECK_C = "conflictsCheck_00000000000003";
 const PERSON = "directoryPerson_000000000001";
+const CHECK_D = "conflictsCheck_00000000000004";
+const RERUN = "conflictsCheck_00000000000005";
+const WITHDRAWN = "directoryPerson_000000000002";
 
 let handle: ReturnType<typeof createMigratedNodeDatabase>;
 
@@ -53,17 +57,73 @@ beforeAll(async () => {
     .bind(MATTER_B, MEMBER, AT)
     .run();
 
-  const check = (id: string, matterId: string | null, at: string) =>
-    database
+  /*
+   * One numbered check with one run, seeded in the shape the log now holds: the numbered check is
+   * what the register lists, the run is the search under it, and the append-only search record
+   * shares the run's identifier. The hits hang off the record.
+   */
+  const check = async (
+    id: string,
+    sequence: number,
+    matterId: string | null,
+    at: string,
+  ): Promise<void> => {
+    await database
+      .prepare(
+        "INSERT INTO conflicts_numbered_check (id, check_sequence, check_number, subject_matter_id, latest_run_id, created_by_user_id, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?1, ?5, ?6, ?6)",
+      )
+      .bind(id, sequence, `CC-${String(sequence).padStart(4, "0")}`, matterId, MEMBER, at)
+      .run();
+    await database
+      .prepare(
+        "INSERT INTO conflicts_check_run (id, numbered_check_id, ordinal, status, request_json, trigger, trigger_source, requested_by_user_id, created_at) VALUES (?1, ?1, 1, 'completed', '{}', 'new_matter', 'manual', ?2, ?3)",
+      )
+      .bind(id, MEMBER, at)
+      .run();
+    await database
       .prepare(
         "INSERT INTO conflicts_check (id, trigger, subject_matter_id, subject_parties_json, scope_json, strictness, depth, inputs_json, floor_raised, actor_user_id, created_at) VALUES (?1, 'new_matter', ?2, '[]', '{}', 'balanced', 2, '{}', 0, ?3, ?4)",
       )
       .bind(id, matterId, MEMBER, at)
       .run();
-  await check(CHECK_A, MATTER_A, "2026-01-01T01:00:00.000Z");
-  await check(CHECK_B, MATTER_B, "2026-01-01T02:00:00.000Z");
-  // A pre-consult check against a party set with no matter yet — the null-matter arm.
-  await check(CHECK_C, null, "2026-01-01T03:00:00.000Z");
+  };
+  await check(CHECK_A, 1, MATTER_A, "2026-01-01T01:00:00.000Z");
+  await check(CHECK_B, 2, MATTER_B, "2026-01-01T02:00:00.000Z");
+  // A pre-engagement screen: a check filed on no matter yet — the null-matter arm.
+  await check(CHECK_C, 3, null, "2026-01-01T03:00:00.000Z");
+
+  // A check that was RE-RUN: the name surfaced on the first run and not on the second, which is the
+  // ordinary shape after a waiver is recorded. The register's row shows the latest run.
+  await check(CHECK_D, 4, MATTER_C, "2026-01-01T04:00:00.000Z");
+  await database
+    .prepare(
+      "INSERT INTO conflicts_check_run (id, numbered_check_id, ordinal, status, request_json, trigger, trigger_source, requested_by_user_id, created_at) VALUES (?1, ?2, 2, 'completed', '{}', 'new_party', 'manual', ?3, ?4)",
+    )
+    .bind(RERUN, CHECK_D, MEMBER, "2026-01-01T05:00:00.000Z")
+    .run();
+  await database
+    .prepare(
+      "INSERT INTO conflicts_check (id, trigger, subject_matter_id, subject_parties_json, scope_json, strictness, depth, inputs_json, floor_raised, actor_user_id, created_at) VALUES (?1, 'new_party', ?2, '[]', '{}', 'balanced', 2, '{}', 0, ?3, ?4)",
+    )
+    .bind(RERUN, MATTER_C, MEMBER, "2026-01-01T05:00:00.000Z")
+    .run();
+  await database
+    .prepare("UPDATE conflicts_numbered_check SET latest_run_id = ?1 WHERE id = ?2")
+    .bind(RERUN, CHECK_D)
+    .run();
+  // The hit belongs to the FIRST run, which is no longer the one the row displays.
+  await database
+    .prepare(
+      "INSERT INTO conflicts_hit (id, check_id, entity_id, source_class, evidence_tier, matched_fields_json, graph_path_json, co_party, created_at) VALUES (?1, ?2, ?3, 'party', 1, '[]', '[]', 0, ?4)",
+    )
+    .bind("conflictsHit_00000000000002", CHECK_D, WITHDRAWN, AT)
+    .run();
+  await database
+    .prepare(
+      "INSERT INTO directory_name (id, entity_id, entity_kind, name_role, name_given, name_family, normalized_display, created_at, updated_at) VALUES (?1, ?2, 'person', 'legal', 'Terrence', 'Vale', 'terrence vale', ?3, ?3)",
+    )
+    .bind("directoryName_0000000000002", WITHDRAWN, AT)
+    .run();
 
   // A candidate the third check surfaced, and the directory name it resolves to. The name is stored
   // normalized, which is why the search normalizes the term the same way.
@@ -112,12 +172,12 @@ describe("the conflicts log's search", () => {
 
   it("returns the whole log when nothing is asked", async () => {
     const { results } = await search();
-    expect(results).toHaveLength(3);
+    expect(results).toHaveLength(4);
   });
 
   it("treats a blank term as no search at all", async () => {
     const { results } = await search("   ");
-    expect(results).toHaveLength(3);
+    expect(results).toHaveLength(4);
   });
 
   it("escapes a reader's wildcards rather than obeying them", async () => {
@@ -134,6 +194,14 @@ describe("the conflicts log's search", () => {
       const { results } = await search(term);
       expect(results, `"${term}" must not match every name`).toHaveLength(0);
     }
+  });
+
+  it("reaches a name surfaced by an EARLIER run, not only the one the row shows", async () => {
+    // The question this log answers is about the firm's history: a name that surfaced on the first
+    // run and not on the re-run after a waiver still surfaced. Searching only the run the register
+    // happens to display would answer "no" to the one question the log exists for.
+    const { results } = await search("Terrence");
+    expect(results.map((row) => row.id)).toEqual([CHECK_D]);
   });
 
   it("keeps the newest-first order a search narrows", async () => {

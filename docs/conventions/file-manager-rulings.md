@@ -715,3 +715,90 @@ The owner's words this round: "the file manager area is really good."
   tree (N25), not links, and revealing the folded folders in place would only make the strip longer
   again. What both surfaces share is the rule that decides which segments survive, which is why it
   moved into `collapse.ts` rather than being written twice.
+
+## R22 — round nineteen: the Upload dialog holds still, tabs down its left, and the duplicate setting goes
+
+The owner's notes of 2026-09-09, staged ahead of the work and built on 2026-09-11. A39 is the one
+row left open here: its cause is in the design system, and it is settled there rather than worked
+around in the dialog.
+
+| #   | Ruling                                                                                                                                                                                                                                                                                                                                            | Status  |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| A34 | **The Upload dialog does not resize itself to what is in it.** Its frame is fixed and it is sized for **Advanced Settings open**, so opening the settings, adding files, or expanding an intake folder never moves anything already on screen. The panes scroll inside the room they have; the dialog does not grow to meet them.                 | settled |
+| A35 | **The dialog's left side is tabs, not one stacked form.** Tab one is **Location**; tab two is **Advanced Settings**. Tabs are the modular shape: a third and a fourth arrive later without the dialog being redesigned around them. Amends **A20** only in how the left pane is composed — intake stays on the left, the files stay on the right. | settled |
+| A36 | **The right pane says whether each file is ready to be uploaded** — that is, whether its hash has finished. Readiness is the file's own state in the source list, shown per file.                                                                                                                                                                 | settled |
+| A37 | **The Add menu names both choices: "+ Folder" and "+ File".** "+ Folder" replaces "A Folder, With Everything Inside It". "+ File" is listed even though pressing Add already opens the file picker, so neither choice is discoverable only by pressing and finding out.                                                                           | settled |
+| A38 | **"+ Add" is a real button** — edges, and the design system's button standards, like every other button on the screen.                                                                                                                                                                                                                            | settled |
+| A39 | **The table's right-click menu renders above the dialog, not beneath it.** It currently paints under the modal layer, which makes it unreachable — the menu is there and cannot be used.                                                                                                                                                          | settled |
+| A40 | **A failed upload says what failed.** The user is told the nature of the failure, not only that one happened.                                                                                                                                                                                                                                     | settled |
+| P16 | **"Files the Firm Already Holds" is not a setting — remove it.** There is one behaviour and it is the default: a file whose hash the firm already holds is not uploaded again. Deleting one instance does not delete the stored bytes; they go only once **every** instance of that hash has been deleted.                                        | settled |
+
+**Notes recorded this round:**
+
+- **A39's cause is one line in the design system, not the dialog.** Every floating surface composes
+  its stacking through `floatingContentClasses()` in
+  `packages/design-system/src/lib/internal/floating.ts`, which is the single home for the z-layer
+  scale. Combobox, date pickers, dropdown menus, popovers, selects and tooltips all take the
+  `anchored` layer, which that file records as deliberately sitting ABOVE `modal` so a picker opened
+  from inside a dialog is clickable. `context-menu-content.svelte` and
+  `context-menu-sub-content.svelte` take `dropdown` instead, which sits BELOW `modal` — so a
+  right-click menu raised inside the Upload dialog paints under the panel exactly as reported. The
+  two context-menu parts are the only floating surfaces on the old layer.
+- The Upload dialog's own duplicate machinery is what P16 removes, and it is more than a label:
+  `checkDuplicates` is a plan field read by the queue (`upload-queue.svelte.ts`), it gates whether
+  the hash is read at all (`upload-dialog.svelte` starts no read when the question is off), and
+  A36's readiness reading is that same hash. Turning the question into the only behaviour makes the hash
+  unconditional, which is what lets readiness be stated for every file rather than only when the
+  setting happened to be on.
+
+**Notes recorded when the round was built (2026-09-11):**
+
+- **A34's height is pinned on the source pane, not on the shell.** `ActionDialog` deliberately has
+  no `class` or `style` prop, and its frame fits its content; so the dialog's context root carries
+  `block-size: min(72vh, calc(var(--mc-size-record-window) * 0.625))`, the record windows' own
+  measure, and the intake beside it stretches to match. The modal stage still caps the frame at the
+  screen less its gutter, and the pane shrinks inside that (`min-h-0`) rather than pushing past it.
+  Every pane already wears `mc-scrollbar` through the frame recipe.
+- **A35 replaces the accordion with `Tabs`**, Location first on every open. The "Destination"
+  heading went with it: a tab called Location does not need a heading saying so above its two
+  fields. The two helper paragraphs under Advanced Settings (the duplicate explanation, the note that
+  a document type is set per file) went too, under the standing rule that a data-entry surface
+  carries no helper prose.
+- **A36's readiness is the register's, and the batch inherits it.** `upload-digests.svelte.ts`
+  asks the firm (`uploads.matches`) the moment a digest is in and settles each file as `ready`,
+  `held` or `unread`; the Status column reads Reading · N%, Ready, Held or Not read before the press,
+  and a folder row reads "2 of 3 ready · 1 held". `UploadBatchPlan.readiness` carries the panel's
+  last reading into the batch so every item starts where it stood, which is the A23 no-reflow rule
+  applied to the one column that is allowed to change. The firm's answer is asked against the
+  destination at the time; "held" is a fact about the firm, so a destination changed afterwards does
+  not unsettle it, and the lane asks again at its turn to learn whether the match is on the matter
+  or elsewhere.
+- **A37 and A38 are one control: the secondary button wearing the dropdown menu**, the shape
+  `CreateControl` already gives every menu-bearing control, with "File" and "Folder" as its two
+  items behind the plus glyph. The split control (a button whose press opened the file picker and a
+  chevron beside it) is gone; it was the thing that did not read as a button. What this trades away
+  is R21's one-press-to-picker for files, deliberately: the design system's menu opens on hover, so
+  a pointer reaches File in one click, and the owner named the two items outright. If the owner
+  wants the press to open the picker again, it is one handler on the trigger, not a redesign.
+- **A40 is a second string, not a longer one.** `uploadFailure(outcome)` answers `failure` (the
+  server's own `detail`, its `title` where it gave only that, or "The firm's storage did not
+  answer" / "Nothing answered while …" for a transport fault) beside the whole `reason`. The row
+  shows the short line under the file's name in the danger register with the whole account on
+  hover; the tray lists up to three failed files with their lines under a finished batch; the
+  Uploads page gets both through the shared source table.
+- **P16 on the server is a guard with no caller, by design.** `purgeableVersionObjects` in
+  `packages/file-manager/src/file-service.ts` is the one door to destroying a version's bytes: it
+  refuses a live file, and for a deleted one names each object as destroyable or retained by
+  counting every OTHER `file_version` row — any file, live or soft-deleted, any status — holding the
+  same content hash or the same key. Nothing calls it today because deletion is a soft delete that
+  destroys only the working copy and default retention is indefinite
+  (`docs/specs/2026-08-25-deleted-files-retention-design.md`); the retention policy engine walks it
+  when built. Two tests pin the rule: `packages/file-manager/test/deleted-bytes.test.ts` (two rows,
+  one delete, the object retained and held by one; two deletes, still retained) and
+  `apps/api-worker/test/files-shared-bytes.test.ts` (through the real DELETE route: both objects
+  remain and the survivor downloads). The decision is recorded as an ADR fragment.
+- **Harness:** `tooling/upload-rulings/index.mjs` still asserts A21's menu labels ("files", "a
+  folder …"), A20's "on arrival" text, and the A31a Reading row against the stand-in; the first two
+  are now stale against this round and the harness is not this round's to edit. The built dialog
+  was not driven in a browser this round; the Status column's readiness words, the tab strip and
+  the pinned height are unverified visually.

@@ -57,6 +57,27 @@
       "when": 1788904567410,
       "tag": "20260909T000000_seed-ai-settings-permission",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1789084800000,
+      "tag": "20260911T000000_magnus-conversation-attachment",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1789128000000,
+      "tag": "20260911T120000_conflicts-check-numbers-and-runs",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1789151520000,
+      "tag": "20260911T000000_office-email-address-lines-and-firm-brand-images",
+      "breakpoints": true
     }
   ]
 }

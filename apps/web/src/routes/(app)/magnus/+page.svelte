@@ -38,32 +38,32 @@
   <title>Magnus · Magna Carta</title>
 </svelte:head>
 
-<div class="flex h-full min-h-0 flex-col gap-16">
-  <MagnusSurface
-    bind:this={surface}
-    bind:createRefusal
-    subject="magnus"
-    matterId={null}
-    rail="column"
-    showMatter
-    emptyTitle="Nothing Asked Yet"
-    emptyDescription="You have not asked Magnus anything. Type a question below to start a conversation."
-  >
-    <!-- The surface owns the search because it owns the read the search narrows; this screen owns
-         where it sits, which is the action row every other Workspace screen keeps its search in.
-         The search leads and the create control follows: the field grows toward the inline start as
-         it opens, so New never moves under the pointer. -->
-    {#snippet screenHeader(controls)}
-      <ScreenHeader title="Magnus">
-        {#snippet actions()}
-          {@render controls()}
-          <CreateControl
-            title="Start a conversation with Magnus, on no matter."
-            refusal={createRefusal}
-            onpress={() => surface?.startNew()}
-          />
-        {/snippet}
-      </ScreenHeader>
-    {/snippet}
-  </MagnusSurface>
-</div>
+<!-- The surface is the design system's two-sided screen and takes the whole canvas; the header
+     rides inside its content column, beside the conversation it names. -->
+<MagnusSurface
+  bind:this={surface}
+  bind:createRefusal
+  subject="magnus"
+  matterId={null}
+  rail="column"
+  showMatter
+  emptyTitle="Nothing Asked Yet"
+  emptyDescription="You have not asked Magnus anything. Type a question below to start a conversation."
+>
+  <!-- The surface owns the search because it owns the read the search narrows; this screen owns
+       where it sits, which is the action row every other Workspace screen keeps its search in. The
+       search leads and the create control follows: the field grows toward the inline start as it
+       opens, so New never moves under the pointer. -->
+  {#snippet header(searchControls)}
+    <ScreenHeader title="Magnus">
+      {#snippet actions()}
+        {@render searchControls()}
+        <CreateControl
+          title="Start a conversation with Magnus, on no matter."
+          refusal={createRefusal}
+          onpress={() => surface?.startNew()}
+        />
+      {/snippet}
+    </ScreenHeader>
+  {/snippet}
+</MagnusSurface>

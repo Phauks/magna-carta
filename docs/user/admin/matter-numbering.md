@@ -36,10 +36,21 @@ for each distinct value of that part, so a year that restarts the count gives `2
 `2026-0002` and then `2027-0001`, and a practice area that restarts it gives each practice its own
 run.
 
-**Start from** loads a common shape into the list, and every part is then yours to change. The
-**Preview** beneath the list is rendered by the same machinery that draws real numbers, against a
-sample matter whose values are printed under it, so what you see is what a matter will get. Save
-replaces the firm's scheme in one audited step.
+Each sequence has its own plate on the page. **In Force** states the scheme the firm is numbering
+under today, or says that nothing is set and what that means. The **Matter Numbering Scheme** field
+(or **Consultation Numbering Scheme**) offers the common shapes; choosing one loads it into the
+parts below, and every part is then yours to change.
+
+The parts are a table, one row per part. The arrows at the start of a row move it up or down; the
+**Part** column chooses what kind of part it is; **Text**, **Digits**, **Starts At** and **Restarts
+The Count** hold the facts that kind takes, and a column a part has no fact for is greyed with the
+reason shown when you hover it; the control at the end of the row removes it. **Add Part** adds a
+row at the end.
+
+The **Preview** row is rendered by the same machinery that draws real numbers, against a sample
+matter whose values are printed under it, so what you see is what a matter will get. **Save Scheme**
+replaces the firm's scheme in one audited step; **Discard** returns the parts to the scheme in
+force.
 
 **A number already drawn is frozen.** Saving a scheme reaches only the matters numbered from then
 on. Nothing already numbered is renumbered, and nothing here changes a single matter's number.

@@ -127,6 +127,9 @@
             {:else if section.kind === "text"}
               <p class="mc-print-sheet-text">{section.text}</p>
             {:else if section.events.length === 0}
+              <!-- structured-empty-allow: a printed sheet is paper, not a surface data arrives on;
+                   an empty history prints as one sentence, and the fields list in the sibling
+                   branch is a different section kind rather than this section's frame -->
               <p class="mc-print-sheet-empty">{PRINT_SHEET_EMPTY_HISTORY_TEXT}</p>
             {:else}
               <ol class="mc-print-sheet-events">

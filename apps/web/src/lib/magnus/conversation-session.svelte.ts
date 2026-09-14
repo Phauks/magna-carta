@@ -22,6 +22,7 @@ import {
   readTurn,
   submitTurn,
   newWriteKey,
+  type MagnusAttachment,
   type MagnusConversation,
   type MagnusTurn,
   type MagnusTurnProgress,
@@ -48,6 +49,12 @@ export class ConversationSession {
   conversation = $state<MagnusConversation | null>(null);
   /** Its turns, oldest first. Null until the first read lands, which is the loading state. */
   turns = $state<readonly MagnusTurn[] | null>(null);
+  /**
+   * The files attached to it, by reference, with what became of each one's text on the most recent
+   * question. Read with the conversation, and replaced whole by an attach or a detach, which both
+   * answer with the list after the write.
+   */
+  attachments = $state<readonly MagnusAttachment[]>([]);
   /** Non-null while the conversation has earlier turns than are on screen. */
   earlierCursor = $state<string | null>(null);
   /** The failed read, whole, so the Error ID and the remedy reach the screen from the record. */
@@ -100,6 +107,7 @@ export class ConversationSession {
     this.#generation += 1;
     this.conversation = null;
     this.turns = null;
+    this.attachments = [];
     this.earlierCursor = null;
     this.failure = null;
     this.submitFailure = null;
@@ -107,6 +115,11 @@ export class ConversationSession {
     this.loadingEarlier = false;
     this.#consecutivePollFailures = 0;
     void this.#read(conversationId, this.#generation);
+  }
+
+  /** Adopt the attachments an attach or a detach answered with, without a re-read. */
+  adoptAttachments(attachments: readonly MagnusAttachment[]): void {
+    this.attachments = attachments;
   }
 
   /**
@@ -121,6 +134,7 @@ export class ConversationSession {
     this.#generation += 1;
     this.conversation = null;
     this.turns = [];
+    this.attachments = [];
     this.earlierCursor = null;
     this.failure = null;
     this.submitFailure = null;
@@ -135,6 +149,7 @@ export class ConversationSession {
     this.#generation += 1;
     this.conversation = null;
     this.turns = null;
+    this.attachments = [];
     this.earlierCursor = null;
     this.failure = null;
     this.submitFailure = null;
@@ -214,6 +229,7 @@ export class ConversationSession {
     }
     this.conversation = outcome.value.conversation;
     this.turns = outcome.value.turns.data.toReversed();
+    this.attachments = outcome.value.attachments;
     this.earlierCursor = outcome.value.turns.nextCursor;
     this.failure = null;
     this.#schedulePoll();

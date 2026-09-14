@@ -149,49 +149,70 @@ export function insertDispositionStatement(
 // ---- reading the log back ---------------------------------------------------------------------
 
 /*
- * The checks a firm has run, newest first, keyset-paginated over (created_at, id).
+ * The checks a firm refers to, newest first, keyset-paginated over the numbered check's
+ * (created_at, id).
  *
- * TWO SHAPES OF READ, ONE STATEMENT, AND THEY PLAN DIFFERENTLY. Filtered by matter, the table's
- * (subject_matter_id, created_at, id) index serves both the narrowing and the order — which is what
- * that index was added for. UNFILTERED, there is no index leading with created_at, so the firm-wide
- * listing sorts what it reads. That is measured rather than assumed: see the plan assertion in
- * packages/fixtures/src/load-profile/conflicts-measurements.ts, which is what would catch it
- * degrading into a scan of every check the firm has ever run.
+ * ONE ROW PER CHECK, NOT PER RUN. A check that has been run three times is one line of the log
+ * carrying its latest run's facts and how many runs it has had; the runs are read on the check
+ * (docs/conventions/conflicts-rulings.md, R7). The latest run's search record supplies the band it
+ * ran under, whether the floor widened it and how many candidates it surfaced; a run still in
+ * flight has no record yet and those read as absent.
  *
- * The row is deliberately NARROW — it is a listing, and the whole check with its hits and its
- * statement is one identifier away. Reading inputs_json here would carry the recorded scope of every
- * check on the page for a surface that shows none of it.
+ * TWO SHAPES OF READ, ONE STATEMENT. Filtered by matter, the (subject_matter_id, created_at, id)
+ * index serves both the narrowing and the order; unfiltered, the (created_at, id) index does. The
+ * matter narrowing is on where the check is FILED, which is the numbered check's matter, so a check
+ * filed on a matter after it first ran belongs to that matter's history from the moment it is filed.
+ *
+ * The row is deliberately NARROW — it is a listing, and the whole check with its runs, its record
+ * and its hits is one identifier away.
  */
 export interface ConflictsCheckSummaryRow {
   readonly id: string;
-  readonly trigger: string;
+  readonly check_number: string;
   readonly subject_matter_id: string | null;
-  readonly strictness: string;
-  readonly depth: number;
-  readonly floor_raised: number;
-  readonly actor_user_id: string | null;
-  readonly trigger_source: string | null;
   readonly created_at: string;
+  readonly created_by_user_id: string | null;
+  readonly latest_run_id: string | null;
+  readonly run_count: number;
+  readonly run_status: string | null;
+  readonly latest_run_at: string | null;
+  readonly trigger: string | null;
+  readonly trigger_source: string | null;
+  readonly requested_by_user_id: string | null;
+  readonly strictness: string | null;
+  readonly floor_raised: number | null;
   /** Counted in the same read: a listing that could not say how many candidates surfaced would
-   * make a reader open every row to find the one that matters. */
-  readonly hit_count: number;
+   * make a reader open every row to find the one that matters. Null while the latest run has no
+   * record yet. */
+  readonly hit_count: number | null;
 }
+
+const NUMBERED_CHECK_TABLE = "conflicts_numbered_check";
+const CHECK_RUN_TABLE = "conflicts_check_run";
 
 /*
  * WHAT A SEARCH OVER THE LOG CAN MATCH, and why it is these two things.
  *
- * The check row itself holds almost no text a person would type. `trigger`, `strictness` and
- * `trigger_source` are closed labels the register already narrows by from its own column filters —
- * a set filter offers "New Party" and matches it exactly, which is strictly better than a substring
- * scan for the same thing — and `inputs_json` records identifiers BY REFERENCE, never a plaintext
- * name, which is the whole point of that column.
+ * The numbered check itself holds almost no text a person would type. The trigger, the strictness
+ * and the trigger source are closed labels the register already narrows by from its own column
+ * filters — a set filter offers "New Party" and matches it exactly, which is strictly better than a
+ * substring scan for the same thing — and `inputs_json` on the search record holds identifiers BY
+ * REFERENCE, never a plaintext name, which is the whole point of that column.
  *
  * So the search answers the two questions the column filters cannot:
  *
- *   * WHICH MATTER was this run against — its number or its title. The first thing anybody types.
- *   * WHOSE NAME did this run surface. "Have we ever checked Henderson" is a
+ *   * WHICH MATTER is this check filed on — its number or its title. The first thing anybody types.
+ *     Matched against the NUMBERED check's matter, which is the one the register's row shows; the
+ *     matter a given run searched stays on that run's own record and is a different question.
+ *   * WHOSE NAME has this check surfaced. "Have we ever checked Henderson" is a
  *     professional-responsibility question with a date on it, and before this there was no way to
  *     ask it short of opening every check in the log.
+ *
+ * THE NAME ARM REACHES EVERY RUN OF THE CHECK, not only its latest. The listing shows the latest
+ * run, but the question being asked is about the firm's history: a name that surfaced on the first
+ * run and not on the re-run after a waiver still surfaced, and a search that could not find it would
+ * answer "no" to the one question this log exists to answer. So it walks the check's runs rather
+ * than the `record` the row happens to be displaying.
  *
  * The name half goes through the directory's stored `normalized_display`, so the term is normalized
  * the same way the corpus was (`normalizeName` in @magna-carta/directory) and `O'Brien` finds
@@ -202,7 +223,7 @@ export interface ConflictsCheckSummaryRow {
 function checkSearchCondition(term: string): { condition: string; bindings: readonly unknown[] } {
   const literal = likePattern(term);
   const arms = [
-    `EXISTS (SELECT 1 FROM matter WHERE matter.id = ${CONFLICTS_CHECK_TABLE}.subject_matter_id ` +
+    `EXISTS (SELECT 1 FROM matter WHERE matter.id = numbered.subject_matter_id ` +
       `AND (matter.matter_number LIKE ? ${LIKE_ESCAPE_CLAUSE} OR matter.title LIKE ? ${LIKE_ESCAPE_CLAUSE}))`,
   ];
   const bindings: unknown[] = [literal, literal];
@@ -218,13 +239,13 @@ function checkSearchCondition(term: string): { condition: string; bindings: read
    */
   const normalized = normalizeName(term);
   if (normalized !== "") {
-    // The candidates the run surfaced, by the name the directory holds for them. Correlated rather
-    // than joined: a check matches once however many of its hits match, and a join would have to
-    // de-duplicate the check row before the limit could be applied.
+    // Correlated rather than joined: a check matches once however many of its runs and hits match,
+    // and a join would have to de-duplicate the check row before the limit could be applied.
     arms.push(
-      `EXISTS (SELECT 1 FROM ${CONFLICTS_HIT_TABLE} JOIN directory_name ` +
-        `ON directory_name.entity_id = ${CONFLICTS_HIT_TABLE}.entity_id ` +
-        `WHERE ${CONFLICTS_HIT_TABLE}.check_id = ${CONFLICTS_CHECK_TABLE}.id ` +
+      `EXISTS (SELECT 1 FROM ${CHECK_RUN_TABLE} AS search_run ` +
+        `JOIN ${CONFLICTS_HIT_TABLE} ON ${CONFLICTS_HIT_TABLE}.check_id = search_run.id ` +
+        `JOIN directory_name ON directory_name.entity_id = ${CONFLICTS_HIT_TABLE}.entity_id ` +
+        `WHERE search_run.numbered_check_id = numbered.id ` +
         `AND directory_name.deleted_at IS NULL ` +
         `AND directory_name.normalized_display LIKE ? ${LIKE_ESCAPE_CLAUSE})`,
     );
@@ -246,7 +267,7 @@ export function selectConflictsChecksStatement(
   const conditions: string[] = [];
   const bindings: unknown[] = [];
   if (options.matterId !== undefined) {
-    conditions.push(`${CONFLICTS_CHECK_TABLE}.subject_matter_id = ?`);
+    conditions.push(`numbered.subject_matter_id = ?`);
     bindings.push(options.matterId);
   }
   const term = askableTerm(options.search);
@@ -256,26 +277,28 @@ export function selectConflictsChecksStatement(
     bindings.push(...search.bindings);
   }
   if (options.cursor !== undefined) {
-    conditions.push(
-      `(${CONFLICTS_CHECK_TABLE}.created_at < ? OR (${CONFLICTS_CHECK_TABLE}.created_at = ? AND ${CONFLICTS_CHECK_TABLE}.id < ?))`,
-    );
+    conditions.push(`(numbered.created_at < ? OR (numbered.created_at = ? AND numbered.id < ?))`);
     bindings.push(options.cursor.createdAt, options.cursor.createdAt, options.cursor.id);
   }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   bindings.push(options.limit);
   return database
     .prepare(
-      `SELECT ${CONFLICTS_CHECK_TABLE}.id, ${CONFLICTS_CHECK_TABLE}.trigger, ` +
-        `${CONFLICTS_CHECK_TABLE}.subject_matter_id, ${CONFLICTS_CHECK_TABLE}.strictness, ` +
-        `${CONFLICTS_CHECK_TABLE}.depth, ${CONFLICTS_CHECK_TABLE}.floor_raised, ` +
-        `${CONFLICTS_CHECK_TABLE}.actor_user_id, ${CONFLICTS_CHECK_TABLE}.trigger_source, ` +
-        `${CONFLICTS_CHECK_TABLE}.created_at, ` +
+      `SELECT numbered.id, numbered.check_number, numbered.subject_matter_id, numbered.created_at, ` +
+        `numbered.created_by_user_id, numbered.latest_run_id, ` +
+        `COALESCE(run.ordinal, 0) AS run_count, run.status AS run_status, run.created_at AS latest_run_at, ` +
+        `run.trigger, run.trigger_source, run.requested_by_user_id, ` +
+        `record.strictness, record.floor_raised, ` +
         // A correlated count rather than a GROUP BY join: the page is at most a few dozen rows, the
         // (check_id) index on conflicts_hit serves each one, and a join would have to de-duplicate
-        // the check row per hit before the limit could be applied.
-        `(SELECT COUNT(*) FROM ${CONFLICTS_HIT_TABLE} WHERE ${CONFLICTS_HIT_TABLE}.check_id = ${CONFLICTS_CHECK_TABLE}.id) AS hit_count ` +
-        `FROM ${CONFLICTS_CHECK_TABLE} ${where} ` +
-        `ORDER BY ${CONFLICTS_CHECK_TABLE}.created_at DESC, ${CONFLICTS_CHECK_TABLE}.id DESC LIMIT ?`,
+        // the check row per hit before the limit could be applied. Null, not zero, while the latest
+        // run has no record: a search still running has surfaced nothing YET, which is not a count.
+        `CASE WHEN record.id IS NULL THEN NULL ELSE (SELECT COUNT(*) FROM ${CONFLICTS_HIT_TABLE} WHERE ${CONFLICTS_HIT_TABLE}.check_id = record.id) END AS hit_count ` +
+        `FROM ${NUMBERED_CHECK_TABLE} AS numbered ` +
+        `LEFT JOIN ${CHECK_RUN_TABLE} AS run ON run.id = numbered.latest_run_id ` +
+        `LEFT JOIN ${CONFLICTS_CHECK_TABLE} AS record ON record.id = run.id ` +
+        `${where} ` +
+        `ORDER BY numbered.created_at DESC, numbered.id DESC LIMIT ?`,
     )
     .bind(...bindings);
 }

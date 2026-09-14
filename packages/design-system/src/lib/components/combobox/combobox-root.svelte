@@ -11,13 +11,18 @@
    */
   import { Combobox as ComboboxPrimitive } from "bits-ui";
   import { setContext } from "svelte";
-  import { COMBOBOX_LISTBOX_ID } from "./context.ts";
+  import { COMBOBOX_FIELD_ANCHOR, COMBOBOX_LISTBOX_ID, type ComboboxFieldAnchor } from "./context.ts";
 
   const listboxId = $props.id();
 
   let { allowDeselect = true, ...restProps }: ComboboxPrimitive.RootProps = $props();
 
   setContext(COMBOBOX_LISTBOX_ID, listboxId);
+
+  // The field box Input renders and Content anchors to (see context.ts). One reactive slot, so the
+  // Content re-anchors if the field is ever re-rendered.
+  const fieldAnchor = $state<ComboboxFieldAnchor>({ element: null });
+  setContext(COMBOBOX_FIELD_ANCHOR, fieldAnchor);
 </script>
 
 <ComboboxPrimitive.Root {allowDeselect} {...restProps} />

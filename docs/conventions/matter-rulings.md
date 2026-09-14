@@ -1,0 +1,120 @@
+# The matter record — the owner's standing rulings
+
+Every ruling the owner has issued on the matter record itself — its header, its status seal and the
+status window behind it — cumulative, newest round last. **A ruling here is settled.** It is not
+re-derived, re-proposed, or re-litigated by a later round, and a round that silently reverts one is
+a regression, not a redesign.
+
+The matter's four financial tabs have their own ledger
+([`time-tab-rulings.md`](time-tab-rulings.md)) and its Conflicts section has its own
+([`conflicts-rulings.md`](conflicts-rulings.md)); this file is the record around them.
+
+Status values: `settled` (built and confirmed) · `regressed` (was settled, a later round undid it) ·
+`open` (asked for, not yet built) · `superseded` (a later ruling replaced it, with the pointer).
+
+## R1 — round one: the status seal becomes the control it was already called
+
+The owner's notes of 2026-09-11, staged and then built the same day. The lifecycle and the seal
+(L1, L2) are settled; the status window's Location (W1) stays `open` because it waits on the Offices
+component. The research beneath each group is what the code said when the round was staged.
+
+### The lifecycle and the seal
+
+| #   | Ruling                                                                                                                                                                                                                                                             | Status  |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
+| L1  | **A consultation can be closed or put on hold, not only opened.** A firm that decides against a consultation, or parks one, has to be able to say so from the consultation itself.                                                                                 | settled |
+| L2  | **The status seal is a dropdown that changes the status.** Today it offers the one step the lifecycle runs toward; it becomes the control the status is actually changed from. This **amends the "steps, never a picker" rule** recorded in `matter-lifecycle.ts`. | settled |
+
+**Notes recorded this round (2026-09-11).**
+
+- **L1 reaches the contract, not only the table.** `MATTER_LIFECYCLE_STEPS.consultation` is now
+  Open Matter, Put On Hold, Close Consultation, in that order: the step the lifecycle runs toward,
+  then the pause, then the exit. The hold route accepts a consultation (the service's
+  `holdMatter` and the statement's in-batch guard both take `open` or `consultation`; an intake is
+  still refused, because it has nothing yet to pause). The close route already accepted one at the
+  service — the same preconditions run, and a consultation with nothing on its ledgers passes them.
+  What was new on the close side is the release: `releaseMatter` returns the matter to where the
+  hold found it, reading `opened_at` as the one honest signal (stamped, it goes back to Active;
+  empty, it was a consultation and goes back to being one), and `reopenMatter` already restored a
+  consultation by the same signal. A closed consultation keeps its tentative number and draws no
+  matter number. The refusal code for a hold on the wrong status keeps its name (`matter-not-open`)
+  because callers branch on it; its message names both statuses the hold takes.
+- **L2 is a dropdown of STEPS, and the "steps, never a picker" comment now says why that is not
+  a picker.** The seal is `DropdownMenu` over the Badge, with a chevron it has earned (the menu
+  always holds at least one step and the way into the window). It lists the steps available from
+  where the matter stands and never the five statuses. Each step declares how it is taken from
+  the seal (`takenFrom` on the model): the hold, the close, the open and the intake's completion
+  open the status window at the step — the hold with its reason field already asked, the others
+  with their requirements in view — and the release and the reopen ask their one question in the
+  product's confirm panel and run. The window stays, as the last item on the menu ("Matter
+  Status"), because it is where the number, the engagement and the paper file live; its own
+  seated step controls are unchanged. A refused step is offered refused, its reason under the list
+  rather than in a hover a disabled item cannot show.
+- **The seal reads the session through the shared store** (`session-permissions.svelte.ts`) as the
+  pointer reaches it or focus lands on it, so the menu's items are usually already answered when it
+  opens instead of flickering from refused to offered; opening the menu or the window is the
+  backstop for a touch. The window used to make its own read on open.
+- **A seam left.** A held matter's steps are keyed by status alone, so "Close Matter" and
+  "Release Hold" read the same on a held consultation as on a held active matter; only the
+  consultation's own rung says "Close Consultation". The done sentences are neutral where the
+  rung cannot know ("back where the hold found it").
+
+**What the code said when the round was staged.**
+
+- **The lifecycle graph has no edge for either step.** `MATTER_LIFECYCLE_STEPS` in
+  `apps/web/src/lib/matters/matter-lifecycle.ts` gives `consultation` exactly one step, Open Matter.
+  It is not only the screen: the API refuses both. The hold route "refuses a matter that is not
+  open" and the close route the same, so L1 adds edges to the contract as well as to the table —
+  `consultation` gains a close and a hold, and reopen, which already "restores the status it left",
+  generalizes to restore a consultation.
+- **A closed consultation is coherent with the numbering rule, which is worth stating because it is
+  the thing that usually breaks.** A matter draws its permanent number the moment it opens and never
+  before, so a consultation the firm closes consumes no matter number and keeps its own tentative
+  one. Nothing has to be unwound.
+- **L2 amends a rule that is written down and argued for.** `matter-lifecycle.ts` opens with "STEPS,
+  NEVER A PICKER... A control that let somebody pick 'Closed' from a list would be offering a state
+  the lifecycle may not put a matter in from where it stands", and the contract is shaped to match:
+  one POST per step, none of which takes a status, and the hold alone takes a body — its reason. The
+  reconciliation the round has to find is a dropdown that offers the steps available FROM where the
+  matter stands, rather than a list of the five statuses; and the hold still has to ask for its
+  reason somewhere, which is what the status window does today. With L1 adding two edges, a
+  consultation's seal would offer three, which is the case that makes a dropdown read better than a
+  row of buttons.
+- The seal is `matter-status-dialog.svelte`, rendered inline in the matter header's meta line
+  (`matter-header.svelte`), and the header's own comment already calls it "the control": "Pressing
+  the status seal opens the status window, which is where a matter is opened, closed or reopened."
+  L2 is that sentence becoming true without a window in the way.
+
+### The status window's Location
+
+| #   | Ruling                                                                                                                                                                        | Status |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| W1  | **The status window's Location links to the office record**, and it is a modular component — the same piece used wherever an office is named, not a field written again here. | open   |
+
+W1 stays open on 2026-09-11: it waits on the Offices component (`O1` in
+[`settings-rulings.md`](settings-rulings.md)), which is the piece it has to be modular over. Nothing
+about it was started in the L1/L2 pass.
+
+**What the code says today, and the ambiguity to settle first.** There are **two** different
+locations on a matter, and W1 has to say which it means.
+
+1. The **owning office** — `matter.locationId`, chosen in the New Matter dialog through
+   `vocabulary-picker.svelte` (the one component shared by matter type and Location) and shown as
+   `matter.locationName` in the header's citation line. This is a firm office, and it is the thing
+   the Offices screen staged as `O1` in [`settings-rulings.md`](settings-rulings.md) will manage.
+2. The **paper file's whereabouts** — the status window's "Physical File" section, whose three facts
+   are Location, Held In and Destroy After (`MATTER_PHYSICAL_FILE_FACTS` in `matter-lifecycle.ts`).
+   All three are unserved: every row reads "Not recorded" beside a Soon mark. This is the one that
+   is literally in the pillbox today.
+
+Reading W1 as the second — the Physical File's Location resolving to an office record rather than
+being free text, with Held In carrying the room, shelf or box beneath it — makes the paper file
+lean on the office subsystem instead of inventing a second register, and it is why the component
+has to be modular: the same office reference appears in the New Matter dialog, on the header's
+citation, in the Offices screen and here. The alternative reading, that the owning office simply
+gains a link through to its office record, is a smaller piece of the same component. Both want the
+office picker and the office link to exist once.
+
+The office record itself does not exist as a screen yet — the backend does
+(`packages/locations/`, `/api/v1/locations`, letterhead logo included), which is the finding
+recorded under `O1`. So W1 is sequenced behind the Offices work rather than beside it.

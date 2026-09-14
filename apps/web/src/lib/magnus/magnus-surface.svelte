@@ -6,11 +6,20 @@
    * else, because a conversation is one record and a reader moving between the two screens should
    * not have to learn a second layout.
    *
+   * IT IS A COMPOSITION OF THREE PARTS. The rail (magnus-rail.svelte) lists and orders the
+   * conversations; the transcript (magnus-transcript.svelte) reads one; the composer
+   * (magnus-composer.svelte) adds to it. This file holds the state the three share — which
+   * conversation is open, whether the assistant can be used here at all, the reads that fill the
+   * rail — and the acts on a conversation: naming it in place, keeping it on a matter, attaching a
+   * matter's files, deleting it. The workspace's two sides are the design system's
+   * `NavigationLayout` — the rail in its navigation column, the header and the open conversation in
+   * its content column — so this file draws no column frame, width or scroll region of its own.
+   *
    * THE MATTER LINK SCOPES THE RECORD, NOT THE PROMPT. A conversation kept on a matter's file is a
-   * transcript that matter keeps; it puts none of that matter's content into anything the assistant
-   * is sent. The section states that in one line above the composer, because standing inside a
-   * matter is the whole reason a reader would assume the opposite. That line stays until context
-   * grants ship, and no wording here may soften it.
+   * transcript that matter keeps; being kept there puts none of that matter's content into anything
+   * the assistant is sent. What DOES reach the assistant beyond the typed question is the readable
+   * text of the files a member attaches to the conversation, by reference, and the composer's line
+   * says exactly that, composed from what is attached rather than written once.
    *
    * THE AVAILABILITY READ COMES FIRST, always, because three of its four answers mean there is no
    * composer to draw: the firm has not consented to model processing, the firm has not turned the
@@ -29,41 +38,42 @@
    */
   import type { Snippet } from "svelte";
   import * as Conversation from "@magna-carta/design-system/conversation";
-  import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import * as Select from "@magna-carta/design-system/select";
   import Button from "@magna-carta/design-system/button";
-  import ChoiceRow from "@magna-carta/design-system/choice-row";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
   import EmptyState from "@magna-carta/design-system/empty-state";
-  import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
-  import Textarea from "@magna-carta/design-system/textarea";
-  import { instantAttribute, placeholderOf } from "@magna-carta/design-system/formatters";
+  import NavigationLayout from "@magna-carta/design-system/navigation-layout";
+  import * as Tooltip from "@magna-carta/design-system/tooltip";
+  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { SAMPLE_SENTENCE, sampleInstant } from "@magna-carta/design-system/loading-fixtures";
-  import MessageSquare from "@lucide/svelte/icons/message-square";
-  import PencilLine from "@lucide/svelte/icons/pencil-line";
-  import SendHorizontal from "@lucide/svelte/icons/send-horizontal";
+  import FolderInput from "@lucide/svelte/icons/folder-input";
   import Trash2 from "@lucide/svelte/icons/trash-2";
+  import AttachFileDialog from "./attach-file-dialog.svelte";
   import ConversationDeleteDialog from "./conversation-delete-dialog.svelte";
+  import ConversationName from "./conversation-name.svelte";
+  import MagnusComposer from "./magnus-composer.svelte";
   import MagnusDisclosure from "./magnus-disclosure.svelte";
+  import MagnusRail from "./magnus-rail.svelte";
+  import MagnusTranscript from "./magnus-transcript.svelte";
   import MagnusUnavailable from "./magnus-unavailable.svelte";
+  import MoveConversationDialog from "./move-conversation-dialog.svelte";
   import { ConversationSession } from "./conversation-session.svelte.ts";
   import { MatterCitations } from "./matter-citations.svelte.ts";
   import {
     ALLOWANCE_WORTH_SAYING_AT,
     acknowledgeDisclosure,
     conversationDisplayName,
-    conversationStartedLine,
+    detachFile,
     listConversations,
     newWriteKey,
     readAvailability,
-    renameConversation,
     startConversation,
-    turnFailureSentence,
+    type ConversationSort,
     type MagnusAvailability,
     type MagnusConversation,
-    type MagnusTurn,
   } from "./magnus-api.ts";
+  import ChoicePicker from "$lib/components/choice-picker.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
@@ -97,13 +107,15 @@
      */
     createRefusal?: string | undefined;
     /**
-     * The band above the surface, drawn by the host and handed this surface's search to seat in it.
-     * A screen with a masthead of its own passes one and puts the control in its action row, which
-     * is where every other Workspace screen keeps it; a matter's section seats it in the row under
-     * its own heading. WHERE it sits is the host's business — WHAT it searches is this surface's,
-     * because the read it narrows is here.
+     * The screen's own header, drawn at the top of the content column. Only the workspace has one:
+     * the design system's navigation layout takes the full height under the top bar, so a header
+     * belongs inside it rather than above it. The matter section draws none (its masthead is the
+     * matter's).
+     *
+     * It is handed this surface's SEARCH to seat in its action row. WHAT the search reaches is
+     * decided here, beside the read it narrows; WHERE the control sits is the header's business.
      */
-    screenHeader?: Snippet<[Snippet]>;
+    header?: Snippet<[Snippet]>;
   }
 
   let {
@@ -115,7 +127,7 @@
     emptyTitle,
     emptyDescription,
     createRefusal = $bindable(undefined),
-    screenHeader,
+    header,
   }: Props = $props();
 
   /** The switcher's value for a conversation that has not been started yet. */
@@ -131,12 +143,23 @@
   let availabilityFailure = $state<StatedFailure | null>(null);
   let acceptFailure = $state<StatedFailure | null>(null);
   let startFailure = $state<StatedFailure | null>(null);
-  let renameFailure = $state<StatedFailure | null>(null);
+  let detachFailure = $state<StatedFailure | null>(null);
   let accepting = $state(false);
   let starting = $state(false);
-  let renaming = $state(false);
-  let draftTitle = $state("");
   let draft = $state("");
+  let sort = $state<ConversationSort>("date");
+  /*
+   * What the rail is being asked. `searchText` is the field's; `appliedSearch` is what the server was
+   * last asked for, and ScreenSearch owns the pause between them.
+   *
+   * It is a filter on the READ, never over the rows in hand: the rail is paged, so narrowing what
+   * happened to arrive would tell a member their question was never asked when it is simply two
+   * pages down. It reaches what they SAID, which is the only way a conversation nobody titled is
+   * found again.
+   */
+  let searchText = $state("");
+  let appliedSearch = $state("");
+  const searching = $derived(appliedSearch.trim() !== "");
   let selectedId = $state<string | null>(null);
   /*
    * True only while the reader has DELIBERATELY asked for a fresh conversation. It is what tells
@@ -146,24 +169,14 @@
    */
   let composingNew = $state(false);
   let deletingConversation = $state<MagnusConversation | null>(null);
+  let movingConversation = $state<MagnusConversation | null>(null);
+  let attachingTo = $state<MagnusConversation | null>(null);
+  let detachingFileId = $state<string | null>(null);
   let composerElement = $state<HTMLTextAreaElement | null>(null);
   let loadedSubject: string | null = null;
-  /*
-   * What the rail is being asked. `searchText` is the field's, `appliedSearch` is what the server
-   * was last asked for — ScreenSearch owns the pause between them, so a query leaves the machine
-   * once per thought rather than once per keystroke.
-   *
-   * The search is a filter on the READ, never over the rows in hand: the rail is paged, so
-   * narrowing what happened to arrive would tell a member their question was never asked when it is
-   * simply two pages down. It reaches what they SAID, which is the only way a conversation nobody
-   * titled can be found again.
-   */
-  let searchText = $state("");
-  let appliedSearch = $state("");
 
   const rows = $derived(conversations.items);
   const readFailure = $derived(conversations.failure);
-  const turns = $derived(session.turns);
   const isOpen = $derived(availability?.state === "open");
   const showsDisclosure = $derived(availability?.state === "acknowledgement-required");
   const firmGate = $derived.by((): "firm-ineligible" | "feature-disabled" | null => {
@@ -177,6 +190,8 @@
   );
   const selected = $derived(rows?.find((row) => row.id === selectedId) ?? null);
   const sendRefused = $derived(allowanceSpent || starting || session.sending);
+  /** The matter the OPEN conversation is kept on, which is what attaching reaches and moving leaves. */
+  const openMatterId = $derived(selected?.matterId ?? matterId);
 
   /*
    * Why a conversation cannot be started right now. Every answer but `open` means there is no
@@ -203,6 +218,20 @@
     return undefined;
   });
 
+  /*
+   * Why a file cannot be attached right now. Files are matter-rooted, so a conversation on no
+   * matter has none to reach, and a conversation not yet written has nothing to attach to.
+   */
+  const attachRefusal = $derived.by((): string | undefined => {
+    if (selected === null) {
+      return "Ask the first question to start the conversation, then attach a file to it.";
+    }
+    if (openMatterId === null) {
+      return "This conversation is kept on no matter, so there are no files to reach. Keep it on a matter first.";
+    }
+    return undefined;
+  });
+
   $effect(() => {
     createRefusal = startRefusal;
   });
@@ -225,10 +254,8 @@
     availabilityFailure = null;
     acceptFailure = null;
     startFailure = null;
-    renameFailure = null;
+    detachFailure = null;
     draft = "";
-    draftTitle = "";
-    renaming = false;
     selectedId = null;
     composingNew = false;
     searchText = "";
@@ -263,22 +290,8 @@
     return listConversations(fetch, cursor, {
       ...(matterId === null ? {} : { matterId }),
       ...(appliedSearch.trim() === "" ? {} : { search: appliedSearch.trim() }),
+      sort,
     });
-  }
-
-  const searching = $derived(appliedSearch.trim() !== "");
-
-  /*
-   * A new question is a new list, so the rows are replaced rather than appended to — the subject
-   * carries the query for exactly that reason. It deliberately does NOT re-open the newest result:
-   * a reader searching is looking for one conversation, and yanking the transcript pane onto a
-   * different one under them on every keystroke-pause would make the search unusable.
-   */
-  async function applySearch(next: string): Promise<void> {
-    appliedSearch = next;
-    conversations.reset(`${subject}:${next.trim()}`);
-    await conversations.load(readPage);
-    if (showMatter) void citations.resolve((conversations.items ?? []).map((row) => row.matterId));
   }
 
   async function loadConversations(): Promise<void> {
@@ -288,10 +301,34 @@
   }
 
   /*
+   * A change of order is a fresh read of the whole record in that order, never a re-ordering of the
+   * page in hand. The open conversation stays open: the reader changed how the rail is read, not
+   * what they were reading.
+   */
+  /*
+   * A new question is a new list, so the rows are replaced rather than appended to — the subject
+   * carries the query for exactly that reason. It deliberately does NOT re-open the newest result: a
+   * reader searching is looking for one conversation, and yanking the transcript pane onto a
+   * different one on every pause would make the search unusable.
+   */
+  async function applySearch(next: string): Promise<void> {
+    appliedSearch = next;
+    conversations.reset(`${subject}:${next.trim()}`);
+    await conversations.load(readPage);
+    if (showMatter) void citations.resolve((conversations.items ?? []).map((row) => row.matterId));
+  }
+
+  function reorder(next: ConversationSort): void {
+    sort = next;
+    conversations.reset(subject);
+    void loadConversations();
+  }
+
+  /*
    * ARRIVING OPENS THE NEWEST CONVERSATION. The screen's question is "what did I ask, and what do I
    * want to ask now", and leaving the first half one click away for no reason is what put an empty
-   * state on a screen whose rail was showing conversations. The listing is newest first, so the
-   * newest is the first row.
+   * state on a screen whose rail was showing conversations. The listing is newest first by default,
+   * so the newest is the first row; under another order it is still the first row the reader sees.
    *
    * It never overrides the reader: pressing New says they want a fresh one, and this leaves that
    * alone. After a delete it does run, which is right — the screen goes on showing a conversation
@@ -343,17 +380,16 @@
     composingNew = true;
     session.close();
     draft = "";
-    renaming = false;
     startFailure = null;
+    detachFailure = null;
     composerElement?.focus();
   }
 
   function select(conversationId: string): void {
     selectedId = conversationId;
     composingNew = false;
-    renaming = false;
-    renameFailure = null;
     startFailure = null;
+    detachFailure = null;
     if (!session.showing(conversationId)) session.open(conversationId);
   }
 
@@ -389,42 +425,35 @@
     void refreshAvailability();
   }
 
-  function composerKeydown(event: KeyboardEvent): void {
-    // Enter writes a newline, because a question worth asking often runs past one line. The visible
-    // way to send is the button beside the field; this is the shortcut for a reader who prefers it.
-    if (event.key !== "Enter" || !(event.metaKey || event.ctrlKey)) return;
-    event.preventDefault();
-    void send();
+  /** The rail is read again after a rename, so the row and the head agree on the name. */
+  function conversationRenamed(): void {
+    void loadConversations();
   }
 
-  function beginRename(): void {
-    if (selected === null) return;
-    draftTitle = selected.title ?? "";
-    renaming = true;
-    renameFailure = null;
+  function conversationMoved(): void {
+    movingConversation = null;
+    // The conversation may have left this section's filter or gained a matter to cite: the rail is
+    // read again, and the transcript too, because the attachments went with the move.
+    session.reload();
+    void loadConversations();
   }
 
-  async function commitRename(): Promise<void> {
+  async function removeAttachment(fileId: string): Promise<void> {
     const conversation = selected;
-    if (conversation === null) return;
-    const title = draftTitle.trim();
-    const outcome = await renameConversation(
-      fetch,
-      conversation.id,
-      title === "" ? null : title,
-      newWriteKey(),
-    );
+    if (conversation === null || detachingFileId !== null) return;
+    detachingFileId = fileId;
+    detachFailure = null;
+    const outcome = await detachFile(fetch, conversation.id, fileId, newWriteKey());
+    detachingFileId = null;
     if (outcome.kind !== "ok") {
-      renameFailure = stated(
+      detachFailure = stated(
         outcome.failure,
-        "The conversation was not renamed.",
-        "Nothing answered. The conversation was not renamed and still reads as it did.",
+        "The file was not taken off the conversation.",
+        "Nothing answered. The file is still attached.",
       );
       return;
     }
-    renaming = false;
-    renameFailure = null;
-    void loadConversations();
+    session.adoptAttachments(outcome.value);
   }
 
   function conversationDeleted(): void {
@@ -435,239 +464,100 @@
     void loadConversations();
   }
 
-  /** The speaker's name as a reader meets it. */
-  function speakerName(turn: MagnusTurn): string {
-    return turn.speaker === "member" ? "You" : "Magnus";
-  }
-
-  function turnState(turn: MagnusTurn): "settled" | "pending" | "failed" {
-    if (turn.status === "pending") return "pending";
-    return turn.status === "complete" ? "settled" : "failed";
-  }
+  const FIXTURE_ROWS: readonly MagnusConversation[] = [
+    {
+      id: "fixture-conversation-0",
+      title: SAMPLE_SENTENCE,
+      createdBy: "fixture",
+      matterId: null,
+      state: "active",
+      createdAt: sampleInstant(0),
+      updatedAt: sampleInstant(0),
+    },
+    {
+      id: "fixture-conversation-1",
+      title: null,
+      createdBy: "fixture",
+      matterId: null,
+      state: "active",
+      createdAt: sampleInstant(1),
+      updatedAt: sampleInstant(1),
+    },
+  ];
 </script>
 
-{#snippet messageGlyph()}
-  <MessageSquare aria-hidden="true" />
-{/snippet}
-
-{#snippet transcriptShape(shown: readonly MagnusTurn[])}
-  <Conversation.Transcript>
-    {#each shown as turn (turn.id)}
-      {@const failureSentence = turnFailureSentence(turn)}
-      <Conversation.Turn speaker={turn.speaker} state={turnState(turn)}>
-        <Conversation.TurnSpeaker>{speakerName(turn)}</Conversation.TurnSpeaker>
-        {#if turn.content !== null}
-          <Conversation.TurnBody>{turn.content}</Conversation.TurnBody>
-        {/if}
-        {#if turn.status === "pending"}
-          {#if session.answerIsSlow}
-            <Conversation.TurnNote tone="warning">
-              Magnus is still answering. This is taking longer than it should. The question is on
-              the record and the answer appears here if it arrives; you can ask something else in
-              the meantime, or come back to this conversation later.
-            </Conversation.TurnNote>
-          {:else}
-            <Conversation.TurnNote tone="quiet">Magnus is answering.</Conversation.TurnNote>
-          {/if}
-        {/if}
-        {#if failureSentence !== null}
-          <Conversation.TurnNote tone="warning">{failureSentence}</Conversation.TurnNote>
-        {/if}
-        {#if turn.contextTruncated}
-          <Conversation.TurnNote tone="warning">
-            This answer was built from part of the conversation: the earlier messages did not fit.
-            If what was dropped bears on the answer, restate it and ask again.
-          </Conversation.TurnNote>
-        {/if}
-      </Conversation.Turn>
-    {/each}
-  </Conversation.Transcript>
-{/snippet}
-
-{#snippet transcriptFixture()}
-  {@render transcriptShape([
-    {
-      id: "fixture-turn-0",
-      sequence: 1,
-      speaker: "member",
-      content: SAMPLE_SENTENCE,
-      status: "complete",
-      failureLabel: null,
-      modelId: null,
-      snapshotId: null,
-      contextTruncated: false,
-      createdAt: sampleInstant(0),
-      completedAt: sampleInstant(0),
-    },
-    {
-      id: "fixture-turn-1",
-      sequence: 2,
-      speaker: "magnus",
-      content: SAMPLE_SENTENCE,
-      status: "complete",
-      failureLabel: null,
-      modelId: null,
-      snapshotId: null,
-      contextTruncated: false,
-      createdAt: sampleInstant(1),
-      completedAt: sampleInstant(1),
-    },
-  ])}
-{/snippet}
-
 {#snippet composer()}
-  <Conversation.Composer>
-    {#if matterId !== null}
-      <!-- The one sentence the surrounding matter makes necessary: standing inside a file is the
-           whole reason a reader would assume the assistant can read it. It goes when context grants
-           ship, and not before. -->
-      <p class="text-sm text-text-muted">
-        Magnus reads only what you type in this conversation. Keeping the conversation on this
-        matter&rsquo;s file does not let Magnus read the matter: not its documents, not its calendar,
-        not its parties.
-      </p>
-    {/if}
-    <Label for="magnus-composer">Your message</Label>
-    <Textarea
-      id="magnus-composer"
-      bind:ref={composerElement}
-      bind:value={draft}
-      rows={3}
-      disabled={sendRefused}
-      onkeydown={composerKeydown}
-    />
-    {#snippet actions()}
-      <Button
-        onclick={send}
-        disabled={draft.trim() === "" || sendRefused}
-        title={allowanceSpent
-          ? "The firm's daily allowance for Magnus is spent."
-          : "Send this message to Magnus."}
-      >
-        <SendHorizontal aria-hidden="true" />
-        {session.sending || starting ? "Sending" : "Send"}
-      </Button>
-    {/snippet}
-    {#if allowanceSpent}
-      <p class="text-sm text-text-muted">
-        The firm&rsquo;s daily allowance for Magnus is spent. It resets tomorrow, and an
-        administrator can raise it in the firm&rsquo;s settings.
-      </p>
-    {:else if allowanceWorthSaying && remainingDailyTurns !== undefined}
-      <p class="text-sm text-text-muted">
-        {remainingDailyTurns === 1
-          ? "One message left in the firm's daily allowance today."
-          : `${String(remainingDailyTurns)} messages left in the firm's daily allowance today.`}
-      </p>
-    {/if}
-  </Conversation.Composer>
-{/snippet}
-
-{#snippet transcriptRegion()}
-  <LoadingRegion
-    loading={turns === null}
-    failed={session.failure !== null && (turns?.length ?? 0) === 0}
-    empty={session.failure === null && turns !== null && turns.length === 0}
-    label="Reading this conversation"
-    onRetry={() => session.reload()}
-    fixture={transcriptFixture}
-    class="flex min-h-0 flex-1 flex-col gap-8"
-  >
-    {#snippet emptyState()}
-      <!-- A conversation is written when the first question is sent, so this is the narrow case
-           where the record was created and the question that would have filled it was not. -->
-      <div class="flex min-h-0 flex-1 items-center justify-center px-24">
-        <EmptyState title="Nothing In This Conversation">
-          This conversation was started and nothing was asked in it. Type a question below.
-        </EmptyState>
-      </div>
-    {/snippet}
-    {#snippet failure()}
-      {#if session.failure !== null}
-        <FailureNotice
-          failure={session.failure}
-          title="This Conversation Could Not Be Read"
-          fallback="The messages in this conversation could not be read."
-          onRetry={() => session.reload()}
-        />
-      {/if}
-    {/snippet}
-    {#if session.earlierCursor !== null}
-      <div class="flex justify-center px-24 pt-8">
-        <Button
-          variant="ghost"
-          disabled={session.loadingEarlier}
-          onclick={() => session.loadEarlier()}
-        >
-          Show earlier messages
-        </Button>
-      </div>
-    {/if}
-    {#if session.failure !== null && (turns?.length ?? 0) > 0}
-      <!-- A read that did not land over messages that did. What is on screen was read and stands. -->
-      <div class="px-24">
-        <FailureNotice
-          failure={session.failure}
-          title="The Rest Of This Conversation Could Not Be Read"
-          fallback="More of this conversation could not be read. What is shown was read and stands."
-          onRetry={() => session.resumePolling()}
-        />
-      </div>
-    {/if}
-    {@render transcriptShape(turns ?? [])}
-  </LoadingRegion>
+  <MagnusComposer
+    bind:draft
+    bind:composerElement
+    onMatter={openMatterId !== null}
+    attachments={session.attachments}
+    model={availability?.model}
+    sending={session.sending || starting}
+    {sendRefused}
+    {allowanceSpent}
+    {remainingDailyTurns}
+    {allowanceWorthSaying}
+    {attachRefusal}
+    {detachingFileId}
+    onSend={send}
+    onAttach={() => (attachingTo = selected)}
+    onDetach={(fileId) => void removeAttachment(fileId)}
+  />
 {/snippet}
 
 {#snippet conversationHeadRow()}
+  <!-- The conversation's name, edited where it is read, and the acts on the record beside it. The
+       acts are named controls with the design system's hover, never native titles, and each one is
+       refused with its reason while nothing is open rather than absent. -->
   <div class="flex flex-wrap items-center justify-between gap-8 px-24 pt-8">
-    {#if renaming}
-      <div class="flex flex-wrap items-end gap-8">
-        <div class="flex flex-col gap-4">
-          <Label for="magnus-conversation-title">Name</Label>
-          <Input id="magnus-conversation-title" bind:value={draftTitle} class="w-2xs" />
-        </div>
-        <Button variant="secondary" onclick={commitRename}>Save Name</Button>
-        <Button variant="ghost" onclick={() => (renaming = false)}>Cancel</Button>
-      </div>
-    {:else}
-      <p class="text-sm text-text">
-        {selected === null ? "This conversation" : conversationDisplayName(selected)}
-      </p>
-      <div class="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          onclick={beginRename}
-          disabled={selected === null}
-          title="Name this conversation"
-        >
-          <PencilLine aria-hidden="true" />
-        </Button>
-        <Button
-          variant="ghost"
-          onclick={() => (deletingConversation = selected)}
-          disabled={selected === null}
-          title="Delete this conversation"
-        >
-          <Trash2 aria-hidden="true" />
-        </Button>
-      </div>
-    {/if}
-  </div>
-  {#if renameFailure !== null}
-    <div class="px-24">
-      <FailureNotice
-        failure={renameFailure.failure}
-        title="Nothing Changed"
-        fallback={renameFailure.fallback}
-        whenSilent={renameFailure.whenSilent}
-      />
+    <ConversationName
+      conversation={selected}
+      disabled={session.sending}
+      onRenamed={conversationRenamed}
+    />
+    <div class="flex items-center gap-4">
+      <Tooltip.Root>
+        <Tooltip.Trigger>
+          {#snippet child({ props })}
+            <Button
+              {...props}
+              variant="ghost"
+              size="icon-sm"
+              disabled={selected === null}
+              onclick={() => (movingConversation = selected)}
+              aria-label="Keep this conversation on a matter"
+            >
+              <FolderInput class="size-16" aria-hidden="true" />
+            </Button>
+          {/snippet}
+        </Tooltip.Trigger>
+        <Tooltip.Content>Keep on a matter</Tooltip.Content>
+      </Tooltip.Root>
+      <Tooltip.Root>
+        <Tooltip.Trigger>
+          {#snippet child({ props })}
+            <Button
+              {...props}
+              variant="ghost"
+              size="icon-sm"
+              disabled={selected === null}
+              onclick={() => (deletingConversation = selected)}
+              aria-label="Delete this conversation"
+            >
+              <Trash2 class="size-16" aria-hidden="true" />
+            </Button>
+          {/snippet}
+        </Tooltip.Trigger>
+        <Tooltip.Content>Delete</Tooltip.Content>
+      </Tooltip.Root>
     </div>
-  {/if}
+  </div>
 {/snippet}
 
 {#snippet detailFixture()}
   <Conversation.Root class="min-h-0 flex-1">
-    {@render transcriptFixture()}
+    <MagnusTranscript {session} />
     {@render composer()}
   </Conversation.Root>
 {/snippet}
@@ -676,7 +566,7 @@
   <Conversation.Root class="min-h-0 flex-1">
     {#if selectedId !== null}
       {@render conversationHeadRow()}
-      {@render transcriptRegion()}
+      <MagnusTranscript {session} />
     {:else}
       <!-- TWO ABSENCES, TWO SETS OF WORDS. Nothing on the record is the member never having asked
            anything, which is what the screen's own empty copy is for. A fresh composer while
@@ -713,53 +603,24 @@
         />
       </div>
     {/if}
+    {#if detachFailure !== null}
+      <div class="px-24">
+        <FailureNotice
+          failure={detachFailure.failure}
+          title="Nothing Changed"
+          fallback={detachFailure.fallback}
+          whenSilent={detachFailure.whenSilent}
+        />
+      </div>
+    {/if}
 
     {@render composer()}
   </Conversation.Root>
 {/snippet}
 
-{#snippet conversationRows(shown: readonly MagnusConversation[])}
-  <ul class="flex flex-col gap-4" aria-label="Your conversations with Magnus">
-    {#each shown as conversation (conversation.id)}
-      <!-- The line beneath the name carries only what the name does not. An unnamed conversation
-           READS as the instant it started, and unnamed is the ordinary case because nothing
-           generates a title, so a line restating that instant would be the common row saying one
-           fact twice. Where it has nothing to add, the row carries no line at all: absence is the
-           signal, and an empty line would be a gap a reader has to wonder about. -->
-      {@const startedAt = conversationStartedLine(conversation)}
-      {@const matterTitle =
-        showMatter && conversation.matterId !== null
-          ? citations.titleFor(conversation.matterId)
-          : null}
-      {#snippet rowDetail()}
-        {#if startedAt !== null}
-          <time datetime={instantAttribute(conversation.createdAt)}>Started {startedAt}</time>
-        {/if}
-        {#if startedAt !== null && matterTitle !== null}
-          <span>&middot;</span>
-        {/if}
-        {#if matterTitle !== null}
-          <span>{matterTitle}</span>
-        {/if}
-      {/snippet}
-      <li>
-        <ChoiceRow
-          selected={conversation.id === selectedId}
-          onclick={() => select(conversation.id)}
-          icon={messageGlyph}
-          detail={startedAt === null && matterTitle === null ? undefined : rowDetail}
-        >
-          {conversationDisplayName(conversation)}
-        </ChoiceRow>
-      </li>
-    {/each}
-  </ul>
-{/snippet}
-
-<!-- The surface's search, for the host to seat. It grows toward the inline start as it opens, so a
-     create control after it in the host's row never moves. WHAT it searches is decided here, with
-     the read it narrows; WHERE it sits is the host's. -->
-{#snippet controls()}
+<!-- The surface's search, for the header to seat. It grows toward the inline start as it opens, so a
+     create control after it in the header's row never moves. -->
+{#snippet searchControls()}
   <ScreenSearch
     bind:value={searchText}
     label="Search your conversations"
@@ -771,94 +632,38 @@
   />
 {/snippet}
 
-{#snippet railColumn()}
-  {@render conversationRows(rows ?? [])}
-  {#if (rows?.length ?? 0) === 0 && searching}
-    <!-- Conversations exist and the query reaches none of them, so the line is about the query
-         rather than about the record. -->
-    <p class="text-sm text-text-muted">
-      Nothing you asked matches &ldquo;{appliedSearch.trim()}&rdquo;.
-    </p>
-  {:else if (rows?.length ?? 0) === 0}
-    <p class="text-sm text-text-muted">Nothing asked yet.</p>
-  {/if}
-  {#if conversations.nextCursor !== null}
-    <Button variant="ghost" disabled={conversations.loadingMore} onclick={loadMoreConversations}>
-      Show more conversations
-    </Button>
-  {/if}
+{#snippet railRows(shown: readonly MagnusConversation[])}
+  <MagnusRail
+    rows={shown}
+    {selectedId}
+    bind:sort
+    onMatter={matterId !== null}
+    matterTitleFor={showMatter ? (id) => citations.titleFor(id) : undefined}
+    nextCursor={conversations.nextCursor}
+    loadingMore={conversations.loadingMore}
+    emptyLine={searching
+      ? `Nothing you asked matches "${appliedSearch.trim()}".`
+      : "Nothing asked yet."}
+    onSelect={select}
+    onSortChange={reorder}
+    onLoadMore={loadMoreConversations}
+  />
 {/snippet}
 
 {#snippet railFixture()}
-  {@render conversationRows([
-    {
-      id: "fixture-conversation-0",
-      title: SAMPLE_SENTENCE,
-      createdBy: "fixture",
-      matterId: null,
-      state: "active",
-      createdAt: sampleInstant(0),
-      updatedAt: sampleInstant(0),
-    },
-    {
-      id: "fixture-conversation-1",
-      title: null,
-      createdBy: "fixture",
-      matterId: null,
-      state: "active",
-      createdAt: sampleInstant(1),
-      updatedAt: sampleInstant(1),
-    },
-  ])}
+  {@render railRows(FIXTURE_ROWS)}
 {/snippet}
 
-{#snippet switcher()}
-  <div class="flex flex-wrap items-center gap-8">
-    <Label for="magnus-switcher">Conversation</Label>
-    <Select.Root
-      type="single"
-      bind:value={() => selectedId ?? UNSTARTED, (value: string) => switchTo(value)}
-    >
-      <Select.Trigger id="magnus-switcher" class="w-2xs">
-        {selected === null ? "A new conversation" : conversationDisplayName(selected)}
-      </Select.Trigger>
-      <Select.Content>
-        <Select.Item value={UNSTARTED} label="A new conversation" />
-        {#each rows ?? [] as conversation (conversation.id)}
-          <Select.Item value={conversation.id} label={conversationDisplayName(conversation)} />
-        {/each}
-      </Select.Content>
-    </Select.Root>
-  </div>
-{/snippet}
-
-{#snippet surfaceFixture()}
-  {#if rail === "column"}
-    <div class="flex min-h-0 flex-1 gap-24">
-      <div class="flex w-2xs shrink-0 flex-col gap-8">{@render railFixture()}</div>
-      <div class="flex min-h-0 flex-1 flex-col gap-16">{@render detailFixture()}</div>
-    </div>
-  {:else}
-    {@render detailFixture()}
-  {/if}
-{/snippet}
-
-{#if screenHeader !== undefined}
-  {@render screenHeader(controls)}
-{/if}
-
-{#if isSample}
-  <EmptyState title="No Magnus Conversations On A Sample Matter">
-    This is one of the sample matters the interface is reviewed against. It has no firm behind it,
-    so there is nothing to ask Magnus about and no transcript to read.
-  </EmptyState>
-{:else}
+<!-- THE GATED STATES AND THE RECORD, behind one region. Every answer of the availability read but
+     `open` means there is no composer to draw, and each gets its own honest words; a failed first
+     read settles to the notice with Retry, so the shape never stands over nothing. -->
+{#snippet gatedOrDetail()}
   <LoadingRegion
     loading={reading}
     failed={readingFailed}
     label="Reading your conversations with Magnus"
     onRetry={retryRead}
-    fixture={surfaceFixture}
+    fixture={detailFixture}
     class="flex min-h-0 flex-1 flex-col gap-16"
   >
     {#snippet failure()}
@@ -896,22 +701,82 @@
       />
     {:else if firmGate !== null}
       <MagnusUnavailable state={firmGate} />
-    {:else if rail === "column"}
-      <div class="flex min-h-0 flex-1 gap-24">
-        <div class="mc-scrollbar flex w-2xs shrink-0 flex-col gap-8 overflow-y-auto">
-          {@render railColumn()}
-        </div>
-        <div class="flex min-h-0 flex-1 flex-col gap-16">
-          {@render conversationDetail()}
-        </div>
-      </div>
     {:else}
-      {#if (rows?.length ?? 0) > 0}
-        {@render switcher()}
+      {#if rail === "switcher"}
+        {@render switcher(rows ?? [])}
       {/if}
       {@render conversationDetail()}
     {/if}
   </LoadingRegion>
+{/snippet}
+
+{#snippet switcher(shown: readonly MagnusConversation[])}
+  <!-- Inside a matter the conversations are few, so they are offered as the product's one closed
+       choice — a combobox, never a select — with the order control beside it. The control is there
+       with nothing to switch between: the rail with one row still shows how it is read. -->
+  <div class="flex flex-wrap items-center gap-8">
+    <Label for="magnus-switcher">Conversation</Label>
+    <div class="w-2xs">
+      <ChoicePicker
+        inputId="magnus-switcher"
+        label="Conversation"
+        options={[
+          { value: UNSTARTED, label: "A new conversation" },
+          ...shown.map((conversation) => ({
+            value: conversation.id,
+            label: conversationDisplayName(conversation),
+          })),
+        ]}
+        value={selectedId ?? UNSTARTED}
+        onchange={switchTo}
+      />
+    </div>
+    <MagnusRail
+      rows={[]}
+      selectedId={null}
+      bind:sort
+      onMatter
+      emptyLine=""
+      onSelect={select}
+      onSortChange={reorder}
+    />
+  </div>
+{/snippet}
+
+{#if isSample}
+  <EmptyState title="No Magnus Conversations On A Sample Matter">
+    This is one of the sample matters the interface is reviewed against. It has no firm behind it,
+    so there is nothing to ask Magnus about and no transcript to read.
+  </EmptyState>
+{:else if rail === "column"}
+  <!-- THE WORKSPACE IS THE DESIGN SYSTEM'S TWO-SIDED SCREEN: the rail in the navigation column, the
+       screen's header and the open conversation in the content column. The layout owns the width,
+       the two scroll regions and the canvas geometry; the transcript owns its own scroller with the
+       composer pinned beneath it, which is why the content column does not scroll as a whole. The
+       rail stands only while the assistant is open here: behind a closed gate there is no record to
+       order, and the content column carries the gate's own words. -->
+  <NavigationLayout navigationLabel="Conversations" navigationWidth="narrow" contentScrolls={false}>
+    {#snippet navigation()}
+      {#if isOpen || reading}
+        <LoadingRegion
+          loading={reading}
+          label="Reading your conversations"
+          fixture={railFixture}
+          class="flex flex-col gap-8"
+        >
+          {@render railRows(rows ?? [])}
+        </LoadingRegion>
+      {/if}
+    {/snippet}
+    <div class="flex min-h-0 flex-1 flex-col gap-16 p-24">
+      {#if header}
+        {@render header(searchControls)}
+      {/if}
+      {@render gatedOrDetail()}
+    </div>
+  </NavigationLayout>
+{:else}
+  {@render gatedOrDetail()}
 {/if}
 
 <ConversationDeleteDialog
@@ -923,4 +788,30 @@
   }
   conversation={deletingConversation}
   onDeleted={conversationDeleted}
+/>
+
+<MoveConversationDialog
+  bind:open={
+    () => movingConversation !== null,
+    (open: boolean) => {
+      if (!open) movingConversation = null;
+    }
+  }
+  conversation={movingConversation}
+  attachmentCount={session.attachments.length}
+  onMoved={conversationMoved}
+/>
+
+<AttachFileDialog
+  bind:open={
+    () => attachingTo !== null,
+    (open: boolean) => {
+      if (!open) attachingTo = null;
+    }
+  }
+  conversation={attachingTo}
+  onAttached={(attachments) => {
+    attachingTo = null;
+    session.adoptAttachments(attachments);
+  }}
 />

@@ -253,6 +253,98 @@ describe("matter lifecycle routes", () => {
     expect(notHeld.status).toBe(409);
   });
 
+  it("puts a consultation on hold and releases it back to a consultation, tentative number intact", async () => {
+    const created = await post("/api/v1/matters", {
+      title: "Prospect thinking it over",
+      status: "consultation",
+      responsibleMemberId: ownerUserId,
+    });
+    expect(created.status).toBe(201);
+    const { matterId, consultationNumber } = (await created.json()) as {
+      matterId: string;
+      consultationNumber: string;
+    };
+
+    const held = await post(`/api/v1/matters/${matterId}/hold`, {
+      reason: "The prospect asked for a week to decide.",
+    });
+    expect(held.status).toBe(200);
+    const heldDetail = (await (await get(`/api/v1/matters/${matterId}`)).json()) as {
+      status: string;
+      matterNumber: string | null;
+      consultationNumber: string | null;
+      holdReason: string | null;
+    };
+    expect(heldDetail).toMatchObject({
+      status: "hold",
+      matterNumber: null,
+      consultationNumber,
+      holdReason: "The prospect asked for a week to decide.",
+    });
+
+    // The release returns the consultation to a consultation, never to active: nothing opened it.
+    const released = await post(`/api/v1/matters/${matterId}/release`, {});
+    expect(released.status).toBe(200);
+    const after = (await (await get(`/api/v1/matters/${matterId}`)).json()) as {
+      status: string;
+      matterNumber: string | null;
+      heldAt: string | null;
+    };
+    expect(after).toMatchObject({ status: "consultation", matterNumber: null, heldAt: null });
+
+    // An intake has nothing to pause and is refused.
+    const intake = await post("/api/v1/matters", {
+      title: "Walk-in, not yet a consultation",
+      status: "intake",
+      responsibleMemberId: ownerUserId,
+    });
+    const intakeId = ((await intake.json()) as { matterId: string }).matterId;
+    const refused = await post(`/api/v1/matters/${intakeId}/hold`, { reason: "Waiting" });
+    expect(refused.status).toBe(409);
+  });
+
+  it("closes a declined consultation without drawing a matter number, and reopens it as one", async () => {
+    const created = await post("/api/v1/matters", {
+      title: "Declined consultation",
+      status: "consultation",
+      responsibleMemberId: ownerUserId,
+    });
+    const { matterId, consultationNumber } = (await created.json()) as {
+      matterId: string;
+      consultationNumber: string;
+    };
+
+    // The readiness read answers for a consultation as it does for an active matter: nothing on its
+    // ledgers, so nothing stands in the way.
+    const readiness = await get(`/api/v1/matters/${matterId}/close-readiness`);
+    expect(readiness.status).toBe(200);
+    expect((await readiness.json()) as { closable: boolean }).toMatchObject({ closable: true });
+
+    const closed = await post(`/api/v1/matters/${matterId}/close`, {});
+    expect(closed.status).toBe(200);
+    const closedDetail = (await (await get(`/api/v1/matters/${matterId}`)).json()) as {
+      status: string;
+      matterNumber: string | null;
+      consultationNumber: string | null;
+      closedAt: string | null;
+    };
+    expect(closedDetail).toMatchObject({
+      status: "closed",
+      matterNumber: null,
+      consultationNumber,
+    });
+    expect(closedDetail.closedAt).not.toBeNull();
+
+    const reopened = await post(`/api/v1/matters/${matterId}/reopen`, {});
+    expect(reopened.status).toBe(200);
+    expect(
+      (await (await get(`/api/v1/matters/${matterId}`)).json()) as {
+        status: string;
+        matterNumber: string | null;
+      },
+    ).toMatchObject({ status: "consultation", matterNumber: null });
+  });
+
   it("writes the client's party link in the same batch as the matter, for both starting statuses", async () => {
     const person = await post("/api/v1/directory/persons", {
       given: "Eleanor",
