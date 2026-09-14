@@ -28,7 +28,6 @@
    *   revealed on row hover and on focus (screen readers always reach it), so the resting table
    *   stays calm.
    */
-  import * as Select from "@magna-carta/design-system/select";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
   import Badge from "@magna-carta/design-system/badge";
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
@@ -37,6 +36,8 @@
   import Switch from "@magna-carta/design-system/switch";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import MessageSquarePlus from "@lucide/svelte/icons/message-square-plus";
+  import ChoicePicker from "$lib/components/choice-picker.svelte";
+  import type { ChoiceOption } from "$lib/components/choice-picker.ts";
   import {
     settingValueLabel,
     type SettingDefinition,
@@ -105,7 +106,15 @@
     draft.stage(definition, draft.value(definition));
   }
 
-  const selectItems = $derived([...(definition.options ?? [])]);
+  /*
+   * A closed choice is the product's combobox, never a select (docs/conventions/design-corrections.md,
+   * "Every closed choice is a combobox"): the setting's declaration says it is a `select` kind, and
+   * the shape that follows from that is the one field every closed choice in the product uses —
+   * typing narrows it, and it shows what it holds at rest. The page never chooses the control.
+   */
+  const choiceOptions = $derived<readonly ChoiceOption[]>(
+    (definition.options ?? []).map((option) => ({ value: option.value, label: option.label })),
+  );
 </script>
 
 <div
@@ -190,21 +199,12 @@
         {/if}
       </div>
     {:else if definition.kind === "select"}
-      <Select.Root
-        type="single"
-        items={selectItems}
-        bind:value={() => currentValue() as string, (next) => applyNext(next)}
-        allowDeselect={false}
-      >
-        <Select.Trigger id={controlId} class="w-full">
-          <Select.Value placeholder="Select" />
-        </Select.Trigger>
-        <Select.Content>
-          {#each selectItems as option (option.value)}
-            <Select.Item value={option.value} label={option.label} />
-          {/each}
-        </Select.Content>
-      </Select.Root>
+      <ChoicePicker
+        options={choiceOptions}
+        inputId={controlId}
+        label={definition.label}
+        bind:value={() => String(currentValue()), (next) => applyNext(next)}
+      />
     {:else if definition.kind === "switch"}
       <Switch
         id={controlId}

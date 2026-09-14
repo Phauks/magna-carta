@@ -12,6 +12,7 @@
   import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
+  import SettingsScrollRegion from "$lib/settings/components/settings-scroll-region.svelte";
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
   import {
     appearanceRestoreAction,
@@ -36,16 +37,11 @@
   {restoreAction}
 />
 
-<!-- The middle story: the one scroll area, reaching the canvas's true edges (the breathing
-     room rides INSIDE it); scrollbar-gutter keeps pages that scroll and pages that do not at
-     identical width. Full canvas width (owner-directed): the table uses the space. -->
-<div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
-  <div class="flex flex-col gap-24 p-24">
+<SettingsScrollRegion>
   <SettingsDescription>The theme is the firm's brand; six curated faces, each in light and dark.</SettingsDescription>
 
   <SettingsPlate heading="Brand">
     <SettingsRow definition={THEME_DEFINITION} instant={instantForAxis(THEME_AXIS)} />
     <SettingsRow definition={MODE_DEFINITION} instant={instantForAxis(MODE_AXIS)} />
   </SettingsPlate>
-  </div>
-</div>
+</SettingsScrollRegion>

@@ -28,9 +28,25 @@ import type { GridColumn } from "@magna-carta/design-system/data-table";
 import { statusEntry } from "@magna-carta/design-system/status-register";
 import type { CostSummary } from "$lib/matters/cost-api.ts";
 import { costStatusKey } from "$lib/matters/cost-api.ts";
+import type { FilterChoice } from "$lib/money/listing-scope.ts";
 import { gapCellTitle, type CostLedgerGapName } from "./cost-gaps.ts";
 import { billingLabel, costAmount, payeeText } from "./cost-vocabulary.ts";
 import { recorderText, returnedDraftReason } from "$lib/records/work-in-progress-record.ts";
+
+/**
+ * Every status a cost can hold, as the wire spells it and as the Status column shows it. The
+ * column's set filter offers the whole vocabulary rather than only what the loaded rows carry, and
+ * the firm's Costs screen reads a single choice off it to send as the listing's own `status`.
+ */
+export const COST_STATUS_CHOICES: readonly FilterChoice<CostSummary["status"]>[] = (
+  ["draft", "submitted", "approved", "billed", "void"] as const
+).map((status) => ({ value: status, label: statusEntry(costStatusKey(status)).label }));
+
+/** The Billing column's two words, keyed by the listing's own `billable` value. */
+export const COST_BILLING_CHOICES: readonly FilterChoice<"true" | "false">[] = [
+  { value: "true", label: billingLabel(true) },
+  { value: "false", label: billingLabel(false) },
+];
 
 /** Column ids, spelled in full, so a test and a stored layout name the same thing as the code. */
 export const COST_COLUMN_IDENTIFIERS = {
@@ -249,6 +265,7 @@ export function costLedgerColumns(options: {
       type: "text",
       hidden: true,
       filter: "set",
+      filterValues: COST_BILLING_CHOICES.map((choice) => choice.label),
       value: (cost) => billingLabel(cost.billable),
     },
     {
@@ -256,6 +273,7 @@ export function costLedgerColumns(options: {
       label: "Status",
       type: "text",
       filter: "set",
+      filterValues: COST_STATUS_CHOICES.map((choice) => choice.label),
       fitExtra: 26,
       value: (cost) => statusEntry(costStatusKey(cost.status)).label,
     },

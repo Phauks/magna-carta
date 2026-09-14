@@ -47,7 +47,9 @@ import {
   rescanVerdictStatement,
   restoreFileStatement,
   selectCleanVersionByIdStatement,
+  countOtherVersionsHoldingBytesStatement,
   selectCleanVersionFactsStatement,
+  selectVersionObjectsOfFileStatement,
   selectCurrentVersionHashStatement,
   selectFileStatement,
   selectMaxVersionNumberStatement,
@@ -1207,7 +1209,10 @@ export async function assignDocumentType(
 // Soft-deletes a file: sets deleted_at and destroys the live working copy with it — the current_*
 // pointer is cleared and the file returns to idle. Returns the `current` R2 object key (or null) so the
 // caller deletes that object; the route also reaps any live editing session first. The committed
-// versions and their bytes are retained for the recovery window — only the transient working copy dies.
+// versions and their bytes are retained — indefinitely by default, and only a retention policy ever
+// destroys them, through purgeableVersionObjects below — so only the transient working copy dies. The
+// working copy is the one object a delete may destroy on its own: it is keyed to this file alone and
+// re-materializes from the committed version, so no other row can be holding it.
 export async function softDeleteFile(
   database: SqlDatabase,
   fileId: FileId,
@@ -1231,6 +1236,73 @@ export async function softDeleteFile(
       outboxMessages: [],
     },
   };
+}
+
+export interface VersionObjectToDestroy {
+  readonly versionId: FileVersionId;
+  readonly r2Key: string;
+}
+
+export interface VersionObjectRetained extends VersionObjectToDestroy {
+  /** How many other version rows, on any file, still name these bytes. */
+  readonly heldBy: number;
+}
+
+export interface PurgeableVersionObjects {
+  /** The objects nothing else names: the only ones a purge may destroy. */
+  readonly destroy: readonly VersionObjectToDestroy[];
+  /** The objects another row still holds by content or by key, with the count. */
+  readonly retained: readonly VersionObjectRetained[];
+}
+
+/*
+ * THE PURGE POINT — the one door through which a committed version's bytes may ever be destroyed.
+ *
+ * A file the firm already holds is never uploaded again: the browser hashes it, the firm is asked,
+ * and a match is made from the held bytes rather than sent. So one set of bytes can stand behind
+ * several files — on several matters, some of them since deleted — and the bytes belong to every
+ * row that names them, not to the row that happened to arrive first. Deleting one of those files
+ * therefore never deletes the bytes. They go only once the LAST row naming them goes, and a
+ * soft-deleted row still names them: it is recoverable, and a recovered file with no bytes behind
+ * it is not a recovery.
+ *
+ * Nothing calls this today by design. Deletion is a soft delete that destroys nothing but the
+ * working copy, default retention is indefinite, and destruction is a records-management act the
+ * retention policy engine performs when it is built — never a file-manager gesture. That engine
+ * calls this, per file, and destroys exactly `destroy`; it does not compute its own list, because
+ * the reference count is the whole safety of the operation and lives here once. The check counts
+ * a reference by the hash of the content as well as by the object key, so it holds whether the
+ * held bytes were copied under a new key (today) or shared under one (a storage economy the
+ * platform may take later).
+ *
+ * Refuses a live file: a purge is what follows a deletion, never a substitute for one.
+ */
+export async function purgeableVersionObjects(
+  database: SqlDatabase,
+  fileId: FileId,
+): Promise<PurgeableVersionObjects> {
+  const file = await requireFileIncludingDeleted(database, fileId);
+  if (file.deletedAt === null) {
+    throw new FileManagerValidationError("file-not-deleted", `file is not deleted: ${fileId}`);
+  }
+  const { results: versions } = await selectVersionObjectsOfFileStatement(database, fileId).all<{
+    id: FileVersionId;
+    r2_key: string;
+    content_sha256: string | null;
+  }>();
+  const destroy: VersionObjectToDestroy[] = [];
+  const retained: VersionObjectRetained[] = [];
+  for (const version of versions) {
+    const { results } = await countOtherVersionsHoldingBytesStatement(database, {
+      versionId: version.id,
+      contentSha256: version.content_sha256,
+      r2Key: version.r2_key,
+    }).all<{ held_by: number }>();
+    const heldBy = results[0]?.held_by ?? 0;
+    if (heldBy > 0) retained.push({ versionId: version.id, r2Key: version.r2_key, heldBy });
+    else destroy.push({ versionId: version.id, r2Key: version.r2_key });
+  }
+  return { destroy, retained };
 }
 
 export interface RestoreFileDestination {

@@ -15,9 +15,11 @@ import type { TimeEntrySummary } from "../src/lib/matters/time-api.ts";
 import { statusLabel } from "../src/lib/matters/time-api.ts";
 import {
   TIME_COLUMN_IDENTIFIERS,
+  TIME_STATUS_CHOICES,
   UNSERVED_TIME_COLUMNS,
   chargeAmount,
   durationParts,
+  firmTimeColumns,
   isUnservedColumn,
   personInitials,
   timeLedgerColumns,
@@ -31,6 +33,9 @@ import {
   matterTimeSummary,
   selectionSummary,
 } from "../src/lib/time/time-figures.ts";
+
+/** How the firm screen's Matter column would name a row, for a test that only needs the shape. */
+const matterIdOf = (target: TimeEntrySummary): string => target.matterId;
 
 function entry(overrides: Partial<TimeEntrySummary> = {}): TimeEntrySummary {
   return {
@@ -106,6 +111,34 @@ describe("the ledger's columns", () => {
     for (const id of Object.keys(UNSERVED_TIME_COLUMNS)) {
       expect(columnById(id).filter).toBe("none");
     }
+  });
+
+  it("offers every status on the Status filter whether or not a loaded row carries it", () => {
+    expect(columnById(TIME_COLUMN_IDENTIFIERS.status).filterValues).toEqual(
+      TIME_STATUS_CHOICES.map((choice) => choice.label),
+    );
+    expect(TIME_STATUS_CHOICES.map((choice) => choice.value)).toEqual([
+      "draft",
+      "submitted",
+      "approved",
+      "billed",
+      "void",
+    ]);
+  });
+
+  it("offers the roster on the firm screen's Timekeeper filter only where the reader may ask", () => {
+    const supervisor = firmTimeColumns("USD", matterIdOf, { timekeeperNames: ["Alba", "Wren"] });
+    expect(
+      supervisor.find((column) => column.id === TIME_COLUMN_IDENTIFIERS.timekeeper)?.filterValues,
+    ).toEqual(["Alba", "Wren"]);
+    // Without the capability the column offers nothing beyond what the rows carry: a list of
+    // colleagues a reader cannot ask for is an inventory of what they cannot have.
+    const own = firmTimeColumns("USD", matterIdOf);
+    expect(
+      own.find((column) => column.id === TIME_COLUMN_IDENTIFIERS.timekeeper)?.filterValues,
+    ).toBeUndefined();
+    // The Matter column follows the date on the firm's screen.
+    expect(own[1]?.id).toBe(TIME_COLUMN_IDENTIFIERS.matter);
   });
 
   it("starts a column nobody can fill hidden, so the default table is not a field of dashes", () => {

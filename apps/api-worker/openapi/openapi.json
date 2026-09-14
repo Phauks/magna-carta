@@ -45502,7 +45502,7 @@
     },
     "/api/v1/matters/{id}/close": {
       "post": {
-        "description": "Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close preconditions first; a matter whose client trust ledger still holds money, or carries an active disputed-funds hold, is refused with the balance and the movements that clear it. Refuses a matter that is already closed, so its recorded close date never moves. The response also carries advisory notices — things worth knowing about the matter being closed, such as physical originals the firm still holds against it. A notice never blocks a close and never becomes a refusal; the matter in the response is closed.",
+        "description": "Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close preconditions first; a matter whose client trust ledger still holds money, or carries an active disputed-funds hold, is refused with the balance and the movements that clear it. Refuses a matter that is already closed, so its recorded close date never moves. The response also carries advisory notices — things worth knowing about the matter being closed, such as physical originals the firm still holds against it. A notice never blocks a close and never becomes a refusal; the matter in the response is closed. A consultation closes the same way: the firm decided against it. It keeps its tentative number and draws no matter number, and the same preconditions run, which a consultation with nothing on its ledgers passes.",
         "operationId": "matters.close",
         "tags": [
           "matters"
@@ -45626,7 +45626,7 @@
     },
     "/api/v1/matters/{id}/hold": {
       "post": {
-        "description": "Puts an open matter on hold: the firm has stopped working it without closing it, for the reason given (a client who has stopped paying, a party who has gone quiet, an instruction to wait). The matter keeps its number; nothing is drawn or surrendered. It leaves the active lists and stays on the docket wearing its status. Refuses a matter that is not open.",
+        "description": "Puts an open matter or a consultation on hold: the firm has stopped working it without closing it, for the reason given (a client who has stopped paying, a party who has gone quiet, a prospect who is thinking it over, an instruction to wait). The matter keeps whichever number it wears; nothing is drawn or surrendered. An active matter leaves the active lists and stays on the docket wearing its status. Refuses an intake, which has nothing yet to pause, and a matter that is already on hold or closed.",
         "operationId": "matters.hold",
         "tags": [
           "matters"
@@ -45726,7 +45726,7 @@
             }
           },
           "409": {
-            "description": "The matter is not open, or a request with this Idempotency-Key is still in progress",
+            "description": "The matter is neither open nor a consultation, or a request with this Idempotency-Key is still in progress",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -45760,7 +45760,7 @@
     },
     "/api/v1/matters/{id}/release": {
       "post": {
-        "description": "Releases a hold: the matter returns to open, and the reason and the instant of the hold are cleared from it (the audit trail keeps that it was held). Refuses a matter that is not on hold.",
+        "description": "Releases a hold: the matter returns to where the hold found it — open if it had been opened, else consultation — and the reason and the instant of the hold are cleared from it (the audit trail keeps that it was held). Refuses a matter that is not on hold.",
         "operationId": "matters.release",
         "tags": [
           "matters"
@@ -45800,7 +45800,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The hold was released and the matter is open",
+            "description": "The hold was released and the matter is back where the hold found it",
             "content": {
               "application/json": {
                 "schema": {
@@ -50609,7 +50609,7 @@
         }
       },
       "delete": {
-        "description": "Soft-deletes a file: it leaves the default listing and download but its rows and bytes are retained for the recovery window.",
+        "description": "Soft-deletes a file: it leaves the default listing and download but its rows and bytes are retained, indefinitely by default. Bytes are never destroyed while another file, live or deleted, holds the same content; only a retention policy destroys them, and only once the last file holding them is gone.",
         "operationId": "files.delete",
         "tags": [
           "files"
@@ -84655,7 +84655,7 @@
         }
       },
       "get": {
-        "description": "Lists cost entries in either of two shapes. By matter: that matter's whole cost record, in every status unless one is named. By a `from`/`to` span of incurred dates: the period listing across every matter, which is what the firm's cost record is asked for at the end of a month, narrowable to one matter, one status and to billable or not. Both are CURSOR-PAGED, most recently incurred first, over the same statement, so a cost reads back identically whichever shape found it. Returns an empty list when neither a matter nor a span is named, rather than scanning the whole table.",
+        "description": "Lists cost entries, most recently incurred first, cursor-paged. Nothing named is the firm's whole cost record; `matterId` narrows it to one matter, `from` and `to` bound the incurred dates (each on its own or together), and `status`, `billable` and `search` narrow further. Every narrowing is the server's, so the firm's Costs screen can send its column filters here and have them hold across every page, and a cost reads back identically whichever narrowing found it because every shape runs over one statement.",
         "operationId": "costs.list",
         "tags": [
           "costs"
@@ -84695,10 +84695,10 @@
             "schema": {
               "type": "string",
               "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-              "description": "The first incurred date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — the question the firm's cost record is asked at the end of a month, and the one a per-matter listing cannot answer without walking every matter first."
+              "description": "The first incurred date the listing covers, inclusive. Either bound stands alone: a listing with only `from` runs to the present, one with only `to` runs from the first cost the firm ever recorded, and one with neither is the firm's whole record. This is the screen's Date column filter, honoured here so it is true across every page rather than over the page in hand."
             },
             "required": false,
-            "description": "The first incurred date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — the question the firm's cost record is asked at the end of a month, and the one a per-matter listing cannot answer without walking every matter first.",
+            "description": "The first incurred date the listing covers, inclusive. Either bound stands alone: a listing with only `from` runs to the present, one with only `to` runs from the first cost the firm ever recorded, and one with neither is the firm's whole record. This is the screen's Date column filter, honoured here so it is true across every page rather than over the page in hand.",
             "name": "from",
             "in": "query"
           },
@@ -84706,10 +84706,10 @@
             "schema": {
               "type": "string",
               "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-              "description": "The last incurred date of a period listing, inclusive. Required alongside `from`."
+              "description": "The last incurred date the listing covers, inclusive."
             },
             "required": false,
-            "description": "The last incurred date of a period listing, inclusive. Required alongside `from`.",
+            "description": "The last incurred date the listing covers, inclusive.",
             "name": "to",
             "in": "query"
           },
@@ -84720,28 +84720,57 @@
                 "true",
                 "false"
               ],
-              "description": "Narrows a period listing to the costs that are billable, or to those that are not. Omitted, it answers with both."
+              "description": "Narrows the listing to the costs that are billable, or to those that are not. Omitted, it answers with both."
             },
             "required": false,
-            "description": "Narrows a period listing to the costs that are billable, or to those that are not. Omitted, it answers with both.",
+            "description": "Narrows the listing to the costs that are billable, or to those that are not. Omitted, it answers with both.",
             "name": "billable",
             "in": "query"
           },
           {
             "schema": {
-              "type": "string",
-              "enum": [
-                "draft",
-                "submitted",
-                "approved",
-                "billed",
-                "void"
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "draft",
+                    "submitted",
+                    "approved",
+                    "billed",
+                    "void"
+                  ]
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "submitted",
+                      "approved",
+                      "billed",
+                      "void"
+                    ]
+                  }
+                }
               ],
-              "description": "Narrows the listing to one status. Omitted, it answers with every status the matter carries, which is what a matter's cost record is."
+              "description": "Narrows the listing to one status, or to several given repeatedly (`status=draft&status=submitted`): the screen's Status column filter, honoured here so it holds across every page. Omitted, it answers with every status the record carries, which is what a cost record is."
             },
             "required": false,
-            "description": "Narrows the listing to one status. Omitted, it answers with every status the matter carries, which is what a matter's cost record is.",
+            "description": "Narrows the listing to one status, or to several given repeatedly (`status=draft&status=submitted`): the screen's Status column filter, honoured here so it holds across every page. Omitted, it answers with every status the record carries, which is what a cost record is.",
             "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "Matched against the description, the matter's title and number, and the payee's name. The screen's search, honoured here so a word absent from the page in hand is looked for across the whole record."
+            },
+            "required": false,
+            "description": "Matched against the description, the matter's title and number, and the payee's name. The screen's search, honoured here so a word absent from the page in hand is looked for across the whole record.",
+            "name": "search",
             "in": "query"
           }
         ],
@@ -85917,7 +85946,7 @@
         }
       },
       "get": {
-        "description": "Lists fee entries, most recent service date first. Narrowed to one matter with `matterId`, or across every matter with a `from`/`to` span of service dates; either shape takes an optional status and billable filter. With neither a matter nor a span the listing answers empty rather than walking the whole table.",
+        "description": "Lists fee entries, most recent service date first, cursor-paged. Nothing named is the firm's whole record; `matterId` narrows it to one matter, `from` and `to` bound the service dates (each on its own or together), and `status`, `billable` and `search` narrow further. Every narrowing is the server's, so the firm's Fees screen can send its column filters here and have them hold across every page.",
         "operationId": "fees.list",
         "tags": [
           "fees"
@@ -85957,10 +85986,10 @@
             "schema": {
               "type": "string",
               "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-              "description": "The first service date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — what the firm charged for work done in a period, which a per-matter listing cannot answer without walking every matter first."
+              "description": "The first service date the listing covers, inclusive. Either bound stands alone: a listing with only `from` runs to the present, one with only `to` runs from the first fee the firm ever recorded, and one with neither is the firm's whole record. This is the screen's Date column filter, honoured here so it is true across every page rather than over the page in hand."
             },
             "required": false,
-            "description": "The first service date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — what the firm charged for work done in a period, which a per-matter listing cannot answer without walking every matter first.",
+            "description": "The first service date the listing covers, inclusive. Either bound stands alone: a listing with only `from` runs to the present, one with only `to` runs from the first fee the firm ever recorded, and one with neither is the firm's whole record. This is the screen's Date column filter, honoured here so it is true across every page rather than over the page in hand.",
             "name": "from",
             "in": "query"
           },
@@ -85968,10 +85997,10 @@
             "schema": {
               "type": "string",
               "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-              "description": "The last service date of a period listing, inclusive. Required alongside `from`."
+              "description": "The last service date the listing covers, inclusive."
             },
             "required": false,
-            "description": "The last service date of a period listing, inclusive. Required alongside `from`.",
+            "description": "The last service date the listing covers, inclusive.",
             "name": "to",
             "in": "query"
           },
@@ -85991,17 +86020,48 @@
           },
           {
             "schema": {
-              "type": "string",
-              "enum": [
-                "draft",
-                "submitted",
-                "approved",
-                "billed",
-                "void"
-              ]
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "draft",
+                    "submitted",
+                    "approved",
+                    "billed",
+                    "void"
+                  ]
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "submitted",
+                      "approved",
+                      "billed",
+                      "void"
+                    ]
+                  }
+                }
+              ],
+              "description": "Narrows to one status, or to several given repeatedly (`status=draft&status=submitted`): the screen's Status column filter, honoured here so it holds across every page."
             },
             "required": false,
+            "description": "Narrows to one status, or to several given repeatedly (`status=draft&status=submitted`): the screen's Status column filter, honoured here so it holds across every page.",
             "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "Matched against the description, the matter's title and number, and the timekeeper's name. The screen's search, honoured here so a word absent from the page in hand is looked for across the whole record."
+            },
+            "required": false,
+            "description": "Matched against the description, the matter's title and number, and the timekeeper's name. The screen's search, honoured here so a word absent from the page in hand is looked for across the whole record.",
+            "name": "search",
             "in": "query"
           }
         ],
@@ -90907,15 +90967,44 @@
           },
           {
             "schema": {
-              "type": "string",
-              "enum": [
-                "draft",
-                "final",
-                "void"
-              ]
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "draft",
+                    "final",
+                    "void"
+                  ]
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "final",
+                      "void"
+                    ]
+                  }
+                }
+              ],
+              "description": "Narrows to one status, or to several given repeatedly (`status=draft&status=void`): the firm's Billing screen's Status column filter, honoured here so it holds across every page."
             },
             "required": false,
+            "description": "Narrows to one status, or to several given repeatedly (`status=draft&status=void`): the firm's Billing screen's Status column filter, honoured here so it holds across every page.",
             "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "Matched against the invoice number and the client's name. The screen's search, honoured here so a client absent from the page in hand is looked for across the whole register."
+            },
+            "required": false,
+            "description": "Matched against the invoice number and the client's name. The screen's search, honoured here so a client absent from the page in hand is looked for across the whole register.",
+            "name": "search",
             "in": "query"
           },
           {
@@ -95269,7 +95358,7 @@
         }
       },
       "get": {
-        "description": "Lists time entries three ways. By timekeeper and work date: the daily view, complete in one page by construction, so its cursor is always null. By matter: the matter's own record, CURSOR-PAGED newest work date first — a matter that has been billing for years is not a single response, and this read carried no bound at all until it was. By a `from`/`to` span of work dates: the period listing across every matter, cursor-paged the same way, narrowable to one timekeeper, one matter and one status. A period listing that names no timekeeper covers the whole firm and requires the time:viewFirm capability; one that names somebody other than the session member requires it too. A request matching none of the three answers with an empty list rather than scanning the table.",
+        "description": "Lists time entries three ways. By timekeeper and work date: the daily view, complete in one page by construction, so its cursor is always null. By matter alone: the matter's own record, CURSOR-PAGED newest work date first — a matter that has been billing for years is not a single response, and this read carried no bound at all until it was. Otherwise the period listing across every matter, cursor-paged the same way: bounded by `from` and `to` (each on its own or together; neither is the whole record), narrowable to one timekeeper, one matter and one status. A period listing that names no timekeeper covers the whole firm and requires the time:viewFirm capability; one that names somebody other than the session member requires it too.",
         "operationId": "timeEntries.list",
         "tags": [
           "timeEntries"
@@ -95319,10 +95408,10 @@
             "schema": {
               "type": "string",
               "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-              "description": "The first work date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — the question a timekeeper asks of their own week and a supervisor asks of the firm's. Without a timekeeper the span covers everybody, which requires the time:viewFirm capability."
+              "description": "The first work date the period listing covers, inclusive. Either bound stands alone: a listing with only `from` runs to the present, one with only `to` runs from the first entry ever recorded, and one with neither is the whole record for whoever is named. This is the firm's Time screen's Date column filter, honoured here so it is true across every page rather than over the page in hand. Without a timekeeper the listing covers everybody, which requires the time:viewFirm capability."
             },
             "required": false,
-            "description": "The first work date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — the question a timekeeper asks of their own week and a supervisor asks of the firm's. Without a timekeeper the span covers everybody, which requires the time:viewFirm capability.",
+            "description": "The first work date the period listing covers, inclusive. Either bound stands alone: a listing with only `from` runs to the present, one with only `to` runs from the first entry ever recorded, and one with neither is the whole record for whoever is named. This is the firm's Time screen's Date column filter, honoured here so it is true across every page rather than over the page in hand. Without a timekeeper the listing covers everybody, which requires the time:viewFirm capability.",
             "name": "from",
             "in": "query"
           },
@@ -95330,28 +95419,57 @@
             "schema": {
               "type": "string",
               "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-              "description": "The last work date of a period listing, inclusive. Required alongside `from`."
+              "description": "The last work date the period listing covers, inclusive."
             },
             "required": false,
-            "description": "The last work date of a period listing, inclusive. Required alongside `from`.",
+            "description": "The last work date the period listing covers, inclusive.",
             "name": "to",
             "in": "query"
           },
           {
             "schema": {
-              "type": "string",
-              "enum": [
-                "draft",
-                "submitted",
-                "approved",
-                "billed",
-                "void"
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "draft",
+                    "submitted",
+                    "approved",
+                    "billed",
+                    "void"
+                  ]
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "submitted",
+                      "approved",
+                      "billed",
+                      "void"
+                    ]
+                  }
+                }
               ],
-              "description": "Narrows a per-matter or period listing to one status. Omitted, the listing answers with every status the scope carries, which is what a time record is."
+              "description": "Narrows the listing to one status, or to several given repeatedly (`status=draft&status=submitted`): the firm's Time screen's Status column filter, honoured here so it holds across every page. Omitted, the listing answers with every status the scope carries, which is what a time record is."
             },
             "required": false,
-            "description": "Narrows a per-matter or period listing to one status. Omitted, the listing answers with every status the scope carries, which is what a time record is.",
+            "description": "Narrows the listing to one status, or to several given repeatedly (`status=draft&status=submitted`): the firm's Time screen's Status column filter, honoured here so it holds across every page. Omitted, the listing answers with every status the scope carries, which is what a time record is.",
             "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "Matched against the narrative, the entry number, the matter's title and number, and the timekeeper's name, on the period listing. The screen's search, honoured here so a word absent from the page in hand is looked for across the whole record."
+            },
+            "required": false,
+            "description": "Matched against the narrative, the entry number, the matter's title and number, and the timekeeper's name, on the period listing. The screen's search, honoured here so a word absent from the page in hand is looked for across the whole record.",
+            "name": "search",
             "in": "query"
           },
           {

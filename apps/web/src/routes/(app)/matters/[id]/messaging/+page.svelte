@@ -84,8 +84,10 @@
   });
 
   /*
-   * The matter header's New Call opens the log's own dialog with the matter pre-answered; the
-   * section keeps no button for it. The refusal is the log's, stated on the control.
+   * The matter header's New Message opens the log's own dialog with the matter pre-answered; the
+   * section keeps no button for it. The refusal is the log's, stated on the control. "Message",
+   * not "Call": a call is one kind of message the log holds, not the thing the control creates
+   * (owner ruling, 2026-09-14).
    */
   claimMatterCreate("messaging", () => ({
     title: "Record a call or a text on this matter.",
@@ -123,7 +125,7 @@
       {#snippet emptyBody()}
         A record of a call or a text is what the firm said, to whom, and when — the part of a case's
         history that otherwise lives only in somebody's memory of the phone call. Nothing has been
-        recorded against this matter yet; New Call at the top of the screen starts it.
+        recorded against this matter yet; New Message at the top of the screen starts it.
       {/snippet}
     </CommunicationLog>
   {/if}

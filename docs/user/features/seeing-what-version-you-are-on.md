@@ -1,6 +1,6 @@
 # Seeing What Version You Are On
 
-The small chip at the top right of the screen always shows the version of Magna Carta you are running. Click it to see what version every part of the platform is on, and whether your firm's records are reachable from where you are sitting.
+The small chip at the top right of the screen always shows the version of Magna Carta you are running. Click it to see what version every part of the platform is on, and whether your firm's records are reachable from where you are sitting. The same report, with more room for its rows, is the **Versions** page under **Settings › Data & Platform**: the chip is the quick view, the page is the full one, and the two never disagree because they are one report.
 
 ## What it does
 

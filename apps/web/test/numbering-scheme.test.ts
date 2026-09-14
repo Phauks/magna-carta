@@ -10,8 +10,12 @@ import {
   newNumberSegment,
   NUMBER_SEGMENT_VOCABULARY,
   NUMBERING_STARTERS,
+  numberingNothingInForceSentence,
+  numberingSavedSentence,
+  numberingSchemeLabel,
   numberingSchemeRefusal,
   numberingSchemesEqual,
+  numberSegmentCellRefusal,
   numberSegmentSummary,
   removeNumberSegment,
   replaceNumberSegment,
@@ -124,6 +128,35 @@ describe("the list operations", () => {
     expect(numberingSchemesEqual(YEAR_COUNTER, removeNumberSegment(YEAR_COUNTER, 1))).toBe(false);
     expect(numberingSchemesEqual(null, [])).toBe(false);
     expect(numberingSchemesEqual(null, null)).toBe(true);
+  });
+});
+
+describe("the editor's words", () => {
+  it("names the scheme row for the sequence it shapes, never for the gesture", () => {
+    // Owner ruling, 2026-09-11: "Start from" reads "Matter Numbering Scheme".
+    expect(numberingSchemeLabel("matter")).toBe("Matter Numbering Scheme");
+    expect(numberingSchemeLabel("consultation")).toBe("Consultation Numbering Scheme");
+  });
+
+  it("says on a part's hover why a column holds no fact for it, and nothing where it does", () => {
+    expect(numberSegmentCellRefusal("literal", "text")).toBeNull();
+    expect(numberSegmentCellRefusal("year", "text")).toMatch(/no text of its own/);
+    expect(numberSegmentCellRefusal("counter", "digits")).toBeNull();
+    expect(numberSegmentCellRefusal("year", "digits")).toBeNull();
+    expect(numberSegmentCellRefusal("literal", "digits")).toMatch(/digit count/);
+    expect(numberSegmentCellRefusal("counter", "start")).toBeNull();
+    expect(numberSegmentCellRefusal("client_code", "start")).toMatch(/counter starts/);
+    expect(numberSegmentCellRefusal("client_code", "scoping")).toBeNull();
+    expect(numberSegmentCellRefusal("literal", "scoping")).toMatch(/cannot restart the count/);
+  });
+
+  it("states the consequence of an unset scheme in the sequence's own terms, without an em dash", () => {
+    expect(numberingNothingInForceSentence("matter")).toMatch(/cannot open/);
+    expect(numberingNothingInForceSentence("consultation")).toMatch(/built-in sequence/);
+    for (const purpose of ["matter", "consultation"] as const) {
+      expect(numberingNothingInForceSentence(purpose)).not.toContain("—");
+      expect(numberingSavedSentence(purpose)).toMatch(/^Saved\./);
+    }
   });
 });
 

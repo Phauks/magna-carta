@@ -1916,7 +1916,7 @@ export const mattersOpenMutation = (options?: Partial<Options<MattersOpenData>>)
 };
 
 /**
- * Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close preconditions first; a matter whose client trust ledger still holds money, or carries an active disputed-funds hold, is refused with the balance and the movements that clear it. Refuses a matter that is already closed, so its recorded close date never moves. The response also carries advisory notices — things worth knowing about the matter being closed, such as physical originals the firm still holds against it. A notice never blocks a close and never becomes a refusal; the matter in the response is closed.
+ * Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close preconditions first; a matter whose client trust ledger still holds money, or carries an active disputed-funds hold, is refused with the balance and the movements that clear it. Refuses a matter that is already closed, so its recorded close date never moves. The response also carries advisory notices — things worth knowing about the matter being closed, such as physical originals the firm still holds against it. A notice never blocks a close and never becomes a refusal; the matter in the response is closed. A consultation closes the same way: the firm decided against it. It keeps its tentative number and draws no matter number, and the same preconditions run, which a consultation with nothing on its ledgers passes.
  */
 export const mattersCloseMutation = (options?: Partial<Options<MattersCloseData>>): MutationOptions<MattersCloseResponse, MattersCloseError, Options<MattersCloseData>> => {
     const mutationOptions: MutationOptions<MattersCloseResponse, MattersCloseError, Options<MattersCloseData>> = {
@@ -1933,7 +1933,7 @@ export const mattersCloseMutation = (options?: Partial<Options<MattersCloseData>
 };
 
 /**
- * Puts an open matter on hold: the firm has stopped working it without closing it, for the reason given (a client who has stopped paying, a party who has gone quiet, an instruction to wait). The matter keeps its number; nothing is drawn or surrendered. It leaves the active lists and stays on the docket wearing its status. Refuses a matter that is not open.
+ * Puts an open matter or a consultation on hold: the firm has stopped working it without closing it, for the reason given (a client who has stopped paying, a party who has gone quiet, a prospect who is thinking it over, an instruction to wait). The matter keeps whichever number it wears; nothing is drawn or surrendered. An active matter leaves the active lists and stays on the docket wearing its status. Refuses an intake, which has nothing yet to pause, and a matter that is already on hold or closed.
  */
 export const mattersHoldMutation = (options?: Partial<Options<MattersHoldData>>): MutationOptions<MattersHoldResponse, MattersHoldError, Options<MattersHoldData>> => {
     const mutationOptions: MutationOptions<MattersHoldResponse, MattersHoldError, Options<MattersHoldData>> = {
@@ -1950,7 +1950,7 @@ export const mattersHoldMutation = (options?: Partial<Options<MattersHoldData>>)
 };
 
 /**
- * Releases a hold: the matter returns to open, and the reason and the instant of the hold are cleared from it (the audit trail keeps that it was held). Refuses a matter that is not on hold.
+ * Releases a hold: the matter returns to where the hold found it — open if it had been opened, else consultation — and the reason and the instant of the hold are cleared from it (the audit trail keeps that it was held). Refuses a matter that is not on hold.
  */
 export const mattersReleaseMutation = (options?: Partial<Options<MattersReleaseData>>): MutationOptions<MattersReleaseResponse, MattersReleaseError, Options<MattersReleaseData>> => {
     const mutationOptions: MutationOptions<MattersReleaseResponse, MattersReleaseError, Options<MattersReleaseData>> = {
@@ -2713,7 +2713,7 @@ export const filesListInfiniteOptions = (options: Options<FilesListData>) => inf
 });
 
 /**
- * Soft-deletes a file: it leaves the default listing and download but its rows and bytes are retained for the recovery window.
+ * Soft-deletes a file: it leaves the default listing and download but its rows and bytes are retained, indefinitely by default. Bytes are never destroyed while another file, live or deleted, holds the same content; only a retention policy destroys them, and only once the last file holding them is gone.
  */
 export const filesDeleteMutation = (options?: Partial<Options<FilesDeleteData>>): MutationOptions<FilesDeleteResponse, FilesDeleteError, Options<FilesDeleteData>> => {
     const mutationOptions: MutationOptions<FilesDeleteResponse, FilesDeleteError, Options<FilesDeleteData>> = {
@@ -8893,7 +8893,7 @@ export const costsBatchMutation = (options?: Partial<Options<CostsBatchData>>): 
 export const costsListQueryKey = (options?: Options<CostsListData>) => createQueryKey('costsList', options);
 
 /**
- * Lists cost entries in either of two shapes. By matter: that matter's whole cost record, in every status unless one is named. By a `from`/`to` span of incurred dates: the period listing across every matter, which is what the firm's cost record is asked for at the end of a month, narrowable to one matter, one status and to billable or not. Both are CURSOR-PAGED, most recently incurred first, over the same statement, so a cost reads back identically whichever shape found it. Returns an empty list when neither a matter nor a span is named, rather than scanning the whole table.
+ * Lists cost entries, most recently incurred first, cursor-paged. Nothing named is the firm's whole cost record; `matterId` narrows it to one matter, `from` and `to` bound the incurred dates (each on its own or together), and `status`, `billable` and `search` narrow further. Every narrowing is the server's, so the firm's Costs screen can send its column filters here and have them hold across every page, and a cost reads back identically whichever narrowing found it because every shape runs over one statement.
  */
 export const costsListOptions = (options?: Options<CostsListData>) => queryOptions<CostsListResponse, CostsListError, CostsListResponse, ReturnType<typeof costsListQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -8911,7 +8911,7 @@ export const costsListOptions = (options?: Options<CostsListData>) => queryOptio
 export const costsListInfiniteQueryKey = (options?: Options<CostsListData>): QueryKey<Options<CostsListData>> => createQueryKey('costsList', options, true);
 
 /**
- * Lists cost entries in either of two shapes. By matter: that matter's whole cost record, in every status unless one is named. By a `from`/`to` span of incurred dates: the period listing across every matter, which is what the firm's cost record is asked for at the end of a month, narrowable to one matter, one status and to billable or not. Both are CURSOR-PAGED, most recently incurred first, over the same statement, so a cost reads back identically whichever shape found it. Returns an empty list when neither a matter nor a span is named, rather than scanning the whole table.
+ * Lists cost entries, most recently incurred first, cursor-paged. Nothing named is the firm's whole cost record; `matterId` narrows it to one matter, `from` and `to` bound the incurred dates (each on its own or together), and `status`, `billable` and `search` narrow further. Every narrowing is the server's, so the firm's Costs screen can send its column filters here and have them hold across every page, and a cost reads back identically whichever narrowing found it because every shape runs over one statement.
  */
 export const costsListInfiniteOptions = (options?: Options<CostsListData>) => infiniteQueryOptions<CostsListResponse, CostsListError, InfiniteData<CostsListResponse>, QueryKey<Options<CostsListData>>, string | Pick<QueryKey<Options<CostsListData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
 // @ts-ignore
@@ -9092,7 +9092,7 @@ export const costsAttachReceiptMutation = (options?: Partial<Options<CostsAttach
 export const feesListQueryKey = (options?: Options<FeesListData>) => createQueryKey('feesList', options);
 
 /**
- * Lists fee entries, most recent service date first. Narrowed to one matter with `matterId`, or across every matter with a `from`/`to` span of service dates; either shape takes an optional status and billable filter. With neither a matter nor a span the listing answers empty rather than walking the whole table.
+ * Lists fee entries, most recent service date first, cursor-paged. Nothing named is the firm's whole record; `matterId` narrows it to one matter, `from` and `to` bound the service dates (each on its own or together), and `status`, `billable` and `search` narrow further. Every narrowing is the server's, so the firm's Fees screen can send its column filters here and have them hold across every page.
  */
 export const feesListOptions = (options?: Options<FeesListData>) => queryOptions<FeesListResponse, FeesListError, FeesListResponse, ReturnType<typeof feesListQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -9110,7 +9110,7 @@ export const feesListOptions = (options?: Options<FeesListData>) => queryOptions
 export const feesListInfiniteQueryKey = (options?: Options<FeesListData>): QueryKey<Options<FeesListData>> => createQueryKey('feesList', options, true);
 
 /**
- * Lists fee entries, most recent service date first. Narrowed to one matter with `matterId`, or across every matter with a `from`/`to` span of service dates; either shape takes an optional status and billable filter. With neither a matter nor a span the listing answers empty rather than walking the whole table.
+ * Lists fee entries, most recent service date first, cursor-paged. Nothing named is the firm's whole record; `matterId` narrows it to one matter, `from` and `to` bound the service dates (each on its own or together), and `status`, `billable` and `search` narrow further. Every narrowing is the server's, so the firm's Fees screen can send its column filters here and have them hold across every page.
  */
 export const feesListInfiniteOptions = (options?: Options<FeesListData>) => infiniteQueryOptions<FeesListResponse, FeesListError, InfiniteData<FeesListResponse>, QueryKey<Options<FeesListData>>, string | Pick<QueryKey<Options<FeesListData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
 // @ts-ignore
@@ -10626,7 +10626,7 @@ export const billingContingencyResidualOptions = (options: Options<BillingContin
 export const timeEntriesListQueryKey = (options?: Options<TimeEntriesListData>) => createQueryKey('timeEntriesList', options);
 
 /**
- * Lists time entries three ways. By timekeeper and work date: the daily view, complete in one page by construction, so its cursor is always null. By matter: the matter's own record, CURSOR-PAGED newest work date first — a matter that has been billing for years is not a single response, and this read carried no bound at all until it was. By a `from`/`to` span of work dates: the period listing across every matter, cursor-paged the same way, narrowable to one timekeeper, one matter and one status. A period listing that names no timekeeper covers the whole firm and requires the time:viewFirm capability; one that names somebody other than the session member requires it too. A request matching none of the three answers with an empty list rather than scanning the table.
+ * Lists time entries three ways. By timekeeper and work date: the daily view, complete in one page by construction, so its cursor is always null. By matter alone: the matter's own record, CURSOR-PAGED newest work date first — a matter that has been billing for years is not a single response, and this read carried no bound at all until it was. Otherwise the period listing across every matter, cursor-paged the same way: bounded by `from` and `to` (each on its own or together; neither is the whole record), narrowable to one timekeeper, one matter and one status. A period listing that names no timekeeper covers the whole firm and requires the time:viewFirm capability; one that names somebody other than the session member requires it too.
  */
 export const timeEntriesListOptions = (options?: Options<TimeEntriesListData>) => queryOptions<TimeEntriesListResponse, TimeEntriesListError, TimeEntriesListResponse, ReturnType<typeof timeEntriesListQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -10644,7 +10644,7 @@ export const timeEntriesListOptions = (options?: Options<TimeEntriesListData>) =
 export const timeEntriesListInfiniteQueryKey = (options?: Options<TimeEntriesListData>): QueryKey<Options<TimeEntriesListData>> => createQueryKey('timeEntriesList', options, true);
 
 /**
- * Lists time entries three ways. By timekeeper and work date: the daily view, complete in one page by construction, so its cursor is always null. By matter: the matter's own record, CURSOR-PAGED newest work date first — a matter that has been billing for years is not a single response, and this read carried no bound at all until it was. By a `from`/`to` span of work dates: the period listing across every matter, cursor-paged the same way, narrowable to one timekeeper, one matter and one status. A period listing that names no timekeeper covers the whole firm and requires the time:viewFirm capability; one that names somebody other than the session member requires it too. A request matching none of the three answers with an empty list rather than scanning the table.
+ * Lists time entries three ways. By timekeeper and work date: the daily view, complete in one page by construction, so its cursor is always null. By matter alone: the matter's own record, CURSOR-PAGED newest work date first — a matter that has been billing for years is not a single response, and this read carried no bound at all until it was. Otherwise the period listing across every matter, cursor-paged the same way: bounded by `from` and `to` (each on its own or together; neither is the whole record), narrowable to one timekeeper, one matter and one status. A period listing that names no timekeeper covers the whole firm and requires the time:viewFirm capability; one that names somebody other than the session member requires it too.
  */
 export const timeEntriesListInfiniteOptions = (options?: Options<TimeEntriesListData>) => infiniteQueryOptions<TimeEntriesListResponse, TimeEntriesListError, InfiniteData<TimeEntriesListResponse>, QueryKey<Options<TimeEntriesListData>>, string | Pick<QueryKey<Options<TimeEntriesListData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
 // @ts-ignore
