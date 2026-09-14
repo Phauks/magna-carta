@@ -86,29 +86,27 @@ export const BILL_STANDING_CHOICES: readonly {
 ).map(([standing, status]) => ({ standing, label: statusEntry(standing).label, status }));
 
 /**
- * The one invoice status a Status filter's selection stays inside, or undefined where it crosses
- * two — Draft with Paid, say — in which case the server is asked for everything and the table
- * narrows the loaded rows.
+ * The invoice statuses a Status filter's selection reaches, in the order the listing knows them.
+ * Draft with Paid asks for the drafts and the finalized; the table then narrows the finalized to
+ * the paid over what the server returned. Empty where nothing is filtered.
  */
-export function invoiceStatusForStandings(
+export function invoiceStatusesForStandings(
   filter: GridColumnFilter | undefined,
-): InvoiceStatus | undefined {
-  if (filter?.kind !== "set" || filter.values.length === 0) return undefined;
-  const statuses = new Set(
-    filter.values.map(
-      (label) => BILL_STANDING_CHOICES.find((choice) => choice.label === label)?.status,
+): readonly InvoiceStatus[] {
+  if (filter?.kind !== "set") return [];
+  const chosen = new Set(
+    BILL_STANDING_CHOICES.filter((choice) => filter.values.includes(choice.label)).map(
+      (choice) => choice.status,
     ),
   );
-  if (statuses.size !== 1) return undefined;
-  const [only] = statuses;
-  return only;
+  return (["draft", "final", "void"] as const).filter((status) => chosen.has(status));
 }
 
-/** The Status filter that names every standing a status can show: what a linked address seeds. */
-export function standingFilterForStatus(
-  status: string | null | undefined,
+/** The Status filter naming every standing these statuses can show: what a linked address seeds. */
+export function standingFilterForStatuses(
+  statuses: readonly string[],
 ): GridColumnFilter | undefined {
-  const labels = BILL_STANDING_CHOICES.filter((choice) => choice.status === status).map(
+  const labels = BILL_STANDING_CHOICES.filter((choice) => statuses.includes(choice.status)).map(
     (choice) => choice.label,
   );
   return labels.length === 0 ? undefined : { kind: "set", values: labels };

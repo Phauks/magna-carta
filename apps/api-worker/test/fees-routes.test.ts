@@ -253,6 +253,18 @@ describe("the two listing shapes", () => {
     expect(toOnly.map((row) => row.description)).toContain("Inside the span, first matter");
   });
 
+  it("takes several statuses at once, given repeatedly, as the Status filter holds them", async () => {
+    const drafts = await listed(
+      await get("/api/v1/fees?status=draft&from=2026-08-01&to=2026-08-31"),
+    );
+    expect(drafts.length).toBe(3);
+    const two = await listed(
+      await get("/api/v1/fees?status=draft&status=void&from=2026-08-01&to=2026-08-31"),
+    );
+    expect(two.length).toBe(3);
+    expect(await listed(await get("/api/v1/fees?status=billed&status=void"))).toEqual([]);
+  });
+
   it("searches the description and the matter across the whole record", async () => {
     const byWord = await listed(await get("/api/v1/fees?search=absorbed"));
     expect(byWord.map((row) => row.description)).toEqual(["Inside the span, absorbed"]);

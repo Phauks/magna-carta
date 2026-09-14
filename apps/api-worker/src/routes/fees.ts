@@ -139,6 +139,8 @@ const FeeKickBackRequest = z.object({ reason: z.string().min(1) }).openapi("FeeK
 
 const feeParam = z.object({ id: identifierPathParam("feeEntry", "id") });
 
+const feeStatusField = z.enum(["draft", "submitted", "approved", "billed", "void"]);
+
 const listQuery = z.object({
   ...cursorQuery.shape,
   matterId: identifierField("matter").optional(),
@@ -161,7 +163,14 @@ const listQuery = z.object({
         "Narrows a listing to the fees that are billable, or to those that are not. Omitted, it " +
         "answers with both.",
     }),
-  status: z.enum(["draft", "submitted", "approved", "billed", "void"]).optional(),
+  status: z
+    .union([feeStatusField, z.array(feeStatusField)])
+    .optional()
+    .openapi({
+      description:
+        "Narrows to one status, or to several given repeatedly (`status=draft&status=submitted`): " +
+        "the screen's Status column filter, honoured here so it holds across every page.",
+    }),
   search: z
     .string()
     .min(1)
@@ -755,9 +764,16 @@ export function registerFeesRoutes(app: FeeApp, chokepoint: Chokepoint): void {
         conditions.push("fee_entry.billable = ?");
         bindings.push(query.billable === "true" ? 1 : 0);
       }
-      if (query.status !== undefined) {
-        conditions.push("fee_entry.status = ?");
-        bindings.push(query.status);
+      // A status given once arrives as a string and given repeatedly as an array; either is a list.
+      const statuses =
+        query.status === undefined
+          ? []
+          : Array.isArray(query.status)
+            ? query.status
+            : [query.status];
+      if (statuses.length > 0) {
+        conditions.push(`fee_entry.status IN (${statuses.map(() => "?").join(", ")})`);
+        bindings.push(...statuses);
       }
       appendCursorPredicateOnColumn(conditions, bindings, decodeCursor(query.cursor), {
         sortColumn: "fee_entry.service_date",

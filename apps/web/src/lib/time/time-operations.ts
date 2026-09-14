@@ -63,8 +63,10 @@ export interface TimePeriodQuery {
    * person by name rather than leaving the field off and hoping to be defaulted to itself.
    */
   readonly timekeeperUserId: string | null;
-  /** One status, where the screen's Status column has settled on exactly one. */
-  readonly status?: TimeEntryStatus;
+  /** The statuses the screen's Status column holds; empty or absent is every status. */
+  readonly statuses?: readonly TimeEntryStatus[];
+  /** The screen's search: the narrative, the entry number, the matter's title and number, the timekeeper. */
+  readonly search?: string;
   readonly cursor?: string;
 }
 
@@ -90,7 +92,10 @@ export function listTimeEntriesInPeriod(
   if (query.timekeeperUserId !== null) {
     parameters.set("timekeeperUserId", query.timekeeperUserId);
   }
-  if (query.status !== undefined) parameters.set("status", query.status);
+  for (const status of query.statuses ?? []) parameters.append("status", status);
+  if (query.search !== undefined && query.search.trim() !== "") {
+    parameters.set("search", query.search.trim());
+  }
   if (query.cursor !== undefined) parameters.set("cursor", query.cursor);
   const suffix = parameters.toString();
   return requestJson(fetchImpl, `/api/v1/time-entries${suffix === "" ? "" : `?${suffix}`}`);

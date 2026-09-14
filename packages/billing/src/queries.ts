@@ -157,9 +157,40 @@ export interface ListInvoicesOptions {
    * this asks about. `invoice_line (matter_id, invoice_id)` is the index it rides.
    */
   readonly matterId?: string;
-  readonly status?: InvoiceStatus;
+  /**
+   * One status or several. The firm's Billing screen's Status column may hold more than one, and a
+   * column filter that narrowed only the loaded page would report a draft missing from a register
+   * it had never finished reading, so the whole selection reaches the statement.
+   */
+  readonly status?: InvoiceStatus | readonly InvoiceStatus[];
+  /**
+   * Matched against the invoice number and the client's name — the two things a bill is looked
+   * for by. The screen's search, honoured here so it reads the whole register.
+   */
+  readonly search?: string;
   readonly cursor?: string;
   readonly pageSize?: number;
+}
+
+/**
+ * The register's search, as one predicate over the joined statement. A LIKE scan bounded by the
+ * page already asked for; the wildcards are the caller's text, not their instruction.
+ */
+function invoiceSearchCondition(
+  search: string | undefined,
+): { readonly condition: string; readonly bindings: readonly unknown[] } | undefined {
+  const term = search?.trim();
+  if (term === undefined || term.length === 0) return undefined;
+  const escaped = term.replaceAll(/[\\%_]/gu, (character) => `\\${character}`);
+  const pattern = `%${escaped}%`;
+  return {
+    condition:
+      "(invoice.invoice_number LIKE ? ESCAPE '\\' " +
+      "OR directory_person.display_name LIKE ? ESCAPE '\\' " +
+      "OR directory_organization.display_name LIKE ? ESCAPE '\\' " +
+      "OR directory_organization.legal_name LIKE ? ESCAPE '\\')",
+    bindings: [pattern, pattern, pattern, pattern],
+  };
 }
 
 export async function listInvoices(
@@ -201,15 +232,26 @@ export async function listInvoices(
     conditions.push(`invoice.client_entity_id = ?`);
     bindings.push(options.clientEntityId);
   }
-  if (options.status) {
-    conditions.push(`invoice.status = ?`);
-    bindings.push(options.status);
+  const statuses =
+    options.status === undefined
+      ? []
+      : typeof options.status === "string"
+        ? [options.status]
+        : options.status;
+  if (statuses.length > 0) {
+    conditions.push(`invoice.status IN (${statuses.map(() => "?").join(", ")})`);
+    bindings.push(...statuses);
   }
   if (options.matterId !== undefined) {
     conditions.push(
       `EXISTS (SELECT 1 FROM invoice_line WHERE invoice_id = invoice.id AND matter_id = ?)`,
     );
     bindings.push(options.matterId);
+  }
+  const search = invoiceSearchCondition(options.search);
+  if (search !== undefined) {
+    conditions.push(search.condition);
+    bindings.push(...search.bindings);
   }
 
   // Qualified, because the statement now joins the directory: `directory_person` carries its own

@@ -17,10 +17,9 @@
    * 2026-09-11, docs/conventions/time-tab-rulings.md round twelve).
    *
    * A COLUMN FILTER THAT ONLY NARROWED THE LOADED PAGE WOULD NOT BE A FILTER. The record is
-   * cursor-paged, so the filters the listing can honour — the two date bounds, one status, one
-   * timekeeper — are sent to it as its own parameters and re-read, and the table's in-browser
-   * filter then runs over rows that already match. A Status filter holding two states is the one
-   * case the listing cannot take, and there the table narrows the loaded rows alone.
+   * cursor-paged, so the filters the listing honours — the two date bounds, the Status column's
+   * whole selection, one timekeeper — and the search are sent to it as its own parameters and
+   * re-read, and the table's in-browser filter then runs over rows that already match.
    *
    * WHOSE TIME IS A PERMISSION, NOT A PREFERENCE. Reading anybody else's time — one colleague's or
    * the whole firm's — takes time:viewFirm, and the server refuses without it. A member without it
@@ -29,13 +28,12 @@
    * somebody cannot have.
    *
    * THE FILTERS ARE IN THE ADDRESS. A supervisor looking at one person's month sends that view to
-   * somebody by sending the link, so the bounds, the status and the timekeeper ride the URL and the
-   * screen opens on what the address names.
+   * somebody by sending the link, so the bounds, the statuses and the timekeeper ride the URL and
+   * the screen opens on what the address names.
    *
-   * THE SEARCH IS THE PRODUCT'S ONE CONTROL, AND HERE IT IS NOT SERVED YET. The time listing has no
-   * search of its own, and a search that quietly covered only the loaded page would tell a reader
-   * their word appears nowhere in a record it never looked at. So the control renders in its place,
-   * disabled and marked, until the listing can answer it.
+   * THE SEARCH IS THE PRODUCT'S ONE CONTROL, and it is the listing's own: a word is looked for in
+   * the narrative, the entry number, the matter's title and number and the timekeeper's name across
+   * the whole record, never only in the page in hand.
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as Alert from "@magna-carta/design-system/alert";
@@ -43,7 +41,6 @@
   import CreateControl from "@magna-carta/design-system/create-control";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import { SoonAffordance } from "@magna-carta/design-system/maturity";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
@@ -73,12 +70,12 @@
   import { VIEW_FIRM_TIME_PERMISSION, periodFigureReading } from "$lib/time/time-period.ts";
   import {
     addressAfterFilters,
+    choicesFilter,
+    choicesOf,
     civilDateOrNull,
     dateBoundsOf,
     dateRangeFilter,
     filtersSeededBy,
-    singleChoiceFilter,
-    singleChoiceOf,
     singleMemberFilter,
     singleMemberOf,
   } from "$lib/money/listing-scope.ts";
@@ -180,8 +177,8 @@
         civilDateOrNull(page.url.searchParams.get("from")),
         civilDateOrNull(page.url.searchParams.get("to")),
       ),
-      [TIME_COLUMN_IDENTIFIERS.status]: singleChoiceFilter(
-        page.url.searchParams.get("status"),
+      [TIME_COLUMN_IDENTIFIERS.status]: choicesFilter(
+        page.url.searchParams.getAll("status"),
         TIME_STATUS_CHOICES,
       ),
     });
@@ -198,9 +195,16 @@
     });
   });
 
+  /*
+   * The search is the listing's own, so it reads the whole record rather than the page in the
+   * browser; it waits for typing to pause because the read leaves the machine.
+   */
+  let searchText = $state("");
+  let appliedSearch = $state("");
+
   const dateBounds = $derived(dateBoundsOf(grid.filterFor(TIME_COLUMN_IDENTIFIERS.workDate)));
-  const statusChoice = $derived(
-    singleChoiceOf(grid.filterFor(TIME_COLUMN_IDENTIFIERS.status), TIME_STATUS_CHOICES),
+  const statusChoices = $derived(
+    choicesOf(grid.filterFor(TIME_COLUMN_IDENTIFIERS.status), TIME_STATUS_CHOICES),
   );
   const timekeeperChoice = $derived(
     maySeeFirmTime
@@ -219,7 +223,8 @@
       ...dateBounds,
       // A member who may read only their own time is always asking for it, whatever the column says.
       timekeeperUserId: maySeeFirmTime ? (timekeeperChoice ?? null) : sessionUserId,
-      ...(statusChoice === undefined ? {} : { status: statusChoice }),
+      ...(statusChoices.length === 0 ? {} : { statuses: statusChoices }),
+      ...(appliedSearch.trim() === "" ? {} : { search: appliedSearch.trim() }),
     };
   });
 
@@ -254,11 +259,24 @@
     const next = addressAfterFilters(page.url, {
       from: dateBounds.from,
       to: dateBounds.to,
-      status: statusChoice,
+      status: statusChoices,
       timekeeper: timekeeperChoice,
     });
     if (next.href !== page.url.href) replaceState(next, page.state);
   });
+
+  const narrowed = $derived(appliedSearch.trim() !== "" || grid.activeFilterCount > 0);
+  const narrowingSummary = $derived(
+    appliedSearch.trim() === ""
+      ? "Show every entry"
+      : `Showing "${appliedSearch.trim()}" of the record`,
+  );
+
+  function clearNarrowing(): void {
+    searchText = "";
+    appliedSearch = "";
+    grid.clearAllFilters();
+  }
 
   const figures = $derived(
     periodFigureReading(periodTotals(grid.isFiltered ? grid.rowsInView : entries), money),
@@ -364,20 +382,17 @@
   <ScreenHeader title="Time">
     {#snippet actions()}
       <!-- The search, then the create control, then the way back to everything: the same row, in
-           the same order, as every other list screen. The search is the product's one control and
-           the time listing cannot answer it yet, so it stands here disabled and marked rather
-           than quietly searching the page in hand. -->
-      <SoonAffordance reason="the time listing's own search">
-        {#snippet control(soon)}
-          <span title={soon.title} aria-describedby={soon["aria-describedby"]}>
-            <ScreenSearch
-              label="Search the firm's time"
-              placeholder={placeholderOf("Search the firm's time")}
-              disabled={soon.disabled}
-            />
-          </span>
-        {/snippet}
-      </SoonAffordance>
+           the same order, as every other list screen. -->
+      <ScreenSearch
+        bind:value={searchText}
+        label="Search the firm's time"
+        placeholder={placeholderOf("Search the firm's time")}
+        searchOn="pause"
+        fieldClass="w-2xs sm:w-xs"
+        onsearch={(next) => {
+          appliedSearch = next;
+        }}
+      />
 
       <CreateControl
         noun="Entry"
@@ -386,7 +401,10 @@
         onpress={openNew}
       />
 
-      <DataTable.ClearFilters {grid} />
+      <DataTable.ClearFilters
+        {grid}
+        narrowing={{ narrowed, summary: narrowingSummary, clear: clearNarrowing }}
+      />
     {/snippet}
   </ScreenHeader>
 
@@ -423,9 +441,10 @@
       loading={list.items === null || !sessionRead}
     >
       {#snippet empty()}
-        {#if grid.isFiltered}
+        {#if narrowed}
           <EmptyState title="Nothing Matches That">
-            No entry answers to what is asked. Widening the column filters brings the record back.
+            No entry answers to what is asked. Widening the search or the column filters brings the
+            record back.
           </EmptyState>
         {:else}
           <EmptyState title="No Time Recorded Yet">
