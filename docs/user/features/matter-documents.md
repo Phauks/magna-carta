@@ -178,6 +178,29 @@ The switch on the right of the strip above the list swaps the rows for tiles. A 
 tile runs onto a second and a third line and then stops with an ellipsis; the whole name is on the
 tile's hover either way, and no tile ever covers the one beside it.
 
+### Moving something into a folder
+
+Drag a file or a folder onto the folder you want it in. This works wherever the screen shows you a
+folder: a folder in the left sidebar, a folder row or tile in the list itself, and any crumb in the
+path above the list — which is how something comes back **out** of a folder, since every folder
+above where you are standing is already on that strip. Dropping on the home icon moves it to the top
+of the matter.
+
+Select several rows first and dragging any one of them carries the whole selection; what you are
+holding says how many.
+
+The cursor tells you before you let go. It says no over a folder that already holds the thing, over
+a folder you are dragging into itself or into something inside it, and over anything that is not a
+folder. If you have several things selected and only some of them can go where you are pointing,
+those are the ones that move.
+
+Dragging is the fast way, not the only way: **Cut** and **Paste** on the right-click menu (or
+Ctrl+X and Ctrl+V) make the same move without a pointer, and they reach the folders in the left
+sidebar too. Either way, the move goes on the undo stack.
+
+Dropping files in from your computer is a different thing and still starts an upload — the screen
+tells the two apart by what is being carried, not by where you drop it.
+
 ### Taking something back
 
 The arrows at the bottom of the screen undo and redo. They cover renaming, moving a file or folder
