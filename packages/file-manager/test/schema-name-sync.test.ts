@@ -2,11 +2,13 @@
 // packages/database, so the diff that renames one never touches this package.
 import { getTableConfig } from "drizzle-orm/sqlite-core";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import { MEMBER_TABLE } from "@magna-carta/data-access/member-statements";
 import {
   documentType,
   file,
   fileVersion,
   folder,
+  member,
   storageMeter,
   uploadSession,
 } from "@magna-carta/database/per-firm-schema";
@@ -217,20 +219,27 @@ describe("schema name sync (file-manager SQL pinned to @magna-carta/database)", 
       FILE_TABLE,
       FILE_VERSION_TABLE,
       UPLOAD_SESSION_TABLE,
+      // The uploader's name is resolved by joining the member table, which is why its columns are
+      // allowed here: a listing names the person who made the upload, not their handle.
+      MEMBER_TABLE,
       // Statement aliases: f=file, v/dv=file_version (dv is the "display version" the summary JOIN
       // resolves), lv=the latest pending/quarantined version in the include-mode COALESCE subquery,
-      // s=upload_session.
+      // s=upload_session, m=member (the uploader the LEFT JOIN resolves).
       "f",
       "v",
       "dv",
       "lv",
       "s",
-      // SELECT-list projection aliases (dv.status AS version_status, s.status AS session_status).
+      "m",
+      // SELECT-list projection aliases (dv.status AS version_status, s.status AS session_status,
+      // m.display_name AS uploaded_by_name).
       "version_status",
       "session_status",
+      "uploaded_by_name",
       ...columnsOf(file),
       ...columnsOf(fileVersion),
       ...columnsOf(uploadSession),
+      ...columnsOf(member),
     ]);
     const sql = [
       sqlOf(
