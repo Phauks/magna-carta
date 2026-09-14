@@ -1,4 +1,7 @@
 import { requestJson, type ApiOutcome } from "$lib/api/request.ts";
+// The scan-policy vocabulary has one home; the history read states the same firm settings the File
+// Safety settings page writes, so both surfaces name one set of values.
+import type { FlaggedTreatment, ScanTier } from "./scan-policy-api.ts";
 
 /*
  * The file manager's own read of a matter's files.
@@ -381,13 +384,34 @@ export interface FileScanEvent {
   actorName: string | null;
   /** What the scan found, as recorded when it happened; null where the event carried no such fact. */
   scanVerdict: "unscanned" | "clean" | "flagged" | null;
+  /**
+   * The engine the check ran under; on a request, the engine recorded for the firm at the moment
+   * somebody asked. Null where the row carried neither.
+   */
   scanEngineVersion: string | null;
   scanDetail: string | null;
+  /**
+   * Whether a request reached the scan queue; null on every other kind of line, which does not
+   * record it. False is the line that would otherwise read as a check on its way and never was.
+   */
+  queued: boolean | null;
+}
+
+/**
+ * What the firm's checks run under, as the firm holds it TODAY. Nothing records the settings in
+ * force when an earlier check ran, so these never describe one line of the history.
+ */
+export interface FileScanSettings {
+  tier: ScanTier;
+  suspiciousScoreFloor: number;
+  flaggedTreatment: FlaggedTreatment;
+  stepUpReauthOnFlagged: boolean;
 }
 
 export interface FileScanHistory {
   /** The engine the firm scans with today, or null while none is recorded. */
   currentEngineVersion: string | null;
+  scanSettings: FileScanSettings;
   data: FileScanEvent[];
 }
 

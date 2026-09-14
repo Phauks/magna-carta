@@ -8273,6 +8273,9 @@
               "null"
             ]
           },
+          "scanSettings": {
+            "$ref": "#/components/schemas/FileScanSettings"
+          },
           "data": {
             "type": "array",
             "items": {
@@ -8282,7 +8285,41 @@
         },
         "required": [
           "currentEngineVersion",
+          "scanSettings",
           "data"
+        ]
+      },
+      "FileScanSettings": {
+        "type": "object",
+        "properties": {
+          "tier": {
+            "type": "string",
+            "enum": [
+              "core",
+              "extended",
+              "full"
+            ]
+          },
+          "suspiciousScoreFloor": {
+            "type": "integer"
+          },
+          "flaggedTreatment": {
+            "type": "string",
+            "enum": [
+              "block",
+              "informed-access",
+              "allow-and-flag"
+            ]
+          },
+          "stepUpReauthOnFlagged": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "tier",
+          "suspiciousScoreFloor",
+          "flaggedTreatment",
+          "stepUpReauthOnFlagged"
         ]
       },
       "FileScanEvent": {
@@ -8344,6 +8381,12 @@
               "string",
               "null"
             ]
+          },
+          "queued": {
+            "type": [
+              "boolean",
+              "null"
+            ]
           }
         },
         "required": [
@@ -8356,7 +8399,8 @@
           "actorName",
           "scanVerdict",
           "scanEngineVersion",
-          "scanDetail"
+          "scanDetail",
+          "queued"
         ]
       },
       "FileRescanResult": {
@@ -53096,7 +53140,7 @@
     },
     "/api/v1/files/{id}/scans": {
       "get": {
-        "description": "A file's safety history: every intake scan, re-scan, quarantine and re-scan request recorded against any of its versions, newest first, each with the verdict, engine and detail as recorded when it happened.",
+        "description": "A file's safety history: every intake scan, re-scan, quarantine and re-scan request recorded against any of its versions, newest first, each with the verdict, engine and detail as recorded when it happened, and whether a request reached the scan queue. Carries the firm's current scan settings alongside, which describe the firm today rather than any one check.",
         "operationId": "files.scans",
         "tags": [
           "files"

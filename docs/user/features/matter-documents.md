@@ -235,14 +235,51 @@ against that fingerprint of the version on screen.
 
 The **Safety** tab shows the document's standing verdict, and beneath it every check the document
 has had: when it ran, whether it was the check at intake or a later one, which version it looked
-at, the engine that ran it, what it found, and the engine's own detail. Each line says what was
+at, the engine that ran it, what it found, and the detail behind that. Each line says what was
 recorded at the time, so an older check keeps the engine that ran it even after the firm moves to a
-newer one; the line under the table names the engine the firm checks with today.
+newer one.
+
+The **Detail** column carries the scanner's own words exactly as they were recorded — a rule name, a
+signature name — so that what you read is what the engine wrote. Where the platform itself wrote the
+detail rather than the engine, it is stated plainly instead: that the document holds active content
+(macros or embedded scripts), that it was encrypted and so could not be read, or that no engine was
+reporting and nothing was checked.
 
 **Check Again** asks for a fresh check of the current version. The request appears in the history
 at once, marked as requested, and the verdict lands beneath it a few seconds later without your
 asking. The same request is on a document's right-click menu as **Re-run Safety Check**, where it
-runs on every selected document that has a version to check.
+runs on every selected document that has a version to check. If a request could not be sent to the
+engine, its line says **Not queued** rather than leaving you waiting for a verdict that is not
+coming, and the detail beside it says why.
+
+### What the check ran under
+
+Beneath the history, the tab states what a check on this matter is made of, so a verdict can be
+audited rather than taken on trust:
+
+- **Engine**, **YARA ruleset** and **Malware definitions** — the three parts of the engine the firm
+  checks with today, as the engine reports itself.
+- **Scan Depth**, **Suspicion Threshold**, **Flagged Files** and **Confirm Identity First** — the
+  firm's own file-safety settings. They are the same four settings an administrator sets under
+  Settings; see [File safety and scanning](../admin/file-safety-and-scanning.md).
+
+The last line says which of these is recorded per check and which is not. Only the **engine** is
+recorded against each line of the history. The depth, the threshold and the treatment are the firm's
+as they stand today: if somebody changed one of them after a check ran, nothing records what that
+check actually ran under.
+
+## Renaming a document or a folder
+
+Press the name at the top of the details panel and it becomes a field, in the panel, holding the
+name you were reading. Type, then press **Enter** to keep it, **Escape** to leave it as it was.
+Clicking away keeps it too, because a name you typed and then clicked away from is a name you meant.
+
+If the name cannot be used — because another document or folder here already has it — the field
+stays open with what you typed and the reason beneath it, and the record keeps the name it had until
+you give it one that works.
+
+Renaming a row in the list itself works the same way: press **F2**, or choose **Rename** from the
+row's right-click menu.
 
 ## Archives
 

@@ -22,6 +22,14 @@ import {
   type ScanPolicySettings,
   type ScanTier,
 } from "./scan-policy-api.ts";
+import {
+  CONFIRM_IDENTITY_LABEL,
+  FLAGGED_FILES_LABEL,
+  FLAGGED_TREATMENT_LABELS,
+  SCAN_DEPTH_LABEL,
+  SCAN_TIER_LABELS,
+  SUSPICION_THRESHOLD_LABEL,
+} from "./scan-policy-words.ts";
 
 /** The settings section this draft belongs to (settings-sections.ts). */
 export const FILE_SAFETY_SECTION_ID = "file-safety";
@@ -30,16 +38,17 @@ export const SCAN_TIER_DEFINITION: SettingDefinition = {
   id: "file-safety.scan-tier",
   sectionId: FILE_SAFETY_SECTION_ID,
   plateLabel: "What Is Scanned",
-  label: "Scan Depth",
+  label: SCAN_DEPTH_LABEL,
   description: "How much of the engine's rule set an upload is checked against.",
   kind: "select",
   // The option is its word and nothing else (owner ruling): what a depth MEANS is said beneath the
   // engine that runs it, revealed by the choice — scanTierMeaning below — never welded into the
-  // label a person has to read in a one-line field.
+  // label a person has to read in a one-line field. The words are scan-policy-words.ts's, because
+  // a file's Safety tab reads the same setting back and the two must not name it differently.
   options: [
-    { value: "core", label: "Core" },
-    { value: "extended", label: "Extended" },
-    { value: "full", label: "Full" },
+    { value: "core", label: SCAN_TIER_LABELS.core },
+    { value: "extended", label: SCAN_TIER_LABELS.extended },
+    { value: "full", label: SCAN_TIER_LABELS.full },
   ],
   defaultValue: "extended",
   sensitivity: "open",
@@ -115,7 +124,7 @@ export const SCORE_FLOOR_DEFINITION: SettingDefinition = {
   id: "file-safety.suspicious-score-floor",
   sectionId: FILE_SAFETY_SECTION_ID,
   plateLabel: "What Is Scanned",
-  label: "Suspicion Threshold",
+  label: SUSPICION_THRESHOLD_LABEL,
   description:
     "How confident a suspicious match must be to count, from 0 to 100. Lower flags more files.",
   kind: "text",
@@ -128,13 +137,13 @@ export const FLAGGED_TREATMENT_DEFINITION: SettingDefinition = {
   id: "file-safety.flagged-treatment",
   sectionId: FILE_SAFETY_SECTION_ID,
   plateLabel: "What Happens To A Flagged File",
-  label: "Flagged Files",
+  label: FLAGGED_FILES_LABEL,
   description: "What the firm can do with a file the scan flagged. It is never deleted.",
   kind: "select",
   options: [
-    { value: "block", label: "Hold it — nobody can open it" },
-    { value: "informed-access", label: "Ask first — openable once the risk is acknowledged" },
-    { value: "allow-and-flag", label: "Allow it — openable, marked as flagged" },
+    { value: "block", label: FLAGGED_TREATMENT_LABELS.block },
+    { value: "informed-access", label: FLAGGED_TREATMENT_LABELS["informed-access"] },
+    { value: "allow-and-flag", label: FLAGGED_TREATMENT_LABELS["allow-and-flag"] },
   ],
   defaultValue: "block",
   sensitivity: "open",
@@ -148,7 +157,7 @@ export const STEP_UP_DEFINITION: SettingDefinition = {
   id: "file-safety.step-up-reauth",
   sectionId: FILE_SAFETY_SECTION_ID,
   plateLabel: "What Happens To A Flagged File",
-  label: "Confirm Identity First",
+  label: CONFIRM_IDENTITY_LABEL,
   description: "Ask a member to sign in again before they open a flagged file.",
   kind: "switch",
   defaultValue: false,
