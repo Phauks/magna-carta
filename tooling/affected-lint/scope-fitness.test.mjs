@@ -119,63 +119,27 @@ describe("verifyScopeCoverage", () => {
 });
 
 describe("verifySinkSelection", () => {
-  const weights = new Map([
-    ["@magna-carta/api-worker", 1261],
-    ["@magna-carta/fixtures", 550],
-    ["@magna-carta/trust", 265],
-  ]);
-
   it("passes on one clear outlier", () => {
-    expect(verifySinkSelection({ weights, sinks, threshold: 838 })).toEqual([]);
+    expect(verifySinkSelection({ sinks })).toEqual([]);
   });
 
   it("BITES when the rule stops selecting anything (the flag would be a silent no-op)", () => {
-    expect(verifySinkSelection({ weights, sinks: new Set() }).join("\n")).toContain(
+    expect(verifySinkSelection({ sinks: new Set() }).join("\n")).toContain(
       "no fan-out sink was selected",
     );
   });
 
-  it("BITES when the selected sink is sitting ON the bar rather than clearly over it", () => {
-    // Selected because it crossed the threshold, but only just — deferring a package that is barely
-    // half the workspace costs the pull-request pass more than it saves. Measured against the
-    // THRESHOLD, not against whatever package happens to be second: second place moving is not
-    // evidence about first place, and the neighbour comparison this replaced decayed on ordinary
-    // growth in apps/web until any four-file branch failed it.
-    expect(
-      verifySinkSelection({
-        weights: new Map([["@magna-carta/a", 101]]),
-        sinks: new Set(["@magna-carta/a"]),
-        threshold: 100,
-      }).join("\n"),
-    ).toContain("the outlier rule needs");
-  });
-
-  it("passes a sink that is clearly over the bar, however close the next package is", () => {
-    // The live shape: api-worker at 1.30x the threshold with apps/web close behind it. apps/web
-    // growing is the product being built, and it says nothing about whether api-worker's lint is
-    // still whole-repo-scale.
-    expect(
-      verifySinkSelection({
-        weights: new Map([
-          ["@magna-carta/api-worker", 2022],
-          ["@magna-carta/web", 1350],
-        ]),
-        sinks: new Set(["@magna-carta/api-worker"]),
-        threshold: 1553,
-      }),
-    ).toEqual([]);
+  it("does not care how close the next package is", () => {
+    // Deliberately NOT a rule here. Two checks that compared a sink against its neighbour, or
+    // against how far past the bar it sat, were tried on 2026-09-14 and both fired on ordinary
+    // growth in apps/web rather than on anything about the deferral. Selection is the outlier test;
+    // this function guards the two failure modes worth failing on, which are none and too many.
+    expect(verifySinkSelection({ sinks: new Set(["@magna-carta/api-worker"]) })).toEqual([]);
   });
 
   it("BITES when the rule selects a slice of the workspace rather than outliers", () => {
-    const many = new Map([
-      ["@magna-carta/a", 100],
-      ["@magna-carta/b", 100],
-      ["@magna-carta/c", 100],
-      ["@magna-carta/d", 1],
-    ]);
     expect(
       verifySinkSelection({
-        weights: many,
         sinks: new Set(["@magna-carta/a", "@magna-carta/b", "@magna-carta/c"]),
       }).join("\n"),
     ).toContain("fan-out sinks selected");

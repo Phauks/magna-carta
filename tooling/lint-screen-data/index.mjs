@@ -17,7 +17,6 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const WEB_SOURCE = path.join(ROOT, "apps", "web", "src");
-const ROUTES_ROOT = path.join(WEB_SOURCE, "routes");
 const API_SEAM = path.join(WEB_SOURCE, "lib", "api");
 
 /*

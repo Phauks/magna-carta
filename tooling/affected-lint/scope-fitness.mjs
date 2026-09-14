@@ -44,47 +44,40 @@ export const GATE_INVOCATIONS = {
   postMerge: 'node tooling/affected-lint/index.mjs --base "$base" --max-hops all',
 };
 
-// The sink rule must stay a rule about outliers: at most this many packages may be selected, and each
-// must be clearly over the bar rather than sitting on it.
+// The sink rule must stay a rule about outliers: at most this many packages may be selected.
 //
-// "Clearly over the bar" is measured against the SELECTION THRESHOLD (`FANOUT_SINK_SHARE` of every
-// lintable file in the workspace), not against the heaviest non-sink package. It used to be the
-// latter, and that was the wrong quantity — recalibrated 2026-09-14 with the distribution below.
+// THAT CAP IS THE WHOLE GUARD, AND IT IS ENOUGH. Selection is already an outlier test — a package is
+// a sink only when its type program reaches FANOUT_SINK_SHARE of every lintable file in the
+// workspace (index.mjs sets that share from measured lint times). The cap is what stops a
+// dependency-shape change from quietly turning a slice of the workspace into deferred work, and the
+// `sinks.size === 0` branch below is what stops the deferral becoming a silent no-op. Between them
+// the two failure modes worth failing on are covered.
 //
-// WHY THE NEIGHBOUR COMPARISON WAS WRONG. Second place moving is not evidence about first place. The
-// ratio decayed monotonically as apps/web grew, which is the product being built rather than the
-// dependency shape degrading: simulated against this graph, adding 50 / 200 / 400 files to apps/web
-// drives it to 1.44 / 1.30 / 1.16 with nothing about api-worker's deferral having changed. Past about
-// +600 it stops failing that way and starts failing a different way — apps/web and apps/web-worker
-// cross the threshold together and three sinks are selected — so no value of a neighbour ratio
-// survives ordinary growth. Measured 2026-08-05 it was 1261 against 550 (2.29x) and the floor was set
-// at 1.5; by 2026-09-14 it was 2022 against 1350 (1.50x), failing on any branch that added four
-// TypeScript files to apps/web. A tripwire that ordinary work trips is a tripwire somebody removes.
+// TWO EXTRA CHECKS WERE TRIED HERE TODAY AND BOTH WERE WRONG, in the same way. A ratio against the
+// heaviest NON-sink package: second place moving is not evidence about first place, and it decayed
+// monotonically as apps/web grew — simulated, 1.44 / 1.30 / 1.16 at +50 / +200 / +400 files — until
+// any four-file branch failed it. Then a margin against the selection threshold: better shaped, but
+// still a growth tripwire (apps/web crossing the bar at 1.08x failed the gate at +200 files rather
+// than simply not being selected), and it could DESELECT the expensive package while keeping a
+// cheaper one, which is the opposite of the point. A borderline package is not a problem to fail on:
+// it is either over the bar, in which case deferring it is right and post-merge covers it anyway, or
+// it is under, in which case it is not selected. Simulated over this graph with the cap alone, the
+// rule stays green from today through +1200 files in apps/web while apps/web joins as a genuine
+// second sink and api-worker eventually ages out of one — each of which is the rule working.
 //
-// Against the threshold the check is self-consistent with the rule it guards: a package is selected
-// because it crosses the bar, and it is held to being meaningfully past it. When api-worker's closure
-// genuinely stops being whole-repo-scale, its margin falls to 1.0 and then it stops being selected at
-// all — which the `sinks.size === 0` branch already reports as the deferral having become a no-op,
-// the correct and informative outcome rather than a mystery.
-//
-// MEASURED 2026-09-14 (85 packages, 3088 lintable files, threshold 1544):
-//   @magna-carta/api-worker    2022  65.5%  — selected, 1.31x the threshold
-//   @magna-carta/web           1350  43.7%  — not selected
-//   @magna-carta/web-worker    1350  43.7%  — never selectable: no lintable files of its own
-//   @magna-carta/fixtures      1024  33.2%
-//   @magna-carta/notifications  759  24.6%
-//
-// RUNWAY. Simulated over this graph by growing apps/web (the package that moves): the rule holds
-// through roughly +400 own files, about 67% growth on today's 596, and then reports that apps/web has
-// crossed the bar with a margin of 1.00x. That is a real question arriving — should the web app be
-// deferred too, and is a 50% share still the right bar for a workspace with two programs that size —
-// rather than a tripwire, which is what the old neighbour ratio had become. Whoever meets it should
-// re-measure and decide, not retune.
-//
-// The floor is set below today's 1.31 with room to breathe. Raise it only with a fresh distribution in
-// hand; never lower it to make a red run green.
+// MEASURED 2026-09-14 (85 packages, 3088 lintable files, threshold 1081 at a 0.35 share). These are
+// type-program weights on the CORRECTED numerator — a package's own files plus its dependencies'
+// IMPORTABLE files, tests excluded, because nothing imports a test (index.mjs says why):
+//   @magna-carta/api-worker    1413  45.8%  — selected, 1.31x the threshold
+//   @magna-carta/web           1042  33.7%  — not selected
+//   @magna-carta/web-worker     869  28.1%  — never selectable: no lintable files of its own
+//   @magna-carta/fixtures       596  19.3%
+//   @magna-carta/notifications  432  14.0%
+// Corroborated by measured lint time rather than by the proxy alone: api-worker is 4.6x apps/web and
+// 7.1x a typical domain package, and its per-file cost is superlinear, so the proxy understates it.
+// The timings are recorded beside FANOUT_SINK_SHARE in index.mjs. Raise the cap only with a fresh
+// distribution AND fresh timings in hand; never to make a red run green.
 export const MAX_FANOUT_SINKS = 2;
-export const MIN_SINK_THRESHOLD_MARGIN = 1.15;
 
 // The true transitive dependent closure of `seed`, by repeated relaxation over the FORWARD dependency
 // edges: keep adding any package that depends on something already in the set until nothing changes.
@@ -176,7 +169,7 @@ export function verifyScopeCoverage({ packages, sinks, computeScope = computeAff
   return problems;
 }
 
-export function verifySinkSelection({ weights, sinks, threshold = 0 }) {
+export function verifySinkSelection({ sinks }) {
   const problems = [];
   if (sinks.size === 0) {
     problems.push(
@@ -188,14 +181,6 @@ export function verifySinkSelection({ weights, sinks, threshold = 0 }) {
     problems.push(
       `  ${sinks.size} fan-out sinks selected (cap ${MAX_FANOUT_SINKS}): ${[...sinks].join(", ")} — the rule is meant to catch outliers, not a slice of the workspace`,
     );
-  }
-  for (const name of sinks) {
-    const weight = weights.get(name) ?? 0;
-    if (threshold > 0 && weight < threshold * MIN_SINK_THRESHOLD_MARGIN) {
-      problems.push(
-        `  ${name} weighs ${weight} lintable files against a selection threshold of ${Math.round(threshold)} — a margin of ${(weight / threshold).toFixed(2)}x, under the ${MIN_SINK_THRESHOLD_MARGIN}x the outlier rule needs. A package sitting ON the bar is not a whole-repo lint, and deferring it costs the pull-request pass more than it saves`,
-      );
-    }
   }
   return problems;
 }
@@ -213,13 +198,14 @@ function main() {
 
   const problems = [
     ...verifyWorkflowInvocations(readFileSync(WORKFLOW_PATH, "utf8")),
-    ...verifySinkSelection({ weights, sinks, threshold }),
+    ...verifySinkSelection({ sinks }),
     ...verifyScopeCoverage({ packages, sinks }),
   ];
 
   const ranked = [...weights].toSorted((a, b) => b[1] - a[1]).slice(0, 5);
   console.log(
-    `lint-affected-scope: ${packages.size} workspace packages, ${totalLintableFiles} lintable files.`,
+    `lint-affected-scope: ${packages.size} workspace packages, ${totalLintableFiles} lintable files, ` +
+      `sink threshold ${Math.round(threshold)} (at most ${MAX_FANOUT_SINKS} may be deferred).`,
   );
   console.log("  heaviest type programs (lintable files in the dependency closure):");
   for (const [name, weight] of ranked) {

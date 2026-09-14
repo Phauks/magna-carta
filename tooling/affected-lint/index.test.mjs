@@ -244,6 +244,13 @@ function writeWorkspace(layout) {
     for (let index = 0; index < member.files; index += 1) {
       writeFileSync(path.join(directory, `file-${index}.ts`), "export const x = 1;\n");
     }
+    if (member.tests) {
+      const tests = path.join(root, member.dir, "test");
+      mkdirSync(tests, { recursive: true });
+      for (let index = 0; index < member.tests; index += 1) {
+        writeFileSync(path.join(tests, `case-${index}.test.ts`), "export const t = 1;\n");
+      }
+    }
     for (const [uncounted, count] of Object.entries(member.uncounted ?? {})) {
       const generated = path.join(root, member.dir, uncounted);
       mkdirSync(generated, { recursive: true });
@@ -273,6 +280,26 @@ describe("type-program weight and fan-out sinks", () => {
     expect(weights.get("@magna-carta/leaf")).toBe(2);
     expect(weights.get("@magna-carta/middle")).toBe(5);
     expect(weights.get("@magna-carta/app")).toBe(10);
+  });
+
+  it("counts a package's OWN tests but never a dependency's", () => {
+    // The asymmetry is the whole proxy. Linting a package lints its own tests, so they are part of
+    // its cost. A DEPENDENCY's tests are not: the type-aware linter builds its program from what the
+    // code under lint imports, and nothing imports a test. Counting them added 609 phantom files to
+    // api-worker's 61-package closure — 30% of the one number the fan-out-sink rule is decided by.
+    const graph = new Map([
+      ["@magna-carta/leaf", { dir: "packages/leaf", deps: new Set() }],
+      ["@magna-carta/app", { dir: "apps/app", deps: new Set(["@magna-carta/leaf"]) }],
+    ]);
+    const root = writeWorkspace({
+      "@magna-carta/leaf": { dir: "packages/leaf", files: 2, tests: 50 },
+      "@magna-carta/app": { dir: "apps/app", files: 5, tests: 7, deps: ["@magna-carta/leaf"] },
+    });
+    const weights = computeTypeProgramWeights({ root, packages: graph });
+    // leaf lints itself: 2 source + its own 50 tests.
+    expect(weights.get("@magna-carta/leaf")).toBe(52);
+    // app lints itself (5 + its own 7) and imports leaf's 2 source files — NOT leaf's 50 tests.
+    expect(weights.get("@magna-carta/app")).toBe(14);
   });
 
   it("does not count build output or generated trees toward a weight", () => {
