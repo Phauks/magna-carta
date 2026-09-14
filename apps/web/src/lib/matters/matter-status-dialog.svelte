@@ -271,7 +271,6 @@
   /** The engagement: the fee arrangement in force and its history. Null until the read comes back. */
   let arrangement = $state<ArrangementRecord | null>(null);
   let arrangementFailure = $state<StatedFailure | null>(null);
-  let arrangementAsked = false;
   let historyShown = $state(false);
   let amendOpen = $state(false);
 
@@ -300,7 +299,6 @@
    */
   let offices = $state<MatterOffices | null>(null);
   let officesFailure = $state<StatedFailure | null>(null);
-  let officesAsked = false;
   // A sample matter has no record behind it to ask about, so nothing is in flight and nothing is
   // waited for; the row states what a sample states, which is that nothing is recorded.
   const officesLoading = $derived(!isSample && offices === null && officesFailure === null);
@@ -402,29 +400,33 @@
     })();
   });
 
-  // The engagement is read when the window opens, every time: an amendment recorded elsewhere
-  // between two openings must not leave this window stating the old deal.
-  $effect(() => {
-    if (!open || arrangementAsked || isSample) return;
-    arrangementAsked = true;
-    const matterId = matter.id;
-    void (async () => {
-      const outcome = await readArrangement(fetch, matterId);
-      if (outcome.kind === "ok") {
-        arrangement = outcome.value;
-        arrangementFailure = null;
-      } else {
-        arrangementFailure = stated(
-          outcome.failure,
-          "The agreement could not be read.",
-          MATTER_LIFECYCLE_TRANSPORT_FAILURE,
-        );
-      }
-    })();
-  });
+  /*
+   * The two reads the window makes about facts that CHANGE elsewhere: the engagement, and the
+   * office the paper file is kept at. Both are made from `reset` — the shell's own opening
+   * transition — and not from an effect, and that is a correctness point rather than a style one.
+   * The shell calls `onOpen` from an effect of its own, and a child's effects run after the
+   * parent's, so an effect here guarded by a "have I asked" flag reads its flag BEFORE `reset`
+   * clears it: the window would re-read on its first opening and never again, which is the one
+   * thing the re-read exists to prevent. An amendment recorded elsewhere, or a folder moved between
+   * two openings, must not leave this window stating what used to be true.
+   *
+   * The readiness reads below are different and stay effects: they ask about the matter's own
+   * status, which only this window changes, so asking once per visit is the whole of it.
+   */
+  async function readEngagement(): Promise<void> {
+    const outcome = await readArrangement(fetch, matter.id);
+    if (outcome.kind === "ok") {
+      arrangement = outcome.value;
+      arrangementFailure = null;
+      return;
+    }
+    arrangementFailure = stated(
+      outcome.failure,
+      "The agreement could not be read.",
+      MATTER_LIFECYCLE_TRANSPORT_FAILURE,
+    );
+  }
 
-  // Where the paper file is kept, from the record. Asked when the window opens and again after it
-  // is set, so what the row states is what the matter says rather than what this window just sent.
   async function readOffices(): Promise<void> {
     const outcome = await readMatterOffices(fetch, matter.id);
     if (outcome.kind === "ok") {
@@ -439,19 +441,12 @@
     );
   }
 
-  $effect(() => {
-    if (!open || officesAsked || isSample) return;
-    officesAsked = true;
-    void readOffices();
-  });
-
   // A window opened again starts on the step, not on the last answer it gave — except that a
   // window opened FOR the hold, from the seal's menu, opens with the reason already asked.
   function reset(): void {
     taken = null;
     notices = [];
     failure = null;
-    arrangementAsked = false;
     historyShown = false;
     holdFormOpen = openAtHold;
     openAtHold = false;
@@ -464,9 +459,11 @@
     numberRefusal = null;
     physicalFileFormOpen = false;
     physicalFileFailure = null;
-    // The office is re-read on every opening: the last answer stands while the read is in flight,
-    // so the row never blinks back to "Not recorded" on a window somebody has already read.
-    officesAsked = false;
+    if (isSample) return;
+    // Both re-reads keep the last answer standing while they are in flight, so a window somebody
+    // has already read does not blink back to "Not recorded" and then forward again.
+    void readEngagement();
+    void readOffices();
   }
 
   async function setPhysicalFileLocation(): Promise<void> {
@@ -1006,7 +1003,7 @@
                   whenSilent={arrangementFailure.whenSilent}
                   onRetry={() => {
                     arrangementFailure = null;
-                    arrangementAsked = false;
+                    void readEngagement();
                   }}
                 />
               {/if}

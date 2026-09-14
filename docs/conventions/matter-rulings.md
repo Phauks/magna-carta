@@ -126,6 +126,15 @@ landed, and W1 was built on 2026-09-14.
   one request the matter chrome's own record could have carried; folding the field into
   `matter-record.ts` is the follow-up, and it was not taken because that file belonged to another
   stream this round.
+- **A defect found while building it, and fixed.** The window's "read again on every opening" was
+  written as an effect guarded by a "have I asked" flag that `onOpen` clears. `ActionDialog` calls
+  `onOpen` from an effect of its own, and a child's effects run after the parent's — so the guard
+  was read before it was cleared, and the engagement was read on the window's first opening and
+  never again. A member who amended a fee arrangement elsewhere and reopened this window saw the
+  old deal, which is exactly what the comment above that code said must not happen. Both re-reads
+  are now made from the opening transition itself rather than from an effect, and the reasoning is
+  written where the next person will meet it. The readiness reads stay effects on purpose: they ask
+  about the matter's own status, which only this window changes.
 - **A seam left.** The column records where a file IS, not how it got there. A firm that wants the
   movement history — who boxed it, when, where it went — has nothing, and nothing was asked for.
 
