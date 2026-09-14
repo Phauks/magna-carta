@@ -26,10 +26,16 @@
    *
    * Recording lands in the same window the grid reads, so a recorded entry is painted by bumping
    * the component's refresh token rather than by this screen reading anything of its own.
+   *
+   * DOUBLE-CLICKING AN EMPTY DAY OR HOUR OPENS THE EVENT FORM ON IT (owner ruling, 2026-09-14). The
+   * grid reports the gesture and this screen decides what it means, because only a screen knows
+   * which form it owns; the day and the hour are handed to the form as its opening answers, so the
+   * gesture is a shortcut to a filled-in date rather than a second way to record something.
    */
   import { untrack } from "svelte";
   import { page } from "$app/state";
   import CreateControl from "@magna-carta/design-system/create-control";
+  import { MINUTES_IN_HOUR } from "@magna-carta/design-system/calendar-grid";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import Building2 from "@lucide/svelte/icons/building-2";
   import CalendarClock from "@lucide/svelte/icons/calendar-clock";
@@ -88,9 +94,49 @@
   let eventOpen = $state(false);
   let deadlineOpen = $state(false);
   let firmEventOpen = $state(false);
+  /**
+   * The day and hour a double-click landed on, which the form opens with. Null until one does, and
+   * left as it was afterwards: reopening the form from the menu on the same day is the same answer.
+   */
+  let startOn = $state<string | null>(null);
+  let startAt = $state<string | null>(null);
+
+  /** The day the forms open on: the one somebody pointed at, else the window's own anchor. */
+  const formDate = $derived(startOn ?? anchor);
 
   function recorded(): void {
     refreshToken += 1;
+  }
+
+  /**
+   * A double-click on an empty day or hour. It opens the EVENT form, which is the record a person
+   * pointing at a Tuesday afternoon means; the other two kinds stay on the menu, where choosing
+   * between them is a decision somebody is already making.
+   */
+  function startOnDay(date: string, minuteOfDay?: number): void {
+    if (recordRefusal !== undefined) return;
+    startOn = date;
+    startAt = minuteOfDay === undefined ? null : wallClockOf(minuteOfDay);
+    eventOpen = true;
+  }
+
+  /**
+   * The menu's own path in. It clears the day a double-click left behind: choosing New Event from
+   * the header means the window on screen, not the Tuesday somebody pointed at ten minutes ago.
+   */
+  function openFrom(kind: "event" | "deadline" | "firmEvent"): void {
+    startOn = null;
+    startAt = null;
+    eventOpen = kind === "event";
+    deadlineOpen = kind === "deadline";
+    firmEventOpen = kind === "firmEvent";
+  }
+
+  /** A minute past midnight as the `HH:MM` a time field holds. */
+  function wallClockOf(minuteOfDay: number): string {
+    const hour = Math.floor(minuteOfDay / MINUTES_IN_HOUR);
+    const minute = minuteOfDay % MINUTES_IN_HOUR;
+    return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
   }
 </script>
 
@@ -103,9 +149,9 @@
         title="Record an event, a deadline or a firm event."
         refusal={recordRefusal}
         choices={[
-          { label: "New Event", icon: CalendarDays, onselect: () => (eventOpen = true) },
-          { label: "New Deadline", icon: CalendarClock, onselect: () => (deadlineOpen = true) },
-          { label: "New Firm Event", icon: Building2, onselect: () => (firmEventOpen = true) },
+          { label: "New Event", icon: CalendarDays, onselect: () => openFrom("event") },
+          { label: "New Deadline", icon: CalendarClock, onselect: () => openFrom("deadline") },
+          { label: "New Firm Event", icon: Building2, onselect: () => openFrom("firmEvent") },
         ]}
       />
     {/snippet}
@@ -124,6 +170,8 @@
     bind:view
     bind:anchor
     address={true}
+    rail={true}
+    onCreate={startOnDay}
     {openEntry}
     {refreshToken}
     class="min-h-0 flex-1"
@@ -137,8 +185,11 @@
   mattersCapped={context.mattersCapped}
   eventTypes={context.eventTypes}
   members={context.members}
+  locations={context.locations}
+  resources={context.resources}
   {preferredTimeZones}
-  initialDate={anchor}
+  initialDate={formDate}
+  initialTime={startAt}
   onRecorded={recorded}
 />
 
@@ -148,7 +199,7 @@
   matters={context.matters}
   mattersCapped={context.mattersCapped}
   {preferredTimeZones}
-  initialDate={anchor}
+  initialDate={formDate}
   supersedes={null}
   onRecorded={recorded}
 />
@@ -158,7 +209,9 @@
   eventTypes={context.eventTypes}
   members={context.members}
   locations={context.locations}
+  resources={context.resources}
   {preferredTimeZones}
-  initialDate={anchor}
+  initialDate={formDate}
+  initialTime={startAt}
   onRecorded={recorded}
 />

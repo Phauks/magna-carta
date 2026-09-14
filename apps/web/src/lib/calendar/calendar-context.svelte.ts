@@ -2,11 +2,13 @@
  * What every calendar surface on a page needs to know before it can paint or record anything, read
  * once and held.
  *
- * Six reads, none of them about the calendar's rows: who is asking and what they may do (the
+ * Seven reads, none of them about the calendar's rows: who is asking and what they may do (the
  * session), the event-type catalog (a chip on the firm grid paints a type's NAME from a type CODE,
  * and the record forms choose from it), the firm's roster (a participant is a member handle the
- * grid cannot name without it), the firm's offices (a firm event is held at one), the firm's
- * matters (a chip paints a matter NUMBER from a matter identifier), and the firm's calendar
+ * grid cannot name without it, and every member is a calendar in the rail), the firm's offices (a
+ * firm event is held at one, and an office is an answer the Location field offers), the firm's
+ * bookable resources (a room is a calendar in the rail and another answer that field offers), the
+ * firm's matters (a chip paints a matter NUMBER from a matter identifier), and the firm's calendar
  * settings (which day its week begins on, so every grid on the page draws the same week). Each
  * changes at the pace of a working week, so re-reading any of them per navigation would spend a
  * round trip to learn nothing.
@@ -33,9 +35,11 @@ import { FirmMatters } from "$lib/time/firm-matters.svelte.ts";
 import type { SheetMatter } from "$lib/time/time-sheet-model.ts";
 import {
   listEventTypes,
+  listResources,
   readCalendarSettings,
   readerTimeZone,
   type EventType,
+  type FirmResource,
   type WeekStartsOn,
 } from "./calendar-api.ts";
 import { mayManageCalendar } from "./calendar-permission.ts";
@@ -51,6 +55,9 @@ export class CalendarContext {
   membersFailure = $state<Failure | null>(null);
   locations = $state<readonly LocationSummary[]>([]);
   locationsFailure = $state<Failure | null>(null);
+  /** The firm's bookable things: every room is a calendar the rail offers and a place to meet. */
+  resources = $state<readonly FirmResource[]>([]);
+  resourcesFailure = $state<Failure | null>(null);
   /**
    * The day the firm's week begins on. Sunday until the firm's own answer arrives, and Sunday where
    * that read fails: a grid that draws the default week is still a grid, and the failure is stated
@@ -70,6 +77,7 @@ export class CalendarContext {
     eventTypes: false,
     members: false,
     locations: false,
+    resources: false,
     settings: false,
   });
   #inFlight: Promise<void> | null = null;
@@ -185,6 +193,7 @@ export class CalendarContext {
       this.#readEventTypes(fetchImpl),
       this.#readMembers(fetchImpl),
       this.#readLocations(fetchImpl),
+      this.#readResources(fetchImpl),
       this.#readSettings(fetchImpl),
       this.firmMatters.load(fetchImpl),
     ]);
@@ -232,6 +241,17 @@ export class CalendarContext {
       this.membersFailure = outcome.failure;
     }
     this.#settled.members = true;
+  }
+
+  async #readResources(fetchImpl: typeof fetch): Promise<void> {
+    const outcome = await listResources(fetchImpl);
+    if (outcome.kind === "ok") {
+      this.resources = outcome.value.data;
+      this.resourcesFailure = null;
+    } else {
+      this.resourcesFailure = outcome.failure;
+    }
+    this.#settled.resources = true;
   }
 
   async #readLocations(fetchImpl: typeof fetch): Promise<void> {

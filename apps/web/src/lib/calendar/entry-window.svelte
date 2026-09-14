@@ -140,6 +140,7 @@
   import EventTypeSelect from "./event-type-select.svelte";
   import RecordDeadlineDialog from "./record-deadline-dialog.svelte";
   import RecordTimingFields from "./record-timing-fields.svelte";
+  import LocationPicker from "./location-picker.svelte";
   import TimeZonePicker from "./time-zone-picker.svelte";
 
   /** Makes the ids the panes mint unique: the window is one of several forms a page may hold. */
@@ -650,6 +651,10 @@
       : deadlineStateLabel(deadline.state);
   }
 
+  /** What the Location field offers: the firm's own offices and its rooms, from the shared context. */
+  const locations = $derived(context.locations);
+  const resources = $derived(context.resources);
+
   const officeItems = $derived.by(() => {
     const currentId = record?.kind === "firmEvent" ? record.event.locationId : null;
     return context.locations
@@ -812,8 +817,8 @@
     {#if kind === "event"}
       <div class="grid gap-12 @md:grid-cols-2">
         <div class="flex flex-col gap-4">
-          <Label for="{idPrefix}-fixture-where">Where</Label>
-          <Input id="{idPrefix}-fixture-where" value="Department 12" disabled />
+          <Label for="{idPrefix}-fixture-location">Location</Label>
+          <Input id="{idPrefix}-fixture-location" value="Department 12" disabled />
         </div>
         <div class="flex flex-col gap-4">
           <Label for="{idPrefix}-fixture-court-reference">Court reference</Label>
@@ -840,8 +845,8 @@
         </div>
       </div>
       <div class="flex flex-col gap-4">
-        <Label for="{idPrefix}-fixture-venue">Venue</Label>
-        <Input id="{idPrefix}-fixture-venue" value="Main office, the boardroom" disabled />
+        <Label for="{idPrefix}-fixture-location">Location</Label>
+        <Input id="{idPrefix}-fixture-location" value="Main office, the boardroom" disabled />
       </div>
     {/if}
     <div class="flex flex-col gap-4">
@@ -915,8 +920,14 @@
           />
           <div class="grid gap-12 @md:grid-cols-2">
             <div class="flex flex-col gap-4">
-              <Label for="{idPrefix}-where">Where</Label>
-              <Input id="{idPrefix}-where" disabled={readOnly} bind:value={draft.locationText} />
+              <Label for="{idPrefix}-location">Location</Label>
+              <LocationPicker
+                inputId="{idPrefix}-location"
+                {locations}
+                {resources}
+                disabled={readOnly}
+                bind:value={draft.locationText}
+              />
             </div>
             <div class="flex flex-col gap-4">
               <Label for="{idPrefix}-court-reference">Court reference</Label>
@@ -926,6 +937,20 @@
                 bind:value={draft.courtReference}
               />
             </div>
+          </div>
+          <!-- Where it is JOINED, where it is online: its own field, because a setting can be in a
+               room and on a call at once. -->
+          <div class="flex flex-col gap-4">
+            <Label for="{idPrefix}-conference-url">Conference link</Label>
+            <Input
+              id="{idPrefix}-conference-url"
+              type="url"
+              inputmode="url"
+              autocomplete="off"
+              spellcheck={false}
+              disabled={readOnly}
+              bind:value={draft.conferenceUrl}
+            />
           </div>
           <div class="flex flex-col gap-4">
             <Label for="{idPrefix}-description">Description</Label>
@@ -1066,8 +1091,28 @@
             </div>
           </div>
           <div class="flex flex-col gap-4">
-            <Label for="{idPrefix}-venue">Venue</Label>
-            <Input id="{idPrefix}-venue" disabled={readOnly} bind:value={draft.locationText} />
+            <Label for="{idPrefix}-location">Location</Label>
+            <LocationPicker
+              inputId="{idPrefix}-location"
+              {locations}
+              {resources}
+              disabled={readOnly}
+              bind:value={draft.locationText}
+            />
+          </div>
+          <!-- Where it is JOINED, where it is online: its own field, because a setting can be in a
+               room and on a call at once. -->
+          <div class="flex flex-col gap-4">
+            <Label for="{idPrefix}-conference-url">Conference link</Label>
+            <Input
+              id="{idPrefix}-conference-url"
+              type="url"
+              inputmode="url"
+              autocomplete="off"
+              spellcheck={false}
+              disabled={readOnly}
+              bind:value={draft.conferenceUrl}
+            />
           </div>
           <div class="flex flex-col gap-4">
             <Label for="{idPrefix}-description">Description</Label>
@@ -1389,9 +1434,11 @@
       />
       <div class="grid gap-12 sm:grid-cols-2">
         <div class="flex flex-col gap-4">
-          <Label for="{idPrefix}-continue-where">Where</Label>
-          <Input
-            id="{idPrefix}-continue-where"
+          <Label for="{idPrefix}-continue-location">Location</Label>
+          <LocationPicker
+            inputId="{idPrefix}-continue-location"
+            {locations}
+            {resources}
             disabled={busy}
             bind:value={continueDraft.locationText}
           />
@@ -1404,6 +1451,18 @@
             bind:value={continueDraft.courtReference}
           />
         </div>
+      </div>
+      <div class="flex flex-col gap-4">
+        <Label for="{idPrefix}-continue-conference-url">Conference link</Label>
+        <Input
+          id="{idPrefix}-continue-conference-url"
+          type="url"
+          inputmode="url"
+          autocomplete="off"
+          spellcheck={false}
+          disabled={busy}
+          bind:value={continueDraft.conferenceUrl}
+        />
       </div>
       <div class="flex flex-col gap-4">
         <Label for="{idPrefix}-continue-reason">Reason</Label>

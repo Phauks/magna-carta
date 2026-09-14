@@ -14,6 +14,7 @@ import type {
 } from "./calendar-api.ts";
 import { optionalText } from "./draft-text.ts";
 import {
+  conferenceShortfalls,
   participantDraftFrom,
   participantInput,
   timingShortfalls,
@@ -28,6 +29,8 @@ export interface FirmEventDraft extends EventTimingDraft {
   audience: FirmEventAudience;
   locationId: string | null;
   locationText: string;
+  /** Where it is JOINED, where it is online. A firm meeting is as likely to be a call as a room. */
+  conferenceUrl: string;
   participants: ParticipantDraft[];
 }
 
@@ -47,6 +50,7 @@ export function emptyFirmEventDraft(
     audience: "participants",
     locationId: null,
     locationText: "",
+    conferenceUrl: "",
     participants: [],
   };
 }
@@ -56,6 +60,7 @@ export function firmEventDraftShortfalls(draft: FirmEventDraft): string[] {
   const shortfalls: string[] = [];
   if (draft.title.trim() === "") shortfalls.push("A title is needed.");
   shortfalls.push(...timingShortfalls(draft));
+  shortfalls.push(...conferenceShortfalls(draft.conferenceUrl));
   return shortfalls;
 }
 
@@ -76,6 +81,7 @@ export function firmEventDraftStarted(draft: FirmEventDraft, since: FirmEventDra
     draft.audience !== since.audience ||
     draft.locationId !== since.locationId ||
     draft.locationText !== since.locationText ||
+    draft.conferenceUrl !== since.conferenceUrl ||
     draft.participants.length !== since.participants.length ||
     draft.participants.some((participant, index) => {
       const before = since.participants[index];
@@ -100,6 +106,7 @@ export function firmEventDraftRequest(draft: FirmEventDraft): CreateFirmEventReq
     audience: draft.audience,
     locationId: draft.locationId,
     locationText: optionalText(draft.locationText),
+    conferenceUrl: optionalText(draft.conferenceUrl),
     // An all-members event lists nobody: it is on every calendar by construction.
     participants: draft.audience === "all_members" ? [] : draft.participants.map(participantInput),
   };
@@ -123,6 +130,7 @@ export function firmEventDraftFrom(
     audience: event.audience,
     locationId: event.locationId,
     locationText: event.locationText ?? "",
+    conferenceUrl: event.conferenceUrl ?? "",
     participants: participants.map((participant) =>
       participantDraftFrom(participant, displayNames),
     ),

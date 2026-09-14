@@ -29,6 +29,7 @@ const event: CalendarEvent = {
   endsAtTime: null,
   timeZone: "America/New_York",
   locationText: "Courtroom 4",
+  conferenceUrl: null,
   courtReference: "26-CV-100",
   recordedAt: "2026-09-01T00:00:00Z",
   recordedBy: "user_1",
@@ -70,6 +71,7 @@ const firmEvent: FirmEvent = {
   audience: "all_members",
   locationId: null,
   locationText: null,
+  conferenceUrl: null,
   recordedAt: "2026-09-01T00:00:00Z",
   recordedBy: null,
 };
@@ -216,7 +218,8 @@ describe("a matter event's sheet", () => {
           id: "facts",
           kind: "fields",
           fields: [
-            { label: "Where", value: "Courtroom 4" },
+            { label: "Location", value: "Courtroom 4" },
+            { label: "Conference Link", value: "Not recorded" },
             { label: "Court Reference", value: "26-CV-100" },
             { label: "Status", value: "Scheduled" },
           ],
@@ -258,6 +261,7 @@ describe("a matter event's sheet", () => {
       event: {
         ...event,
         locationText: null,
+        conferenceUrl: null,
         courtReference: null,
         status: "cancelled",
         statusReason: "Settled",
@@ -269,7 +273,8 @@ describe("a matter event's sheet", () => {
     expect(sheet.sections.map((section) => section.id)).toEqual(["when", "facts"]);
     expect(sheet.sections[1]).toMatchObject({
       fields: [
-        { label: "Where", value: "Not recorded" },
+        { label: "Location", value: "Not recorded" },
+        { label: "Conference Link", value: "Not recorded" },
         { label: "Court Reference", value: "Not recorded" },
         { label: "Status", value: "Cancelled" },
         { label: "Reason", value: "Settled" },
@@ -303,7 +308,8 @@ describe("a firm event's sheet", () => {
           fields: [
             { label: "Audience", value: "Everyone" },
             { label: "Office", value: "Boston" },
-            { label: "Venue", value: "Not recorded" },
+            { label: "Location", value: "Not recorded" },
+            { label: "Conference Link", value: "Not recorded" },
             { label: "Status", value: "Scheduled" },
           ],
         },
@@ -325,7 +331,8 @@ describe("a firm event's sheet", () => {
       fields: [
         { label: "Audience", value: "Participants" },
         { label: "Office", value: "Not recorded" },
-        { label: "Venue", value: "Boardroom" },
+        { label: "Location", value: "Boardroom" },
+        { label: "Conference Link", value: "Not recorded" },
         { label: "Status", value: "Scheduled" },
       ],
     });
@@ -354,7 +361,8 @@ describe("a firm event's sheet", () => {
       fields: [
         { label: "Audience", value: "Everyone" },
         { label: "Office", value: "Not recorded" },
-        { label: "Venue", value: "Not recorded" },
+        { label: "Location", value: "Not recorded" },
+        { label: "Conference Link", value: "Not recorded" },
         { label: "Status", value: "Cancelled" },
         { label: "Reason", value: "Weather" },
       ],

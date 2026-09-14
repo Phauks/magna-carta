@@ -368,6 +368,30 @@ is usually the fastest way to understand the rule.
     rather than a reservation. The save is too late for the sentence the person entering it is in the
     middle of. _(the call log, 2026-09-08: "all calls and logs should have a number, which we can
     identify in the log, before it has been created")_
+- **A form that schedules something shows the day it is scheduling.** Choosing a time is a question
+  about other people's afternoons, and a form that asked it with nothing on screen was asking the
+  reader to remember. The day being booked stands in the panel's context pane, as the product's own
+  calendar with a day view and no toolbar — never a second rendering of one — following the date
+  field as it is answered and saying so before a date is chosen rather than showing today as if that
+  were an answer. _(the calendar's record forms, 2026-09-14)_
+- **A moment is a date, a time FIELD, and its zone as a shortcode, on one line.** The day, the hour
+  and the zone that hour is read in are one fact (the one-moment-one-line rule, applied): a platform
+  time control rather than a box hoping for `HH:MM`, and "PST" rather than "America / Los Angeles",
+  because a field wide enough for a continent pushes the time it belongs to onto the next line. The
+  abbreviation is worked out on the RECORD'S OWN DAY — the same zone is PST in January and PDT in
+  July — and is never stored, because CST is three different zones. Where a record has ONE zone, the
+  second line STATES it rather than offering a second control that could only ever disagree with the
+  first. _(the calendar's record forms, 2026-09-14)_
+- **Where a thing is JOINED is a different field from where it is HELD.** A meeting can be in a room
+  and on a call at once, and a form with one field for both loses the room the moment somebody types
+  the link. A conference link is a URL and never a provider plus a room number: every service
+  expresses a meeting as a link, and a closed list of providers is a list this repository would
+  maintain on somebody else's release schedule. _(the calendar's record forms, 2026-09-14)_
+- **A record that belongs to no parent is not refused, it is a different record.** Where a form
+  stands refused until somebody picks a parent — "A matter is needed." — ask whether the thing with
+  no parent is real, and where it is, make the no-parent row a CHOICE that says what it writes and
+  write that record instead. A reader should not have to know which of two menu items to have
+  started from. _(the calendar's event form, 2026-09-14)_
 - **A field's label is the plain word for what it holds.** "Date", not "When It Happened"; a label
   that reads as a sentence is a question the surface is asking rather than a name for the value. A
   field whose meaning genuinely needs a sentence gets the sentence beside it, and keeps the plain
@@ -485,6 +509,35 @@ is usually the fastest way to understand the rule.
   primary pane takes the fields a member fills in every time; the context pane takes the machinery.
   In one column the two read as equals, and a form asking for two names and eleven engine settings
   reads as a control panel for something nobody can name. _(the New Check panel, 2026-09-08)_
+- **A surface over many of something offers them as a RAIL of rows in FOLDERS, not as a filter.** A
+  firm has a calendar per attorney, per paralegal, per room and a few that are dates; a dropdown
+  offering one at a time is the wrong shape for that, and so is a row of toggles. Each row turns on
+  and off on its own, each folder turns its rows on and off together, and the folder's own control
+  carries the THIRD STATE — two of six on is neither on nor off, and pressing the middle state
+  completes the folder, which is what somebody who turned two on and reached for the folder meant.
+  **The folders are the firm's own vocabulary and never the product's**: a folder is a role the firm
+  handed out, so nothing here decides who counts as support staff. _(the calendar's rail,
+  2026-09-14)_
+- **A thing a member can colour is coloured from the product's ONE palette.** The eleven colours a
+  folder offers and the nine a calendar offers are one list in one home
+  (`packages/design-system/src/lib/palette/`), with each surface stating which subset it offers
+  rather than writing a second list in a second order — two lists are two reds. Where nothing has
+  been chosen, deal the palette by POSITION rather than by a hash of the key: position spreads the
+  colours evenly, and two of the first four coming out the same colour is exactly the failure the
+  colours exist to prevent. _(the calendar's rail, 2026-09-14)_
+- **A member's chosen colour and the product's status register are two facts, and they never share a
+  property.** The status register paints the thing (a cancelled setting is struck and warning-toned
+  whoever owns it); the member's colour paints an edge. Putting both in one fill loses whichever was
+  written second. _(calendar chips, 2026-09-14)_
+- **A direct-manipulation gesture is an ACCELERATOR, never the only path.** Double-clicking an empty
+  day or hour starts a record on it, and the screen still carries the one create control every
+  screen carries, because a gesture is mouse-only and a keyboard and a touch device have to reach
+  the same act. It never fires from a press on an existing record: opening a thing and making one
+  beside it are different intentions. _(the calendar grid, 2026-09-14)_
+- **A grid that is empty says so by being empty; a LIST says it in words.** Thirty empty squares have
+  already told the reader, and a line above them spends a sentence on a fact they can see. An empty
+  list is a blank rectangle, which reads as something that failed to load, so it keeps its sentence.
+  _(the firm calendar, 2026-09-14)_
 - **A control that tunes something invisible carries its sentence in place, not on hover.** A hover
   title does not exist on a touch device and a screen reader reaches it only by asking, so a setting
   whose whole meaning lives in a `title` has no meaning for most readers. It goes under the control,
@@ -1142,6 +1195,80 @@ name, which is every screen outside a matter.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-14 — the calendar: many calendars in folders, a day of columns, and a form that asks where
+
+The owner walked the deployed calendar and issued eleven corrections in one round. Most of them
+generalize; the generalizations are promoted above and the rest is here.
+
+- **A firm does not have one calendar, it has twenty — so a calendar surface offers them as a RAIL
+  of individual calendars kept in FOLDERS, not as a filter.** "For calendars, you should be able to
+  set any number of individual calendars… there would be several rooms that have calendars, so
+  those would be in a folder of some kind, attorneys could be in another folder, support staff like
+  paralegals, receptionists would be in another." Each row turns on and off on its own; each folder
+  turns its rows on and off together, and its control carries the third state, because two of six
+  attorneys on is neither on nor off. **The folders are the firm's own vocabulary and never ours**:
+  a folder is a ROLE the firm handed out and its rows are the members holding it, so nothing in the
+  product decides who counts as support staff. A member holding two roles is filed under the first,
+  because a calendar listed twice reads as two calendars and toggles as one.
+- **A calendar carries a colour its owner chose, from the product's ONE palette.** "You should be
+  able to set the color of a calendar, that way you could more easily delineate." The palette is the
+  same eleven the file manager's folders offer, which is now one module
+  (`packages/design-system/src/lib/palette/`) rather than two lists free to disagree about red; a
+  calendar offers the nine of them that read on a chip. An unchosen calendar is dealt a colour by
+  position, so eight calendars turned on are eight a reader can tell apart before colouring any.
+- **The colour and the status register are two facts and never fight.** A chip's fill is the
+  product's status register (a cancelled setting is struck and warning-toned whoever owns it); the
+  calendar's colour is a rule down the chip's leading edge. Putting both in one property loses
+  whichever was written second.
+- **A DAY IS A TIME AXIS CROSSED WITH A COLUMN PER CALENDAR.** "There should be a daily view,
+  especially considering that a day with a lot of attorneys may have a lot of parallel scheduling."
+  The month and the week put a civil DAY in a column; the day puts an HOUR in a row and a CALENDAR
+  in a column, which is the only presentation that makes six attorneys in four places legible. A
+  record on two calendars is drawn in BOTH their columns on purpose — a column that left a shared
+  hearing out of one attorney's day would be lying about that attorney's afternoon.
+- **Double-clicking an empty day or hour starts a record on it.** "When creating an event, you
+  should be able to double click within the calendar to start the creation process." It is an
+  ACCELERATOR and never the only path: the screen still carries the one create control every screen
+  carries, which is what a keyboard and a touch device reach for. It never fires from a press on a
+  chip — opening a record and making one beside it are different intentions.
+- **A form that schedules something shows the day it is scheduling.** "When you select a day for
+  scheduling, on the right side of the modal, you should see that day's calendar so you can identify
+  when people will have availability." It is the panel's own context pane, and what stands in it is
+  the product's ONE calendar with a day view and no toolbar — never a second rendering of one. It
+  follows the date field, and says so before a date is chosen rather than showing today as if that
+  were an answer.
+- **"Where" is Location, and it is the product's dropdown-with-add.** "Where should be location, and
+  this should be a dropdown." The label is the plain word for what the field holds, and the control
+  offers what the firm already knows about its own places — its offices and its rooms, under
+  headings — while still keeping a courthouse nobody has a record of. A closed list here would
+  refuse most of the hearings a litigation firm records.
+- **Where a setting is JOINED is a different field from where it is HELD.** "Some events may be
+  online, so it may benefit to have the ability to have a zoom link or some other e-conference
+  link." A deposition can be in a conference room and on a call at once, and a firm that typed the
+  link where the room goes has lost the room. Held as a URL and never as a provider and a room
+  number: every service expresses a meeting as a link, and a schema naming providers is a list this
+  repository would maintain on somebody else's release schedule.
+- **A time of day is a time field, and its zone sits beside it as a SHORTCODE.** "Start and end time
+  need to be time fields. Time zones should go by shortcode like PST and should be little dropdowns
+  next to the time." One moment is one line: the day, the hour, and the zone that hour is read in
+  sit side by side. The abbreviation is worked out ON THE RECORD'S OWN DAY, because the same zone is
+  PST in January and PDT in July — and nothing is ever stored from it, because CST is three
+  different zones. A record has ONE zone, so the ends line STATES the same code rather than offering
+  a second control that could only ever disagree with the first.
+- **A record that belongs to no case is not refused, it is a different record.** "Remove 'A matter
+  is needed.' from the bottom, matter is not needed." The event form no longer stands refused until
+  a matter is picked; no matter is a CHOICE whose row says what it writes, and the form writes a
+  firm event instead. That is the shape the data already had — `matter_event` requires its matter
+  because every read of it is "what happened on this case", and `firm_event` is the table for
+  everything else — so one question decides which record is written rather than a reader having to
+  know which of two menu items to have started from.
+- **A grid that is empty says so by being empty.** "Remove 'Nothing recorded in September 2026' on
+  main calendar screen, doesn't seem very helpful." A month, a week and a day all draw their days
+  whether or not anything is on them, so a reader looking at thirty empty squares has already been
+  told, and a line above them spends a sentence on a fact they can see. A LIST is the exception and
+  keeps its sentence: an empty agenda is a blank rectangle, which reads as something that failed to
+  load rather than as a fortnight with nothing in it.
 
 ### 2026-09-09 — the front door asks less, and confirming is the way in
 

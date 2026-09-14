@@ -3079,6 +3079,8 @@ export type TimelineEntry = {
     actorUserId: string | null;
     label: string | null;
     link: string;
+    timeOfDay: string | null;
+    timeZone: string | null;
     title: string | null;
     typeText: string | null;
     facts: {
@@ -3106,6 +3108,7 @@ export type MatterEventDetail = {
     endsAtTime: string | null;
     timeZone: string;
     locationText: string | null;
+    conferenceUrl: string | null;
     courtReference: string | null;
     recordedAt: string;
     recordedBy: string | null;
@@ -3194,6 +3197,7 @@ export type CreateMatterEventRequest = {
     endsAtTime?: string | null;
     timeZone: string;
     locationText?: string | null;
+    conferenceUrl?: string | null;
     courtReference?: string | null;
     participants?: Array<MatterEventParticipantInput>;
 };
@@ -3221,6 +3225,7 @@ export type UpdateMatterEventRequest = {
     endsAtTime?: string | null;
     timeZone?: string;
     locationText?: string | null;
+    conferenceUrl?: string | null;
     courtReference?: string | null;
     participants?: Array<MatterEventParticipantInput>;
 };
@@ -3292,6 +3297,7 @@ export type FirmEventDetail = {
     audience: 'all_members' | 'participants';
     locationId: string | null;
     locationText: string | null;
+    conferenceUrl: string | null;
     recordedAt: string;
     recordedBy: string | null;
 };
@@ -3314,6 +3320,7 @@ export type CreateFirmEventRequest = {
     audience?: 'all_members' | 'participants';
     locationId?: string | null;
     locationText?: string | null;
+    conferenceUrl?: string | null;
     participants?: Array<MatterEventParticipantInput>;
 };
 
@@ -3330,6 +3337,7 @@ export type UpdateFirmEventRequest = {
     audience?: 'all_members' | 'participants';
     locationId?: string | null;
     locationText?: string | null;
+    conferenceUrl?: string | null;
     participants?: Array<MatterEventParticipantInput>;
 };
 
@@ -3469,6 +3477,7 @@ export type ContinueMatterEventRequest = {
     endsAtTime?: string | null;
     timeZone?: string;
     locationText?: string | null;
+    conferenceUrl?: string | null;
     courtReference?: string | null;
     statusReason?: string | null;
 };

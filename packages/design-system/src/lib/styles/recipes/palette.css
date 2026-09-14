@@ -1,0 +1,31 @@
+@layer components {
+  /*
+   * The member-chosen palette's fills, declared once for the whole design system.
+   *
+   * These are the eleven colours of `lib/palette/index.ts` — the set a person picks from when they
+   * colour something they own. The names live there and the fills live here, and every surface
+   * that paints with one reads `--mc-palette-<name>`: a folder row, a folder swatch, a calendar's
+   * rail and a calendar chip on the grid cannot disagree about what "red" is.
+   *
+   * On `:root` rather than on a component's class, because the palette belongs to no component. A
+   * custom property does not paint anything on its own, so declaring it here costs a surface that
+   * never uses one exactly nothing.
+   *
+   * Four of the eleven — orange, purple, pink, brown — had no ramp of their own when the palette
+   * was first drawn and aliased their nearest neighbour; each now reads its own ramp. Adding or
+   * re-pointing a ramp is a change to this block and nothing else.
+   */
+  :root {
+    --mc-palette-red: var(--mc-color-red-500);
+    --mc-palette-orange: var(--mc-color-orange-500);
+    --mc-palette-yellow: var(--mc-color-amber-300);
+    --mc-palette-green: var(--mc-color-green-500);
+    --mc-palette-blue: var(--mc-color-blue-500);
+    --mc-palette-purple: var(--mc-color-purple-500);
+    --mc-palette-pink: var(--mc-color-pink-400);
+    --mc-palette-brown: var(--mc-color-brown-700);
+    --mc-palette-grey: var(--mc-color-neutral-500);
+    --mc-palette-black: var(--mc-color-neutral-1000);
+    --mc-palette-white: var(--mc-color-neutral-0);
+  }
+}

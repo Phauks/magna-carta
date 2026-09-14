@@ -27,6 +27,7 @@ export function eventUpdateOf(request: CreateEventRequest): UpdateEventRequest {
     endsAtTime: request.endsAtTime,
     timeZone: request.timeZone,
     locationText: request.locationText,
+    conferenceUrl: request.conferenceUrl,
     courtReference: request.courtReference,
   };
 }
@@ -55,5 +56,6 @@ export function firmEventUpdateOf(request: CreateFirmEventRequest): UpdateFirmEv
     timeZone: request.timeZone,
     locationId: request.locationId,
     locationText: request.locationText,
+    conferenceUrl: request.conferenceUrl,
   };
 }

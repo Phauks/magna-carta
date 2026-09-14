@@ -56,6 +56,79 @@
   const pinnedDayHeading = (date: string): string =>
     formatCivilDateLong(parseCivilDate(date), "en-US");
 
+  /*
+   * The Day's fixture: one Tuesday across three calendars. Two attorneys and a room, because that
+   * is the shape the Day exists for — the same deposition on Ada's column and the Boardroom's is
+   * ONE deposition on two calendars, and drawing it twice is the point rather than a defect.
+   *
+   * The minute a thing starts at is a NUMBER here, separate from the formatted time: which zone a
+   * time is stated in is a fact about the domain, and a grid that read a number back out of "9:00
+   * AM" would be guessing at one.
+   */
+  const DAY_LANES = [
+    { key: "ada", label: "Ada Lovelace", color: "green" as const },
+    { key: "grace", label: "Grace Hopper", color: "blue" as const },
+    { key: "boardroom", label: "Boardroom", color: "orange" as const },
+  ];
+
+  const DAY_ENTRIES: readonly CalendarGridEntry[] = [
+    {
+      id: "ada|response-due",
+      lane: "ada",
+      date: "2026-09-15",
+      label: "Response due",
+      detail: "2026-00354",
+      tone: "warning",
+      color: "green",
+    },
+    {
+      id: "ada|deposition",
+      lane: "ada",
+      date: "2026-09-15",
+      label: "Deposition",
+      detail: "2026-00412",
+      time: "9:00 AM",
+      startMinute: 540,
+      endMinute: 660,
+      tone: "info",
+      color: "green",
+    },
+    {
+      id: "boardroom|deposition",
+      lane: "boardroom",
+      date: "2026-09-15",
+      label: "Deposition",
+      detail: "2026-00412",
+      time: "9:00 AM",
+      startMinute: 540,
+      endMinute: 660,
+      tone: "info",
+      color: "orange",
+    },
+    {
+      id: "grace|early-call",
+      lane: "grace",
+      date: "2026-09-15",
+      label: "Client call",
+      detail: "2026-00377",
+      time: "6:30 AM",
+      startMinute: 390,
+      tone: "neutral",
+      color: "blue",
+    },
+    {
+      id: "grace|settlement",
+      lane: "grace",
+      date: "2026-09-15",
+      label: "Settlement conference",
+      detail: "2026-00377",
+      time: "2:00 PM",
+      startMinute: 840,
+      tone: "info",
+      color: "blue",
+    },
+  ];
+
   // September 2026 begins on a Tuesday. The 15th carries six entries so the month folds it; the
   // trial runs Friday to Sunday, across the Sunday-start week boundary; the hearing on the 22nd
   // was called off and is struck; the 29th's entry goes somewhere, so it is a link.
@@ -495,6 +568,113 @@
         "true",
       );
       await expect(canvas.getByText("Loading the calendar")).toBeInTheDocument();
+    });
+  }}
+/>
+
+<!--
+  The Day. The one presentation with a time axis: an hour per row, a CALENDAR per column, which is
+  the shape a firm needs on a Tuesday its six attorneys spend in four places. The fixture is the
+  same domain-free entry shape as every story above, with two facts added — the minute a thing
+  starts at, and the colour of the calendar it came from.
+-->
+{#snippet dayLanes()}
+  <div class="max-w-4xl">
+    <CalendarGrid.Day
+      entries={DAY_ENTRIES}
+      lanes={DAY_LANES}
+      label="The firm's calendar"
+      date="2026-09-15"
+      today="2026-09-15"
+      locale="en-US"
+      onActivate={activate}
+    />
+  </div>
+{/snippet}
+
+<Story
+  name="DayLanes"
+  template={dayLanes}
+  play={async ({ canvas, step }) => {
+    const grid = canvas.getByRole("table", { name: "The firm's calendar" });
+    const rows = within(grid);
+
+    await step("A column per calendar, named, after the time gutter", async () => {
+      const heads = rows.getAllByRole("columnheader");
+      await expect(heads).toHaveLength(4);
+      await expect(heads[0]).toHaveTextContent("Time");
+      await expect(heads[1]).toHaveTextContent("Ada Lovelace");
+      await expect(heads[3]).toHaveTextContent("Boardroom");
+    });
+
+    await step("What has no hour is in the band above the hours, not parked at midnight", async () => {
+      const band = rows.getByRole("rowheader", { name: "All day" }).closest("tr");
+      await expect(within(band as HTMLElement).getByText("Response due")).toBeVisible();
+    });
+
+    await step("A timed entry sits in the row of the hour it starts in", async () => {
+      const nine = rows.getByRole("rowheader", { name: "9 AM" }).closest("tr");
+      await expect(within(nine as HTMLElement).getByText("Deposition")).toBeVisible();
+      const two = rows.getByRole("rowheader", { name: "2 PM" }).closest("tr");
+      await expect(within(two as HTMLElement).getByText("Settlement conference")).toBeVisible();
+    });
+
+    await step("The day widens for an hour outside the working day rather than dropping it", async () => {
+      await expect(rows.getByRole("rowheader", { name: "6 AM" })).toBeVisible();
+    });
+
+    await step("A chip is a control, and activating it reports the entry it painted", async () => {
+      await userEvent.click(rows.getByText("Deposition"));
+      await expect(activate).toHaveBeenCalled();
+    });
+  }}
+/>
+
+<!-- One unnamed column: the plain day view, which is what a panel showing one day's schedule is. -->
+{#snippet daySingle()}
+  <div class="max-w-xl">
+    <CalendarGrid.Day
+      entries={DAY_ENTRIES}
+      label="That day"
+      date="2026-09-15"
+      locale="en-US"
+    />
+  </div>
+{/snippet}
+
+<Story
+  name="DaySingleColumn"
+  template={daySingle}
+  play={async ({ canvas, step }) => {
+    await step("No lanes means one column, and no column heading to read", async () => {
+      const grid = canvas.getByRole("table", { name: "That day" });
+      await expect(within(grid).getAllByRole("columnheader")).toHaveLength(2);
+      await expect(within(grid).queryByText("Ada Lovelace")).toBeNull();
+    });
+  }}
+/>
+
+{#snippet dayLoading()}
+  <div class="max-w-4xl">
+    <CalendarGrid.Day
+      entries={[]}
+      lanes={DAY_LANES}
+      label="The firm's calendar"
+      date="2026-09-15"
+      loading
+      locale="en-US"
+    />
+  </div>
+{/snippet}
+
+<Story
+  name="DayLoading"
+  template={dayLoading}
+  play={async ({ canvas, step }) => {
+    await step("The grid holds its shape and reports itself busy", async () => {
+      const grid = canvas.getByRole("table", { name: "The firm's calendar" });
+      await expect(grid).toHaveAttribute("aria-busy", "true");
+      await expect(within(grid).getAllByRole("columnheader")).toHaveLength(4);
     });
   }}
 />

@@ -3,10 +3,13 @@
    * The calendar's one action row, at the reading edge.
    *
    * Four groups, left to right: whose calendar (Mine, Everyone, or one colleague, on the firm side
-   * only), what is painted (the layers a reader turns on, and on the agenda whether settled entries
-   * are hidden), which view (month, week, agenda, as icon buttons held pressed), and where in time
-   * (previous, the window's name, next, and Today). Nothing above the grid that is not the grid is
-   * anywhere else.
+   * only), what is painted (on the agenda, whether settled entries are hidden), which view (month,
+   * week, day, agenda, as icon buttons held pressed), and where in time (previous, the window's
+   * name, next, and Today). Nothing above the grid that is not the grid is anywhere else.
+   *
+   * WHICH CALENDARS ARE ON IS NOT IN THIS ROW. It was — custody dates were a toggle here — and a
+   * row of toggles is the wrong shape for a firm with twenty calendars in five folders. They are
+   * the rail beside the grid now (calendar-rail.svelte), where a list of calendars belongs.
    *
    * THE COLLEAGUE PICKER IS A SELECT, NOT A THIRD BUTTON. Mine and Everyone are two answers; a
    * firm's roster is many, so it is a dropdown seated after the pair, reading the chosen name and
@@ -26,12 +29,12 @@
   import * as Select from "@magna-carta/design-system/select";
   import CalendarDays from "@lucide/svelte/icons/calendar-days";
   import CalendarRange from "@lucide/svelte/icons/calendar-range";
+  import Columns3 from "@lucide/svelte/icons/columns-3";
   import ChevronLeft from "@lucide/svelte/icons/chevron-left";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import List from "@lucide/svelte/icons/list";
   import type { FirmMemberSummary } from "$lib/members/members-api.ts";
   import type { CalendarController, ScopeChoice } from "./calendar-controller.svelte.ts";
-  import { CALENDAR_LAYERS } from "./calendar-vocabulary.ts";
   import { CALENDAR_VIEWS, type CalendarView as CalendarViewKind } from "./calendar-window.ts";
 
   let {
@@ -58,6 +61,8 @@
   const VIEW_PRESENTATION: Record<CalendarViewKind, { label: string; icon: typeof List }> = {
     month: { label: "Month", icon: CalendarDays },
     week: { label: "Week", icon: CalendarRange },
+    // The day is columns: it is the one view whose shape IS a column per calendar.
+    day: { label: "Day", icon: Columns3 },
     agenda: { label: "Agenda", icon: List },
   };
 
@@ -70,6 +75,7 @@
   const STEP_NAMES: Record<CalendarViewKind, string> = {
     month: "month",
     week: "week",
+    day: "day",
     agenda: "fortnight",
   };
 </script>
@@ -109,19 +115,8 @@
       {/if}
     </div>
 
-    <div class="flex items-center gap-4" role="group" aria-label="What is shown">
-      {#each CALENDAR_LAYERS as layer (layer.key)}
-        {@const on = controller.layers.has(layer.key)}
-        <Button
-          variant={on ? "secondary" : "ghost"}
-          size="sm"
-          aria-pressed={on}
-          onclick={() => controller.toggleLayer(layer.key)}
-        >
-          {layer.label}
-        </Button>
-      {/each}
-      {#if controller.view === "agenda"}
+    {#if controller.view === "agenda"}
+      <div class="flex items-center gap-4" role="group" aria-label="What is shown">
         <Button
           variant={controller.hideSettled ? "secondary" : "ghost"}
           size="sm"
@@ -130,8 +125,8 @@
         >
           Hide settled
         </Button>
-      {/if}
-    </div>
+      </div>
+    {/if}
   {:else if controller.view === "agenda"}
     <div class="flex items-center gap-4" role="group" aria-label="What is shown">
       <Button

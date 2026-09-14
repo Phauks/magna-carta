@@ -1,0 +1,140 @@
+@layer components {
+  /*
+   * PaletteSwatches — the row of colour squares a member picks a colour from.
+   *
+   * The look is the file manager's own, promoted: a TRUE SQUARE with equal sides, no corner radius,
+   * and the same rim on every one of them, so the palest fills read against whatever is behind them
+   * without any swatch being a different size from its neighbours. Under the pointer a swatch KEEPS
+   * ITS COLOUR — a wash over it would answer "which colour is this" with the hover rather than with
+   * the swatch — and the outline is what says it is being pointed at, drawn outside the square so
+   * the square stays the size it was.
+   *
+   * The fills are the product's one palette (./palette.css), read by name.
+   */
+  .mc-palette-swatches {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--mc-space-4);
+  }
+  .mc-palette-swatch {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+    box-sizing: border-box;
+    padding-block: var(--mc-space-0);
+    padding-inline: var(--mc-space-0);
+    border-radius: var(--mc-radius-none);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-strong);
+    cursor: pointer;
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-palette-swatch:hover,
+  .mc-palette-swatch:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+  }
+  .mc-palette-swatch:disabled {
+    cursor: not-allowed;
+    border-color: var(--mc-action-disabled);
+  }
+  .mc-palette-swatch[data-palette-color="red"] {
+    background-color: var(--mc-palette-red);
+  }
+  .mc-palette-swatch[data-palette-color="orange"] {
+    background-color: var(--mc-palette-orange);
+  }
+  .mc-palette-swatch[data-palette-color="yellow"] {
+    background-color: var(--mc-palette-yellow);
+  }
+  .mc-palette-swatch[data-palette-color="green"] {
+    background-color: var(--mc-palette-green);
+  }
+  .mc-palette-swatch[data-palette-color="blue"] {
+    background-color: var(--mc-palette-blue);
+  }
+  .mc-palette-swatch[data-palette-color="purple"] {
+    background-color: var(--mc-palette-purple);
+  }
+  .mc-palette-swatch[data-palette-color="pink"] {
+    background-color: var(--mc-palette-pink);
+  }
+  .mc-palette-swatch[data-palette-color="brown"] {
+    background-color: var(--mc-palette-brown);
+  }
+  .mc-palette-swatch[data-palette-color="grey"] {
+    background-color: var(--mc-palette-grey);
+  }
+  .mc-palette-swatch[data-palette-color="black"] {
+    background-color: var(--mc-palette-black);
+  }
+  .mc-palette-swatch[data-palette-color="white"] {
+    background-color: var(--mc-palette-white);
+  }
+  /* The mark sits INSIDE the square, so it takes the ink that reads against that square's fill. */
+  .mc-palette-swatch-check {
+    inline-size: var(--mc-space-12);
+    block-size: var(--mc-space-12);
+  }
+  .mc-palette-swatch[data-palette-ink="light"] > .mc-palette-swatch-check {
+    color: var(--mc-text-inverse);
+  }
+  .mc-palette-swatch[data-palette-ink="dark"] > .mc-palette-swatch-check {
+    color: var(--mc-text-default);
+  }
+
+  /*
+   * The small disc that says which colour a thing WEARS, where the thing is a row rather than a
+   * square: a calendar in the rail, a column head on the day grid. It is a readout, never a
+   * control — the swatches above are the control.
+   */
+  .mc-palette-pip {
+    display: inline-block;
+    flex: none;
+    inline-size: var(--mc-space-8);
+    block-size: var(--mc-space-8);
+    border-radius: var(--mc-radius-full);
+    background-color: var(--mc-border-strong);
+  }
+  .mc-palette-pip[data-palette-color="red"] {
+    background-color: var(--mc-palette-red);
+  }
+  .mc-palette-pip[data-palette-color="orange"] {
+    background-color: var(--mc-palette-orange);
+  }
+  .mc-palette-pip[data-palette-color="yellow"] {
+    background-color: var(--mc-palette-yellow);
+  }
+  .mc-palette-pip[data-palette-color="green"] {
+    background-color: var(--mc-palette-green);
+  }
+  .mc-palette-pip[data-palette-color="blue"] {
+    background-color: var(--mc-palette-blue);
+  }
+  .mc-palette-pip[data-palette-color="purple"] {
+    background-color: var(--mc-palette-purple);
+  }
+  .mc-palette-pip[data-palette-color="pink"] {
+    background-color: var(--mc-palette-pink);
+  }
+  .mc-palette-pip[data-palette-color="brown"] {
+    background-color: var(--mc-palette-brown);
+  }
+  .mc-palette-pip[data-palette-color="grey"] {
+    background-color: var(--mc-palette-grey);
+  }
+  .mc-palette-pip[data-palette-color="black"] {
+    background-color: var(--mc-palette-black);
+  }
+  .mc-palette-pip[data-palette-color="white"] {
+    background-color: var(--mc-palette-white);
+  }
+}

@@ -27,6 +27,7 @@ const event: CalendarEvent = {
   endsAtTime: null,
   timeZone: "America/New_York",
   locationText: "Courtroom 4",
+  conferenceUrl: null,
   courtReference: "26-CV-100",
   recordedAt: "2026-09-01T00:00:00Z",
   recordedBy: "user_1",
@@ -68,6 +69,7 @@ const firmEvent: FirmEvent = {
   audience: "all_members",
   locationId: null,
   locationText: null,
+  conferenceUrl: null,
   recordedAt: "2026-09-01T00:00:00Z",
   recordedBy: null,
 };
@@ -90,6 +92,7 @@ function painted(
     matterId,
     link: null,
     settled: false,
+    sourceKeys: [],
     date,
     label: "Hearing",
     tone: "neutral",
