@@ -41,6 +41,8 @@
   import SlidersHorizontal from "@lucide/svelte/icons/sliders-horizontal";
   import Star from "@lucide/svelte/icons/star";
   import CommandPalette from "$lib/components/command-palette.svelte";
+  import BugReportDialog from "$lib/components/bug-report-dialog.svelte";
+  import { issueReport } from "$lib/components/issue-report.svelte.ts";
   import TimeKeeperChip from "$lib/time/time-keeper-chip.svelte";
   import VersionChip from "$lib/versions/version-chip.svelte";
   import { MaturityBadge, MaturityDot } from "@magna-carta/design-system/maturity";
@@ -563,3 +565,10 @@
 {/if}
 
 <CommandPalette bind:open={paletteOpen} sidebarCollapsed={collapsed} />
+
+<!-- The issue reporter, mounted ONCE for the whole signed-in app. Every door into it — the profile
+     menu, the command palette, the Build Information panel — is a surface that closes as it opens
+     the dialog, and a dialog parented to one of those goes down with it (see
+     $lib/components/issue-report.svelte.ts). The shell outlives all three, so it holds the dialog
+     and they hold nothing but the gesture. -->
+<BugReportDialog bind:open={issueReport.isOpen} deployment={issueReport.deployment} />
