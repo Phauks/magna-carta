@@ -30,9 +30,9 @@ not](#what-a-roll-up-is-not).
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 312 | 46% |
+| Done | shipped | 313 | 46% |
 | Part-built | partial, in-build | 123 | 18% |
-| Ahead | designed, planned, researching, not-started | 201 | 30% |
+| Ahead | designed, planned, researching, not-started | 200 | 30% |
 | Parked | deferred, cut | 41 | 6% |
 | **All units of work** | | **677** | **100%** |
 
@@ -40,13 +40,13 @@ not](#what-a-roll-up-is-not).
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 312 | 46% |
+| `shipped` | 313 | 46% |
 | `partial` | 123 | 18% |
 | `in-build` | 0 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
-| `not-started` | 135 | 20% |
+| `not-started` | 134 | 20% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 0% |
 | **All statuses** | **677** | **100%** |
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 312 of 677 (46%). Shipped plus partial is 435 (64%).**
+**Shipped alone is 313 of 677 (46%). Shipped plus partial is 436 (64%).**
 
 The 123 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**435 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**436 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 97 | 22% |
+| A person can open it today (`screen`) | 98 | 23% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 158 | 36% |
-| No user surface by nature (`internal`) | 180 | 42% |
+| No user surface by nature (`internal`) | 180 | 41% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **435** | **100%** |
+| **Everything with something built** | **436** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -95,7 +95,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 
 | Area | `shipped` | `partial` | `in-build` | `designed` | `planned` | `researching` | `not-started` | `deferred` | `cut` | Total | Shipped |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| AI & Inference | 17 | 5 | 0 | 0 | 0 | 1 | 4 | 3 | 0 | 30 | 57% |
+| AI & Inference | 18 | 5 | 0 | 0 | 0 | 1 | 3 | 3 | 0 | 30 | 60% |
 | Authentication, Access Control & Encryption | 13 | 5 | 0 | 0 | 0 | 0 | 5 | 3 | 0 | 26 | 50% |
 | Calendar and Rules-Based Docketing | 13 | 1 | 0 | 0 | 0 | 1 | 4 | 0 | 0 | 19 | 68% |
 | Communications Layer | 5 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 17 | 29% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 13 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 20 | 65% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **312** | **123** | **0** | **46** | **15** | **5** | **135** | **38** | **3** | **677** | **46%** |
+| **All areas** | **313** | **123** | **0** | **46** | **15** | **5** | **134** | **38** | **3** | **677** | **46%** |
 
 ## Where we have been
 
@@ -395,7 +395,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### AI & Inference
 
-[`roadmap.d/ai.md`](../roadmap.d/ai.md) — 30 units of work, 57% shipped. 17 done, 5 part-built, 5 ahead, 3 parked.
+[`roadmap.d/ai.md`](../roadmap.d/ai.md) — 30 units of work, 60% shipped. 18 done, 5 part-built, 4 ahead, 3 parked.
 
 - `ai` · `partial` · **AI / inference** — Single credential-less model chokepoint owning confidentiality, tenant isolation, and fairness; AI-text detection; consent gate before any feature sends privileged content to a model.
   - `ai.inference` · `shipped` · **Inference chokepoint (@magna-carta/inference)** — Every AI feature reaches the model through one pure package; no feature talks to the gateway directly.
@@ -404,7 +404,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `ai.inference.model-catalog` · `shipped` · **Curated ZDR-only model catalog** — In-repo data table of allowed models; every reasoning entry zdrEligible, zod-validated at module load; non-ZDR models unrepresentable. Each entry also records the provider's published lifecycle facts (retirement date, successor) under a verification date separate from the confidentiality one, and the FORM the provider publishes its pinned snapshot in, so a snapshot id that contradicts its own form fails at import rather than reaching a provenance record.
     - `ai.inference.reasoning-tier` · `shipped` · **Evergreen reasoning tier** — A platform-maintained tier name (most-capable / balanced) that the firm default and deploy configuration resolve through, so tracking model advancement is a data edit rather than a code change. An override can only ever select a model already curated in the catalog, so non-ZDR models stay unrepresentable. _Note: Which model occupies each tier is unchanged from what the platform already ran; moving a tier onto a published successor is an open owner decision._
     - `ai.inference.pin-freshness` · `shipped` · **Model-pin staleness detection** — A pure pass over the catalog that reports a pin past its published retirement, approaching one, superseded by a newer generation, or overdue for re-verification. Expiry fails the gate; the rest is reported. Cannot detect a successor released since the last check — that gap is bounded by the re-read interval, not closed.
-    - `ai.inference.firm-model-selection` · `partial` · **Per-firm reasoning-model selection** — Firm's primary reasoning model in the per-firm setting table; schema refined over the ZDR-eligible subset; total reads with safe default derived from the platform tier rather than a literal model id. _Note: Partial because nothing SELECTS. A control that wrote a model id would silently convert a firm that follows the platform's reasoning tier into one pinned to today's occupant of it, which is the asymmetry packages/inference/src/settings.ts deliberately preserves; selection wants a setting that can express the tier itself._
+    - `ai.inference.firm-model-selection` · `shipped` · **Per-firm reasoning-model selection** — Firm's primary reasoning model in the per-firm setting table; schema refined over the ZDR-eligible subset; total reads with safe default derived from the platform tier rather than a literal model id; chosen on the firm's AI settings screen from the catalog's verified roster, or returned to following the platform. _Note: The two postures stay legible because following is the ABSENCE of a row: choosing the platform's option never writes today's default. No runtime source lists models (neither the Workers AI binding nor the AI Gateway REST API enumerates them), so the roster is the catalog and the page states its date and that the freshness pass keeps it current._
     - `ai.inference.confidentiality` · `shipped` · **Confidentiality control plane** — Gateway-level ZDR, collectLog false and skipCache true pinned per request, fail-closed pre-dispatch ZDR guard that rejects rather than downgrades. _Note: Cloudflare/Anthropic ZDR procurement artifacts gate the first real AI feature, not this layer._
     - `ai.inference.tenant-isolation` · `shipped` · **Tenant isolation & metering** — Firm metadata derived server-side (never caller-supplied); authoritative per-request token usage written through the firm-scoped data-access layer as the reconcilable metering record.
     - `ai.inference.fairness` · `partial` · **Multi-tenant fairness** — One shared gateway per environment; queue-dispatched inference off the hot path; firm-scoped spend rule and account credit alarm as real-time guardrails.
@@ -423,8 +423,8 @@ to change a line here, edit the node in its area file and re-run the build.
     - `ai.magnus.port-reuse` · `shipped` · **One model port, one additive operation** — No second model port — the assistant consumes the shipped InferencePort and adds generateConversation, with a platform-vocabulary role set and a structurally separate system prompt.
     - `ai.magnus.stub-adapter` · `shipped` · **Deterministic stub InferencePort** — A complete, network-free implementation of the port that every AI feature inherits; the composition root resolves to it whenever the binding or the enabling configuration is absent.
     - `ai.magnus.streaming` · `not-started` · **Token streaming** — Delta frames on the push-progress protocol, a protocol version bump, and partial-content semantics for a stream that dies mid-answer.
-    - `ai.magnus.interface` · `partial` · **Assistant interface** — The in-app conversation surface in its two homes, and the member disclosure. The sidebar destination is the member's own workspace across everything; the matter section is one matter's file of transcripts. One surface serves both and they differ in scope and framing, not in capability. _Note: Partial because the surface polls the turn rather than holding the events socket; the socket lands with token streaming, where a frame can carry a partial answer. The firm-administrator enablement screen it used to wait on has landed — see ai.magnus.firm-enablement — so a firm's closed state is now a state the firm chose rather than one it could not leave._
-    - `ai.magnus.context` · `not-started` · **Explicit per-conversation context grants** — What the assistant can see beyond what the member typed. The shape is settled — the member attaches a named document or matter and can see exactly what was attached; implicit firm-wide retrieval is not on this path and would need a consent decision of its own.
+    - `ai.magnus.interface` · `partial` · **Assistant interface** — The in-app conversation surface in its two homes, and the member disclosure. The sidebar destination is the member's own workspace across everything; the matter section is one matter's file of transcripts. One surface serves both and they differ in scope and framing, not in capability. _Note: Partial because the surface polls the turn rather than holding the events socket; the socket lands with token streaming, where a frame can carry a partial answer. The workspace's two sides are the design system's NavigationLayout, its second consumer after Settings._
+    - `ai.magnus.context` · `partial` · **Explicit per-conversation context grants** — What the assistant can see beyond what the member typed. The shape is settled — the member attaches a named document and can see exactly what was attached, and what became of it; implicit firm-wide retrieval is not on this path and would need a consent decision of its own. _Note: Partial because a grant is a document, not a matter, a calendar or a directory entry, and because the extraction runs on every question rather than once — a cached extraction is a named seam waiting on its retention posture._
     - `ai.magnus.actions` · `deferred` · **Tools and actions** — Propose-and-approve only, where a tool proposes, a member approves, and the approval is the audited act.
   - `ai.natural-language-search` · `partial` · **Natural-language document search** — A retrieval-only question-and-answer search over a firm's own committed working documents, on a Cloudflare AI Search instance per firm fed by a derived text feed. Passages with their citations, never composed prose; matter-scoped, with the metadata filter treated as a recall optimization and read-time re-authorization through the firm-scoped data-access layer as the boundary. _Note: The route is blocked on the ethical-wall filter experiment's E1 and E2 — the protocol is built and sensitivity-proven, and the live run against a fenced account has not been executed._
     - `ai.natural-language-search.consent` · `shipped` · **Consent gate and versioned disclosure** — A firm setting defaulting off, openable only against a current-version firm-level disclosure acknowledgement recorded with its acceptor, plus a per-matter exclusion that deletes the matter's existing feed objects rather than only stopping new ones.

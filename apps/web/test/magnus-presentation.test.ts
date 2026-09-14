@@ -14,14 +14,25 @@
 import { describe, expect, it } from "vitest";
 import {
   ANSWER_SLOW_AFTER_MILLISECONDS,
+  CONVERSATION_SORTS,
   TURN_FAILURE_LABELS,
   TURN_FAILURE_SENTENCES,
   conversationDisplayName,
   conversationStartedLine,
   turnFailureSentence,
+  type MagnusAttachment,
   type MagnusConversation,
   type MagnusTurn,
 } from "../src/lib/magnus/magnus-api.ts";
+import {
+  CONVERSATION_SORT_LABELS,
+  answeringModelLine,
+  attachmentName,
+  attachmentStatusSentence,
+  composerDisclosureLine,
+  offeredSorts,
+  sortControlLabel,
+} from "../src/lib/magnus/magnus-vocabulary.ts";
 
 const STARTED_AT = "2026-03-04T14:05:00.000Z";
 
@@ -93,6 +104,81 @@ describe("the line beneath a conversation's name", () => {
     // conversation's last activity and the line never offers it as one.
     const renamedLater = conversation(null, "2026-04-01T09:00:00.000Z");
     expect(conversationStartedLine(renamedLater)).toBeNull();
+  });
+});
+
+describe("how the rail is ordered", () => {
+  it("offers date, name and matter in the workspace, and no matter order inside a matter", () => {
+    expect(offeredSorts({ onMatter: false })).toEqual(["date", "name", "matter"]);
+    expect(offeredSorts({ onMatter: true })).toEqual(["date", "name"]);
+  });
+
+  it("names every order the wire accepts", () => {
+    for (const sort of CONVERSATION_SORTS) {
+      expect(CONVERSATION_SORT_LABELS[sort].length).toBeGreaterThan(0);
+    }
+    expect(sortControlLabel("date")).toBe("Sort: Date");
+  });
+});
+
+describe("what the composer says about what leaves the platform", () => {
+  it("says only-what-you-type until a file is attached, then counts the files", () => {
+    expect(composerDisclosureLine({ onMatter: false, attachmentCount: 0 })).toBe(
+      "Magnus reads only what you type in this conversation.",
+    );
+    expect(composerDisclosureLine({ onMatter: false, attachmentCount: 1 })).toContain(
+      "the one file attached",
+    );
+    expect(composerDisclosureLine({ onMatter: false, attachmentCount: 3 })).toContain(
+      "the 3 files attached",
+    );
+  });
+
+  it("inside a matter, still says the matter itself is not read", () => {
+    const line = composerDisclosureLine({ onMatter: true, attachmentCount: 2 });
+    expect(line).toContain("does not let Magnus read the matter");
+  });
+
+  it("names the model that answers, and says when the firm's choice is gone", () => {
+    expect(answeringModelLine({ modelId: "anthropic/model", zeroDataRetention: true })).toBe(
+      "Answered by anthropic/model, which keeps nothing that is sent to it.",
+    );
+    expect(answeringModelLine(null)).toContain("no longer carried");
+    expect(answeringModelLine(undefined)).toBe("");
+  });
+});
+
+describe("what an attachment says about what the model saw", () => {
+  const attachment = (
+    textStatus: MagnusAttachment["textStatus"],
+    overrides: Partial<MagnusAttachment> = {},
+  ): MagnusAttachment => ({
+    fileId: "file-1",
+    name: "lease.pdf",
+    matterId: "matter-1",
+    attachedAt: STARTED_AT,
+    textStatus,
+    textBytes: null,
+    ...overrides,
+  });
+
+  it("has words for every status the wire can carry, and none says something went wrong", () => {
+    for (const status of ["pending", "sent", "cut", "unreadable"] as const) {
+      const sentence = attachmentStatusSentence(attachment(status, { textBytes: 4096 }));
+      expect(sentence.length).toBeGreaterThan(0);
+      expect(sentence.toLowerCase()).not.toContain("something went wrong");
+      expect(sentence).not.toContain("—");
+    }
+  });
+
+  it("states how much of a cut file reached the model", () => {
+    expect(attachmentStatusSentence(attachment("cut", { textBytes: 65536 }))).toContain("64 KB");
+  });
+
+  it("names a deleted file honestly rather than by a name that no longer resolves", () => {
+    const deleted = attachment("unreadable", { name: null });
+    expect(attachmentName(deleted)).toBe("A deleted file");
+    expect(attachmentStatusSentence(deleted)).toContain("deleted");
   });
 });
 

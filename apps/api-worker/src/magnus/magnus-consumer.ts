@@ -3,14 +3,27 @@ import {
   inferenceDedupStatements,
   tokenUsageCommitStatements,
 } from "@magna-carta/data-access/token-usage-statements";
-import type { FirmId, MagnusConversationId, MagnusTurnId } from "@magna-carta/identifiers/types";
+import type {
+  FileId,
+  FirmId,
+  MagnusConversationId,
+  MagnusTurnId,
+} from "@magna-carta/identifiers/types";
 import { catalogEntryFor } from "@magna-carta/inference/catalog";
 import { MAGNUS_SYSTEM_PROMPT } from "@magna-carta/magnus/system-prompt";
-import { readRecentTurns, readTurn } from "@magna-carta/magnus/statements";
+import {
+  markAttachmentTextStatement,
+  readRecentTurns,
+  readTurn,
+} from "@magna-carta/magnus/statements";
 import { completeTurn, settleTurnFailure } from "@magna-carta/magnus/turn";
 import type { MagnusWriteContext } from "@magna-carta/magnus/audit";
-import type { TurnFailureLabel } from "@magna-carta/magnus/types";
-import { buildConversationWindow, WINDOW_MAX_TURNS } from "@magna-carta/magnus/window";
+import type { AttachmentTextStatus, TurnFailureLabel } from "@magna-carta/magnus/types";
+import {
+  buildConversationWindow,
+  WINDOW_MAX_TURNS,
+  type WindowAttachmentOutcome,
+} from "@magna-carta/magnus/window";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
@@ -18,6 +31,12 @@ import type { Bindings } from "../app.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
 import { firmRateGate, tokenUsageKeyForDay } from "../inference/inference-consumer.ts";
 import { resolveReasoningModel } from "../inference/call-site.ts";
+import {
+  resolveAttachmentTextReader,
+  windowAttachmentsFrom,
+  type AttachmentTextReader,
+  type ReadAttachment,
+} from "./attachment-text.ts";
 import { resolveMagnusFirmGates } from "./consent.ts";
 import { resolveMagnusInferencePort } from "./inference-port-binding.ts";
 import type { MagnusTurnJob } from "./magnus-types.ts";
@@ -84,7 +103,38 @@ async function broadcast(env: Bindings, job: MagnusTurnJob): Promise<void> {
   await conversation.notifyTurnTransition();
 }
 
-export async function handleMagnusTurnJob(env: Bindings, job: MagnusTurnJob): Promise<void> {
+// What the attachment rows are told after a question: whole, cut, or nothing. A file the reader
+// could not read at all is `unreadable`; one that read but did not fit is `cut`; one that read but
+// got no room because the files before it spent the budget is `unreadable` too, from the member's
+// side — nothing of it reached the model — and the surface's sentence says why per status.
+function attachmentStatuses(
+  read: readonly ReadAttachment[],
+  outcomes: readonly WindowAttachmentOutcome[],
+): readonly { fileId: string; status: AttachmentTextStatus; bytes: number | null }[] {
+  return read.map((attachment) => {
+    const outcome = outcomes.find((candidate) => candidate.fileId === attachment.fileId);
+    if (outcome === undefined || outcome.sent === "none") {
+      return { fileId: attachment.fileId, status: "unreadable", bytes: null };
+    }
+    return {
+      fileId: attachment.fileId,
+      status: outcome.sent === "whole" ? "sent" : "cut",
+      bytes: outcome.bytes,
+    };
+  });
+}
+
+export interface MagnusConsumerPorts {
+  // The reader of attached files' text. Injectable because the production reader reaches the firm's
+  // bucket and the extraction engines, neither of which a unit of the consumer's own logic needs.
+  readonly attachments?: AttachmentTextReader;
+}
+
+export async function handleMagnusTurnJob(
+  env: Bindings,
+  job: MagnusTurnJob,
+  ports: MagnusConsumerPorts = {},
+): Promise<void> {
   const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, job.firmId);
 
   // The re-bill stop, first half: a redelivery that finds the turn already settled returns BEFORE the
@@ -113,8 +163,16 @@ export async function handleMagnusTurnJob(env: Bindings, job: MagnusTurnJob): Pr
     job.conversationId as MagnusConversationId,
     WINDOW_READ_LIMIT,
   );
+  // The attached files' readable text, read fresh for this question and kept nowhere else. It rides
+  // the newest member turn under its own budget (packages/magnus/src/window.ts says how).
+  const attachmentReader =
+    ports.attachments ?? resolveAttachmentTextReader(env, job.firmId, firmDatabase);
+  const readAttachments = await attachmentReader.readAll(
+    job.conversationId as MagnusConversationId,
+  );
   const window = buildConversationWindow(priorTurns, {
     readWasCapped: priorTurns.length >= WINDOW_READ_LIMIT,
+    attachments: windowAttachmentsFrom(readAttachments),
   });
   if (window.messages.length === 0) {
     // Nothing to answer — the member turn this job refers to is gone (a deleted conversation racing
@@ -181,6 +239,16 @@ export async function handleMagnusTurnJob(env: Bindings, job: MagnusTurnJob): Pr
     {
       statements: [
         ...completion.effect.statements,
+        // What became of each attachment's text, recorded beside the answer it was sent with, so the
+        // conversation can say per file whether the model saw it.
+        ...attachmentStatuses(readAttachments, window.attachments).map((attachment) =>
+          markAttachmentTextStatement(firmDatabase, {
+            conversationId: job.conversationId as MagnusConversationId,
+            fileId: attachment.fileId as FileId,
+            textStatus: attachment.status,
+            textBytes: attachment.bytes,
+          }),
+        ),
         ...tokenUsageCommitStatements(
           firmDatabase,
           tokenUsageKeyForDay(nowIso, slot, modelId),

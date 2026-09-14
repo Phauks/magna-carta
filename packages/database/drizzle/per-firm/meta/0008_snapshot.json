@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "0a8ea7f2-4020-490c-bc14-46691e4a3dad",
+  "id": "9d56f4d4-ad35-4745-ab58-322f7e83fa7f",
   "prevId": "9b62787f-59e3-427b-ab39-352316b9bb01",
   "tables": {
     "account_balance": {
@@ -1218,153 +1218,6 @@
         }
       }
     },
-    "conflicts_check_run": {
-      "name": "conflicts_check_run",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "numbered_check_id": {
-          "name": "numbered_check_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "ordinal": {
-          "name": "ordinal",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "stage": {
-          "name": "stage",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "progress_json": {
-          "name": "progress_json",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "request_json": {
-          "name": "request_json",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "trigger": {
-          "name": "trigger",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "trigger_source": {
-          "name": "trigger_source",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "requested_by_user_id": {
-          "name": "requested_by_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "started_at": {
-          "name": "started_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "heartbeat_at": {
-          "name": "heartbeat_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "finished_at": {
-          "name": "finished_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "failure": {
-          "name": "failure",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "conflicts_check_run_check_ordinal_unique_index": {
-          "name": "conflicts_check_run_check_ordinal_unique_index",
-          "columns": [
-            "numbered_check_id",
-            "ordinal"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "conflicts_check_run_numbered_check_id_conflicts_numbered_check_id_fk": {
-          "name": "conflicts_check_run_numbered_check_id_conflicts_numbered_check_id_fk",
-          "tableFrom": "conflicts_check_run",
-          "tableTo": "conflicts_numbered_check",
-          "columnsFrom": [
-            "numbered_check_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "conflicts_check_run_status_check": {
-          "name": "conflicts_check_run_status_check",
-          "value": "\"conflicts_check_run\".\"status\" IN ('queued', 'running', 'completed', 'failed')"
-        },
-        "conflicts_check_run_ordinal_check": {
-          "name": "conflicts_check_run_ordinal_check",
-          "value": "\"conflicts_check_run\".\"ordinal\" > 0"
-        }
-      }
-    },
     "conflicts_disposition": {
       "name": "conflicts_disposition",
       "columns": {
@@ -1596,113 +1449,6 @@
         "conflicts_hit_source_class_check": {
           "name": "conflicts_hit_source_class_check",
           "value": "\"conflicts_hit\".\"source_class\" IN ('party', 'graph', 'imputation', 'content')"
-        }
-      }
-    },
-    "conflicts_numbered_check": {
-      "name": "conflicts_numbered_check",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "check_sequence": {
-          "name": "check_sequence",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "check_number": {
-          "name": "check_number",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "subject_matter_id": {
-          "name": "subject_matter_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "latest_run_id": {
-          "name": "latest_run_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_by_user_id": {
-          "name": "created_by_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "conflicts_numbered_check_sequence_unique_index": {
-          "name": "conflicts_numbered_check_sequence_unique_index",
-          "columns": [
-            "check_sequence"
-          ],
-          "isUnique": true
-        },
-        "conflicts_numbered_check_number_unique_index": {
-          "name": "conflicts_numbered_check_number_unique_index",
-          "columns": [
-            "check_number"
-          ],
-          "isUnique": true
-        },
-        "conflicts_numbered_check_matter_created_index": {
-          "name": "conflicts_numbered_check_matter_created_index",
-          "columns": [
-            "subject_matter_id",
-            "created_at",
-            "id"
-          ],
-          "isUnique": false
-        },
-        "conflicts_numbered_check_created_id_index": {
-          "name": "conflicts_numbered_check_created_id_index",
-          "columns": [
-            "created_at",
-            "id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "conflicts_numbered_check_sequence_check": {
-          "name": "conflicts_numbered_check_sequence_check",
-          "value": "\"conflicts_numbered_check\".\"check_sequence\" > 0"
-        },
-        "conflicts_numbered_check_number_check": {
-          "name": "conflicts_numbered_check_number_check",
-          "value": "length(\"conflicts_numbered_check\".\"check_number\") > 0"
         }
       }
     },
@@ -12757,6 +12503,92 @@
         "magnus_conversation_state_check": {
           "name": "magnus_conversation_state_check",
           "value": "\"magnus_conversation\".\"state\" IN ('active', 'archived', 'deleted')"
+        }
+      }
+    },
+    "magnus_conversation_attachment": {
+      "name": "magnus_conversation_attachment",
+      "columns": {
+        "conversation_id": {
+          "name": "conversation_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "file_id": {
+          "name": "file_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "attached_at": {
+          "name": "attached_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "text_status": {
+          "name": "text_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'pending'"
+        },
+        "text_bytes": {
+          "name": "text_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "magnus_conversation_attachment_conversation_id_magnus_conversation_id_fk": {
+          "name": "magnus_conversation_attachment_conversation_id_magnus_conversation_id_fk",
+          "tableFrom": "magnus_conversation_attachment",
+          "tableTo": "magnus_conversation",
+          "columnsFrom": [
+            "conversation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "magnus_conversation_attachment_file_id_file_id_fk": {
+          "name": "magnus_conversation_attachment_file_id_file_id_fk",
+          "tableFrom": "magnus_conversation_attachment",
+          "tableTo": "file",
+          "columnsFrom": [
+            "file_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "magnus_conversation_attachment_conversation_id_file_id_pk": {
+          "columns": [
+            "conversation_id",
+            "file_id"
+          ],
+          "name": "magnus_conversation_attachment_conversation_id_file_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "magnus_conversation_attachment_text_status_check": {
+          "name": "magnus_conversation_attachment_text_status_check",
+          "value": "\"magnus_conversation_attachment\".\"text_status\" IN ('pending', 'sent', 'cut', 'unreadable')"
         }
       }
     },

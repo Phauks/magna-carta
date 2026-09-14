@@ -4980,7 +4980,14 @@ export type MagnusAvailability = {
     state: 'open' | 'firm-ineligible' | 'feature-disabled' | 'acknowledgement-required';
     disclosureVersion?: number;
     remainingDailyTurns?: number;
+    model?: MagnusAnsweringModel;
 };
+
+export type MagnusAnsweringModel = {
+    modelId: string;
+    snapshotId: string;
+    zeroDataRetention: boolean;
+} | null;
 
 export type MagnusAcknowledgement = {
     disclosureVersion: number;
@@ -5013,6 +5020,7 @@ export type MagnusConversationDetail = {
         data: Array<MagnusTurn>;
         nextCursor: string | null;
     };
+    attachments: Array<MagnusConversationAttachment>;
 };
 
 export type MagnusTurn = {
@@ -5029,8 +5037,25 @@ export type MagnusTurn = {
     completedAt: string | null;
 };
 
+export type MagnusConversationAttachment = {
+    fileId: string;
+    name: string | null;
+    matterId: string | null;
+    attachedAt: string;
+    textStatus: 'pending' | 'sent' | 'cut' | 'unreadable';
+    textBytes: number | null;
+};
+
 export type MagnusRenameConversationRequest = {
     title: string | null;
+};
+
+export type MagnusMoveConversationRequest = {
+    matterId: string | null;
+};
+
+export type MagnusAttachFileRequest = {
+    fileId: string;
 };
 
 export type MagnusSubmitTurnResponse = {
@@ -7579,6 +7604,11 @@ export type FirmAiSettingsResponse = {
         eligible: boolean;
     };
     model: AiModelFacts;
+    models: Array<AiModelChoice>;
+    catalog: {
+        version: number;
+        effectiveDate: string;
+    };
     magnus: {
         enabled: boolean;
         dailyTurnCeiling: number;
@@ -7590,11 +7620,27 @@ export type AiModelFacts = {
     snapshotId: string;
     zeroDataRetention: boolean;
     noTraining: boolean;
+    selection: 'platform' | 'chosen';
 } | null;
+
+export type AiModelChoice = {
+    modelId: string;
+    snapshotId: string;
+    zeroDataRetention: boolean;
+    noTraining: boolean;
+    verifiedOn: string;
+    availabilityVerifiedOn: string;
+    retirementNotBefore: string | null;
+    tier: string | null;
+    platformDefault: boolean;
+};
 
 export type PatchFirmAiSettingsRequest = {
     aiProcessing?: {
         eligible?: boolean;
+    };
+    model?: {
+        modelId: string | null;
     };
     magnus?: {
         enabled?: boolean;
@@ -25558,6 +25604,7 @@ export type MagnusListConversationsData = {
         cursor?: string;
         scope?: 'own' | 'firm';
         matterId?: string;
+        sort?: 'date' | 'name' | 'matter';
     };
     url: '/api/v1/magnus/conversations';
 };
@@ -25802,6 +25849,157 @@ export type MagnusRenameConversationResponses = {
 };
 
 export type MagnusRenameConversationResponse = MagnusRenameConversationResponses[keyof MagnusRenameConversationResponses];
+
+export type MagnusMoveConversationData = {
+    body: MagnusMoveConversationRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        conversationId: string;
+    };
+    query?: never;
+    url: '/api/v1/magnus/conversations/{conversationId}/matter';
+};
+
+export type MagnusMoveConversationErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission, or the firm has not opted in
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The target matter is closed, is the platform's own, or does not exist
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MagnusMoveConversationError = MagnusMoveConversationErrors[keyof MagnusMoveConversationErrors];
+
+export type MagnusMoveConversationResponses = {
+    /**
+     * The conversation is now kept where the request said
+     */
+    200: MagnusConversation;
+};
+
+export type MagnusMoveConversationResponse = MagnusMoveConversationResponses[keyof MagnusMoveConversationResponses];
+
+export type MagnusAttachFileData = {
+    body: MagnusAttachFileRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        conversationId: string;
+    };
+    query?: never;
+    url: '/api/v1/magnus/conversations/{conversationId}/attachments';
+};
+
+export type MagnusAttachFileErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission, or the firm has not opted in
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The conversation is on no matter, the file is not one of that matter's, or the conversation already carries as many files as it may
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MagnusAttachFileError = MagnusAttachFileErrors[keyof MagnusAttachFileErrors];
+
+export type MagnusAttachFileResponses = {
+    /**
+     * The file is attached; the conversation's attachments after the write
+     */
+    201: Array<MagnusConversationAttachment>;
+};
+
+export type MagnusAttachFileResponse = MagnusAttachFileResponses[keyof MagnusAttachFileResponses];
+
+export type MagnusDetachFileData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        conversationId: string;
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/v1/magnus/conversations/{conversationId}/attachments/{fileId}';
+};
+
+export type MagnusDetachFileErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission, or the firm has not opted in
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MagnusDetachFileError = MagnusDetachFileErrors[keyof MagnusDetachFileErrors];
+
+export type MagnusDetachFileResponses = {
+    /**
+     * The file is no longer attached; the conversation's attachments after the write
+     */
+    200: Array<MagnusConversationAttachment>;
+};
+
+export type MagnusDetachFileResponse = MagnusDetachFileResponses[keyof MagnusDetachFileResponses];
 
 export type MagnusSubmitTurnData = {
     body: MagnusSubmitTurnRequest;

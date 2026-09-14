@@ -6,7 +6,9 @@ There are two places to reach it, and which one you use decides where the conver
 ## The Two Places
 
 **Magnus in the sidebar** is yours. Every conversation you have had is listed there, newest first,
-and a new one starts attached to no matter. Use it for anything that is not about one file.
+and a new one starts attached to no matter. Use it for anything that is not about one file. The
+list sorts by date, by name, or by the matter each conversation is kept on: the control at the top
+of the list, which is there even before you have asked anything.
 
 **Magnus inside a matter** — the **Magnus** tab on the matter — keeps the conversation on that
 matter's file. It lists the conversations belonging to that matter and nothing else, and anything you
@@ -18,14 +20,33 @@ underneath it. It is one conversation read from two directions, not two copies.
 
 ## What Magnus Can See
 
-**Only what you type in that conversation.** This is the part worth reading twice.
+**What you type in that conversation, and the text of the files you attach to it.** This is the
+part worth reading twice.
 
-Magnus does not read your files, your calendar, your directory, or the matter you are standing in. A
-conversation attached to a matter is _filed_ on that matter — that is a record-keeping fact about
-where the transcript lives. It does not hand Magnus the matter. If you ask "what is the deadline on
-this", it has no way to know, and it will answer from nothing.
+Magnus does not read your calendar, your directory, or the matter you are standing in. A
+conversation kept on a matter is kept on that matter's record: that is a fact about where the
+transcript lives. It does not hand Magnus the matter. If you ask "what is the deadline on this", it
+has no way to know, and it will answer from nothing.
 
-So if you want Magnus to work with something, put it in your message.
+So if you want Magnus to work with something, put it in your message, or attach the file.
+
+## Attaching a File
+
+Inside a conversation kept on a matter, **Attach a File** offers the matter's own files. Attaching
+one does not copy it anywhere: from then on, each question you send is preceded by the readable text
+of the file, under a heading naming it, and Magnus answers with that text in front of it. A file's
+text is sent up to a limit; a long file is cut at the limit and the message says so, and beside each
+attached file the conversation tells you what happened on your last question:
+
+- **Sent whole** — Magnus saw the whole file.
+- **Only the first part fit** — the rest was not sent; ask about the part that did, or attach less.
+- **No readable text** — a scan with no words in it, an encrypted file, or a format the platform
+  cannot read; Magnus saw nothing of it.
+
+A conversation kept on no matter has no files to reach, and the button says so. Taking a file off
+the conversation stops it being sent; nothing needs erasing, because nothing was copied. Keeping a
+conversation on a different matter takes every attached file off it, because they belong to the
+matter it was on.
 
 ## What Magnus Can Do
 
@@ -43,7 +64,7 @@ is the same standard you would apply to a memo from someone whose work you have 
 The first time you open Magnus you are shown a short disclosure and asked to accept it. It says what
 is on this page: what leaves the platform, what Magnus can see, what it can do, that transcripts are
 kept, and that it can be wrong. You accept it once. If it changes in a way that matters, you are
-asked again.
+asked again: when Magnus gained the ability to read attached files, everybody was asked once more.
 
 ## What Happens to What You Type
 
@@ -59,7 +80,7 @@ Inside the firm, **the transcript is a firm record**, like any other work you do
 - You can delete a conversation. That removes it and everything in it. It is the only way to remove
   what was typed, so deleting is whole conversations rather than single messages.
 
-If a matter is subject to a legal hold or a retention rule, the conversations filed on it are covered
+If a matter is subject to a legal hold or a retention rule, the conversations kept on it are covered
 by the same rule as the rest of that file.
 
 ## While You Wait
@@ -82,9 +103,25 @@ with the most recent part only, so if the dropped part mattered, say it again.
 
 ## Naming a Conversation
 
-A conversation you have not named shows the time it started. Rename it to anything you like. Magnus
-never names one for you — it would have to read the conversation to do that, and a title guessed from
-a client's confidence is not something to leave lying in a list.
+A conversation you have not named shows the time it started. Click its name, or the pencil beside
+it, type the new name, and press Enter; Escape puts the old name back, and clicking away keeps what
+you typed. If the rename does not go through, the old name stays and the conversation says so.
+Magnus never names one for you — it would have to read the conversation to do that, and a title
+guessed from a client's confidence is not something to leave lying in a list.
+
+## Keeping a Conversation on a Matter
+
+A conversation started in the sidebar can be kept on a matter afterwards, and one kept on a matter
+can be moved to another or taken off every matter: the folder control beside the conversation's
+name. The confirmation says the one thing to know before pressing it: **where a conversation is kept
+decides who can read it.** On a matter, the transcript is part of that matter's file; on none, it is
+yours and the firm's supervisors' alone. Keeping it on a matter still does not let Magnus read the
+matter. A closed matter cannot take a conversation; reopen it first or choose another.
+
+## Which Model Answers
+
+The line above the message box names the model that answers your questions, which is the model your
+firm chose in its AI settings. Every model the firm can choose keeps nothing that is sent to it.
 
 ## If Magnus Is Not There
 

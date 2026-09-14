@@ -61,6 +61,13 @@
     {
       "idx": 8,
       "version": "6",
+      "when": 1789084800000,
+      "tag": "20260911T000000_magnus-conversation-attachment",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
       "when": 1789128000000,
       "tag": "20260911T120000_conflicts-check-numbers-and-runs",
       "breakpoints": true
