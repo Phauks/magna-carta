@@ -3161,7 +3161,7 @@ export const scanMatterMutation = (options?: Partial<Options<ScanMatterData>>): 
 export const filesScansQueryKey = (options: Options<FilesScansData>) => createQueryKey('filesScans', options);
 
 /**
- * A file's safety history: every intake scan, re-scan, quarantine and re-scan request recorded against any of its versions, newest first, each with the verdict, engine and detail as recorded when it happened.
+ * A file's safety history: every intake scan, re-scan, quarantine and re-scan request recorded against any of its versions, newest first, each with the verdict, engine and detail as recorded when it happened, and whether a request reached the scan queue. Carries the firm's current scan settings alongside, which describe the firm today rather than any one check.
  */
 export const filesScansOptions = (options: Options<FilesScansData>) => queryOptions<FilesScansResponse, FilesScansError, FilesScansResponse, ReturnType<typeof filesScansQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {

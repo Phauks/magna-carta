@@ -1428,7 +1428,7 @@ export const uploadReadinessCheck = <ThrowOnError extends boolean = false>(optio
 export const scanMatter = <ThrowOnError extends boolean = false>(options: Options<ScanMatterData, ThrowOnError>): RequestResult<ScanMatterResponses, ScanMatterErrors, ThrowOnError> => (options.client ?? client).post<ScanMatterResponses, ScanMatterErrors, ThrowOnError>({ url: '/api/v1/scan/matter/{id}', ...options });
 
 /**
- * A file's safety history: every intake scan, re-scan, quarantine and re-scan request recorded against any of its versions, newest first, each with the verdict, engine and detail as recorded when it happened.
+ * A file's safety history: every intake scan, re-scan, quarantine and re-scan request recorded against any of its versions, newest first, each with the verdict, engine and detail as recorded when it happened, and whether a request reached the scan queue. Carries the firm's current scan settings alongside, which describe the firm today rather than any one check.
  */
 export const filesScans = <ThrowOnError extends boolean = false>(options: Options<FilesScansData, ThrowOnError>): RequestResult<FilesScansResponses, FilesScansErrors, ThrowOnError> => (options.client ?? client).get<FilesScansResponses, FilesScansErrors, ThrowOnError>({ url: '/api/v1/files/{id}/scans', ...options });
 
