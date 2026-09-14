@@ -32,6 +32,8 @@ const file = (over: Partial<MatterFile> & { id: string }): MatterFile => ({
   status: "clean",
   quarantineReason: null,
   sourceModifiedAt: null,
+  uploadedBy: null,
+  uploadedByName: null,
   ...over,
 });
 

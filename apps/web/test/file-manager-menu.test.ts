@@ -30,6 +30,8 @@ const file = (id: string, over: Partial<MatterFile> = {}): FileManagerRow => ({
     status: "clean",
     quarantineReason: null,
     sourceModifiedAt: null,
+    uploadedBy: null,
+    uploadedByName: null,
     ...over,
   },
 });

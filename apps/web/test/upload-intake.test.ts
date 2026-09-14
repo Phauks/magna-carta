@@ -113,14 +113,16 @@ describe("the tree", () => {
     const rows = intakeRows(ALL, progress, new Set());
     const discovery = rows.find((row) => row.kind === "folder" && row.name === "Discovery");
     expect(discovery).toMatchObject({ uploaded: 1, failed: 1, inFlight: 0 });
-    const status = intakeColumns({ filtering: false, documentTypes: false }).find(
-      (column) => column.id === "status",
-    );
+    const status = intakeColumns({
+      filtering: false,
+      documentTypes: false,
+      nameClashes: false,
+    }).find((column) => column.id === "status");
     expect(status?.value(discovery as IntakeRow)).toBe("1 of 2 uploaded · 1 failed");
   });
 
   it("a folder row reports how many of its files are ready before the transfer runs", () => {
-    const status = intakeColumns({ filtering: false, documentTypes: false }).find(
+    const status = intakeColumns({ filtering: false, documentTypes: false, nameClashes: false }).find(
       (column) => column.id === "status",
     );
     const letterKey = `${LETTER.relativePath} | letter.pdf | 300 | 1700000000000`;
@@ -169,9 +171,11 @@ describe("the tree", () => {
   it("flattens to files alone when asked, which is what a filter wants", () => {
     const rows = intakeRows(ALL, NO_PROGRESS, null);
     expect(rows.every((row) => row.kind === "file" && row.depth === 0)).toBe(true);
-    const folder = intakeColumns({ filtering: true, documentTypes: false }).find(
-      (column) => column.id === "folder",
-    );
+    const folder = intakeColumns({
+      filtering: true,
+      documentTypes: false,
+      nameClashes: false,
+    }).find((column) => column.id === "folder");
     expect(rows.map((row) => folder?.value(row))).toEqual([
       "Discovery / 2024",
       "Discovery",
@@ -186,12 +190,16 @@ describe("the tree", () => {
 });
 
 describe("ordering inside the tree", () => {
-  const nameColumn = intakeColumns({ filtering: false, documentTypes: false }).find(
-    (column) => column.id === "name",
-  ) as GridColumn<IntakeRow>;
-  const sizeColumn = intakeColumns({ filtering: false, documentTypes: false }).find(
-    (column) => column.id === "size",
-  ) as GridColumn<IntakeRow>;
+  const nameColumn = intakeColumns({
+    filtering: false,
+    documentTypes: false,
+    nameClashes: false,
+  }).find((column) => column.id === "name") as GridColumn<IntakeRow>;
+  const sizeColumn = intakeColumns({
+    filtering: false,
+    documentTypes: false,
+    nameClashes: false,
+  }).find((column) => column.id === "size") as GridColumn<IntakeRow>;
   it("sorts siblings by the grid's comparator and keeps every child under its parent", () => {
     const rows = intakeRows(ALL, NO_PROGRESS, new Set(["Discovery", "Discovery/2024"]));
     const descending = orderIntakeRows(rows, comparator(nameColumn, "descending"));
@@ -261,7 +269,7 @@ describe("the document type, per file", () => {
   it("shows each file's own type, and says None where a file carries none", () => {
     const named = new Map([[intakeEntryKey(LETTER), "Correspondence"]]);
     const rows = intakeRows(ALL, NO_PROGRESS, null, (key) => named.get(key) ?? "");
-    const column = intakeColumns({ filtering: true, documentTypes: true }).find(
+    const column = intakeColumns({ filtering: true, documentTypes: true, nameClashes: false }).find(
       (candidate) => candidate.id === "documentType",
     ) as GridColumn<IntakeRow>;
     expect(column).toBeDefined();
@@ -275,9 +283,11 @@ describe("the document type, per file", () => {
   it("is left out of the model entirely where the firm defines no classifications", () => {
     // Out of the model rather than declared hidden: the hidden flag is read once, when the grid is
     // built, so a column declared hidden before the types loaded could never come back.
-    const column = intakeColumns({ filtering: false, documentTypes: false }).find(
-      (candidate) => candidate.id === "documentType",
-    );
+    const column = intakeColumns({
+      filtering: false,
+      documentTypes: false,
+      nameClashes: false,
+    }).find((candidate) => candidate.id === "documentType");
     expect(column).toBeUndefined();
   });
 });

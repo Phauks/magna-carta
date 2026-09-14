@@ -56,3 +56,7 @@ export const fleetSectionPreference = createSectionFold("magna-carta.version-pan
 
 /** The database-health section: the connection to this firm's own data. */
 export const databaseSectionPreference = createSectionFold("magna-carta.version-panel-database");
+
+export const uploadReadinessSectionPreference = createSectionFold(
+  "magna-carta.version-panel-readiness",
+);

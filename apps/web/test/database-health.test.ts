@@ -288,10 +288,10 @@ describe("the panel's two folding sections", () => {
   const preferences = source("lib/versions/version-panel-preferences.svelte.ts");
 
   it("renders every fold through the one disclosure snippet", () => {
-    // Three folds, one definition of what a fold is. A section that built its own heading is how
+    // Four folds, one definition of what a fold is. A section that built its own heading is how
     // two carets end up disagreeing about aria-expanded or about when a badge shows.
     const renders = chip.match(/<VersionSectionHeading/g) ?? [];
-    expect(renders).toHaveLength(3);
+    expect(renders).toHaveLength(4);
     expect(heading).toContain("aria-expanded={!collapsed}");
   });
 
@@ -302,10 +302,10 @@ describe("the panel's two folding sections", () => {
     expect(chip).toMatch(
       /label=\{DATABASE_SECTION_LABEL\}[\s\S]*collapsed=\{databaseSectionPreference\.collapsed\}/,
     );
-    // Three separate remembered folds, each arriving open: a section that arrived shut would hide
+    // Four separate remembered folds, each arriving open: a section that arrived shut would hide
     // the fault somebody opened the panel to find.
     const keys = preferences.match(/"magna-carta\.version-panel-[a-z]+"/g) ?? [];
-    expect(new Set(keys).size).toBe(3);
+    expect(new Set(keys).size).toBe(4);
     expect(preferences).toMatch(/\["expanded", "collapsed"\], "expanded"/);
     expect(preferences).toContain("followAcrossTabs()");
   });

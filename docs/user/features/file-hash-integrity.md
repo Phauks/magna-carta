@@ -40,13 +40,19 @@ All five are produced from a single read of the file, so asking for every finger
 
 **Verify a stored file's integrity**
 
-1. Find the file in Magna Carta and open its actions (right-click or the file's menu).
-2. Select **Generate all & verify**.
+1. Find the file in Magna Carta, select it, and open the **Hashes** tab of its details panel.
+2. The fingerprints are calculated as the tab opens. To verify an earlier version, pick it from the dropdown at the top of the tab, or press the verify control on its row in **Version History**.
 3. The tool re-reads the stored file, calculates its fingerprints, and compares the SHA-256 to the one recorded when the file came in. You get one of three results:
    - **Match** — the file is byte-for-byte identical to what was taken in. It has not been altered or corrupted.
    - **Mismatch** — the file differs from what was recorded at intake. Treat this as a red flag and investigate (see below).
    - **No baseline** — no fingerprint was recorded for this file at intake, so there is nothing to compare against. The current fingerprints are still shown.
 4. Download the **receipt** — a record of the file, its fingerprints, the result, and the time of the check.
+
+**Check a stored file against a hash you were given**
+
+1. Open the file's **Hashes** tab as above.
+2. Under **Compare Against a Digest You Were Given**, type or paste the hash — a whole checksum line is fine — or pick a file on your own device to use its SHA-256; that file is hashed on your device and never sent.
+3. The tab says **Match** or **Mismatch**, and which of the five fingerprints it compared.
 
 ## Tips and edge cases
 

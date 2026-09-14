@@ -54,6 +54,9 @@ upload decides:
 - **Date Created** — whether each file keeps the date it already carries, or takes the date of the
   upload. Files keep their own date unless you say otherwise; that date is kept on the record either
   way, and shows in the file's details as **File's Own Date**.
+- **When a Name Is Already Taken** — what happens to a file whose name is already in the folder it
+  lands in: kept beside the other under a numbered name (the default), filed as the next version of
+  the file that has the name, or skipped. See _When a name is taken_ below.
 
 **A document type is set per file, not for the whole upload.** If your firm uses document types,
 select the rows you want — a folder row means everything inside it — and choose **Document Type**
@@ -79,6 +82,20 @@ once it is, or **Held** if your firm already has a file with those bytes, or **N
 file could not be read here (it is sent as it is). A folder row sums its files: "2 of 3 ready ·
 1 held". By the time you press **Upload** most of the answers are already in, and nothing waits on a
 read that could have happened earlier.
+
+### When a name is taken
+
+A file whose name is already in the folder it lands in asks one question, and only that one: what
+to call it. By default it is kept beside the other under a numbered name — _letter (2).pdf_ — so
+nothing is lost and nothing is asked later. Under Advanced Settings you can instead have every such
+file filed as the next **version** of the file that has the name (the original stays in its
+history), or **skipped** and left out of the upload. The **Name Taken** column shows which files are
+asking and what the answer is; to answer some of them differently, select their rows and choose
+**Name Taken** above the list. A file skipped this way reads **Skipped**, sends nothing, and is not
+read.
+
+Two files in the same batch that share a name are filed as numbered copies without asking — there is
+no existing file to make a version of.
 
 A held file is never sent. If the matter already has it, its row reads **Already here** once the
 upload runs and nothing is made; if another of your firm's matters has it, the file is copied onto
@@ -195,10 +212,37 @@ there is nothing new to keep.
 
 ## The version history
 
-Every committed version of the document, newest first, with its number, its size, when it was
-committed, and the start of its **content hash**. The hash is a fingerprint of the exact bytes: two
-versions with the same hash are byte-for-byte the same file, and a version's hash never changes once
-it is recorded.
+Every committed version of the document, newest first, as a table: its number, when it was
+committed, its size, and who created it. Each row has its own controls: open that version, or
+verify it, which opens the **Hashes** tab on that version.
+
+## Hashes
+
+The **Hashes** tab computes the document's five fingerprints the moment you open it, from the bytes
+as they are stored today, and compares the SHA-256 to the one recorded when the version came in. A
+hash is a fingerprint of the exact bytes: two versions with the same hash are byte-for-byte the same
+file, and a version's hash never changes once it is recorded. The dropdown at the top picks which
+version the fingerprints are of; the current version is chosen until you change it, and choosing
+another computes its fingerprints straight away. The refresh control computes them again.
+
+Under the fingerprints, **Compare Against a Digest You Were Given** takes a digest from anywhere:
+type it, paste it (a whole checksum line, with the file name after it, is fine), or pick a file on
+your own device and its SHA-256 is computed there and never sent. Which of the five fingerprints
+it is comes from its length, so you need not say. The result reads **Match** or **Mismatch**
+against that fingerprint of the version on screen.
+
+## Safety
+
+The **Safety** tab shows the document's standing verdict, and beneath it every check the document
+has had: when it ran, whether it was the check at intake or a later one, which version it looked
+at, the engine that ran it, what it found, and the engine's own detail. Each line says what was
+recorded at the time, so an older check keeps the engine that ran it even after the firm moves to a
+newer one; the line under the table names the engine the firm checks with today.
+
+**Check Again** asks for a fresh check of the current version. The request appears in the history
+at once, marked as requested, and the verdict lands beneath it a few seconds later without your
+asking. The same request is on a document's right-click menu as **Re-run Safety Check**, where it
+runs on every selected document that has a version to check.
 
 ## Archives
 

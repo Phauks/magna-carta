@@ -26,7 +26,7 @@
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
   import CircleCheck from "@lucide/svelte/icons/circle-check";
   import CircleDashed from "@lucide/svelte/icons/circle-dashed";
-  import CopyCheck from "@lucide/svelte/icons/copy-check";
+  import CircleMinus from "@lucide/svelte/icons/circle-minus";
   import {
     intakeColumns,
     intakePhrase,
@@ -35,6 +35,7 @@
     orderIntakeRows,
     type IntakeProgress,
     type IntakeRow,
+    type IntakeNameClash,
   } from "./upload-intake.ts";
 
   let {
@@ -47,6 +48,8 @@
     selectable = true,
     documentTypeName = () => "",
     hasDocumentTypes = false,
+    nameClash = () => null,
+    hasNameClashes = false,
     onSelectionChange,
     class: className = "",
   }: {
@@ -63,6 +66,10 @@
     documentTypeName?: (key: string) => string;
     /** Whether the firm defines any classifications at all — the column is not drawn where none do. */
     hasDocumentTypes?: boolean;
+    /** Each file's name clash and the reader's answer to it, by intake key; null where none. */
+    nameClash?: IntakeNameClash;
+    /** Whether any file clashes — the column is not drawn where none does. */
+    hasNameClashes?: boolean;
     onSelectionChange?: (keys: readonly string[]) => void;
     class?: string;
   } = $props();
@@ -88,9 +95,14 @@
    */
   export const grid = DataTable.createDataTableGrid<IntakeRow>({
     columns: (): GridColumn<IntakeRow>[] =>
-      intakeColumns({ filtering: filtering(), documentTypes: hasDocumentTypes }),
+      intakeColumns({
+        filtering: filtering(),
+        documentTypes: hasDocumentTypes,
+        nameClashes: hasNameClashes,
+      }),
     // A filter flattens the tree to the files that answer it (upload-intake.ts says why).
-    rows: () => intakeRows(entries, progress, filtering() ? null : expanded, documentTypeName),
+    rows: () =>
+      intakeRows(entries, progress, filtering() ? null : expanded, documentTypeName, nameClash),
     rowKey: (row) => row.key,
     itemNoun: { singular: "item", plural: "items" },
     orderRows: orderIntakeRows,
@@ -190,8 +202,8 @@
           class="size-16 shrink-0 text-status-success-subtle-foreground"
           aria-hidden="true"
         />
-      {:else if row.stage === "already"}
-        <CopyCheck class="size-16 shrink-0 text-text-subtle" aria-hidden="true" />
+      {:else if row.stage === "skipped"}
+        <CircleMinus class="size-16 shrink-0 text-text-subtle" aria-hidden="true" />
       {:else if row.stage === "failed"}
         <CircleAlert
           class="size-16 shrink-0 text-status-danger-subtle-foreground"
@@ -203,7 +215,7 @@
         <CircleDashed class="size-16 shrink-0 text-text-subtle" aria-hidden="true" />
       {/if}
       <span
-        class={row.stage === "chosen" || row.stage === "cancelled" || row.stage === "already"
+        class={row.stage === "chosen" || row.stage === "cancelled" || row.stage === "skipped"
           ? "text-text-subtle"
           : undefined}
       >

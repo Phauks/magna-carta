@@ -3,7 +3,13 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { FileId } from "@magna-carta/identifiers/types";
 import { freshDatabase, seedMatter } from "./support.ts";
-import { getCurrentVersionForIntegrity } from "../src/queries.ts";
+import {
+  getCurrentVersionForIntegrity,
+  getFileSummary,
+  getVersionForIntegrity,
+  listCleanVersions,
+  listVersionScanEvents,
+} from "../src/queries.ts";
 
 async function seedFileWithCleanVersion(
   database: BatchDatabase,
@@ -88,5 +94,108 @@ describe("getCurrentVersionForIntegrity", () => {
     const matterId = await seedMatter(database);
     const fileId = await seedFileWithPendingVersionOnly(database, matterId);
     expect(await getCurrentVersionForIntegrity(database, fileId)).toBeUndefined();
+  });
+});
+
+describe("who uploaded a file, as the list and the history carry it", () => {
+  it("names the uploader off the member row, and keeps the id when the member row is gone", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId } = await seedFileWithCleanVersion(database, matterId);
+    // The seed writes the version as user_a, a member the matter seed has already named.
+    const named = await getFileSummary(database, fileId);
+    expect(named).toMatchObject({ uploadedBy: "user_a", uploadedByName: "A" });
+    const history = await listCleanVersions(database, fileId);
+    expect(
+      history.data.map((version) => [version.id, version.uploadedBy, version.uploadedByName]),
+    ).toEqual([[versionId, "user_a", "A"]]);
+
+    // An upload by somebody the firm has no member row for — a member who has since left, or an
+    // id written before the roster was mirrored. The upload fact outlives the member row: the id
+    // stays on the version and only the name is absent — never dropped, never a stand-in.
+    await database
+      .prepare("UPDATE file_version SET uploaded_by = 'user_departed' WHERE id = ?1")
+      .bind(versionId)
+      .run();
+    const departed = await getFileSummary(database, fileId);
+    expect(departed).toMatchObject({ uploadedBy: "user_departed", uploadedByName: null });
+  });
+});
+
+describe("one named version's integrity baseline", () => {
+  it("resolves a committed version of the file, and nothing for another file's version", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const first = await seedFileWithCleanVersion(database, matterId, { contentSha256: "abc" });
+    const other = await seedFileWithCleanVersion(database, matterId, { contentSha256: "def" });
+    const named = await getVersionForIntegrity(
+      database,
+      first.fileId,
+      first.versionId as Parameters<typeof getVersionForIntegrity>[2],
+    );
+    expect(named).toMatchObject({ id: first.versionId, contentSha256: "abc" });
+    // Scoped by BOTH ids: a version id that belongs to another file resolves nothing, so a caller
+    // can never verify (or re-scan) a version through a file it does not name.
+    expect(
+      await getVersionForIntegrity(
+        database,
+        first.fileId,
+        other.versionId as Parameters<typeof getVersionForIntegrity>[2],
+      ),
+    ).toBeUndefined();
+  });
+});
+
+describe("a file's scan history", () => {
+  it("reads every scan event against the file's versions, newest first, with the facts each recorded", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId } = await seedFileWithCleanVersion(database, matterId);
+    const insert = (id: string, event: string, at: string, metadata: string | null) =>
+      database
+        .prepare(
+          "INSERT INTO audit_log (id, event, actor_user_id, subject_id, metadata, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        )
+        .bind(
+          id,
+          event,
+          event === "file.rescan_requested" ? "user_a" : null,
+          versionId,
+          metadata,
+          at,
+        )
+        .run();
+    await insert(
+      "a1",
+      "file.version_committed",
+      "2026-01-01T00:00:00.000Z",
+      JSON.stringify({ scanVerdict: "clean", scanEngineVersion: "clamav/1.0", scanDetail: null }),
+    );
+    await insert("a2", "file.rescan_requested", "2026-01-02T00:00:00.000Z", null);
+    await insert(
+      "a3",
+      "file.version_rescanned",
+      "2026-01-02T00:00:01.000Z",
+      JSON.stringify({
+        scanVerdict: "flagged",
+        scanEngineVersion: "clamav/2.0",
+        scanDetail: "Eicar-Test-Signature",
+        requestId: "a2",
+      }),
+    );
+    // An unrelated event against the same version is not a scan and stays out of the history.
+    await insert("a4", "file.renamed", "2026-01-03T00:00:00.000Z", null);
+
+    const history = await listVersionScanEvents(database, fileId);
+    expect(
+      history.map((event) => [event.id, event.event, event.scanVerdict, event.scanEngineVersion]),
+    ).toEqual([
+      ["a3", "file.version_rescanned", "flagged", "clamav/2.0"],
+      ["a2", "file.rescan_requested", null, null],
+      ["a1", "file.version_committed", "clean", "clamav/1.0"],
+    ]);
+    expect(history[0]).toMatchObject({ versionNumber: 1, scanDetail: "Eicar-Test-Signature" });
+    // The request names who asked, resolved off the member row.
+    expect(history[1]).toMatchObject({ actorUserId: "user_a", actorName: "A" });
   });
 });

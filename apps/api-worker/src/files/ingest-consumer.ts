@@ -68,7 +68,15 @@ export interface R2EventMessage {
   readonly object: { readonly key: string; readonly size: number };
   readonly action: string;
   readonly eventTime?: string;
+  // Set on a member's own re-scan request (FILE_RESCAN_ACTION): the audit id of the request, which
+  // keys the re-scan so each request runs once and its result row can be paired with it.
+  readonly requestId?: string;
 }
+
+// The action a member's "re-run the safety check" request enqueues. Unlike the access-triggered and
+// per-matter re-scans, it is not gated on engine staleness and does not reuse the dedup cache: the
+// member asked for the engine to look at these bytes again, so the engine looks at these bytes again.
+export const FILE_RESCAN_ACTION = "FileRescan";
 
 // The actions R2 reports when somebody WROTE bytes at a key — exactly the set the provisioner
 // registers each firm bucket's object-create notification for (firm-resource-provider.ts). An event
@@ -80,12 +88,26 @@ const OBJECT_WRITE_ACTIONS: ReadonlySet<string> = new Set(["PutObject", "Complet
 // Process one event. Returns (acks) for every terminal outcome — commit, quarantine, or a no-op
 // (unknown bucket / unbound firm / no pending version). THROWS only on a transient condition (the
 // object not yet readable) so the queue retries and, at max attempts, dead-letters.
+/**
+ * Which queue a message arrived on, and therefore which scan instance it goes to. The interactive
+ * lane sends NO shard key, so the scan worker routes it to the one shard the warm-poke keeps
+ * resident (apps/scan-worker/src/scan-shard.ts) — a member is watching, and a cold shard is a cold
+ * start they wait through. The bulk lane keeps the per-file key: there the fan-out over every
+ * instance is the throughput, and a cold start amortises over a migration.
+ */
+export type IngestLane = "interactive" | "bulk";
+
+function scanContentKeyFor(lane: IngestLane, key: string): string | undefined {
+  return lane === "bulk" ? key : undefined;
+}
+
 export async function handleIngestMessage(
   env: Bindings,
   message: R2EventMessage,
   scanPort: MalwareScanPort = resolveScanPort(env),
   logger?: Logger,
   correlationId: string = newCorrelationId(),
+  lane: IngestLane = "interactive",
 ): Promise<void> {
   // bucket → firm (the control-plane registry). An unknown bucket is acked: there is no work this
   // Worker can do, and retrying cannot make the firm exist. The firm's per-firm FirmDatabase Durable
@@ -112,6 +134,7 @@ export async function handleIngestMessage(
       bucket,
       logger,
       correlationId,
+      lane,
     );
     return;
   }
@@ -256,6 +279,7 @@ async function handleCommittedObjectEvent(
   bucket: R2Bucket,
   logger: Logger | undefined,
   correlationId: string,
+  lane: IngestLane,
 ): Promise<void> {
   const committed = await loadCommittedVersionByR2Key(firmDatabase, message.object.key);
   if (committed === undefined) return; // not a committed version → nothing to verify or re-scan
@@ -268,10 +292,11 @@ async function handleCommittedObjectEvent(
       committed,
       logger,
       correlationId,
+      lane,
     );
     if (withdrawn) return; // the version is quarantined — there is nothing left to re-scan in place
   }
-  await rescanCommittedVersion(message, firmDatabase, scanPort, bucket, committed);
+  await rescanCommittedVersion(message, firmDatabase, scanPort, bucket, committed, lane);
 }
 
 // THE CUSTODY GATE. An object-create event for an already-committed version means the stored bytes
@@ -301,6 +326,7 @@ async function withdrawOnContentDrift(
   committed: CommittedVersionForRescan,
   logger: Logger | undefined,
   correlationId: string,
+  lane: IngestLane,
 ): Promise<boolean> {
   const object = await bucket.get(message.object.key);
   if (object === null) {
@@ -326,6 +352,7 @@ async function withdrawOnContentDrift(
     reason,
     logger,
     correlationId,
+    lane,
   );
 
   const now = () => new Date().toISOString();
@@ -374,6 +401,7 @@ async function describeReplacementBytes(
   reason: string,
   logger: Logger | undefined,
   correlationId: string,
+  lane: IngestLane,
 ): Promise<string> {
   try {
     const object = await bucket.get(message.object.key);
@@ -382,7 +410,7 @@ async function describeReplacementBytes(
     const raw = await scanPort.scan(object.body, {
       sizeBytes: object.size,
       sniffedContentType: null,
-      contentKey: message.object.key,
+      contentKey: scanContentKeyFor(lane, message.object.key),
     });
     const fileVerdict = computeVerdict(raw, scanPolicy);
     if (fileVerdict.verdict === "clean") return reason;
@@ -416,12 +444,16 @@ async function rescanCommittedVersion(
   // passed the custody gate when the event came from a write, so re-scanning them re-judges exactly
   // the content the committed hash describes.
   committed: CommittedVersionForRescan,
+  lane: IngestLane,
 ): Promise<void> {
   if (committed.contentSha256 === null) return; // no content hash (legacy) → cannot dedup/cache; skip
 
   const currentEngineVersion = await readScanEngineVersion(firmDatabase);
   if (currentEngineVersion === null) return; // no current engine recorded yet → never fabricate a key
-  if (committed.scanEngineVersion === currentEngineVersion) return; // already current → not stale
+  // A member's own request runs whether or not the verdict is current; the platform's re-scans run
+  // only when the recorded engine is stale.
+  const requested = message.action === FILE_RESCAN_ACTION && message.requestId !== undefined;
+  if (!requested && committed.scanEngineVersion === currentEngineVersion) return; // already current
 
   // Resolve the firm's scan policy here (outside the idempotency effect) so the verdict computation
   // uses the firm's configured tier and threshold rather than the hardcoded default. The rescan does
@@ -433,16 +465,23 @@ async function rescanCommittedVersion(
   const now = () => new Date().toISOString();
   const options = { clock: { now }, actorUserId: null };
 
+  // A request keys on its own id (each request runs once); the platform's re-scan keys on the engine
+  // (once per version per engine).
+  const scope = requested ? `${currentEngineVersion}:${message.requestId}` : currentEngineVersion;
   await runIdempotentEffect({
     database: firmDatabase,
-    key: `rescan:${committed.id}:${currentEngineVersion}`,
-    fingerprint: `${committed.id}:${currentEngineVersion}`,
+    key: `rescan:${committed.id}:${scope}`,
+    fingerprint: `${committed.id}:${scope}`,
     now,
     effect: async () => {
       // Cache-first: identical content already scanned under THIS engine reuses the raw facts (no scan).
+      // A member's request skips the cache — the point of asking is a fresh look — and its fresh
+      // result replaces the cached one.
       let raw: RawScanResult;
       let fromCache: boolean;
-      const cached = await lookupScanCache(firmDatabase, contentSha256, currentEngineVersion);
+      const cached = requested
+        ? undefined
+        : await lookupScanCache(firmDatabase, contentSha256, currentEngineVersion);
       if (cached !== undefined) {
         raw = cached;
         fromCache = true;
@@ -455,8 +494,8 @@ async function rescanCommittedVersion(
         raw = await scanPort.scan(object.body, {
           sizeBytes: object.size,
           sniffedContentType: null,
-          // Same stable key the first ingest scan used: a re-scan lands on the same engine instance.
-          contentKey: message.object.key,
+          // The lane decides the instance, as it did for the first scan of these bytes.
+          contentKey: scanContentKeyFor(lane, message.object.key),
         });
         fromCache = false;
       }
@@ -511,6 +550,7 @@ async function rescanCommittedVersion(
           // result is a real-engine one here (a definitive verdict means the engine ran), so its
           // engineVersion is non-null and the cache write is sound.
           rawScanResult: fromCache ? null : raw,
+          ...(requested ? { requestId: message.requestId } : {}),
         },
         options,
       );
@@ -534,14 +574,20 @@ export async function ingestQueue(
   // One logger per batch; a failed message routes through the one telemetry pipeline (golden rule 4
   // — the console ban is structural) and is retried, dead-lettering at max attempts.
   const logger = createWorkersLogger(env.TELEMETRY);
+  const lane: IngestLane = batch.queue.endsWith("-bulk") ? "bulk" : "interactive";
   for (const message of batch.messages) {
     const correlationId = newCorrelationId();
     try {
-      await handleIngestMessage(env, message.body, undefined, logger, correlationId);
+      await handleIngestMessage(env, message.body, undefined, logger, correlationId, lane);
       message.ack();
     } catch (error) {
       logOperationFailed(logger, `queue:files-ingest:${message.id}`, error, correlationId);
-      message.retry();
+      // Backed off, not immediate: the usual transient here is a scan engine still coming up — a
+      // cold container, or one mid-deploy — which an immediate retry only meets sooner. Ten
+      // seconds per attempt so far, capped at a minute, outlasts a cold start well inside the
+      // queue's retry budget (wrangler.jsonc), where three immediate retries used to burn through
+      // it and dead-letter a file the member was watching.
+      message.retry({ delaySeconds: Math.min(60, 10 * Math.max(1, message.attempts)) });
     }
   }
 }

@@ -205,6 +205,15 @@ function queueIdOf(queue: NotificationQueue): string {
   return queue.queueId ?? queue.queue_id ?? "";
 }
 
+// A queue id is a UUID, and the API takes it on a path with or without its hyphens while always
+// answering with them — so the id a deployment names and the id the bucket reports are the same
+// queue under two spellings. The first real run of the readiness check reported exactly that
+// pair as a mismatch. Compared without hyphens, case-folded.
+function sameQueue(left: string, right: string): boolean {
+  const canonical = (id: string) => id.replaceAll("-", "").toLowerCase();
+  return canonical(left) === canonical(right);
+}
+
 // Whether the bucket already sends objects under `prefix` to `queueId` — the state a refused
 // overlap is allowed to mean. An overlap with a rule to some other queue is not this, and fails.
 function hasNotificationRule(
@@ -214,7 +223,7 @@ function hasNotificationRule(
 ): boolean {
   return (configuration?.queues ?? []).some(
     (queue) =>
-      queueIdOf(queue) === queueId &&
+      sameQueue(queueIdOf(queue), queueId) &&
       (queue.rules ?? []).some((rule) => (rule.prefix ?? "") === prefix),
   );
 }

@@ -30,7 +30,6 @@ export function issuesOnFile(file: MatterFile): IssueKind[] {
   if (file.sniffedContentType !== null && mismatched(file)) found.push("mismatch");
   if (file.status === "pending" || file.currentVersionId === null) found.push("noVersion");
   else if (file.scanVerdict === null || file.scanVerdict === "unscanned") found.push("unscanned");
-  if (file.status === "clean" && file.documentTypeId === null) found.push("untyped");
   return found.toSorted((left, right) => ISSUE_KINDS[left].rank - ISSUE_KINDS[right].rank);
 }
 

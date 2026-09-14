@@ -6972,6 +6972,18 @@
               "string",
               "null"
             ]
+          },
+          "uploadedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "uploadedByName": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -6989,7 +7001,9 @@
           "scanVerdict",
           "status",
           "quarantineReason",
-          "sourceModifiedAt"
+          "sourceModifiedAt",
+          "uploadedBy",
+          "uploadedByName"
         ]
       },
       "FileVersionsResponse": {
@@ -7045,6 +7059,42 @@
               "string",
               "null"
             ]
+          },
+          "uploadedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "uploadedByName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scanVerdict": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "unscanned",
+              "clean",
+              "flagged",
+              null
+            ]
+          },
+          "scanEngineVersion": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scanDetail": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -7053,7 +7103,12 @@
           "sizeBytes",
           "sniffedContentType",
           "contentSha256",
-          "committedAt"
+          "committedAt",
+          "uploadedBy",
+          "uploadedByName",
+          "scanVerdict",
+          "scanEngineVersion",
+          "scanDetail"
         ]
       },
       "FileActionAck": {
@@ -7946,6 +8001,120 @@
         "required": [
           "enqueued",
           "capped"
+        ]
+      },
+      "FileScanHistory": {
+        "type": "object",
+        "properties": {
+          "currentEngineVersion": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileScanEvent"
+            }
+          }
+        },
+        "required": [
+          "currentEngineVersion",
+          "data"
+        ]
+      },
+      "FileScanEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string"
+          },
+          "event": {
+            "type": "string",
+            "enum": [
+              "file.version_committed",
+              "file.version_rescanned",
+              "file.quarantined",
+              "file.rescan_requested"
+            ]
+          },
+          "versionId": {
+            "type": "string"
+          },
+          "versionNumber": {
+            "type": "integer"
+          },
+          "actorUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "actorName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scanVerdict": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "unscanned",
+              "clean",
+              "flagged",
+              null
+            ]
+          },
+          "scanEngineVersion": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scanDetail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "at",
+          "event",
+          "versionId",
+          "versionNumber",
+          "actorUserId",
+          "actorName",
+          "scanVerdict",
+          "scanEngineVersion",
+          "scanDetail"
+        ]
+      },
+      "FileRescanResult": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string"
+          },
+          "versionId": {
+            "type": "string"
+          },
+          "enqueued": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "requestId",
+          "versionId",
+          "enqueued"
         ]
       },
       "ScanPolicyResponse": {
@@ -36859,7 +37028,7 @@
     },
     "/api/v1/file-integrity/verify": {
       "post": {
-        "description": "Recompute a stored file's digests from its bytes at rest and compare the SHA-256 to the digest recorded at intake, recording the check. Returns the digests, the baseline result, and a hash receipt.",
+        "description": "Recompute a stored file's digests from its bytes at rest and compare the SHA-256 to the digest recorded at intake, recording the check. Verifies the current version unless an earlier committed version is named. Returns the digests, the baseline result, and a hash receipt.",
         "operationId": "fileIntegrity.verify",
         "tags": [
           "fileIntegrity"
@@ -36886,6 +37055,10 @@
                   "fileId": {
                     "type": "string",
                     "pattern": "^file_[A-Za-z0-9_-]{21}$"
+                  },
+                  "versionId": {
+                    "type": "string",
+                    "pattern": "^fileVersion_[A-Za-z0-9_-]{21}$"
                   }
                 },
                 "required": [
@@ -36927,7 +37100,7 @@
             }
           },
           "404": {
-            "description": "No clean current version exists for the file",
+            "description": "No clean current version exists for the file, or the named version is not one of its committed versions",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -43924,7 +44097,7 @@
     },
     "/api/v1/uploads/matches": {
       "post": {
-        "description": "Answers whether the firm already holds a file's bytes, by SHA-256 and size, before they are uploaded: the live files on the target matter whose current version is those bytes, and the live files elsewhere in the firm. A match on the matter means the file is already there; a match elsewhere can be duplicated onto the matter server-side (uploads.duplicate) with no bytes sent.",
+        "description": "Answers whether the firm already holds a file's bytes, by SHA-256 and size, before they are uploaded: the live files on the target matter whose current version is those bytes, and the live files elsewhere in the firm. Either kind of match can be duplicated into a new file on the matter server-side (uploads.duplicate) with no bytes sent — holding the bytes already is a reason not to send them, never a reason not to file what the caller chose to file.",
         "operationId": "uploads.matches",
         "tags": [
           "uploads"
@@ -51956,6 +52129,182 @@
           },
           "403": {
             "description": "The member lacks files:upload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/files/{id}/scans": {
+      "get": {
+        "description": "A file's safety history: every intake scan, re-scan, quarantine and re-scan request recorded against any of its versions, newest first, each with the verdict, engine and detail as recorded when it happened.",
+        "operationId": "files.scans",
+        "tags": [
+          "files"
+        ],
+        "x-mc-operationId": "files.scans",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "files"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^file_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file's scan history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileScanHistory"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the file is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/files/{id}/rescan": {
+      "post": {
+        "description": "Queues a fresh malware scan of one committed version of a file (the current version unless one is named), whether or not its verdict is current, and without reusing an earlier result for the same bytes. The scan runs off the request path; its verdict lands as a re-scan event in the file's scan history carrying this request's id. Records the request whether or not it could be queued.",
+        "operationId": "files.rescan",
+        "tags": [
+          "files"
+        ],
+        "x-mc-operationId": "files.rescan",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "files:upload",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "files"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^file_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "versionId": {
+                    "type": "string",
+                    "pattern": "^fileVersion_[A-Za-z0-9_-]{21}$"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The request, and whether a scan was queued for it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileRescanResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The member lacks files:upload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The file is unknown, or the named version is not a committed version of it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
             "content": {
               "application/problem+json": {
                 "schema": {

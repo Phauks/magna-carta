@@ -1737,6 +1737,8 @@ export type FileSummary = {
     status: 'clean' | 'pending' | 'quarantined';
     quarantineReason: string | null;
     sourceModifiedAt: string | null;
+    uploadedBy: string | null;
+    uploadedByName: string | null;
 };
 
 export type FileVersionsResponse = {
@@ -1751,6 +1753,11 @@ export type FileVersionItem = {
     sniffedContentType: string | null;
     contentSha256: string | null;
     committedAt: string | null;
+    uploadedBy: string | null;
+    uploadedByName: string | null;
+    scanVerdict: 'unscanned' | 'clean' | 'flagged' | null;
+    scanEngineVersion: string | null;
+    scanDetail: string | null;
 };
 
 export type FileActionAck = {
@@ -1960,6 +1967,30 @@ export type UploadReadinessCheck = {
 export type MatterRescanResult = {
     enqueued: number;
     capped: boolean;
+};
+
+export type FileScanHistory = {
+    currentEngineVersion: string | null;
+    data: Array<FileScanEvent>;
+};
+
+export type FileScanEvent = {
+    id: string;
+    at: string;
+    event: 'file.version_committed' | 'file.version_rescanned' | 'file.quarantined' | 'file.rescan_requested';
+    versionId: string;
+    versionNumber: number;
+    actorUserId: string | null;
+    actorName: string | null;
+    scanVerdict: 'unscanned' | 'clean' | 'flagged' | null;
+    scanEngineVersion: string | null;
+    scanDetail: string | null;
+};
+
+export type FileRescanResult = {
+    requestId: string;
+    versionId: string;
+    enqueued: boolean;
 };
 
 export type ScanPolicyResponse = {
@@ -8977,6 +9008,7 @@ export type FileIntegrityHashResponse2 = FileIntegrityHashResponses[keyof FileIn
 export type FileIntegrityVerifyData = {
     body?: {
         fileId: string;
+        versionId?: string;
     };
     path?: never;
     query?: never;
@@ -8993,7 +9025,7 @@ export type FileIntegrityVerifyErrors = {
      */
     403: Problem;
     /**
-     * No clean current version exists for the file
+     * No clean current version exists for the file, or the named version is not one of its committed versions
      */
     404: Problem;
     /**
@@ -15279,6 +15311,82 @@ export type ScanMatterResponses = {
 };
 
 export type ScanMatterResponse = ScanMatterResponses[keyof ScanMatterResponses];
+
+export type FilesScansData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/files/{id}/scans';
+};
+
+export type FilesScansErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the file is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FilesScansError = FilesScansErrors[keyof FilesScansErrors];
+
+export type FilesScansResponses = {
+    /**
+     * The file's scan history
+     */
+    200: FileScanHistory;
+};
+
+export type FilesScansResponse = FilesScansResponses[keyof FilesScansResponses];
+
+export type FilesRescanData = {
+    body?: {
+        versionId?: string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/files/{id}/rescan';
+};
+
+export type FilesRescanErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The member lacks files:upload
+     */
+    403: Problem;
+    /**
+     * The file is unknown, or the named version is not a committed version of it
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FilesRescanError = FilesRescanErrors[keyof FilesRescanErrors];
+
+export type FilesRescanResponses = {
+    /**
+     * The request, and whether a scan was queued for it
+     */
+    200: FileRescanResult;
+};
+
+export type FilesRescanResponse = FilesRescanResponses[keyof FilesRescanResponses];
 
 export type ScanPolicyGetData = {
     body?: never;

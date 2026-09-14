@@ -122,7 +122,7 @@
                 {batch.failed > 0 ? "Retry Failed" : "Send the Rest"}
               </Button>
             {/if}
-            {#if batch.uploaded > 0 || batch.alreadyHere > 0}
+            {#if batch.uploaded > 0}
               <Button variant="secondary" size="sm" href={folderHref(batch)}>
                 <FolderOpen class="size-16" aria-hidden="true" />
                 Open Folder

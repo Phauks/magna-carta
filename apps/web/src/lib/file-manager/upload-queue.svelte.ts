@@ -27,7 +27,7 @@ import type { DroppedEntry } from "@magna-carta/design-system/dropzone";
 import { folderPathOf } from "@magna-carta/design-system/dropzone";
 import { problemGuidance } from "$lib/documents/document-presentation.ts";
 import { createFolder as createFolderRequest, type FolderSummary } from "./folder-api.ts";
-import { disambiguated } from "./file-names.ts";
+import { collidingSibling, disambiguated } from "./file-names.ts";
 import { MatterFileIndex, fileKey, formatBytes } from "./file-rows.ts";
 import {
   uploadIntoFolder,
@@ -44,6 +44,7 @@ import {
   sentBytesOf,
   type IntakeProgress,
   type IntakeStage,
+  type NameClashChoice,
 } from "./upload-intake.ts";
 
 /** How many files are sent at once. */
@@ -75,6 +76,12 @@ export interface UploadBatchPlan {
    * Absent, every item starts as chosen.
    */
   readonly readiness?: ReadonlyMap<string, IntakeProgress>;
+  /**
+   * What to do with a file whose name is already taken in the folder it lands in: the batch-wide
+   * answer, and any file the reader answered for on its own. A file with no clash asks nothing.
+   */
+  readonly nameClashDefault: NameClashChoice;
+  readonly nameClashChoices: ReadonlyMap<string, NameClashChoice>;
   /** The destination matter's folders and files as last read, for landing folders and names. */
   readonly folders: readonly FolderSummary[];
   readonly files: readonly MatterFile[];
@@ -222,6 +229,8 @@ export class UploadBatch {
   readonly destinationLabel: string;
   readonly createdAtBasis: "upload" | "source";
   readonly documentTypeIds: ReadonlyMap<string, string | null>;
+  readonly nameClashDefault: NameClashChoice;
+  readonly nameClashChoices: ReadonlyMap<string, NameClashChoice>;
   readonly startedAt: string;
   items = $state<UploadBatchItem[]>([]);
   finishedAt = $state<string | null>(null);
@@ -249,6 +258,8 @@ export class UploadBatch {
     this.destinationLabel = plan.destinationLabel;
     this.createdAtBasis = plan.createdAtBasis;
     this.documentTypeIds = new Map(plan.documentTypeIds);
+    this.nameClashDefault = plan.nameClashDefault;
+    this.nameClashChoices = new Map(plan.nameClashChoices);
     this.startedAt = dependencies.now();
     this.index = new MatterFileIndex(plan.folders, plan.files);
     this.#dependencies = dependencies;
@@ -279,16 +290,16 @@ export class UploadBatch {
   get failed(): number {
     return this.items.filter((item) => item.stage === "failed").length;
   }
-  /** Files the matter already held: nothing was sent, and nothing was made. */
-  get alreadyHere(): number {
-    return this.items.filter((item) => item.stage === "already").length;
+  /** Files the reader left out because their names were taken: nothing was sent or made. */
+  get skipped(): number {
+    return this.items.filter((item) => item.stage === "skipped").length;
   }
   get inFlight(): number {
     return this.items.filter(
       (item) =>
         !isPreSendStage(item.stage) &&
         item.stage !== "settled" &&
-        item.stage !== "already" &&
+        item.stage !== "skipped" &&
         item.stage !== "failed" &&
         item.stage !== "cancelled",
     ).length;
@@ -313,11 +324,11 @@ export class UploadBatch {
   #samples: PaceSample[] = [];
 
   #samplePace(): void {
-    // The rate is over bytes that crossed the wire: a file the matter already held counts as done
-    // for the bar and the remainder, but it moved nothing and must not read as a burst of speed.
+    // The rate is over bytes that crossed the wire: a skipped file counts as done for the bar and
+    // the remainder, but it moved nothing and must not read as a burst of speed.
     const moved = this.items.reduce(
       (sum, item) =>
-        item.stage === "already" ? sum : sum + sentBytesOf(item.entry.file.size, item),
+        item.stage === "skipped" ? sum : sum + sentBytesOf(item.entry.file.size, item),
       0,
     );
     const sample = { at: Date.now(), bytes: moved };
@@ -383,7 +394,11 @@ export class UploadBatch {
     return { id: made.value.folderId };
   }
 
-  /** The names already taken in each landing folder, so a collision files as a copy. */
+  /**
+   * The names taken in each landing folder: what the matter held when the batch started, plus what
+   * the batch itself has filed there. A clash with a file the MATTER holds is the reader's to
+   * decide; a clash with a sibling in the same batch only ever files as a numbered copy.
+   */
   readonly #takenIn = new Map<string | null, { key: string; name: string }[]>();
 
   async send(item: UploadBatchItem): Promise<void> {
@@ -400,7 +415,25 @@ export class UploadBatch {
         .map((file) => ({ key: fileKey(file.id), name: file.name }));
       this.#takenIn.set(landing.id, taken);
     }
-    const filedAs = disambiguated(item.entry.file.name, taken);
+    // The reader's answer to a taken name, where the matter already holds one. Decided before the
+    // digest is read, so a skipped file costs no read at all.
+    const clash = collidingSibling(
+      item.entry.file.name,
+      this.index.filesIn(landing.id).map((file) => ({ key: fileKey(file.id), name: file.name })),
+    );
+    const choice =
+      clash === null ? null : (this.nameClashChoices.get(item.key) ?? this.nameClashDefault);
+    if (choice === "skip") {
+      item.stage = "skipped";
+      item.reason = `Skipped: the folder already holds ${clash ?? item.entry.file.name}, and you chose not to send this one.`;
+      return;
+    }
+    const versionOf =
+      choice === "new-version" && clash !== null
+        ? this.index.filesIn(landing.id).find((file) => file.name === clash)
+        : undefined;
+    const filedAs =
+      versionOf === undefined ? disambiguated(item.entry.file.name, taken) : versionOf.name;
     /*
      * The digest, which the register began reading when the file was CHOSEN. Usually it is already
      * answered by the time this lane reaches the file and this is one microtask; where it is not,
@@ -434,9 +467,12 @@ export class UploadBatch {
       folderId: landing.id,
       file: item.entry.file,
       name: filedAs,
+      ...(versionOf === undefined ? {} : { fileId: versionOf.id }),
       documentTypeId: this.documentTypeIds.get(item.key) ?? null,
       createdAtBasis: this.createdAtBasis,
-      sha256: item.sha256,
+      // A new version of a held file is not asked about: the host's own hash check at ingest
+      // already answers whether the bytes changed.
+      sha256: versionOf === undefined ? item.sha256 : null,
       signal: this.#abort.signal,
       onStage: (stage) => {
         item.stage = stage;
@@ -458,18 +494,23 @@ export class UploadBatch {
       item.failure = failed.failure;
       return;
     }
-    if (outcome.kind === "already") {
-      // The matter holds the file under its own name; the copy name this item would have taken
-      // stays free for the next.
-      item.fileId = outcome.fileId;
-      item.stage = "already";
-      item.reason = `The matter already holds this file as ${outcome.name}. Nothing was sent.`;
-      return;
-    }
-    taken.push({ key: `pending:${filedAs}`, name: filedAs });
+    if (versionOf === undefined) taken.push({ key: `pending:${filedAs}`, name: filedAs });
     item.fileId = outcome.fileId;
-    if (outcome.kind === "committed" && outcome.copiedFrom === "firm") {
-      item.reason = "Made from a copy the firm already held on another matter. Nothing was sent.";
+    if (outcome.kind === "committed" && outcome.copiedFrom !== undefined) {
+      item.reason =
+        outcome.copiedFrom === "matter"
+          ? "Made from a copy this matter already held. Nothing was sent."
+          : "Made from a copy the firm already held on another matter. Nothing was sent.";
+    } else if (versionOf !== undefined) {
+      item.reason = `Filed as a new version of ${versionOf.name}.`;
+    }
+    // The bytes landed and the check is still running past the time the dialog waits. Said, rather
+    // than shown as a finished upload the matter does not list yet: a member who reads "Uploaded"
+    // and finds no file thinks something was lost, when it is a scan engine warming up.
+    if (outcome.kind === "settling") {
+      item.reason =
+        "Sent and recorded. The safety check is still running — the file appears on the matter " +
+        "as soon as it finishes, usually within a minute.";
     }
     item.stage = "settled";
   }
@@ -576,10 +617,10 @@ export function batchTallyText(batch: UploadBatch): string {
   return pace === "" ? batchCountsText(batch) : `${batchCountsText(batch)} · ${pace}`;
 }
 
-/** The counts alone: "3 of 6 uploaded · 1 already here · 2 failed". Short enough for a header. */
+/** The counts alone: "3 of 6 uploaded · 1 skipped · 2 failed". Short enough for a header. */
 export function batchCountsText(batch: UploadBatch): string {
   const parts = [`${String(batch.uploaded)} of ${String(batch.total)} uploaded`];
-  if (batch.alreadyHere > 0) parts.push(`${String(batch.alreadyHere)} already here`);
+  if (batch.skipped > 0) parts.push(`${String(batch.skipped)} skipped`);
   if (batch.failed > 0) parts.push(`${String(batch.failed)} failed`);
   const unsent = unsentCount(batch);
   if (unsent > 0) parts.push(`${String(unsent)} not sent`);

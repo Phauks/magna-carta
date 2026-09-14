@@ -89,7 +89,7 @@ whole-set PUT costs what a read costs and leaves the bucket right), then `key-ca
 HEAD for an object that does not exist, made through `resolveFirmBucket` so it carries exactly the
 credential a presigned URL carries; 404 is the affirmative answer, 403 the signature of a token
 scoped to one bucket. `POST /api/v1/firm/upload-readiness` (`routes/upload-readiness.ts`,
-`firm:manageScanPolicy`, audited) runs it from the version panel (the chip at the top right), with the other reads about what is running; the report opens in full as a copyable modal there.
+`firm:manageScanPolicy`, audited) runs it from the version panel (the chip at the top right), with the other reads about what is running; the report is the panel's _Upload readiness_ section there.
 
 Rules for this surface:
 
@@ -508,3 +508,16 @@ A firm's `release_channel` (`stable | beta | alpha`) is stored on the control-pl
   invisible to the test harness's teardown barrier and will eventually fail a run in a file that
   passed; the rule and the reasoning are in
   [`docs/conventions/testing.md`](../../docs/conventions/testing.md) (_Work that outlives the test_).
+- **The interactive ingest lane scans on the warm shard, and a failed message retries with a
+  backoff.** `ingestQueue` reads the lane off `batch.queue`: the interactive lane sends NO shard key,
+  so the scan worker routes to the one instance its warm-poke keeps resident; the bulk lane keeps the
+  per-file key for the fan-out. A throw retries with `delaySeconds` growing per attempt (ten seconds,
+  capped at a minute) under a ten-retry budget in `wrangler.jsonc` — three immediate retries used to
+  meet the same cold engine three times running and dead-letter a file a member was watching, who
+  then waited for the five-minute redrive.
+- **A member's re-scan request (`FILE_RESCAN_ACTION`, `routes/file-scans.ts`) is the one re-scan
+  that ignores engine staleness and the dedup cache.** The access-triggered and per-matter re-scans
+  run only when the version's recorded engine is stale and reuse a cached result for the same bytes;
+  a request carries its audit id, keys its idempotency on it, and scans the bytes afresh, so
+  "check again" means the engine looked again. Its result row carries the same `requestId`, which
+  is how the Safety tab pairs a request with its verdict.

@@ -1598,3 +1598,60 @@ describe("POST /api/v1/scan/matter/{id}", () => {
     expect(audit?.n).toBeGreaterThanOrEqual(1);
   });
 });
+
+describe("a file's scan history and a member's re-scan request", () => {
+  it("records the request against the named version, and the history reads it back", async () => {
+    await writeFirmSettingStatement(
+      firmDatabaseFor(env.FIRM_DATABASE, poolFirmId),
+      scanEngineVersionDefinition,
+      "clamav/9.9",
+      ISO,
+    ).run();
+    const { fileId, versionId } = await seedCleanFile("rescan-me.txt", null, "look again");
+    const res = await SELF.fetch(`https://example.com/api/v1/files/${fileId}/rescan`, {
+      method: "POST",
+      headers: {
+        cookie: ownerCookie,
+        origin: "https://example.com",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ versionId }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json<{ requestId: string; versionId: string; enqueued: boolean }>();
+    expect(body.versionId).toBe(versionId);
+
+    const history = await SELF.fetch(`https://example.com/api/v1/files/${fileId}/scans`, {
+      headers: { cookie: ownerCookie },
+    });
+    expect(history.status).toBe(200);
+    const read = await history.json<{
+      currentEngineVersion: string | null;
+      data: { id: string; event: string; versionId: string; actorUserId: string | null }[];
+    }>();
+    expect(read.currentEngineVersion).toBe("clamav/9.9");
+    expect(read.data).toContainEqual(
+      expect.objectContaining({
+        id: body.requestId,
+        event: "file.rescan_requested",
+        versionId,
+        actorUserId: ownerUserId,
+      }),
+    );
+  });
+
+  it("refuses a version that is not this file's", async () => {
+    const mine = await seedCleanFile("rescan-mine.txt", null, "mine");
+    const theirs = await seedCleanFile("rescan-theirs.txt", null, "theirs");
+    const res = await SELF.fetch(`https://example.com/api/v1/files/${mine.fileId}/rescan`, {
+      method: "POST",
+      headers: {
+        cookie: ownerCookie,
+        origin: "https://example.com",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ versionId: theirs.versionId }),
+    });
+    expect(res.status).toBe(404);
+  });
+});

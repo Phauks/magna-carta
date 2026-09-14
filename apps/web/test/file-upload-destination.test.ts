@@ -500,8 +500,9 @@ describe("uploadIntoFolder", () => {
     });
   });
 
-  it("asks the firm first with a digest in hand, and sends nothing when the matter already holds the file", async () => {
+  it("asks the firm first with a digest in hand, and files a copy of a file the matter already holds without sending it", async () => {
     const calls: string[] = [];
+    let duplicateBody: unknown = null;
     const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       calls.push(`${init?.method ?? "GET"} ${url}`);
@@ -521,6 +522,13 @@ describe("uploadIntoFolder", () => {
           { status: 200, headers: { "content-type": "application/json" } },
         );
       }
+      if (url.endsWith("/api/v1/uploads/duplicates")) {
+        duplicateBody = JSON.parse(String(init?.body));
+        return new Response(JSON.stringify({ fileId: "made", versionId: "made-v" }), {
+          status: 201,
+          headers: { "content-type": "application/json" },
+        });
+      }
       throw new Error(`unexpected ${url}`);
     }) as unknown as typeof fetch;
     const outcome = await uploadIntoFolder({
@@ -528,17 +536,25 @@ describe("uploadIntoFolder", () => {
       matterId: "matter",
       folderId: null,
       file: aFile(),
+      name: "Motion (2).pdf",
       sha256: "f".repeat(64),
       sleep: async () => {},
       newIdempotencyKey: () => "key",
     });
+    // Holding the bytes is a reason not to send them, never a reason not to file the chosen file:
+    // the matter's own copy is the source, and the outcome says so.
     expect(outcome).toEqual({
-      kind: "already",
-      fileId: "held",
-      name: "Motion.pdf",
-      folderId: "discovery",
+      kind: "committed",
+      fileId: "made",
+      versionId: "made-v",
+      copiedFrom: "matter",
     });
-    expect(calls).toEqual(["POST /api/v1/uploads/matches"]);
+    expect(duplicateBody).toMatchObject({
+      sourceVersionId: "v",
+      matterId: "matter",
+      folderId: null,
+    });
+    expect(calls).toEqual(["POST /api/v1/uploads/matches", "POST /api/v1/uploads/duplicates"]);
   });
 
   it("duplicates a file the firm holds elsewhere instead of sending the bytes", async () => {

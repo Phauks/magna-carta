@@ -82,13 +82,16 @@
     pickFiles,
     pickFolder,
     type DroppedEntry,
+    folderPathOf,
   } from "@magna-carta/design-system/dropzone";
   import Ban from "@lucide/svelte/icons/ban";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import Plus from "@lucide/svelte/icons/plus";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import Tag from "@lucide/svelte/icons/tag";
+  import Files from "@lucide/svelte/icons/files";
   import X from "@lucide/svelte/icons/x";
+  import { collidingSibling } from "./file-names.ts";
   import { formatBytes, MatterFileIndex } from "./file-rows.ts";
   import FolderPicker from "./folder-picker.svelte";
   import { listMatterFolders } from "./folder-api.ts";
@@ -101,7 +104,10 @@
     intakeKeysOfRows,
     intakePhrase,
     removeIntakeRows,
+    NAME_CLASH_LABEL,
+    NAME_CLASH_ORDER,
     type IntakeProgress,
+    type NameClashChoice,
   } from "./upload-intake.ts";
   import { beginDigests, forgetDigests, intakeReadiness } from "./upload-digests.svelte.ts";
   import UploadSourceTable from "./upload-source-table.svelte";
@@ -166,6 +172,13 @@
   let createdAtBasis = $state<"source" | "upload">("source");
   /** The document type each chosen file carries, by intake key. Absent is "none", the default. */
   let documentTypeIds = $state<Map<string, string | null>>(new Map());
+  /**
+   * What happens to a file whose name is already taken where it lands: the batch-wide answer, and
+   * any file the reader answered for on its own. Keeping both is the default — a numbered name is
+   * the one outcome that loses nothing and asks nothing later.
+   */
+  let nameClashDefault = $state<NameClashChoice>("keep-both");
+  let nameClashChoices = $state<Map<string, NameClashChoice>>(new Map());
 
   const liveDocumentTypes = $derived(documentTypes.filter((type) => type.deactivatedAt === null));
   const documentTypeNames = $derived(new Map(documentTypes.map((type) => [type.id, type.name])));
@@ -295,6 +308,63 @@
     documentTypeIds = next;
   }
 
+  /** Set the taken-name answer on the selected rows, or on everything when nothing is selected. */
+  function setNameClash(choice: NameClashChoice): void {
+    if (started) return;
+    const keys =
+      selectedKeys.length === 0
+        ? entries.map(intakeEntryKey)
+        : intakeKeysOfRows(entries, selectedKeys);
+    const next = new Map(nameClashChoices);
+    for (const key of keys) next.set(key, choice);
+    nameClashChoices = next;
+  }
+
+  const entryByKey = $derived(new Map(entries.map((chosen) => [intakeEntryKey(chosen), chosen])));
+
+  /*
+   * Where a chosen file would land, as the destination stands now: the destination folder, then
+   * each segment of the file's dropped path matched by name against the folders already there.
+   * Undefined where a segment does not exist yet — a folder the upload will make holds nothing,
+   * so nothing in it can be taken.
+   */
+  function landingFolderIdOf(chosen: DroppedEntry): string | null | undefined {
+    const target = destinationIndex;
+    if (target === null) return undefined;
+    let folderId: string | null = destinationFolderId;
+    const path = folderPathOf(chosen);
+    if (path === "") return folderId;
+    for (const segment of path.split("/")) {
+      const next = target
+        .childrenOf(folderId)
+        .find((folder) => folder.name.localeCompare(segment, undefined, { sensitivity: "base" }) === 0);
+      if (next === undefined) return undefined;
+      folderId = next.id;
+    }
+    return folderId;
+  }
+
+  /**
+   * The file already holding a chosen file's name where it lands, and what the reader chose about
+   * it — the answer the Name Taken column shows and the batch acts on. Null where nothing clashes.
+   */
+  function nameClashFor(key: string): { takenBy: string; choice: NameClashChoice } | null {
+    const chosen = entryByKey.get(key);
+    if (chosen === undefined || destinationIndex === null) return null;
+    const folderId = landingFolderIdOf(chosen);
+    if (folderId === undefined) return null;
+    const takenBy = collidingSibling(
+      chosen.file.name,
+      destinationIndex.filesIn(folderId).map((file) => ({ key: file.id, name: file.name })),
+    );
+    if (takenBy === null) return null;
+    return { takenBy, choice: nameClashChoices.get(key) ?? nameClashDefault };
+  }
+
+  const hasNameClashes = $derived(
+    entries.some((chosen) => nameClashFor(intakeEntryKey(chosen)) !== null),
+  );
+
   /*
    * The two asks behind the one Add control. The File System Access pickers are preferred where the
    * engine has them: they raise no confirmation of their own, where a hidden `<input webkitdirectory>`
@@ -370,6 +440,8 @@
     pickedFolderId = null;
     createdAtBasis = "source";
     documentTypeIds = new Map();
+    nameClashDefault = "keep-both";
+    nameClashChoices = new Map();
     entries = [...preselected];
     expanded = new Set(intakeFolderPaths(preselected));
     batch = null;
@@ -396,6 +468,8 @@
       documentTypeIds,
       // Where each file stands right now, so the column carries on rather than starting over.
       readiness: intakeReadiness(entries),
+      nameClashDefault,
+      nameClashChoices,
       folders: target.folders,
       files: target.documents,
     });
@@ -582,6 +656,29 @@
               </DropdownMenu.Content>
             </DropdownMenu.Root>
           {/if}
+          {#if !started && hasNameClashes}
+            <!-- The taken-name answer, set on what is selected — or on everything, when nothing
+                 is. The Name Taken column shows the answer beside the file that has the name. -->
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger
+                class={buttonClasses({ variant: "ghost", size: "sm" })}
+                title={selectedKeys.length === 0
+                  ? "Decide what happens to every file whose name is taken"
+                  : "Decide what happens to the selected files whose names are taken"}
+              >
+                <Files class="size-16" aria-hidden="true" />
+                Name Taken
+                <ChevronDown class="size-16" aria-hidden="true" />
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Content align="end" style="min-inline-size: var(--mc-size-popover)">
+                {#each NAME_CLASH_ORDER as choice (choice)}
+                  <DropdownMenu.Item onSelect={() => setNameClash(choice)}>
+                    {NAME_CLASH_LABEL[choice]}
+                  </DropdownMenu.Item>
+                {/each}
+              </DropdownMenu.Content>
+            </DropdownMenu.Root>
+          {/if}
           {#if !started && selectedKeys.length > 0}
             <Button variant="ghost" size="sm" onclick={removeSelected}>
               <X class="size-16" aria-hidden="true" />
@@ -669,6 +766,8 @@
         selectable={!started}
         {documentTypeName}
         hasDocumentTypes={liveDocumentTypes.length > 0}
+        nameClash={nameClashFor}
+        {hasNameClashes}
         onSelectionChange={(keys) => (selectedKeys = keys)}
       />
 

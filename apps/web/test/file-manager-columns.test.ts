@@ -37,6 +37,8 @@ const file = (over: Partial<MatterFile> & { id: string }): MatterFile => ({
   status: "clean",
   quarantineReason: null,
   sourceModifiedAt: null,
+  uploadedBy: null,
+  uploadedByName: null,
   ...over,
 });
 
@@ -66,8 +68,9 @@ describe("safetyKeyOf", () => {
     expect(safetyKeyOf(file({ id: "2", scanVerdict: null }))).toBe("not-scanned");
   });
 
-  it("puts a clean file with no document type in the info band", () => {
-    expect(safetyKeyOf(file({ id: "1", documentTypeId: null }))).toBe("info");
+  it("does not grade a missing document type as a safety finding", () => {
+    // A firm that does not use document types would otherwise read an Info mark on every file.
+    expect(safetyKeyOf(file({ id: "1", documentTypeId: null }))).toBe("clean");
   });
 
   it("gives a clean, typed file the bare mark and no word", () => {
@@ -83,7 +86,7 @@ describe("safetyKeyOf", () => {
       file({ id: "4", status: "pending", currentVersionId: null }),
       file({ id: "5", status: "quarantined", currentVersionId: null }),
     ].map((each) => statusEntry(safetyKeyOf(each)).label);
-    expect(new Set(every)).toEqual(new Set(["Clean", "Info", "Not scanned", "Warning", "Error"]));
+    expect(new Set(every)).toEqual(new Set(["Clean", "Not scanned", "Warning", "Error"]));
   });
 });
 

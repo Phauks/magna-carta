@@ -263,9 +263,9 @@ export const uploadMatchesRoute = defineOpenAPIRoute(uploadMatchesMeta, {
   description:
     "Answers whether the firm already holds a file's bytes, by SHA-256 and size, before they are " +
     "uploaded: the live files on the target matter whose current version is those bytes, and the " +
-    "live files elsewhere in the firm. A match on the matter means the file is already there; a " +
-    "match elsewhere can be duplicated onto the matter server-side (uploads.duplicate) with no " +
-    "bytes sent.",
+    "live files elsewhere in the firm. Either kind of match can be duplicated into a new file on " +
+    "the matter server-side (uploads.duplicate) with no bytes sent — holding the bytes already is " +
+    "a reason not to send them, never a reason not to file what the caller chose to file.",
   request: {
     body: { content: { "application/json": { schema: UploadMatchesRequest } }, required: true },
   },

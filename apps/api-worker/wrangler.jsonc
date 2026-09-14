@@ -221,7 +221,15 @@
         "dead_letter_queue": "magna-carta-production-platform-jobs-deadletter",
       },
       {
+        // The interactive lane: a member is watching. One second of batch wait rather than the
+        // five-second default (a single upload otherwise sits in the queue waiting for company),
+        // and ten retries with the consumer's own backoff, so a scan engine that is cold-starting
+        // or being redeployed (a minute or two of 500s) can never dead-letter a file the member
+        // just sent — dead-lettered files wait for the five-minute redrive, which is the "it works
+        // if I wait long enough" a member reported.
         "queue": "magna-carta-production-files-ingest",
+        "max_batch_timeout": 1,
+        "max_retries": 10,
         "dead_letter_queue": "magna-carta-production-files-ingest-deadletter",
       },
       {
@@ -236,6 +244,7 @@
         // small fleet absorbs without overload.
         "queue": "magna-carta-production-files-ingest-bulk",
         "max_concurrency": 10,
+        "max_retries": 10,
         "dead_letter_queue": "magna-carta-production-files-ingest-bulk-deadletter",
       },
       // The bundle-build consumer (the queue() handler routes this queue to the bundle consumer):

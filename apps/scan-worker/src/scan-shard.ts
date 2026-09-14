@@ -42,10 +42,15 @@ function fnv1aHash32(value: string): number {
 // the same instance). No key — a caller with nothing stable to hash, such as an ad-hoc diagnostic
 // upload — picks a shard at random rather than defaulting to a fixed one, so a caller that omits the
 // key can never collapse the whole fleet back onto a single instance.
+// A keyless scan goes to the PRIMARY shard — the one instance the warm-poke keeps resident — and
+// not to a random one. This used to pick at random, which under light load sent four scans in five
+// to a shard that had scaled to zero: each paid the container's cold start (tens of seconds, and a
+// 500 from the engine until clamd's signature database was loaded), the ingest queue retried, and
+// a member watched their upload sit at "Checking the file" for minutes. The interactive ingest lane
+// sends no key for exactly that reason; the bulk lane keeps its key, because there the fan-out over
+// every instance is the throughput, and a cold start amortises over a migration.
 export function scanShardName(shardKey: string | null): string {
-  if (shardKey === null || shardKey === "") {
-    return shardName(Math.floor(Math.random() * SCAN_SHARD_COUNT));
-  }
+  if (shardKey === null || shardKey === "") return SCAN_PRIMARY_SHARD_NAME;
   return shardName(fnv1aHash32(shardKey) % SCAN_SHARD_COUNT);
 }
 

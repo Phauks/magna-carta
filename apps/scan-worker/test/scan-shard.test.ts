@@ -38,13 +38,11 @@ describe("scanShardName", () => {
     expect(new Set(shardNames(keys)).size).toBe(SCAN_SHARD_COUNT);
   });
 
-  it("does not collapse a keyless request onto one instance", () => {
-    const names = new Set(Array.from({ length: 200 }, () => scanShardName(null)));
-    expect(names.size).toBe(SCAN_SHARD_COUNT);
-    // An empty key is a caller that sent the parameter with nothing in it — same treatment as absent.
-    expect(new Set(Array.from({ length: 200 }, () => scanShardName(""))).size).toBe(
-      SCAN_SHARD_COUNT,
-    );
+  it("sends a keyless request to the warm primary shard, never a cold random one", () => {
+    // A random shard under light load is a cold shard four times in five, and a cold shard is a
+    // cold start the member waits through. The interactive lane sends no key on purpose.
+    expect(scanShardName(null)).toBe(SCAN_PRIMARY_SHARD_NAME);
+    expect(scanShardName("")).toBe(SCAN_PRIMARY_SHARD_NAME);
   });
 
   it("the primary shard is one of the configured shards", () => {

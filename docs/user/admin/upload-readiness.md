@@ -11,8 +11,8 @@ Anyone who can change the firm's file-safety settings — by default, the Owner/
 ## Running the check
 
 1. Click the **version chip** at the top right of the screen (the small build identifier).
-2. In the **Database** section, the **File storage** line shows the verdict. The check runs on its own each time an administrator opens the panel, with the other things the panel reads.
-3. Press **Upload readiness report** to open the full report. **Check Again** runs it once more; **Copy Report** puts the whole report on your clipboard, ready to paste into a message.
+2. The check runs on its own each time an administrator opens the panel, with the other things the panel reads. The **Database** section's **File storage** line shows the verdict in one line.
+3. The **Upload readiness** section beneath it shows every check, one line each, with a badge on the right. The section folds behind its caret like the others; a shut heading still counts what it hides. The panel's refresh control at the top runs the check again along with everything else, and the panel's copy control puts the whole panel — build, deployment, database and this report — on your clipboard, ready to paste into a message.
 
 The check takes a few seconds. It looks at six things, in the order an upload depends on them:
 
@@ -47,7 +47,7 @@ Two things the check cannot put right, because they are decisions made when Magn
 - **A storage bucket that does not exist.** The firm was set up by an installation that was not able to create one. The report says so; setting up the firm again under a correctly configured installation is the remedy, and the check will not create a bucket on its own.
 - **A credential storage does not honour.** The report names the credential and how it needs to be issued. Whoever administers the installation puts it right.
 
-In both cases the report's wording is what to pass on — **Copy Report** is there for exactly that.
+In both cases the report's wording is what to pass on — the panel's copy control is there for exactly that.
 
 ## Nothing about your files is read
 
