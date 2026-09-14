@@ -12,6 +12,11 @@
  * issued)" is a finding — it means the failure never reached the platform's error boundary — whereas
  * a missing line is indistinguishable from a report that got truncated.
  *
+ * THE LINE GRAMMAR IS NOT THIS FILE'S. Rows are `key: value` and groups indent under a heading,
+ * both defined in ./diagnostic-report.ts, because the Build Information panel assembles a paste of
+ * its own and the two used to disagree about what a row looked like. What stays here is the ORDER
+ * and the WORDING — which facts a failure report owes, and what each absence is called.
+ *
  * PURE, AND DELIBERATELY IN ITS OWN FILE. Reading the build identity means reading constants baked
  * in by the bundler, and a module that does cannot be imported by a plain unit test at all — it
  * throws on `__MC_BUILD_COMMIT__` before a single assertion runs. So the assembly lives here with no
@@ -20,6 +25,14 @@
  */
 import type { Failure } from "$lib/api/problem.ts";
 import type { Breadcrumb } from "./breadcrumbs.ts";
+import {
+  entry,
+  NONE_ISSUED,
+  NOT_STATED,
+  renderDiagnosticReport,
+  section,
+  type ReportEntry,
+} from "./diagnostic-report.ts";
 
 /** What the browser can tell us about the moment, gathered at the point of copying. */
 export interface TraceEnvironment {
@@ -38,10 +51,32 @@ export interface TraceEnvironment {
   readonly copiedAt: Date;
 }
 
-const NONE_ISSUED = "(none issued)";
+/**
+ * The browser's own account of itself, as rows. Shared with the Build Information panel's paste
+ * ($lib/versions/panel-report.ts): a diagnosis from either surface should describe the same machine
+ * in the same words, and before this was lifted out only the failure trace carried any of it.
+ */
+export function environmentEntries(environment: TraceEnvironment): ReportEntry[] {
+  return [
+    entry("browser", environment.userAgent),
+    entry("viewport", environment.viewport),
+    entry("language", environment.language),
+    entry("time zone", environment.timeZone),
+    entry("network", environment.online ? "online" : "offline"),
+  ];
+}
 
-function line(key: string, value: string): string {
-  return `${key}: ${value}`;
+/**
+ * The breadcrumb trail as a section, or null when there is none. Shapes, never values — the
+ * sanitizing is ./breadcrumbs.ts's and is pinned by its own test.
+ */
+export function breadcrumbSection(crumbs: readonly Breadcrumb[]) {
+  if (crumbs.length === 0) return null;
+  return section(
+    "breadcrumbs (oldest first)",
+    [],
+    crumbs.map((crumb) => `${crumb.at} ${crumb.route} ${crumb.category}: ${crumb.label}`),
+  );
 }
 
 /**
@@ -61,57 +96,55 @@ export function buildFailureTrace(
   crumbs: readonly Breadcrumb[] = [],
 ): string {
   const problem = failure?.problem ?? null;
-  const lines: string[] = ["Magna Carta — error report"];
 
-  lines.push(line("build", environment.buildIdentity));
-  lines.push(line("route", environment.route));
-  lines.push(line("request", failure?.request ?? "(no failing call — reported by hand)"));
-  lines.push(line("failed", failure?.failedAt.toISOString() ?? "(not a caught failure)"));
-  lines.push(line("copied", environment.copiedAt.toISOString()));
+  const opening: ReportEntry[] = [
+    entry("build", environment.buildIdentity),
+    entry("route", environment.route),
+    entry("request", failure?.request ?? "(no failing call — reported by hand)"),
+    entry("failed", failure?.failedAt.toISOString() ?? "(not a caught failure)"),
+    entry("copied", environment.copiedAt.toISOString()),
+  ];
 
   if (failure === null) {
-    lines.push(line("answer", "nothing failed — this report was raised by a person"));
+    opening.push(entry("answer", "nothing failed — this report was raised by a person"));
   } else if (problem === null) {
     // The distinction that changes what a person should do about it, stated rather than implied.
-    lines.push(line("answer", "nothing answered — the request did not complete"));
+    opening.push(entry("answer", "nothing answered — the request did not complete"));
   } else {
-    lines.push(line("status", String(problem.status)));
-    lines.push(line("problem type", problem.type ?? "(not stated)"));
-    lines.push(line("title", problem.title ?? "(not stated)"));
-    lines.push(line("detail", problem.detail ?? "(not stated)"));
-    lines.push(line("error id", problem.errorId ?? NONE_ISSUED));
-    lines.push(line("correlation id", problem.correlationId ?? NONE_ISSUED));
+    opening.push(entry("status", String(problem.status)));
+    opening.push(entry("problem type", problem.type, NOT_STATED));
+    opening.push(entry("title", problem.title, NOT_STATED));
+    opening.push(entry("detail", problem.detail, NOT_STATED));
+    opening.push(entry("error id", problem.errorId, NONE_ISSUED));
+    opening.push(entry("correlation id", problem.correlationId, NONE_ISSUED));
 
     // The rest are present only when they mean something, so their presence is itself the signal.
-    if (problem.instance !== undefined) lines.push(line("instance", problem.instance));
-    if (problem.stepUpRequired === true) lines.push(line("step up required", "yes"));
-    if (problem.requestAccess === true) lines.push(line("access can be requested", "yes"));
+    if (problem.instance !== undefined) opening.push(entry("instance", problem.instance));
+    if (problem.stepUpRequired === true) opening.push(entry("step up required", "yes"));
+    if (problem.requestAccess === true) opening.push(entry("access can be requested", "yes"));
     if (problem.attemptsRemaining !== undefined) {
-      lines.push(line("attempts remaining", String(problem.attemptsRemaining)));
+      opening.push(entry("attempts remaining", String(problem.attemptsRemaining)));
     }
     if (problem.retryAfterSeconds !== undefined) {
-      lines.push(line("retry after", `${problem.retryAfterSeconds}s`));
-    }
-    if (problem.errors !== undefined && problem.errors.length > 0) {
-      lines.push("field errors:");
-      for (const fieldError of problem.errors) {
-        lines.push(`  - ${fieldError.path} (${fieldError.code}): ${fieldError.detail}`);
-      }
+      opening.push(entry("retry after", `${problem.retryAfterSeconds}s`));
     }
   }
 
-  lines.push(line("browser", environment.userAgent));
-  lines.push(line("viewport", environment.viewport));
-  lines.push(line("language", environment.language));
-  lines.push(line("time zone", environment.timeZone));
-  lines.push(line("network", environment.online ? "online" : "offline"));
+  const fieldErrors =
+    problem?.errors !== undefined && problem.errors.length > 0
+      ? section(
+          "field errors",
+          [],
+          problem.errors.map(
+            (fieldError) => `- ${fieldError.path} (${fieldError.code}): ${fieldError.detail}`,
+          ),
+        )
+      : null;
 
-  if (crumbs.length > 0) {
-    lines.push("breadcrumbs (oldest first):");
-    for (const crumb of crumbs) {
-      lines.push(`  ${crumb.at} ${crumb.route} ${crumb.category}: ${crumb.label}`);
-    }
-  }
-
-  return lines.join("\n");
+  return renderDiagnosticReport("Magna Carta — error report", [
+    section(null, opening),
+    fieldErrors,
+    section(null, environmentEntries(environment)),
+    breadcrumbSection(crumbs),
+  ]);
 }

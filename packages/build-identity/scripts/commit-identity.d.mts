@@ -6,3 +6,6 @@ export function resolveCommitIdentity(): {
   commit: string | null;
   commitTime: string | null;
 };
+
+/** `https://github.com/<owner>/<repo>` for this checkout, or null when it cannot be established. */
+export function resolveRepositoryUrl(): string | null;

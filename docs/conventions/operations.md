@@ -502,6 +502,11 @@ earlier commit 404s the probe, which the aggregate records as `unreported` and t
 **"Not reporting"** — true, and easy to mistake for an outage, because the Worker is healthy and
 serving its real work perfectly.
 
+Each probe is raced against a fixed timeout and now reports what it cost
+(`latencyMilliseconds`), so `reported` and `unreachable` stop being the only two readings of one
+measurement: a Worker answering close to the timeout is marked **Slow** in the chip before the day
+it flips. A Worker with no binding was never asked and carries no number rather than a zero.
+
 **So `packages/build-identity/*` belongs in the Build Watch Paths of every Worker whose version the
 aggregate reads.** Without it, a change to the version route or to the identity stamp matches no
 sibling's watch paths and rebuilds nothing, so the sibling keeps answering from whatever build it

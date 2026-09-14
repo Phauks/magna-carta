@@ -108,6 +108,7 @@ export type ServiceVersion = {
     commit: string | null;
     commitTime: string | null;
     buildTime: string | null;
+    latencyMilliseconds: number | null;
 };
 
 export type DatabaseHealthResponse = {
@@ -1030,6 +1031,7 @@ export type ReportIncidentRequest = {
         route: string;
         appVersion: string;
         clientAt: string;
+        deployment?: string;
     };
 };
 
