@@ -1,0 +1,70 @@
+@layer components {
+  /*
+   * NavigationLayout.Row — one choice inside the navigation column. The canvas-register cousin of
+   * the sidebar's menu button: control-sized, rounded, a quiet surface tint on hover, and the
+   * chosen row carrying the gilt start-edge bar as an inset box-shadow (a border would bend around
+   * the rounded corners) over a selected fill with firmer text.
+   *
+   * IT DOES NOT SHOUT. The column is chrome around the work, so the resting row is muted ink on
+   * nothing and the accent appears on exactly one row — the one the reader is standing on.
+   *
+   * A NAME WRAPS RATHER THAN TRUNCATES, which is why the height is a MINIMUM and there is no
+   * `white-space: nowrap` here (the sidebar rail has one because its label collapses to an icon;
+   * this column never does). A row that reads "Property Listin..." has stopped naming the thing,
+   * which is the one job a navigation row has.
+   *
+   * The unreachable row — an entry designed but with nowhere to go yet — is quieter still and
+   * takes no hover, keyed off the `aria-disabled` it must carry anyway. It is deliberately NOT
+   * dressed as a disabled control: a greyed-out button reads as broken, where a quiet row wearing
+   * a Soon mark reads as not yet.
+   */
+  .mc-navigation-layout-row {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+    min-block-size: var(--mc-control-sm);
+    padding-inline: var(--mc-space-12);
+    padding-block: var(--mc-space-4);
+    border-radius: var(--mc-radius-md);
+    background-color: transparent;
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    font-weight: var(--mc-weight-regular);
+    line-height: var(--mc-leading-tight);
+    text-align: start;
+    text-decoration-line: none;
+    cursor: pointer;
+    transition-property: background-color, color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-navigation-layout-row:not([aria-disabled="true"]):hover {
+    background-color: var(--mc-surface-raised);
+    color: var(--mc-text-default);
+  }
+  .mc-navigation-layout-row:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-style: solid;
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  /* The one lit row: selected fill, firmer ink, and the gilt bar down its start edge. */
+  .mc-navigation-layout-row[data-current="true"] {
+    background-color: var(--mc-surface-selected);
+    color: var(--mc-text-default);
+    font-weight: var(--mc-weight-medium);
+    box-shadow: inset var(--mc-focus-ring-width) var(--mc-space-0) var(--mc-space-0)
+      var(--mc-space-0) var(--mc-accent-default);
+  }
+  .mc-navigation-layout-row[aria-disabled="true"] {
+    color: var(--mc-text-subtle);
+    cursor: default;
+  }
+  /* The leading glyph keeps its size while the name beside it wraps to a second line. */
+  .mc-navigation-layout-row-icon {
+    flex: none;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+}
