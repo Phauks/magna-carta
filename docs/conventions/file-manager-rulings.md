@@ -812,10 +812,12 @@ The owner's notes of 2026-09-14, from the deployed screen.
 | N37  | **Only the file list scrolls.** "When the list gets long and I scroll, I am scrolling the entire page... The only part that should scroll is inside where the files are. In that way it maintains its look as one screen." The matter header, the section strip, the file-manager toolbar and the counts strip all hold still at any list length; the grid's own scroll region is the one that moves. Root cause below, and it was never this surface's own markup.                                                                                                                       | settled |
 | T9   | **One selected treatment down the rail, whatever the row names.** A chosen folder wore the accent tint with the gilt edge; the four view rows beneath it wore `surface-selected`, which on a SUNKEN rail is very nearly the rail's own colour — so the open view read as barely marked beside a folder that was plainly lit. The view row now carries the tree row's own selected declarations. Where the reader is standing is one fact and cannot look like two states.                                                                                                                 | settled |
 | L50  | **A tile's name wraps, and no tile covers its neighbour at any name length.** The tile has a fixed width and its whole job is to name one file, so the name breaks onto a second and a third line rather than being cut at the first — #607's standing rule for a navigation row, applied for the same reason. Past the THIRD line it ends in an ellipsis and the whole name is on the tile's hover, so a folder of long names stays a grid of even tiles rather than a column of tall ones. The overlap itself was a box never told it could shrink; the wrap is honest only once it is. | settled |
-| L51  | **The pin's space is reserved whether or not the thing is pinned.** "So we don't have reflow." On a tile the gutter opens at the start of the GLYPH's line and an equal space closes it, so the icon stays centred and pinning lights a glyph and moves nothing; on a tile this narrow a gutter each side of the NAME would have taken a third of the room the name is there to use. L11 and L38 are untouched: same Lucide pin, filled when pinned, still above the rule. **The TABLE row's pin is the design system's and is still unreserved** — see the note below.                   | open    |
+| L51  | **The pin's space is reserved whether or not the thing is pinned.** "So we don't have reflow." On a tile the gutter opens at the start of the GLYPH's line and an equal space closes it, so the icon stays centred and pinning lights a glyph and moves nothing; on a tile this narrow a gutter each side of the NAME would have taken a third of the room the name is there to use. L11 and L38 are untouched: same Lucide pin, filled when pinned, still above the rule. **The TABLE row's pin is reserved the same way**, in the design system's own grid — see the note below.                   | settled |
 | A29b | **Undo and redo are wired to the acts.** Renaming, moving between folders, pasting a cut, deleting a FILE and pinning each record a step; each step is a command with a real inverse and never a snapshot, and each names the act it will take back. A15, A15b and A15c are unchanged — the stack, the placement and the control were never the defect. **Extends A15's movement-only scope**, which is what left the pair disabled through most of a session.                                                                                                                            | settled |
 | A30b | **A folder's delete is refused out loud rather than half-offered.** There is no route that brings a folder back, so no step is pushed for one; the screen states it in its own band and names Deleted Files, where the documents the folder held can still be recovered one by one. A22's dialog is otherwise untouched.                                                                                                                                                                                                                                                                  | settled |
 | I51  | **The details panel hosts its own rename field and commits a name through it.** The list's rename is still the list's (F2, the row, the context menu); what the panel had was a button that opened the field on the ROW, which is not renaming from the panel. The panel commits a name and this surface runs the list's own path for it — the same collision refusal (L45), the same write, the same undo step — so a name typed on the right behaves exactly like a name typed on a row. I39 is what this builds.                                                                       | settled |
+| L52  | **A field that opens is a field the cursor is in.** "I press create new folder. The name field appears as a field, but I have to click it then unselect it in order to make it look normal." The list's in-place field was never focused and never selected, where the panel's field built this same round had both from the start. A new folder arrives under a stand-in name nobody chose, so the cursor lands in it with the stem selected; the extension is not, for the reason I51 gives. | settled |
+| L53  | **Opening a rename does not move the row.** A grid cell is exactly one control tall and spends four pixels of that on block padding each side, so a control asking for the full control height cannot fit in one and pushed the row taller. The field gives up the control's own minimum and takes the cell's content box instead. A REFUSAL still grows the row, which is right: the reason has to be readable, and it sits beneath the field. | settled |
 
 **Notes recorded this round:**
 
@@ -845,11 +847,23 @@ The owner's notes of 2026-09-14, from the deployed screen.
   folder is still there and is where the file belongs.
 - **A pin step carries only the keys the act CHANGED.** Pinning over a selection that was already
   half pinned would otherwise unpin, on the way back, rows the reader had pinned earlier.
-- **L51 is open on the table row because the pin is drawn by the design system's grid**, not by this
-  surface: `data-table-grid.svelte` renders it inside the first cell only while `mark.pinned` is
-  true, so pinning shifts that cell's content by the glyph and its gap. Reserving the slot is one
-  change to that component and its recipe and it is every table's, not this screen's — recorded here
-  rather than worked around with a second pin drawn in the file manager's own cell.
+- **The table row's pin is the design system's, and reserving it is every table's.**
+  `data-table-grid.svelte` drew the glyph inside the first cell only while `mark.pinned` was true,
+  so pinning shifted that cell's content by the glyph and its gap. The slot is now kept by any grid
+  that marks rows at all — the condition is whether the table was given a `rowMark` at all, a
+  capability that cannot change under the reader, rather than whether anything is pinned right now,
+  which changes at exactly the moment the reflow would be seen. A grid that never marks a row
+  reserves nothing and is unchanged. Done in the component and its recipe rather than worked around
+  with a second pin drawn in the file manager's own cell.
+- **The two rename fields answer refusals in different places, and that is the seam.** The rename
+  path now returns the sentence that refuses instead of posting it itself: the list's field sends it
+  to the screen's failure band, the panel's field keeps its own field open with the reason beneath
+  it. A single path that also decided WHERE to say no would have put a band at the top of a screen
+  the reader is not looking at while they retype a name on the right.
+- **A rename opened from the list had no cursor in it at all.** What the owner hit through the new
+  folder was not the new folder's defect: every route into the list's field — F2, the context menu,
+  a folder just made — opened a field nobody was typing in. One focus, in `beginRename`, covers all
+  three.
 - **The rail is not adopting `NavigationLayout.Row`.** Its `current` register is `surface-selected`
   over the canvas, which is right for a column sitting on the work surface and is precisely the fill
   that disappears on this sunken rail. What the two share is the RULE — one lit row, the gilt start

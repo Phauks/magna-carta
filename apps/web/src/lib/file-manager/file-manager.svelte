@@ -128,6 +128,7 @@
     displayName,
     renameConflictMessage,
     renameFieldValue,
+    renameSelectionEnd,
     splitName,
   } from "./file-names.ts";
   import { countPhrase } from "./file-manager-vocabulary.ts";
@@ -564,6 +565,8 @@
 
   let renameDraft = $state("");
   let renameConflict = $state<string | null>(null);
+  /** The open field. One row renames at a time, so one reference is the whole of it. */
+  let renameField = $state<HTMLInputElement | null>(null);
   /** A folder just made, waiting for the re-read that will let its name be typed. */
   let renameAfterReload = $state<string | null>(null);
 
@@ -587,6 +590,19 @@
       row.kind === "folder"
         ? row.folder.name
         : renameFieldValue(row.file.name, manager.hideExtensions);
+    // The field mounts on the next frame, and a field nobody is typing in is not a rename: a new
+    // folder arrives under a stand-in name and the cursor has to be in it, or the reader has to
+    // find and click the field before they can name the thing they just made. The selection stops
+    // at the stem so typing keeps an extension they can see but did not ask to change.
+    queueMicrotask(() => {
+      renameField?.focus();
+      renameField?.setSelectionRange(
+        0,
+        row.kind === "folder"
+          ? renameDraft.length
+          : renameSelectionEnd(renameDraft, manager.hideExtensions),
+      );
+    });
   }
 
   function siblingsOf(row: FileManagerRow): { key: string; name: string }[] {
@@ -614,8 +630,11 @@
       renameConflict = renameConflictMessage(collision);
       return;
     }
-    const saved = await renameTo(row, wanted);
-    if (!saved) return;
+    const refusal = await renameTo(row, wanted);
+    if (refusal !== null) {
+      actionFailure = refusal;
+      return;
+    }
     manager.renamingKey = null;
     renameConflict = null;
   }
@@ -624,10 +643,14 @@
    * One rename path, whichever field asked for it: the list's own in-place field, the context menu,
    * and the details panel, which hosts a field of its own and commits through it. Two paths would
    * mean two answers about collisions, about what an undo puts back, and about what a refusal says.
+   *
+   * It answers with the sentence that refuses, or null when the name was written. WHERE that
+   * sentence goes is the caller's, because the two fields are in different places: the list shows
+   * it in the screen's failure band, the details panel beneath the field the name was typed in.
    */
-  async function renameTo(row: FileManagerRow, wanted: string): Promise<boolean> {
+  async function renameTo(row: FileManagerRow, wanted: string): Promise<string | null> {
     const before = row.kind === "folder" ? row.folder.name : row.file.name;
-    if (wanted === before) return true;
+    if (wanted === before) return null;
     const write = async (name: string): Promise<void> => {
       const outcome =
         row.kind === "folder"
@@ -638,8 +661,7 @@
     try {
       await write(wanted);
     } catch {
-      actionFailure = "That name could not be saved.";
-      return false;
+      return "That name could not be saved.";
     }
     // Recorded only now, because the act has actually happened: a step whose write refused would
     // offer to put back a name that was never written.
@@ -653,27 +675,27 @@
       }),
     );
     reload();
-    return true;
+    return null;
   }
 
   /**
    * The details panel's rename, committed from the field it hosts. It runs the list's own path —
-   * the same collision check, the same write, the same undo step, the same failure band — so a name
-   * typed on the right behaves exactly like a name typed on a row.
+   * the same collision check, the same write, the same undo step — so a name typed on the right
+   * behaves exactly like a name typed on a row. What differs is where a refusal is said: the panel
+   * keeps its field open holding what was typed and puts the reason beneath it, so the name is
+   * fixed where it was written rather than in a band at the top of a screen the reader is not
+   * looking at.
    */
-  async function renameInspectedTo(name: string): Promise<void> {
+  async function renameInspectedTo(name: string): Promise<string | null> {
     const row = inspectedRow;
-    if (row === null) return;
+    if (row === null) return null;
     const stored = row.kind === "folder" ? "" : splitName(row.file.name).extension;
     const wanted =
       row.kind === "folder" ? name.trim() : committedRename(name, stored, manager.hideExtensions);
-    if (wanted === "") return;
+    if (wanted === "") return null;
     const collision = collidingSibling(wanted, siblingsOf(row), row.key);
-    if (collision !== null) {
-      actionFailure = renameConflictMessage(collision);
-      return;
-    }
-    await renameTo(row, wanted);
+    if (collision !== null) return renameConflictMessage(collision);
+    return await renameTo(row, wanted);
   }
 
   // --- moving --------------------------------------------------------------------------------------
@@ -2205,7 +2227,7 @@
               folderAggregateOf={(folderId) => folderAggregate(index, folderId, safetyKeyOf)}
               bind:tab={manager.inspectorTab}
               onClose={togglePanel}
-              onRenameCommit={(name: string) => void renameInspectedTo(name)}
+              onRenameCommit={renameInspectedTo}
               onPickDocumentType={(documentTypeId) => {
                 if (inspectedRow !== null) void applyDocumentTypeTo([inspectedRow], documentTypeId);
               }}
@@ -2534,9 +2556,17 @@
       {#if manager.renamingKey === row.key}
         <!-- The extension is never selected, and never shown while extensions are hidden: the
              field simply does not contain what must not be edited by accident. -->
-        <span class="flex min-w-0 flex-col gap-4">
+        <!-- The field fits the row it opens in: a grid cell is exactly one control tall and spends
+             four pixels of that on block padding each side, so a control asking for the FULL
+             control height cannot fit inside one and pushes the row taller. `min-h-0` gives up the
+             control's own minimum and `grow` takes the cell's content box instead, so opening a
+             rename moves nothing. A refusal is the one case that legitimately grows the row: the
+             reason has to be readable, and it sits beneath the field. -->
+        <span class="flex h-full min-w-0 flex-col gap-4">
           <Input
+            bind:ref={renameField}
             size="sm"
+            class="min-h-0 grow"
             bind:value={renameDraft}
             aria-label="New name"
             aria-invalid={renameConflict !== null}
