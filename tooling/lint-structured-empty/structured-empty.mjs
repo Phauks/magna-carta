@@ -503,7 +503,7 @@ export function allowancesIn(source) {
     const commentEnd = match.index + match[0].length;
     let excuses = commentEnd;
     while (excuses < source.length && /\s/.test(source[excuses])) excuses += 1;
-    found.push({ index: match.index, excuses, reason: match[1].trim() });
+    found.push({ index: match.index, excuses, reason: match[1].replaceAll(/\s+/g, " ").trim() });
   }
   return found;
 }

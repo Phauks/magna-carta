@@ -24,7 +24,8 @@ const lines = (source) => auditFile(FILE, source).problems.map((problem) => prob
 
 describe("markupOf", () => {
   it("preserves offsets so a reported line is the real one", () => {
-    const source = '<script>\n  const a = 1;\n</script>\n<!-- x -->\n<p class="text-text-muted">y</p>';
+    const source =
+      '<script>\n  const a = 1;\n</script>\n<!-- x -->\n<p class="text-text-muted">y</p>';
     expect(markupOf(source)).toHaveLength(source.length);
     expect(markupOf(source).split("\n")).toHaveLength(source.split("\n").length);
   });
@@ -164,9 +165,9 @@ describe("loose-empty-branch", () => {
         '{#if section.kind === "fields"}<dl></dl>{:else if section.kind === "text"}<p>{section.text}</p>{/if}',
       ),
     ).toEqual([]);
-    expect(rules("{#if dev}<DataTable.Grid grid={g} />{:else}<p>Development only.</p>{/if}")).toEqual(
-      [],
-    );
+    expect(
+      rules("{#if dev}<DataTable.Grid grid={g} />{:else}<p>Development only.</p>{/if}"),
+    ).toEqual([]);
     expect(
       rules(
         '{#if record === null && !reading}<p class="text-text-muted">&nbsp;</p>{:else}<dl></dl>{/if}',

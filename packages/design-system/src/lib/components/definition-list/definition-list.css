@@ -1,0 +1,49 @@
+@layer components {
+  /*
+   * DefinitionList — named values, framed.
+   *
+   * A two-column grid: the term column as wide as its longest term, the definition column taking
+   * the rest and wrapping a long value inside the frame. Each row is `display: contents`, so the
+   * term and the definition are the grid's own items and every row's columns line up; the empty
+   * row spans both columns and sits beneath the terms, inside the frame.
+   *
+   * It is a WORK SURFACE, so it stays quiet: no fills, no rules between rows, the term in the
+   * muted voice and the value in the reading voice. The only mark it draws on its own is the muted
+   * dash of an empty definition, which is the table's empty-cell mark and means the same thing.
+   */
+  .mc-definition-list {
+    display: grid;
+    grid-template-columns: max-content minmax(var(--mc-space-0), 1fr);
+    column-gap: var(--mc-space-16);
+    row-gap: var(--mc-space-8);
+    margin: var(--mc-space-0);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+  }
+  .mc-definition-list-row {
+    display: contents;
+  }
+  .mc-definition-list-term {
+    color: var(--mc-text-muted);
+  }
+  .mc-definition-list-definition {
+    margin: var(--mc-space-0);
+    min-inline-size: var(--mc-space-0);
+    color: var(--mc-text-default);
+    overflow-wrap: anywhere;
+  }
+  .mc-definition-list-empty-value {
+    color: var(--mc-text-subtle);
+  }
+  /* The list's own empty state: beneath the terms, spanning both columns, in the muted voice. */
+  .mc-definition-list-empty {
+    display: contents;
+  }
+  .mc-definition-list-empty-message {
+    grid-column: 1 / -1;
+    margin: var(--mc-space-0);
+    padding-block-start: var(--mc-space-4);
+    color: var(--mc-text-muted);
+  }
+}
