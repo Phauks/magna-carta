@@ -39,11 +39,13 @@
   import type { Snippet } from "svelte";
   import * as Conversation from "@magna-carta/design-system/conversation";
   import Button from "@magna-carta/design-system/button";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Label from "@magna-carta/design-system/label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import NavigationLayout from "@magna-carta/design-system/navigation-layout";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
+  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { SAMPLE_SENTENCE, sampleInstant } from "@magna-carta/design-system/loading-fixtures";
   import FolderInput from "@lucide/svelte/icons/folder-input";
   import Trash2 from "@lucide/svelte/icons/trash-2";
@@ -109,8 +111,11 @@
      * the design system's navigation layout takes the full height under the top bar, so a header
      * belongs inside it rather than above it. The matter section draws none (its masthead is the
      * matter's).
+     *
+     * It is handed this surface's SEARCH to seat in its action row. WHAT the search reaches is
+     * decided here, beside the read it narrows; WHERE the control sits is the header's business.
      */
-    header?: Snippet;
+    header?: Snippet<[Snippet]>;
   }
 
   let {
@@ -143,6 +148,18 @@
   let starting = $state(false);
   let draft = $state("");
   let sort = $state<ConversationSort>("date");
+  /*
+   * What the rail is being asked. `searchText` is the field's; `appliedSearch` is what the server was
+   * last asked for, and ScreenSearch owns the pause between them.
+   *
+   * It is a filter on the READ, never over the rows in hand: the rail is paged, so narrowing what
+   * happened to arrive would tell a member their question was never asked when it is simply two
+   * pages down. It reaches what they SAID, which is the only way a conversation nobody titled is
+   * found again.
+   */
+  let searchText = $state("");
+  let appliedSearch = $state("");
+  const searching = $derived(appliedSearch.trim() !== "");
   let selectedId = $state<string | null>(null);
   /*
    * True only while the reader has DELIBERATELY asked for a fresh conversation. It is what tells
@@ -241,6 +258,8 @@
     draft = "";
     selectedId = null;
     composingNew = false;
+    searchText = "";
+    appliedSearch = "";
     session.close();
     citations.reset();
     conversations.reset(subject);
@@ -270,6 +289,7 @@
   function readPage(cursor?: string) {
     return listConversations(fetch, cursor, {
       ...(matterId === null ? {} : { matterId }),
+      ...(appliedSearch.trim() === "" ? {} : { search: appliedSearch.trim() }),
       sort,
     });
   }
@@ -285,6 +305,19 @@
    * page in hand. The open conversation stays open: the reader changed how the rail is read, not
    * what they were reading.
    */
+  /*
+   * A new question is a new list, so the rows are replaced rather than appended to — the subject
+   * carries the query for exactly that reason. It deliberately does NOT re-open the newest result: a
+   * reader searching is looking for one conversation, and yanking the transcript pane onto a
+   * different one on every pause would make the search unusable.
+   */
+  async function applySearch(next: string): Promise<void> {
+    appliedSearch = next;
+    conversations.reset(`${subject}:${next.trim()}`);
+    await conversations.load(readPage);
+    if (showMatter) void citations.resolve((conversations.items ?? []).map((row) => row.matterId));
+  }
+
   function reorder(next: ConversationSort): void {
     sort = next;
     conversations.reset(subject);
@@ -585,6 +618,20 @@
   </Conversation.Root>
 {/snippet}
 
+<!-- The surface's search, for the header to seat. It grows toward the inline start as it opens, so a
+     create control after it in the header's row never moves. -->
+{#snippet searchControls()}
+  <ScreenSearch
+    bind:value={searchText}
+    label="Search your conversations"
+    placeholder={placeholderOf("Search your conversations")}
+    searchOn="pause"
+    fieldClass="w-2xs sm:w-xs"
+    disabled={isSample || !isOpen}
+    onsearch={(next) => void applySearch(next)}
+  />
+{/snippet}
+
 {#snippet railRows(shown: readonly MagnusConversation[])}
   <MagnusRail
     rows={shown}
@@ -594,7 +641,9 @@
     matterTitleFor={showMatter ? (id) => citations.titleFor(id) : undefined}
     nextCursor={conversations.nextCursor}
     loadingMore={conversations.loadingMore}
-    emptyLine="Nothing asked yet."
+    emptyLine={searching
+      ? `Nothing you asked matches "${appliedSearch.trim()}".`
+      : "Nothing asked yet."}
     onSelect={select}
     onSortChange={reorder}
     onLoadMore={loadMoreConversations}
@@ -721,7 +770,7 @@
     {/snippet}
     <div class="flex min-h-0 flex-1 flex-col gap-16 p-24">
       {#if header}
-        {@render header()}
+        {@render header(searchControls)}
       {/if}
       {@render gatedOrDetail()}
     </div>

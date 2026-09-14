@@ -26,6 +26,8 @@
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Button from "@magna-carta/design-system/button";
   import CreateControl from "@magna-carta/design-system/create-control";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
+  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import { goto } from "$app/navigation";
   import CheckRegister from "$lib/conflicts/check-register.svelte";
@@ -39,6 +41,18 @@
   let composerOpen = $state(false);
   let grid = $state<DataTable.DataTableGridState<ConflictsCheckSummary> | null>(null);
   let rereadLog = $state<() => void>(() => {});
+  /*
+   * What the log is being asked. `searchText` is the field's and `appliedSearch` is what the
+   * register was last asked for — ScreenSearch owns the pause between them, so one query leaves the
+   * machine per thought.
+   *
+   * It goes to the SERVER, not over the rows in hand: the log is paged and only grows, so narrowing
+   * the page that happened to arrive would answer "of the fifty I have read, which match" — and the
+   * question this screen exists for, "has this firm ever checked this person", is worth nothing if
+   * it can only see the most recent fifty runs.
+   */
+  let searchText = $state("");
+  let appliedSearch = $state("");
 
   $effect(() => {
     if (bootstrapped) return;
@@ -81,6 +95,21 @@
 <div class="flex h-full flex-col gap-16">
   <ScreenHeader title="Conflicts Check">
     {#snippet actions()}
+      <!-- The search leads the row and grows toward the inline start, so New Check never moves when
+           it opens — the same order as every other Workspace screen. It reaches the matter a run was
+           made against and the names the run surfaced; the closed labels (what set it going, who
+           asked, the strictness) are narrowed from the table's own column headers, which match them
+           exactly rather than by substring. -->
+      <ScreenSearch
+        bind:value={searchText}
+        label="Search the log"
+        placeholder={placeholderOf("Search the log")}
+        searchOn="pause"
+        fieldClass="w-2xs sm:w-xs"
+        onsearch={(next) => {
+          appliedSearch = next;
+        }}
+      />
       <CreateControl
         noun="Check"
         title="Run a conflicts check. It writes a new entry in the firm's log."
@@ -105,6 +134,7 @@
     <CheckRegister
       bind:grid
       bind:reread={rereadLog}
+      search={appliedSearch}
       caption="Every conflicts check this firm has run"
       emptyTitle="This Firm Has Not Run A Conflicts Check Yet"
       onOpenCheck={(checkId) => void goto(`/conflicts/checks/${checkId}`)}

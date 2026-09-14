@@ -196,13 +196,22 @@ is usually the fastest way to understand the rule.
   hover, the selection and the pinned columns rather than building a second row. _(the time sheet;
   reissued for the call log, 2026-09-08: "the description should be in a line beneath the other
   information, consider how we do that for time entries")_
+- **Every rung of a record's life draws a number, on a run of its own, and keeps it.** An enquiry is
+  numbered the moment it is written down, a consultation when it graduates, a matter when it opens —
+  and each number stands beside the last rather than replacing it, so a note filed under any of them
+  still resolves. The runs are separate because a run is only readable if it counts one thing: a
+  consultation run pitted with declined enquiries cannot be told apart from one with records
+  missing. What a surface SHOWS is the newest number the record has drawn, and what a surface
+  SEARCHES is all of them. _(2026-09-14: "everything should have a number, intake would have a
+  number as well"; generalizing the consultation sequence of 2026-08-31.)_
 - **A record a person quotes out loud carries a NUMBER, and the number is a column.** A handle is
   what the platform joins on; it is not something anybody can read back down a telephone or write on
   a slip. Where a record is referred to out loud — a matter, an entry, an invoice, a call — it draws
   a human number, that number leads the row, and the screen's search matches it first. A number that
   carries the day it belongs to is legible without a lookup, and scoping its sequence to that day is
   what keeps it short enough to say. _(the call log, 2026-09-08: "all calls and logs should have a
-  number, which we can identify in the log ... should incorporate date")_
+  number, which we can identify in the log ... should incorporate date")_ Enforced by
+  `pnpm run lint:modal-headers`, which asks it of every panel handed a record's number.
 - **A control that undoes a state exists only while that state is in play.** The clear-filters
   control appears when something is narrowing the view and is absent otherwise, so its absence is
   itself the answer to "is anything hidden". _(matters docket, 2026-08-30)_
@@ -328,12 +337,70 @@ is usually the fastest way to understand the rule.
     (where it belongs); a record already stored opens in its values, and the acts that move it
     between queues live in the action bar. _(the call log, 2026-09-08: "we now have two modals for
     creating a call which is weird")_
+  - **A record with no window yet GETS one; it does not get a panel instead.** Where a record is
+    read as a row and changed in that row, the answer is the record window, not an action dialog for
+    making one and the row for changing it. Reaching for the panel is the tempting half-step and it
+    produces exactly the defect the ruling above names — one surface to read a record, another to
+    edit it — with the extra cost that the panel and the row then disagree about the record's own
+    fields. A task was moved to the panel and then to its own window in the same afternoon, and only
+    the second half was the fix. _(tasks, 2026-09-14: "creating a new task should be a modal, not
+    in-line", then "do the edit one too. I dislike having two screens, one to read information, and
+    one to edit it")_
+  - **A task moves along four rungs — To Do, In Progress, On Hold, Done — and they are the action
+    bar.** One control group, not four scattered verbs, because they answer one question: where is
+    this. The rung the task is on renders pressed and does nothing, so a reader sees where it stands
+    without reading a badge. Beside them are the only two other things that happen to a task, and
+    they differ in exactly one thing the copy has to say: **archiving keeps the data, deleting takes
+    it.** Archiving is not a fifth rung — a task is archived FROM wherever it stood, and putting it
+    back returns it there. _(tasks, 2026-09-14: "Action Bar should be To Do, In-Progress, On-Hold,
+    Done. Besides that, tasks can be deleted or archived")_
+    - **The reason an archive carries is OPTIONAL, and that is the whole lesson of the state it
+      replaces.** Cancelling required one, on the reasoning that the decision is the record. Nobody
+      ever used it: somebody clearing work that is simply not happening is not composing a memo, and
+      a required field at that moment is a reason to reach for delete instead — which loses the
+      record entirely. Offer the sentence where it is cheap to give; do not demand it. _(the owner,
+      2026-09-14: "archived would be similar to cancelled, but we will never use that because no one
+      uses cancelled")_
+    - **A list carries the one act a list is for, not the whole group.** Done belongs on a row,
+      because clearing finished work off a list is what a list is for; the other three rungs live in
+      the record's own window with the rest of its acts. Four controls deep on every row of work
+      somebody is only scanning is a row nobody can read. _(tasks, 2026-09-14)_
+  - **A list row states values and offers acts; it never becomes a form.** Nothing unfolds inside a
+    list: not a composer above the rows, not a row that turns into fields, not a picker for what to
+    attach, not the reason a thing is being cancelled. Each of those is a second place to learn
+    where a record's fields live, and each takes the list's own shape away — its count, its
+    ordering, what is overdue — while somebody types in the middle of it. What a row keeps is the
+    one act a LIST is for: ticking a thing off, and putting it back. _(tasks, 2026-09-14)_
   - **A record that is quoted out loud is identified BEFORE it is saved.** Where a record carries a
     reference number a person reads back — to a caller, onto a message slip — the window states the
     number the next one would draw while it is still being filled in, and says that it is a preview
     rather than a reservation. The save is too late for the sentence the person entering it is in the
     middle of. _(the call log, 2026-09-08: "all calls and logs should have a number, which we can
     identify in the log, before it has been created")_
+- **A form that schedules something shows the day it is scheduling.** Choosing a time is a question
+  about other people's afternoons, and a form that asked it with nothing on screen was asking the
+  reader to remember. The day being booked stands in the panel's context pane, as the product's own
+  calendar with a day view and no toolbar — never a second rendering of one — following the date
+  field as it is answered and saying so before a date is chosen rather than showing today as if that
+  were an answer. _(the calendar's record forms, 2026-09-14)_
+- **A moment is a date, a time FIELD, and its zone as a shortcode, on one line.** The day, the hour
+  and the zone that hour is read in are one fact (the one-moment-one-line rule, applied): a platform
+  time control rather than a box hoping for `HH:MM`, and "PST" rather than "America / Los Angeles",
+  because a field wide enough for a continent pushes the time it belongs to onto the next line. The
+  abbreviation is worked out on the RECORD'S OWN DAY — the same zone is PST in January and PDT in
+  July — and is never stored, because CST is three different zones. Where a record has ONE zone, the
+  second line STATES it rather than offering a second control that could only ever disagree with the
+  first. _(the calendar's record forms, 2026-09-14)_
+- **Where a thing is JOINED is a different field from where it is HELD.** A meeting can be in a room
+  and on a call at once, and a form with one field for both loses the room the moment somebody types
+  the link. A conference link is a URL and never a provider plus a room number: every service
+  expresses a meeting as a link, and a closed list of providers is a list this repository would
+  maintain on somebody else's release schedule. _(the calendar's record forms, 2026-09-14)_
+- **A record that belongs to no parent is not refused, it is a different record.** Where a form
+  stands refused until somebody picks a parent — "A matter is needed." — ask whether the thing with
+  no parent is real, and where it is, make the no-parent row a CHOICE that says what it writes and
+  write that record instead. A reader should not have to know which of two menu items to have
+  started from. _(the calendar's event form, 2026-09-14)_
 - **A field's label is the plain word for what it holds.** "Date", not "When It Happened"; a label
   that reads as a sentence is a question the surface is asking rather than a name for the value. A
   field whose meaning genuinely needs a sentence gets the sentence beside it, and keeps the plain
@@ -451,6 +518,35 @@ is usually the fastest way to understand the rule.
   primary pane takes the fields a member fills in every time; the context pane takes the machinery.
   In one column the two read as equals, and a form asking for two names and eleven engine settings
   reads as a control panel for something nobody can name. _(the New Check panel, 2026-09-08)_
+- **A surface over many of something offers them as a RAIL of rows in FOLDERS, not as a filter.** A
+  firm has a calendar per attorney, per paralegal, per room and a few that are dates; a dropdown
+  offering one at a time is the wrong shape for that, and so is a row of toggles. Each row turns on
+  and off on its own, each folder turns its rows on and off together, and the folder's own control
+  carries the THIRD STATE — two of six on is neither on nor off, and pressing the middle state
+  completes the folder, which is what somebody who turned two on and reached for the folder meant.
+  **The folders are the firm's own vocabulary and never the product's**: a folder is a role the firm
+  handed out, so nothing here decides who counts as support staff. _(the calendar's rail,
+  2026-09-14)_
+- **A thing a member can colour is coloured from the product's ONE palette.** The eleven colours a
+  folder offers and the nine a calendar offers are one list in one home
+  (`packages/design-system/src/lib/palette/`), with each surface stating which subset it offers
+  rather than writing a second list in a second order — two lists are two reds. Where nothing has
+  been chosen, deal the palette by POSITION rather than by a hash of the key: position spreads the
+  colours evenly, and two of the first four coming out the same colour is exactly the failure the
+  colours exist to prevent. _(the calendar's rail, 2026-09-14)_
+- **A member's chosen colour and the product's status register are two facts, and they never share a
+  property.** The status register paints the thing (a cancelled setting is struck and warning-toned
+  whoever owns it); the member's colour paints an edge. Putting both in one fill loses whichever was
+  written second. _(calendar chips, 2026-09-14)_
+- **A direct-manipulation gesture is an ACCELERATOR, never the only path.** Double-clicking an empty
+  day or hour starts a record on it, and the screen still carries the one create control every
+  screen carries, because a gesture is mouse-only and a keyboard and a touch device have to reach
+  the same act. It never fires from a press on an existing record: opening a thing and making one
+  beside it are different intentions. _(the calendar grid, 2026-09-14)_
+- **A grid that is empty says so by being empty; a LIST says it in words.** Thirty empty squares have
+  already told the reader, and a line above them spends a sentence on a fact they can see. An empty
+  list is a blank rectangle, which reads as something that failed to load, so it keeps its sentence.
+  _(the firm calendar, 2026-09-14)_
 - **A control that tunes something invisible carries its sentence in place, not on hover.** A hover
   title does not exist on a touch device and a screen reader reaches it only by asking, so a setting
   whose whole meaning lives in a `title` has no meaning for most readers. It goes under the control,
@@ -464,7 +560,27 @@ is usually the fastest way to understand the rule.
 - **A panel does not explain its own subject, and a refusal does not lecture.** The subtitle names
   what is being acted on; it is not the place for a paragraph on what the subsystem is for. A
   refusal states what to do in as few words as that takes — "Name at least one party.", not a
-  sentence about what a check is. _(the New Check panel, 2026-09-08)_
+  sentence about what a check is. Enforced by `pnpm run lint:modal-headers`, and by the type: the
+  subtitle slot takes a `RecordSubject`, so a paragraph cannot be passed as a string at all.
+  _(the New Check panel, 2026-09-08)_
+- **A modal says two things: what it DOES, and WHICH RECORD it does it to.** The heading names the
+  act in the imperative — "Write Off a Balance" — a panel that MAKES a record says "New &lt;Noun&gt;"
+  with the create control's own noun, and a panel that asks for nothing is `kind="reading"` and names
+  the thing it shows. No heading ends in a question mark: the panel is what makes it a question, and
+  a destructive kind already takes the alertdialog role and traps the decision. Interior articles and
+  short prepositions stay lower case — "File a Copy", never "File A Copy". The subtitle is the
+  RECORD, by the number somebody would read back down a telephone, plus the few facts about that
+  record worth stating beside it. Both lines are asserted by `pnpm run lint:modal-headers`, whose
+  verb vocabulary is a closed set: a new act adds one reviewed line rather than a noun quietly
+  becoming a heading. _(2026-09-14, generalizing the two rulings of 2026-09-08 above and below)_
+- **A record a panel was HANDED the number of is a record that panel names.** Being given a record's
+  number is being told which record the panel is about, so it appears in the heading (where the
+  number IS the record's name — a bill opens as "Invoice 2026-0147") or in the subtitle's reference,
+  and never only in the record pane or on the printed sheet. The scan reads the platform's record
+  numbers out of the schema's own `*_number` columns rather than a list somebody keeps, so a record
+  kind that grows a number is asked this question the day its column lands; a number that is a number
+  of something else — a telephone, a vehicle, a parcel of land — is recorded as such with its reason.
+  _(2026-09-14)_
 
 - **A screen makes something new through ONE control, and it is the same control on every screen.**
   The design system's `CreateControl`: a primary button reading "New" and one noun ("New Fee",
@@ -474,8 +590,10 @@ is usually the fastest way to understand the rule.
   registry (`sections.ts` answers `createNoun` for every section, or declines with a line);
   the section's page claims the behaviour while it is mounted. Elsewhere it sits in the
   masthead's action row, after the search. Nothing else on the screen makes the record: the
-  action-row buttons and the empty-state buttons that used to are removed, not moved, and an empty
-  state names the control at the top instead. When nothing can be made right now the control is
+  action-row buttons and the empty-state buttons that used to are removed, not moved. (The rest of
+  that sentence — "and an empty state names the control at the top instead" — was **reversed on
+  2026-09-14**; see _An empty list says "No Results", and nothing else_ below. An empty state names
+  nothing now.) When nothing can be made right now the control is
   disabled with the reason as its title; it never leaves the row. Enforced by
   `pnpm run lint:matter-create-control`. _(the matter screens, 2026-09-03)_
 - **The verb is New, and a control that opens a MENU reads the bare "New".** New is the word this
@@ -686,6 +804,22 @@ is usually the fastest way to understand the rule.
   transiently (a registry rate-limiting, a renderer at capacity), the surface retries a bounded
   number of times before reporting failure, and shows each attempt as it happens; the member is
   never made to be the retry loop. _(WHOIS lookup, 2026-08-31)_
+- **An empty list says "No Results", and nothing else.** Two words, in title case, for BOTH the
+  record that holds nothing and the narrowing that excludes everything — one wording serves both
+  because it is true of both, where "no matters yet" is a lie about a filtered table and a sentence
+  naming the filters is a second copy of what the header already shows. No description under it, and
+  no sentence naming the way in: the create control is in the masthead's action row on every screen
+  by the product's own grammar, so prose naming it duplicates a label that is free to change without
+  the prose changing with it. **This reverses** the 2026-09-03 "an empty state names the control at
+  the top" clause above. Where the reader can widen a narrowing, the way back is a CONTROL beside the
+  words, never more words. What the empty states used to carry instead was a definition of the domain
+  term — "A packet is the physical thing the firm holds and moves: an envelope, a deed box, a sealed
+  wallet…" — which is the explanatory prose _No info lines_ already forbids everywhere else, and
+  whose home is `docs/user/`. Not a rule to remember: `DataTable.Grid` has no `empty` snippet to pass
+  and `NoResults` takes no props, so there is nothing to get wrong. Three narrower states stay
+  distinct because they state a fact about the SUBJECT rather than about the result set — a sample
+  matter, a firm that has not enabled something, and a read that failed (which is `FailureNotice`,
+  not an empty state at all). _(the custodian register, 2026-09-14)_
 - **An empty screen is the filled screen lacking information**, not a different screen. The same
   regions render, each saying what it is missing. A centred card that replaces the layout teaches a
   person nothing about where things will be, and it makes the first real use of the screen a second
@@ -954,6 +1088,47 @@ name, which is every screen outside a matter.
   before they have typed — the scope, the way through to the full results — is unreachable if the
   panel is gated on a query, and gating it made changing where the search looked require starting a
   search first. Empty, the panel is its header row and nothing else. _(matter search, 2026-09-02)_
+- **Every Workspace screen searches itself through the one control, in the top right.** The
+  owner's direction: a member should never have to learn where a screen keeps its search, and the
+  answer is the same everywhere — `ScreenSearch`, in the screen header's `actions` snippet, at the
+  inline end of the title row, resting as an icon so it costs the screen no vertical space. What
+  made this a ruling rather than a habit is what was found when it was checked: the Matters docket,
+  the Directory and a matter's Notes were each still carrying their own search box, every one of
+  them a `type="search"` field beside a Lucide search glyph with its own debounce and its own idea
+  of what pressing the icon on a live query should do. None was wrong; they were three more answers
+  to a question the product had already settled, and both 2026-09-02 corrections above had reached
+  the component and none of them. All three now use the control. _(Workspace screens, 2026-09-14)_
+- **"The read takes no query" is a reason to add the query, not to skip the search.** The owner's
+  correction, on the first pass at the ruling above: four screens had been recorded as declining a
+  search because their rows are paged off a read with no search parameter, and there was no reason
+  they should not have one. Notifications, Conflicts Check, Magnus and Calendar each search now, and
+  the work was in the read rather than on the screen. What survives of the original reasoning is only
+  its narrow true part — narrowing the pages that happen to be in the browser, on a list the server
+  pages, answers "of the forty I have read, which match" while appearing to answer "which of yours
+  match", and does it silently. That remains forbidden. The answer is to push the query to the
+  server, which is what each of these now does. _(Workspace screens, 2026-09-14)_
+- **Where a screen's words are composed in the browser, the browser resolves the query and the
+  server still does the paging.** Two of these screens carry no sentence in the record at all, by
+  design: a notification row holds identifiers, closed labels, counts and dates, and the conflicts
+  log holds closed labels and identifiers recorded by reference. A substring scan server-side would
+  be searching `deadlines.deadline.overdue`, which is not what anybody types. So the client resolves
+  the term into the kinds and categories whose WORDS match — it owns those words — and sends them
+  with the term; the server matches those plus the one member-facing string the row does carry, the
+  matter number. The whole record is searched, the paging never leaves the server, and the
+  vocabulary never leaves the client. _(Notifications and Conflicts Check, 2026-09-14)_
+- **A search states the scope it actually reached.** The calendar's search narrows the window on
+  screen, because each of its three reads caps its horizon server-side and refuses a wider one
+  rather than clamping it — so "search the whole record" is not a request that can be made there
+  yet. That is allowed to be the answer, and it is not allowed to be silent about it: the screen
+  says how many entries in the named window match and that other dates were not searched. A bare
+  "3 matches" beside a month grid would read as three on the calendar. _(Calendar, 2026-09-14)_
+- **A screen that genuinely has nothing of its own to search says so in the gate.** One Workspace
+  screen declines today — Home, which is a summary of other screens rather than a list, and whose
+  answer to a query is the command palette already in its top bar. What is refused is not answering.
+  `pnpm run lint:workspace-search` holds all of this: it refuses a Workspace screen that neither
+  searches nor declines, a control seated anywhere but the header's action row, a decline left
+  standing after its screen got a search, and any second implementation of a search box.
+  _(Workspace screens, 2026-09-14)_
 
 ### Layout
 
@@ -1090,6 +1265,128 @@ name, which is every screen outside a matter.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-14 — everything has a number, intake included
+
+The owner, on seeing the modal-header work land: "everything should have a number, intake would have
+a number as well." What binds:
+
+- **The last of "no number before active" is gone.** The lifecycle ruling of 2026-09-06 said no
+  number of any kind existed before a matter became active; the consultation sequence reversed half
+  of it and this reverses the rest. An intake draws its own number the moment the enquiry is written
+  down, from a third run beside the matter and consultation runs, rendering `I2026-0001` by default.
+- **A number per rung, not a number moved earlier.** Drawing the consultation number at intake
+  instead would have been cheaper and is the wrong shape: most enquiries are declined, so the
+  consultation run would fill with numbers issued to nothing and stop being readable as a run of
+  consultations. Each run counts one thing, which is what keeps each of them dense enough to read.
+- **A file that came the whole way answers to three names and keeps all three.** Nothing is
+  replaced. A surface shows the newest number the record has drawn — that is the one a person is
+  being told now — and searches every one of them, because a note quoting the number a file was
+  filed under at the time has to keep finding it.
+
+### 2026-09-14 — the modal header: the act, and the identifier of what it acts on
+
+The owner, opening this stream: a standardized format for stating what a modal does and the
+identifier of the data being entered, "because all data should be traceable, and in that way, all
+data should have identifiers. These are our tentative matter numbers, or message numbers".
+
+The round found that both halves had already been ruled on — on 2026-09-08, twice, and in the
+shells' own prop documentation before that — and that none of it held. Across 82 panel openings, 18
+of 54 subtitles were paragraphs about what a subsystem is for, four billing panels put a number and
+a sentence in one string behind a middle dot in three places and an em dash in a fourth, five
+headings asked a question where forty-seven named an act, six capitalised an article fourteen left
+alone, and the preview-before-save the owner had asked for had reached exactly one file.
+
+- **A ruling in a ledger binds the people who read the ledger; a ruling with a gate binds the diff.**
+  The two rulings of 2026-09-08 were both correct, both written down, and both broken within the
+  week by people with no way to know they existed. What changed is not the rulings — it is that the
+  subtitle slot stopped being typed `string`, and that `pnpm run lint:modal-headers` now reads the
+  call sites. Promoted into _Controls and patterns_ above.
+- **A number a record does not hold yet is still stated, and says which it is.** Three standings,
+  and the difference between the last two is load-bearing rather than a shade of wording: a matter
+  number is `drawn`, a consultation number is `tentative` — the record really carries it, it
+  survives the matter opening, and a document filed under it still resolves — and a `preview` is
+  what the NEXT record would take, shown while the reader is still filling the panel in. A panel with
+  no number to show says "A number is drawn when this is saved." rather than standing empty.
+- **What a panel explains goes beside the thing it explains.** Every sentence removed from a
+  subtitle in this round either restated the heading (deleted) or explained a field, a choice or a
+  consequence (moved beside it). The one that mattered most was on the detach confirmation, where
+  the fear the panel has to answer — that pressing Detach destroys the file — now sits in the
+  panel's body instead of in the line that names the document.
+
+### 2026-09-14 — the calendar: many calendars in folders, a day of columns, and a form that asks where
+
+The owner walked the deployed calendar and issued eleven corrections in one round. Most of them
+generalize; the generalizations are promoted above and the rest is here.
+
+- **A firm does not have one calendar, it has twenty — so a calendar surface offers them as a RAIL
+  of individual calendars kept in FOLDERS, not as a filter.** "For calendars, you should be able to
+  set any number of individual calendars… there would be several rooms that have calendars, so
+  those would be in a folder of some kind, attorneys could be in another folder, support staff like
+  paralegals, receptionists would be in another." Each row turns on and off on its own; each folder
+  turns its rows on and off together, and its control carries the third state, because two of six
+  attorneys on is neither on nor off. **The folders are the firm's own vocabulary and never ours**:
+  a folder is a ROLE the firm handed out and its rows are the members holding it, so nothing in the
+  product decides who counts as support staff. A member holding two roles is filed under the first,
+  because a calendar listed twice reads as two calendars and toggles as one.
+- **A calendar carries a colour its owner chose, from the product's ONE palette.** "You should be
+  able to set the color of a calendar, that way you could more easily delineate." The palette is the
+  same eleven the file manager's folders offer, which is now one module
+  (`packages/design-system/src/lib/palette/`) rather than two lists free to disagree about red; a
+  calendar offers the nine of them that read on a chip. An unchosen calendar is dealt a colour by
+  position, so eight calendars turned on are eight a reader can tell apart before colouring any.
+- **The colour and the status register are two facts and never fight.** A chip's fill is the
+  product's status register (a cancelled setting is struck and warning-toned whoever owns it); the
+  calendar's colour is a rule down the chip's leading edge. Putting both in one property loses
+  whichever was written second.
+- **A DAY IS A TIME AXIS CROSSED WITH A COLUMN PER CALENDAR.** "There should be a daily view,
+  especially considering that a day with a lot of attorneys may have a lot of parallel scheduling."
+  The month and the week put a civil DAY in a column; the day puts an HOUR in a row and a CALENDAR
+  in a column, which is the only presentation that makes six attorneys in four places legible. A
+  record on two calendars is drawn in BOTH their columns on purpose — a column that left a shared
+  hearing out of one attorney's day would be lying about that attorney's afternoon.
+- **Double-clicking an empty day or hour starts a record on it.** "When creating an event, you
+  should be able to double click within the calendar to start the creation process." It is an
+  ACCELERATOR and never the only path: the screen still carries the one create control every screen
+  carries, which is what a keyboard and a touch device reach for. It never fires from a press on a
+  chip — opening a record and making one beside it are different intentions.
+- **A form that schedules something shows the day it is scheduling.** "When you select a day for
+  scheduling, on the right side of the modal, you should see that day's calendar so you can identify
+  when people will have availability." It is the panel's own context pane, and what stands in it is
+  the product's ONE calendar with a day view and no toolbar — never a second rendering of one. It
+  follows the date field, and says so before a date is chosen rather than showing today as if that
+  were an answer.
+- **"Where" is Location, and it is the product's dropdown-with-add.** "Where should be location, and
+  this should be a dropdown." The label is the plain word for what the field holds, and the control
+  offers what the firm already knows about its own places — its offices and its rooms, under
+  headings — while still keeping a courthouse nobody has a record of. A closed list here would
+  refuse most of the hearings a litigation firm records.
+- **Where a setting is JOINED is a different field from where it is HELD.** "Some events may be
+  online, so it may benefit to have the ability to have a zoom link or some other e-conference
+  link." A deposition can be in a conference room and on a call at once, and a firm that typed the
+  link where the room goes has lost the room. Held as a URL and never as a provider and a room
+  number: every service expresses a meeting as a link, and a schema naming providers is a list this
+  repository would maintain on somebody else's release schedule.
+- **A time of day is a time field, and its zone sits beside it as a SHORTCODE.** "Start and end time
+  need to be time fields. Time zones should go by shortcode like PST and should be little dropdowns
+  next to the time." One moment is one line: the day, the hour, and the zone that hour is read in
+  sit side by side. The abbreviation is worked out ON THE RECORD'S OWN DAY, because the same zone is
+  PST in January and PDT in July — and nothing is ever stored from it, because CST is three
+  different zones. A record has ONE zone, so the ends line STATES the same code rather than offering
+  a second control that could only ever disagree with the first.
+- **A record that belongs to no case is not refused, it is a different record.** "Remove 'A matter
+  is needed.' from the bottom, matter is not needed." The event form no longer stands refused until
+  a matter is picked; no matter is a CHOICE whose row says what it writes, and the form writes a
+  firm event instead. That is the shape the data already had — `matter_event` requires its matter
+  because every read of it is "what happened on this case", and `firm_event` is the table for
+  everything else — so one question decides which record is written rather than a reader having to
+  know which of two menu items to have started from.
+- **A grid that is empty says so by being empty.** "Remove 'Nothing recorded in September 2026' on
+  main calendar screen, doesn't seem very helpful." A month, a week and a day all draw their days
+  whether or not anything is on them, so a reader looking at thirty empty squares has already been
+  told, and a line above them spends a sentence on a fact they can see. A LIST is the exception and
+  keeps its sentence: an empty agenda is a blank rectangle, which reads as something that failed to
+  load rather than as a fortnight with nothing in it.
 
 ### 2026-09-09 — the front door asks less, and confirming is the way in
 
@@ -1465,9 +1762,11 @@ status as well." What binds:
 - **A matter's statuses are Intake, Consultation, Active, On Hold and Closed**, stored as `intake`,
   `consultation`, `open`, `hold`, `closed`. On Hold is reached only from Active — "no longer
   active" presumes it was — and returns only to Active.
-- **A hold keeps the number and draws nothing.** No number of any kind exists before a matter is
-  active, and none is surrendered or re-drawn on either side of a pause. A held matter stays on the
-  docket wearing its status; it is not an unnumbered rung and does not go to the Intake desk.
+- **A hold keeps the number and draws nothing.** None is surrendered or re-drawn on either side of a
+  pause. A held matter stays on the docket wearing its status; it is not an unnumbered rung and does
+  not go to the Intake desk. _(The half of this ruling that said no number of any kind exists before
+  a matter is active has since been reversed in full: the consultation sequence on 2026-08-31, the
+  intake sequence on 2026-09-14. Every rung draws a number of its own now, on a run of its own.)_
 - **A hold carries its reason, and the reason is required.** It is asked in a sentence, in place,
   beneath the step that records it, and printed beside the status wherever the status is read. A
   pause nobody can explain is not a pause anybody can resume.
@@ -2186,6 +2485,14 @@ navigational menu (such as for magnus and settings), and a right content menu."
   _(built 2026-09-14: Settings, Magnus, Tools and Reports all render on `NavigationLayout`; Tools
   and Reports share one catalogue column, with the landing index kept in the content column so a
   route's back control never bounces. The folder tree remains the follow-up.)_
+- **The row inside that column is `NavigationLayout.Row`, and a navigation row's name wraps rather
+  than truncating.** The treatment had been written three times — the settings nav, the catalogue
+  column, and inline in both. A row reading "Property Listin… Soon" has stopped naming the thing it
+  offers, so the name takes a second line and the row grows to hold it. The wrap binds every
+  navigation column, Settings included, and will bind the folder tree. _(built 2026-09-14. The name
+  has about thirteen characters a line at the `standard` measure: the column's content box is
+  `size.popover` at every width, so a wider gutter cannot buy the name room — only a third row
+  measure would, which is the owner's to settle if the wrapping reads cramped.)_
 
 ### 2026-09-14 — messaging's create control names a message
 

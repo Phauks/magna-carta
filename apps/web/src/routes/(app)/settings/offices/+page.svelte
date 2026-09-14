@@ -18,7 +18,6 @@
    */
   import CreateControl from "@magna-carta/design-system/create-control";
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
@@ -209,18 +208,6 @@
         loading={offices === null}
         placeholderCount={3}
       >
-        {#snippet empty()}
-          {#if narrowed}
-            <EmptyState title="Nothing Matches That">
-              No office answers to what was typed. Clearing the search brings the register back.
-            </EmptyState>
-          {:else}
-            <EmptyState title="No offices yet">
-              An office is where the firm practises: its address on a letterhead, the code in its
-              matter numbers, the time zone its dates print in. New Office, above, opens the first.
-            </EmptyState>
-          {/if}
-        {/snippet}
       </DataTable.Grid>
 
       <DataTable.GridFooter {grid} />

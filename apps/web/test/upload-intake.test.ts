@@ -122,9 +122,11 @@ describe("the tree", () => {
   });
 
   it("a folder row reports how many of its files are ready before the transfer runs", () => {
-    const status = intakeColumns({ filtering: false, documentTypes: false, nameClashes: false }).find(
-      (column) => column.id === "status",
-    );
+    const status = intakeColumns({
+      filtering: false,
+      documentTypes: false,
+      nameClashes: false,
+    }).find((column) => column.id === "status");
     const letterKey = `${LETTER.relativePath} | letter.pdf | 300 | 1700000000000`;
     const memoKey = `${MEMO.relativePath} | memo.docx | 200 | 1600000000000`;
     const discoveryOf = (progress: ReadonlyMap<string, IntakeProgress>) =>

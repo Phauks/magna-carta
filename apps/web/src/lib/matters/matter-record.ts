@@ -36,6 +36,8 @@ export interface MatterRecord {
   matterNumber: string | null;
   /** The consultation's own tentative number, kept after opening rather than replaced by it. */
   consultationNumber: string | null;
+  /** The number the intake was written down under, kept through every later rung. */
+  intakeNumber: string | null;
   matterTypeName: string | null;
   locationName: string | null;
   /** Null on a live matter: the name is a directory join the matter read does not carry. */
@@ -70,6 +72,7 @@ interface MatterReadPayload {
   status: "intake" | "consultation" | "open" | "hold" | "closed";
   matterNumber: string | null;
   consultationNumber?: string | null;
+  intakeNumber?: string | null;
   clientDisplayName: string | null;
   clientCode: string | null;
   clientEntityId?: string | null;
@@ -100,6 +103,7 @@ export function matterRecordFromRead(payload: MatterReadPayload): MatterRecord {
     status: payload.status,
     matterNumber: payload.matterNumber,
     consultationNumber: payload.consultationNumber ?? null,
+    intakeNumber: payload.intakeNumber ?? null,
     matterTypeName: payload.matterTypeName ?? null,
     locationName: payload.locationName ?? null,
     responsibleAttorneyName: payload.responsibleMemberName ?? null,

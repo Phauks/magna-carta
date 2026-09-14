@@ -5,26 +5,26 @@
    * the rail around it: the palette, the two controls beside the root row, the counts, and the
    * group of views beneath the rule.
    *
-   * THE PALETTE'S FILLS live here as one block of aliases, so the eleven colours have one home and
-   * a folder row, a swatch and a menu pip cannot disagree about what "red" is. Four of them —
-   * orange, purple, pink, brown — have no ramp of their own in the token set and currently alias
-   * their nearest neighbour, which is why the palette reads with two colours it should not have.
-   * Adding those ramps replaces four lines in this block and nothing else.
+   * THE PALETTE'S FILLS are the product's, not this component's: `--mc-palette-*`, declared in
+   * styles/recipes/palette.css, where the eleven colours have one home. What is left here is the
+   * folder's own spelling of those names, so a call site written against `--mc-folder-color-red`
+   * still paints the palette's red and a folder, a swatch, a menu pip and a calendar chip cannot
+   * disagree about what red is.
    */
   .mc-folder-tree,
   .mc-folder-tree-menu,
   .mc-folder-tree-palette {
-    --mc-folder-color-red: var(--mc-color-red-500);
-    --mc-folder-color-orange: var(--mc-color-orange-500);
-    --mc-folder-color-yellow: var(--mc-color-amber-300);
-    --mc-folder-color-green: var(--mc-color-green-500);
-    --mc-folder-color-blue: var(--mc-color-blue-500);
-    --mc-folder-color-purple: var(--mc-color-purple-500);
-    --mc-folder-color-pink: var(--mc-color-pink-400);
-    --mc-folder-color-brown: var(--mc-color-brown-700);
-    --mc-folder-color-grey: var(--mc-color-neutral-500);
-    --mc-folder-color-black: var(--mc-color-neutral-1000);
-    --mc-folder-color-white: var(--mc-color-neutral-0);
+    --mc-folder-color-red: var(--mc-palette-red);
+    --mc-folder-color-orange: var(--mc-palette-orange);
+    --mc-folder-color-yellow: var(--mc-palette-yellow);
+    --mc-folder-color-green: var(--mc-palette-green);
+    --mc-folder-color-blue: var(--mc-palette-blue);
+    --mc-folder-color-purple: var(--mc-palette-purple);
+    --mc-folder-color-pink: var(--mc-palette-pink);
+    --mc-folder-color-brown: var(--mc-palette-brown);
+    --mc-folder-color-grey: var(--mc-palette-grey);
+    --mc-folder-color-black: var(--mc-palette-black);
+    --mc-folder-color-white: var(--mc-palette-white);
   }
 
   .mc-folder-tree {

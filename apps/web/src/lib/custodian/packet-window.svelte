@@ -39,6 +39,10 @@
   import Label from "@magna-carta/design-system/label";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import RecordWindow, { type RecordWindowTab } from "@magna-carta/design-system/record-window";
+  import type {
+    RecordReference,
+    RecordSubject,
+  } from "@magna-carta/design-system/record-reference";
   import Separator from "@magna-carta/design-system/separator";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { sampleDate, samplePerson } from "@magna-carta/design-system/loading-fixtures";
@@ -221,15 +225,20 @@
   const sheet = $derived(
     packet === null ? null : packetPrintSheet(packet, (id) => directory.nameOf(id), events),
   );
-</script>
 
-{#snippet subtitle()}
-  {#if packet === null}
-    Reading the register
-  {:else}
-    <span class="tabular-nums">{packet.custodyNumber}</span>
-  {/if}
-{/snippet}
+  /*
+   * The packet by its custody number — the window's own line, and the line the two panels opened
+   * from here state as well, so the packet an item is being added to reads the same in all three.
+   * While the register is still being read there is no number to show, and the line says what it is
+   * doing rather than standing empty: a subtitle holds one line and has no shape to render.
+   */
+  const packetReference = $derived<RecordReference | null>(
+    packet === null ? null : { kind: "Packet", number: packet.custodyNumber },
+  );
+  const subtitle = $derived<RecordSubject>(
+    packetReference === null ? { facts: ["Reading the register"] } : { reference: packetReference },
+  );
+</script>
 
 {#snippet fact(label: string, value: string)}
   <div class="flex flex-col gap-4">
@@ -606,11 +615,12 @@
   <PrintSheet bind:open={printOpen} {sheet} />
 {/if}
 
-<AddItemDialog bind:open={itemDialogOpen} {packetId} onAdded={reread} />
+<AddItemDialog bind:open={itemDialogOpen} {packetId} reference={packetReference} onAdded={reread} />
 
 <LinkScanDialog
   bind:open={scanDialogOpen}
   {packetId}
+  reference={packetReference}
   filingMatterId={packet?.filingMatterId ?? null}
   items={packet?.items ?? []}
   onLinked={reread}

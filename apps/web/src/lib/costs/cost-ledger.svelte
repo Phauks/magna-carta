@@ -36,7 +36,6 @@
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { formatInstant } from "@magna-carta/design-system/formatters";
@@ -465,12 +464,6 @@
   {/if}
 {/snippet}
 
-{#snippet emptyLedger()}
-  <EmptyState title="No Costs Recorded Yet">
-    Filing fees, service, transcripts, experts: every cost paid or consumed for this matter lands
-    here. New Cost, at the top of the matter, records the first.
-  </EmptyState>
-{/snippet}
 
 {#snippet ledgerFigures()}
   <DataTable.GridFigures {grid} figures={footerReading} />
@@ -535,7 +528,6 @@
         class={tableClass}
         {density}
         caption="Costs recorded on this matter"
-        empty={emptyLedger}
         {loading}
       />
     </div>

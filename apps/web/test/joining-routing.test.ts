@@ -8,25 +8,68 @@
  * fetch that answers what the bootstrap would.
  *
  * Pure node: a SvelteKit `load` throws its redirect, which is what these assert on.
+ *
+ * The (app) guard no longer takes a `fetch` — it reads the session through the one query cache, so
+ * the canned reply is installed on the generated client instead and the cache is emptied between
+ * cases. That is a truer exercise than the hand-passed fetch it replaces: the reply now travels the
+ * whole path the app uses, through the client's error interceptor and the cache, and a guard that
+ * read a cached answer from the previous case would be caught by the reset rather than hidden by a
+ * fresh fetch per call.
  */
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { client } from "@magna-carta/api-client/client";
+import { queryClient } from "../src/lib/api/screen-data.ts";
 import { load as appLayoutLoad } from "../src/routes/(app)/+layout.ts";
 import { load as welcomeLoad } from "../src/routes/welcome/+page.ts";
 
 type Thrown = { status?: number; location?: string };
 
-/** A fetch answering one canned bootstrap reply, for the one call these loads make. */
+/*
+ * An origin for the client to resolve its relative operation paths against.
+ *
+ * The app configures an EMPTY base so its calls stay same-origin (src/lib/api/api-client.ts says
+ * why), which a browser resolves against the document and Node cannot resolve at all — it throws
+ * while building the Request, which arrives here as a transport failure with an empty request line
+ * rather than as anything that names a URL. Any absolute origin will do: the fetch is a stub.
+ */
+const ORIGIN = "https://app.example";
+
+/** Answer the bootstrap call with one canned reply, for as long as this case runs. */
 function bootstrapFetch(status: number, body?: unknown): typeof fetch {
-  return (() =>
+  const stub = (() =>
     Promise.resolve(
       new Response(body === undefined ? null : JSON.stringify(body), {
         status,
         headers: { "content-type": "application/json" },
       }),
     )) as unknown as typeof fetch;
+  client.setConfig({ baseUrl: ORIGIN, fetch: stub });
+  return stub;
 }
 
 const deadFetch = (() => Promise.reject(new Error("no worker"))) as unknown as typeof fetch;
+
+/** Run the guard against a transport that answers nothing at all — no Worker behind the SPA. */
+function withDeadTransport(run: () => unknown): unknown {
+  client.setConfig({ baseUrl: ORIGIN, fetch: deadFetch });
+  return run();
+}
+
+beforeEach(() => {
+  // A cache that survived the previous case would answer this one's guard with the previous one's
+  // session, which is the single way these cases could pass while the guard was broken.
+  queryClient.clear();
+});
+
+afterEach(() => {
+  client.setConfig({ baseUrl: "", fetch: globalThis.fetch });
+});
+
+/** Install a canned bootstrap reply, then run the guard against it. */
+function withBootstrap(status: number, body: unknown, run: () => unknown): unknown {
+  bootstrapFetch(status, body);
+  return run();
+}
 
 const FIRMLESS = {
   user: { id: "usr_1", name: "Ada Orphan", email: "ada@example.com" },
@@ -81,7 +124,7 @@ describe("the (app) guard", () => {
 
   it("sends an unauthenticated visitor to sign in, carrying where they were going", async () => {
     const redirect = await caught(() =>
-      appLayoutLoad({ fetch: bootstrapFetch(401), url } as never),
+      withBootstrap(401, undefined, () => appLayoutLoad({ url } as never)),
     );
     expect(redirect.status).toBe(307);
     expect(redirect.location).toBe("/login?next=%2Fmatters%3Ftab%3Dopen");
@@ -91,7 +134,7 @@ describe("the (app) guard", () => {
     // Not to /login: they ARE signed in. And no `next`, because there is nothing to return to —
     // the screen they are being sent to stands between them and every path in this group.
     const redirect = await caught(() =>
-      appLayoutLoad({ fetch: bootstrapFetch(200, FIRMLESS), url } as never),
+      withBootstrap(200, FIRMLESS, () => appLayoutLoad({ url } as never)),
     );
     expect(redirect.status).toBe(307);
     expect(redirect.location).toBe("/welcome");
@@ -99,7 +142,7 @@ describe("the (app) guard", () => {
 
   it("lets a person who has a firm through", async () => {
     await expect(
-      Promise.resolve(appLayoutLoad({ fetch: bootstrapFetch(200, IN_A_FIRM), url } as never)),
+      Promise.resolve(withBootstrap(200, IN_A_FIRM, () => appLayoutLoad({ url } as never))),
     ).resolves.toEqual({});
   });
 
@@ -108,7 +151,7 @@ describe("the (app) guard", () => {
     // nothing, so every screen refuses for a reason that reads like an administrator has to grant
     // something. It is a wait, and the joining screen is where waits are shown.
     const redirect = await caught(() =>
-      appLayoutLoad({ fetch: bootstrapFetch(200, JOINED_BUT_NOT_MIRRORED), url } as never),
+      withBootstrap(200, JOINED_BUT_NOT_MIRRORED, () => appLayoutLoad({ url } as never)),
     );
     expect(redirect.status).toBe(307);
     expect(redirect.location).toBe("/welcome");
@@ -116,7 +159,7 @@ describe("the (app) guard", () => {
 
   it("sends somebody whose member record was given up on to the joining screen too", async () => {
     const redirect = await caught(() =>
-      appLayoutLoad({ fetch: bootstrapFetch(200, MIRROR_ABANDONED), url } as never),
+      withBootstrap(200, MIRROR_ABANDONED, () => appLayoutLoad({ url } as never)),
     );
     expect(redirect.status).toBe(307);
     expect(redirect.location).toBe("/welcome");
@@ -124,9 +167,7 @@ describe("the (app) guard", () => {
 
   it("lets a person through when the membership read did not answer", async () => {
     await expect(
-      Promise.resolve(
-        appLayoutLoad({ fetch: bootstrapFetch(200, MEMBERSHIP_UNREAD), url } as never),
-      ),
+      Promise.resolve(withBootstrap(200, MEMBERSHIP_UNREAD, () => appLayoutLoad({ url } as never))),
     ).resolves.toEqual({});
   });
 
@@ -135,9 +176,7 @@ describe("the (app) guard", () => {
     // one would strand every member of every firm on the joining screen across the deploy.
     const { membership: _omitted, ...withoutMembership } = IN_A_FIRM;
     await expect(
-      Promise.resolve(
-        appLayoutLoad({ fetch: bootstrapFetch(200, withoutMembership), url } as never),
-      ),
+      Promise.resolve(withBootstrap(200, withoutMembership, () => appLayoutLoad({ url } as never))),
     ).resolves.toEqual({});
   });
 
@@ -145,7 +184,7 @@ describe("the (app) guard", () => {
     // A frontend-only dev server with no Worker behind it is not a statement about the session, and
     // treating it as one would make the SPA unrunnable without a backend.
     await expect(
-      Promise.resolve(appLayoutLoad({ fetch: deadFetch, url } as never)),
+      Promise.resolve(withDeadTransport(() => appLayoutLoad({ url } as never))),
     ).resolves.toEqual({});
   });
 });

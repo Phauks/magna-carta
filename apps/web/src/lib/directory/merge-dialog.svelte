@@ -144,8 +144,8 @@
 <ActionDialog
   bind:open
   kind="form"
-  heading="Fold One Record Into The Other"
-  subtitle="{plan.subordinateName} folds into {plan.masterName}."
+  heading="Fold One Record into the Other"
+  subtitle={{ facts: [plan.subordinateName, `folds into ${plan.masterName}`] }}
   commitLabel="Fold Into {plan.masterName}"
   commitBusyLabel="Folding"
   commitRefusal={refusal}

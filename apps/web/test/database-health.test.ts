@@ -285,29 +285,45 @@ describe("copyLineForDatabaseHealth", () => {
 describe("the panel's two folding sections", () => {
   const chip = stripComments(source("lib/versions/version-report.svelte"));
   const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
+  const panelSection = stripComments(source("lib/versions/version-panel-section.svelte"));
   const preferences = source("lib/versions/version-panel-preferences.svelte.ts");
 
-  it("renders every fold through the one disclosure snippet", () => {
-    // Four folds, one definition of what a fold is. A section that built its own heading is how
-    // two carets end up disagreeing about aria-expanded or about when a badge shows.
-    const renders = chip.match(/<VersionSectionHeading/g) ?? [];
+  it("renders every section through the one component, heading and all", () => {
+    // Four sections, one definition of what a section IS — the heading, the fold, the failure
+    // block and the loading region. Each was written out longhand in the panel before, which is
+    // how two carets end up disagreeing about aria-expanded, and how two identical failures end up
+    // worded differently.
+    const renders = chip.match(/<VersionPanelSection/g) ?? [];
     expect(renders).toHaveLength(4);
+    expect(chip).not.toContain("<VersionSectionHeading");
+    expect(panelSection).toContain("<VersionSectionHeading");
     expect(heading).toContain("aria-expanded={!collapsed}");
   });
 
-  it("puts Deployment and Database each behind their own remembered caret", () => {
+  it("puts every section behind its own remembered caret, from the one fold registry", () => {
     expect(chip).toMatch(
-      /label=\{DEPLOYMENT_SECTION_LABEL\}[\s\S]*collapsed=\{deploymentSectionPreference\.collapsed\}/,
+      /label=\{DEPLOYMENT_SECTION_LABEL\}\s*preference=\{PANEL_SECTION_FOLDS\.deployment\}/,
     );
     expect(chip).toMatch(
-      /label=\{DATABASE_SECTION_LABEL\}[\s\S]*collapsed=\{databaseSectionPreference\.collapsed\}/,
+      /label=\{DATABASE_SECTION_LABEL\}\s*preference=\{PANEL_SECTION_FOLDS\.database\}/,
     );
     // Four separate remembered folds, each arriving open: a section that arrived shut would hide
-    // the fault somebody opened the panel to find.
-    const keys = preferences.match(/"magna-carta\.version-panel-[a-z]+"/g) ?? [];
-    expect(new Set(keys).size).toBe(4);
-    expect(preferences).toMatch(/\["expanded", "collapsed"\], "expanded"/);
+    // the fault somebody opened the panel to find. The keys are DERIVED from the section ids now,
+    // so a section cannot ship with its key spelled a second, different way.
+    const registered = preferences.match(/createSectionFold\("[a-z]+"\)/g) ?? [];
+    expect(new Set(registered).size).toBe(4);
+    expect(preferences).toContain("`magna-carta.version-panel-${sectionId}`");
+    expect(preferences).toMatch(/\["expanded", "collapsed"\],\s*"expanded",/);
     expect(preferences).toContain("followAcrossTabs()");
+  });
+
+  it("shows a section's failed read whether it is folded or not", () => {
+    // Folding is a statement about how much detail the reader wants, never a statement that the
+    // read succeeded — so the failure block sits OUTSIDE the fold in the one place that draws it.
+    const failureBlock = panelSection.indexOf("{#if failure !== null}");
+    const foldedBody = panelSection.indexOf("{#if !preference.collapsed");
+    expect(failureBlock).toBeGreaterThan(-1);
+    expect(failureBlock).toBeLessThan(foldedBody);
   });
 
   it("makes each shut heading speak for exactly what its own fold hides", () => {
@@ -351,13 +367,22 @@ describe("the panel's two folding sections", () => {
     // Two reads, two failure states: a dead health read must not take the version rows down with
     // it, which is the opposite of what a panel opened during an outage is for.
     expect(chip).toContain("healthFailure");
-    expect(chip).toContain("healthFailure.problem.errorId");
     expect(chip).not.toContain("failure = healthFailure");
+    // The section is handed its OWN failure and its own lead sentence — "the database health read
+    // failed" and "the version read failed" are different sentences, and a reader needs the word
+    // that says which read is out.
+    expect(chip).toMatch(
+      /label=\{DATABASE_SECTION_LABEL\}[\s\S]*failure=\{healthFailure\}[\s\S]*failureLead="The database health read failed\."/,
+    );
+    // The Error ID itself is drawn once, by the one component every section's failure goes through.
+    expect(panelSection).toContain("failure.problem.errorId");
   });
 
   it("does not read anything until the panel is opened", () => {
     // The chip is on every screen in the app; a standing health poll behind it would be a request
-    // on every page load to answer a question nobody has asked.
+    // on every page load to answer a question nobody has asked. The report reads only while the
+    // surface holding it says it is on screen — the chip passes its popover state (which now lives
+    // in build-panel.svelte.ts so the command palette can open it), the Versions page passes true.
     expect(chip).toMatch(/if \(!open \|\| !readsAggregate\) return;[\s\S]*void refreshHealth\(\);/);
   });
 });

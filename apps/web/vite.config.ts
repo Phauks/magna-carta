@@ -1,7 +1,10 @@
 import { sveltekit } from "@sveltejs/kit/vite";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, type Rollup } from "vite-plus";
-import { resolveCommitIdentity } from "../../packages/build-identity/scripts/commit-identity.mjs";
+import {
+  resolveCommitIdentity,
+  resolveRepositoryUrl,
+} from "../../packages/build-identity/scripts/commit-identity.mjs";
 
 // Register the SvelteKit plugin only when Vite runs from this package (dev/build), not when vp's lint pass loads every workspace vite.config.ts from the repo root — SvelteKit's configResolved sync step resolves src/app.html via process.cwd() and would fail against the wrong cwd. The oxlint probe is indistinguishable from a real build by command/mode, so cwd is the only reliable signal. Tracking: drop this once vp can scope which configs its lint pass loads (vp 0.1.x).
 // The Tailwind plugin rides the same guard: it scans content relative to the resolved config root, so it only belongs in a real dev/build run. Tailwind before SvelteKit, per the Tailwind v4 SvelteKit guide.
@@ -15,6 +18,11 @@ const runningInPackageDir = process.cwd() === import.meta.dirname;
 const commitIdentity = runningInPackageDir
   ? resolveCommitIdentity()
   : { commit: null, commitTime: null };
+
+// Where the source lives, so the Build Information panel can link a commit to the commit itself
+// rather than only naming it. Resolved on the same terms as the commit above, and null when it
+// cannot be established — the panel then renders the commit as plain text, never as a dead link.
+const repositoryUrl = runningInPackageDir ? resolveRepositoryUrl() : null;
 
 /*
  * What the production bundle keeps of its source (owner ruling, 2026-09-07). Three things decide
@@ -48,6 +56,7 @@ export default defineConfig({
     __MC_BUILD_COMMIT__: JSON.stringify(commitIdentity.commit ?? "unknown"),
     __MC_BUILD_COMMIT_TIME__: JSON.stringify(commitIdentity.commitTime),
     __MC_BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+    __MC_SOURCE_REPOSITORY__: JSON.stringify(repositoryUrl),
   },
   // dev convenience: proxy /api to a running `wrangler dev`
   server: { proxy: { "/api": "http://localhost:8787" } },

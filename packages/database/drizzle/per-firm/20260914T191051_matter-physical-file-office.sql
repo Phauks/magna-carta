@@ -1,0 +1,13 @@
+-- THE MATTER'S PAPER FILE GETS AN OFFICE.
+--
+-- Where the firm keeps this matter's own folder. It is NOT `matter.location_id`, the office the
+-- matter is run out of: a file travels, and a matter opened at one office can have its folder boxed
+-- at another or at a remote store the firm keeps as an office of its own. The two facts were one
+-- word ("Location") on two screens and are two columns here, so neither can be read as the other.
+--
+-- It points at `location` rather than carrying free text, so the file's whereabouts resolves to the
+-- same office record the rest of the product reads and links to. What the folder physically sits
+-- INSIDE stays unmodelled: one container holds several matters' folders, so it is a record a matter
+-- will point at rather than a column here, and a column would have decided the medium — box,
+-- drawer, safe, shelf — for every firm.
+ALTER TABLE `matter` ADD `physical_file_location_id` text REFERENCES location(id);

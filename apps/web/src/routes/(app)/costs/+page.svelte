@@ -32,7 +32,7 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import Badge from "@magna-carta/design-system/badge";
   import CreateControl from "@magna-carta/design-system/create-control";
-  import EmptyState from "@magna-carta/design-system/empty-state";
+  import { DateRangePicker } from "@magna-carta/design-system/date-range-picker";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
@@ -360,19 +360,6 @@
       caption="Costs advanced across the firm's matters"
       loading={list.items === null}
     >
-      {#snippet empty()}
-        {#if narrowed}
-          <EmptyState title="Nothing Matches That">
-            No cost answers to what is asked. Widening the search or the column filters brings the
-            record back.
-          </EmptyState>
-        {:else}
-          <EmptyState title="No Costs Yet">
-            Nothing has been advanced. A cost is captured from the matter it was advanced for, and
-            New Cost above records one from here.
-          </EmptyState>
-        {/if}
-      {/snippet}
     </DataTable.Grid>
 
     <DataTable.GridFooter {grid}>

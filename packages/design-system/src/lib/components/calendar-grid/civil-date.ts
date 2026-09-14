@@ -215,3 +215,16 @@ export function weekdayNames(
     formatter.format(toUtcDate(knownSunday.add({ days: (weekStartsOn + index) % DAYS_IN_WEEK }))),
   );
 }
+
+/**
+ * The hour a Day's row is headed with — "9 AM" in en-US, "09" in a 24-hour locale.
+ *
+ * Formatted from the civil parts on a UTC `Date`, like every other name this module writes, so the
+ * hour it prints is the hour it was handed and never an instant read in somebody's zone. The
+ * minutes are dropped deliberately: a row is an hour, and "9:00 AM" down the side of a day grid is
+ * six characters of noise repeated fourteen times.
+ */
+export function formatHourOfDay(minuteOfDay: number, locale?: string): string {
+  const hour = Math.min(Math.max(Math.floor(minuteOfDay / 60), 0), 23);
+  return formatterFor(locale, { hour: "numeric" }).format(new Date(Date.UTC(2023, 0, 1, hour)));
+}

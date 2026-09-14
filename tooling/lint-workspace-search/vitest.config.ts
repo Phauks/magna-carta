@@ -1,0 +1,9 @@
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  test: {
+    name: "lint-workspace-search",
+    root: import.meta.dirname,
+    include: ["**/*.test.mjs"],
+  },
+});

@@ -14,7 +14,7 @@ over [`docs/specs/2026-08-13-financial-reporting-design.md`](../../../../../docs
 - `report-catalogue.ts` — the registry projected into the shared catalogue vocabulary
   ([`$lib/catalogue`](../catalogue/CLAUDE.md)), which the `/reports` landing index renders through
   AND the reports layout's navigation column reads (`routes/(app)/reports/+layout.svelte`, on the
-  design system's `NavigationLayout`, drawing `$lib/tools/catalogue-navigation.svelte`). One
+  design system's `NavigationLayout`, drawing `$lib/catalogue/catalogue-navigation.svelte`). One
   projection feeds both sides of the two-sided screen; adding a report never touches either.
 - `report-registry.ts` — every report as data: family, name, the question it answers, its
   `reports:*` permission, its temporal contract, its scope controls, and (for a built report) the

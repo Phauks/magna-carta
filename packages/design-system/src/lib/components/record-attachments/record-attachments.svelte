@@ -380,9 +380,18 @@
   bind:open={() => pendingDetach !== null, (open) => {
     if (!open) pendingDetach = null;
   }}
-  heading="Detach This Document?"
-  subtitle={`${pendingDetach?.name ?? "It"} stops being attached to this record. The document itself stays in this matter's files, with everything else recorded about it.`}
+  heading="Detach This Document"
+  subtitle={{ facts: [pendingDetach?.name ?? "It"] }}
   commitLabel="Detach"
   unsavedChanges={false}
   onCommit={confirmDetach}
-/>
+>
+  {#snippet fields()}
+    <!-- The fear this panel has to answer is that Detach destroys the file, so where the document
+         will still be is said in the panel's body rather than in the line that names it. -->
+    <p>
+      It stops being attached to this record. The document itself stays in this matter's files, with
+      everything else recorded about it.
+    </p>
+  {/snippet}
+</ActionDialog>

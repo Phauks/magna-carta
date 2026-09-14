@@ -219,15 +219,18 @@ describe("schema name sync (file-manager SQL pinned to @magna-carta/database)", 
       FILE_TABLE,
       FILE_VERSION_TABLE,
       UPLOAD_SESSION_TABLE,
-      MEMBER_TABLE,
       // Statement aliases: f=file, v/dv=file_version (dv is the "display version" the summary JOIN
       // resolves), lv=the latest pending/quarantined version in the include-mode COALESCE subquery,
-      // s=upload_session, m=member (the uploader the attribution JOIN resolves to a name).
+      // s=upload_session.
       "f",
       "v",
       "dv",
       "lv",
       "s",
+      // m=member, joined so a version can name its uploader rather than print their handle. The
+      // member table's own columns come in with it: this guard exists to pin the SQL to the schema,
+      // so a joined table is added here WITH its columns rather than its alias being waved through.
+      MEMBER_TABLE,
       "m",
       // SELECT-list projection aliases (dv.status AS version_status, s.status AS session_status,
       // m.display_name AS uploaded_by_name).
@@ -237,8 +240,6 @@ describe("schema name sync (file-manager SQL pinned to @magna-carta/database)", 
       ...columnsOf(file),
       ...columnsOf(fileVersion),
       ...columnsOf(uploadSession),
-      // The attribution JOIN reads the member's user_id and display_name; pinning the whole table
-      // keeps this honest if the join ever reads another of its columns.
       ...columnsOf(member),
     ]);
     const sql = [

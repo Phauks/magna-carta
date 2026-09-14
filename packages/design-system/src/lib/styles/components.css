@@ -9,6 +9,10 @@
  * Every value in a recipe is a var(--mc-…) token reference or a structural keyword — no literals
  * (the components.css token-purity fitness gate now scans every recipe file under this index).
  */
+/* The member-chosen palette's fills. Declarations only — no selector paints anything from it here
+   — so it leads, and every recipe below can read `--mc-palette-*` without knowing where it came
+   from. The folder rail and the calendar grid both do. */
+@import "./recipes/palette.css";
 @import "../components/button/button.css";
 @import "../components/label/label.css";
 @import "../components/input/input.css";
@@ -75,6 +79,8 @@
 @import "../components/combobox/combobox.css";
 @import "../components/calendar/calendar.css";
 @import "../components/calendar-grid/calendar-grid.css";
+/* The palette's swatches and pip. After the calendar grid, whose day-column heads draw the pip. */
+@import "./recipes/palette-swatches.css";
 @import "../components/date-picker/date-picker.css";
 @import "../components/date-range-picker/date-range-picker.css";
 @import "./recipes/scrollbar.css";
@@ -88,6 +94,7 @@
 @import "../components/sidebar/sidebar.css";
 @import "../components/resizable/resizable.css";
 @import "../components/navigation-layout/navigation-layout.css";
+@import "../components/navigation-layout/navigation-layout-row.css";
 /* The merge-field family. The chip is imported before the picker and the review list because both
    of those render chips, so the chip's base recipe must already be in the cascade. */
 @import "../components/merge-field-chip/merge-field-chip.css";
@@ -111,6 +118,9 @@
    picker dresses a Combobox and the parties tab hosts the picker and dresses rows inside a record
    window's pane, so each follows what it dresses. */
 @import "../components/entity-identity/entity-identity.css";
+/* RecordSubject names a RECORD by its number, where EntityIdentity names a person or an
+   organization — the two identity marks sit together so the pair is read together. */
+@import "../components/record-reference/record-reference.css";
 @import "../components/entity-picker/entity-picker.css";
 @import "../components/record-parties/record-parties.css";
 /* The file manager left rail, dressed over the tree recipe it extends, so its rules win where

@@ -54,7 +54,6 @@
   import type { Failure } from "$lib/api/request.ts";
   import Badge from "@magna-carta/design-system/badge";
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import Textarea from "@magna-carta/design-system/textarea";
@@ -783,17 +782,6 @@
   {/if}
 {/snippet}
 
-{#snippet emptySheet()}
-  <EmptyState title="Nothing Recorded in This Range">
-    The sheet shows the days you pick. Add a row and start typing, or widen the range.
-    {#snippet actions()}
-      <Button onclick={addRow}>
-        <Plus class="size-16" aria-hidden="true" />
-        Add a Row
-      </Button>
-    {/snippet}
-  </EmptyState>
-{/snippet}
 
 {#snippet honestyStrip()}
   <DataTable.GridFigures {grid} figures={footerReading} />
@@ -821,7 +809,7 @@
   kind="reading"
   width="record"
   heading="Time Sheet"
-  subtitle={matterTitle ?? "Every matter"}
+  subtitle={{ facts: [matterTitle ?? "Every matter"] }}
 >
   {#snippet fields()}
     <div class="flex flex-wrap items-center gap-8">
@@ -971,7 +959,6 @@
           caption={matterTitle === null
             ? "Time recorded across the firm's matters"
             : "Time recorded on this matter"}
-          empty={emptySheet}
         />
       </div>
 

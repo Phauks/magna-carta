@@ -21,6 +21,7 @@
    * never happened.
    */
   import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import Input from "@magna-carta/design-system/input";
   import LabelledField from "@magna-carta/design-system/labelled-field";
@@ -48,6 +49,16 @@
     "a read of the firm's trust accounts: both the matter's trust ledger and the transfer itself " +
     "name a trust account, and no route hands one out yet";
 
+  /*
+   * The bill being acted on, by its own number. The facts beside it are facts about THAT BILL — what
+   * it still owes, what it is worth — never a description of the act, which the heading has already
+   * given. Both were in one interpolated string before, which is how a number and a sentence came to
+   * share a line behind three different separators across these panels.
+   */
+  const subtitle = $derived<RecordSubject>({
+    reference: { kind: "Invoice", number: row?.summary.invoiceNumber ?? null },
+  });
+
   const ceiling = $derived(row === null ? 0 : (matterUnpaidMinor(row, matterId) ?? 0));
   const delivery = $derived(row?.detail?.delivery ?? null);
 
@@ -63,7 +74,7 @@
   bind:open
   kind="form"
   heading="Apply Trust Funds"
-  subtitle={`${row?.summary.invoiceNumber ?? "This bill"} · earned fees from the client's trust ledger`}
+  {subtitle}
   commitLabel="Apply From Trust"
   commitSoon={{ reason: TRUST_DEPENDENCY }}
   unsavedChanges={false}

@@ -45,7 +45,6 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import Badge from "@magna-carta/design-system/badge";
   import CreateControl from "@magna-carta/design-system/create-control";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
@@ -429,19 +428,6 @@
       caption="Bills raised across the firm's clients"
       loading={bills.list.items === null}
     >
-      {#snippet empty()}
-        {#if narrowed}
-          <EmptyState title="Nothing Matches That">
-            No bill in this register answers to what is asked. Widening the search or the column
-            filters brings the register back.
-          </EmptyState>
-        {:else}
-          <EmptyState title="No Bills Yet">
-            Nothing has been billed. New Bill above opens a draft on the matter it charges, and the
-            work it claims is on that matter's own Billing section.
-          </EmptyState>
-        {/if}
-      {/snippet}
     </DataTable.Grid>
 
     <DataTable.GridFooter {grid}>

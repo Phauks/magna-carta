@@ -61,6 +61,7 @@ const event: CalendarEvent = {
   endsAtTime: null,
   timeZone: "America/New_York",
   locationText: null,
+  conferenceUrl: null,
   courtReference: null,
   recordedAt: "2026-09-01T00:00:00.000Z",
   recordedBy: null,
@@ -102,6 +103,7 @@ const firmEvent: FirmEvent = {
   audience: "all_members",
   locationId: null,
   locationText: null,
+  conferenceUrl: null,
   recordedAt: "2026-09-01T00:00:00.000Z",
   recordedBy: null,
 };
@@ -115,6 +117,8 @@ const timelineRow: TimelineEntry = {
   actorUserId: null,
   label: "HEARING",
   link: "/matters/matter_1/calendar?entry=matterEvent_in",
+  timeOfDay: null,
+  timeZone: null,
 };
 
 describe("readCalendarWindow, resource scope", () => {
@@ -243,7 +247,10 @@ describe("readCalendarWindow, firm scope", () => {
     expect(deadlines?.searchParams.get("through")).toBe(window.to);
   });
 
-  it("widens the federated read to a layer's sources, and paints the layer's rows", async () => {
+  it("reads a date calendar as its own calendar, narrowed to that layer's sources", async () => {
+    // A date calendar is a ROW IN THE RAIL with a read of its own, not a widening of the firm's
+    // records read: widening would read the same rows twice and put a custody due-back on the
+    // calendar of the firm's matters and deadlines, which is not where it is.
     const dueBack: TimelineEntry = {
       ...timelineRow,
       sourceKey: "custodyDueBack",
@@ -255,29 +262,80 @@ describe("readCalendarWindow, firm scope", () => {
     };
     const { fetch, requests } = fakeFetch([
       {
-        match: (url) => url.pathname === "/api/v1/calendar/events",
-        answer: () => page([timelineRow, dueBack]),
+        match: (url) =>
+          url.pathname === "/api/v1/calendar/events" &&
+          url.searchParams.getAll("kind").includes("custodyDueBack"),
+        answer: () => page([dueBack]),
       },
       { match: () => true, answer: () => page([]) },
     ]);
     const result = await readCalendarWindow(fetch, { kind: "firm" }, window, context, {
-      layers: new Set(["custody"]),
+      sources: [
+        {
+          key: "layer:custody",
+          name: "Custody dates",
+          kind: { kind: "layer", layerKey: "custody" },
+        },
+      ],
     });
     const federated = requests.find((url) => url.pathname === "/api/v1/calendar/events");
-    expect(federated?.searchParams.getAll("kind")).toEqual([
-      "matterEvent",
-      "custodyDueBack",
-      "custodyReviewDue",
-    ]);
+    expect(federated?.searchParams.getAll("kind")).toEqual(["custodyDueBack", "custodyReviewDue"]);
     expect(result.entries.map((entry) => entry.id)).toEqual([
-      "event:matterEvent_in",
       "other:custodyDueBack:custodyMovement_1",
     ]);
-    expect(result.entries[1]).toMatchObject({
+    expect(result.entries[0]).toMatchObject({
       label: "Due back",
       detail: "2026-0042 · C-0001",
       link: "/matters/matter_1/custodian",
+      // Tagged with the calendar it came from, so the grid can colour and lane it.
+      sourceKeys: ["layer:custody"],
     });
+  });
+
+  it("reads one member's calendar through the member filter the server resolves", async () => {
+    const { fetch, requests } = fakeFetch([
+      { match: () => true, answer: () => page([timelineRow]) },
+    ]);
+    const result = await readCalendarWindow(fetch, { kind: "firm" }, window, context, {
+      sources: [
+        {
+          key: "member:user_ada",
+          name: "Ada Lovelace",
+          kind: { kind: "member", memberId: "user_ada" },
+        },
+      ],
+    });
+    const federated = requests.find((url) => url.pathname === "/api/v1/calendar/events");
+    expect(federated?.searchParams.get("memberId")).toBe("user_ada");
+    expect(result.entries[0]?.sourceKeys).toEqual(["member:user_ada"]);
+    // A member calendar is settings; the deadlines read has no member predicate, so it is not made.
+    expect(requests.some((url) => url.pathname === "/api/v1/calendar/deadlines")).toBe(false);
+  });
+
+  it("reads one record arriving from two calendars as one row that knows it is on both", async () => {
+    const { fetch } = fakeFetch([{ match: () => true, answer: () => page([timelineRow]) }]);
+    const result = await readCalendarWindow(fetch, { kind: "firm" }, window, context, {
+      sources: [
+        {
+          key: "member:user_ada",
+          name: "Ada Lovelace",
+          kind: { kind: "member", memberId: "user_ada" },
+        },
+        {
+          key: "member:user_grace",
+          name: "Grace Hopper",
+          kind: { kind: "member", memberId: "user_grace" },
+        },
+      ],
+    });
+    expect(result.entries).toHaveLength(1);
+    expect(result.entries[0]?.sourceKeys).toEqual(["member:user_ada", "member:user_grace"]);
+  });
+
+  it("reads nothing at all for a calendar nobody turned on", async () => {
+    const { fetch, requests } = fakeFetch([{ match: () => true, answer: () => page([]) }]);
+    await readCalendarWindow(fetch, { kind: "firm" }, window, context, { sources: [] });
+    expect(requests).toEqual([]);
   });
 
   it("passes the member on the mine scope", async () => {

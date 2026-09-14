@@ -42,6 +42,26 @@ migrations_ section of [`docs/conventions/operations.md`](../../docs/conventions
   destructive table rebuild. The schema file and the migration are then both authored deliberately.
 - **Additive only (expand-contract).** No destructive DDL against a table that holds data; see
   `test/expand-contract.test.ts`.
+- **A vocabulary on a PARENT table grows by adding a column, never by widening its CHECK.** SQLite
+  cannot alter a CHECK, so changing one costs a table rebuild — and a rebuild drops the table it
+  replaces, which a durable object refuses at the commit for every child row. A leaf table rebuilds
+  normally; a table anything references does not, and there is no pragma around it: six mechanisms
+  are probed in `apps/api-worker/test/durable-object-pragma-context.test.ts` and all six fail,
+  `writable_schema` included (workerd's authorizer answers `SQLITE_AUTH`). `ALTER TABLE … ADD COLUMN`
+  drops nothing, lands on a parent, may carry its own CHECK and may name a second column in it — all
+  four proved in that same file. So: add the column, backfill in the same migration, narrow the old
+  column's meaning in its comment, and leave it where it stands. Dropping it is the same rebuild.
+  Home: ADR-a-vocabulary-on-a-parent-table-grows-by-adding-a-column; worked case,
+  `drizzle/per-firm/20260914T120000_task-rungs-and-archive.sql`.
+- **A data migration is tested against ROWS, not against an empty database.** An UPDATE that maps one
+  column onto another is indistinguishable from a correct one when there is nothing to map;
+  `test/task-rungs-migration.test.ts` is the shape — seed at the pre-migration schema, apply the rest
+  of the lineage, assert what each row became. `test/rebuilds-over-populated-data.test.ts` does the
+  same for rebuilds.
+- **A new migration file is registered in the WORKER too.** Workers have no filesystem, so the SQL is
+  imported as raw text: add the import and its journal-keyed entry to
+  `apps/api-worker/src/per-firm-migrations.ts` (or its control-plane sibling) in the same commit, or
+  every firm database fails to wake with "is in the journal but its SQL was not provided".
 - **The lineages never merge.** A per-firm change goes only into `drizzle/per-firm`, a platform
   change only into `drizzle/control-plane`; auth tables exist solely in the control plane.
 

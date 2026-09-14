@@ -28,8 +28,17 @@ export interface TaskDocument {
 export const TASK_PRIORITIES = ["urgent", "high", "normal", "low"] as const;
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];
 
-export const TASK_STATES = ["open", "done", "cancelled"] as const;
-export type TaskState = (typeof TASK_STATES)[number];
+/*
+ * WHERE A TASK STANDS: four rungs, in the order somebody moves a task along them.
+ *
+ * The server holds them in two columns for a reason that is the platform's rather than the model's,
+ * and nothing on this side ever sees that — the wire carries one `rung` and this is it.
+ */
+export const TASK_RUNGS = ["to_do", "in_progress", "on_hold", "done"] as const;
+export type TaskRung = (typeof TASK_RUNGS)[number];
+
+/** The three rungs that mean the work is still owed. */
+export const OPEN_RUNGS = ["to_do", "in_progress", "on_hold"] as const;
 
 export interface MatterTask {
   id: string;
@@ -46,12 +55,18 @@ export interface MatterTask {
   dueAtTime: string | null;
   /** Required whenever there is a date: "Friday" falls at two moments in Reno and Boston. */
   timeZone: string | null;
-  state: TaskState;
+  rung: TaskRung;
   completedAt: string | null;
   completedBy: string | null;
-  cancelledAt: string | null;
-  cancelledBy: string | null;
-  cancellationReason: string | null;
+  /**
+   * PUT AWAY, KEPT. Archiving and deleting are the two ways a task leaves a list, and they differ in
+   * one thing: this keeps the data. Orthogonal to the rung — a task is archived from wherever it
+   * stood, and putting it back returns it there.
+   */
+  archivedAt: string | null;
+  archivedBy: string | null;
+  /** Optional, and usually absent. Not everything put away has a sentence said about it. */
+  archiveReason: string | null;
   /** The one task this waits on. It GATES NOTHING — a blocked task may still be completed. */
   blockedByTaskId: string | null;
   triggerEventId: string | null;
@@ -148,7 +163,8 @@ export interface TaskContentInput extends TaskDueInput {
 }
 
 export interface TaskListFilters {
-  states?: readonly TaskState[];
+  rungs?: readonly TaskRung[];
+  includeArchived?: boolean;
   priorities?: readonly TaskPriority[];
   assigneeUserId?: string;
   dueFrom?: string;
@@ -160,9 +176,10 @@ export interface TaskListFilters {
 function filterQuery(filters: TaskListFilters, cursor?: string): string {
   const query = new URLSearchParams();
   if (cursor !== undefined) query.set("cursor", cursor);
-  if (filters.states !== undefined && filters.states.length > 0) {
-    query.set("state", filters.states.join(","));
+  if (filters.rungs !== undefined && filters.rungs.length > 0) {
+    query.set("rung", filters.rungs.join(","));
   }
+  if (filters.includeArchived === true) query.set("includeArchived", "true");
   if (filters.priorities !== undefined && filters.priorities.length > 0) {
     query.set("priority", filters.priorities.join(","));
   }
@@ -243,39 +260,48 @@ export function reassignTask(
   });
 }
 
-export function completeTask(
+/**
+ * Moves the task to a rung. One call for all four, because pressing To Do and pressing Done are the
+ * same act to the person doing them.
+ *
+ * Moving to `done` records who finished it and when; moving off `done` clears that and restores the
+ * rung the task was left on rather than sending it back to the start.
+ */
+export function moveTaskToRung(
   fetchImpl: typeof fetch,
   taskId: string,
+  rung: TaskRung,
   idempotencyKey: string,
 ): Promise<ApiOutcome<{ ok: true }>> {
-  return requestJson(fetchImpl, `/api/v1/tasks/${encodeURIComponent(taskId)}/completion`, {
-    method: "POST",
+  return requestJson(fetchImpl, `/api/v1/tasks/${encodeURIComponent(taskId)}/rung`, {
+    method: "PUT",
+    body: { rung },
     idempotencyKey,
   });
 }
 
-/** Puts a completed or cancelled task back on the list. */
-export function reopenTask(
+/** Puts the task away and keeps it. The reason is optional. Different from deleting. */
+export function archiveTask(
   fetchImpl: typeof fetch,
   taskId: string,
+  reason: string | null,
   idempotencyKey: string,
 ): Promise<ApiOutcome<{ ok: true }>> {
-  return requestJson(fetchImpl, `/api/v1/tasks/${encodeURIComponent(taskId)}/completion`, {
-    method: "DELETE",
-    idempotencyKey,
-  });
-}
-
-/** Records that the firm decided not to do the work, and why. Different from deleting. */
-export function cancelTask(
-  fetchImpl: typeof fetch,
-  taskId: string,
-  reason: string,
-  idempotencyKey: string,
-): Promise<ApiOutcome<{ ok: true }>> {
-  return requestJson(fetchImpl, `/api/v1/tasks/${encodeURIComponent(taskId)}/cancellation`, {
+  return requestJson(fetchImpl, `/api/v1/tasks/${encodeURIComponent(taskId)}/archive`, {
     method: "POST",
     body: { reason },
+    idempotencyKey,
+  });
+}
+
+/** Puts the task back on the list, on the rung it left from. */
+export function unarchiveTask(
+  fetchImpl: typeof fetch,
+  taskId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ ok: true }>> {
+  return requestJson(fetchImpl, `/api/v1/tasks/${encodeURIComponent(taskId)}/archive`, {
+    method: "DELETE",
     idempotencyKey,
   });
 }
@@ -332,15 +358,17 @@ export { viewerTimeZone } from "$lib/dates";
 /**
  * IS THIS TASK PAST DUE — the comparison, made here because here is where somebody is reading it.
  *
- * Only an open task can be. A done task was done, and a cancelled one is not owed; calling either
- * overdue would be the platform asserting something about the firm's conduct that is not true.
+ * Only work that is still owed can be. A done task was done, and an archived one is not owed;
+ * calling either overdue would be the platform asserting something about the firm's conduct that is
+ * not true.
  *
  * A task with a date and no time is due at the END of that civil day in its own zone: rendering it
  * as midnight would report a whole working day of tasks as already missed. The zone comparison uses
  * the same projection the server's resolver uses (zonedReading), so the two agree about "Friday".
  */
 export function isOverdue(task: MatterTask, now: Date = new Date()): boolean {
-  if (task.state !== "open" || task.dueOn === null || task.timeZone === null) return false;
+  if (task.rung === "done" || task.archivedAt !== null) return false;
+  if (task.dueOn === null || task.timeZone === null) return false;
   const reading = zonedReading(now.getTime(), task.timeZone);
   if (reading.civilDate > task.dueOn) return true;
   if (reading.civilDate < task.dueOn) return false;
@@ -357,9 +385,10 @@ export const PRIORITY_LABELS: Readonly<Record<TaskPriority, string>> = Object.fr
   low: "Low",
 });
 
-/** The reader-facing name of each state. */
-export const STATE_LABELS: Readonly<Record<TaskState, string>> = Object.freeze({
-  open: "Open",
+/** The reader-facing name of each rung, and the words on the controls that move a task to one. */
+export const RUNG_LABELS: Readonly<Record<TaskRung, string>> = Object.freeze({
+  to_do: "To Do",
+  in_progress: "In Progress",
+  on_hold: "On Hold",
   done: "Done",
-  cancelled: "Cancelled",
 });

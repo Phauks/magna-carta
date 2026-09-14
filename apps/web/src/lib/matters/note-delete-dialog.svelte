@@ -8,6 +8,7 @@
    * not — deleting a note has never been a way to delete a document.
    */
   import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -28,7 +29,9 @@
 
   let failure = $state<StatedFailure | null>(null);
 
-  const identity = $derived(note === null ? "" : `${authorName}, ${formatInstant(note.createdAt)}`);
+  const subtitle = $derived<RecordSubject>(
+    note === null ? {} : { facts: [authorName, formatInstant(note.createdAt)] },
+  );
   const attachedCount = $derived(note?.documents.length ?? 0);
 
   async function remove(): Promise<ActionOutcome> {
@@ -52,7 +55,7 @@
   bind:open
   kind="destructive"
   heading="Delete Note"
-  subtitle={identity}
+  {subtitle}
   commitLabel="Delete Note"
   commitBusyLabel="Deleting"
   unsavedChanges={false}

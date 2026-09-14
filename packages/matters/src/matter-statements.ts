@@ -5,17 +5,21 @@ import type { LocationId, MatterId, MatterTypeId, UserId } from "@magna-carta/id
 export const MATTER_TABLE = "matter";
 export const NUMBERING_SCHEME_TABLE = "numbering_scheme";
 
-// The lifecycle, in the order a matter passes through it. An intake becomes a consultation when the
-// firm's intake procedure lets it through (the consultation number is drawn then); a consultation
-// opens (the matter number is drawn then); an open matter can be put on hold for a recorded reason
-// and released back to open; an open or held matter closes; a closed matter reopens to where it
-// was. No number is drawn or surrendered on either side of a hold.
+// The lifecycle, in the order a matter passes through it. An intake draws its own number as soon as
+// it exists; it becomes a consultation when the firm's intake procedure lets it through (the
+// consultation number is drawn then, BESIDE the intake number rather than over it); a consultation
+// opens (the matter number is drawn then, beside both). Nothing is ever replaced, so a note filed
+// under any of the three still resolves. An open matter can be put on hold for a recorded reason and
+// released back to open; an open or held matter closes; a closed matter reopens to where it was. No
+// number is drawn or surrendered on either side of a hold.
 export type MatterStatus = "intake" | "consultation" | "open" | "hold" | "closed";
 
-// The two sequences a firm numbers, each with its own active scheme: the permanent matter number,
-// and the tentative number a consultation carries. Kept apart so a consultation that never becomes
-// a matter consumes no matter number — a gap in that run reads as a lost file.
-export type NumberingPurpose = "matter" | "consultation";
+// The three sequences a firm numbers, each with its own active scheme: the permanent matter number,
+// the tentative number a consultation carries, and the number an intake wears from the moment the
+// enquiry is written down. Kept apart so a rung that goes no further consumes nothing from a run it
+// never reached — a gap in the matter run reads as a lost file, and a consultation run pitted with
+// declined enquiries cannot be told apart from one with records missing.
+export type NumberingPurpose = "matter" | "consultation" | "intake";
 
 // The mutable, caller-supplied matter fields (everything bar id, status, the number columns, and the
 // lifecycle timestamps the service owns). A full-row UPDATE keeps updateMatterFieldsStatement static.
@@ -24,6 +28,13 @@ export interface MatterFields {
   readonly description: string | null;
   readonly matterTypeId: MatterTypeId | null;
   readonly locationId: LocationId | null;
+  /**
+   * The office the firm's own PAPER file for this matter is kept at — a different fact from
+   * `locationId`, the office the matter is run out of. A file travels: a matter opened at one
+   * office can have its folder boxed at another, or at a remote store the firm keeps as an office
+   * of its own, and closing the matter moves none of that. Null until somebody records it.
+   */
+  readonly physicalFileLocationId: LocationId | null;
   readonly responsibleMemberId: UserId;
   readonly clientDisplayName: string | null;
   readonly clientCode: string | null;
@@ -35,6 +46,8 @@ export interface InsertMatterRow extends MatterFields {
   readonly matterNumber: string | null;
   // Drawn in this same batch for a consultation; null for a matter created straight to open.
   readonly consultationNumber: string | null;
+  // Drawn in this same batch for an intake; null for a matter created at any later rung.
+  readonly intakeNumber: string | null;
   readonly numberedAt: string | null;
   readonly openedAt: string | null;
   readonly createdAt: string;
@@ -43,7 +56,7 @@ export interface InsertMatterRow extends MatterFields {
 export function insertMatterStatement(database: SqlDatabase, row: InsertMatterRow): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${MATTER_TABLE} (id, title, description, status, matter_type_id, location_id, responsible_member_id, client_display_name, client_code, matter_number, consultation_number, numbered_at, opened_at, closed_at, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, NULL, ?14, ?14)`,
+      `INSERT INTO ${MATTER_TABLE} (id, title, description, status, matter_type_id, location_id, physical_file_location_id, responsible_member_id, client_display_name, client_code, matter_number, consultation_number, intake_number, numbered_at, opened_at, closed_at, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, NULL, ?16, ?16)`,
     )
     .bind(
       row.id,
@@ -52,11 +65,13 @@ export function insertMatterStatement(database: SqlDatabase, row: InsertMatterRo
       row.status,
       row.matterTypeId,
       row.locationId,
+      row.physicalFileLocationId,
       row.responsibleMemberId,
       row.clientDisplayName,
       row.clientCode,
       row.matterNumber,
       row.consultationNumber,
+      row.intakeNumber,
       row.numberedAt,
       row.openedAt,
       row.createdAt,
@@ -68,6 +83,7 @@ export interface MatterRow extends MatterFields {
   readonly status: MatterStatus;
   readonly matterNumber: string | null;
   readonly consultationNumber: string | null;
+  readonly intakeNumber: string | null;
   // The honest "was this matter ever opened" signal: set by createMatter (status 'open') and by
   // openMatter, never by renumberMatter — so reopen restores the real pre-close status.
   readonly openedAt: string | null;
@@ -80,7 +96,7 @@ export interface MatterRow extends MatterFields {
 export function selectMatterStatement(database: SqlDatabase, id: MatterId): SqlStatement {
   return database
     .prepare(
-      `SELECT id, title, description, status, matter_type_id, location_id, responsible_member_id, client_display_name, client_code, matter_number, consultation_number, opened_at, held_at, hold_reason FROM ${MATTER_TABLE} WHERE id = ?1`,
+      `SELECT id, title, description, status, matter_type_id, location_id, physical_file_location_id, responsible_member_id, client_display_name, client_code, matter_number, consultation_number, intake_number, opened_at, held_at, hold_reason FROM ${MATTER_TABLE} WHERE id = ?1`,
     )
     .bind(id);
 }
@@ -90,11 +106,16 @@ export function selectMatterStatement(database: SqlDatabase, id: MatterId): SqlS
 // joins to learn a name it will not print. This one serves the matter screens, which cannot render
 // "matter type" as a matterType_ handle.
 //
-// The names are resolved HERE rather than by the caller, because the alternative is three more
-// round trips per matter view and the joins are on primary keys. All three are LEFT joins: a matter
-// carries no type or Location until the firm sets one, and a member row can be archived while the
-// matters they were responsible for stay open. A missing name reads as null and the screen says so,
-// which is the honest answer — an id rendered as a name would be worse than a gap.
+// The names are resolved HERE rather than by the caller, because the alternative is a round trip per
+// name per matter view and the joins are on primary keys. Every one is a LEFT join: a matter carries
+// no type, no Location and no recorded paper-file office until somebody sets one, and a member row
+// can be archived while the matters they were responsible for stay open. A missing name reads as
+// null and the screen says so, which is the honest answer — an id rendered as a name would be worse
+// than a gap.
+//
+// `location` is joined twice under two aliases because a matter names two different offices: the one
+// it is RUN OUT OF, and the one its paper file is KEPT AT. They are commonly the same office and are
+// never the same fact.
 export function selectMatterDetailStatement(database: SqlDatabase, id: MatterId): SqlStatement {
   return database
     .prepare(
@@ -104,11 +125,13 @@ export function selectMatterDetailStatement(database: SqlDatabase, id: MatterId)
               matter.status AS status,
               matter.matter_type_id AS matter_type_id,
               matter.location_id AS location_id,
+              matter.physical_file_location_id AS physical_file_location_id,
               matter.responsible_member_id AS responsible_member_id,
               matter.client_display_name AS client_display_name,
               matter.client_code AS client_code,
               matter.matter_number AS matter_number,
               matter.consultation_number AS consultation_number,
+              matter.intake_number AS intake_number,
               matter.e_billing AS e_billing,
               matter.opened_at AS opened_at,
               matter.held_at AS held_at,
@@ -117,10 +140,12 @@ export function selectMatterDetailStatement(database: SqlDatabase, id: MatterId)
               matter.created_at AS created_at,
               matter_type.name AS matter_type_name,
               location.name AS location_name,
+              physical_file_location.name AS physical_file_location_name,
               member.display_name AS responsible_member_name
          FROM ${MATTER_TABLE} AS matter
          LEFT JOIN matter_type ON matter_type.id = matter.matter_type_id
          LEFT JOIN location ON location.id = matter.location_id
+         LEFT JOIN location AS physical_file_location ON physical_file_location.id = matter.physical_file_location_id
          LEFT JOIN member ON member.user_id = matter.responsible_member_id
         WHERE matter.id = ?1`,
     )
@@ -174,7 +199,7 @@ export function updateMatterFieldsStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${MATTER_TABLE} SET title = ?2, description = ?3, matter_type_id = ?4, location_id = ?5, responsible_member_id = ?6, client_display_name = ?7, client_code = ?8, updated_at = ?9 WHERE id = ?1`,
+      `UPDATE ${MATTER_TABLE} SET title = ?2, description = ?3, matter_type_id = ?4, location_id = ?5, physical_file_location_id = ?6, responsible_member_id = ?7, client_display_name = ?8, client_code = ?9, updated_at = ?10 WHERE id = ?1`,
     )
     .bind(
       id,
@@ -182,6 +207,7 @@ export function updateMatterFieldsStatement(
       fields.description,
       fields.matterTypeId,
       fields.locationId,
+      fields.physicalFileLocationId,
       fields.responsibleMemberId,
       fields.clientDisplayName,
       fields.clientCode,
@@ -296,5 +322,16 @@ export function isConsultationNumberConflict(error: unknown): boolean {
     error instanceof Error &&
     error.message.includes("UNIQUE constraint failed") &&
     error.message.includes(`${MATTER_TABLE}.consultation_number`)
+  );
+}
+
+// And for the intake sequence. Third of three, each matched on its own column for the same reason:
+// a draw that retried on another run's collision would step its own counter past a number nobody
+// had taken.
+export function isIntakeNumberConflict(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message.includes("UNIQUE constraint failed") &&
+    error.message.includes(`${MATTER_TABLE}.intake_number`)
   );
 }

@@ -31,6 +31,8 @@ export interface MatterEventRow {
   readonly ends_at_time: string | null;
   readonly time_zone: string;
   readonly location_text: string | null;
+  // Where an online setting is JOINED, which is a different fact from where it is held.
+  readonly conference_url: string | null;
   readonly court_reference: string | null;
   readonly recorded_at: string;
   readonly recorded_by: UserId | null;
@@ -50,7 +52,7 @@ export interface MatterEventParticipantRow {
 
 const EVENT_COLUMNS =
   "id, matter_id, event_type_id, title, description, status, status_reason, starts_on, starts_at_time, ends_on, " +
-  "ends_at_time, time_zone, location_text, court_reference, recorded_at, recorded_by, created_at, updated_at";
+  "ends_at_time, time_zone, location_text, conference_url, court_reference, recorded_at, recorded_by, created_at, updated_at";
 
 /**
  * The same row with the event type's NAME beside its identifier. A display read answers "what kind
@@ -69,7 +71,8 @@ const EVENT_DISPLAY_COLUMNS =
   `${MATTER_EVENT_TABLE}.title, ${MATTER_EVENT_TABLE}.description, ${MATTER_EVENT_TABLE}.status, ` +
   `${MATTER_EVENT_TABLE}.status_reason, ${MATTER_EVENT_TABLE}.starts_on, ${MATTER_EVENT_TABLE}.starts_at_time, ` +
   `${MATTER_EVENT_TABLE}.ends_on, ${MATTER_EVENT_TABLE}.ends_at_time, ${MATTER_EVENT_TABLE}.time_zone, ` +
-  `${MATTER_EVENT_TABLE}.location_text, ${MATTER_EVENT_TABLE}.court_reference, ${MATTER_EVENT_TABLE}.recorded_at, ` +
+  `${MATTER_EVENT_TABLE}.location_text, ${MATTER_EVENT_TABLE}.conference_url, ` +
+  `${MATTER_EVENT_TABLE}.court_reference, ${MATTER_EVENT_TABLE}.recorded_at, ` +
   `${MATTER_EVENT_TABLE}.recorded_by, ${MATTER_EVENT_TABLE}.created_at, ${MATTER_EVENT_TABLE}.updated_at, ` +
   `${MATTER_EVENT_TYPE_TABLE}.name AS event_type_name`;
 
@@ -90,6 +93,7 @@ export interface InsertMatterEventInput {
   readonly endsAtTime: string | null;
   readonly timeZone: string;
   readonly locationText: string | null;
+  readonly conferenceUrl: string | null;
   readonly courtReference: string | null;
   readonly recordedAt: string;
   readonly recordedBy: UserId | null;
@@ -102,7 +106,7 @@ export function insertMatterEventStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${MATTER_EVENT_TABLE} (${EVENT_COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?17)`,
+      `INSERT INTO ${MATTER_EVENT_TABLE} (${EVENT_COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?18)`,
     )
     .bind(
       input.id,
@@ -120,6 +124,7 @@ export function insertMatterEventStatement(
       input.endsAtTime,
       input.timeZone,
       input.locationText,
+      input.conferenceUrl,
       input.courtReference,
       input.recordedAt,
       input.recordedBy,
@@ -143,6 +148,7 @@ export function updateMatterEventStatement(
     readonly endsAtTime: string | null;
     readonly timeZone: string;
     readonly locationText: string | null;
+    readonly conferenceUrl: string | null;
     readonly courtReference: string | null;
     readonly status: MatterEventStatus;
   },
@@ -152,7 +158,7 @@ export function updateMatterEventStatement(
     .prepare(
       `UPDATE ${MATTER_EVENT_TABLE} SET event_type_id = ?2, title = ?3, description = ?4, starts_on = ?5, ` +
         `starts_at_time = ?6, ends_on = ?7, ends_at_time = ?8, time_zone = ?9, location_text = ?10, ` +
-        `court_reference = ?11, status = ?12, updated_at = ?13 WHERE id = ?1`,
+        `conference_url = ?11, court_reference = ?12, status = ?13, updated_at = ?14 WHERE id = ?1`,
     )
     .bind(
       id,
@@ -165,6 +171,7 @@ export function updateMatterEventStatement(
       patch.endsAtTime,
       patch.timeZone,
       patch.locationText,
+      patch.conferenceUrl,
       patch.courtReference,
       patch.status,
       updatedAt,

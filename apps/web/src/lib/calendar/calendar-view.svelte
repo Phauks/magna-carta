@@ -11,6 +11,14 @@
    * notice above it naming which read failed, with the Error ID and Retry, because a firm whose
    * deadline read errored still needs to see its hearings.
    *
+   * THE CALENDARS ARE A RAIL, on the firm side. Which of the firm's calendars a reader has open is
+   * theirs and is drawn beside the grid rather than hidden in a menu; a matter's calendar and a
+   * room's have exactly one calendar each and draw no rail at all.
+   *
+   * DOUBLE-CLICKING AN EMPTY DAY OR HOUR STARTS A RECORD ON IT. The component does not own the
+   * forms — the host does, because the host is what knows whether a matter is in scope — so the
+   * gesture is reported upward with the day, and the hour where a day grid gave one.
+   *
    * ACTIVATING A CHIP OPENS THE WINDOW; THE ADDRESS CAN TOO. A chip on the grid remembers what it
    * painted, so the window reads the one record pressed. An address carrying `entry=` opens the
    * same window on arrival, which is the deep link the federated read emits. A deadline reached
@@ -24,8 +32,9 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { calendarContext } from "./calendar-context.svelte.ts";
   import { CalendarController } from "./calendar-controller.svelte.ts";
-  import { entryId } from "./calendar-entries.ts";
-  import { describeReadFailure, readFailureTitle } from "./calendar-reads.ts";
+  import { entryId, recordKeyOf } from "./calendar-entries.ts";
+  import { describeReadFailure, readFailureKey, readFailureTitle } from "./calendar-reads.ts";
+  import CalendarRail from "./calendar-rail.svelte";
   import {
     calendarLabel,
     emptyCalendarMessage,
@@ -57,6 +66,9 @@
     viewSwitch = true,
     agendaDays = AGENDA_SPAN_DAYS,
     limit = null,
+    search = "",
+    rail = false,
+    onCreate,
     class: className,
   }: {
     /** What this calendar is a calendar of: the firm, one member's own day, or one matter. */
@@ -82,6 +94,24 @@
      * linking to it. For an embedded card; the full screens pass nothing and paint the window.
      */
     limit?: number | null;
+    /**
+     * What the reader is looking for in the window on screen. Passed IN from the host, because the
+     * control that carries it belongs in the screen's one action row while the entries it narrows
+     * are here. It narrows the WINDOW — see `search` on the controller for why the window is the
+     * scope and what that deliberately does not claim.
+     */
+    search?: string;
+    /**
+     * Whether the rail of individual calendars is drawn beside the grid. The firm screen passes
+     * true; a matter's section and an embedded card have one calendar each and pass nothing.
+     */
+    rail?: boolean;
+    /**
+     * A double-click landed on an empty day or hour: the civil day, and the minute past midnight
+     * where a day grid named one. The host opens its own record form on it — this component owns
+     * no forms, because only the host knows whether a matter is in scope.
+     */
+    onCreate?: (date: string, minuteOfDay?: number) => void;
     class?: string;
   } = $props();
 
@@ -101,6 +131,17 @@
     memberId: () => context.memberId,
     context: () => context.entryContext,
     contextReady: () => context.ready,
+    // The catalog is built from what the context already read: the roster and the bookable things.
+    catalog: () => ({ members: context.members, resources: context.resources }),
+  });
+
+  /*
+   * The host owns the field; the controller owns what the window is narrowed to. Mirrored rather
+   * than passed as a reader closure because the controller's `search` is plain state a reader can
+   * also clear from inside — the two are the same fact, and this is the one place they meet.
+   */
+  $effect(() => {
+    controller.search = search;
   });
 
   $effect(() => {
@@ -172,7 +213,9 @@
   let reference = $state<EntryReference | null>(null);
 
   function activate(gridEntry: CalendarGridEntry): void {
-    const entry = controller.entriesById.get(gridEntry.id);
+    // A day grid draws a record once per calendar it is on, so the row's key carries the column it
+    // was drawn in; the record behind both copies is the same one.
+    const entry = controller.entriesById.get(recordKeyOf(gridEntry.id));
     if (entry === undefined) return;
     const next = entryReferenceOf(entry);
     if (next === null) {
@@ -218,7 +261,11 @@
     ),
   );
   const gridLabel = $derived(calendarLabel(whose));
-  const emptyMessage = $derived(emptyCalendarMessage(scope, whose, controller.title));
+  // Undefined on every grid: a month with nothing on it says so by being an empty month. Only the
+  // agenda — a blank rectangle otherwise — carries a sentence.
+  // Empty on every grid: a month with nothing on it says so by being an empty month (owner ruling,
+  // 2026-09-14). Only the agenda — a blank rectangle otherwise — carries a sentence.
+  const emptyMessage = $derived(emptyCalendarMessage(scope, whose, controller.title, view) ?? "");
 
   /*
    * A capped host paints the first N and points at the rest. The link opens the same calendar on
@@ -241,51 +288,72 @@
     <CalendarToolbar {controller} {viewSwitch} members={context.members} />
   {/if}
 
-  {#each controller.failures as failed (failed.read)}
+  {#each controller.failures as failed (readFailureKey(failed))}
     <FailureNotice
       failure={failed.failure}
       title={readFailureTitle(failed.read)}
-      fallback={describeReadFailure(failed.read)}
+      fallback={describeReadFailure(failed.read, failed.sourceName)}
       onRetry={() => void controller.reload(fetch)}
     />
   {/each}
 
-  <div class="mc-scrollbar min-h-0 flex-1 overflow-y-auto">
-    {#if view === "month"}
-      <CalendarGrid.Month
-        entries={painted}
-        label={gridLabel}
-        anchor={controller.anchor}
-        weekStartsOn={controller.weekStartsOn}
-        today={controller.today}
-        loading={controller.loading}
-        {emptyMessage}
-        onActivate={activate}
-        onShowDay={(date) => controller.showDay(date)}
-      />
-    {:else if view === "week"}
-      <CalendarGrid.Week
-        entries={painted}
-        label={gridLabel}
-        anchor={controller.anchor}
-        weekStartsOn={controller.weekStartsOn}
-        today={controller.today}
-        loading={controller.loading}
-        {emptyMessage}
-        onActivate={activate}
-      />
-    {:else}
-      <CalendarGrid.Agenda
-        class="h-full"
-        entries={painted}
-        label={gridLabel}
-        from={controller.window.from}
-        to={controller.window.to}
-        loading={controller.loading}
-        {emptyMessage}
-        onActivate={activate}
-      />
+  <div class="flex min-h-0 flex-1 gap-16">
+    {#if rail && controller.firmSide}
+      <CalendarRail {controller} />
     {/if}
+    <div class="mc-scrollbar min-h-0 flex-1 overflow-y-auto">
+      {#if view === "month"}
+        <CalendarGrid.Month
+          entries={painted}
+          label={gridLabel}
+          anchor={controller.anchor}
+          weekStartsOn={controller.weekStartsOn}
+          today={controller.today}
+          loading={controller.loading}
+          {emptyMessage}
+          onActivate={activate}
+          onShowDay={(date) => controller.showDay(date)}
+          {onCreate}
+        />
+      {:else if view === "week"}
+        <CalendarGrid.Week
+          entries={painted}
+          label={gridLabel}
+          anchor={controller.anchor}
+          weekStartsOn={controller.weekStartsOn}
+          today={controller.today}
+          loading={controller.loading}
+          {emptyMessage}
+          onActivate={activate}
+          {onCreate}
+        />
+      {:else if view === "day"}
+        <!-- A lane per calendar the reader has on: the one presentation that makes a day of parallel
+             scheduling legible. A record on two calendars is drawn in both their columns on purpose. -->
+        <CalendarGrid.Day
+          entries={controller.laneEntries ?? []}
+          label={gridLabel}
+          date={controller.anchor}
+          lanes={controller.lanes}
+          today={controller.today}
+          loading={controller.loading}
+          {emptyMessage}
+          onActivate={activate}
+          {onCreate}
+        />
+      {:else}
+        <CalendarGrid.Agenda
+          class="h-full"
+          entries={painted}
+          label={gridLabel}
+          from={controller.window.from}
+          to={controller.window.to}
+          loading={controller.loading}
+          {emptyMessage}
+          onActivate={activate}
+        />
+      {/if}
+    </div>
   </div>
 
   {#if beyondLimit > 0}
@@ -294,6 +362,19 @@
       <a href={moreHref} class="underline underline-offset-2 hover:text-text-default">
         {beyondLimit} more on the calendar
       </a>
+    </p>
+  {/if}
+
+  {#if controller.searching}
+    <!-- WHAT THE COUNT IS A COUNT OF. The search narrows the window on screen, so the line names
+         that window rather than reporting a bare number of matches — "3 matches" beside a month
+         grid would read as three on the calendar, and a reader who then moved to October would be
+         entitled to think it had gone. -->
+    <p class="text-xs text-text-muted">
+      {(controller.visibleEntries ?? []).length}
+      {(controller.visibleEntries ?? []).length === 1 ? "entry" : "entries"} in {controller.title}
+      {(controller.visibleEntries ?? []).length === 1 ? "matches" : "match"} that. Other dates are not
+      searched — move the calendar to look elsewhere.
     </p>
   {/if}
 

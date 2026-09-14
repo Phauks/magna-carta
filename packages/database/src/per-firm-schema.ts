@@ -619,12 +619,15 @@ export const numberingScheme = sqliteTable(
   {
     id: text("id").primaryKey().$type<NumberingSchemeId>(), // numberingScheme_ handle
     segments: text("segments").notNull(), // JSON; shape validated by numberingSchemeSchema
-    // Which sequence this template renders. A firm numbers two different things and must be able to
-    // shape them independently: the permanent matter number, and the tentative number a consultation
-    // carries before anyone knows whether it will become a matter. One active scheme per purpose; a
-    // firm that has configured no consultation scheme falls back to the built-in default, so a
-    // consultation is never unnumbered while somebody gets round to the settings screen.
-    purpose: text("purpose", { enum: ["matter", "consultation"] })
+    // Which sequence this template renders. A firm numbers three different things and must be able
+    // to shape them independently: the permanent matter number, the tentative number a consultation
+    // carries before anyone knows whether it will become a matter, and the number an intake wears
+    // from the moment the enquiry is written down. One active scheme per purpose; a firm that has
+    // configured no consultation or intake scheme falls back to the built-in default, so neither is
+    // ever unnumbered while somebody gets round to the settings screen. Only the matter purpose
+    // refuses to default, because a matter number is the firm's own file spine and there is no
+    // defensible shape to invent for one.
+    purpose: text("purpose", { enum: ["matter", "consultation", "intake"] })
       .notNull()
       .default("matter"),
     active: integer("active").notNull().default(1),
@@ -632,7 +635,7 @@ export const numberingScheme = sqliteTable(
     updatedAt: text("updated_at").notNull(),
   },
   // No CHECK on purpose: adding one to a table that already exists costs SQLite a full table
-  // rebuild, which is destructive DDL for a two-value column the write path is the only producer of.
+  // rebuild, which is destructive DDL for a small enum column the write path is the only producer of.
   // The enum on the column carries the constraint where it is actually enforced.
   () => [],
 );
@@ -665,6 +668,17 @@ export const matter = sqliteTable(
     locationId: text("location_id")
       .$type<LocationId>()
       .references(() => location.id),
+    // Where the firm's own PAPER file for this matter is kept, which is a different fact from the
+    // owning office above and must never be collapsed into it: a matter run out of one office can
+    // have its folder boxed at another, or at a remote store the firm keeps as an office of its
+    // own, and closing the matter moves none of that. It points at an office rather than carrying
+    // free text so the file's whereabouts is the same record the rest of the product reads. What
+    // the folder physically sits INSIDE — a box, a drawer, a safe, a shelf — is deliberately not
+    // here: one container holds several matters' folders, so it is its own record a matter will
+    // point at, and a column here would have decided the medium for every firm.
+    physicalFileLocationId: text("physical_file_location_id")
+      .$type<LocationId>()
+      .references(() => location.id),
     responsibleMemberId: text("responsible_member_id")
       .notNull()
       .$type<UserId>()
@@ -693,6 +707,20 @@ export const matter = sqliteTable(
     // were a consultation) and on consultations created before the sequence existed. The draw instant
     // is created_at by construction — the number is allocated in the insert's own batch.
     consultationNumber: text("consultation_number"),
+    // The number an INTAKE wears from the moment the enquiry is written down, drawn from the firm's
+    // intake sequence (owner ruling, 2026-09-14: "everything should have a number, intake would have
+    // a number as well"). An intake is already work — somebody took the call, a conflicts check may
+    // have run, steps are being cleared — and until this existed its only name was its handle, which
+    // is what the platform joins on and what nobody can read back down a telephone.
+    //
+    // A THIRD RUN, not an early draw on the consultation one, for the reason the consultation number
+    // is not an early draw on the matter number: most enquiries never become consultations, and a
+    // consultation run pitted with declined enquiries cannot be told apart from one with records
+    // missing. Drawn once and frozen; graduation adds consultation_number beside it and opening adds
+    // matter_number beside that, so a note filed under this number still resolves. Null on matters
+    // created straight to consultation or to open, and on intakes created before the sequence
+    // existed. The draw instant is created_at by construction — allocated in the insert's own batch.
+    intakeNumber: text("intake_number"),
     // Names a platform-owned matter that exists to satisfy a structural requirement rather than to
     // hold a client engagement — today only the custody holding matter, which is where a scan of an
     // original held for someone with no matter is filed. Null on every real matter. Marked rather
@@ -723,6 +751,13 @@ export const matter = sqliteTable(
     uniqueIndex("matter_consultation_number_unique_index")
       .on(table.consultationNumber)
       .where(sql`${table.consultationNumber} IS NOT NULL`),
+    // And the same again for the intake run. Three partial unique indexes rather than one shared
+    // column, because the three numbers coexist on a matter that came the whole way: a file's intake
+    // number, its consultation number and its matter number are different names it answers to, and
+    // each has to be unique against its own run rather than against the other two.
+    uniqueIndex("matter_intake_number_unique_index")
+      .on(table.intakeNumber)
+      .where(sql`${table.intakeNumber} IS NOT NULL`),
     // At most one matter per firm per system key — the find-or-insert guard that collapses two
     // concurrent first-use creations onto one row.
     uniqueIndex("matter_system_key_unique_index")
@@ -6491,6 +6526,12 @@ export const matterEvent = sqliteTable(
     // user interface defaults it from the matter's office and a person overrides it per row.
     timeZone: text("time_zone").notNull(),
     locationText: text("location_text"),
+    // Where an online setting is JOINED: the meeting's own link, whoever hosts it. A URL rather than
+    // a provider and a room number, because every conferencing service the firm might use — and the
+    // next one it moves to — expresses a meeting as a link, and a schema that named providers would
+    // be a list this repository maintains on their release schedules. Nullable, and null is the
+    // ordinary case: most settings are somewhere.
+    conferenceUrl: text("conference_url"),
     courtReference: text("court_reference"),
     // When a person asserted this, as against when it happens. The custody-movement precedent: the
     // two diverge routinely, and collapsing them would make a hearing typed on Monday for a Friday
@@ -6899,6 +6940,17 @@ export const matterTask = sqliteTable(
     // row. A task reassigned across offices keeps its zone unless somebody changes the date: silently
     // moving a due date by three hours on a reassignment is worse than a mismatch a person can see.
     timeZone: text("time_zone"),
+    // WHETHER THE WORK IS FINISHED. Two live values, `open` and `done`, and it answers only that.
+    // Where a task stands WHILE it is open is `progress` below, and the two are not a duplicated
+    // fact: this column is what `completed_at`/`completed_by` are paired with by CHECK, and it is
+    // what every index and every closed-matter read already leads on.
+    //
+    // `cancelled` IS RETIRED AND IS NEVER WRITTEN AGAIN. It said the firm decided not to do the
+    // work, with a required reason — and in practice nobody reached for it, because deciding not to
+    // do something and putting it away are the same gesture to the person doing it. Archiving
+    // replaced it (`archived_at` below), and the migration moved every cancelled row across with its
+    // reason intact. The VALUE stays in the CHECK because removing it is a table rebuild, and
+    // matter_task is a parent: see the archive columns below for why that is not available here.
     state: text("state", { enum: ["open", "done", "cancelled"] })
       .notNull()
       .default("open"),
@@ -6907,12 +6959,47 @@ export const matterTask = sqliteTable(
     // reopened is a fact about how the matter ran.
     completedAt: text("completed_at"), // UTC instant
     completedBy: text("completed_by").$type<UserId>(),
-    // Cancellation is the third state and it is not optional. Without it, a task that should not have
-    // been created has only `done` — a lie about work — or deletion to reach for. A reason is
-    // required, because "we decided not to" is the entire content of the record.
+    // Retired with `cancelled` above, and kept for the same reason: dropping a column from a parent
+    // table is the rebuild that cannot run. Every row is NULL — the migration emptied the last of
+    // them into the archive columns — and nothing reads or writes them.
     cancelledAt: text("cancelled_at"), // UTC instant
     cancelledBy: text("cancelled_by").$type<UserId>(),
     cancellationReason: text("cancellation_reason"),
+    // WHERE AN OPEN TASK STANDS: the rung a person moves it along as they work. Four rungs reach the
+    // reader — To Do, In Progress, On Hold, Done — and the fourth is `state` above, which is why it
+    // is not repeated here. A task that is done has a completion actor and instant to carry; the
+    // three rungs below carry nothing but themselves, so they are one column and not four booleans.
+    //
+    // The rung a task is left on is NOT cleared by completing it. Reopening a finished task puts it
+    // back where it was rather than at the start, which is what somebody who ticked the wrong row
+    // means by reopening it.
+    progress: text("progress", { enum: ["to_do", "in_progress", "on_hold"] })
+      .notNull()
+      .default("to_do"),
+    // PUT AWAY, KEPT. Archiving and deleting are the two ways a task leaves a list and they differ in
+    // exactly one thing: a delete takes the data, an archive keeps it. So an archived task is absent
+    // from every ordinary read and whole underneath — its documents, its time, its history.
+    //
+    // It is ORTHOGONAL to the rungs rather than a fifth one: a task is archived FROM wherever it
+    // stood, and unarchiving puts it back there. A fifth rung would have made "On Hold, archived" and
+    // "archived, was on hold" two different records of the same thing.
+    //
+    // The reason is OPTIONAL, which is the difference from the cancellation it replaces. That reason
+    // was required, and requiring it is why the state went unused: somebody clearing a list of
+    // work that is simply not happening is not composing a memo. It carries the reasons the
+    // migration brought over from cancelled tasks, so nothing a firm wrote is lost.
+    //
+    // THESE ARE ADDED COLUMNS RATHER THAN A WIDER `state`, and that is the platform's constraint
+    // rather than a modelling choice. Widening a CHECK in SQLite costs a table rebuild, a rebuild
+    // drops the table it replaces, and this table has three children plus its own
+    // `blocked_by_task_id` — a drop a durable object refuses at the commit, whatever pragma is set.
+    // Six mechanisms were probed against real durable-object storage and all six fail
+    // (apps/api-worker/test/durable-object-pragma-context.test.ts); the same file proves that an
+    // added column may carry its own CHECK, including one naming a second column, which is what the
+    // pair below rests on.
+    archivedAt: text("archived_at"), // UTC instant
+    archivedBy: text("archived_by").$type<UserId>(),
+    archiveReason: text("archive_reason"),
     // One predecessor, and it GATES NOTHING. A blocked task renders as blocked and sorts below; it is
     // not refused and completing it out of order is allowed. A firm's real sequence has exceptions
     // constantly, and a checklist that enforces order is a checklist people stop using. Cycles are
@@ -6982,6 +7069,22 @@ export const matterTask = sqliteTable(
       sql`${table.priority} IN ('low', 'normal', 'high', 'urgent')`,
     ),
     check("matter_task_state_check", sql`${table.state} IN ('open', 'done', 'cancelled')`),
+    check(
+      "matter_task_progress_check",
+      sql`${table.progress} IN ('to_do', 'in_progress', 'on_hold')`,
+    ),
+    // Archived is an instant and an actor together or neither, and a reason is a thing said ABOUT an
+    // archiving — so a reason with no archiving is a row that says why something happened that did
+    // not. The reverse is allowed and is the ordinary case: most archivings say nothing.
+    //
+    // No index is added for it. Every ordinary read gains `archived_at IS NULL`, and the reads that
+    // matter already lead on the assignee and the state; whether an archive-aware index earns its
+    // write cost is a question for the load-profile harness rather than a guess made here.
+    check(
+      "matter_task_archive_shape_check",
+      sql`(${table.archivedAt} IS NULL) = (${table.archivedBy} IS NULL)
+        AND (${table.archivedAt} IS NOT NULL OR ${table.archiveReason} IS NULL)`,
+    ),
     check("matter_task_due_on_shape_check", civilDateShape(table.dueOn, true)),
     check(
       "matter_task_due_at_time_shape_check",
@@ -7299,6 +7402,9 @@ export const firmEvent = sqliteTable(
       .$type<LocationId>()
       .references(() => location.id),
     locationText: text("location_text"),
+    // The same link a matter event carries, for the same reason: a firm meeting is as likely to be
+    // held on a call as in a room, and where it is joined is a different fact from where it is.
+    conferenceUrl: text("conference_url"),
     recordedAt: text("recorded_at").notNull(),
     recordedBy: text("recorded_by").$type<UserId>(),
     createdAt: text("created_at").notNull(),

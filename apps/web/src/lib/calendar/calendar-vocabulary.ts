@@ -27,6 +27,10 @@ export const FIRM_CALENDAR_KINDS: readonly string[] = ["matterEvent"];
  *
  * Each layer names its source keys (the read's `kind` filter takes source keys, and refuses one
  * the registry does not hold) and the word each of those sources' kinds paints as.
+ *
+ * A layer is a ROW IN THE RAIL, under Dates (calendar-sources.ts), with a read of its own narrowed
+ * to exactly these keys. It used to widen the firm's own records read instead, which read the same
+ * rows twice and put a custody due-back on the calendar of the firm's matters and deadlines.
  */
 export interface CalendarLayer {
   readonly key: string;
@@ -53,15 +57,6 @@ export const CALENDAR_LAYERS: readonly CalendarLayer[] = [
 /** The layer a key names, where one does. */
 export function calendarLayer(key: string): CalendarLayer | undefined {
   return CALENDAR_LAYERS.find((layer) => layer.key === key);
-}
-
-/** The source keys a firm read is narrowed to: the base kinds plus every layer turned on. */
-export function firmCalendarKinds(layerKeys: ReadonlySet<string>): readonly string[] {
-  const kinds = [...FIRM_CALENDAR_KINDS];
-  for (const layer of CALENDAR_LAYERS) {
-    if (layerKeys.has(layer.key)) kinds.push(...layer.sources);
-  }
-  return kinds;
 }
 
 /** The word a layered kind paints as; a kind no layer names falls back to its humanized key. */
@@ -122,8 +117,9 @@ export function eventTypeNameForCode(
 
 /**
  * A federated kind that is neither an event nor a deadline nor a firm event — a custody due-back,
- * a review date — as a person reads it. Slice 2 turns these on; the word is decided now so a kind
- * arriving early renders as something rather than as its key.
+ * a review date — as a person reads it. The fallback for a kind no layer names, so a source that
+ * starts emitting a kind before `CALENDAR_LAYERS` has a word for it renders as something readable
+ * rather than as its own key.
  */
 export function humanizeKind(kind: string): string {
   const spaced = kind

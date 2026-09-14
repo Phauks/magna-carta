@@ -956,7 +956,7 @@ confirmed recommendations.
 
 **Nothing derives a date and there is no overdue column.** A task stores the deadline's own civil-date shape and resolves it through `packages/calendar/src/time-zone.ts`; overdue is computed where the reader is. The calendar's date-arithmetic source scan runs over this package, and a schema scan asserts no overdue column exists on either table — a task template with a "+14 days" offset is the docketing engine this platform refuses to build wearing a different hat.
 
-**Cancelling and deleting are both real.** A cancellation records that the firm decided against the work and requires the reason; a delete is for a task that should not exist. Two CHECK constraints hold each terminal state to carrying its own evidence and neither the other's. The design offered cancellation alone; taking both follows the owner's notes direction of the same week, that a record which can only accumulate is a record people stop keeping.
+**Archiving and deleting are both real, and cancelling is retired.** An archive keeps the task and everything it carries; a delete is for a task that should not exist. Cancellation said what archiving says and required a reason before it would say it, which is why no firm used it — the owner's ruling of 2026-09-14, on which the reason became optional. A task also moves along four rungs (To Do, In Progress, On Hold, Done), and archiving is orthogonal to them: a task is archived from wherever it stood and comes back there. `state` narrowed to whether the work is finished and the rungs arrived as an added `progress` column, because widening a CHECK on a table three others reference is the rebuild a durable object refuses at the commit (ADR-a-vocabulary-on-a-parent-table-grows-by-adding-a-column).
 
 **Notifications:** four topics for two acts, split by whether the task is on a matter — the `calendar.firmEvent.*` split, forced by the two registry fitness rules about matter anchoring. The assignee needed a new audience: the design routed assignment to `designated`, which is the firm's trust-compliance designation and resolves to nobody when unconfigured, so as designed every task assignment would have delivered to no one, silently. `named-recipient` reads the member from the payload. `tasks` joined the category vocabulary and `matterTask` the subject kinds, two CHECKs and therefore two table rebuilds. Due-soon and overdue are declared and wired to nothing, beside the calendar's deadline points and for their reasons.
 
@@ -1025,6 +1025,39 @@ The screen moved from `/communications` to `/messaging`; the sidebar id stays `c
 **An intake starts from the form as well as from a record.** Save And Start An Intake records the call first and hands the saved row up: an intake with no account of the call that caused it is exactly what the control exists to prevent.
 
 The provenance tab is a **History** rail on the right, in the shape every other record window uses. |
+| 6·10 — The calendar becomes many calendars | [-] | [x] | [-] | [x] | [x] | [-] | [x] | The owner's review round of 2026-09-14, eleven corrections, built through every layer. The firm
+calendar stops being one grid: a **catalog of individual calendars in folders** (the firm's own two,
+a folder per role the firm handed out, the rooms, everything else booked, the dates) with a
+three-state control per folder, and a **read plan per calendar** — a member calendar is the member
+filter the server already resolves in SQL, a room calendar the availability read, a date calendar
+the federated read narrowed to that layer. A calendar that is off is no read at all, so the request
+count is the reader's choice rather than the roster's size; the same record from two of them merges
+into one row that knows it is on both. Which calendars are on, and what colour each wears, is
+**personal and per browser** (the week start stays the firm's, on the server) and stores only the
+departures from the catalog's defaults, so a calendar shipped later arrives at its own.
+
+**`CalendarGrid.Day`**, the fourth presentation and the only one with a time axis: an hour per row,
+a calendar per column, an all-day band above the hours, and the range widened by anything outside
+the working day. A record on two calendars is drawn in both columns deliberately. It is fed by the
+one thing the federated read was missing — **the hour**: `TimelineEntry` gains `timeOfDay` and
+`timeZone`, declared per source, the same class of fact as the sort key and never converted. Before
+this the firm-wide grid painted no times at all.
+
+**One palette, one home** (`packages/design-system/src/lib/palette/`): the eleven colours the folder
+rail offered, their fills as `--mc-palette-*`, `FOLDER_COLORS` re-exporting them unchanged, and
+`PaletteSwatches` as the one control. A calendar offers the nine that read on a chip and wears its
+colour as a leading rule, so the status register keeps the fill and a cancelled setting stays
+visibly cancelled.
+
+**The record forms**: Where becomes Location as the dropdown-with-add over the firm's own offices
+and rooms; a **conference link** gets its own field and its own nullable column on `matter_event`
+and `firm_event`; the times become time fields with the zone beside them as a shortcode worked out
+on the record's own day; the day being booked stands in the panel's context pane as the product's
+own calendar with a day view; double-clicking an empty day or hour opens the form on it; and the
+**matter stops being required** — no matter is a choice whose row says what it writes, and the form
+writes a firm event, which is the table an event belonging to no case already had. Two lines come
+off: "A matter is needed." with the requirement, and "Nothing recorded in September 2026." from
+every grid, because a month that is empty says so by being empty. |
 
 ## Phase 7 — sliced provisionally (no rows yet)
 

@@ -25,23 +25,25 @@
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
-  import Input from "@magna-carta/design-system/input";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import {
     SAMPLE_SENTENCE,
     sampleDate,
     samplePerson,
   } from "@magna-carta/design-system/loading-fixtures";
-  import { formatInstant, instantAttribute } from "@magna-carta/design-system/formatters";
+  import {
+    formatInstant,
+    instantAttribute,
+    placeholderOf,
+  } from "@magna-carta/design-system/formatters";
   import { formatDate } from "@magna-carta/design-system/data-table";
   import FieldLabel from "@magna-carta/design-system/field-label";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
   import Paperclip from "@lucide/svelte/icons/paperclip";
-  import Search from "@lucide/svelte/icons/search";
-  import X from "@lucide/svelte/icons/x";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import NoteDeleteDialog from "$lib/matters/note-delete-dialog.svelte";
   import NoteRecordWindow from "$lib/matters/note-record-window.svelte";
-  import { attachableFoldersFor } from "$lib/matters/note-attachable-documents.ts";
+  import { attachableFoldersFor } from "$lib/matters/record-attachable-documents.ts";
   import { occurrenceLine } from "$lib/matters/note-print-sheet.ts";
   import { entryFromUrl } from "$lib/matters/entry-from-url.ts";
   import { listMatterNotes, readMatterNote, type MatterNote } from "$lib/matters/notes-api.ts";
@@ -71,10 +73,10 @@
 
   // Bumped after a write, so the list re-reads what the server now holds rather than guessing.
   let reloadToken = $state(0);
-  // What is narrowing the list, as the server was last asked for it.
+  // What is narrowing the list, as the server was last asked for it. ScreenSearch owns the field,
+  // the pause before a query leaves the machine, and the clear; this holds only what was asked.
   let appliedSearch = $state("");
   let searchTerm = $state("");
-  let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
   // The matter's own documents, for the attach picker. A failed read never fails this screen: notes
   // still read, and the picker says it has nothing to offer rather than disappearing.
@@ -230,25 +232,6 @@
     if (found !== undefined) opened = found;
   });
 
-  function applySearch(term: string): void {
-    appliedSearch = term;
-  }
-
-  // Debounced, so a term typed a character at a time is one read rather than eight.
-  function onSearchInput(): void {
-    clearTimeout(searchTimer);
-    const term = searchTerm;
-    searchTimer = setTimeout(() => {
-      if (term.trim() !== appliedSearch.trim()) applySearch(term.trim());
-    }, 250);
-  }
-
-  function clearSearch(): void {
-    clearTimeout(searchTimer);
-    searchTerm = "";
-    applySearch("");
-  }
-
   // The shape drawn while the first page is read: three rows in the list's own anatomy — who wrote
   // it, when, and the words. Sample words only, never a matter's: the sample vocabulary's people,
   // dates and sentence.
@@ -269,23 +252,17 @@
       <FieldLabel as="h2">
         Notes
       </FieldLabel>
-      <div class="flex items-center gap-4">
-        <Search aria-hidden="true" class="size-16 text-text-muted" />
-        <Input
-          bind:value={searchTerm}
-          oninput={onSearchInput}
-          disabled={isSample}
-          aria-label="Search this matter's notes"
-          class="w-xs"
-        />
-        <!-- Present only while something is narrowing the list, so its absence answers "is
-             anything hidden". -->
-        {#if appliedSearch !== ""}
-          <Button variant="ghost" onclick={clearSearch} title="Clear the search">
-            <X aria-hidden="true" />
-          </Button>
-        {/if}
-      </div>
+      <ScreenSearch
+        bind:value={searchTerm}
+        label="Search this matter's notes"
+        placeholder={placeholderOf("Search this matter's notes")}
+        searchOn="pause"
+        disabled={isSample}
+        fieldClass="w-2xs sm:w-xs"
+        onsearch={(next) => {
+          appliedSearch = next.trim();
+        }}
+      />
     </div>
   </div>
 

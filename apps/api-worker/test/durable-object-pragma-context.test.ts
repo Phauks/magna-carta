@@ -243,6 +243,116 @@ describe("PRAGMA foreign_keys inside one durable-object execution context", () =
     expect(outcome).toMatch(/^(failed|commit rejected):/u);
   });
 
+  it("says whether writable_schema can widen a CHECK with nothing dropped at all", async () => {
+    /*
+     * The one mechanism the five probes above do not cover, and the only one that does not need a
+     * drop. SQLite documents editing `sqlite_schema` under `PRAGMA writable_schema` as the way to
+     * change a table's constraints in place: the table keeps its identity, its rowids and its
+     * children, and no DROP is ever issued — so the foreign-key enforcement that defeats every
+     * rebuild above has nothing to fire on.
+     *
+     * If it works here, widening a CHECK on a PARENT table stops being an open question for this
+     * fleet. If it does not, expand-contract is the only route left and this test is the record of
+     * why.
+     */
+    const attempt = runInDurableObject(stub(), (instance: FirmDatabase) => {
+      const sql = (instance as unknown as { ctx: { storage: { sql: SqlStorage } } }).ctx.storage
+        .sql;
+      sql.exec("DROP TABLE IF EXISTS probe_child_writable");
+      sql.exec("DROP TABLE IF EXISTS probe_parent_writable");
+      sql.exec(
+        "CREATE TABLE probe_parent_writable (id TEXT PRIMARY KEY, v TEXT, CONSTRAINT ck CHECK(v IN ('a','b')))",
+      );
+      sql.exec(
+        "CREATE TABLE probe_child_writable (id TEXT PRIMARY KEY, parent_id TEXT REFERENCES probe_parent_writable(id))",
+      );
+      sql.exec("INSERT INTO probe_parent_writable (id, v) VALUES ('p1', 'a')");
+      sql.exec("INSERT INTO probe_child_writable (id, parent_id) VALUES ('c1', 'p1')");
+      try {
+        sql.exec("PRAGMA writable_schema=ON");
+        sql.exec(
+          `UPDATE sqlite_schema SET sql = 'CREATE TABLE probe_parent_writable (id TEXT PRIMARY KEY, v TEXT, CONSTRAINT ck CHECK(v IN (''a'',''b'',''c'')))' WHERE type = 'table' AND name = 'probe_parent_writable'`,
+        );
+        sql.exec("PRAGMA writable_schema=RESET");
+        // The widened value is the whole question: it was refused a moment ago.
+        sql.exec("INSERT INTO probe_parent_writable (id, v) VALUES ('p2', 'c')");
+        const kids = sql
+          .exec(
+            "SELECT COUNT(*) AS n FROM probe_child_writable JOIN probe_parent_writable ON probe_parent_writable.id = probe_child_writable.parent_id",
+          )
+          .toArray() as { n: number }[];
+        return `writable_schema widened the CHECK, children still resolve: ${String(kids[0]?.n ?? -1)}`;
+      } catch (error) {
+        return `writable_schema did not: ${error instanceof Error ? error.message : String(error)}`;
+      } finally {
+        try {
+          sql.exec("PRAGMA writable_schema=OFF");
+        } catch {
+          // best effort
+        }
+      }
+    });
+    const outcome = await attempt.then(
+      (value) => value,
+      (error: unknown) =>
+        `the commit rejected: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    // workerd's authorizer refuses the pragma outright, so the schema is never writable and the
+    // widened value is never reached. That is the sixth and last mechanism: there is no way to
+    // change a CHECK on a parent table in this runtime, and the answer is to add a column instead.
+    expect(outcome).toContain("writable_schema did not");
+    expect(outcome).toContain("SQLITE_AUTH");
+  });
+
+  it("adds a column WITH a CHECK to a parent table, which is the route that is left", async () => {
+    /*
+     * The counterpart to every refusal above: ALTER TABLE ADD COLUMN drops nothing, so it fires no
+     * foreign-key violation and needs no pragma. The question this settles is narrower and it is
+     * the one the expand phase rests on — whether the ADDED column may carry its own CHECK, and
+     * whether that CHECK may name another column, since a pair of columns that must be null or
+     * non-null together is the ordinary shape of an added fact.
+     */
+    const outcome = await runInDurableObject(stub(), (instance: FirmDatabase) => {
+      const sql = (instance as unknown as { ctx: { storage: { sql: SqlStorage } } }).ctx.storage
+        .sql;
+      seedProbe(sql, "addcolumn");
+      try {
+        sql.exec(
+          "ALTER TABLE probe_parent_addcolumn ADD COLUMN rung TEXT NOT NULL DEFAULT 'to_do' CHECK (rung IN ('to_do', 'in_progress', 'on_hold'))",
+        );
+        sql.exec("ALTER TABLE probe_parent_addcolumn ADD COLUMN archived_at TEXT");
+        sql.exec(
+          "ALTER TABLE probe_parent_addcolumn ADD COLUMN archived_by TEXT CHECK ((archived_at IS NULL) = (archived_by IS NULL))",
+        );
+        const seededRung = sql
+          .exec("SELECT rung FROM probe_parent_addcolumn WHERE id = 'p1'")
+          .toArray() as { rung: string }[];
+        sql.exec("UPDATE probe_parent_addcolumn SET rung = 'on_hold' WHERE id = 'p1'");
+        let refusedBadValue = false;
+        try {
+          sql.exec("UPDATE probe_parent_addcolumn SET rung = 'nonsense' WHERE id = 'p1'");
+        } catch {
+          refusedBadValue = true;
+        }
+        let refusedHalfPair = false;
+        try {
+          sql.exec("UPDATE probe_parent_addcolumn SET archived_at = '2026-09-14' WHERE id = 'p1'");
+        } catch {
+          refusedHalfPair = true;
+        }
+        return `added: existing row defaulted to ${seededRung[0]?.rung ?? "?"}, bad value refused ${String(refusedBadValue)}, half a pair refused ${String(refusedHalfPair)}`;
+      } catch (error) {
+        return `ADD COLUMN failed: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    });
+    // Every part of the expand phase, proved against real durable-object storage rather than
+    // assumed: the column lands on a parent with a child, existing rows take the default, the
+    // CHECK is enforced, and a CHECK naming a second column is enforced too.
+    expect(outcome).toBe(
+      "added: existing row defaulted to to_do, bad value refused true, half a pair refused true",
+    );
+  });
+
   it("enforces foreign keys on a drop with no pragma at all, in the same context", async () => {
     const outcome = await runInDurableObject(stub(), (instance: FirmDatabase) => {
       const sql = (instance as unknown as { ctx: { storage: { sql: SqlStorage } } }).ctx.storage

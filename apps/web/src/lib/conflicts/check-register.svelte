@@ -22,7 +22,6 @@
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import type { Snippet } from "svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
@@ -48,6 +47,7 @@
     grid = $bindable(null),
     reread = $bindable(() => {}),
     onOpenCheck,
+    search = "",
   }: {
     /** Narrow the log to one matter, or null for everything the firm has run. */
     matterId?: string | null;
@@ -68,6 +68,13 @@
     reread?: () => void;
     /** Open one check. Where that leads belongs to the surface, not to this listing. */
     onOpenCheck: (checkId: string) => void;
+    /**
+     * What the log is being asked, as the server was last asked for it. Bound IN from the surface,
+     * because the control that carries it belongs in the screen's one action row while the read it
+     * narrows is here. It is part of the read's SUBJECT below, so a new question replaces the rows
+     * rather than appending to them.
+     */
+    search?: string;
   } = $props();
 
   const list = new PagedList<ConflictsCheckSummary>("The firm's conflicts log could not be read.");
@@ -80,11 +87,14 @@
     void firmRoster.load(fetch);
   });
 
-  const subject = $derived(matterId ?? "");
+  // The query is part of what identifies the rows on screen: asking a different question is a
+  // different listing, not more of the same one.
+  const subject = $derived(`${matterId ?? ""}:${search.trim()}`);
 
   function read(cursor?: string) {
     return listConflictsChecks(fetch, {
       ...(matterId === null ? {} : { matterId }),
+      ...(search.trim() === "" ? {} : { search: search.trim() }),
       ...(cursor === undefined ? {} : { cursor }),
     });
   }
@@ -123,7 +133,9 @@
   // prop on every reference. The grid is created once, at init, and never replaced.
   const ownGrid = grid;
 
-  const narrowed = $derived((grid?.activeFilterCount ?? 0) > 0);
+  // A search narrows the log exactly as a column filter does — the reader cannot tell which half is
+  // holding rows back, and should not have to — so the empty state answers for both.
+  const narrowed = $derived((grid?.activeFilterCount ?? 0) > 0 || search.trim() !== "");
 </script>
 
 {#snippet checkCell({ column, text, row }: DataTable.GridCellContext<ConflictsCheckSummary>)}
@@ -166,16 +178,6 @@
       cell={checkCell}
       loading={checks === null}
     >
-      {#snippet empty()}
-        {#if narrowed}
-          <EmptyState title="Nothing Matches That">
-            No check in the firm's log answers to what is asked. Widening the filters brings the log
-            back.
-          </EmptyState>
-        {:else}
-          <EmptyState title={emptyTitle} actions={emptyActions}>{@render emptyBody()}</EmptyState>
-        {/if}
-      {/snippet}
     </DataTable.Grid>
 
     <!-- The counts strip: how much of the log is on screen, and the way to the rest of it. One

@@ -54,6 +54,7 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
+  import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import * as Select from "@magna-carta/design-system/select";
   import * as Tabs from "@magna-carta/design-system/tabs";
   import Badge from "@magna-carta/design-system/badge";
@@ -72,7 +73,7 @@
   import { readConflictsCheck, runConflictsCheck } from "$lib/conflicts/conflicts-api.ts";
   import MemberPicker from "./member-picker.svelte";
   import PracticeAreaPicker from "./practice-area-picker.svelte";
-  import VocabularyPicker from "./vocabulary-picker.svelte";
+  import { OfficePicker } from "$lib/offices/index.ts";
   import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
   import {
     isCreatableMatterStatus,
@@ -114,7 +115,6 @@
     prefill = null,
     session,
     matterTypes,
-    locations,
     matters,
     onCreated,
     onMatterTypeAdopted,
@@ -134,7 +134,16 @@
     /** Who is asking. The responsible attorney defaults to them, and can be changed. */
     session: SessionBootstrap;
     matterTypes: readonly MatterTypeSummary[];
-    locations: readonly LocationSummary[];
+    /**
+     * The firm's offices as the screen that opened this window already read them.
+     *
+     * ACCEPTED AND NO LONGER READ. The Location field is now the one office picker the product
+     * uses everywhere, and that piece reads the firm's offices itself through the shared store — so
+     * this list would be the same request answered twice. It stays on the signature so the three
+     * screens that open this window need no change in the same round; the prop goes when they stop
+     * passing it.
+     */
+    locations?: readonly LocationSummary[];
     /** The docket as loaded, which is where the clients the firm already has come from. */
     matters: readonly MatterSummary[];
     onCreated: (created: {
@@ -199,12 +208,6 @@
     unavailable: status === "hold" ? HOLD_AT_CREATION_REASON : closedDependency,
     soon: status !== "hold",
   }));
-
-  const locationOptions = $derived(
-    locations
-      .filter((location) => location.status === "active")
-      .map((location) => ({ id: location.id, name: location.name })),
-  );
 
   const mayAddMatterType = $derived(
     session.permissions.includes(MANAGE_MATTER_TYPES_PERMISSION),
@@ -309,6 +312,33 @@
         : "Open Matter",
   );
   const heading = $derived(purpose === "intake" ? "New Intake" : "New Matter");
+
+  /*
+   * The number this file will be called by, stated before it exists.
+   *
+   * WHICH NUMBER DEPENDS ON WHAT IS BEING STARTED, and the three answers are genuinely different
+   * files, each with a run of its own: an intake draws an intake number, a consultation draws its
+   * TENTATIVE number, an open matter draws the matter number. Each survives every later rung rather
+   * than being replaced, so a note filed under any of them still resolves — which is why the panel
+   * names the one THIS act will draw rather than the one the file will end up wearing.
+   *
+   * None is previewed with a value yet: nothing serves the next number on any of the three runs, and
+   * a panel that invented one would be making a promise about a counter it has not asked. What the
+   * reader is told is the honest half — that a number is drawn by the save, and which kind of number
+   * it will be — which is what the shell renders for a preview with nothing in it. When a read
+   * exists, this is the one line that changes (@magna-carta/design-system/record-reference).
+   */
+  const subtitle = $derived<RecordSubject>({
+    reference: {
+      // The rung's own word, from the status register rather than typed here — the register is
+      // where a status word is given its label, and a second copy of one drifts the moment either
+      // is corrected. An open matter is the exception: what it draws is called a MATTER number, and
+      // the register calls that rung "Active", which is its status and not the name of its number.
+      kind: startingStatus === "open" ? "Matter" : matterStatusLabel(startingStatus),
+      number: null,
+      standing: "preview",
+    },
+  });
 
   /**
    * Why the commit is refused, or undefined when it is not. The shell renders this beside the
@@ -446,6 +476,7 @@
 <ActionDialog
   bind:open
   {heading}
+  {subtitle}
   {commitLabel}
   commitBusyLabel={purpose === "intake" ? "Starting" : "Opening"}
   commitRefusal={refusal}
@@ -531,12 +562,17 @@
           </div>
           <div class="flex flex-col gap-8">
             <Label for="new-matter-location">Location</Label>
-            <VocabularyPicker
-              options={locationOptions}
+            <!-- The office the matter is RUN OUT OF, picked by the one piece that picks an office
+                 anywhere in the product — so what a firm's offices are is answered in one place
+                 and a matter's office is the same record the Offices screen manages. Where the
+                 matter's paper FILE ends up is a different fact, recorded on the status window
+                 once there is a folder. -->
+            <OfficePicker
               bind:value={locationId}
               inputId="new-matter-location"
               label="Location"
-              whenEmpty="No Locations are set up."
+              disabled={busy}
+              whenEmpty="No offices are set up."
             />
           </div>
         </div>

@@ -12,6 +12,13 @@
    * discoverable; if a new kind of surface has no registry yet, create one and add a provider
    * group here — do NOT hardcode an item (a hardcoded item is invisible to the registry's
    * owners and silently rots). Matters/directory/actions join as their registries ship.
+   *
+   * NOT EVERY ENTRY IS A DESTINATION. The registries above all describe an href, and selecting one
+   * is a `goto`. A developer surface that opens IN PLACE — the header's Build Information panel is
+   * the first — has no address to navigate to, so it would have had to be the hardcoded item this
+   * contract forbids. Its registry is $lib/developer/diagnostic-actions.ts: an id, a label, the
+   * words it should be findable by, whether this build offers it, and the function that runs. The
+   * next tool of that shape joins there and is searchable in the same commit, with no edit here.
    */
   import { goto } from "$app/navigation";
   import { openBeside } from "$lib/navigation/open-beside.ts";
@@ -23,7 +30,7 @@
     PRESENCE_SCALE_FADE,
     type PresenceClass,
   } from "@magna-carta/design-system/internal/floating";
-  import BugReportDialog from "$lib/components/bug-report-dialog.svelte";
+  import { issueReport } from "$lib/components/issue-report.svelte.ts";
   import {
     PALETTE_ENTRANCE_PRESENCE,
     readPaletteEntranceVariant,
@@ -33,6 +40,7 @@
   import { SEARCH_PLACEHOLDER } from "$lib/navigation/search.ts";
   import { ECOSYSTEM_SITES } from "$lib/navigation/ecosystem-sites.ts";
   import { bandedSettingsSections } from "$lib/settings/settings-sections.ts";
+  import { availableDiagnosticActions } from "$lib/developer/diagnostic-actions.ts";
 
   let {
     open = $bindable(false),
@@ -53,6 +61,10 @@
   // registry the Tools listing renders. A built tool navigates to its page; a not-yet-built one
   // surfaces as a disabled "— soon" row, exactly as an announced destination does.
   const tools = toolDestinations();
+  // Surfaces that OPEN rather than navigate, from their own registry. Read at render rather than
+  // held in a constant: an entry decides its own availability, and a permission that arrives after
+  // the shell mounted must be able to light one up.
+  const diagnosticActions = $derived(availableDiagnosticActions());
 
   // An anchored panel (placement="anchored", below) positions itself against the viewport with
   // its own insets; centring it the way a centred panel is, `inset: 0; margin: auto`, and starting
@@ -130,13 +142,20 @@
   }
 
   // "Report a bug" is reachable from search as well as the profile menu (owner directive:
-  // everything under the profile icon must be findable here). The palette owns its own dialog
-  // instance — the component is self-contained, so no state threads through the shell.
-  let bugReportOpen = $state(false);
-
+  // everything under the profile icon must be findable here). The dialog itself is the shell's,
+  // mounted once for every door into it ($lib/components/issue-report.svelte.ts); the palette
+  // contributes the gesture and nothing else.
   function openBugReport(): void {
     open = false;
-    bugReportOpen = true;
+    issueReport.open();
+  }
+
+  // The palette closes first, then the action runs: an action that opens a popover anchored to the
+  // header cannot be seen underneath an open palette, and closing after would race its own
+  // transition.
+  function runDiagnosticAction(run: () => void): void {
+    open = false;
+    run();
   }
 
   function openEcosystemSite(href: string): void {
@@ -235,6 +254,25 @@
               {/each}
             </Command.GroupItems>
           </Command.Group>
+          <!-- Developer and support surfaces that open in place rather than at an address, from the
+               diagnostic-action registry. An entry that this build does not offer is omitted
+               entirely rather than shown disabled: unlike an announced destination there is nothing
+               coming that a reader should be told about. -->
+          {#if diagnosticActions.length > 0}
+            <Command.Group>
+              <Command.GroupHeading>Diagnostics</Command.GroupHeading>
+              <Command.GroupItems>
+                {#each diagnosticActions as action (action.id)}
+                  <Command.Item
+                    keywords={[...action.keywords]}
+                    onSelect={() => runDiagnosticAction(action.run)}
+                  >
+                    {action.label}
+                  </Command.Item>
+                {/each}
+              </Command.GroupItems>
+            </Command.Group>
+          {/if}
           <!-- Everything under the profile icon is searchable too (owner directive): the bug
                report action, and the ecosystem sites from their registry — not-yet-wired sites
                render disabled with the same "Soon" voice as the menu, so search tells the truth
@@ -263,5 +301,3 @@
     </Command.Root>
   </Dialog.Content>
 </Dialog.Root>
-
-<BugReportDialog bind:open={bugReportOpen} />

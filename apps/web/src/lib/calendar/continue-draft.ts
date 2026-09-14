@@ -14,6 +14,8 @@ import { timingShortfalls, type EventTimingDraft } from "./event-draft.ts";
 
 export interface ContinueDraft extends EventTimingDraft {
   locationText: string;
+  /** Where the new setting is joined, where it is online. Carried over from the old one. */
+  conferenceUrl: string;
   courtReference: string;
   /** Why the old setting is not happening; optional. */
   statusReason: string;
@@ -27,12 +29,17 @@ export function emptyContinueDraft(): ContinueDraft {
     endsAtTime: "",
     timeZone: "",
     locationText: "",
+    conferenceUrl: "",
     courtReference: "",
     statusReason: "",
   };
 }
 
-/** The draft a continuance of this setting starts from: its zone, times, place and court, no date. */
+/**
+ * The draft a continuance of this setting starts from: its zone, times, place, link and court, no
+ * date. A continued hearing is the same hearing on a new date, so everything about WHERE it is and
+ * how it is joined carries over until somebody changes it.
+ */
 export function continueDraftFrom(event: CalendarEvent): ContinueDraft {
   return {
     startsOn: null,
@@ -41,6 +48,7 @@ export function continueDraftFrom(event: CalendarEvent): ContinueDraft {
     endsAtTime: event.endsAtTime ?? "",
     timeZone: event.timeZone,
     locationText: event.locationText ?? "",
+    conferenceUrl: event.conferenceUrl ?? "",
     courtReference: event.courtReference ?? "",
     statusReason: "",
   };
@@ -65,6 +73,7 @@ export function continueDraftRequest(draft: ContinueDraft): ContinueEventRequest
     endsAtTime: optionalText(draft.endsAtTime),
     timeZone: draft.timeZone,
     locationText: optionalText(draft.locationText),
+    conferenceUrl: optionalText(draft.conferenceUrl),
     courtReference: optionalText(draft.courtReference),
     statusReason: optionalText(draft.statusReason),
   };

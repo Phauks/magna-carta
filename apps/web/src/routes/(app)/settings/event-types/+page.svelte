@@ -21,7 +21,6 @@
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import ChoicePicker from "$lib/components/choice-picker.svelte";
@@ -280,11 +279,6 @@
         loading={types === null}
         placeholderCount={3}
       >
-        {#snippet empty()}
-          <EmptyState title="No Event Types">
-            The platform's vocabulary arrives by migration; a firm adds its own words here.
-          </EmptyState>
-        {/snippet}
       </DataTable.Grid>
       <DataTable.GridFooter {grid} />
     {/if}
@@ -354,7 +348,7 @@
 <ActionDialog
   bind:open={retireOpen}
   kind="destructive"
-  heading="Retire This Event Type?"
+  heading="Retire This Event Type"
   commitLabel="Retire the Event Type"
   commitBusyLabel="Retiring"
   unsavedChanges={false}

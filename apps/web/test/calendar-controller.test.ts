@@ -172,6 +172,7 @@ describe("the controller over the router", () => {
       weekStartsOn: () => 0,
       agendaDays: () => 14,
       memberId: () => "user_me",
+      catalog: () => ({ members: [], resources: [] }),
       context: () => ({
         matterNumbers: new Map(),
         eventTypesByCode: new Map(),
@@ -210,5 +211,112 @@ describe("the controller over the router", () => {
     expect(router.replaceState).toHaveBeenCalledTimes(1);
     const [mirrored] = router.replaceState.mock.calls[0] ?? [];
     expect(mirrored?.search).toBe("?view=week&date=2026-09-02&scope=everyone");
+  });
+});
+
+/*
+ * NARROWING THE WINDOW ON SCREEN.
+ *
+ * The calendar's search matches what the grid PAINTS — the entry's label and the second line under
+ * it — over the entries the read plan already walked into the browser. Two properties are worth
+ * pinning beyond "it filters": that it matches only the painted text, so no cell appears with no
+ * visible evidence for it; and that it leaves the settled count alone, which is a sentence about a
+ * different thing and would be false if the search moved it.
+ */
+describe("the calendar's search", () => {
+  /** A host with nothing interesting in it: this block is about the rows, not the address. */
+  function searchHost(): CalendarHost {
+    let view: CalendarView = "month";
+    let anchor = "2026-09-15";
+    return {
+      scope: () => ({ kind: "firm" }),
+      view: () => view,
+      setView: (next) => (view = next),
+      anchor: () => anchor,
+      setAnchor: (next) => (anchor = next),
+      address: () => false,
+      weekStartsOn: () => 0,
+      agendaDays: () => 14,
+      memberId: () => "user_me",
+      context: () => ({
+        matterNumbers: new Map(),
+        eventTypesByCode: new Map(),
+        readerTimeZone: "UTC",
+      }),
+      contextReady: () => true,
+      // The rail's catalog, empty: this block is about which rows survive a query, not about which
+      // calendars the firm has.
+      catalog: () => ({ members: [], resources: [] }),
+    };
+  }
+
+  function entry(id: string, label: string, detail?: string, settled = false) {
+    return {
+      id,
+      date: "2026-09-15",
+      label,
+      detail,
+      tone: "neutral" as const,
+      kind: "matterEvent" as const,
+      recordId: id,
+      matterId: null,
+      link: null,
+      settled,
+      // Which reads produced the entry. Empty here on purpose: this block is about which rows a
+      // query keeps, and an entry on no named calendar still has to survive the colouring pass.
+      sourceKeys: [] as readonly string[],
+    };
+  }
+
+  function controllerWith(entries: ReturnType<typeof entry>[], search: string): CalendarController {
+    router.page.url = new URL("https://firm.example/calendar");
+    const controller = new CalendarController(searchHost());
+    // The read is the component's; what is under test is what the controller does with the rows.
+    (controller as unknown as { entries: unknown }).entries = entries;
+    controller.search = search;
+    return controller;
+  }
+
+  it("matches the label", () => {
+    const controller = controllerWith(
+      [entry("a", "Henderson hearing"), entry("b", "Status conference")],
+      "henderson",
+    );
+    expect(controller.visibleEntries?.map((row) => row.id)).toEqual(["a"]);
+  });
+
+  it("matches the second line, which is where the matter number already is", () => {
+    const controller = controllerWith(
+      [entry("a", "Hearing", "2026-0042"), entry("b", "Hearing", "2026-0099")],
+      "0099",
+    );
+    expect(controller.visibleEntries?.map((row) => row.id)).toEqual(["b"]);
+  });
+
+  it("is case-insensitive and needs no whole word", () => {
+    const controller = controllerWith([entry("a", "Deposition of A. Vance")], "VANCE");
+    expect(controller.visibleEntries).toHaveLength(1);
+  });
+
+  it("narrows nothing when the query is blank", () => {
+    const controller = controllerWith([entry("a", "One"), entry("b", "Two")], "   ");
+    expect(controller.visibleEntries).toHaveLength(2);
+    expect(controller.searching).toBe(false);
+  });
+
+  it("reports itself searching only on a real query", () => {
+    expect(controllerWith([entry("a", "One")], "one").searching).toBe(true);
+    expect(controllerWith([entry("a", "One")], "").searching).toBe(false);
+  });
+
+  it("leaves the settled count measuring the settled filter alone", () => {
+    // A search that narrowed forty entries to one must not then report thirty-nine "settled
+    // entries hidden" — a sentence about the wrong thing, and false besides.
+    const controller = controllerWith(
+      [entry("a", "Henderson hearing"), entry("b", "Status conference"), entry("c", "Filing")],
+      "henderson",
+    );
+    expect(controller.visibleEntries).toHaveLength(1);
+    expect(controller.hiddenCount).toBe(0);
   });
 });

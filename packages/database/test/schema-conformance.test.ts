@@ -149,8 +149,14 @@ describe("schema conformance (fitness functions)", () => {
     // is precisely the state the deletion plan and the pending-document count must never have to
     // reconcile; the write is an upsert on this key, which is what makes a retried feed write converge
     // rather than leave a second copy.
+    // magnus_conversation_attachment is keyed by (conversation_id, file_id) — the same many-to-many
+    // shape as time_entry_attachment, and exempt for the same reason. A conversation holds a file or
+    // it does not; the pair IS the attachment, and a handle would let one file attach to the same
+    // conversation twice, which is the one state the per-file outcome the composer reports could not
+    // then reconcile.
     const compositeKeyTables = new Set([
       "ai_search_feed_object",
+      "magnus_conversation_attachment",
       "storage_meter",
       "token_usage_meter",
       "directory_name_phonetic_code",
@@ -161,6 +167,7 @@ describe("schema conformance (fitness functions)", () => {
       "invoice_number_allocation",
       "time_entry_number_allocation",
       "time_entry_attachment",
+      "magnus_conversation_attachment",
       "invoice_matter_balance",
       "document_template_field_binding",
       "scan_cache",

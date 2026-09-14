@@ -108,6 +108,7 @@ export type ServiceVersion = {
     commit: string | null;
     commitTime: string | null;
     buildTime: string | null;
+    latencyMilliseconds: number | null;
 };
 
 export type DatabaseHealthResponse = {
@@ -1030,6 +1031,7 @@ export type ReportIncidentRequest = {
         route: string;
         appVersion: string;
         clientAt: string;
+        deployment?: string;
     };
 };
 
@@ -1133,6 +1135,7 @@ export type CreateMatterResponse = {
     matterId: string;
     matterNumber: string | null;
     consultationNumber: string | null;
+    intakeNumber: string | null;
 };
 
 export type CreateMatterRequest = {
@@ -1166,6 +1169,7 @@ export type MatterSummary = {
     clientDisplayName: string | null;
     matterNumber: string | null;
     consultationNumber: string | null;
+    intakeNumber: string | null;
     createdAt: string;
 };
 
@@ -1190,12 +1194,14 @@ export type MatterDetail = {
     status: 'intake' | 'consultation' | 'open' | 'hold' | 'closed';
     matterTypeId: string | null;
     locationId: string | null;
+    physicalFileLocationId: string | null;
     responsibleMemberId: string;
     clientDisplayName: string | null;
     clientCode: string | null;
     clientEntityId: string | null;
     matterNumber: string | null;
     consultationNumber: string | null;
+    intakeNumber: string | null;
     eBilling: boolean;
     openedAt: string | null;
     heldAt: string | null;
@@ -1204,6 +1210,7 @@ export type MatterDetail = {
     createdAt: string;
     matterTypeName: string | null;
     locationName: string | null;
+    physicalFileLocationName: string | null;
     responsibleMemberName: string | null;
 };
 
@@ -1246,6 +1253,10 @@ export type PatchMatterRequest = {
     description?: string | null;
     matterTypeId?: string | null;
     locationId?: string | null;
+    /**
+     * The office where the firm keeps this matter's own paper file. Not the office the matter is run out of (locationId): a folder travels, and a matter opened at one office can be boxed at another or at a remote store the firm keeps as an office. Null clears it, which is the honest answer where nobody knows where the file is.
+     */
+    physicalFileLocationId?: string | null;
     responsibleMemberId?: string;
     clientDisplayName?: string | null;
     clientCode?: string | null;
@@ -1709,7 +1720,7 @@ export type NumberSegment = {
 
 export type NumberingScheme = {
     segments: Array<NumberSegment>;
-    purpose?: 'matter' | 'consultation';
+    purpose?: 'matter' | 'consultation' | 'intake';
 };
 
 export type NumberingPreviewResponse = {
@@ -3077,6 +3088,8 @@ export type TimelineEntry = {
     actorUserId: string | null;
     label: string | null;
     link: string;
+    timeOfDay: string | null;
+    timeZone: string | null;
     title: string | null;
     typeText: string | null;
     facts: {
@@ -3104,6 +3117,7 @@ export type MatterEventDetail = {
     endsAtTime: string | null;
     timeZone: string;
     locationText: string | null;
+    conferenceUrl: string | null;
     courtReference: string | null;
     recordedAt: string;
     recordedBy: string | null;
@@ -3192,6 +3206,7 @@ export type CreateMatterEventRequest = {
     endsAtTime?: string | null;
     timeZone: string;
     locationText?: string | null;
+    conferenceUrl?: string | null;
     courtReference?: string | null;
     participants?: Array<MatterEventParticipantInput>;
 };
@@ -3219,6 +3234,7 @@ export type UpdateMatterEventRequest = {
     endsAtTime?: string | null;
     timeZone?: string;
     locationText?: string | null;
+    conferenceUrl?: string | null;
     courtReference?: string | null;
     participants?: Array<MatterEventParticipantInput>;
 };
@@ -3290,6 +3306,7 @@ export type FirmEventDetail = {
     audience: 'all_members' | 'participants';
     locationId: string | null;
     locationText: string | null;
+    conferenceUrl: string | null;
     recordedAt: string;
     recordedBy: string | null;
 };
@@ -3312,6 +3329,7 @@ export type CreateFirmEventRequest = {
     audience?: 'all_members' | 'participants';
     locationId?: string | null;
     locationText?: string | null;
+    conferenceUrl?: string | null;
     participants?: Array<MatterEventParticipantInput>;
 };
 
@@ -3328,6 +3346,7 @@ export type UpdateFirmEventRequest = {
     audience?: 'all_members' | 'participants';
     locationId?: string | null;
     locationText?: string | null;
+    conferenceUrl?: string | null;
     participants?: Array<MatterEventParticipantInput>;
 };
 
@@ -3467,6 +3486,7 @@ export type ContinueMatterEventRequest = {
     endsAtTime?: string | null;
     timeZone?: string;
     locationText?: string | null;
+    conferenceUrl?: string | null;
     courtReference?: string | null;
     statusReason?: string | null;
 };
@@ -3571,6 +3591,7 @@ export type CommunicationDetail = {
     matterStatus: string | null;
     matterNumber: string | null;
     consultationNumber: string | null;
+    intakeNumber: string | null;
     disposition: 'spam' | 'firmBusiness' | 'noAction' | null;
     counterpartyNumber: string;
     counterpartyEntityId: string | null;
@@ -3681,12 +3702,12 @@ export type MatterTaskDetail = {
     dueOn: string | null;
     dueAtTime: string | null;
     timeZone: string | null;
-    state: 'open' | 'done' | 'cancelled';
+    rung: 'to_do' | 'in_progress' | 'on_hold' | 'done';
     completedAt: string | null;
     completedBy: string | null;
-    cancelledAt: string | null;
-    cancelledBy: string | null;
-    cancellationReason: string | null;
+    archivedAt: string | null;
+    archivedBy: string | null;
+    archiveReason: string | null;
     blockedByTaskId: string | null;
     triggerEventId: string | null;
     deadlineId: string | null;
@@ -3805,8 +3826,12 @@ export type ReassignMatterTaskRequest = {
     assigneeUserId: string | null;
 };
 
-export type CancelMatterTaskRequest = {
-    reason: string;
+export type MoveMatterTaskRequest = {
+    rung: 'to_do' | 'in_progress' | 'on_hold' | 'done';
+};
+
+export type ArchiveMatterTaskRequest = {
+    reason?: string | null;
 };
 
 export type AttachMatterTaskDocumentRequest = {
@@ -3973,6 +3998,7 @@ export type IntakeDeskRow = {
     title: string;
     status: 'intake' | 'consultation';
     consultationNumber: string | null;
+    intakeNumber: string | null;
     matterTypeId: string | null;
     matterTypeName: string | null;
     responsibleMemberId: string;
@@ -14373,7 +14399,7 @@ export type NumberingGetData = {
     body?: never;
     path?: never;
     query?: {
-        purpose?: 'matter' | 'consultation';
+        purpose?: 'matter' | 'consultation' | 'intake';
     };
     url: '/api/v1/numbering-scheme';
 };
@@ -17710,6 +17736,7 @@ export type ConflictsListChecksData = {
     query?: {
         cursor?: string;
         matterId?: string;
+        search?: string;
     };
     url: '/api/v1/conflicts/checks';
 };
@@ -21082,9 +21109,13 @@ export type TasksListMatterTasksData = {
     query?: {
         cursor?: string;
         /**
-         * Comma-separated states to include: open, done, cancelled.
+         * Comma-separated rungs to include: to_do, in_progress, on_hold, done.
          */
-        state?: string;
+        rung?: string;
+        /**
+         * Include tasks that have been archived. Off by default: putting one away is what takes it off a list, and a list that still showed it would be one nobody could clear.
+         */
+        includeArchived?: 'true' | 'false';
         /**
          * Comma-separated priorities to include: low, normal, high, urgent.
          */
@@ -21133,9 +21164,13 @@ export type TasksListMyTasksData = {
     query?: {
         cursor?: string;
         /**
-         * Comma-separated states to include: open, done, cancelled.
+         * Comma-separated rungs to include: to_do, in_progress, on_hold, done.
          */
-        state?: string;
+        rung?: string;
+        /**
+         * Include tasks that have been archived. Off by default: putting one away is what takes it off a list, and a list that still showed it would be one nobody could clear.
+         */
+        includeArchived?: 'true' | 'false';
         /**
          * Comma-separated priorities to include: low, normal, high, urgent.
          */
@@ -21145,7 +21180,7 @@ export type TasksListMyTasksData = {
         dueTo?: string;
         search?: string;
         /**
-         * Include tasks on matters the firm has closed. Off by default: closing a matter changes no task, so its open tasks are filtered from this list rather than cancelled, and reopening the matter brings them back with no backfill.
+         * Include tasks on matters the firm has closed. Off by default: closing a matter changes no task, so its open tasks are filtered from this list rather than archived, and reopening the matter brings them back with no backfill.
          */
         includeClosedMatters?: 'true' | 'false';
     };
@@ -21638,7 +21673,61 @@ export type TasksReassignTaskResponses = {
 
 export type TasksReassignTaskResponse = TasksReassignTaskResponses[keyof TasksReassignTaskResponses];
 
-export type TasksReopenTaskData = {
+export type TasksMoveTaskData = {
+    body: MoveMatterTaskRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/tasks/{taskId}/rung';
+};
+
+export type TasksMoveTaskErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksMoveTaskError = TasksMoveTaskErrors[keyof TasksMoveTaskErrors];
+
+export type TasksMoveTaskResponses = {
+    /**
+     * The task was moved
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksMoveTaskResponse = TasksMoveTaskResponses[keyof TasksMoveTaskResponses];
+
+export type TasksUnarchiveTaskData = {
     body?: never;
     headers: {
         'idempotency-key': string;
@@ -21647,10 +21736,10 @@ export type TasksReopenTaskData = {
         taskId: string;
     };
     query?: never;
-    url: '/api/v1/tasks/{taskId}/completion';
+    url: '/api/v1/tasks/{taskId}/archive';
 };
 
-export type TasksReopenTaskErrors = {
+export type TasksUnarchiveTaskErrors = {
     /**
      * Missing Idempotency-Key (this operation requires one)
      */
@@ -21681,19 +21770,19 @@ export type TasksReopenTaskErrors = {
     429: Problem;
 };
 
-export type TasksReopenTaskError = TasksReopenTaskErrors[keyof TasksReopenTaskErrors];
+export type TasksUnarchiveTaskError = TasksUnarchiveTaskErrors[keyof TasksUnarchiveTaskErrors];
 
-export type TasksReopenTaskResponses = {
+export type TasksUnarchiveTaskResponses = {
     /**
-     * The task was reopened
+     * The task was put back
      */
     200: MatterTaskAcknowledged;
 };
 
-export type TasksReopenTaskResponse = TasksReopenTaskResponses[keyof TasksReopenTaskResponses];
+export type TasksUnarchiveTaskResponse = TasksUnarchiveTaskResponses[keyof TasksUnarchiveTaskResponses];
 
-export type TasksCompleteTaskData = {
-    body?: never;
+export type TasksArchiveTaskData = {
+    body: ArchiveMatterTaskRequest;
     headers: {
         'idempotency-key': string;
     };
@@ -21701,10 +21790,10 @@ export type TasksCompleteTaskData = {
         taskId: string;
     };
     query?: never;
-    url: '/api/v1/tasks/{taskId}/completion';
+    url: '/api/v1/tasks/{taskId}/archive';
 };
 
-export type TasksCompleteTaskErrors = {
+export type TasksArchiveTaskErrors = {
     /**
      * Missing Idempotency-Key (this operation requires one)
      */
@@ -21735,70 +21824,16 @@ export type TasksCompleteTaskErrors = {
     429: Problem;
 };
 
-export type TasksCompleteTaskError = TasksCompleteTaskErrors[keyof TasksCompleteTaskErrors];
+export type TasksArchiveTaskError = TasksArchiveTaskErrors[keyof TasksArchiveTaskErrors];
 
-export type TasksCompleteTaskResponses = {
+export type TasksArchiveTaskResponses = {
     /**
-     * The task was completed
+     * The task was archived
      */
     200: MatterTaskAcknowledged;
 };
 
-export type TasksCompleteTaskResponse = TasksCompleteTaskResponses[keyof TasksCompleteTaskResponses];
-
-export type TasksCancelTaskData = {
-    body: CancelMatterTaskRequest;
-    headers: {
-        'idempotency-key': string;
-    };
-    path: {
-        taskId: string;
-    };
-    query?: never;
-    url: '/api/v1/tasks/{taskId}/cancellation';
-};
-
-export type TasksCancelTaskErrors = {
-    /**
-     * Missing Idempotency-Key (this operation requires one)
-     */
-    400: Problem;
-    /**
-     * No valid session
-     */
-    401: Problem;
-    /**
-     * The session member lacks the required permission
-     */
-    403: Problem;
-    /**
-     * The firm is unreachable, the member is deactivated, or the task is unknown
-     */
-    404: Problem;
-    /**
-     * A request with this Idempotency-Key is still in progress
-     */
-    409: Problem;
-    /**
-     * The request body is not a shape this operation accepts
-     */
-    422: Problem;
-    /**
-     * Rate limited
-     */
-    429: Problem;
-};
-
-export type TasksCancelTaskError = TasksCancelTaskErrors[keyof TasksCancelTaskErrors];
-
-export type TasksCancelTaskResponses = {
-    /**
-     * The task was cancelled
-     */
-    200: MatterTaskAcknowledged;
-};
-
-export type TasksCancelTaskResponse = TasksCancelTaskResponses[keyof TasksCancelTaskResponses];
+export type TasksArchiveTaskResponse = TasksArchiveTaskResponses[keyof TasksArchiveTaskResponses];
 
 export type TasksAttachTaskDocumentData = {
     body: AttachMatterTaskDocumentRequest;
@@ -25986,6 +26021,7 @@ export type MagnusListConversationsData = {
         cursor?: string;
         scope?: 'own' | 'firm';
         matterId?: string;
+        search?: string;
         sort?: 'date' | 'name' | 'matter';
     };
     url: '/api/v1/magnus/conversations';
@@ -35697,6 +35733,9 @@ export type NotificationsListData = {
         cursor?: string;
         category?: 'deadlines' | 'calendar' | 'tasks' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system';
         state?: 'unread' | 'read' | 'dismissed';
+        kinds?: string | Array<string>;
+        searchCategories?: 'deadlines' | 'calendar' | 'tasks' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system' | Array<'deadlines' | 'calendar' | 'tasks' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system'>;
+        search?: string;
         pageSize?: number;
     };
     url: '/api/v1/notifications';

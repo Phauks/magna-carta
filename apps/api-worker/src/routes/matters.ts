@@ -125,6 +125,10 @@ const MatterSummary = z
     // The tentative number a consultation wears until (and after) it is opened. Carried beside the
     // matter number, never folded into it: which of the two a reader has changes what it means.
     consultationNumber: z.string().nullable(),
+    // And the number the intake wore before either. All three are carried because a file that came
+    // the whole way answers to all three, and a note quoting the number it was filed under at the
+    // time has to keep finding it.
+    intakeNumber: z.string().nullable(),
     createdAt: z.string(),
   })
   .openapi("MatterSummary");
@@ -157,12 +161,17 @@ const MatterDetail = z
     status: matterStatus,
     matterTypeId: z.string().nullable(),
     locationId: z.string().nullable(),
+    // Where the firm's own paper file for this matter is kept. A different office from the one
+    // above — the matter is RUN OUT OF that one and its folder is KEPT AT this one, and a folder
+    // travels — so the two are carried separately and neither stands in for the other.
+    physicalFileLocationId: z.string().nullable(),
     responsibleMemberId: z.string(),
     clientDisplayName: z.string().nullable(),
     clientCode: z.string().nullable(),
     clientEntityId: z.string().nullable(),
     matterNumber: z.string().nullable(),
     consultationNumber: z.string().nullable(),
+    intakeNumber: z.string().nullable(),
     eBilling: z.boolean(),
     openedAt: z.string().nullable(),
     // Set while the matter is on hold: when the pause began, and why, in the firm's own words.
@@ -171,12 +180,14 @@ const MatterDetail = z
     holdReason: z.string().nullable(),
     closedAt: z.string().nullable(),
     createdAt: z.string(),
-    // The three names beside their ids, resolved in the same read. A screen cannot print a
-    // matterType_ handle at a person, and asking for each name separately would be three more round
-    // trips per matter view. Null where the matter carries no type or Location, or where the
-    // responsible member's row is gone: an honest gap, never the identifier as a stand-in.
+    // The names beside their ids, resolved in the same read. A screen cannot print a matterType_
+    // handle at a person, and asking for each name separately would be a round trip per name per
+    // matter view. Null where the matter carries no type, no Location and no recorded paper-file
+    // office, or where the responsible member's row is gone: an honest gap, never the identifier as
+    // a stand-in.
     matterTypeName: z.string().nullable(),
     locationName: z.string().nullable(),
+    physicalFileLocationName: z.string().nullable(),
     responsibleMemberName: z.string().nullable(),
   })
   .openapi("MatterDetail");
@@ -192,6 +203,9 @@ const CreateMatterResponse = z
     // Filled for a consultation, which is numbered the moment it is created; null for a matter
     // created straight to open, which never was one.
     consultationNumber: z.string().nullable(),
+    // Filled for an intake, which is numbered the moment the enquiry is written down; null for a
+    // matter recorded at any later rung.
+    intakeNumber: z.string().nullable(),
   })
   .openapi("CreateMatterResponse");
 
@@ -201,6 +215,16 @@ const PatchMatterRequest = z
     description: z.string().nullable().optional(),
     matterTypeId: identifierField("matterType").nullable().optional(),
     locationId: identifierField("location").nullable().optional(),
+    physicalFileLocationId: identifierField("location")
+      .nullable()
+      .optional()
+      .openapi({
+        description:
+          "The office where the firm keeps this matter's own paper file. Not the office the " +
+          "matter is run out of (locationId): a folder travels, and a matter opened at one office " +
+          "can be boxed at another or at a remote store the firm keeps as an office. Null clears " +
+          "it, which is the honest answer where nobody knows where the file is.",
+      }),
     responsibleMemberId: identifierField("user").optional(),
     clientDisplayName: z.string().nullable().optional(),
     clientCode: z.string().nullable().optional(),
@@ -770,8 +794,9 @@ const patchMatterRoute = defineOpenAPIRoute(patchMatterMeta, {
   method: "patch",
   path: "/api/v1/matters/{id}",
   description:
-    "Updates a matter's editable fields (title, description, type, Location, responsible member, " +
-    "client display fields). Does not change status or the assigned number.",
+    "Updates a matter's editable fields (title, description, type, Location, the office its paper " +
+    "file is kept at, responsible member, client display fields). Does not change status or the " +
+    "assigned number.",
   request: {
     headers: idempotencyKeyHeader,
     params: matterParam,
@@ -1037,6 +1062,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
             matterId: result.matterId,
             matterNumber: result.matterNumber,
             consultationNumber: result.consultationNumber,
+            intakeNumber: result.intakeNumber,
           } as z.infer<typeof CreateMatterResponse>,
           201,
         );
@@ -1123,11 +1149,13 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
         status: "intake" | "consultation" | "open" | "hold" | "closed";
         matter_type_id: string | null;
         location_id: string | null;
+        physical_file_location_id: string | null;
         responsible_member_id: string;
         client_display_name: string | null;
         client_code: string | null;
         matter_number: string | null;
         consultation_number: string | null;
+        intake_number: string | null;
         e_billing: number;
         opened_at: string | null;
         held_at: string | null;
@@ -1136,6 +1164,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
         created_at: string;
         matter_type_name: string | null;
         location_name: string | null;
+        physical_file_location_name: string | null;
         responsible_member_name: string | null;
       }>();
       const row = results[0];
@@ -1155,12 +1184,14 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
           status: row.status,
           matterTypeId: row.matter_type_id,
           locationId: row.location_id,
+          physicalFileLocationId: row.physical_file_location_id,
           responsibleMemberId: row.responsible_member_id,
           clientDisplayName: row.client_display_name,
           clientCode: row.client_code,
           clientEntityId: await readMatterClientEntityId(firm.firmDatabase, row.id as MatterId),
           matterNumber: row.matter_number,
           consultationNumber: row.consultation_number,
+          intakeNumber: row.intake_number,
           eBilling: row.e_billing !== 0,
           openedAt: row.opened_at,
           heldAt: row.held_at,
@@ -1169,6 +1200,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
           createdAt: row.created_at,
           matterTypeName: row.matter_type_name,
           locationName: row.location_name,
+          physicalFileLocationName: row.physical_file_location_name,
           responsibleMemberName: row.responsible_member_name,
         } as z.infer<typeof MatterDetail>,
         200,

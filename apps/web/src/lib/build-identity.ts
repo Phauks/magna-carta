@@ -11,6 +11,12 @@ export const BUILD_IDENTITY = {
   committedAt: __MC_BUILD_COMMIT_TIME__,
   builtAt: __MC_BUILD_TIME__,
   mode: import.meta.env.MODE,
+  /**
+   * Where this build's source lives (`https://github.com/<owner>/<repo>`), or null when the build
+   * could not establish it. It is what lets a commit on screen be a link to the commit itself; a
+   * null renders as plain text rather than a dead link.
+   */
+  sourceRepository: __MC_SOURCE_REPOSITORY__,
 } as const;
 
 /** One line for trace blocks: "a1b2c3d (development, built 2026-07-02T21:14:03.000Z)". */

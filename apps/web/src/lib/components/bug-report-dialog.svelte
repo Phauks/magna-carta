@@ -49,7 +49,19 @@
   import { currentTrace } from "$lib/diagnostics/current-trace.ts";
   import { reportProblem } from "$lib/diagnostics/report.ts";
 
-  let { open = $bindable(false) }: { open?: boolean } = $props();
+  let {
+    open = $bindable(false),
+    deployment = null,
+  }: {
+    open?: boolean;
+    /**
+     * What the deployment was doing, from a surface that knew. The Build Information panel opens
+     * this dialog with its whole diagnosis — the fleet's builds, the firm's database, the upload
+     * preconditions — so a report filed during an incident carries the state of the platform and
+     * not only the reporter's words. Null everywhere else, which is every other trigger.
+     */
+    deployment?: string | null;
+  } = $props();
 
   let description = $state("");
   let diagnosticsExpanded = $state(false);
@@ -96,7 +108,14 @@
   // touches `navigator` before the dialog is ever shown): the time and route pin the moment the
   // user reached for the report, not the moment the page loaded. `null` for the failure, because
   // nobody's call provoked this — the trace says so rather than inventing a request line.
-  const diagnostics = $derived(open ? currentTrace(null, page.url.pathname) : "");
+  const trace = $derived(open ? currentTrace(null, page.url.pathname) : "");
+  // The deployment's own account of itself, beneath the trace rather than folded into it: the two
+  // are separate documents in one paste, and they share a line grammar
+  // ($lib/diagnostics/diagnostic-report.ts) so the join reads as one report and not as two formats
+  // stapled together.
+  const diagnostics = $derived(
+    deployment === null || !open ? trace : [trace, "", deployment].join("\n"),
+  );
 
   const descriptionEmpty = $derived(description.trim().length === 0);
 
@@ -115,6 +134,7 @@
       // Nothing here was a caught failure, so there is no platform handle to correlate it to.
       errorIds: [],
       route: page.url.pathname,
+      ...(deployment === null ? {} : { deployment }),
     });
     if (outcome.kind === "ok") {
       filedIdentifier = outcome.value.id;
@@ -132,7 +152,6 @@
   bind:open
   kind="form"
   heading="Report an Issue"
-  subtitle="This goes to the firm's own reporting pipeline, not to a third party."
   commitLabel="Submit Issue"
   commitBusyLabel="Submitting"
   commitRefusal={descriptionEmpty
@@ -151,6 +170,10 @@
         </Alert.Description>
       </Alert.Root>
     {:else}
+      <p class="text-xs text-text-muted">
+        This goes to the firm's own reporting pipeline, not to a third party.
+      </p>
+
       <LabelledField
         label="What happened?"
         hint="What you did, what you expected, what happened instead"

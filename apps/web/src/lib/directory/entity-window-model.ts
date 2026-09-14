@@ -10,6 +10,7 @@
  * directory knows nothing of the kind. That addition is the `EntityStanding` a host hands over,
  * and it is rendered above the record's own facts rather than mixed into them.
  */
+import type { RecordSubject } from "@magna-carta/design-system/record-reference";
 import type { DirectoryEntityDetail } from "./directory-api.ts";
 import {
   directoryEntityName,
@@ -38,18 +39,22 @@ export const UNREAD_RECORD_HEADING = "Directory Record";
 
 /**
  * The line beneath the name: what the record is, then what a reader recognises it by beyond the
- * name — a person's stated pronouns, an organization's legal name where it differs. Joined by the
- * same separator the masthead used, so the window reads as the record did.
+ * name — a person's stated pronouns, an organization's legal name where it differs.
+ *
+ * A directory record carries no number anybody quotes — it is found by name, which the heading has
+ * already given — so the reference names only which side of the directory it is on, and the rest
+ * are facts about that record. The separator is no longer joined here: the design system owns it,
+ * which is what stops this line and the panels that act on the record drifting apart.
  */
-export function entityWindowSubtitle(entity: DirectoryEntityDetail): string {
-  const parts: string[] = [entityKindLabel(entity.kind)];
+export function entityWindowSubtitle(entity: DirectoryEntityDetail): RecordSubject {
+  const facts: string[] = [];
   if (entity.kind === "person") {
-    if (entity.person.pronouns !== null) parts.push(pronounShortForm(entity.person.pronouns));
+    if (entity.person.pronouns !== null) facts.push(pronounShortForm(entity.person.pronouns));
   } else {
     const aside = organizationLegalNameAside(entity.organization);
-    if (aside !== null) parts.push(aside);
+    if (aside !== null) facts.push(aside);
   }
-  return parts.join(" · ");
+  return { reference: { kind: entityKindLabel(entity.kind), number: null }, facts };
 }
 
 /**

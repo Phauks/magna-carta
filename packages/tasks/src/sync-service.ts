@@ -234,7 +234,7 @@ export async function recordExternalSync(
 }
 
 // Stop mirroring. The TASK is untouched — unlinking is a statement about the correspondence and
-// never about the work, so nothing here completes, cancels or deletes anything.
+// never about the work, so nothing here completes, archives or deletes anything.
 export async function unlinkTaskFromExternalSystem(
   database: SqlDatabase,
   linkId: MatterTaskExternalLinkId,

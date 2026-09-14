@@ -105,4 +105,16 @@ describe("the reports column", () => {
     expect(column?.textContent).toContain("the report");
     expect(column?.classList.contains("mc-navigation-layout-content-scrolling")).toBe(true);
   });
+
+  it("draws every row as the design system's navigation row, with no treatment of its own", () => {
+    const column = navigation(drawReports("/reports/trust-compliance"));
+    const rows = [...column.querySelectorAll("li > *")];
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      // Tools and Reports share the column component, and both share the row with Settings. A
+      // class list or an inline style written at either call site is how that stops being true.
+      expect(row.classList.contains("mc-navigation-layout-row")).toBe(true);
+      expect(row.getAttribute("style")).toBeNull();
+    }
+  });
 });

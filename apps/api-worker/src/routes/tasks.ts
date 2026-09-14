@@ -20,14 +20,14 @@ import type {
 } from "@magna-carta/identifiers/types";
 import {
   attachFileToMatterTask,
-  cancelMatterTask,
-  completeMatterTask,
+  archiveMatterTask,
+  moveMatterTaskToRung,
   createMatterTask,
   deleteMatterTask,
   detachFileFromMatterTask,
   editMatterTask,
   reassignMatterTask,
-  reopenMatterTask,
+  unarchiveMatterTask,
 } from "@magna-carta/tasks/task-service";
 import {
   decodeTaskCursor,
@@ -53,12 +53,13 @@ import {
   type MatterTaskExternalLinkRow,
 } from "@magna-carta/tasks/sync-statements";
 import {
-  MAX_CANCELLATION_REASON_LENGTH,
+  MAX_ARCHIVE_REASON_LENGTH,
   MAX_TASK_BODY_LENGTH,
   MAX_TASK_PAGE_SIZE,
   MAX_TASK_TITLE_LENGTH,
   TASK_PRIORITIES,
-  TASK_STATES,
+  TASK_RUNGS,
+  rungOf,
 } from "@magna-carta/tasks/types";
 import { TaskValidationError } from "@magna-carta/tasks/validation";
 import type { Context } from "hono";
@@ -141,9 +142,14 @@ const ReassignTaskRequest = z
   .object({ assigneeUserId: identifierField("user").nullable() })
   .openapi("ReassignMatterTaskRequest");
 
-const CancelTaskRequest = z
-  .object({ reason: z.string().min(1).max(MAX_CANCELLATION_REASON_LENGTH) })
-  .openapi("CancelMatterTaskRequest");
+const MoveTaskRequest = z.object({ rung: z.enum(TASK_RUNGS) }).openapi("MoveMatterTaskRequest");
+
+// The reason is OPTIONAL, which is the difference from the cancellation this replaces. That one was
+// required, and requiring it is why nobody used it: somebody clearing work that is simply not
+// happening is not composing a memo.
+const ArchiveTaskRequest = z
+  .object({ reason: z.string().max(MAX_ARCHIVE_REASON_LENGTH).nullish() })
+  .openapi("ArchiveMatterTaskRequest");
 
 const AttachDocumentRequest = z
   .object({ fileId: identifierField("file") })
@@ -174,12 +180,17 @@ const TaskDetail = z
     dueOn: z.string().nullable(),
     dueAtTime: z.string().nullable(),
     timeZone: z.string().nullable(),
-    state: z.enum(TASK_STATES),
+    // WHERE THE TASK STANDS, as the one vocabulary a reader has. The two columns behind it are the
+    // platform's problem and never a consumer's: nothing outside the server needs to know that
+    // three rungs live in one column and the fourth in another.
+    rung: z.enum(TASK_RUNGS),
     completedAt: z.string().nullable(),
     completedBy: z.string().nullable(),
-    cancelledAt: z.string().nullable(),
-    cancelledBy: z.string().nullable(),
-    cancellationReason: z.string().nullable(),
+    // PUT AWAY, KEPT. Orthogonal to the rung — a task is archived FROM wherever it stood, and
+    // unarchiving puts it back there. The reason is optional and usually absent.
+    archivedAt: z.string().nullable(),
+    archivedBy: z.string().nullable(),
+    archiveReason: z.string().nullable(),
     // The one task this one waits on, where there is one. It GATES NOTHING: a blocked task may still
     // be completed, because a firm's real sequence has exceptions constantly.
     blockedByTaskId: z.string().nullable(),
@@ -235,10 +246,17 @@ const attachmentIdParam = z.object({
 // The filters both lists take. Repeated values arrive as a comma-separated list rather than repeated
 // query parameters, so a cursor and its filters round-trip as one stable string.
 const listTasksQuery = cursorQuery.extend({
-  state: z
-    .string()
+  rung: z.string().optional().openapi({
+    description: "Comma-separated rungs to include: to_do, in_progress, on_hold, done.",
+  }),
+  includeArchived: z
+    .enum(["true", "false"])
     .optional()
-    .openapi({ description: "Comma-separated states to include: open, done, cancelled." }),
+    .openapi({
+      description:
+        "Include tasks that have been archived. Off by default: putting one away is what takes " +
+        "it off a list, and a list that still showed it would be one nobody could clear.",
+    }),
   priority: z
     .string()
     .optional()
@@ -256,7 +274,7 @@ const myTasksQuery = listTasksQuery.extend({
     .openapi({
       description:
         "Include tasks on matters the firm has closed. Off by default: closing a matter changes " +
-        "no task, so its open tasks are filtered from this list rather than cancelled, and " +
+        "no task, so its open tasks are filtered from this list rather than archived, and " +
         "reopening the matter brings them back with no backfill.",
     }),
 });
@@ -313,15 +331,16 @@ function taskErrorResponse(
         status: 404,
         detail: caught.message,
       });
-    // The state the task is in is not the state this move applies to. A conflict rather than a
-    // validation failure: the request was well-formed and the record moved under it, which is what
-    // a second person completing the same task looks like.
+    // Where the task stands is not where this move applies. A conflict rather than a validation
+    // failure: the request was well-formed and the record moved under it, which is what a second
+    // person completing the same task looks like.
     case "task-not-open":
     case "task-not-done":
-    case "task-already-cancelled":
+    case "task-already-archived":
+    case "task-not-archived":
       return problemJson(c, {
         type: "conflict",
-        title: "That task is not in a state this change applies to",
+        title: "That task is not where this change applies",
         status: 409,
         detail: caught.message,
       });
@@ -600,7 +619,7 @@ const unlinkTaskRoute = defineOpenAPIRoute(
     path: "/api/v1/task-external-links/{linkId}",
     description:
       "Stop mirroring. The task is untouched: unlinking is a statement about the correspondence and " +
-      "never about the work, so nothing here completes, cancels or deletes anything.",
+      "never about the work, so nothing here completes, archives or deletes anything.",
     request: { headers: idempotencyKeyHeader, params: externalLinkIdParam },
     responses: {
       200: {
@@ -695,16 +714,24 @@ const reassignTaskRoute = defineOpenAPIRoute(writeMeta("reassignTask", ASSIGN), 
   },
 });
 
-const completeTaskRoute = defineOpenAPIRoute(writeMeta("completeTask"), {
-  method: "post",
-  path: "/api/v1/tasks/{taskId}/completion",
+const moveTaskRoute = defineOpenAPIRoute(writeMeta("moveTask"), {
+  method: "put",
+  path: "/api/v1/tasks/{taskId}/rung",
   description:
-    "Marks the task done, recording who did it and when. A task that waits on another may be " +
-    "completed out of order: the sequence is guidance, not a gate.",
-  request: { headers: idempotencyKeyHeader, params: taskIdParam },
+    "Moves the task to a rung: to_do, in_progress, on_hold or done. One operation for all four, " +
+    "because pressing To Do and pressing Done are the same act to the person doing them. Moving to " +
+    "done records who finished it and when; moving off done clears that and restores the rung the " +
+    "task was left on, rather than sending it back to the start. That it was closed and reopened " +
+    "stays in the firm's audit log. A task that waits on another may be moved out of order: the " +
+    "sequence is guidance, not a gate. An archived task is not moved until it is put back.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: taskIdParam,
+    body: { content: { "application/json": { schema: MoveTaskRequest } }, required: true },
+  },
   responses: {
     200: {
-      description: "The task was completed",
+      description: "The task was moved",
       content: { "application/json": { schema: AcknowledgedResponse } },
     },
     400: authErrors[400],
@@ -717,18 +744,45 @@ const completeTaskRoute = defineOpenAPIRoute(writeMeta("completeTask"), {
   },
 });
 
-const reopenTaskRoute = defineOpenAPIRoute(
-  { ...writeMeta("reopenTask"), reversal: { kind: "inverse", by: "tasks.completeTask" } },
+const archiveTaskRoute = defineOpenAPIRoute(writeMeta("archiveTask"), {
+  method: "post",
+  path: "/api/v1/tasks/{taskId}/archive",
+  description:
+    "Puts the task away and keeps it. Archiving and deleting are the two ways a task leaves a " +
+    "list and they differ in one thing: this keeps the data, a delete takes it. The rung is " +
+    "untouched, so putting it back returns it to where it stood. A reason is optional.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: taskIdParam,
+    body: { content: { "application/json": { schema: ArchiveTaskRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The task was archived",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const unarchiveTaskRoute = defineOpenAPIRoute(
+  { ...writeMeta("unarchiveTask"), reversal: { kind: "inverse", by: "tasks.archiveTask" } },
   {
     method: "delete",
-    path: "/api/v1/tasks/{taskId}/completion",
+    path: "/api/v1/tasks/{taskId}/archive",
     description:
-      "Puts a completed or cancelled task back on the list. The completion and cancellation details " +
-      "are cleared from the task, and that it was closed and reopened stays in the firm's audit log.",
+      "Puts the task back on the list, on the rung it left from. The archive reason is cleared " +
+      "with the archiving; that it was archived stays in the firm's audit log.",
     request: { headers: idempotencyKeyHeader, params: taskIdParam },
     responses: {
       200: {
-        description: "The task was reopened",
+        description: "The task was put back",
         content: { "application/json": { schema: AcknowledgedResponse } },
       },
       400: authErrors[400],
@@ -741,33 +795,6 @@ const reopenTaskRoute = defineOpenAPIRoute(
     },
   },
 );
-
-const cancelTaskRoute = defineOpenAPIRoute(writeMeta("cancelTask"), {
-  method: "post",
-  path: "/api/v1/tasks/{taskId}/cancellation",
-  description:
-    "Records that the firm decided not to do the work, with the reason why. Different from " +
-    "deleting: a cancelled task stays on the matter as a decision that was taken. Delete the task " +
-    "instead where it should never have existed.",
-  request: {
-    headers: idempotencyKeyHeader,
-    params: taskIdParam,
-    body: { content: { "application/json": { schema: CancelTaskRequest } }, required: true },
-  },
-  responses: {
-    200: {
-      description: "The task was cancelled",
-      content: { "application/json": { schema: AcknowledgedResponse } },
-    },
-    400: authErrors[400],
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    409: authErrors[409],
-    422: authErrors[422],
-    429: authErrors[429],
-  },
-});
 
 const deleteTaskRoute = defineOpenAPIRoute(
   {
@@ -784,7 +811,8 @@ const deleteTaskRoute = defineOpenAPIRoute(
     description:
       "Deletes a task outright, for one that should not exist: a typo, a duplicate, a line somebody " +
       "abandoned. Anything waiting on it stops waiting. Documents it pointed at are untouched and " +
-      "stay in the matter's files. Where the firm decided not to do real work, cancel it instead.",
+      "stay in the matter's files. Where the work is simply not happening, archive the task instead: " +
+      "archiving keeps it and everything it carries, and deleting does not.",
     request: { headers: idempotencyKeyHeader, params: taskIdParam },
     responses: {
       200: {
@@ -885,12 +913,12 @@ function taskDetail(
     dueOn: row.due_on,
     dueAtTime: row.due_at_time,
     timeZone: row.time_zone,
-    state: row.state,
+    rung: rungOf({ state: row.state, progress: row.progress }),
     completedAt: row.completed_at,
     completedBy: row.completed_by,
-    cancelledAt: row.cancelled_at,
-    cancelledBy: row.cancelled_by,
-    cancellationReason: row.cancellation_reason,
+    archivedAt: row.archived_at,
+    archivedBy: row.archived_by,
+    archiveReason: row.archive_reason,
     blockedByTaskId: row.blocked_by_task_id,
     triggerEventId: row.trigger_event_id,
     deadlineId: row.deadline_id,
@@ -945,7 +973,8 @@ function closedList<T extends string>(
 
 function filtersFrom(query: z.infer<typeof listTasksQuery>) {
   return {
-    states: closedList(query.state, TASK_STATES),
+    rungs: closedList(query.rung, TASK_RUNGS),
+    includeArchived: query.includeArchived === "true",
     priorities: closedList(query.priority, TASK_PRIORITIES),
     assigneeUserId: query.assigneeUserId as UserId | undefined,
     dueFrom: query.dueFrom,
@@ -1341,53 +1370,9 @@ export function registerTasksRoutes(
     },
   );
 
-  // POST /api/v1/tasks/{taskId}/completion
+  // PUT /api/v1/tasks/{taskId}/rung
   app.openapi(
-    { ...completeTaskRoute, middleware: chokepointMiddleware(chokepoint, completeTaskRoute) },
-    async (c) => {
-      const firm = requireChokepointFirmContext(c);
-      const userId = requireChokepointUserId(c);
-      const idempotency = requireChokepointIdempotency(c);
-      const { taskId } = c.req.valid("param");
-      const outcome = await commitTaskEffect(c, firm.firmDatabase, idempotency, 200, async () => {
-        const { effect } = await completeMatterTask(
-          firm.firmDatabase,
-          taskId as MatterTaskId,
-          serviceOptions(userId),
-        );
-        return { id: taskId, effect };
-      });
-      if (!outcome.ok) return outcome.problem;
-      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
-      return c.json({ ok: true } as const, 200);
-    },
-  );
-
-  // DELETE /api/v1/tasks/{taskId}/completion
-  app.openapi(
-    { ...reopenTaskRoute, middleware: chokepointMiddleware(chokepoint, reopenTaskRoute) },
-    async (c) => {
-      const firm = requireChokepointFirmContext(c);
-      const userId = requireChokepointUserId(c);
-      const idempotency = requireChokepointIdempotency(c);
-      const { taskId } = c.req.valid("param");
-      const outcome = await commitTaskEffect(c, firm.firmDatabase, idempotency, 200, async () => {
-        const { effect } = await reopenMatterTask(
-          firm.firmDatabase,
-          taskId as MatterTaskId,
-          serviceOptions(userId),
-        );
-        return { id: taskId, effect };
-      });
-      if (!outcome.ok) return outcome.problem;
-      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
-      return c.json({ ok: true } as const, 200);
-    },
-  );
-
-  // POST /api/v1/tasks/{taskId}/cancellation
-  app.openapi(
-    { ...cancelTaskRoute, middleware: chokepointMiddleware(chokepoint, cancelTaskRoute) },
+    { ...moveTaskRoute, middleware: chokepointMiddleware(chokepoint, moveTaskRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
@@ -1395,10 +1380,56 @@ export function registerTasksRoutes(
       const { taskId } = c.req.valid("param");
       const request = c.req.valid("json");
       const outcome = await commitTaskEffect(c, firm.firmDatabase, idempotency, 200, async () => {
-        const { effect } = await cancelMatterTask(
+        const { effect } = await moveMatterTaskToRung(
           firm.firmDatabase,
           taskId as MatterTaskId,
-          request.reason,
+          request.rung,
+          serviceOptions(userId),
+        );
+        return { id: taskId, effect };
+      });
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // POST /api/v1/tasks/{taskId}/archive
+  app.openapi(
+    { ...archiveTaskRoute, middleware: chokepointMiddleware(chokepoint, archiveTaskRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { taskId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await commitTaskEffect(c, firm.firmDatabase, idempotency, 200, async () => {
+        const { effect } = await archiveMatterTask(
+          firm.firmDatabase,
+          taskId as MatterTaskId,
+          request.reason ?? null,
+          serviceOptions(userId),
+        );
+        return { id: taskId, effect };
+      });
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // DELETE /api/v1/tasks/{taskId}/archive
+  app.openapi(
+    { ...unarchiveTaskRoute, middleware: chokepointMiddleware(chokepoint, unarchiveTaskRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { taskId } = c.req.valid("param");
+      const outcome = await commitTaskEffect(c, firm.firmDatabase, idempotency, 200, async () => {
+        const { effect } = await unarchiveMatterTask(
+          firm.firmDatabase,
+          taskId as MatterTaskId,
           serviceOptions(userId),
         );
         return { id: taskId, effect };

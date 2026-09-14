@@ -24,6 +24,7 @@
     "./run-domain-effect": "./src/run-domain-effect.ts",
     "./outbox-relay": "./src/outbox-relay.ts",
     "./cursor-pagination": "./src/cursor-pagination.ts",
+    "./like-search": "./src/like-search.ts",
     "./classification-type-service": "./src/classification-type-service.ts",
     "./hono-idempotency-middleware": "./src/hono-idempotency-middleware.ts",
     "./firm-key-provider": "./src/firm-key-provider.ts",

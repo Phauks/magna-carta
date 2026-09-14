@@ -27,7 +27,9 @@
    */
   import { page } from "$app/state";
   import Badge from "@magna-carta/design-system/badge";
-  import NavigationLayout from "@magna-carta/design-system/navigation-layout";
+  import NavigationLayout, {
+    NavigationLayoutRow,
+  } from "@magna-carta/design-system/navigation-layout";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import Building2 from "@lucide/svelte/icons/building-2";
   import Server from "@lucide/svelte/icons/server";
@@ -113,28 +115,23 @@
                   {@const current = isCurrentSettingsSection(section, page.url.pathname)}
                   <li>
                     <!--
-                      Control-sized rounded rows, the canvas-register cousin of the sidebar's menu
-                      buttons: hover is a quiet surface tint, and the active row carries the gilt
-                      start-edge bar as an inset shadow (same device as the sidebar recipe — a border
-                      would bend around the rounded corners) plus a selected fill and firmer text.
+                      The row is the design system's. It carries the control height, the hover
+                      tint and the lit row's selected fill with its gilt start-edge bar — the same
+                      part the Tools and Reports columns draw, so the three two-sided screens
+                      cannot drift apart in what a choice on the left looks like. Two branches
+                      because a snippet handed to a component cannot be declared inside a
+                      conditional, and the View chip belongs to exactly one of them.
                     -->
-                    <a
-                      href={section.href}
-                      aria-current={current ? "page" : undefined}
-                      class="flex items-center justify-between gap-8 rounded-md px-12 text-sm transition-colors duration-fast ease-standard {current
-                        ? 'bg-surface-selected font-medium text-text-default'
-                        : 'text-text-muted hover:bg-surface-raised hover:text-text-default'}"
-                      style="min-block-size: var(--mc-control-sm);{current
-                        ? ' box-shadow: inset var(--mc-focus-ring-width) var(--mc-space-0) var(--mc-space-0) var(--mc-space-0) var(--mc-accent-default);'
-                        : ''}"
-                    >
-                      {section.label}
-                      {#if viewOnly(section)}
-                        <Badge variant="outline" caps>
-                          View
-                        </Badge>
-                      {/if}
-                    </a>
+                    {#if viewOnly(section)}
+                      <NavigationLayoutRow href={section.href} {current}>
+                        {section.label}
+                        {#snippet trailing()}<Badge variant="outline" caps>View</Badge>{/snippet}
+                      </NavigationLayoutRow>
+                    {:else}
+                      <NavigationLayoutRow href={section.href} {current}>
+                        {section.label}
+                      </NavigationLayoutRow>
+                    {/if}
                   </li>
                 {/each}
               </ul>

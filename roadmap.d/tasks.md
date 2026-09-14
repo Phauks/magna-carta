@@ -23,7 +23,7 @@
   slices: 6-3-tasks
   surface: screen
   spec: docs/specs/2026-08-15-tasks-and-matter-plans-design.md
-  evidence: packages/tasks with matter_task and matter_task_document, matterTask and matterTaskDocument identifier types, tasks:read/write/assign, and eleven routes. matter_id is nullable so firm work with no client file lives here too, with the visibility branch confined to taskVisibilityFragment. No date is derived and no overdue column exists — both held by source and schema scans. Cancellation and deletion are both real and distinguished. Two screens: the matter's Tasks section and the firm-wide Tasks list.
+  evidence: packages/tasks with matter_task and matter_task_document, matterTask and matterTaskDocument identifier types, tasks:read/write/assign, and eleven routes. matter_id is nullable so firm work with no client file lives here too, with the visibility branch confined to taskVisibilityFragment. No date is derived and no overdue column exists — both held by source and schema scans. A task moves along four rungs (To Do, In Progress, On Hold, Done) and leaves a list two ways: archived, which keeps it, or deleted, which does not. Two screens: the matter's Tasks section and the firm-wide Tasks list.
 
 - id: tasks.matter-plans
   name: Matter plans
