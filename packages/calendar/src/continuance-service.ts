@@ -51,6 +51,13 @@ export interface ContinueMatterEventInput {
   // Omitted means the setting stayed in its zone; supplied means the court moved.
   readonly timeZone?: string;
   readonly locationText?: string | null;
+  /**
+   * Where an online setting is JOINED — the meeting's own link, whoever hosts it. A different fact
+   * from where it is HELD, which is why it is not squeezed into the location: a deposition can be
+   * in a conference room AND on a call, and a firm that wrote "Zoom" where the room goes has lost
+   * the room.
+   */
+  readonly conferenceUrl?: string | null;
   readonly courtReference?: string | null;
   // Why the old setting is no longer happening ("Continued on defendant's motion").
   readonly statusReason?: string | null;
@@ -135,6 +142,8 @@ export async function continueMatterEvent(
       endsAtTime: merged.endsAtTime,
       timeZone: merged.timeZone,
       locationText: input.locationText === undefined ? existing.location_text : input.locationText,
+      conferenceUrl:
+        input.conferenceUrl === undefined ? existing.conference_url : input.conferenceUrl,
       courtReference:
         input.courtReference === undefined ? existing.court_reference : input.courtReference,
       recordedAt: now,

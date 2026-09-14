@@ -7,16 +7,20 @@ import type {
   TimelineEntry,
 } from "$lib/calendar/calendar-api.ts";
 import {
+  colored,
   entryFromDeadline,
   entryFromFirmEvent,
   entryFromMatterEvent,
   entryFromTimelineRow,
+  mergeByRecord,
   orderEntries,
+  perLane,
+  recordKeyOf,
+  taggedWith,
   type EntryContext,
 } from "$lib/calendar/calendar-entries.ts";
 import {
   eventTypesByCode,
-  firmCalendarKinds,
   humanizeKind,
   layeredKindLabel,
 } from "$lib/calendar/calendar-vocabulary.ts";
@@ -65,6 +69,8 @@ function timelineRow(overrides: Partial<TimelineEntry>): TimelineEntry {
     actorUserId: null,
     label: "HEARING",
     link: "/matters/matter_1/calendar?entry=matterEvent_1",
+    timeOfDay: null,
+    timeZone: null,
     ...overrides,
   };
 }
@@ -107,6 +113,7 @@ function matterEvent(overrides: Partial<CalendarEvent>): CalendarEvent {
     endsAtTime: null,
     timeZone: "America/New_York",
     locationText: "Dept. 12",
+    conferenceUrl: null,
     courtReference: null,
     recordedAt: "2026-09-01T00:00:00.000Z",
     recordedBy: null,
@@ -132,6 +139,7 @@ function firmEvent(overrides: Partial<FirmEvent>): FirmEvent {
     audience: "all_members",
     locationId: null,
     locationText: null,
+    conferenceUrl: null,
     recordedAt: "2026-09-01T00:00:00.000Z",
     recordedBy: null,
     ...overrides,
@@ -201,15 +209,6 @@ describe("entryFromTimelineRow", () => {
     expect(layeredKindLabel("matter_transfer")).toBe(humanizeKind("matter_transfer"));
   });
 
-  it("widens the firm read's kinds by the layers turned on, and never past the vocabulary", () => {
-    expect(firmCalendarKinds(new Set())).toEqual(["matterEvent"]);
-    expect(firmCalendarKinds(new Set(["custody"]))).toEqual([
-      "matterEvent",
-      "custodyDueBack",
-      "custodyReviewDue",
-    ]);
-    expect(firmCalendarKinds(new Set(["timeEntries"]))).toEqual(["matterEvent"]);
-  });
 });
 
 describe("entryFromDeadline", () => {
@@ -335,5 +334,82 @@ describe("settled", () => {
     ).toBe(true);
     expect(entryFromFirmEvent(firmEvent({}), context).settled).toBe(false);
     expect(entryFromFirmEvent(firmEvent({ status: "cancelled" }), context).settled).toBe(true);
+  });
+});
+
+describe("which calendars an entry is on", () => {
+  const hearing = entryFromTimelineRow(timelineRow({ rowId: "matterEvent_1" }), context)!;
+
+  it("is empty out of the projection, and the read plan tags it", () => {
+    // A projection is handed a row and has no idea which read produced it, so it says so.
+    expect(hearing.sourceKeys).toEqual([]);
+    expect(taggedWith(hearing, "member:user_ada").sourceKeys).toEqual(["member:user_ada"]);
+  });
+
+  it("merges one record arriving from two calendars into one row that knows it is on both", () => {
+    const fromAda = taggedWith(hearing, "member:user_ada");
+    const fromGrace = taggedWith(hearing, "member:user_grace");
+    const merged = mergeByRecord([fromAda, fromGrace]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.sourceKeys).toEqual(["member:user_ada", "member:user_grace"]);
+  });
+
+  it("paints in the colour of the first calendar the rail lists it on", () => {
+    const colors = new Map([
+      ["records", "blue" as const],
+      ["member:user_ada", "green" as const],
+    ]);
+    const onBoth = { ...hearing, sourceKeys: ["member:user_ada", "records"] };
+    // The rail's order is the reader's own arrangement, so "the first calendar this is on" is an
+    // answer they can predict.
+    expect(colored(onBoth, colors, ["records", "member:user_ada"]).color).toBe("blue");
+    expect(colored(onBoth, colors, ["member:user_ada", "records"]).color).toBe("green");
+  });
+});
+
+describe("a day's columns", () => {
+  const hearing = {
+    ...entryFromTimelineRow(timelineRow({ rowId: "matterEvent_1" }), context)!,
+    sourceKeys: ["member:user_ada", "member:user_grace"],
+  };
+  const colors = new Map([
+    ["member:user_ada", "green" as const],
+    ["member:user_grace", "pink" as const],
+  ]);
+
+  it("draws one record once per calendar it is on, each in that column's colour", () => {
+    // Deliberately more than once: a column that left a shared hearing out of one attorney's day
+    // would be lying about that attorney's afternoon.
+    const lanes = perLane([hearing], ["member:user_ada", "member:user_grace"], colors);
+    expect(lanes.map((entry) => entry.lane)).toEqual(["member:user_ada", "member:user_grace"]);
+    expect(lanes.map((entry) => entry.color)).toEqual(["green", "pink"]);
+    expect(new Set(lanes.map((entry) => entry.id)).size).toBe(2);
+  });
+
+  it("leaves a record out of a column it is not on", () => {
+    expect(perLane([hearing], ["member:user_kay"], colors)).toEqual([]);
+  });
+
+  it("reaches the one record from either copy", () => {
+    const lanes = perLane([hearing], ["member:user_ada", "member:user_grace"], colors);
+    for (const drawn of lanes) expect(recordKeyOf(drawn.id)).toBe(hearing.id);
+    // A row nothing expanded is its own key.
+    expect(recordKeyOf(hearing.id)).toBe(hearing.id);
+  });
+});
+
+describe("the hour a chip sits at", () => {
+  it("comes from the record's own wall clock, in the record's own zone", () => {
+    const row = timelineRow({ timeOfDay: "09:30", timeZone: "America/Los_Angeles" });
+    const entry = entryFromTimelineRow(row, context)!;
+    // Never converted: a nine o'clock hearing is on the nine o'clock row whoever is reading it.
+    expect(entry.startMinute).toBe(570);
+    expect(entry.time).toContain("9:30");
+  });
+
+  it("is absent where the record has no hour, which is what a filing is", () => {
+    const entry = entryFromTimelineRow(timelineRow({ timeOfDay: null }), context)!;
+    expect(entry.startMinute).toBeUndefined();
+    expect(entry.time).toBeUndefined();
   });
 });

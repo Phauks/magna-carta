@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "bb636d0c-4007-47a1-a7b5-e0acacc67879",
+  "id": "34fb477d-3569-4f22-8a0d-e62ceae1cfdf",
   "prevId": "3300fc2e-111d-45a9-9160-700ee9275618",
   "tables": {
     "account_balance": {
@@ -9558,6 +9558,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "conference_url": {
+          "name": "conference_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "recorded_at": {
           "name": "recorded_at",
           "type": "text",
@@ -13202,13 +13209,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "physical_file_location_id": {
-          "name": "physical_file_location_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "responsible_member_id": {
           "name": "responsible_member_id",
           "type": "text",
@@ -13387,19 +13387,6 @@
           "tableTo": "location",
           "columnsFrom": [
             "location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "matter_physical_file_location_id_location_id_fk": {
-          "name": "matter_physical_file_location_id_location_id_fk",
-          "tableFrom": "matter",
-          "tableTo": "location",
-          "columnsFrom": [
-            "physical_file_location_id"
           ],
           "columnsTo": [
             "id"
@@ -15890,6 +15877,13 @@
         },
         "location_text": {
           "name": "location_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "conference_url": {
+          "name": "conference_url",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

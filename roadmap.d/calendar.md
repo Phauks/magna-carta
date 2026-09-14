@@ -72,8 +72,30 @@
   scope: Calendar of matters, deadlines, and appointments.
   status: partial
   spec: docs/specs/2026-09-02-calendar-interface-design.md
-  notes: One reusable calendar component (CalendarView over the design system's CalendarGrid) embedded with a scope: the firm screen, the matter section, and later the dashboard, an entity and a room.
+  notes: One reusable calendar component (CalendarView over the design system's CalendarGrid) embedded with a scope: the firm screen, the matter section, a record form's context pane, and later the dashboard, an entity and a room. Four presentations — month, week, day, agenda — of which only the day has a time axis.
   evidence: apps/web/src/lib/calendar/calendar-view.svelte and packages/design-system/src/lib/components/calendar-grid; both registered in tooling/lint-one-ui/registry.json so a second calendar rendering fails the gate.
+
+- id: calendar.surface.calendars-rail
+  name: Individual calendars, in folders
+  scope: Every calendar the firm has as its own row — the firm's records, its own events, a member per role the firm handed out, a room, a date calendar — kept in folders, turned on one at a time or a folder at a time, each wearing a colour the member chose.
+  status: shipped
+  surface: screen
+  audience: public
+  public-name: Your calendars
+  public-summary: Turn each colleague's, each room's and each kind of date's calendar on or off, and give any of them a colour.
+  notes: The folders are the FIRM'S vocabulary — a folder is a role it handed out — so nothing in the product decides who counts as support staff; a member holding two roles is filed under the first. What is on and what colour it wears is personal and per browser, unlike the week start, which is the firm's and lives on the server. File-destruction dates are listed, marked Soon and refused until a retention schedule exists.
+  evidence: The catalog in apps/web/src/lib/calendar/calendar-sources.ts and the preference in calendar-preferences.svelte.ts, rendered by calendar-rail.svelte; the read plan per calendar in calendar-reads.ts (readOneCalendar, one arm per CalendarSourceKind), with every entry tagged and mergeByRecord unioning a record that arrives from two; asserted in apps/web/test/calendar-sources.test.ts and calendar-entries.test.ts.
+
+- id: calendar.surface.day-view
+  name: The day, as a column per calendar
+  scope: One day drawn as an hour axis crossed with a column per calendar turned on, with an all-day band above the hours, for a day a firm spends in several places at once.
+  status: shipped
+  surface: screen
+  audience: public
+  public-name: Day view
+  public-summary: See one day with a column for each calendar, so parallel scheduling reads at a glance.
+  notes: A record on two calendars is drawn in both their columns deliberately. The hours are the working day, widened by anything outside it and never narrowed. It is fed by the hour the federated read now carries.
+  evidence: packages/design-system/src/lib/components/calendar-grid/calendar-grid-day.svelte over day-axis.ts, asserted in packages/design-system/test/day-axis.test.ts and three catalog stories; the lane expansion in apps/web/src/lib/calendar/calendar-entries.ts (perLane, recordKeyOf); the hour declared per source in packages/calendar/src/sources/all.ts (timeOfDayExpression) and carried on TimelineEntry.
 
 - id: calendar.surface.firm-calendar
   name: Firm calendar screen
@@ -106,12 +128,13 @@
 
 - id: calendar.surface.record-forms
   name: Record forms
-  scope: Recording an event on a matter, a deadline on a matter (including superseding one), and a firm event from a screen, with a participant picker over the roster, the directory and external names.
+  scope: Recording an event on a matter or on nobody's, a deadline on a matter (including superseding one), and a firm event from a screen, with a participant picker over the roster, the directory and external names; a Location offered from the firm's own offices and rooms, a conference link for a setting held on a call, times as time fields with the zone beside them as a shortcode, and the day being booked in the panel's context pane.
   status: shipped
   surface: screen
   slices: 6-1-case-calendar, 6-2-calendar-firm-events-resources
   spec: docs/specs/2026-09-02-calendar-interface-design.md
-  evidence: apps/web/src/lib/calendar/record-event-dialog.svelte, record-deadline-dialog.svelte, record-firm-event-dialog.svelte and participant-picker.svelte over the pure draft models asserted in apps/web/test/calendar-drafts.test.ts.
+  notes: The matter is not required — no matter is a choice whose row says what it writes, and the form records a firm event instead, which is the table an event belonging to no case already had. Double-clicking an empty day or hour opens the event form on it, as an accelerator beside the create control every screen carries.
+  evidence: apps/web/src/lib/calendar/record-event-dialog.svelte, record-deadline-dialog.svelte, record-firm-event-dialog.svelte, location-picker.svelte, day-schedule.svelte, record-timing-fields.svelte and participant-picker.svelte over the pure draft models asserted in apps/web/test/calendar-drafts.test.ts; conference_url on matter_event and firm_event (20260914T090000_event-conference-link).
 
 - id: calendar.surface.firm-settings
   name: Firm calendar settings

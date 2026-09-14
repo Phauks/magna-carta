@@ -36,6 +36,8 @@ export interface FirmEventRow {
   readonly audience: FirmEventAudience;
   readonly location_id: LocationId | null;
   readonly location_text: string | null;
+  // Where an online firm meeting is JOINED, which is a different fact from where it is held.
+  readonly conference_url: string | null;
   readonly recorded_at: string;
   readonly recorded_by: UserId | null;
   readonly created_at: string;
@@ -54,7 +56,7 @@ export interface FirmEventParticipantRow {
 
 const FIRM_EVENT_COLUMNS =
   "id, event_type_id, title, description, status, status_reason, starts_on, starts_at_time, ends_on, " +
-  "ends_at_time, time_zone, audience, location_id, location_text, recorded_at, recorded_by, created_at, updated_at";
+  "ends_at_time, time_zone, audience, location_id, location_text, conference_url, recorded_at, recorded_by, created_at, updated_at";
 
 export interface InsertFirmEventInput {
   readonly id: FirmEventId;
@@ -70,6 +72,7 @@ export interface InsertFirmEventInput {
   readonly audience: FirmEventAudience;
   readonly locationId: LocationId | null;
   readonly locationText: string | null;
+  readonly conferenceUrl: string | null;
   readonly recordedAt: string;
   readonly recordedBy: UserId | null;
   readonly now: string;
@@ -81,7 +84,7 @@ export function insertFirmEventStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${FIRM_EVENT_TABLE} (${FIRM_EVENT_COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?17)`,
+      `INSERT INTO ${FIRM_EVENT_TABLE} (${FIRM_EVENT_COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?18)`,
     )
     .bind(
       input.id,
@@ -99,6 +102,7 @@ export function insertFirmEventStatement(
       input.audience,
       input.locationId,
       input.locationText,
+      input.conferenceUrl,
       input.recordedAt,
       input.recordedBy,
       input.now,
@@ -121,6 +125,7 @@ export function updateFirmEventStatement(
     readonly audience: FirmEventAudience;
     readonly locationId: LocationId | null;
     readonly locationText: string | null;
+    readonly conferenceUrl: string | null;
   },
   updatedAt: string,
 ): SqlStatement {
@@ -130,7 +135,8 @@ export function updateFirmEventStatement(
     .prepare(
       `UPDATE ${FIRM_EVENT_TABLE} SET event_type_id = ?2, title = ?3, description = ?4, status = ?5, ` +
         `starts_on = ?6, starts_at_time = ?7, ends_on = ?8, ends_at_time = ?9, time_zone = ?10, ` +
-        `audience = ?11, location_id = ?12, location_text = ?13, updated_at = ?14 WHERE id = ?1`,
+        `audience = ?11, location_id = ?12, location_text = ?13, conference_url = ?14, ` +
+        `updated_at = ?15 WHERE id = ?1`,
     )
     .bind(
       id,
@@ -146,6 +152,7 @@ export function updateFirmEventStatement(
       patch.audience,
       patch.locationId,
       patch.locationText,
+      patch.conferenceUrl,
       updatedAt,
     );
 }

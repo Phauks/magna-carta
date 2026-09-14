@@ -8,6 +8,7 @@ import {
   emptyDeadlineDraft,
 } from "$lib/calendar/deadline-draft.ts";
 import {
+  conferenceShortfalls,
   emptyEventDraft,
   entityParticipant,
   eventDraftReady,
@@ -52,6 +53,7 @@ describe("the event draft", () => {
       endsAtTime: null,
       timeZone: "America/New_York",
       locationText: null,
+      conferenceUrl: null,
       courtReference: null,
       participants: [],
     });
@@ -235,5 +237,39 @@ describe("timeZoneOptions", () => {
       "Europe/London",
     ]);
     expect(options[0]?.label).toBe("America / New York");
+  });
+});
+
+describe("a conference link", () => {
+  it("is optional, and an empty one refuses nothing", () => {
+    expect(conferenceShortfalls("")).toEqual([]);
+    expect(conferenceShortfalls("   ")).toEqual([]);
+  });
+
+  it("takes a web address", () => {
+    expect(conferenceShortfalls("https://example.test/j/123")).toEqual([]);
+    expect(conferenceShortfalls("http://example.test/room")).toEqual([]);
+  });
+
+  it("refuses what is not one, rather than storing a link nobody can follow", () => {
+    // The one moment a conference link is read is the moment somebody is late for the meeting.
+    expect(conferenceShortfalls("zoom us")).toEqual([
+      "The conference link does not read as a web address.",
+    ]);
+    expect(conferenceShortfalls("javascript:alert(1)")).toEqual([
+      "The conference link has to be a web address.",
+    ]);
+  });
+
+  it("holds the whole event back while it is wrong", () => {
+    const draft = {
+      ...emptyEventDraft("America/New_York", "2026-09-15"),
+      title: "Deposition",
+      conferenceUrl: "not a link",
+    };
+    expect(eventDraftReady(draft)).toBe(false);
+    expect(eventDraftShortfalls(draft)).toContain(
+      "The conference link does not read as a web address.",
+    );
   });
 });

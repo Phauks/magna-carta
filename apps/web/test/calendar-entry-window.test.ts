@@ -52,6 +52,7 @@ const event: CalendarEvent = {
   endsAtTime: null,
   timeZone: "America/New_York",
   locationText: "Courtroom 4",
+  conferenceUrl: null,
   courtReference: "26-CV-100",
   recordedAt: "2026-09-01T00:00:00Z",
   recordedBy: "user_1",
@@ -93,6 +94,7 @@ const firmEvent: FirmEvent = {
   audience: "all_members",
   locationId: null,
   locationText: null,
+  conferenceUrl: null,
   recordedAt: "2026-09-01T00:00:00Z",
   recordedBy: null,
 };
@@ -288,6 +290,7 @@ describe("what a correction sends", () => {
       endsAtTime: null,
       timeZone: "America/New_York",
       locationText: "Courtroom 4",
+      conferenceUrl: null,
       courtReference: "26-CV-100",
     });
   });
@@ -308,12 +311,14 @@ describe("what a correction sends", () => {
 });
 
 describe("the continuance draft", () => {
-  it("starts from the old setting's zone, times, place and court, with no date", () => {
-    const draft = continueDraftFrom(event);
+  it("starts from the old setting's zone, times, place, link and court, with no date", () => {
+    const draft = continueDraftFrom({ ...event, conferenceUrl: "https://example.test/hearing" });
     expect(draft.startsOn).toBeNull();
     expect(draft.startsAtTime).toBe("09:30");
     expect(draft.timeZone).toBe("America/New_York");
     expect(draft.locationText).toBe("Courtroom 4");
+    // A continued hearing is the same hearing on a new date, so where it is joined carries over.
+    expect(draft.conferenceUrl).toBe("https://example.test/hearing");
     expect(draft.courtReference).toBe("26-CV-100");
     expect(continueDraftStarted(draft)).toBe(false);
     expect(continueDraftShortfalls(draft)).toEqual(["A date is needed."]);
@@ -330,6 +335,7 @@ describe("the continuance draft", () => {
       endsAtTime: null,
       timeZone: "America/New_York",
       locationText: "Courtroom 4",
+      conferenceUrl: null,
       courtReference: "26-CV-100",
       statusReason: null,
     });

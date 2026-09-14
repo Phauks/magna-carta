@@ -172,6 +172,7 @@ describe("the controller over the router", () => {
       weekStartsOn: () => 0,
       agendaDays: () => 14,
       memberId: () => "user_me",
+      catalog: () => ({ members: [], resources: [] }),
       context: () => ({
         matterNumbers: new Map(),
         eventTypesByCode: new Map(),

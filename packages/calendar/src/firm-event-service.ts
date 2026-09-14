@@ -45,6 +45,13 @@ export interface CreateFirmEventInput {
   readonly audience?: FirmEventAudience;
   readonly locationId?: LocationId | null;
   readonly locationText?: string | null;
+  /**
+   * Where an online setting is JOINED — the meeting's own link, whoever hosts it. A different fact
+   * from where it is HELD, which is why it is not squeezed into the location: a deposition can be
+   * in a conference room AND on a call, and a firm that wrote "Zoom" where the room goes has lost
+   * the room.
+   */
+  readonly conferenceUrl?: string | null;
   readonly participants?: readonly EventParticipantInput[];
 }
 
@@ -113,6 +120,7 @@ export async function createFirmEvent(
       audience: input.audience ?? "participants",
       locationId: input.locationId ?? null,
       locationText: input.locationText ?? null,
+      conferenceUrl: input.conferenceUrl ?? null,
       recordedAt: now,
       recordedBy: options.actorUserId,
       now,
@@ -146,6 +154,7 @@ export interface UpdateFirmEventInput {
   readonly audience?: FirmEventAudience;
   readonly locationId?: LocationId | null;
   readonly locationText?: string | null;
+  readonly conferenceUrl?: string | null;
   // Supplying this replaces the whole participant set; omitting it leaves it alone.
   readonly participants?: readonly EventParticipantInput[];
 }
@@ -179,6 +188,8 @@ export async function updateFirmEvent(
     audience: patch.audience ?? existing.audience,
     locationId: patch.locationId === undefined ? existing.location_id : patch.locationId,
     locationText: patch.locationText === undefined ? existing.location_text : patch.locationText,
+    conferenceUrl:
+      patch.conferenceUrl === undefined ? existing.conference_url : patch.conferenceUrl,
   };
   assertEventShape(merged);
   // Only what the patch actually names: an edit to the title never re-litigates a type already on
