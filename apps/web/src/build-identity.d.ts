@@ -2,3 +2,4 @@
 declare const __MC_BUILD_COMMIT__: string;
 declare const __MC_BUILD_COMMIT_TIME__: string | null;
 declare const __MC_BUILD_TIME__: string;
+declare const __MC_SOURCE_REPOSITORY__: string | null;

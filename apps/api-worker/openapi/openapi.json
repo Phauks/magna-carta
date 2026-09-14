@@ -341,6 +341,12 @@
               "string",
               "null"
             ]
+          },
+          "latencyMilliseconds": {
+            "type": [
+              "number",
+              "null"
+            ]
           }
         },
         "required": [
@@ -349,7 +355,8 @@
           "state",
           "commit",
           "commitTime",
-          "buildTime"
+          "buildTime",
+          "latencyMilliseconds"
         ]
       },
       "DatabaseHealthResponse": {
@@ -4103,6 +4110,10 @@
               "clientAt": {
                 "type": "string",
                 "maxLength": 40
+              },
+              "deployment": {
+                "type": "string",
+                "maxLength": 4000
               }
             },
             "required": [

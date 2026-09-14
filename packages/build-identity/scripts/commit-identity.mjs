@@ -42,3 +42,26 @@ export function resolveCommitIdentity() {
     commitTime: gitRead("git show --no-patch --format=%cI HEAD"),
   };
 }
+
+/*
+ * WHERE THE SOURCE LIVES, so a commit on screen can be a link to the commit itself.
+ *
+ * Resolved at build time from the same two sources the commit is, and for the same reason: the
+ * remote is the truth on a developer's machine, and a build runner that handed over a tree without
+ * git still publishes the repository it checked out. Nothing is invented — a build that cannot
+ * establish a repository returns null, and the surface renders plain text instead of a dead link.
+ *
+ * Only `https://github.com/<owner>/<repo>` is produced. The remote may be an SSH URL, may carry
+ * credentials, and may end in `.git`; none of those belong on a screen or in a link, so the shape
+ * is rebuilt from the owner and repository rather than passed through.
+ */
+export function resolveRepositoryUrl() {
+  const fromRunner = process.env.GITHUB_REPOSITORY ?? null;
+  if (fromRunner !== null && /^[\w.-]+\/[\w.-]+$/.test(fromRunner)) {
+    return `https://github.com/${fromRunner}`;
+  }
+  const remote = gitRead("git config --get remote.origin.url");
+  if (remote === null) return null;
+  const match = /github\.com[:/]([\w.-]+)\/([\w.-]+?)(?:\.git)?$/.exec(remote);
+  return match === null ? null : `https://github.com/${match[1]}/${match[2]}`;
+}

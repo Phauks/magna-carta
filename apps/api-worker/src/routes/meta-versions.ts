@@ -62,6 +62,13 @@ const ServiceVersion = z
     commit: z.string().nullable(),
     commitTime: z.string().nullable(),
     buildTime: z.string().nullable(),
+    /*
+     * What the probe cost, in milliseconds — null where there was no probe to time (an unbound
+     * worker was never asked). The number was already being paid for and thrown away, and it is
+     * the difference between "this worker is answering" and "this worker is answering from just
+     * inside the timeout, and will read as unreachable on the next slow day".
+     */
+    latencyMilliseconds: z.number().nullable(),
   })
   .openapi("ServiceVersion");
 
@@ -98,8 +105,20 @@ async function probeService(
 ): Promise<ServiceVersionReport> {
   const absent = { commit: null, commitTime: null, buildTime: null };
   if (fetcher === undefined) {
-    return { id: entry.id, service: entry.service, state: "unbound", ...absent };
+    // Never asked, so there is nothing to time. A zero here would read as an instant answer.
+    return {
+      id: entry.id,
+      service: entry.service,
+      state: "unbound",
+      ...absent,
+      latencyMilliseconds: null,
+    };
   }
+  // Timed around the WHOLE exchange, the body read included: a worker that answers its headers
+  // promptly and then takes a second to produce a body is slow to the caller, and the caller is
+  // what this row reports on.
+  const startedAtEpochMilliseconds = Date.now();
+  const elapsed = (): number => Date.now() - startedAtEpochMilliseconds;
   try {
     // The hostname is decorative on a service binding (the bound worker reads only the path), but
     // a Request still requires an absolute URL — the same idiom the conversion engine port uses.
@@ -109,10 +128,22 @@ async function probeService(
     });
     if (response.status === 404) {
       // Deployed and answering, but from a build older than the version route.
-      return { id: entry.id, service: entry.service, state: "unreported", ...absent };
+      return {
+        id: entry.id,
+        service: entry.service,
+        state: "unreported",
+        ...absent,
+        latencyMilliseconds: elapsed(),
+      };
     }
     if (!response.ok) {
-      return { id: entry.id, service: entry.service, state: "unreachable", ...absent };
+      return {
+        id: entry.id,
+        service: entry.service,
+        state: "unreachable",
+        ...absent,
+        latencyMilliseconds: elapsed(),
+      };
     }
     // A 200 whose body is not the version shape is a worker ANSWERING from a build that does not
     // carry the route — the assets-only web worker's index.html fallback is the standing example —
@@ -121,16 +152,42 @@ async function probeService(
     try {
       body = await response.json();
     } catch {
-      return { id: entry.id, service: entry.service, state: "unreported", ...absent };
+      return {
+        id: entry.id,
+        service: entry.service,
+        state: "unreported",
+        ...absent,
+        latencyMilliseconds: elapsed(),
+      };
     }
     const parsed = RemoteVersion.safeParse(body);
     if (!parsed.success) {
-      return { id: entry.id, service: entry.service, state: "unreported", ...absent };
+      return {
+        id: entry.id,
+        service: entry.service,
+        state: "unreported",
+        ...absent,
+        latencyMilliseconds: elapsed(),
+      };
     }
-    return { id: entry.id, service: entry.service, state: "reported", ...parsed.data };
+    return {
+      id: entry.id,
+      service: entry.service,
+      state: "reported",
+      ...parsed.data,
+      latencyMilliseconds: elapsed(),
+    };
   } catch {
-    // Network failure, timeout, a placeholder worker — all one honest answer.
-    return { id: entry.id, service: entry.service, state: "unreachable", ...absent };
+    // Network failure, timeout, a placeholder worker — all one honest answer. It still carries what
+    // it cost: a timeout is the slowest answer there is, and saying so distinguishes a worker that
+    // ran out of time from one that refused immediately.
+    return {
+      id: entry.id,
+      service: entry.service,
+      state: "unreachable",
+      ...absent,
+      latencyMilliseconds: elapsed(),
+    };
   }
 }
 

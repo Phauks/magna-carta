@@ -47,6 +47,13 @@ export interface ServiceVersionRow {
   commit: string | null;
   commitTime: string | null;
   buildTime: string | null;
+  /**
+   * What the probe of this Worker cost, in milliseconds, or null where there was no probe to time
+   * (an unbound Worker) or the read predates the field. The API already had this number and threw
+   * it away: every probe is raced against a fixed timeout, so a Worker answering just inside it is
+   * about to become an "Unreachable" row, and nothing said so before it flipped.
+   */
+  latencyMilliseconds: number | null;
 }
 
 export interface MetaVersionsValue {
@@ -69,6 +76,27 @@ export function isRealCommit(commit: string | null): commit is string {
  */
 export function versionChipLabel(commit: string): string {
   return isRealCommit(commit) ? commit : "dev";
+}
+
+/**
+ * WHICH BUILD MODE PRODUCED THIS BUNDLE, where that is worth saying — and nothing at all in
+ * production.
+ *
+ * The panel is where somebody establishes what they are looking at before they report it, and until
+ * now it could not tell a preview deploy from the real one: two screenshots of the same commit, one
+ * from a preview and one from production, were indistinguishable, and a fault reported against the
+ * wrong deployment costs a whole round of diagnosis. Production carries no badge because that is the
+ * assumption a reader already holds; a badge on every screen that said "production" would be chrome
+ * announcing the absence of news.
+ */
+export function describeBuildEnvironment(
+  mode: string,
+): { label: string; variant: "warning" | "info" } | null {
+  if (mode === "production") return null;
+  // A development bundle is the noisier fact — it is somebody's own machine, not a deployment —
+  // so it takes the warmer tint; anything else (a preview, a named staging mode) is information.
+  if (mode === "development") return { label: "Development", variant: "warning" };
+  return { label: mode.charAt(0).toUpperCase() + mode.slice(1), variant: "info" };
 }
 
 /**
@@ -211,91 +239,61 @@ export function describeRetainedRows(observedAtIso: string, nowEpochMilliseconds
 export const READ_IN_FLIGHT_NOTICE = "Checking services";
 
 /**
- * The line a copy click puts on the clipboard: part name, commit, and the two timestamps that
- * were actually known — a paste into a bug report stays honest about what was not.
+ * What a probe cost, in words, or null when there is nothing to say — an unbound Worker was never
+ * probed, and a read from before the field existed carries no number rather than a zero.
+ */
+export function describeProbeLatency(latencyMilliseconds: number | null): string | null {
+  if (latencyMilliseconds === null || !Number.isFinite(latencyMilliseconds)) return null;
+  return `${String(Math.round(latencyMilliseconds))} ms`;
+}
+
+/**
+ * Where a probe stops being quick and starts being a warning. The API races every probe against a
+ * fixed timeout (apps/api-worker/src/routes/meta-versions.ts); two thirds of the way there is a
+ * Worker that is answering but is closer to the timeout than to healthy, which is the one fact a
+ * reader could act on before the row flips to "Unreachable" on its own.
+ */
+export const SLOW_PROBE_MILLISECONDS = 1000;
+
+/** True when a probe was slow enough to be worth marking rather than merely reporting. */
+export function isSlowProbe(latencyMilliseconds: number | null): boolean {
+  return latencyMilliseconds !== null && latencyMilliseconds >= SLOW_PROBE_MILLISECONDS;
+}
+
+/**
+ * A part's identity as ONE value: its commit, the timestamps that were actually known, and what the
+ * probe cost. Shared by the per-row copy and the whole-panel paste ($lib/versions/panel-report.ts),
+ * so a reader who copies one row and a reader who copies the panel see the same words for the same
+ * part — they were separately assembled before, and only one of them ever learned about latency.
+ */
+export function describePartIdentity(part: {
+  commit: string;
+  commitTime: string | null;
+  buildTime: string | null;
+  latencyMilliseconds?: number | null;
+}): string {
+  const segments = [part.commit];
+  if (part.commitTime !== null) segments.push(`committed ${part.commitTime}`);
+  if (part.buildTime !== null) segments.push(`built ${part.buildTime}`);
+  const latency = describeProbeLatency(part.latencyMilliseconds ?? null);
+  if (latency !== null) segments.push(latency);
+  return segments.join(" · ");
+}
+
+/**
+ * The line a copy click puts on the clipboard: the part's name and its identity, in the same
+ * `key: value` grammar every other diagnosis in the app uses
+ * ($lib/diagnostics/diagnostic-report.ts) — a paste into a bug report stays honest about what was
+ * not known.
  */
 export function copyLineForPart(part: {
   label: string;
   commit: string;
   commitTime: string | null;
   buildTime: string | null;
+  latencyMilliseconds?: number | null;
 }): string {
-  const segments = [`${part.label}: ${part.commit}`];
-  if (part.commitTime !== null) segments.push(`committed ${part.commitTime}`);
-  if (part.buildTime !== null) segments.push(`built ${part.buildTime}`);
-  return segments.join(" · ");
-}
-
-/**
- * THE WHOLE PANEL on the clipboard, as the reader would read it down the screen.
- *
- * The per-row copy and the database line each put ONE part on the clipboard, which is right when a
- * reader is quoting one row. It is wrong for the gesture the panel's own copy control offers: a
- * member reporting "something is broken" pasted four database rows and nothing about what was
- * running, so the report arrived without the one fact — which build — that says whether a fix has
- * even shipped yet. Copying part of the diagnosis reads exactly like copying all of it.
- *
- * Multi-line rather than the dot-separated single line the row copies use: this is a dozen facts,
- * and a paste a person has to unpick is a paste they summarize from memory instead. Sections that
- * had nothing to say are omitted rather than printed empty, and every unknown stays named as one —
- * a row that never reported says so here too, because "absent from the paste" and "reported nothing"
- * are different faults.
- */
-export function copyReportForPanel(input: {
-  pageBuild: { commit: string; commitTime: string | null; buildTime: string | null } | null;
-  versions: MetaVersionsValue | null;
-  databaseLine: string | null;
-}): string {
-  const lines: string[] = ["Magna Carta diagnostics"];
-
-  if (input.pageBuild !== null) {
-    lines.push(
-      copyLineForPart({
-        label: PAGE_BUILD_ROW_NAME,
-        commit: input.pageBuild.commit,
-        commitTime: input.pageBuild.commitTime,
-        buildTime: input.pageBuild.buildTime,
-      }),
-    );
-  }
-
-  if (input.versions !== null) {
-    lines.push(
-      copyLineForPart({
-        label: API_WORKER_UNIT_NAME,
-        commit: input.versions.api.commit,
-        commitTime: input.versions.api.commitTime,
-        buildTime: input.versions.api.buildTime,
-      }),
-    );
-    if (input.versions.services.length > 0) {
-      lines.push("Workers:");
-      for (const service of input.versions.services) {
-        // A worker that did not report has no commit to quote, so it carries the reason instead —
-        // "unbound" and "unreachable" are the answer in those cases, not a missing line.
-        const stated =
-          service.commit === null
-            ? (serviceStateLabel(service.state) ?? "no version reported")
-            : copyLineForPart({
-                label: service.service,
-                commit: service.commit,
-                commitTime: service.commitTime,
-                buildTime: service.buildTime,
-              });
-        lines.push(`  ${service.commit === null ? `${service.service}: ${stated}` : stated}`);
-      }
-    }
-    lines.push(`Services observed ${input.versions.observedAt}`);
-  }
-
-  if (input.databaseLine !== null) {
-    // The database's checks arrive one per line; they are indented under their own heading the way
-    // the Workers are, so the paste reads as two lists rather than one run-on.
-    lines.push("Database:");
-    for (const line of input.databaseLine.split("\n")) lines.push(`  ${line}`);
-  }
-
-  return lines.join("\n");
+  return `${part.label}: ${describePartIdentity(part)}`;
 }
 
 /**

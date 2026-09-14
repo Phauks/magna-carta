@@ -6,11 +6,15 @@ The small chip at the top right of the screen always shows the version of Magna 
 
 The chip itself shows the web application's build identifier: a short code that pins exactly which build your browser loaded. It is always visible, even when the rest of the platform cannot be reached.
 
+Beside the identifier, the chip carries a badge naming the kind of build you are on — **Development**, or the name of a preview environment — whenever you are not on the live site. There is no badge on the live site: that is the ordinary case, and a badge that said so on every screen would be telling you nothing.
+
 Clicking the chip opens the version overlay. It lists every Magna Carta worker under the name it is deployed as (`magna-carta`, `magna-carta-web`, `magna-carta-scan`, `magna-carta-convert`, and so on), with the version each one reports about itself. `magna-carta-web` is the worker that serves the screen you are looking at, so its line is your page's version. The list is the whole fleet: a worker that is not deployed in your environment, or that cannot be reached right now, still appears and says so plainly. The overlay never invents a version, and it never omits a worker.
 
-Each reporting entry shows its build identifier, when that build's change was made, and when it was built.
+Each reporting entry shows its build identifier, when that build's change was made, when it was built, and how long it took to answer. A worker that is answering but taking a long time about it is marked **Slow** — it is still working, and it is the one thing here worth watching before it stops.
 
-The overlay has two sections, **Deployment** and **Database**, each behind a caret beside its heading. Both open by default and the overlay remembers whichever way you leave them, on this browser. A shut heading still carries anything wrong beneath it, so folding a section can hide rows but never hides a fault.
+Worker names are links: opening one takes you to that worker in the platform's own hosting console. That console belongs to Magna Carta rather than to your firm, so the link is there for the people who run the platform; nothing in the overlay needs it.
+
+The overlay has two sections, **Deployment** and **Database**, each behind a caret beside its heading. Both open by default and the overlay remembers whichever way you leave them, on this browser. A shut heading still carries anything wrong beneath it, so folding a section can hide rows but never hides a fault — and if one of the overlay's own readings failed, it says so whether the section is folded or not.
 
 Under **Deployment**, the two workers that serve the application's address lead the list. Everything beneath them is grouped under **Workers**, which folds away behind a caret of its own. If any of the folded workers came back without a version, the shut heading says how many.
 
@@ -21,6 +25,8 @@ A line headed **This page** appears when nothing else in the list can state your
 ## When a new version ships
 
 The application checks about once a minute whether a newer deployment has gone live. When one has, a small amber dot appears on the version chip, and opening it shows an **Update Available** notice. An amber reload symbol appears at the top of the overlay, beside the refresh control. Pressing it brings you onto the new version; until you do, the page you already loaded keeps working as it was.
+
+Once the platform has reported which build it is now serving, a **What changed** button appears under the notice and opens the list of changes between the version you are running and the one waiting for you.
 
 ## Before you sign in
 
@@ -50,7 +56,17 @@ If everything is in order, the **Database** heading carries no badge at all. If 
 
 **Copy a version for a support request**
 
-Click any version in the overlay. The full identifier line, including its dates, is copied to your clipboard, ready to paste into a message or bug report. The version you clicked darkens for a moment to confirm the copy happened; if nothing darkens, your browser refused the clipboard and nothing was copied.
+Click any version in the overlay. The full identifier line, including its dates, is copied to your clipboard, ready to paste into a message or bug report. The version you clicked darkens for a moment to confirm the copy happened.
+
+Some browsers refuse to let a page use the clipboard at all — a strict privacy setting, or a policy your firm's IT has applied. When that happens the overlay says so in as many words rather than leaving you to discover it when you paste, and you can select the text and copy it by hand instead.
+
+**Copy everything the overlay is showing**
+
+The copy symbol at the top of the overlay puts the whole reading on your clipboard at once: your page's build, every worker and what it reported, your firm's database, the upload checks, and your browser's own details. Anything that failed to load is in there too, with the Error ID it was given — those are the lines support most needs, and they are exactly the ones a half-loaded overlay used to leave out.
+
+**Report a problem from here**
+
+The speech-bubble symbol at the top of the overlay opens the usual issue report with all of that already attached, so you can describe what happened without copying or pasting anything. The report goes to Magna Carta's own reporting pipeline, never to a third party.
 
 **Get onto the newest version**
 
@@ -60,9 +76,13 @@ When the chip carries the amber dot, open it and press the amber reload symbol a
 
 Press the caret beside **Deployment** or **Database** to fold that whole section away, or the one beside **Workers** to keep just the two workers that serve the application's address. The overlay opens the same way next time, on this browser.
 
+**Open the overlay without reaching for the mouse**
+
+Open the command menu (Ctrl+K, or Cmd+K on a Mac) and type "build" — or "version", or "commit". **Build Information** is in the results under **Diagnostics**.
+
 **Find out why a screen is refusing you**
 
-Open the chip and read the **Database** section. **Your membership** names the situation: _Not in the database yet_ is a wait, _No role_ is something an administrator can assign you, and _Active_ with a permission count means the refusal is about that particular screen rather than about your account. Press **Copy diagnosis** to put the whole reading on your clipboard for a support request.
+Open the chip and read the **Database** section. **Your membership** names the situation: _Not in the database yet_ is a wait, _No role_ is something an administrator can assign you, and _Active_ with a permission count means the refusal is about that particular screen rather than about your account. Press the copy symbol at the top of the overlay to put the whole reading on your clipboard for a support request, or the speech-bubble symbol to file it directly.
 
 **Compare the page against the server**
 
@@ -74,7 +94,7 @@ The page in your browser and the server answering it are delivered separately, s
 - **"Not deployed" / "Unreachable" / "Not reporting".** Three different facts, each stated under its row: the worker is not wired into this deployment, or it is wired but did not answer, or it is answering from a build too old to state its version. None of them is invented, and only "Unreachable" suggests something to chase.
 - **"dev".** A build run outside the normal release pipeline (for example, a local development server) has no release identity, and the chip says `dev` rather than showing a number that would mean nothing.
 - **"Not in the database yet".** Your account belongs to the firm — that is why you could sign in — but the firm's own records do not have it yet, so anything that checks a permission refuses. On a firm created minutes ago this is normal and clears itself; the **Provisioning** line beneath says whether it is still on its way.
-- **The version read failed.** If the overlay cannot reach the server, it says so and shows the Error ID when one was assigned. Your page's own version comes back as the **This page** line, and the chip keeps showing it too: that part is baked into the page and needs no connection.
+- **The version read failed.** If the overlay cannot reach the server, it says so and shows the Error ID when one was assigned — on the screen, and in anything you copy or file from here. Your page's own version comes back as the **This page** line, and the chip keeps showing it too: that part is baked into the page and needs no connection.
 
 ## Related features
 
