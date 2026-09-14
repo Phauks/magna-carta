@@ -42,6 +42,15 @@ const ReportIncidentRequest = z
       route: z.string().max(200),
       appVersion: z.string().max(60),
       clientAt: z.string().max(40),
+      /*
+       * What the deployment was doing, when the reporter filed from a surface that knew — today the
+       * header's Build Information panel, which reads the fleet, the firm's database and the upload
+       * preconditions and can hand its whole diagnosis to the report rather than making the reporter
+       * paste it. Redacted by construction like every other field here: it carries Worker names,
+       * commits, states and timings, and no firm content of any kind. Bounded so a report cannot
+       * become an unbounded write, and optional because most surfaces have nothing to put in it.
+       */
+      deployment: z.string().max(4000).optional(),
     }),
   })
   .openapi("ReportIncidentRequest");

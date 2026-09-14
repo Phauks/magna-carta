@@ -10,7 +10,9 @@
    *
    * WHAT IS NARROWED IS A DIFFERENT QUESTION, NOT A DIFFERENT PAGE. A change of the scope PROP
    * resets the read rather than filtering the rows on screen: the listing is cursor-paged, so
-   * filtering what has been loaded would answer confidently about a fraction of the log.
+   * filtering what has been loaded would answer confidently about a fraction of the log. The
+   * firm-wide screen derives that scope from its Matter column's own filter, so the one filter a
+   * reader sets is the one the server honours.
    *
    * THE DESCRIPTION IS THE ROW'S SECOND LINE, NOT A COLUMN (owner ruling, 2026-09-08). It is prose,
    * and usually longer than every other fact on the row put together — as a column it was either
@@ -24,7 +26,6 @@
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import type { Snippet } from "svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
@@ -54,12 +55,19 @@
     emptyTitle,
     emptyBody,
     emptyActions,
+    figures = [],
     grid = $bindable(null),
     reread = $bindable(() => {}),
     onOpen,
   }: {
     /** The server-side narrowing. A change of any field is a different question and a fresh read. */
     query: CommunicationQuery;
+    /**
+     * What the counts strip ends with, where the surface has a figure to state — the firm-wide
+     * screen's count of calls waiting to be filed, which is work owed and belongs where the screen
+     * states its figures rather than on a tab that has to be visited to be read.
+     */
+    figures?: readonly DataTable.GridFigure[];
     /** Whatever counterparty names the surface resolved, joined here rather than per row. */
     vocabulary?: CommunicationVocabulary;
     /**
@@ -208,27 +216,23 @@
       {rowDetail}
       loading={rows === null}
     >
-      {#snippet empty()}
-        {#if narrowed}
-          <EmptyState title="Nothing Matches That">
-            No call or text answers to what is asked. Widening the filters brings the log back.
-          </EmptyState>
-        {:else}
-          <EmptyState title={emptyTitle} actions={emptyActions}>{@render emptyBody()}</EmptyState>
-        {/if}
-      {/snippet}
     </DataTable.Grid>
 
     <!-- The counts strip: how much of the log is on screen, and the way to the rest of it. One line
          at a fixed height, so it never reflows. -->
     <DataTable.GridFooter grid={ownGrid}>
       {#snippet end()}
-        <DataTable.LoadMore
-          noun="calls and texts"
-          more={list.nextCursor !== null}
-          loading={list.loadingMore}
-          onLoad={loadMore}
-        />
+        <span class="flex flex-wrap items-baseline gap-12">
+          {#if figures.length > 0}
+            <DataTable.GridFigures grid={ownGrid} {figures} />
+          {/if}
+          <DataTable.LoadMore
+            noun="calls and texts"
+            more={list.nextCursor !== null}
+            loading={list.loadingMore}
+            onLoad={loadMore}
+          />
+        </span>
       {/snippet}
     </DataTable.GridFooter>
   {/if}

@@ -121,6 +121,55 @@ describe("the tree", () => {
     expect(status?.value(discovery as IntakeRow)).toBe("1 of 2 uploaded · 1 failed");
   });
 
+  it("a folder row reports how many of its files are ready before the transfer runs", () => {
+    const status = intakeColumns({
+      filtering: false,
+      documentTypes: false,
+      nameClashes: false,
+    }).find((column) => column.id === "status");
+    const letterKey = `${LETTER.relativePath} | letter.pdf | 300 | 1700000000000`;
+    const memoKey = `${MEMO.relativePath} | memo.docx | 200 | 1600000000000`;
+    const discoveryOf = (progress: ReadonlyMap<string, IntakeProgress>) =>
+      intakeRows(ALL, progress, new Set()).find(
+        (row) => row.kind === "folder" && row.name === "Discovery",
+      );
+
+    // Nothing read yet: chosen, and that is all.
+    expect(status?.value(discoveryOf(NO_PROGRESS) as IntakeRow)).toBe("Chosen");
+
+    // One file still being read, the other ready: readiness, not a tally of uploads.
+    const reading = new Map<string, IntakeProgress>([
+      [letterKey, { stage: "hashing", hashedBytes: 100 }],
+      [memoKey, { stage: "ready" }],
+    ]);
+    expect(discoveryOf(reading)).toMatchObject({ ready: 1, reading: 1, inFlight: 0 });
+    expect(status?.value(discoveryOf(reading) as IntakeRow)).toBe("1 of 2 ready");
+
+    // A held file is ready — the answer is that nothing needs sending — and is named as held.
+    const held = new Map<string, IntakeProgress>([
+      [letterKey, { stage: "held" }],
+      [memoKey, { stage: "unread" }],
+    ]);
+    expect(status?.value(discoveryOf(held) as IntakeRow)).toBe(
+      "1 of 2 ready · 1 held · 1 not read",
+    );
+  });
+
+  it("a file row carries what failed as its own line, apart from the whole account", () => {
+    const progress = new Map<string, IntakeProgress>([
+      [
+        `${LETTER.relativePath} | letter.pdf | 300 | 1700000000000`,
+        {
+          stage: "failed",
+          reason: "Refused (failed while reserving; Error ID E-1)",
+          failure: "Refused",
+        },
+      ],
+    ]);
+    const letter = intakeRows(ALL, progress, null).find((row) => row.name === "letter.pdf");
+    expect(letter).toMatchObject({ stage: "failed", failure: "Refused" });
+  });
+
   it("flattens to files alone when asked, which is what a filter wants", () => {
     const rows = intakeRows(ALL, NO_PROGRESS, null);
     expect(rows.every((row) => row.kind === "file" && row.depth === 0)).toBe(true);

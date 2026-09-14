@@ -16,6 +16,15 @@
    * that needs saying carries its own dialog saying it, and stepping back to stable is immediate,
    * because the server asks nothing to go back and neither should the screen.
    *
+   * THE SWITCH SHOWS THE FIRM, NEVER THE PRESS. It is driven from the session's channel through a
+   * getter/setter binding (release-channel-switch.ts): pressing it asks — the consent dialog on
+   * the way in, the write on the way out — and the switch reads the channel, which moves only when
+   * the server has agreed and the session has been re-read. So cancelling the consent leaves the
+   * switch off, because nothing it reads has changed. Driven one-way (`checked={onBeta}`), the
+   * design system's Switch kept its own copy, flipped itself on the press, and stayed on after a
+   * cancel while the firm was still on the released build — the screen saying one thing and the
+   * firm another.
+   *
    * A FIRM ON ALPHA IS TOLD AND OFFERED NOTHING. Alpha is a platform channel a firm can neither
    * enter nor leave from inside the product; the write's vocabulary is the narrower {stable, beta}.
    * Rendering a control that would answer 422 for a reason the firm cannot act on would be worse
@@ -37,10 +46,17 @@
     MANAGE_RELEASE_CHANNEL_PERMISSION,
     setReleaseChannel,
   } from "$lib/settings/release-channel-api.ts";
+  import {
+    BETA_BRANCH_PLATE_HEADING,
+    releaseChannelSwitchChecked,
+    releaseChannelSwitchRequest,
+  } from "$lib/settings/release-channel-switch.ts";
   import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
+  import SettingsPlateNote from "$lib/settings/components/settings-plate-note.svelte";
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
+  import SettingsScrollRegion from "$lib/settings/components/settings-scroll-region.svelte";
   import type { SettingDefinition } from "$lib/settings/settings-definitions.ts";
 
   const CHANNEL_DEFINITION: SettingDefinition = {
@@ -58,7 +74,7 @@
   const channel = $derived(sessionPermissions.session?.channel ?? null);
   const canEdit = $derived(sessionPermissions.holds(MANAGE_RELEASE_CHANNEL_PERMISSION));
   const onAlpha = $derived(channel === "alpha");
-  const onBeta = $derived(channel === "beta");
+  const onBeta = $derived(releaseChannelSwitchChecked(channel));
 
   let consentOpen = $state(false);
   let moving = $state(false);
@@ -94,13 +110,16 @@
     return false;
   }
 
+  /** The switch's setter: it asks, and never moves the switch itself. */
   function requested(next: boolean): void {
-    // Joining asks first; leaving does not, because the server asks nothing to go back.
-    if (next) {
-      consentOpen = true;
-      return;
+    switch (releaseChannelSwitchRequest(next)) {
+      case "ask-consent":
+        consentOpen = true;
+        return;
+      case "leave":
+        void move("stable");
+        return;
     }
-    void move("stable");
   }
 
   async function confirmJoin(): Promise<ActionOutcome> {
@@ -119,72 +138,68 @@
   showHistory={false}
 />
 
-<!-- The middle story: the one scroll area, reaching the canvas's true edges (the breathing
-     room rides INSIDE it); scrollbar-gutter keeps pages that scroll and pages that do not at
-     identical width. -->
-<div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
-  <div class="flex flex-col gap-24 p-24">
-    <SettingsDescription>
-      Whether this firm runs the released build or the one ahead of it.
-    </SettingsDescription>
+<SettingsScrollRegion>
+  <SettingsDescription>
+    Whether this firm runs the released build or the one ahead of it.
+  </SettingsDescription>
 
-    {#if failure !== null}
-      <FailureNotice
-        failure={failure.failure}
-        fallback={failure.fallback}
-        whenSilent={failure.whenSilent}
-      />
-    {/if}
+  {#if failure !== null}
+    <FailureNotice
+      failure={failure.failure}
+      fallback={failure.fallback}
+      whenSilent={failure.whenSilent}
+    />
+  {/if}
 
-    <SettingsPlate heading="Release Channel">
-      <LoadingRegion
-        loading={channel === null && !sessionPermissions.settled}
-        failed={sessionPermissions.settled && channel === null}
-        label="Reading the firm's release channel"
-        onRetry={() => void rereadSession()}
-        class="flex flex-col"
-      >
-        {#snippet failure()}
-          <p class="py-12 text-sm text-text-muted">
-            The firm's release channel could not be read, so it is not shown rather than guessed at.
-          </p>
-        {/snippet}
-        {#snippet fixture()}
-          <SettingsRow definition={CHANNEL_DEFINITION} value={false} />
-        {/snippet}
+  <SettingsPlate heading={BETA_BRANCH_PLATE_HEADING}>
+    <LoadingRegion
+      loading={channel === null && !sessionPermissions.settled}
+      failed={sessionPermissions.settled && channel === null}
+      label="Reading the firm's release channel"
+      onRetry={() => void rereadSession()}
+      class="flex flex-col divide-y divide-border-default"
+    >
+      {#snippet failure()}
+        <SettingsPlateNote>
+          The firm's release channel could not be read, so it is not shown rather than guessed at.
+        </SettingsPlateNote>
+      {/snippet}
+      {#snippet fixture()}
+        <SettingsRow definition={CHANNEL_DEFINITION} value={false} />
+      {/snippet}
 
-        {#if onAlpha}
-          <!-- Stated rather than controlled: a firm cannot enter or leave alpha from here, so a
-               switch would be a control whose only outcome is a refusal. -->
-          <SettingsRow definition={CHANNEL_DEFINITION}>
-            {#snippet control()}
-              <Badge variant="info">Alpha</Badge>
-            {/snippet}
-          </SettingsRow>
-          <p class="py-8 text-sm text-text-muted">
-            This firm is on the alpha channel, which is set by the platform rather than from here.
-          </p>
-        {:else if canEdit}
-          <SettingsRow definition={CHANNEL_DEFINITION}>
-            {#snippet control()}
-              {#if onBeta}
-                <Badge variant="info">Beta</Badge>
-              {/if}
-              <Switch
-                checked={onBeta}
-                disabled={moving}
-                aria-label="Participate in the beta programme"
-                onCheckedChange={requested}
-              />
-            {/snippet}
-          </SettingsRow>
-        {:else}
-          <SettingsRow definition={CHANNEL_DEFINITION} value={onBeta} />
-        {/if}
-      </LoadingRegion>
-    </SettingsPlate>
-  </div>
-</div>
+      {#if onAlpha}
+        <!-- Stated rather than controlled: a firm cannot enter or leave alpha from here, so a
+             switch would be a control whose only outcome is a refusal. -->
+        <SettingsRow definition={CHANNEL_DEFINITION}>
+          {#snippet control()}
+            <Badge variant="info">Alpha</Badge>
+          {/snippet}
+        </SettingsRow>
+        <SettingsPlateNote>
+          This firm is on the alpha channel, which is set by the platform rather than from here.
+        </SettingsPlateNote>
+      {:else if canEdit}
+        <SettingsRow definition={CHANNEL_DEFINITION}>
+          {#snippet control()}
+            {#if onBeta}
+              <Badge variant="info">Beta</Badge>
+            {/if}
+            <!-- Function-form binding: the switch always re-reads the channel, and the setter only
+                 asks. A cancelled consent therefore leaves it exactly where the firm is. -->
+            <Switch
+              bind:checked={() => onBeta, requested}
+              disabled={moving}
+              aria-label="Participate in the beta programme"
+            />
+          {/snippet}
+        </SettingsRow>
+      {:else}
+        <SettingsRow definition={CHANNEL_DEFINITION} value={onBeta} />
+      {/if}
+    </LoadingRegion>
+  </SettingsPlate>
+</SettingsScrollRegion>
 
 <ActionDialog
   bind:open={consentOpen}
@@ -199,7 +214,7 @@
     <div class="flex flex-col gap-12 text-sm">
       <p>
         Beta builds carry work that has passed our own review and has not yet been released. They
-        run against the firm's real matters, real client money and real documents — not a copy.
+        run against the firm's real matters, real client money and real documents, not a copy.
       </p>
       <p>
         The firm can step back to the released build at any time, from this page, without asking

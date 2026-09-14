@@ -42,6 +42,47 @@ and graduate into _Standing rules_ above when they turn out to bind everywhere.
 - **File Workbench** — [`file-workbench-rulings.md`](file-workbench-rulings.md). The Tools surface an
   unfiled file is brought to. Two rounds so far; the rulings that generalize beyond it are promoted
   into _Standing rules_ below.
+- **The money surfaces** — [`time-tab-rulings.md`](time-tab-rulings.md). Time, Fees, Costs and
+  Billing, on the matter and firm-wide alike: they share one anatomy, so they share one ledger.
+- **Settings** — [`settings-rulings.md`](settings-rulings.md).
+- **Conflicts** — [`conflicts-rulings.md`](conflicts-rulings.md).
+- **The matter record** — [`matter-rulings.md`](matter-rulings.md). Its header, status seal and
+  status window; the financial tabs and the Conflicts section have their own ledgers above.
+- **Magnus** — [`magnus-rulings.md`](magnus-rulings.md).
+
+### Rounds staged and not started (2026-09-09 to 2026-09-11)
+
+The owner staged six rounds ahead of the work, and asked that none of it start until they say so.
+Every row in them is `open` **by fact**, not by oversight, and each carries the research the round
+will need:
+[`file-manager-rulings.md`](file-manager-rulings.md) R22 (the Upload dialog),
+[`settings-rulings.md`](settings-rulings.md) R1,
+[`conflicts-rulings.md`](conflicts-rulings.md) R1,
+[`matter-rulings.md`](matter-rulings.md) R1,
+[`time-tab-rulings.md`](time-tab-rulings.md) R12 (the firm's money screens),
+[`magnus-rulings.md`](magnus-rulings.md) R1,
+and the messaging correction dated 2026-09-11 in _Standing rules_ below.
+
+**They are one complaint said six ways, and the cheapest order of work follows from that.** Four
+themes run through every round:
+
+1. **A screen's chrome must stop duplicating its table.** The messaging tabs, the money screens'
+   three differently-worded period dropdowns, and the conflicts panel's settings are the same
+   finding on four surfaces — and all of them meet the same obstacle, that a filter narrowing only
+   the loaded page is not a filter. Settle that once, in the table, and four screens simplify.
+2. **The shared part exists and the screens do not use it.** `settings-page.svelte` is written and
+   rendered by no route; `ScreenSearch` is "the product's one control" and no money screen imports
+   it; `DataTable.Grid` runs every register in the product except the five in Settings. Most of
+   this round is adoption, not invention.
+3. **A default belongs in the component, not at the call site.** `align="end"` is written out 95
+   times because neither `Select.Content` nor `Combobox.Content` sets one, and the two context-menu
+   parts are the only floating surfaces still on a z-layer below `modal` — which is why a
+   right-click menu is unusable inside a dialog.
+4. **Two screens are waiting on one thing that does not exist.** The Offices screen
+   ([`settings-rulings.md`](settings-rulings.md) O1) is the whole of the matter status window's
+   Location ruling ([`matter-rulings.md`](matter-rulings.md) W1) and of firm branding (F2), and its
+   backend is already built — `packages/locations/`, `/api/v1/locations`, letterhead logo included.
+   Build Offices first and three rows resolve together.
 
 ---
 
@@ -296,6 +337,40 @@ is usually the fastest way to understand the rule.
     (where it belongs); a record already stored opens in its values, and the acts that move it
     between queues live in the action bar. _(the call log, 2026-09-08: "we now have two modals for
     creating a call which is weird")_
+  - **A record with no window yet GETS one; it does not get a panel instead.** Where a record is
+    read as a row and changed in that row, the answer is the record window, not an action dialog for
+    making one and the row for changing it. Reaching for the panel is the tempting half-step and it
+    produces exactly the defect the ruling above names — one surface to read a record, another to
+    edit it — with the extra cost that the panel and the row then disagree about the record's own
+    fields. A task was moved to the panel and then to its own window in the same afternoon, and only
+    the second half was the fix. _(tasks, 2026-09-14: "creating a new task should be a modal, not
+    in-line", then "do the edit one too. I dislike having two screens, one to read information, and
+    one to edit it")_
+  - **A task moves along four rungs — To Do, In Progress, On Hold, Done — and they are the action
+    bar.** One control group, not four scattered verbs, because they answer one question: where is
+    this. The rung the task is on renders pressed and does nothing, so a reader sees where it stands
+    without reading a badge. Beside them are the only two other things that happen to a task, and
+    they differ in exactly one thing the copy has to say: **archiving keeps the data, deleting takes
+    it.** Archiving is not a fifth rung — a task is archived FROM wherever it stood, and putting it
+    back returns it there. _(tasks, 2026-09-14: "Action Bar should be To Do, In-Progress, On-Hold,
+    Done. Besides that, tasks can be deleted or archived")_
+    - **The reason an archive carries is OPTIONAL, and that is the whole lesson of the state it
+      replaces.** Cancelling required one, on the reasoning that the decision is the record. Nobody
+      ever used it: somebody clearing work that is simply not happening is not composing a memo, and
+      a required field at that moment is a reason to reach for delete instead — which loses the
+      record entirely. Offer the sentence where it is cheap to give; do not demand it. _(the owner,
+      2026-09-14: "archived would be similar to cancelled, but we will never use that because no one
+      uses cancelled")_
+    - **A list carries the one act a list is for, not the whole group.** Done belongs on a row,
+      because clearing finished work off a list is what a list is for; the other three rungs live in
+      the record's own window with the rest of its acts. Four controls deep on every row of work
+      somebody is only scanning is a row nobody can read. _(tasks, 2026-09-14)_
+  - **A list row states values and offers acts; it never becomes a form.** Nothing unfolds inside a
+    list: not a composer above the rows, not a row that turns into fields, not a picker for what to
+    attach, not the reason a thing is being cancelled. Each of those is a second place to learn
+    where a record's fields live, and each takes the list's own shape away — its count, its
+    ordering, what is overdue — while somebody types in the middle of it. What a row keeps is the
+    one act a LIST is for: ticking a thing off, and putting it back. _(tasks, 2026-09-14)_
   - **A record that is quoted out loud is identified BEFORE it is saved.** Where a record carries a
     reference number a person reads back — to a caller, onto a message slip — the window states the
     number the next one would draw while it is still being filled in, and says that it is a preview
@@ -462,8 +537,10 @@ is usually the fastest way to understand the rule.
   registry (`sections.ts` answers `createNoun` for every section, or declines with a line);
   the section's page claims the behaviour while it is mounted. Elsewhere it sits in the
   masthead's action row, after the search. Nothing else on the screen makes the record: the
-  action-row buttons and the empty-state buttons that used to are removed, not moved, and an empty
-  state names the control at the top instead. When nothing can be made right now the control is
+  action-row buttons and the empty-state buttons that used to are removed, not moved. (The rest of
+  that sentence — "and an empty state names the control at the top instead" — was **reversed on
+  2026-09-14**; see _An empty list says "No Results", and nothing else_ below. An empty state names
+  nothing now.) When nothing can be made right now the control is
   disabled with the reason as its title; it never leaves the row. Enforced by
   `pnpm run lint:matter-create-control`. _(the matter screens, 2026-09-03)_
 - **The verb is New, and a control that opens a MENU reads the bare "New".** New is the word this
@@ -674,6 +751,22 @@ is usually the fastest way to understand the rule.
   transiently (a registry rate-limiting, a renderer at capacity), the surface retries a bounded
   number of times before reporting failure, and shows each attempt as it happens; the member is
   never made to be the retry loop. _(WHOIS lookup, 2026-08-31)_
+- **An empty list says "No Results", and nothing else.** Two words, in title case, for BOTH the
+  record that holds nothing and the narrowing that excludes everything — one wording serves both
+  because it is true of both, where "no matters yet" is a lie about a filtered table and a sentence
+  naming the filters is a second copy of what the header already shows. No description under it, and
+  no sentence naming the way in: the create control is in the masthead's action row on every screen
+  by the product's own grammar, so prose naming it duplicates a label that is free to change without
+  the prose changing with it. **This reverses** the 2026-09-03 "an empty state names the control at
+  the top" clause above. Where the reader can widen a narrowing, the way back is a CONTROL beside the
+  words, never more words. What the empty states used to carry instead was a definition of the domain
+  term — "A packet is the physical thing the firm holds and moves: an envelope, a deed box, a sealed
+  wallet…" — which is the explanatory prose _No info lines_ already forbids everywhere else, and
+  whose home is `docs/user/`. Not a rule to remember: `DataTable.Grid` has no `empty` snippet to pass
+  and `NoResults` takes no props, so there is nothing to get wrong. Three narrower states stay
+  distinct because they state a fact about the SUBJECT rather than about the result set — a sample
+  matter, a firm that has not enabled something, and a read that failed (which is `FailureNotice`,
+  not an empty state at all). _(the custodian register, 2026-09-14)_
 - **An empty screen is the filled screen lacking information**, not a different screen. The same
   regions render, each saying what it is missing. A centred card that replaces the layout teaches a
   person nothing about where things will be, and it makes the first real use of the screen a second
@@ -2175,3 +2268,90 @@ from fee screen".
 - **An arrangement version names the signed agreement as a file**, picked from the matter's own
   files — the conflicts waiver's precedent — never as a sentence. Optional, because the paper may
   follow the deal.
+
+### 2026-09-11 — the messaging log's tabs
+
+The owner, on the messaging screen: "messaging screen has tabs that no other screen has, and
+overlaps table functionality, remove 'Everything / Waiting to be filed (0) / On a matter / Not a
+matter'".
+
+- **The four scope tabs are removed.** No other list screen in the product narrows itself with a tab
+  strip above its table, and what these tabs ask — filed, unfiled, set aside — is what the column
+  filters already ask. _(built 2026-09-14: the tabs are gone, the Matter column's filter reaches the
+  server, and "waiting to be filed" is a figure in the counts strip)_
+- The screen's own comment argues the opposite and is what the correction overturns: "the tabs and
+  the column filters answer different questions: the tab asks the server, the column filters run
+  over what is loaded". That distinction is real and it is the thing to solve rather than to keep a
+  tab strip for — a filter that narrows only the loaded page is a filter that lies on a paged
+  register, and the answer is a column filter the server honours, on every register, not a second
+  mechanism on one screen.
+- The unfiled COUNT is not a tab, and losing the tabs must not lose it: "waiting to be filed" is
+  work the firm owes, and it belongs wherever the screen states its figures. The staged money-screen
+  round in [`time-tab-rulings.md`](time-tab-rulings.md) is the same correction on four other screens
+  — a header control answering a question the table already answers — and the two should be built to
+  one conclusion.
+
+### 2026-09-11 — one component for the two-sided screen
+
+The owner: "we need to make a consolidated component for when the main screen has two sides, a left
+navigational menu (such as for magnus and settings), and a right content menu."
+
+- **The two-sided screen is one design-system component**, `NavigationLayout`: a left navigation
+  landmark and a right content column, each scrolling independently with a reserved gutter, taking
+  the full height under the top bar and cancelling the work canvas inset itself. Two token-derived
+  navigation widths, standard and narrow. _(status: open — being built in the design system in the
+  same round as the floating-surface defaults)_
+- The consumers it replaces: `apps/web/src/routes/(app)/settings/+layout.svelte`, which hand-rolls
+  a `<nav>` at `calc(var(--mc-size-popover) + var(--mc-space-48))` inside a `-m-24` full-height row,
+  and the Magnus workspace rail in `apps/web/src/lib/magnus/magnus-surface.svelte`, a `w-2xs`
+  column — two widths and two scroll treatments for one shape. Settings adopts it first, Magnus
+  second.
+- **It reaches further than the two screens that have the shape today.** The owner, in the same
+  breath: "this may also be implemented for tools, reports, and other potential screens". Tools
+  (`apps/web/src/routes/(app)/tools/`, a landing page and one route per tool) and Reports (a
+  register page and one route per report) are both one-list-then-one-thing screens with no
+  navigation column at all, so adopting the component there is a redesign of the screen rather than
+  a swap of its frame: the list of tools, or of reports, becomes the left navigation and the chosen
+  one the right content. The file manager's folder tree beside its list is the other candidate.
+  None of the three is in this round; each is a follow-up once the component exists.
+  _(built 2026-09-14: Settings, Magnus, Tools and Reports all render on `NavigationLayout`; Tools
+  and Reports share one catalogue column, with the landing index kept in the content column so a
+  route's back control never bounces. The folder tree remains the follow-up.)_
+
+### 2026-09-14 — messaging's create control names a message
+
+The owner: "messaging, new should say new message, not new call".
+
+- **The messaging screen's create control reads "New Message".** The screen is the messaging log;
+  a call is one kind of message it holds, and a control named for one kind claims the whole screen
+  is that kind. The same control on the matter's Messaging section carries the same word.
+  _(built 2026-09-14, on both screens; the channel vocabulary keeps "Call" as the kind of message)_
+
+### 2026-09-14 — where data will arrive, its structure renders first
+
+The owner, on the messaging record's History tab ("Nothing yet. Saving this records who wrote it
+down and when…" over a paragraph about carriers' reports): remove it; "messaging history should
+have whatever table it will have once we have the history, that way it doesn't just look like
+blank space." And the general rule, with a lint asked for: "places where data will populate and it
+should be in the table, but it is just loose on the background or the screen. This doesn't prepare
+the user for incoming information, and makes it more difficult to identify issues. The Hash screen
+for files would be another example of this; but also showcases how we need to consider not every
+place we need to structure data will just be a table, but may have other elements."
+
+- **Where data will arrive, the structure that will hold it renders first, empty.** A table renders
+  its header row over an empty body; a definition list its terms over empty definitions; a rail its
+  frame. The words that explain the emptiness live inside that structure's own empty state — short —
+  never as loose prose beside or beneath it on the canvas. A reader is being prepared for what will
+  arrive, and a defect in a structure that is already standing is visible where a defect behind a
+  sentence is not. _(built 2026-09-14: `lint:structured-empty` in `tooling/lint-structured-empty/`
+  — an absence-shaped prose branch where a structure should stand, or muted prose after one, with
+  an inline `structured-empty-allow: reason` for the genuinely prose-only case; the rule itself is
+  in `ui-design.md`. The messaging History tab, the Hashes tab as a new `DefinitionList` with its
+  own `Empty`, bill History and Delivery, the trust ceiling row, the resource meters and the
+  speed-test panels are fixed; `EventRail` renders its frame with zero events and gained `note`,
+  the one honest line inside a structure; `DataTable.GridFigures` takes a per-figure
+  `scope: "whole-record"` so a server count is never labelled "In view". One finding stands in
+  the conflicts round in flight, `hit-window.svelte`.)_
+- **It is not always a table.** The Hashes tab is a definition list; a transcript is a
+  `Conversation`; a chain is a rail. The rule is about the structure the data takes, and the lint
+  looks for prose standing where any of them should.

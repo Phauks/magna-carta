@@ -71,8 +71,10 @@ import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-p
 
 // ---- request/response contracts ----
 
-// The lifecycle as stored: intake -> consultation -> open <-> hold -> closed. A hold is an open
-// matter the firm has paused for a recorded reason; it keeps its number.
+// The lifecycle as stored: intake -> consultation -> open <-> hold -> closed, with hold and close
+// reachable from consultation as well — a firm parks a consultation it has not decided on, or
+// declines one. A hold is a matter the firm has paused for a recorded reason; it keeps whichever
+// number it wears, and its release returns it to where the hold found it.
 const matterStatus = z.enum(["intake", "consultation", "open", "hold", "closed"]);
 
 // The shape of a directory handle, as the directory's own routes state it (routes/directory.ts):
@@ -863,7 +865,10 @@ const closeMatterRoute = defineOpenAPIRoute(closeMatterMeta, {
     "clear it. Refuses a matter that is already closed, so its recorded close date never moves. " +
     "The response also carries advisory notices — things worth knowing about the matter being " +
     "closed, such as physical originals the firm still holds against it. A notice never blocks a " +
-    "close and never becomes a refusal; the matter in the response is closed.",
+    "close and never becomes a refusal; the matter in the response is closed. A consultation " +
+    "closes the same way: the firm decided against it. It keeps its tentative number and draws " +
+    "no matter number, and the same preconditions run, which a consultation with nothing on its " +
+    "ledgers passes.",
   request: { headers: idempotencyKeyHeader, params: matterParam },
   responses: {
     200: {
@@ -888,10 +893,12 @@ const holdMatterRoute = defineOpenAPIRoute(holdMatterMeta, {
   method: "post",
   path: "/api/v1/matters/{id}/hold",
   description:
-    "Puts an open matter on hold: the firm has stopped working it without closing it, for the " +
-    "reason given (a client who has stopped paying, a party who has gone quiet, an instruction " +
-    "to wait). The matter keeps its number; nothing is drawn or surrendered. It leaves the " +
-    "active lists and stays on the docket wearing its status. Refuses a matter that is not open.",
+    "Puts an open matter or a consultation on hold: the firm has stopped working it without " +
+    "closing it, for the reason given (a client who has stopped paying, a party who has gone " +
+    "quiet, a prospect who is thinking it over, an instruction to wait). The matter keeps " +
+    "whichever number it wears; nothing is drawn or surrendered. An active matter leaves the " +
+    "active lists and stays on the docket wearing its status. Refuses an intake, which has " +
+    "nothing yet to pause, and a matter that is already on hold or closed.",
   request: {
     headers: idempotencyKeyHeader,
     params: matterParam,
@@ -908,7 +915,7 @@ const holdMatterRoute = defineOpenAPIRoute(holdMatterMeta, {
     404: authErrors[404],
     409: {
       description:
-        "The matter is not open, or a request with this Idempotency-Key is still in progress",
+        "The matter is neither open nor a consultation, or a request with this Idempotency-Key is still in progress",
       content: { "application/problem+json": { schema: Problem } },
     },
     422: idempotencyErrors[422],
@@ -920,12 +927,13 @@ const releaseMatterRoute = defineOpenAPIRoute(releaseMatterMeta, {
   method: "post",
   path: "/api/v1/matters/{id}/release",
   description:
-    "Releases a hold: the matter returns to open, and the reason and the instant of the hold are " +
-    "cleared from it (the audit trail keeps that it was held). Refuses a matter that is not on hold.",
+    "Releases a hold: the matter returns to where the hold found it — open if it had been opened, " +
+    "else consultation — and the reason and the instant of the hold are cleared from it (the " +
+    "audit trail keeps that it was held). Refuses a matter that is not on hold.",
   request: { headers: idempotencyKeyHeader, params: matterParam },
   responses: {
     200: {
-      description: "The hold was released and the matter is open",
+      description: "The hold was released and the matter is back where the hold found it",
       content: { "application/json": { schema: StatusAck } },
     },
     400: idempotencyErrors[400],

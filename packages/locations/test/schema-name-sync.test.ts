@@ -2,8 +2,20 @@
 // packages/database, so the diff that renames one never touches this package.
 import { getTableConfig } from "drizzle-orm/sqlite-core";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
-import { location, locationAddress, memberLocation } from "@magna-carta/database/per-firm-schema";
+import {
+  firmBrandImage,
+  location,
+  locationAddress,
+  memberLocation,
+} from "@magna-carta/database/per-firm-schema";
 import { describe, expect, it } from "vitest";
+import {
+  FIRM_BRAND_IMAGE_TABLE,
+  deleteFirmBrandImageStatement,
+  demoteFirmPrimaryBrandImageStatement,
+  updateFirmBrandImageStatement,
+  upsertFirmBrandImageStatement,
+} from "../src/brand-image-statements.ts";
 import {
   LOCATION_ADDRESS_TABLE,
   LOCATION_TABLE,
@@ -57,6 +69,35 @@ describe("schema name sync (locations SQL pinned to @magna-carta/database)", () 
     expect(getTableConfig(location).name).toBe(LOCATION_TABLE);
     expect(getTableConfig(locationAddress).name).toBe(LOCATION_ADDRESS_TABLE);
     expect(getTableConfig(memberLocation).name).toBe(MEMBER_LOCATION_TABLE);
+    expect(getTableConfig(firmBrandImage).name).toBe(FIRM_BRAND_IMAGE_TABLE);
+  });
+
+  it("every column the brand-image SQL names exists in the schema", () => {
+    const stub = stubDatabase();
+    const sql = [
+      sqlOf(
+        upsertFirmBrandImageStatement(stub, {
+          id: "abc",
+          role: "primary",
+          label: null,
+          objectKey: "brand/abc.png",
+          contentType: "image/png",
+          sizeBytes: 1,
+          widthPixels: 1,
+          heightPixels: 1,
+          createdAt: "t",
+        }),
+      ),
+      sqlOf(updateFirmBrandImageStatement(stub, "abc", { role: "additional", label: null }, "t")),
+      sqlOf(demoteFirmPrimaryBrandImageStatement(stub, "t")),
+      sqlOf(deleteFirmBrandImageStatement(stub, "abc")),
+    ].join("\n");
+    // ON CONFLICT ... DO UPDATE SET role = excluded.role names the upsert's own `excluded` row.
+    expectOnlyKnownIdentifiers(
+      sql,
+      new Set([FIRM_BRAND_IMAGE_TABLE, "excluded", ...columnsOf(firmBrandImage)]),
+      "brand-image",
+    );
   });
 
   it("every column the location SQL names exists in the schema", () => {
@@ -69,6 +110,7 @@ describe("schema name sync (locations SQL pinned to @magna-carta/database)", () 
       footer: null,
       remitTo: null,
       timeZone: null,
+      email: null,
     };
     const sql = [
       sqlOf(insertLocationStatement(stub, { id: LOCATION_ID, ...fields, createdAt: "t" })),
@@ -88,9 +130,13 @@ describe("schema name sync (locations SQL pinned to @magna-carta/database)", () 
           locationId: LOCATION_ID,
           kind: "physical",
           street: null,
+          streetTwo: null,
+          dependentLocality: null,
           city: null,
           region: null,
           postal: null,
+          sortingCode: null,
+          country: null,
           phone: null,
           createdAt: "t",
         }),

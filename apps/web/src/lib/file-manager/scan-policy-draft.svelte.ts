@@ -33,14 +33,82 @@ export const SCAN_TIER_DEFINITION: SettingDefinition = {
   label: "Scan Depth",
   description: "How much of the engine's rule set an upload is checked against.",
   kind: "select",
+  // The option is its word and nothing else (owner ruling): what a depth MEANS is said beneath the
+  // engine that runs it, revealed by the choice — scanTierMeaning below — never welded into the
+  // label a person has to read in a one-line field.
   options: [
-    { value: "core", label: "Core — the rules that catch known malware" },
-    { value: "extended", label: "Extended — adds the broader threat rules" },
-    { value: "full", label: "Full — every rule, including the noisiest" },
+    { value: "core", label: "Core" },
+    { value: "extended", label: "Extended" },
+    { value: "full", label: "Full" },
   ],
   defaultValue: "extended",
   sensitivity: "open",
   audited: true,
+};
+
+/**
+ * What choosing a depth means, in one line — only what can be stated honestly from this codebase.
+ *
+ * The engine bakes the YARA Forge rule packages, which nest (core within extended within full —
+ * containers/scan/src/forge.rs), and a firm's depth decides which of those packages' matches
+ * COUNT (packages/file-manager/src/verdict.ts: a match beyond the chosen tier is ignored, and a
+ * heuristic "suspicious" rule counts only at or above the suspicion threshold). The antivirus
+ * signatures and the structural checks on PDF, Office and ZIP files are outside the tiers and
+ * count at every depth. The rule FAMILIES inside each package are the upstream release's, which
+ * nothing here lists — so this states the meaning, and scanTierRulesDefinition marks the family
+ * list as what it waits on rather than inventing names.
+ */
+export function scanTierMeaning(tier: ScanTier): string {
+  switch (tier) {
+    case "core":
+      return "The high-confidence rules that catch known malware.";
+    case "extended":
+      return "Core, plus the broader threat rules: thousands more high-confidence malware rules, and heuristic suspicious-pattern rules that count only at or above the suspicion threshold.";
+    case "full":
+      return "Every rule the engine carries, including the noisiest.";
+  }
+}
+
+/** True at every depth, said once beneath the tiers. */
+export const SCAN_TIER_ALWAYS_COUNTS =
+  "Antivirus signatures and the structural checks on PDF, Office and ZIP files count at every depth.";
+
+/** The tier a staged or committed value names, or the default where the value is not one. */
+export function scanTierFromValue(value: SettingValue): ScanTier {
+  return tierFromValue(value) ?? "extended";
+}
+
+/**
+ * The engraved row beneath the engine reading: the chosen depth's meaning as its description,
+ * carrying the Soon device for the rule families the engine does not yet report.
+ */
+export function scanTierRulesDefinition(tier: ScanTier): SettingDefinition {
+  return {
+    id: "file-safety.scan-tier-rules",
+    sectionId: FILE_SAFETY_SECTION_ID,
+    plateLabel: "What Is Scanned",
+    label: "Rules At This Depth",
+    description: `${scanTierMeaning(tier)} ${SCAN_TIER_ALWAYS_COUNTS}`,
+    kind: "text",
+    defaultValue: "",
+    sensitivity: "open",
+  };
+}
+
+/** What the rule-family list waits on, said beside its Soon mark. */
+export const SCAN_TIER_RULES_SOON_LINE =
+  "The rule families at each depth are listed here once the engine reports them.";
+
+/** The engraved row for the engine itself: what every upload is scanned by, as it reports itself. */
+export const SCAN_ENGINE_DEFINITION: SettingDefinition = {
+  id: "file-safety.scan-engine",
+  sectionId: FILE_SAFETY_SECTION_ID,
+  plateLabel: "What Is Scanned",
+  label: "Scan Engine",
+  description: "The engine every upload is scanned by, as it reports itself.",
+  kind: "text",
+  defaultValue: "",
+  sensitivity: "open",
 };
 
 export const SCORE_FLOOR_DEFINITION: SettingDefinition = {

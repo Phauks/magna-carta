@@ -16,6 +16,9 @@
    * can, and states the browser's own setting where it cannot, rather than rendering a control that
    * does nothing. The folder itself is per BROWSER because a directory handle cannot be serialized
    * to a server, which is exactly why it does not sit beside the per-member switch above.
+   *
+   * Both rows are the shared settings row, so the plate keeps one rhythm: the folder row's
+   * description states where files land today, and its control column holds the picker.
    */
   import { onMount } from "svelte";
   import { toast } from "@magna-carta/design-system/toast";
@@ -23,6 +26,7 @@
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
+  import SettingsScrollRegion from "$lib/settings/components/settings-scroll-region.svelte";
   import type { SettingDefinition } from "$lib/settings/settings-definitions.ts";
   import {
     readDownloadPreferences,
@@ -50,6 +54,24 @@
   let saveImmediately = $state(false);
   let folderName = $state<string | null>(null);
   const canChooseFolder = folderPickerSupported();
+
+  // The row's description is the fact about where files land TODAY, so it follows the folder.
+  // Where the browser lets no page choose, it names the browser's own setting instead — honest
+  // rather than absent: Firefox and Safari have the same dialog; they just do not let a page open
+  // it.
+  const FOLDER_DEFINITION = $derived<SettingDefinition>({
+    id: "downloads.folder",
+    sectionId: "downloads",
+    label: "Download Folder",
+    description: !canChooseFolder
+      ? 'This browser does not let a page choose a folder. Turn on "always ask where to save files" in your browser\'s own settings and it will ask you for every download.'
+      : folderName === null
+        ? "Files go wherever this browser saves downloads."
+        : `Files are saved to ${folderName}.`,
+    kind: "text",
+    defaultValue: "",
+    sensitivity: "open",
+  });
 
   onMount(() => {
     void readDownloadPreferences(fetch).then((outcome) => {
@@ -86,53 +108,29 @@
   <title>Downloads · Settings · Magna Carta</title>
 </svelte:head>
 
-<SettingsMasthead
-  sectionId="downloads"
-  title="Downloads"
-  posture="instant"
-/>
+<SettingsMasthead sectionId="downloads" title="Downloads" posture="instant" />
 
-<div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
-  <div class="flex flex-col gap-24 p-24">
+<SettingsScrollRegion>
   <SettingsDescription>How you take the files the platform makes for you.</SettingsDescription>
 
-    <SettingsPlate heading="Exporting">
-      <SettingsRow
-        definition={SAVE_IMMEDIATELY_DEFINITION}
-        instant={{ value: saveImmediately, apply: (next) => void apply(next === true) }}
-      />
-    </SettingsPlate>
-    <SettingsPlate heading="Where Files Land">
-      {#if canChooseFolder}
-        <div class="flex items-center justify-between gap-16 py-12">
-          <div class="flex flex-col gap-4">
-            <span class="text-sm font-medium">Download folder</span>
-            <span class="text-sm text-text-muted">
-              {folderName === null
-                ? "Files go wherever this browser saves downloads."
-                : `Files are saved to ${folderName}.`}
-            </span>
-          </div>
-          <div class="flex items-center gap-8">
-            <Button variant="secondary" onclick={() => void pickFolder()}>
-              {folderName === null ? "Choose folder" : "Change"}
-            </Button>
-            {#if folderName !== null}
-              <Button variant="ghost" onclick={() => void clearFolder()}>Clear</Button>
-            {/if}
-          </div>
-        </div>
-      {:else}
-        <!-- Honest rather than absent: the capability is the browser's, and this names where it is.
-             Firefox and Safari have the same dialog; they just do not let a page open it. -->
-        <div class="flex flex-col gap-4 py-12">
-          <span class="text-sm font-medium">Download folder</span>
-          <span class="text-sm text-text-muted">
-            This browser does not let a page choose a folder. Turn on "always ask where to save
-            files" in your browser's own settings and it will ask you for every download.
-          </span>
-        </div>
-      {/if}
-    </SettingsPlate>
-  </div>
-</div>
+  <SettingsPlate heading="Exporting">
+    <SettingsRow
+      definition={SAVE_IMMEDIATELY_DEFINITION}
+      instant={{ value: saveImmediately, apply: (next) => void apply(next === true) }}
+    />
+  </SettingsPlate>
+  <SettingsPlate heading="Where Files Land">
+    <SettingsRow definition={FOLDER_DEFINITION}>
+      {#snippet control()}
+        {#if canChooseFolder}
+          <Button variant="secondary" size="sm" onclick={() => void pickFolder()}>
+            {folderName === null ? "Choose Folder" : "Change"}
+          </Button>
+          {#if folderName !== null}
+            <Button variant="ghost" size="sm" onclick={() => void clearFolder()}>Clear</Button>
+          {/if}
+        {/if}
+      {/snippet}
+    </SettingsRow>
+  </SettingsPlate>
+</SettingsScrollRegion>

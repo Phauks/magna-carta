@@ -1,4 +1,4 @@
-import { contentByteLength } from "./limits.ts";
+import { ATTACHMENT_TEXT_MAX_BYTES, contentByteLength, cutToByteLength } from "./limits.ts";
 import type { TurnRow } from "./types.ts";
 
 // The bounded conversation window: what the consumer actually sends to the model.
@@ -23,11 +23,71 @@ export interface WindowMessage {
   readonly content: string;
 }
 
+// The readable text of one attached file, as the caller extracted it, with the name the member knows
+// it by. The text is placed ahead of the member's newest question under a heading naming the file, so
+// the model reads the document the way the member did: before the question about it.
+export interface WindowAttachment {
+  readonly fileId: string;
+  readonly name: string;
+  readonly text: string;
+}
+
+// How much of each attachment reached the request: the whole text, a cut prefix of it, or none
+// because the budget was already spent by the attachments before it. Reported so the surface can say
+// so, per file, rather than the member wondering whether the model saw the document.
+export interface WindowAttachmentOutcome {
+  readonly fileId: string;
+  readonly sent: "whole" | "cut" | "none";
+  readonly bytes: number;
+}
+
 export interface ConversationWindow {
   readonly messages: readonly WindowMessage[];
   // True when at least one turn that had content was left out of the window — either because a cap
   // dropped it, or because the caller's own read of the conversation was itself bounded.
   readonly truncated: boolean;
+  // One outcome per attachment handed in, in the same order.
+  readonly attachments: readonly WindowAttachmentOutcome[];
+}
+
+// The heading each attachment's text sits under, and the line that marks a cut. Both are platform
+// text the model is told to expect (system-prompt.ts), never something a member wrote.
+function attachmentHeading(name: string): string {
+  return `--- Attached file: ${name} ---`;
+}
+const ATTACHMENT_CUT_MARK = "[The rest of this file did not fit and was not sent.]";
+
+// Lays the attachments out under one byte budget, in order, and says what each got. A file whose
+// whole text fits goes in whole; the first that does not is cut to what is left and marked; every
+// file after that gets nothing, because a heading over no text would tell the model a document was
+// there when it was not.
+function layOutAttachments(attachments: readonly WindowAttachment[]): {
+  readonly preface: string;
+  readonly outcomes: readonly WindowAttachmentOutcome[];
+} {
+  const parts: string[] = [];
+  const outcomes: WindowAttachmentOutcome[] = [];
+  let remaining = ATTACHMENT_TEXT_MAX_BYTES;
+  for (const attachment of attachments) {
+    const text = attachment.text.trim();
+    const bytes = contentByteLength(text);
+    if (remaining <= 0 || text === "") {
+      outcomes.push({ fileId: attachment.fileId, sent: "none", bytes: 0 });
+      continue;
+    }
+    if (bytes <= remaining) {
+      parts.push(`${attachmentHeading(attachment.name)}\n${text}`);
+      outcomes.push({ fileId: attachment.fileId, sent: "whole", bytes });
+      remaining -= bytes;
+      continue;
+    }
+    const cut = cutToByteLength(text, remaining);
+    const cutBytes = contentByteLength(cut);
+    parts.push(`${attachmentHeading(attachment.name)}\n${cut}\n${ATTACHMENT_CUT_MARK}`);
+    outcomes.push({ fileId: attachment.fileId, sent: "cut", bytes: cutBytes });
+    remaining = 0;
+  }
+  return { preface: parts.join("\n\n"), outcomes };
 }
 
 // Turns with no content are skipped, not counted: a pending or failed Magnus turn has nothing to say
@@ -42,6 +102,10 @@ export interface ConversationWindowOptions {
   // from one built on a bounded read that happened to fill up — and the difference is precisely what
   // the member is being told, so it cannot be inferred from the rows alone.
   readonly readWasCapped?: boolean;
+  // The readable text of the conversation's attachments, already extracted by the caller. Placed
+  // ahead of the newest member turn under their own budget (ATTACHMENT_TEXT_MAX_BYTES), inside the
+  // window's own cap. Absent or empty means the question travels as typed.
+  readonly attachments?: readonly WindowAttachment[];
 }
 
 // Builds the window from the conversation's turns in ascending sequence order. Walks BACKWARD from
@@ -65,8 +129,13 @@ export function buildConversationWindow(
     }
   }
   const readWasCapped = options.readWasCapped === true;
+  const laidOut = layOutAttachments(options.attachments ?? []);
   if (lastMemberIndex === -1) {
-    return { messages: [], truncated: readWasCapped || eligible.length > 0 };
+    return {
+      messages: [],
+      truncated: readWasCapped || eligible.length > 0,
+      attachments: laidOut.outcomes.map((outcome) => ({ ...outcome, sent: "none", bytes: 0 })),
+    };
   }
 
   const candidates = eligible.slice(0, lastMemberIndex + 1);
@@ -77,18 +146,25 @@ export function buildConversationWindow(
     const turn = candidates[index];
     if (turn === undefined) continue;
     if (selected.length >= WINDOW_MAX_TURNS) break;
-    const turnBytes = contentByteLength(turn.content);
+    // The attachments ride the newest member turn — the question they were attached beside — and
+    // count against the window with it. Every earlier turn travels as it was typed.
+    const content =
+      selected.length === 0 && laidOut.preface !== ""
+        ? `${laidOut.preface}\n\n${turn.content}`
+        : turn.content;
+    const turnBytes = contentByteLength(content);
     // The newest member turn always goes in even when it alone exceeds the byte cap: dropping the
     // question would send the model a conversation with no question in it. The per-turn cap in
-    // limits.ts is what keeps that case bounded.
+    // limits.ts and the attachment budget above are what keep that case bounded.
     if (selected.length > 0 && bytes + turnBytes > WINDOW_MAX_BYTES) break;
     bytes += turnBytes;
-    selected.push({
-      role: turn.speaker === "member" ? "member" : "assistant",
-      content: turn.content,
-    });
+    selected.push({ role: turn.speaker === "member" ? "member" : "assistant", content });
   }
   selected.reverse();
 
-  return { messages: selected, truncated: readWasCapped || selected.length < eligible.length };
+  return {
+    messages: selected,
+    truncated: readWasCapped || selected.length < eligible.length,
+    attachments: laidOut.outcomes,
+  };
 }

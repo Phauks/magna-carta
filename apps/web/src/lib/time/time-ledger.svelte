@@ -31,7 +31,6 @@
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Alert from "@magna-carta/design-system/alert";
   import Badge from "@magna-carta/design-system/badge";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { formatInstant, formatInstantDate } from "@magna-carta/design-system/formatters";
@@ -469,12 +468,6 @@
   {/if}
 {/snippet}
 
-{#snippet emptyLedger()}
-  <EmptyState title="No Time Recorded Yet">
-    Timers, manual entries and the weekly grid all land here, billable or not. New Time, at the top
-    of the matter, records the first entry.
-  </EmptyState>
-{/snippet}
 
 {#snippet ledgerFigures()}
   <DataTable.GridFigures {grid} figures={footerReading} />
@@ -520,7 +513,6 @@
         class={tableClass}
         {density}
         caption="Time recorded on this matter"
-        empty={emptyLedger}
         {loading}
       />
     </div>

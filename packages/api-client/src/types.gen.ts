@@ -108,6 +108,7 @@ export type ServiceVersion = {
     commit: string | null;
     commitTime: string | null;
     buildTime: string | null;
+    latencyMilliseconds: number | null;
 };
 
 export type DatabaseHealthResponse = {
@@ -1030,6 +1031,7 @@ export type ReportIncidentRequest = {
         route: string;
         appVersion: string;
         clientAt: string;
+        deployment?: string;
     };
 };
 
@@ -1561,6 +1563,7 @@ export type LocationRequest = {
     addressBlock?: string | null;
     footer?: string | null;
     remitTo?: string | null;
+    email?: string | null;
 };
 
 export type LocationListResponse = {
@@ -1572,7 +1575,26 @@ export type LocationSummary = {
     name: string;
     status: 'active' | 'closed';
     jurisdiction: string | null;
+    timeZone: string | null;
     numberCode: string | null;
+    email: string | null;
+    addresses: Array<LocationAddress>;
+    members: number;
+    hasLetterheadLogo: boolean;
+    firmDefault: boolean;
+};
+
+export type LocationAddress = {
+    kind: 'physical' | 'mailing';
+    street: string | null;
+    streetTwo: string | null;
+    dependentLocality: string | null;
+    city: string | null;
+    region: string | null;
+    postal: string | null;
+    sortingCode: string | null;
+    country: string | null;
+    phone: string | null;
 };
 
 export type LocationDetail = {
@@ -1585,7 +1607,21 @@ export type LocationDetail = {
     addressBlock: string | null;
     footer: string | null;
     remitTo: string | null;
+    email: string | null;
+    addresses: Array<LocationAddress>;
+    members: Array<LocationMember>;
+    firmDefault: boolean;
     letterheadLogo: LetterheadLogo;
+    letterheadSource: 'office' | 'firm' | 'none';
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type LocationMember = {
+    userId: string;
+    displayName: string;
+    status: 'active' | 'deactivated';
+    isPrimary: boolean;
 };
 
 export type LetterheadLogo = {
@@ -1605,6 +1641,7 @@ export type PatchLocationRequest = {
     addressBlock?: string | null;
     footer?: string | null;
     remitTo?: string | null;
+    email?: string | null;
 };
 
 export type LetterheadLogoRequest = {
@@ -1616,11 +1653,19 @@ export type LocationAddressesRequest = {
     addresses: Array<{
         kind: 'physical' | 'mailing';
         street?: string | null;
+        streetTwo?: string | null;
+        dependentLocality?: string | null;
         city?: string | null;
         region?: string | null;
         postal?: string | null;
+        sortingCode?: string | null;
+        country?: string | null;
         phone?: string | null;
     }>;
+};
+
+export type LocationMemberRequest = {
+    isPrimary?: boolean;
 };
 
 export type MemberLocationsRequest = {
@@ -2702,8 +2747,11 @@ export type SetDirectoryPersonLifeDatesRequest = {
     deceased?: boolean;
 };
 
-export type CreatedConflictsCheckResponse = {
+export type OpenedConflictsCheckResponse = {
     id: string;
+    checkNumber: string;
+    runId: string;
+    ordinal: number;
 };
 
 export type CreateConflictsCheckRequest = {
@@ -2716,14 +2764,10 @@ export type CreateConflictsCheckRequest = {
 export type ConflictsScopeRequest = {
     sources: Array<'party' | 'graph' | 'imputation' | 'content'>;
     strictness: 'balanced' | 'over_inclusive';
-    depth?: number;
-    edgeClassBudgets?: {
-        control?: number;
-        family?: number;
-        representation?: number;
-    };
-    closureCap?: number;
-    candidateCap?: number;
+};
+
+export type NextConflictsCheckNumberResponse = {
+    checkNumber: string;
 };
 
 export type ConflictsCheckPage = {
@@ -2733,52 +2777,89 @@ export type ConflictsCheckPage = {
 
 export type ConflictsCheckSummary = {
     id: string;
-    trigger: 'preliminary' | 'comprehensive' | 'new_party' | 'entity_merged' | 'entity_renamed' | 'relationship_recorded' | 'identifier_recorded' | 'personnel_changed' | 'periodic_rescan';
+    checkNumber: string;
     matterId: string | null;
-    strictness: 'balanced' | 'over_inclusive';
-    depth: number;
-    floorRaised: boolean;
-    actorUserId: string | null;
-    triggerSource: string | null;
-    hitCount: number;
     createdAt: string;
+    createdByUserId: string | null;
+    runCount: number;
+    latestRunId: string | null;
+    runStatus: 'queued' | 'running' | 'completed' | 'failed' | null;
+    latestRunAt: string | null;
+    trigger: string | null;
+    triggerSource: string | null;
+    actorUserId: string | null;
+    strictness: 'balanced' | 'over_inclusive' | null;
+    floorRaised: boolean | null;
+    hitCount: number | null;
 };
 
 export type ConflictsPolicyResponse = {
     floorSources: Array<'party' | 'graph' | 'imputation' | 'content'>;
     floorStrictness: 'balanced' | 'over_inclusive';
-    defaultDepth: number;
-    edgeClassBudgets: {
-        [key: string]: number;
-    };
-    closureCap: number;
-    candidateCap: number;
     balancedNameRoles: Array<string>;
 };
 
 export type ConflictsPolicyRequest = {
     floorSources?: Array<'party' | 'graph' | 'imputation' | 'content'>;
     floorStrictness?: 'balanced' | 'over_inclusive';
-    defaultDepth?: number;
-    edgeClassBudgets?: {
-        control?: number;
-        family?: number;
-        representation?: number;
-    };
-    closureCap?: number;
-    candidateCap?: number;
     balancedNameRoles?: Array<string>;
 };
 
-export type CreatedConflictsRecheckResponse = {
-    checkId: string;
+export type FiledConflictsCheckResponse = {
+    id: string;
+    matterId: string;
 };
 
-export type ConflictsCheckWithHitsResponse = {
+export type FileConflictsCheckOnMatterRequest = {
+    matterId: string;
+};
+
+export type ConflictsCheckWithRunsResponse = {
+    check: ConflictsNumberedCheck;
+    runs: Array<ConflictsRunSummary>;
+    run: ConflictsRunSummary;
+    record: ConflictsCheckRecord;
+};
+
+export type ConflictsNumberedCheck = {
+    id: string;
+    checkNumber: string;
+    matterId: string | null;
+    createdByUserId: string | null;
+    createdAt: string;
+    latestRunId: string | null;
+};
+
+export type ConflictsRunSummary = {
+    id: string;
+    ordinal: number;
+    status: 'queued' | 'running' | 'completed' | 'failed';
+    stage: 'sources' | 'walking' | 'matching' | 'candidates' | null;
+    progress: ConflictsRunProgress;
+    trigger: string;
+    triggerSource: string | null;
+    requestedByUserId: string | null;
+    createdAt: string;
+    startedAt: string | null;
+    finishedAt: string | null;
+    failure: string | null;
+    hitCount: number | null;
+};
+
+export type ConflictsRunProgress = {
+    sourcesSearched?: number;
+    subjectParties?: number;
+    entitiesReached?: number;
+    entitiesMatched?: number;
+    candidatesSurfaced?: number;
+    candidatesRecorded?: number;
+};
+
+export type ConflictsCheckRecord = {
     check: ConflictsCheckDetail;
     statement: Array<string>;
     hits: Array<ConflictsHitDetail>;
-};
+} | null;
 
 export type ConflictsCheckDetail = {
     id: string;
@@ -2805,6 +2886,8 @@ export type ConflictsMatchingRecord = {
 } | null;
 
 export type ConflictsTraversalRecord = {
+    followedToClosure: boolean;
+    longestPathLength: number | null;
     edgeClassBudgets: {
         [key: string]: number;
     };
@@ -2838,6 +2921,7 @@ export type ConflictsHitDetail = {
     coParty: boolean;
     createdAt: string;
     disposition: ConflictsDispositionDetail;
+    previouslyAnswered: ConflictsPriorConclusion;
 };
 
 export type ConflictsHitParty = {
@@ -2870,6 +2954,13 @@ export type ConflictsWaiverDetail = {
     givenOn: string | null;
 } | null;
 
+export type ConflictsPriorConclusion = {
+    checkId: string;
+    kind: 'cleared' | 'waiver_obtained' | 'wall_erected' | 'representation_declined';
+    reviewerUserId: string;
+    createdAt: string;
+} | null;
+
 export type ConflictsDispositionTrailResponse = {
     hitId: string;
     dispositions: Array<ConflictsDispositionTrailEntry>;
@@ -2899,6 +2990,7 @@ export type MatterConflictsPostureResponse = {
 
 export type ConflictsPostureLatestCheck = {
     id: string;
+    checkNumber: string | null;
     createdAt: string;
     trigger: string;
     actorUserId: string | null;
@@ -2926,10 +3018,6 @@ export type ConflictsPostureScopeShortfall = {
     strictness: {
         firmFloor: 'balanced' | 'over_inclusive';
         ranUnder: string;
-    } | null;
-    depth: {
-        firmDefault: number;
-        ranAt: number;
     } | null;
 };
 
@@ -3599,12 +3687,12 @@ export type MatterTaskDetail = {
     dueOn: string | null;
     dueAtTime: string | null;
     timeZone: string | null;
-    state: 'open' | 'done' | 'cancelled';
+    rung: 'to_do' | 'in_progress' | 'on_hold' | 'done';
     completedAt: string | null;
     completedBy: string | null;
-    cancelledAt: string | null;
-    cancelledBy: string | null;
-    cancellationReason: string | null;
+    archivedAt: string | null;
+    archivedBy: string | null;
+    archiveReason: string | null;
     blockedByTaskId: string | null;
     triggerEventId: string | null;
     deadlineId: string | null;
@@ -3723,8 +3811,12 @@ export type ReassignMatterTaskRequest = {
     assigneeUserId: string | null;
 };
 
-export type CancelMatterTaskRequest = {
-    reason: string;
+export type MoveMatterTaskRequest = {
+    rung: 'to_do' | 'in_progress' | 'on_hold' | 'done';
+};
+
+export type ArchiveMatterTaskRequest = {
+    reason?: string | null;
 };
 
 export type AttachMatterTaskDocumentRequest = {
@@ -4973,7 +5065,14 @@ export type MagnusAvailability = {
     state: 'open' | 'firm-ineligible' | 'feature-disabled' | 'acknowledgement-required';
     disclosureVersion?: number;
     remainingDailyTurns?: number;
+    model?: MagnusAnsweringModel;
 };
+
+export type MagnusAnsweringModel = {
+    modelId: string;
+    snapshotId: string;
+    zeroDataRetention: boolean;
+} | null;
 
 export type MagnusAcknowledgement = {
     disclosureVersion: number;
@@ -5006,6 +5105,7 @@ export type MagnusConversationDetail = {
         data: Array<MagnusTurn>;
         nextCursor: string | null;
     };
+    attachments: Array<MagnusConversationAttachment>;
 };
 
 export type MagnusTurn = {
@@ -5022,8 +5122,25 @@ export type MagnusTurn = {
     completedAt: string | null;
 };
 
+export type MagnusConversationAttachment = {
+    fileId: string;
+    name: string | null;
+    matterId: string | null;
+    attachedAt: string;
+    textStatus: 'pending' | 'sent' | 'cut' | 'unreadable';
+    textBytes: number | null;
+};
+
 export type MagnusRenameConversationRequest = {
     title: string | null;
+};
+
+export type MagnusMoveConversationRequest = {
+    matterId: string | null;
+};
+
+export type MagnusAttachFileRequest = {
+    fileId: string;
 };
 
 export type MagnusSubmitTurnResponse = {
@@ -7521,6 +7638,38 @@ export type PatchFirmNotificationPolicyRequest = {
     digestLocalHour?: number;
 };
 
+export type FirmBrandImagesResponse = {
+    primary: FirmBrandImage;
+    additional: Array<FirmBrandImage>;
+    additionalLimit: number;
+};
+
+export type FirmBrandImage = {
+    sha256: string;
+    role: 'primary' | 'additional';
+    label: string | null;
+    contentType: string;
+    sizeBytes: number;
+    widthPixels: number;
+    heightPixels: number;
+    updatedAt: string;
+} | null;
+
+export type FirmBrandImageAck = {
+    sha256: string;
+};
+
+export type SetFirmBrandImageRequest = {
+    imageBase64: string;
+    role: 'primary' | 'additional';
+    label?: string | null;
+};
+
+export type UpdateFirmBrandImageRequest = {
+    role?: 'primary' | 'additional';
+    label?: string | null;
+};
+
 export type FirmProfileResponse = {
     /**
      * What the firm is called to its clients — on invoices, in the portal, and on every generated document. Never the provisioning handle behind it.
@@ -7572,6 +7721,11 @@ export type FirmAiSettingsResponse = {
         eligible: boolean;
     };
     model: AiModelFacts;
+    models: Array<AiModelChoice>;
+    catalog: {
+        version: number;
+        effectiveDate: string;
+    };
     magnus: {
         enabled: boolean;
         dailyTurnCeiling: number;
@@ -7583,11 +7737,27 @@ export type AiModelFacts = {
     snapshotId: string;
     zeroDataRetention: boolean;
     noTraining: boolean;
+    selection: 'platform' | 'chosen';
 } | null;
+
+export type AiModelChoice = {
+    modelId: string;
+    snapshotId: string;
+    zeroDataRetention: boolean;
+    noTraining: boolean;
+    verifiedOn: string;
+    availabilityVerifiedOn: string;
+    retirementNotBefore: string | null;
+    tier: string | null;
+    platformDefault: boolean;
+};
 
 export type PatchFirmAiSettingsRequest = {
     aiProcessing?: {
         eligible?: boolean;
+    };
+    model?: {
+        modelId: string | null;
     };
     magnus?: {
         enabled?: boolean;
@@ -12582,7 +12752,7 @@ export type MattersHoldErrors = {
      */
     404: Problem;
     /**
-     * The matter is not open, or a request with this Idempotency-Key is still in progress
+     * The matter is neither open nor a consultation, or a request with this Idempotency-Key is still in progress
      */
     409: Problem;
     /**
@@ -12653,7 +12823,7 @@ export type MattersReleaseError = MattersReleaseErrors[keyof MattersReleaseError
 
 export type MattersReleaseResponses = {
     /**
-     * The hold was released and the matter is open
+     * The hold was released and the matter is back where the hold found it
      */
     200: MatterActionAck;
 };
@@ -13652,6 +13822,149 @@ export type LocationsCreateResponses = {
 
 export type LocationsCreateResponse = LocationsCreateResponses[keyof LocationsCreateResponses];
 
+export type LocationsClearLetterheadLogoData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/locations/{id}/letterhead-logo';
+};
+
+export type LocationsClearLetterheadLogoErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks locations:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the location is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the firm-default cannot be closed
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LocationsClearLetterheadLogoError = LocationsClearLetterheadLogoErrors[keyof LocationsClearLetterheadLogoErrors];
+
+export type LocationsClearLetterheadLogoResponses = {
+    /**
+     * The letterhead logo was removed
+     */
+    200: LocationAck;
+};
+
+export type LocationsClearLetterheadLogoResponse = LocationsClearLetterheadLogoResponses[keyof LocationsClearLetterheadLogoResponses];
+
+export type LocationsGetLetterheadLogoData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/locations/{id}/letterhead-logo';
+};
+
+export type LocationsGetLetterheadLogoErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the location is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LocationsGetLetterheadLogoError = LocationsGetLetterheadLogoErrors[keyof LocationsGetLetterheadLogoErrors];
+
+export type LocationsGetLetterheadLogoResponses = {
+    /**
+     * The image bytes
+     */
+    200: string;
+};
+
+export type LocationsGetLetterheadLogoResponse = LocationsGetLetterheadLogoResponses[keyof LocationsGetLetterheadLogoResponses];
+
+export type LocationsSetLetterheadLogoData = {
+    body: LetterheadLogoRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/locations/{id}/letterhead-logo';
+};
+
+export type LocationsSetLetterheadLogoErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks locations:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the location is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the firm-default cannot be closed
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the file is not a PNG or a JPEG, it is too large, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LocationsSetLetterheadLogoError = LocationsSetLetterheadLogoErrors[keyof LocationsSetLetterheadLogoErrors];
+
+export type LocationsSetLetterheadLogoResponses = {
+    /**
+     * The letterhead logo was set
+     */
+    200: LocationAck;
+};
+
+export type LocationsSetLetterheadLogoResponse = LocationsSetLetterheadLogoResponses[keyof LocationsSetLetterheadLogoResponses];
+
 export type LocationsGetData = {
     body?: never;
     path: {
@@ -13795,114 +14108,6 @@ export type LocationsCloseResponses = {
 
 export type LocationsCloseResponse = LocationsCloseResponses[keyof LocationsCloseResponses];
 
-export type LocationsClearLetterheadLogoData = {
-    body?: never;
-    headers: {
-        'idempotency-key': string;
-    };
-    path: {
-        id: string;
-    };
-    query?: never;
-    url: '/api/v1/locations/{id}/letterhead-logo';
-};
-
-export type LocationsClearLetterheadLogoErrors = {
-    /**
-     * Missing Idempotency-Key (this operation requires one)
-     */
-    400: Problem;
-    /**
-     * No valid session
-     */
-    401: Problem;
-    /**
-     * The session member lacks locations:manage
-     */
-    403: Problem;
-    /**
-     * The firm is unreachable, the member is deactivated, or the location is unknown
-     */
-    404: Problem;
-    /**
-     * A request with this Idempotency-Key is in progress, or the firm-default cannot be closed
-     */
-    409: Problem;
-    /**
-     * The request is invalid, or the Idempotency-Key was reused with a different payload
-     */
-    422: Problem;
-    /**
-     * Rate limit exceeded
-     */
-    429: Problem;
-};
-
-export type LocationsClearLetterheadLogoError = LocationsClearLetterheadLogoErrors[keyof LocationsClearLetterheadLogoErrors];
-
-export type LocationsClearLetterheadLogoResponses = {
-    /**
-     * The letterhead logo was removed
-     */
-    200: LocationAck;
-};
-
-export type LocationsClearLetterheadLogoResponse = LocationsClearLetterheadLogoResponses[keyof LocationsClearLetterheadLogoResponses];
-
-export type LocationsSetLetterheadLogoData = {
-    body: LetterheadLogoRequest;
-    headers: {
-        'idempotency-key': string;
-    };
-    path: {
-        id: string;
-    };
-    query?: never;
-    url: '/api/v1/locations/{id}/letterhead-logo';
-};
-
-export type LocationsSetLetterheadLogoErrors = {
-    /**
-     * Missing Idempotency-Key (this operation requires one)
-     */
-    400: Problem;
-    /**
-     * No valid session
-     */
-    401: Problem;
-    /**
-     * The session member lacks locations:manage
-     */
-    403: Problem;
-    /**
-     * The firm is unreachable, the member is deactivated, or the location is unknown
-     */
-    404: Problem;
-    /**
-     * A request with this Idempotency-Key is in progress, or the firm-default cannot be closed
-     */
-    409: Problem;
-    /**
-     * The request is invalid, the file is not a PNG or a JPEG, it is too large, or the Idempotency-Key was reused with a different payload
-     */
-    422: Problem;
-    /**
-     * Rate limit exceeded
-     */
-    429: Problem;
-};
-
-export type LocationsSetLetterheadLogoError = LocationsSetLetterheadLogoErrors[keyof LocationsSetLetterheadLogoErrors];
-
-export type LocationsSetLetterheadLogoResponses = {
-    /**
-     * The letterhead logo was set
-     */
-    200: LocationAck;
-};
-
-export type LocationsSetLetterheadLogoResponse = LocationsSetLetterheadLogoResponses[keyof LocationsSetLetterheadLogoResponses];
-
 export type LocationsSetAddressesData = {
     body: LocationAddressesRequest;
     headers: {
@@ -13956,6 +14161,170 @@ export type LocationsSetAddressesResponses = {
 };
 
 export type LocationsSetAddressesResponse = LocationsSetAddressesResponses[keyof LocationsSetAddressesResponses];
+
+export type LocationsRemoveMemberData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+        userId: string;
+    };
+    query?: never;
+    url: '/api/v1/locations/{id}/members/{userId}';
+};
+
+export type LocationsRemoveMemberErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks locations:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the location is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the firm-default cannot be closed
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LocationsRemoveMemberError = LocationsRemoveMemberErrors[keyof LocationsRemoveMemberErrors];
+
+export type LocationsRemoveMemberResponses = {
+    /**
+     * The member is no longer at the office
+     */
+    200: LocationAck;
+};
+
+export type LocationsRemoveMemberResponse = LocationsRemoveMemberResponses[keyof LocationsRemoveMemberResponses];
+
+export type LocationsAddMemberData = {
+    body: LocationMemberRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+        userId: string;
+    };
+    query?: never;
+    url: '/api/v1/locations/{id}/members/{userId}';
+};
+
+export type LocationsAddMemberErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks locations:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the location is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the firm-default cannot be closed
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LocationsAddMemberError = LocationsAddMemberErrors[keyof LocationsAddMemberErrors];
+
+export type LocationsAddMemberResponses = {
+    /**
+     * The member is at the office
+     */
+    200: LocationAck;
+};
+
+export type LocationsAddMemberResponse = LocationsAddMemberResponses[keyof LocationsAddMemberResponses];
+
+export type LocationsSetFirmDefaultData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/locations/{id}/firm-default';
+};
+
+export type LocationsSetFirmDefaultErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks locations:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the location is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the firm-default cannot be closed
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LocationsSetFirmDefaultError = LocationsSetFirmDefaultErrors[keyof LocationsSetFirmDefaultErrors];
+
+export type LocationsSetFirmDefaultResponses = {
+    /**
+     * The office is the firm's default
+     */
+    200: LocationAck;
+};
+
+export type LocationsSetFirmDefaultResponse = LocationsSetFirmDefaultResponses[keyof LocationsSetFirmDefaultResponses];
 
 export type LocationsAssignMemberData = {
     body: MemberLocationsRequest;
@@ -17431,12 +17800,45 @@ export type ConflictsRunCheckError = ConflictsRunCheckErrors[keyof ConflictsRunC
 
 export type ConflictsRunCheckResponses = {
     /**
-     * The completed check
+     * The check, opened; its first run is queued
      */
-    201: CreatedConflictsCheckResponse;
+    202: OpenedConflictsCheckResponse;
 };
 
 export type ConflictsRunCheckResponse = ConflictsRunCheckResponses[keyof ConflictsRunCheckResponses];
+
+export type ConflictsNextCheckNumberData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/conflicts/checks/next-number';
+};
+
+export type ConflictsNextCheckNumberErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsNextCheckNumberError = ConflictsNextCheckNumberErrors[keyof ConflictsNextCheckNumberErrors];
+
+export type ConflictsNextCheckNumberResponses = {
+    /**
+     * The next check number
+     */
+    200: NextConflictsCheckNumberResponse;
+};
+
+export type ConflictsNextCheckNumberResponse = ConflictsNextCheckNumberResponses[keyof ConflictsNextCheckNumberResponses];
 
 export type ConflictsFirmPolicyData = {
     body?: never;
@@ -17566,19 +17968,129 @@ export type ConflictsRecheckMatterError = ConflictsRecheckMatterErrors[keyof Con
 
 export type ConflictsRecheckMatterResponses = {
     /**
-     * The check that ran
+     * The run, queued
      */
-    201: CreatedConflictsRecheckResponse;
+    202: OpenedConflictsCheckResponse;
 };
 
 export type ConflictsRecheckMatterResponse = ConflictsRecheckMatterResponses[keyof ConflictsRecheckMatterResponses];
+
+export type ConflictsRerunCheckData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        checkId: string;
+    };
+    query?: never;
+    url: '/api/v1/conflicts/checks/{checkId}/runs';
+};
+
+export type ConflictsRerunCheckErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsRerunCheckError = ConflictsRerunCheckErrors[keyof ConflictsRerunCheckErrors];
+
+export type ConflictsRerunCheckResponses = {
+    /**
+     * The further run, queued under the check
+     */
+    202: OpenedConflictsCheckResponse;
+};
+
+export type ConflictsRerunCheckResponse = ConflictsRerunCheckResponses[keyof ConflictsRerunCheckResponses];
+
+export type ConflictsFileCheckOnMatterData = {
+    body: FileConflictsCheckOnMatterRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        checkId: string;
+    };
+    query?: never;
+    url: '/api/v1/conflicts/checks/{checkId}/matter';
+};
+
+export type ConflictsFileCheckOnMatterErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsFileCheckOnMatterError = ConflictsFileCheckOnMatterErrors[keyof ConflictsFileCheckOnMatterErrors];
+
+export type ConflictsFileCheckOnMatterResponses = {
+    /**
+     * The check, filed on the matter
+     */
+    200: FiledConflictsCheckResponse;
+};
+
+export type ConflictsFileCheckOnMatterResponse = ConflictsFileCheckOnMatterResponses[keyof ConflictsFileCheckOnMatterResponses];
 
 export type ConflictsGetCheckData = {
     body?: never;
     path: {
         checkId: string;
     };
-    query?: never;
+    query?: {
+        run?: string;
+    };
     url: '/api/v1/conflicts/checks/{checkId}';
 };
 
@@ -17596,6 +18108,10 @@ export type ConflictsGetCheckErrors = {
      */
     404: Problem;
     /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
      * Rate limit exceeded
      */
     429: Problem;
@@ -17605,9 +18121,9 @@ export type ConflictsGetCheckError = ConflictsGetCheckErrors[keyof ConflictsGetC
 
 export type ConflictsGetCheckResponses = {
     /**
-     * The check, the statement of what it searched, and its hits
+     * The check, its runs, and the selected run's record where it has one
      */
-    200: ConflictsCheckWithHitsResponse;
+    200: ConflictsCheckWithRunsResponse;
 };
 
 export type ConflictsGetCheckResponse = ConflictsGetCheckResponses[keyof ConflictsGetCheckResponses];
@@ -20577,9 +21093,13 @@ export type TasksListMatterTasksData = {
     query?: {
         cursor?: string;
         /**
-         * Comma-separated states to include: open, done, cancelled.
+         * Comma-separated rungs to include: to_do, in_progress, on_hold, done.
          */
-        state?: string;
+        rung?: string;
+        /**
+         * Include tasks that have been archived. Off by default: putting one away is what takes it off a list, and a list that still showed it would be one nobody could clear.
+         */
+        includeArchived?: 'true' | 'false';
         /**
          * Comma-separated priorities to include: low, normal, high, urgent.
          */
@@ -20628,9 +21148,13 @@ export type TasksListMyTasksData = {
     query?: {
         cursor?: string;
         /**
-         * Comma-separated states to include: open, done, cancelled.
+         * Comma-separated rungs to include: to_do, in_progress, on_hold, done.
          */
-        state?: string;
+        rung?: string;
+        /**
+         * Include tasks that have been archived. Off by default: putting one away is what takes it off a list, and a list that still showed it would be one nobody could clear.
+         */
+        includeArchived?: 'true' | 'false';
         /**
          * Comma-separated priorities to include: low, normal, high, urgent.
          */
@@ -20640,7 +21164,7 @@ export type TasksListMyTasksData = {
         dueTo?: string;
         search?: string;
         /**
-         * Include tasks on matters the firm has closed. Off by default: closing a matter changes no task, so its open tasks are filtered from this list rather than cancelled, and reopening the matter brings them back with no backfill.
+         * Include tasks on matters the firm has closed. Off by default: closing a matter changes no task, so its open tasks are filtered from this list rather than archived, and reopening the matter brings them back with no backfill.
          */
         includeClosedMatters?: 'true' | 'false';
     };
@@ -21133,7 +21657,61 @@ export type TasksReassignTaskResponses = {
 
 export type TasksReassignTaskResponse = TasksReassignTaskResponses[keyof TasksReassignTaskResponses];
 
-export type TasksReopenTaskData = {
+export type TasksMoveTaskData = {
+    body: MoveMatterTaskRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/tasks/{taskId}/rung';
+};
+
+export type TasksMoveTaskErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksMoveTaskError = TasksMoveTaskErrors[keyof TasksMoveTaskErrors];
+
+export type TasksMoveTaskResponses = {
+    /**
+     * The task was moved
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksMoveTaskResponse = TasksMoveTaskResponses[keyof TasksMoveTaskResponses];
+
+export type TasksUnarchiveTaskData = {
     body?: never;
     headers: {
         'idempotency-key': string;
@@ -21142,10 +21720,10 @@ export type TasksReopenTaskData = {
         taskId: string;
     };
     query?: never;
-    url: '/api/v1/tasks/{taskId}/completion';
+    url: '/api/v1/tasks/{taskId}/archive';
 };
 
-export type TasksReopenTaskErrors = {
+export type TasksUnarchiveTaskErrors = {
     /**
      * Missing Idempotency-Key (this operation requires one)
      */
@@ -21176,19 +21754,19 @@ export type TasksReopenTaskErrors = {
     429: Problem;
 };
 
-export type TasksReopenTaskError = TasksReopenTaskErrors[keyof TasksReopenTaskErrors];
+export type TasksUnarchiveTaskError = TasksUnarchiveTaskErrors[keyof TasksUnarchiveTaskErrors];
 
-export type TasksReopenTaskResponses = {
+export type TasksUnarchiveTaskResponses = {
     /**
-     * The task was reopened
+     * The task was put back
      */
     200: MatterTaskAcknowledged;
 };
 
-export type TasksReopenTaskResponse = TasksReopenTaskResponses[keyof TasksReopenTaskResponses];
+export type TasksUnarchiveTaskResponse = TasksUnarchiveTaskResponses[keyof TasksUnarchiveTaskResponses];
 
-export type TasksCompleteTaskData = {
-    body?: never;
+export type TasksArchiveTaskData = {
+    body: ArchiveMatterTaskRequest;
     headers: {
         'idempotency-key': string;
     };
@@ -21196,10 +21774,10 @@ export type TasksCompleteTaskData = {
         taskId: string;
     };
     query?: never;
-    url: '/api/v1/tasks/{taskId}/completion';
+    url: '/api/v1/tasks/{taskId}/archive';
 };
 
-export type TasksCompleteTaskErrors = {
+export type TasksArchiveTaskErrors = {
     /**
      * Missing Idempotency-Key (this operation requires one)
      */
@@ -21230,70 +21808,16 @@ export type TasksCompleteTaskErrors = {
     429: Problem;
 };
 
-export type TasksCompleteTaskError = TasksCompleteTaskErrors[keyof TasksCompleteTaskErrors];
+export type TasksArchiveTaskError = TasksArchiveTaskErrors[keyof TasksArchiveTaskErrors];
 
-export type TasksCompleteTaskResponses = {
+export type TasksArchiveTaskResponses = {
     /**
-     * The task was completed
+     * The task was archived
      */
     200: MatterTaskAcknowledged;
 };
 
-export type TasksCompleteTaskResponse = TasksCompleteTaskResponses[keyof TasksCompleteTaskResponses];
-
-export type TasksCancelTaskData = {
-    body: CancelMatterTaskRequest;
-    headers: {
-        'idempotency-key': string;
-    };
-    path: {
-        taskId: string;
-    };
-    query?: never;
-    url: '/api/v1/tasks/{taskId}/cancellation';
-};
-
-export type TasksCancelTaskErrors = {
-    /**
-     * Missing Idempotency-Key (this operation requires one)
-     */
-    400: Problem;
-    /**
-     * No valid session
-     */
-    401: Problem;
-    /**
-     * The session member lacks the required permission
-     */
-    403: Problem;
-    /**
-     * The firm is unreachable, the member is deactivated, or the task is unknown
-     */
-    404: Problem;
-    /**
-     * A request with this Idempotency-Key is still in progress
-     */
-    409: Problem;
-    /**
-     * The request body is not a shape this operation accepts
-     */
-    422: Problem;
-    /**
-     * Rate limited
-     */
-    429: Problem;
-};
-
-export type TasksCancelTaskError = TasksCancelTaskErrors[keyof TasksCancelTaskErrors];
-
-export type TasksCancelTaskResponses = {
-    /**
-     * The task was cancelled
-     */
-    200: MatterTaskAcknowledged;
-};
-
-export type TasksCancelTaskResponse = TasksCancelTaskResponses[keyof TasksCancelTaskResponses];
+export type TasksArchiveTaskResponse = TasksArchiveTaskResponses[keyof TasksArchiveTaskResponses];
 
 export type TasksAttachTaskDocumentData = {
     body: AttachMatterTaskDocumentRequest;
@@ -25481,6 +26005,7 @@ export type MagnusListConversationsData = {
         cursor?: string;
         scope?: 'own' | 'firm';
         matterId?: string;
+        sort?: 'date' | 'name' | 'matter';
     };
     url: '/api/v1/magnus/conversations';
 };
@@ -25725,6 +26250,157 @@ export type MagnusRenameConversationResponses = {
 };
 
 export type MagnusRenameConversationResponse = MagnusRenameConversationResponses[keyof MagnusRenameConversationResponses];
+
+export type MagnusMoveConversationData = {
+    body: MagnusMoveConversationRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        conversationId: string;
+    };
+    query?: never;
+    url: '/api/v1/magnus/conversations/{conversationId}/matter';
+};
+
+export type MagnusMoveConversationErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission, or the firm has not opted in
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The target matter is closed, is the platform's own, or does not exist
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MagnusMoveConversationError = MagnusMoveConversationErrors[keyof MagnusMoveConversationErrors];
+
+export type MagnusMoveConversationResponses = {
+    /**
+     * The conversation is now kept where the request said
+     */
+    200: MagnusConversation;
+};
+
+export type MagnusMoveConversationResponse = MagnusMoveConversationResponses[keyof MagnusMoveConversationResponses];
+
+export type MagnusAttachFileData = {
+    body: MagnusAttachFileRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        conversationId: string;
+    };
+    query?: never;
+    url: '/api/v1/magnus/conversations/{conversationId}/attachments';
+};
+
+export type MagnusAttachFileErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission, or the firm has not opted in
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The conversation is on no matter, the file is not one of that matter's, or the conversation already carries as many files as it may
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MagnusAttachFileError = MagnusAttachFileErrors[keyof MagnusAttachFileErrors];
+
+export type MagnusAttachFileResponses = {
+    /**
+     * The file is attached; the conversation's attachments after the write
+     */
+    201: Array<MagnusConversationAttachment>;
+};
+
+export type MagnusAttachFileResponse = MagnusAttachFileResponses[keyof MagnusAttachFileResponses];
+
+export type MagnusDetachFileData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        conversationId: string;
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/v1/magnus/conversations/{conversationId}/attachments/{fileId}';
+};
+
+export type MagnusDetachFileErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission, or the firm has not opted in
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MagnusDetachFileError = MagnusDetachFileErrors[keyof MagnusDetachFileErrors];
+
+export type MagnusDetachFileResponses = {
+    /**
+     * The file is no longer attached; the conversation's attachments after the write
+     */
+    200: Array<MagnusConversationAttachment>;
+};
+
+export type MagnusDetachFileResponse = MagnusDetachFileResponses[keyof MagnusDetachFileResponses];
 
 export type MagnusSubmitTurnData = {
     body: MagnusSubmitTurnRequest;
@@ -28624,21 +29300,25 @@ export type CostsListData = {
         cursor?: string;
         matterId?: string;
         /**
-         * The first incurred date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — the question the firm's cost record is asked at the end of a month, and the one a per-matter listing cannot answer without walking every matter first.
+         * The first incurred date the listing covers, inclusive. Either bound stands alone: a listing with only `from` runs to the present, one with only `to` runs from the first cost the firm ever recorded, and one with neither is the firm's whole record. This is the screen's Date column filter, honoured here so it is true across every page rather than over the page in hand.
          */
         from?: string;
         /**
-         * The last incurred date of a period listing, inclusive. Required alongside `from`.
+         * The last incurred date the listing covers, inclusive.
          */
         to?: string;
         /**
-         * Narrows a period listing to the costs that are billable, or to those that are not. Omitted, it answers with both.
+         * Narrows the listing to the costs that are billable, or to those that are not. Omitted, it answers with both.
          */
         billable?: 'true' | 'false';
         /**
-         * Narrows the listing to one status. Omitted, it answers with every status the matter carries, which is what a matter's cost record is.
+         * Narrows the listing to one status, or to several given repeatedly (`status=draft&status=submitted`): the screen's Status column filter, honoured here so it holds across every page. Omitted, it answers with every status the record carries, which is what a cost record is.
          */
-        status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
+        status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void' | Array<'draft' | 'submitted' | 'approved' | 'billed' | 'void'>;
+        /**
+         * Matched against the description, the matter's title and number, and the payee's name. The screen's search, honoured here so a word absent from the page in hand is looked for across the whole record.
+         */
+        search?: string;
     };
     url: '/api/v1/costs';
 };
@@ -29153,18 +29833,25 @@ export type FeesListData = {
         cursor?: string;
         matterId?: string;
         /**
-         * The first service date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — what the firm charged for work done in a period, which a per-matter listing cannot answer without walking every matter first.
+         * The first service date the listing covers, inclusive. Either bound stands alone: a listing with only `from` runs to the present, one with only `to` runs from the first fee the firm ever recorded, and one with neither is the firm's whole record. This is the screen's Date column filter, honoured here so it is true across every page rather than over the page in hand.
          */
         from?: string;
         /**
-         * The last service date of a period listing, inclusive. Required alongside `from`.
+         * The last service date the listing covers, inclusive.
          */
         to?: string;
         /**
          * Narrows a listing to the fees that are billable, or to those that are not. Omitted, it answers with both.
          */
         billable?: 'true' | 'false';
-        status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
+        /**
+         * Narrows to one status, or to several given repeatedly (`status=draft&status=submitted`): the screen's Status column filter, honoured here so it holds across every page.
+         */
+        status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void' | Array<'draft' | 'submitted' | 'approved' | 'billed' | 'void'>;
+        /**
+         * Matched against the description, the matter's title and number, and the timekeeper's name. The screen's search, honoured here so a word absent from the page in hand is looked for across the whole record.
+         */
+        search?: string;
     };
     url: '/api/v1/fees';
 };
@@ -31246,7 +31933,14 @@ export type BillingListInvoicesData = {
          * Narrows to the bills that charge this matter, drafts included, and adds that matter's own share to every row. Without it the listing answers for the whole firm, or for one client when clientEntityId is given.
          */
         matterId?: string;
-        status?: 'draft' | 'final' | 'void';
+        /**
+         * Narrows to one status, or to several given repeatedly (`status=draft&status=void`): the firm's Billing screen's Status column filter, honoured here so it holds across every page.
+         */
+        status?: 'draft' | 'final' | 'void' | Array<'draft' | 'final' | 'void'>;
+        /**
+         * Matched against the invoice number and the client's name. The screen's search, honoured here so a client absent from the page in hand is looked for across the whole register.
+         */
+        search?: string;
         cursor?: string;
     };
     url: '/api/v1/billing/invoices';
@@ -33096,17 +33790,21 @@ export type TimeEntriesListData = {
         matterId?: string;
         workDate?: string;
         /**
-         * The first work date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — the question a timekeeper asks of their own week and a supervisor asks of the firm's. Without a timekeeper the span covers everybody, which requires the time:viewFirm capability.
+         * The first work date the period listing covers, inclusive. Either bound stands alone: a listing with only `from` runs to the present, one with only `to` runs from the first entry ever recorded, and one with neither is the whole record for whoever is named. This is the firm's Time screen's Date column filter, honoured here so it is true across every page rather than over the page in hand. Without a timekeeper the listing covers everybody, which requires the time:viewFirm capability.
          */
         from?: string;
         /**
-         * The last work date of a period listing, inclusive. Required alongside `from`.
+         * The last work date the period listing covers, inclusive.
          */
         to?: string;
         /**
-         * Narrows a per-matter or period listing to one status. Omitted, the listing answers with every status the scope carries, which is what a time record is.
+         * Narrows the listing to one status, or to several given repeatedly (`status=draft&status=submitted`): the firm's Time screen's Status column filter, honoured here so it holds across every page. Omitted, the listing answers with every status the scope carries, which is what a time record is.
          */
-        status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
+        status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void' | Array<'draft' | 'submitted' | 'approved' | 'billed' | 'void'>;
+        /**
+         * Matched against the narrative, the entry number, the matter's title and number, and the timekeeper's name, on the period listing. The screen's search, honoured here so a word absent from the page in hand is looked for across the whole record.
+         */
+        search?: string;
         cursor?: string;
     };
     url: '/api/v1/time-entries';
@@ -35467,6 +36165,234 @@ export type FirmNotificationPolicyUpdateResponses = {
 };
 
 export type FirmNotificationPolicyUpdateResponse = FirmNotificationPolicyUpdateResponses[keyof FirmNotificationPolicyUpdateResponses];
+
+export type FirmProfileListBrandImagesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/profile/brand-images';
+};
+
+export type FirmProfileListBrandImagesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmProfileListBrandImagesError = FirmProfileListBrandImagesErrors[keyof FirmProfileListBrandImagesErrors];
+
+export type FirmProfileListBrandImagesResponses = {
+    /**
+     * The firm's marks
+     */
+    200: FirmBrandImagesResponse;
+};
+
+export type FirmProfileListBrandImagesResponse = FirmProfileListBrandImagesResponses[keyof FirmProfileListBrandImagesResponses];
+
+export type FirmProfileSetBrandImageData = {
+    body: SetFirmBrandImageRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/profile/brand-images';
+};
+
+export type FirmProfileSetBrandImageErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageProfile
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the file is not a PNG or a JPEG, it is too large, the firm already holds as many additional images as it may, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmProfileSetBrandImageError = FirmProfileSetBrandImageErrors[keyof FirmProfileSetBrandImageErrors];
+
+export type FirmProfileSetBrandImageResponses = {
+    /**
+     * The image is held
+     */
+    200: FirmBrandImageAck;
+};
+
+export type FirmProfileSetBrandImageResponse = FirmProfileSetBrandImageResponses[keyof FirmProfileSetBrandImageResponses];
+
+export type FirmProfileGetBrandImageContentData = {
+    body?: never;
+    path: {
+        sha256: string;
+    };
+    query?: never;
+    url: '/api/v1/firm/profile/brand-images/{sha256}/content';
+};
+
+export type FirmProfileGetBrandImageContentErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmProfileGetBrandImageContentError = FirmProfileGetBrandImageContentErrors[keyof FirmProfileGetBrandImageContentErrors];
+
+export type FirmProfileGetBrandImageContentResponses = {
+    /**
+     * The image bytes
+     */
+    200: string;
+};
+
+export type FirmProfileGetBrandImageContentResponse = FirmProfileGetBrandImageContentResponses[keyof FirmProfileGetBrandImageContentResponses];
+
+export type FirmProfileRemoveBrandImageData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        sha256: string;
+    };
+    query?: never;
+    url: '/api/v1/firm/profile/brand-images/{sha256}';
+};
+
+export type FirmProfileRemoveBrandImageErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageProfile
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The name is empty or too long, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmProfileRemoveBrandImageError = FirmProfileRemoveBrandImageErrors[keyof FirmProfileRemoveBrandImageErrors];
+
+export type FirmProfileRemoveBrandImageResponses = {
+    /**
+     * The image was removed
+     */
+    200: FirmBrandImageAck;
+};
+
+export type FirmProfileRemoveBrandImageResponse = FirmProfileRemoveBrandImageResponses[keyof FirmProfileRemoveBrandImageResponses];
+
+export type FirmProfileUpdateBrandImageData = {
+    body: UpdateFirmBrandImageRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        sha256: string;
+    };
+    query?: never;
+    url: '/api/v1/firm/profile/brand-images/{sha256}';
+};
+
+export type FirmProfileUpdateBrandImageErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageProfile
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The name is empty or too long, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmProfileUpdateBrandImageError = FirmProfileUpdateBrandImageErrors[keyof FirmProfileUpdateBrandImageErrors];
+
+export type FirmProfileUpdateBrandImageResponses = {
+    /**
+     * The image was changed
+     */
+    200: FirmBrandImageAck;
+};
+
+export type FirmProfileUpdateBrandImageResponse = FirmProfileUpdateBrandImageResponses[keyof FirmProfileUpdateBrandImageResponses];
 
 export type FirmProfileSetData = {
     body: SetFirmProfileRequest;

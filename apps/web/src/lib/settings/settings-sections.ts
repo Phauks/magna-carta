@@ -216,6 +216,23 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     editPermissionArea: "firm",
     shipped: true,
   },
+  {
+    // The firm's offices: each with its address, its contact lines, its time zone, its numbering
+    // code, who staffs it, and the mark its letterhead prints. A REGISTER page on the Users
+    // pattern — the product's one table over the offices, and every act (open one, correct one,
+    // close one, assign a member, set a logo) committed through the office's own record window
+    // against the location routes, so the posture is "applies immediately" and nothing is staged.
+    // The page's own controls are gated on locations:manage from the session, which is narrower
+    // than this section's area.
+    id: "offices",
+    label: "Offices",
+    href: "/settings/offices",
+    group: "firm",
+    scope: "firm",
+    commitMode: "instant",
+    editPermissionArea: "firm",
+    shipped: true,
+  },
   // Notifications
   {
     // What THIS member hears, category by category. A matrix rather than a page of rows: one

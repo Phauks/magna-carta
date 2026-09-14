@@ -49,8 +49,6 @@
      * column the second line keeps an empty pinned cell so that column's hairline runs unbroken.
      */
     rowDetail?: Snippet<[TRow]>;
-    /** The unfiltered empty state — the surface owns its own empty-state composition. */
-    empty?: Snippet;
     /** Placeholder rows stand in for data until it arrives. */
     loading?: boolean;
     placeholderCount?: number;
@@ -71,7 +69,6 @@
     caption,
     cell,
     rowDetail,
-    empty,
     loading = false,
     placeholderCount = 8,
     density = "comfortable",
@@ -545,6 +542,21 @@
               {/each}
             </tr>
           {/each}
+          <!--
+            NO RESULTS, AND NOTHING ELSE. Both empty branches say the same two words, and the Grid
+            says them — there is no `empty` snippet for a surface to pass, which is what keeps this
+            true rather than merely asked for. Fourteen surfaces used to compose their own, and what
+            they composed was a paragraph defining the domain term ("A packet is the physical thing
+            the firm holds and moves: an envelope, a deed box, a sealed wallet…"), which is the
+            explanatory prose the "no info lines" ruling already forbids everywhere else and which
+            belongs in docs/user/. A reader looking at a table they have narrowed, or at a firm that
+            has not started, does not need the noun explained to them.
+
+            The two branches differ in exactly one thing, and it is a control rather than a sentence:
+            a narrowed table offers the way back. That difference is worth keeping — the sentence
+            naming which filters are set was not, because the filters are on screen, in the header,
+            where the reader set them.
+          -->
         {:else if grid.rowsInView.length === 0 && grid.isFiltered}
           <tr class="mc-table-row" data-placeholder="true">
             <td
@@ -553,12 +565,7 @@
             >
               <div class="mc-table-grid-placeholder-frame">
                 <div class="mc-table-grid-empty">
-                  <p>
-                    No {grid.totalRowCount === 1 ? grid.itemNoun.singular : grid.itemNoun.plural} match
-                    the {grid.activeFilterCount === 1 ? "filter" : "filters"} on
-                    {grid.activeFilterLabels.join(", ")}. All {grid.totalRowCount}
-                    {grid.totalRowCount === 1 ? grid.itemNoun.singular : grid.itemNoun.plural} are hidden.
-                  </p>
+                  <p>No Results</p>
                   <Button variant="secondary" size="sm" onclick={() => grid.clearAllFilters()}>
                     <FunnelX class="mc-table-filter-icon" aria-hidden="true" />
                     Clear All Filters
@@ -573,17 +580,10 @@
               class="mc-table-cell mc-table-grid-cell mc-table-grid-placeholder"
               colspan={grid.visibleColumns.length}
             >
-              <!-- The surface's own empty state renders inside the SAME frame as the built-in one,
-                   so a composed empty state centres in the visible width exactly as the default
-                   does. A surface cannot get this wrong, because it does not supply it. -->
               <div class="mc-table-grid-placeholder-frame">
-                {#if empty}
-                  {@render empty()}
-                {:else}
-                  <div class="mc-table-grid-empty">
-                    <p>No {grid.itemNoun.plural} yet.</p>
-                  </div>
-                {/if}
+                <div class="mc-table-grid-empty">
+                  <p>No Results</p>
+                </div>
               </div>
             </td>
           </tr>

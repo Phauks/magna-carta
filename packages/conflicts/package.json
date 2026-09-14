@@ -29,7 +29,8 @@
     "./recheck-request": "./src/recheck-request.ts",
     "./candidate-bound": "./src/candidate-bound.ts",
     "./edge-classes": "./src/edge-classes.ts",
-    "./waiver": "./src/waiver.ts"
+    "./waiver": "./src/waiver.ts",
+    "./check-run": "./src/check-run.ts"
   },
   "scripts": {
     "test": "vp test run"

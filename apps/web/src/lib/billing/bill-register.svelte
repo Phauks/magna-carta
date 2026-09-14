@@ -28,7 +28,6 @@
   import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import FileMinus from "@lucide/svelte/icons/file-minus";
@@ -472,12 +471,6 @@
   {/if}
 {/snippet}
 
-{#snippet emptyRegister()}
-  <EmptyState title="No Bills Yet">
-    Every bill this client has been given appears here, with this matter&rsquo;s own share of each.
-    Draft one when there is work to bill: New Bill, at the top of the matter, opens the draft.
-  </EmptyState>
-{/snippet}
 
 <!-- The counts strip's trailing figures. The surface seats the pane toggle after them. -->
 {#snippet figuresStrip()}
@@ -530,7 +523,6 @@
         class={tableClass}
         {density}
         caption="Bills this matter's client has been given"
-        empty={emptyRegister}
         {loading}
       />
     </div>

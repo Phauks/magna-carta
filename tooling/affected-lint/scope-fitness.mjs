@@ -44,14 +44,47 @@ export const GATE_INVOCATIONS = {
   postMerge: 'node tooling/affected-lint/index.mjs --base "$base" --max-hops all',
 };
 
-// The sink rule must stay a rule about outliers. At most this many packages may be selected, and each
-// must weigh at least this multiple of the heaviest NON-sink package. Measured 2026-08-05: the one
-// sink (@magna-carta/api-worker) weighs 1261 lintable files against the next package's 550 — a factor of
-// 2.29. The floor is set below that with room to breathe; if a genuine second sink ever appears, raise
-// the count deliberately and record the measured distribution here, never widen it to make a red run
-// green.
+// The sink rule must stay a rule about outliers: at most this many packages may be selected.
+//
+// THAT CAP IS THE WHOLE GUARD, AND IT IS ENOUGH. Selection is already an outlier test — a package is
+// a sink only when its type program reaches FANOUT_SINK_SHARE of every lintable file in the
+// workspace (index.mjs sets that share from measured lint times). The cap is what stops a
+// dependency-shape change from quietly turning a slice of the workspace into deferred work, and the
+// `sinks.size === 0` branch below is what stops the deferral becoming a silent no-op. Between them
+// the two failure modes worth failing on are covered.
+//
+// A RATIO AGAINST THE NEIGHBOUR WAS TRIED TWICE AND RETUNED TWICE. It compared the sink to the
+// heaviest NON-sink package, and second place moving is not evidence about first place: it decayed
+// monotonically as apps/web grew — simulated, 1.44 / 1.30 / 1.16 at +50 / +200 / +400 files. The
+// floor was set at 1.5 on 2026-08-05 against a 2.29x distribution, and lowered to 1.3 on 2026-09-12
+// when the web application's growth had taken it to exactly 1.50 — the note then recorded that "the
+// distribution did not flatten, its second member grew", which is right, and is the reason this is
+// not a measurement worth gating on: the second member growing is the product being built. Two days
+// later it read 1.50 again on the same numerator. A floor that has to be lowered every few weeks to
+// track ordinary work is a tripwire with a maintenance schedule, not a guard.
+//
+// A MARGIN AGAINST THE SELECTION THRESHOLD replaced it here and was also wrong: better shaped, but
+// still a growth tripwire (apps/web crossing the bar at 1.08x failed the gate at +200 files rather
+// than simply not being selected), and it could DESELECT the expensive package while keeping a
+// cheaper one, which is the opposite of the point. A borderline package is not a problem to fail on:
+// it is either over the bar, in which case deferring it is right and post-merge covers it anyway, or
+// it is under, in which case it is not selected. Simulated over this graph with the cap alone, the
+// rule stays green from today through +1200 files in apps/web while apps/web joins as a genuine
+// second sink and api-worker eventually ages out of one — each of which is the rule working.
+//
+// MEASURED 2026-09-14 (85 packages, 3088 lintable files, threshold 1081 at a 0.35 share). These are
+// type-program weights on the CORRECTED numerator — a package's own files plus its dependencies'
+// IMPORTABLE files, tests excluded, because nothing imports a test (index.mjs says why):
+//   @magna-carta/api-worker    1413  45.8%  — selected, 1.31x the threshold
+//   @magna-carta/web           1042  33.7%  — not selected
+//   @magna-carta/web-worker     869  28.1%  — never selectable: no lintable files of its own
+//   @magna-carta/fixtures       596  19.3%
+//   @magna-carta/notifications  432  14.0%
+// Corroborated by measured lint time rather than by the proxy alone: api-worker is 4.6x apps/web and
+// 7.1x a typical domain package, and its per-file cost is superlinear, so the proxy understates it.
+// The timings are recorded beside FANOUT_SINK_SHARE in index.mjs. Raise the cap only with a fresh
+// distribution AND fresh timings in hand; never to make a red run green.
 export const MAX_FANOUT_SINKS = 2;
-export const MIN_SINK_SEPARATION = 1.5;
 
 // The true transitive dependent closure of `seed`, by repeated relaxation over the FORWARD dependency
 // edges: keep adding any package that depends on something already in the set until nothing changes.
@@ -143,7 +176,7 @@ export function verifyScopeCoverage({ packages, sinks, computeScope = computeAff
   return problems;
 }
 
-export function verifySinkSelection({ weights, sinks }) {
+export function verifySinkSelection({ sinks }) {
   const problems = [];
   if (sinks.size === 0) {
     problems.push(
@@ -156,22 +189,6 @@ export function verifySinkSelection({ weights, sinks }) {
       `  ${sinks.size} fan-out sinks selected (cap ${MAX_FANOUT_SINKS}): ${[...sinks].join(", ")} — the rule is meant to catch outliers, not a slice of the workspace`,
     );
   }
-  let heaviestNonSink = 0;
-  let heaviestNonSinkName = "(none)";
-  for (const [name, weight] of weights) {
-    if (!sinks.has(name) && weight > heaviestNonSink) {
-      heaviestNonSink = weight;
-      heaviestNonSinkName = name;
-    }
-  }
-  for (const name of sinks) {
-    const weight = weights.get(name) ?? 0;
-    if (heaviestNonSink > 0 && weight < heaviestNonSink * MIN_SINK_SEPARATION) {
-      problems.push(
-        `  ${name} weighs ${weight} lintable files against ${heaviestNonSinkName}'s ${heaviestNonSink} — a factor of ${(weight / heaviestNonSink).toFixed(2)}, under the ${MIN_SINK_SEPARATION}x separation the outlier rule needs`,
-      );
-    }
-  }
   return problems;
 }
 
@@ -181,17 +198,21 @@ function main() {
     console.error("lint-affected-scope: discovered no workspace packages — refusing to pass");
     process.exit(1);
   }
-  const { weights, sinks, totalLintableFiles } = resolveFanoutSinks({ root: ROOT, packages });
+  const { weights, sinks, totalLintableFiles, threshold } = resolveFanoutSinks({
+    root: ROOT,
+    packages,
+  });
 
   const problems = [
     ...verifyWorkflowInvocations(readFileSync(WORKFLOW_PATH, "utf8")),
-    ...verifySinkSelection({ weights, sinks }),
+    ...verifySinkSelection({ sinks }),
     ...verifyScopeCoverage({ packages, sinks }),
   ];
 
   const ranked = [...weights].toSorted((a, b) => b[1] - a[1]).slice(0, 5);
   console.log(
-    `lint-affected-scope: ${packages.size} workspace packages, ${totalLintableFiles} lintable files.`,
+    `lint-affected-scope: ${packages.size} workspace packages, ${totalLintableFiles} lintable files, ` +
+      `sink threshold ${Math.round(threshold)} (at most ${MAX_FANOUT_SINKS} may be deferred).`,
   );
   console.log("  heaviest type programs (lintable files in the dependency closure):");
   for (const [name, weight] of ranked) {

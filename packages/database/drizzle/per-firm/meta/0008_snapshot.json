@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "88a4ba57-e1b9-4c43-9462-2900d46ae302",
+  "id": "9d56f4d4-ad35-4745-ab58-322f7e83fa7f",
   "prevId": "9b62787f-59e3-427b-ab39-352316b9bb01",
   "tables": {
     "account_balance": {
@@ -12506,6 +12506,92 @@
         }
       }
     },
+    "magnus_conversation_attachment": {
+      "name": "magnus_conversation_attachment",
+      "columns": {
+        "conversation_id": {
+          "name": "conversation_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "file_id": {
+          "name": "file_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "attached_at": {
+          "name": "attached_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "text_status": {
+          "name": "text_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'pending'"
+        },
+        "text_bytes": {
+          "name": "text_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "magnus_conversation_attachment_conversation_id_magnus_conversation_id_fk": {
+          "name": "magnus_conversation_attachment_conversation_id_magnus_conversation_id_fk",
+          "tableFrom": "magnus_conversation_attachment",
+          "tableTo": "magnus_conversation",
+          "columnsFrom": [
+            "conversation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "magnus_conversation_attachment_file_id_file_id_fk": {
+          "name": "magnus_conversation_attachment_file_id_file_id_fk",
+          "tableFrom": "magnus_conversation_attachment",
+          "tableTo": "file",
+          "columnsFrom": [
+            "file_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "magnus_conversation_attachment_conversation_id_file_id_pk": {
+          "columns": [
+            "conversation_id",
+            "file_id"
+          ],
+          "name": "magnus_conversation_attachment_conversation_id_file_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "magnus_conversation_attachment_text_status_check": {
+          "name": "magnus_conversation_attachment_text_status_check",
+          "value": "\"magnus_conversation_attachment\".\"text_status\" IN ('pending', 'sent', 'cut', 'unreadable')"
+        }
+      }
+    },
     "magnus_member_acknowledgement": {
       "name": "magnus_member_acknowledgement",
       "columns": {
@@ -12792,13 +12878,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "intake_number": {
-          "name": "intake_number",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "system_key": {
           "name": "system_key",
           "type": "text",
@@ -12865,14 +12944,6 @@
           ],
           "isUnique": true,
           "where": "\"matter\".\"consultation_number\" IS NOT NULL"
-        },
-        "matter_intake_number_unique_index": {
-          "name": "matter_intake_number_unique_index",
-          "columns": [
-            "intake_number"
-          ],
-          "isUnique": true,
-          "where": "\"matter\".\"intake_number\" IS NOT NULL"
         },
         "matter_system_key_unique_index": {
           "name": "matter_system_key_unique_index",

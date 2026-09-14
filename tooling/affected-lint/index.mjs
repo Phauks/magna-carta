@@ -70,6 +70,29 @@ export const GLOBAL_TRIGGER_PREFIXES = [
 // script, most of tooling/) can't be scoped via the graph, so it forces a whole-repo lint.
 const LINT_EXTENSIONS = new Set([".ts", ".tsx", ".mts", ".cts", ".js", ".mjs", ".cjs"]);
 
+/*
+ * Package sources the linter is configured never to read, held verbatim from `lint.ignorePatterns`
+ * in the root vite.config.ts and checked against it by scope-fitness.mjs, so the two cannot drift.
+ *
+ * WHY THE COST PROXY HAS TO KNOW. The proxy below counts a package's transitive closure by file
+ * EXTENSION, which was right while every `.ts` file in the workspace was one the linter opens. The
+ * generated Hey API client is not: it is excluded from lint outright (its codegen idioms trip our
+ * rules) and type-checked by its own `tsc -p` instead. Counting it charged @magna-carta/web 19 files
+ * of lint minutes that the linter does not spend, and that error lands on the one measurement the
+ * fan-out-sink rule is decided by — a package can be pushed across the outlier threshold by a
+ * dependency that costs the linter nothing. Only the two whole-directory package excludes are
+ * listed; `.claude/worktrees/**` is outside every package and cannot reach this count.
+ */
+export const LINT_EXCLUDED_PACKAGE_SOURCES = ["packages/api-client/src"];
+
+/** True when the linter is configured to skip this directory and everything under it. */
+function isLintExcluded(directory, root) {
+  const relative = path.relative(root, directory).split(path.sep).join("/");
+  return LINT_EXCLUDED_PACKAGE_SOURCES.some(
+    (excluded) => relative === excluded || relative.startsWith(`${excluded}/`),
+  );
+}
+
 // Discover every workspace package as name -> { dir (repo-relative, POSIX), deps:Set<@magna-carta/*> }.
 // Unlike the tsconfig-references graph this includes web and api-client: they are lint dependents whose
 // findings can flip when a dependency changes, even though api-client's own src is lint-ignored.
@@ -112,35 +135,78 @@ const UNCOUNTED_DIRECTORIES = new Set([
   ".vite",
 ]);
 
-function countLintableFiles(directory) {
-  let total = 0;
+/*
+ * A test file — one nothing in the product imports.
+ *
+ * This matters because the two counts below diverge on exactly this set. A package's OWN tests are
+ * linted with it, so they are part of ITS cost. A DEPENDENCY's tests are not: the type-aware linter
+ * builds its program from what the code under lint imports, and no source file imports a test. They
+ * were being counted anyway, and across api-worker's 61-package closure that was 609 files of lint
+ * work nobody does — 30% of the number the fan-out-sink rule is decided by.
+ */
+function isTestFile(relativePath) {
+  const segments = relativePath.split("/");
+  return (
+    segments.includes("test") ||
+    segments.includes("tests") ||
+    segments.includes("__tests__") ||
+    /\.test\.[mc]?tsx?$/.test(relativePath) ||
+    /\.spec\.[mc]?tsx?$/.test(relativePath)
+  );
+}
+
+/**
+ * Count a package's lintable files, split by what each count is for.
+ *
+ * `linted` is every lintable file in the package — what a lint of THIS package covers, tests
+ * included. `importable` drops the tests — what a lint of a package that DEPENDS on this one has to
+ * pull into its type program. See `isTestFile` for why the two differ.
+ */
+function countLintableFiles(directory, root) {
+  if (root !== undefined && isLintExcluded(directory, root)) return { linted: 0, importable: 0 };
+  let linted = 0;
+  let importable = 0;
   let entries;
   try {
     entries = readdirSync(directory, { withFileTypes: true });
   } catch {
-    return 0;
+    return { linted: 0, importable: 0 };
   }
   for (const entry of entries) {
+    const child = path.join(directory, entry.name);
     if (entry.isDirectory()) {
       if (!UNCOUNTED_DIRECTORIES.has(entry.name) && !entry.name.startsWith(".")) {
-        total += countLintableFiles(path.join(directory, entry.name));
+        const nested = countLintableFiles(child, root);
+        linted += nested.linted;
+        importable += nested.importable;
       }
     } else if (LINT_EXTENSIONS.has(path.posix.extname(entry.name))) {
-      total += 1;
+      linted += 1;
+      const relative =
+        root === undefined ? entry.name : path.relative(root, child).split(path.sep).join("/");
+      if (!isTestFile(relative)) importable += 1;
     }
   }
-  return total;
+  return { linted, importable };
 }
 
 // The cost proxy: how many lintable files the type-aware linter has to pull into a type program to
-// lint this package — the package's own files plus every file in its transitive DEPENDENCY closure.
-// This is the direction the linter reads (a package's findings depend on what it imports), which is
-// the opposite of the dependent walk the scope is computed with, and it is what makes one package's
-// lint minutes and another's seconds. Returns name -> weight.
+// lint this package — the package's own files (tests included; they are linted with it) plus the
+// IMPORTABLE files of its transitive dependency closure. This is the direction the linter reads (a
+// package's findings depend on what it imports), which is the opposite of the dependent walk the
+// scope is computed with, and it is what makes one package's lint minutes and another's seconds.
+//
+// The own/dependency asymmetry is the whole point and was the bug: the proxy used to add every
+// lintable file in the closure, tests and all. A dependency's tests are never pulled into a
+// dependent's type program — nothing imports a test — so they were 609 phantom files on
+// api-worker's 61-package closure, 30% of the one number the fan-out-sink rule is decided by.
+// Verified against measured lint times; see scope-fitness.mjs for the figures and what they settled.
+//
+// Returns name -> weight.
 export function computeTypeProgramWeights({ root, packages }) {
-  const ownFiles = new Map();
+  const counts = new Map();
   for (const [name, member] of packages) {
-    ownFiles.set(name, countLintableFiles(path.join(root, member.dir)));
+    counts.set(name, countLintableFiles(path.join(root, member.dir), root));
   }
   const weights = new Map();
   for (const name of packages.keys()) {
@@ -152,8 +218,10 @@ export function computeTypeProgramWeights({ root, packages }) {
       closure.add(current);
       for (const dependency of packages.get(current)?.deps ?? []) stack.push(dependency);
     }
-    let weight = 0;
-    for (const member of closure) weight += ownFiles.get(member) ?? 0;
+    let weight = counts.get(name)?.linted ?? 0;
+    for (const member of closure) {
+      if (member !== name) weight += counts.get(member)?.importable ?? 0;
+    }
     weights.set(name, weight);
   }
   return weights;
@@ -161,18 +229,52 @@ export function computeTypeProgramWeights({ root, packages }) {
 
 // A package is a fan-out sink when its type program is at least this share of every lintable file in
 // the workspace. Expressed as a SHARE rather than a file count so it needs no re-tuning as the repo
-// grows: the point is "this package's lint is effectively a whole-repo lint", which is a ratio, not an
-// absolute. Measured 2026-08-05: apps/api-worker's closure is 1261 of 1669 lintable files (75.6%); the next
-// package down is 550 (33%) and the median is 34 (2%). At 0.5 the rule selects exactly the one genuine
-// outlier, with the next candidate at two thirds of the threshold. Raise or lower it only with the
-// measured distribution in hand — scope-fitness.mjs beside this file prints it and fails if the rule ever
-// selects a broad slice of the workspace rather than a couple of outliers.
-export const FANOUT_SINK_SHARE = 0.5;
+// grows: the point is "this package's lint costs what a whole-repo lint costs", which is a ratio, not
+// an absolute.
+//
+// LOWERED FROM 0.5 TO 0.35 ON 2026-09-14, together with the weighting fix above and NOT independently
+// of it. Dropping the 609 phantom dependency-test files moved apps/api-worker from 2022 to 1413 of
+// 3088 — from 65% of the workspace to 46% — so at 0.5 it stopped being selected and the deferral
+// became a silent no-op. The share had been calibrated against an inflated numerator; correcting one
+// without the other would have changed the gate's behaviour while appearing to leave it alone.
+//
+// 0.35 is set from MEASURED LINT TIME rather than from the proxy, because the proxy is what was in
+// question. Warm `vp check --no-fmt <package>` on 2026-09-14 (one machine, second of two runs):
+//   apps/api-worker     11,730 ms   (first run, cold: 16,774)
+//   apps/web             2,561 ms
+//   packages/data-access 2,088 ms
+//   packages/trust       1,652 ms
+//   packages/money       1,372 ms
+// api-worker is 4.6x apps/web and 7.1x a typical domain package, which is what justifies deferring it
+// off the pull-request tier and justifies nothing else being deferred. Note the per-file cost is
+// superlinear — 8.3 ms/file for api-worker against 2.5 for apps/web — so a file-count proxy
+// UNDERSTATES the outlier it is selecting, which is the safe direction for this rule to be wrong in.
+//
+// At 0.35 the threshold is 1081: api-worker clears it at 1.31x and apps/web (1042) sits below, which
+// reproduces exactly the selection the gate has been making, now on a numerator that means what it
+// says. Raise or lower it only with a fresh distribution AND fresh timings in hand — scope-fitness.mjs
+// prints the distribution and fails if the rule ever selects a broad slice of the workspace.
+export const FANOUT_SINK_SHARE = 0.35;
 
-export function selectFanoutSinks({ weights, share = FANOUT_SINK_SHARE, totalLintableFiles }) {
+export function selectFanoutSinks({
+  weights,
+  share = FANOUT_SINK_SHARE,
+  totalLintableFiles,
+  ownFiles = new Map(),
+}) {
   const threshold = totalLintableFiles * share;
   const sinks = new Set();
-  for (const [name, weight] of weights) if (weight >= threshold) sinks.add(name);
+  for (const [name, weight] of weights) {
+    if (weight < threshold) continue;
+    // A package with no lintable files OF ITS OWN cannot be a sink, however heavy its closure.
+    // Deferring it defers no lint work — there is nothing in it to lint — while its weight is
+    // entirely its dependencies', which are selected on their own merits or not at all. apps/web-worker
+    // is the live case: zero own files, one dependency on apps/web, and therefore apps/web's weight
+    // exactly and forever. Counting it as a second sink would report the same lint minutes twice and
+    // spend the two-sink budget on a package whose deferral saves nothing.
+    if (ownFiles.size > 0 && (ownFiles.get(name) ?? 0) === 0) continue;
+    sinks.add(name);
+  }
   return sinks;
 }
 
@@ -296,10 +398,19 @@ export function resolveFanoutSinks({ root, packages }) {
   // covers; a weight is measured against that, not against the sum of the weights (which
   // double-counts every shared dependency).
   let totalLintableFiles = 0;
-  for (const member of packages.values()) {
-    totalLintableFiles += countLintableFiles(path.join(root, member.dir));
+  const ownFiles = new Map();
+  for (const [name, member] of packages) {
+    const own = countLintableFiles(path.join(root, member.dir), root).linted;
+    ownFiles.set(name, own);
+    totalLintableFiles += own;
   }
-  return { weights, totalLintableFiles, sinks: selectFanoutSinks({ weights, totalLintableFiles }) };
+  return {
+    weights,
+    ownFiles,
+    totalLintableFiles,
+    threshold: totalLintableFiles * FANOUT_SINK_SHARE,
+    sinks: selectFanoutSinks({ weights, totalLintableFiles, ownFiles }),
+  };
 }
 
 if (isMain()) {

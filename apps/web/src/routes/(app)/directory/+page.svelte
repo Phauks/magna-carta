@@ -516,14 +516,6 @@
       cell={directoryCell}
       loading={records === null}
     >
-      {#snippet empty()}
-        <!-- A filter emptying the table is the grid's own empty state to explain, and the way back
-             is the control above it. This one is the other case: the firm holds no records at all. -->
-        <EmptyState title="No Records Yet">
-          Clients, opposing parties, counsel and courts all live here. Recording somebody, with New
-          at the top of the screen, is what puts them in front of the next conflicts check.
-        </EmptyState>
-      {/snippet}
     </DataTable.Grid>
 
     <DataTable.GridFooter {grid}>

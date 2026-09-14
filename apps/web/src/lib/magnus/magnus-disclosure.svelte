@@ -4,9 +4,10 @@
    * version in force moves.
    *
    * WHAT IT HAS TO SAY IS FIXED, not editorial. Four facts a member must hold before they type:
-   * the message leaves the platform for an outside model provider; the assistant sees only what
-   * they type in that conversation; it can do nothing but answer; and the transcript is kept as a
-   * firm record. Then the sentence an administrator does not need told and the person typing does:
+   * the message leaves the platform for an outside model provider; the assistant sees what they
+   * type in that conversation and the text of the files they attach to it, and nothing else; it
+   * can do nothing but answer; and the transcript is kept as a firm record. Then the sentence an
+   * administrator does not need told and the person typing does:
    * the assistant can be wrong, its output is not legal advice, and verifying anything they rely on
    * is theirs. None of the five may be softened, and the last one may not be dropped.
    *
@@ -41,8 +42,8 @@
       body: "Your message is sent out through the platform's model gateway to an outside model provider, which is what produces the answer.",
     },
     {
-      heading: "Magnus sees only what you type",
-      body: "It reads the messages in the conversation you are in and nothing else: no matter files, no calendar, no directory, no documents. Keeping a conversation on a matter's file does not change that.",
+      heading: "Magnus sees what you type, and the files you attach",
+      body: "It reads the messages in the conversation you are in, and the readable text of any file you attach to it from the matter's own files. Nothing else: no other documents, no calendar, no directory. Keeping a conversation on a matter's file does not, by itself, let it read the matter.",
     },
     {
       heading: "Magnus can only answer",

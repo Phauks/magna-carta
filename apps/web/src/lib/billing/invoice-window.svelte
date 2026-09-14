@@ -313,6 +313,8 @@
 <!-- LEFT: the bill itself, or the workbench that is about to become one. -->
 {#snippet record()}
   {#if row === null}
+    <!-- structured-empty-allow: the window opens on a bill and closes with it; a null row is the
+         closed window's type narrowing, not a bill whose facts are still arriving -->
     <p class="text-sm text-text-muted">No bill is open.</p>
   {:else}
     <div class="flex flex-col gap-16">
@@ -807,16 +809,13 @@
 
 {#snippet historyTab()}
   <div class="flex flex-col gap-16">
+    <!-- What the rail does not carry yet is the rail's own last line, inside its frame. -->
     <EventRail
       events={historyEvents}
       label="This bill's history"
       emptyMessage="Nothing has been recorded against this bill yet."
+      note={`Created and finalized are read off the bill itself. Every other event (who drew the number, each application, each revision) is on the firm's audit trail, which is not built yet: waiting on ${BILL_DEPENDENCIES.history}.`}
     />
-    <p class="text-xs text-text-muted">
-      Created and finalized are read off the bill itself. Every other event — who drew the number,
-      each application, each revision — is on the firm&rsquo;s audit trail: not built yet, waiting on
-      {BILL_DEPENDENCIES.history}.
-    </p>
     {#if isFinal}
       <div class="flex flex-col gap-8 border-t border-border-default pt-12">
         <SoonAffordance reason={BILL_DEPENDENCIES.reminders}>
@@ -842,21 +841,18 @@
 
 {#snippet deliveryTab()}
   <div class="flex flex-col gap-16">
-    {#if !isFinal}
-      <p class="flex items-start gap-8 text-sm text-text-muted">
-        <Info class="mt-4 size-16 shrink-0" aria-hidden="true" />
-        <span>Only a finalized bill can be delivered.</span>
-      </p>
-    {:else if deliveries === null}
-      <p class="text-sm text-text-muted">Reading this bill&rsquo;s delivery record.</p>
-    {:else if deliveryEvents.length === 0}
-      <p class="text-sm text-status-warning-subtle-foreground">
-        No delivery of this bill has been recorded. The platform records deliveries the firm made; it
-        sends nothing itself.
-      </p>
-    {:else}
-      <EventRail events={deliveryEvents} label="This bill's delivery attempts" />
-    {/if}
+    <!-- The rail stands before a delivery is recorded, and while the record is read: a draft's
+         rail says why it is empty, a final bill's says that nothing was recorded, both inside the
+         frame the deliveries will fill. -->
+    <EventRail
+      events={deliveryEvents}
+      label="This bill's delivery attempts"
+      loading={isFinal && deliveries === null}
+      loadingMessage="Reading this bill's delivery record"
+      emptyMessage={isFinal
+        ? "No delivery of this bill has been recorded. The platform records deliveries the firm made; it sends nothing itself."
+        : "Only a finalized bill can be delivered."}
+    />
   </div>
 {/snippet}
 

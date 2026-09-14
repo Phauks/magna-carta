@@ -1,19 +1,30 @@
 /*
- * The one lifecycle step each matter status offers, and the facts the status window states beside
- * it.
+ * The lifecycle steps each matter status offers, and the facts the status window states beside
+ * them.
  *
  * WHY THIS IS A MODEL AND NOT MARKUP. The words on the window that closes a firm's file are worth a
  * test, and a test cannot reach a sentence written inside a template.
  *
- * STEPS, NEVER A PICKER. A matter's status is not a field somebody chooses a value for. Each
- * status offers the next steps the lifecycle allows from where it stands, and no others: an intake
- * completes into a consultation, a consultation opens, an active matter closes or is put on hold,
- * a matter on hold is released or closes, a closed matter reopens. That is also the shape of the
+ * STEPS, NEVER A PICKER — AND THE SEAL OFFERS THE STEPS. A matter's status is not a field somebody
+ * chooses a value for. Each status offers the next steps the lifecycle allows from where it
+ * stands, and no others: an intake completes into a consultation; a consultation opens, is put on
+ * hold, or closes (the firm decided against it); an active matter closes or is put on hold; a
+ * matter on hold is released or closes; a closed matter reopens. That is also the shape of the
  * contract — one operation per step, each a POST, none of which takes a status (the hold alone
- * takes a body: its reason). A control that let somebody pick "Closed" from a list would be
- * offering a state the lifecycle may not put a matter in from where it stands. Where a status
- * offers two steps, the first is the one the lifecycle runs toward and the second is the pause or
- * the exit.
+ * takes a body: its reason).
+ *
+ * The status seal on the matter's header is a dropdown of exactly these steps (owner ruling,
+ * 2026-09-11), and that is why the dropdown is still not a picker: what it lists is what can be
+ * DONE from where the matter stands, never the five statuses. A control that let somebody pick
+ * "Closed" from a list would be offering a state the lifecycle may not put a matter in from where
+ * it stands — and it would have nowhere to ask for the hold's reason, or to show what closing
+ * requires. So each step says how it is taken from the seal (`takenFrom`): a step that needs
+ * input, or that has requirements worth reading before it is pressed, opens the status window at
+ * that step; a step that needs nothing runs from its own confirmation. The window stays either
+ * way, because it is where the facts live — the number, the engagement, the paper file.
+ *
+ * Where a status offers several steps, the first is the one the lifecycle runs toward, then the
+ * pause, then the exit.
  *
  * THE PROGRAM ANSWERS THE REQUIREMENTS, NOT THE READER. The close-readiness route runs the firm's
  * own registered rules read-only, so the window lists what closing requires with each one already
@@ -52,6 +63,19 @@ export interface MatterLifecycleStep {
   readonly doneSentence: string;
   /** What is said when the step failed and the server did not say why. */
   readonly failureSentence: string;
+  /**
+   * How the step is taken from the status seal's menu. `window` opens the status window at the
+   * step: it needs input (the hold's reason), or it has requirements the reader should see
+   * answered before pressing (the close, the open, the intake's completion). `confirmation` asks
+   * its one question and runs: nothing gates it but the permission, and there is nothing to read
+   * first.
+   */
+  readonly takenFrom: "window" | "confirmation";
+  /**
+   * The confirmation, for a step taken from one: what is asked, and the one sentence saying what
+   * the step does to the record. Null for a step taken in the window, which shows that itself.
+   */
+  readonly confirmation: { readonly heading: string; readonly sentence: string } | null;
 }
 
 /**
@@ -71,6 +95,8 @@ const GRADUATE_STEP: MatterLifecycleStep = {
   permission: GRADUATE_MATTER_PERMISSION,
   doneSentence: "The intake is complete. The matter is a consultation.",
   failureSentence: "The intake could not be completed.",
+  takenFrom: "window",
+  confirmation: null,
 };
 const OPEN_STEP: MatterLifecycleStep = {
   action: "open",
@@ -79,6 +105,8 @@ const OPEN_STEP: MatterLifecycleStep = {
   permission: OPEN_MATTER_PERMISSION,
   doneSentence: "The matter is open.",
   failureSentence: "The matter could not be opened.",
+  takenFrom: "window",
+  confirmation: null,
 };
 const HOLD_STEP: MatterLifecycleStep = {
   action: "hold",
@@ -87,14 +115,31 @@ const HOLD_STEP: MatterLifecycleStep = {
   permission: HOLD_MATTER_PERMISSION,
   doneSentence: "The matter is on hold. It keeps its number, and returns to active when released.",
   failureSentence: "The matter could not be put on hold.",
+  takenFrom: "window",
+  confirmation: null,
+};
+// The same pause on a consultation, said in the consultation's own terms: the firm has parked a
+// file it has not decided on. It wears its tentative number, and a release returns it to being a
+// consultation — never to active, because nothing opened it.
+const CONSULTATION_HOLD_STEP: MatterLifecycleStep = {
+  ...HOLD_STEP,
+  doneSentence:
+    "The consultation is on hold. It keeps its tentative number, and is a consultation again when released.",
+  failureSentence: "The consultation could not be put on hold.",
 };
 const RELEASE_STEP: MatterLifecycleStep = {
   action: "release",
   label: "Release Hold",
   busyLabel: "Releasing",
   permission: HOLD_MATTER_PERMISSION,
-  doneSentence: "The hold is released. The matter is active again.",
+  doneSentence: "The hold is released. The matter is back where the hold found it.",
   failureSentence: "The hold could not be released.",
+  takenFrom: "confirmation",
+  confirmation: {
+    heading: "Release the Hold?",
+    sentence:
+      "Work resumes. The matter returns to where the hold found it, the reason clears, and the record keeps that it was held.",
+  },
 };
 const CLOSE_STEP: MatterLifecycleStep = {
   action: "close",
@@ -103,6 +148,18 @@ const CLOSE_STEP: MatterLifecycleStep = {
   permission: CLOSE_MATTER_PERMISSION,
   doneSentence: "The matter is closed.",
   failureSentence: "The matter could not be closed.",
+  takenFrom: "window",
+  confirmation: null,
+};
+// Declining a consultation is a close: the same operation, the same requirements (which a
+// consultation with nothing on its ledgers passes), and the same additive record afterwards. It
+// keeps its tentative number and draws no matter number, so the firm's matter run stays dense.
+const CONSULTATION_CLOSE_STEP: MatterLifecycleStep = {
+  ...CLOSE_STEP,
+  label: "Close Consultation",
+  doneSentence:
+    "The consultation is closed. It keeps its tentative number and drew no matter number.",
+  failureSentence: "The consultation could not be closed.",
 };
 const REOPEN_STEP: MatterLifecycleStep = {
   action: "reopen",
@@ -111,17 +168,24 @@ const REOPEN_STEP: MatterLifecycleStep = {
   permission: REOPEN_MATTER_PERMISSION,
   doneSentence: "The matter is back where it was before it closed.",
   failureSentence: "The matter could not be reopened.",
+  takenFrom: "confirmation",
+  confirmation: {
+    heading: "Reopen the Matter?",
+    sentence:
+      "The matter returns to the status it left: the hold it was in, Active if it had been opened, else the consultation or intake it was. Its number is unchanged and the recorded close date clears.",
+  },
 };
 
 /**
- * The steps each status offers, the first being the one the lifecycle runs toward. An active
- * matter closes, or pauses; a matter on hold resumes, or closes without resuming.
+ * The steps each status offers, the first being the one the lifecycle runs toward. A consultation
+ * opens, or pauses, or closes as declined; an active matter closes, or pauses; a matter on hold
+ * resumes, or closes without resuming.
  */
 export const MATTER_LIFECYCLE_STEPS: Readonly<
   Record<MatterStatus, readonly MatterLifecycleStep[]>
 > = {
   intake: [GRADUATE_STEP],
-  consultation: [OPEN_STEP],
+  consultation: [OPEN_STEP, CONSULTATION_HOLD_STEP, CONSULTATION_CLOSE_STEP],
   open: [CLOSE_STEP, HOLD_STEP],
   hold: [RELEASE_STEP, CLOSE_STEP],
   closed: [REOPEN_STEP],

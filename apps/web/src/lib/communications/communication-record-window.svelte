@@ -658,19 +658,16 @@
   </div>
 {/snippet}
 
+<!-- The history is the rail and nothing beside it. Where data will arrive, the structure that will
+     hold it renders first, and the words that explain the emptiness live inside its own empty
+     state, short (owner ruling, 2026-09-14). The rail renders its empty line rather than an empty
+     frame today; the frame is a design-system change. -->
 {#snippet historyTab()}
   <EventRail
     events={historyEvents}
     label="This call or text's history"
-    emptyMessage={creating
-      ? "Nothing yet. Saving this records who wrote it down and when, which is the first thing this history carries."
-      : "Nothing has been recorded about this record yet."}
+    emptyMessage="Nothing has been recorded about this record yet."
   />
-  <p class="mt-16 text-xs text-text-muted">
-    A member's account of a call and a carrier's report of the same call carry different weight.
-    Nothing is sent or received from the platform yet, so every record here was written down by
-    whoever made or took the call.
-  </p>
 {/snippet}
 
 {#snippet actions({ editing: inEdit }: { editing: boolean })}

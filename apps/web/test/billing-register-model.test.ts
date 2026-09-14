@@ -9,12 +9,16 @@
 import { describe, expect, it } from "vitest";
 import type { InvoiceDetail, InvoiceListItem } from "../src/lib/billing/billing-api.ts";
 import type { InvoiceRow } from "../src/lib/billing/invoice-standing.ts";
+import type { MatterPartyEntry } from "../src/lib/matters/party-api.ts";
 import {
   BILL_COLUMN_IDENTIFIERS,
   BILL_REGISTER_INITIAL_SORT,
   absentShareTitle,
   billColumns,
+  invoiceStatusesForStandings,
+  standingFilterForStatuses,
 } from "../src/lib/billing/bill-columns.ts";
+import { clientPartyOf } from "../src/lib/billing/client-party.ts";
 import { billCounts, billFigures } from "../src/lib/billing/bill-figures.ts";
 import {
   BILL_DEPENDENCIES,
@@ -417,5 +421,63 @@ describe("the verbs a bill offers", () => {
     // A draft has drawn no number, so copying one is refused with the reason rather than removed.
     const copy = menuItem(menu, "copyNumber");
     expect(copy?.disabledReason).toContain("drawn at finalization");
+  });
+});
+
+describe("the Status column, and what the listing is asked for", () => {
+  it("offers every standing whether or not a loaded bill carries it", () => {
+    const standing = FIRM_COLUMNS.find((column) => column.id === BILL_COLUMN_IDENTIFIERS.standing);
+    expect(standing?.filterValues).toEqual(["Draft", "Unpaid", "Partially Paid", "Paid", "Void"]);
+  });
+
+  it("sends every invoice status the selection reaches, once each, in the listing's order", () => {
+    expect(invoiceStatusesForStandings({ kind: "set", values: ["Draft"] })).toEqual(["draft"]);
+    // Unpaid, Partially Paid and Paid are all readings of a finalized bill.
+    expect(invoiceStatusesForStandings({ kind: "set", values: ["Unpaid", "Paid"] })).toEqual([
+      "final",
+    ]);
+    expect(invoiceStatusesForStandings({ kind: "set", values: ["Paid", "Draft"] })).toEqual([
+      "draft",
+      "final",
+    ]);
+    expect(invoiceStatusesForStandings({ kind: "set", values: [] })).toEqual([]);
+    expect(invoiceStatusesForStandings(undefined)).toEqual([]);
+  });
+
+  it("seeds the filter from an address's statuses with every standing they can show", () => {
+    expect(standingFilterForStatuses(["final"])).toEqual({
+      kind: "set",
+      values: ["Unpaid", "Partially Paid", "Paid"],
+    });
+    expect(standingFilterForStatuses(["draft", "void"])).toEqual({
+      kind: "set",
+      values: ["Draft", "Void"],
+    });
+    expect(standingFilterForStatuses(["stranger"])).toBeUndefined();
+    expect(standingFilterForStatuses([])).toBeUndefined();
+  });
+});
+
+describe("the client a bill is raised against", () => {
+  const party = (role: string, entityId: string): MatterPartyEntry => ({
+    id: `party_${entityId}`,
+    matterId: THIS_MATTER,
+    entityId,
+    role,
+    capacity: null,
+    entityKind: "person",
+    displayName: `Name of ${entityId}`,
+  });
+
+  it("is the party wearing the client role, however the firm cased or spaced it", () => {
+    expect(clientPartyOf([party("Opposing party", "e1"), party(" CLIENT ", "e2")])).toEqual({
+      entityId: "e2",
+      displayName: "Name of e2",
+    });
+  });
+
+  it("is nobody where no party wears the role, which is a matter that cannot be billed", () => {
+    expect(clientPartyOf([party("Witness", "e1")])).toBeNull();
+    expect(clientPartyOf([])).toBeNull();
   });
 });

@@ -25,9 +25,9 @@
   const isSample = $derived(matter.source === "sample");
 
   /*
-   * The matter header's New Task opens the list's composer; the list draws no button of its own
-   * here (create-action.svelte.ts). The permission refusal is stated by the list itself once the
-   * composer is open, so the control only refuses what it can know from here.
+   * The matter header's New Task opens the list's new-task panel; the list draws no button of its
+   * own here (create-action.svelte.ts). The permission refusal is stated on the panel's own commit,
+   * so the control only refuses what it can know from here.
    */
   let list = $state<ReturnType<typeof TaskList> | null>(null);
   claimMatterCreate("tasks", () => ({

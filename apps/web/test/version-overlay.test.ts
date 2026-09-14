@@ -16,6 +16,10 @@
  * (packages/design-system/test/fitness/boundaries.test.ts). What matters most is negative — that a
  * signed-out panel issues no authenticated request at all — and a source assertion states it for
  * every path into the call rather than only the one a render happened to exercise.
+ *
+ * The source read is version-report.svelte: the body the chip's popover and the Versions settings
+ * page both render. The chip itself keeps only the trigger, and the one assertion about the
+ * trigger reads the chip.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -23,7 +27,6 @@ import { describe, expect, it } from "vitest";
 import {
   apiWebSyncState,
   copyLineForPart,
-  copyReportForPanel,
   countPill,
   deploymentSectionPills,
   workersSectionPills,
@@ -65,6 +68,7 @@ function serviceRow(
     commit: state === "reported" ? commit : null,
     commitTime: null,
     buildTime: null,
+    latencyMilliseconds: null,
   };
 }
 
@@ -120,7 +124,7 @@ describe("the API-versus-web sync badge", () => {
     // A fixed "Different Builds" sentence read every difference as one alarm, which is wrong: the
     // two Workers deploy separately, so differing is a normal state most of the time. The colour
     // (syncStateBadgeVariant) carries that judgement now, not a standing sentence.
-    const chip = stripComments(source("lib/versions/version-chip.svelte"));
+    const chip = stripComments(source("lib/versions/version-report.svelte"));
     const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
     expect(chip).not.toContain("Different Builds");
     expect(chip).not.toContain("buildsDiffer");
@@ -175,54 +179,6 @@ describe("the API-versus-web sync badge", () => {
     for (const state of ["in-sync", "web-behind", "mismatch"] as const) {
       expect(syncStateLabel(state)).not.toMatch(/fail|error|alarm/i);
     }
-  });
-});
-
-describe("the whole panel on the clipboard", () => {
-  const VERSIONS = {
-    api: { commit: "a1b2c3d", commitTime: "2026-09-07T01:00:00Z", buildTime: null },
-    services: [serviceRow(WEB_WORKER_ROW_ID, "reported", "9f9f9f9"), serviceRow("scan", "unbound")],
-    observedAt: "2026-09-07T02:40:45.489Z",
-  };
-
-  it("carries the build AND the database, because a report missing either is a report that cannot be acted on", () => {
-    const report = copyReportForPanel({
-      pageBuild: { commit: "f4b6d82", commitTime: null, buildTime: null },
-      versions: VERSIONS,
-      databaseLine: "Firm database: Not answering · observed 2026-09-07T02:40:45.489Z",
-    });
-    // The build half: which page, which API, and every Worker the read named.
-    expect(report).toContain(`${PAGE_BUILD_ROW_NAME}: f4b6d82`);
-    expect(report).toContain(`${API_WORKER_UNIT_NAME}: a1b2c3d`);
-    expect(report).toContain("magna-carta-web");
-    expect(report).toContain("Services observed 2026-09-07T02:40:45.489Z");
-    // The database half, which used to be the ONLY half this gesture copied.
-    expect(report).toContain("Firm database: Not answering");
-  });
-
-  it("names a Worker that reported nothing rather than dropping its line", () => {
-    // "Absent from the paste" and "reported nothing" are different faults, and a reader cannot tell
-    // them apart after the fact — so the row that had no version says which one it is.
-    const report = copyReportForPanel({
-      pageBuild: null,
-      versions: VERSIONS,
-      databaseLine: null,
-    });
-    expect(report).toContain(`magna-carta-scan: ${serviceStateLabel("unbound") ?? ""}`);
-  });
-
-  it("omits a section it has nothing for instead of printing an empty one", () => {
-    const report = copyReportForPanel({ pageBuild: null, versions: null, databaseLine: null });
-    expect(report).toBe("Magna Carta diagnostics");
-  });
-
-  it("is multi-line, because a dozen facts on one line is a paste people summarize instead", () => {
-    const report = copyReportForPanel({
-      pageBuild: { commit: "f4b6d82", commitTime: null, buildTime: null },
-      versions: VERSIONS,
-      databaseLine: "Firm database: Connected",
-    });
-    expect(report.split("\n").length).toBeGreaterThan(4);
   });
 });
 
@@ -419,7 +375,7 @@ describe("what each scope is allowed to read", () => {
 });
 
 describe("the chip in its public scope", () => {
-  const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const chip = stripComments(source("lib/versions/version-report.svelte"));
   const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
 
   it("reads each authenticated aggregate from exactly one place, and refuses the public scope", () => {
@@ -443,6 +399,9 @@ describe("the chip in its public scope", () => {
   });
 
   it("never opens the read on a public panel, however the panel was opened", () => {
+    // The report reads only while its host says it is on screen. The chip's popover state moved out
+    // of the chip (build-panel.svelte.ts) so the command palette can open it, and arrives here as
+    // the `open` prop; the guard reads the same thing it always did.
     expect(chip).toContain("if (!open || !readsAggregate) return;");
   });
 
@@ -485,7 +444,7 @@ describe("the chip in its public scope", () => {
 });
 
 describe("the chip's row identities and refresh", () => {
-  const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const chip = stripComments(source("lib/versions/version-report.svelte"));
   const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
 
   it("heads every row with one name and nothing else, monospaced only when it is a Worker's", () => {
@@ -547,9 +506,10 @@ describe("the chip's row identities and refresh", () => {
     expect(chip).toContain('aria-label="Copy the {part.name} version"');
     // A step beyond ghost's own hover fill: whoever just clicked the control is hovering it, so a
     // confirmation painted in the hover colour would be invisible exactly when it is needed.
-    expect(chip).toMatch(/copiedRow === part\.rowKey[\s\S]*bg-action-secondary-hover/);
-    // "for a second" — the fill clears on its own, and only if this row is still the copied one.
-    expect(chip).toMatch(/if \(copiedRow === rowKey\) copiedRow = null;\s*\}, 1000\);/);
+    expect(chip).toMatch(/copiedNow\(part\.rowKey\)[\s\S]*bg-action-secondary-hover/);
+    // "for a second" — the fill clears on its own, and only for the control that was pressed.
+    expect(chip).toMatch(/copyOutcome\?\.key === key && copyOutcome\.result === "copied"/);
+    expect(chip).toMatch(/result === "copied" \? 1000 : 6000/);
   });
 
   it("offers one refresh that re-runs both reads and is inert while either is in flight", () => {
@@ -561,14 +521,20 @@ describe("the chip's row identities and refresh", () => {
     expect(refreshControl).not.toBeNull();
     const control = refreshControl?.[0] ?? "";
     expect(control).toContain("disabled={loading || healthLoading || readinessLoading}");
-    expect(control).toContain("refreshReadiness()");
+    expect(control).toContain("onclick={refreshEverything}");
     // Inert is said by `disabled` alone. This once also demanded a hand-written aria-busy, which
     // the later ruling that every loading state runs through one region forbids outright
     // (tooling/lint-one-ui) — a region announces the read, a control does not announce itself. The
     // two rules contradicted each other and this test was the older one.
     expect(control).not.toContain("aria-busy");
-    expect(control).toContain("refresh({ fresh: true })");
-    expect(control).toContain("refreshHealth()");
+    // The three reads are one named gesture rather than three inline calls, because the panel now
+    // runs the same gesture from more than one place; that it is still ALL THREE is asserted on the
+    // function itself.
+    const everything =
+      /function refreshEverything\(\): void \{([\s\S]*?)\n  \}/.exec(chip)?.[1] ?? "";
+    expect(everything).toContain("refresh({ fresh: true })");
+    expect(everything).toContain("refreshHealth()");
+    expect(everything).toContain("refreshReadiness()");
   });
 
   it("the explicit gestures probe fresh; the automatic on-open read takes the cached path", () => {
@@ -620,7 +586,7 @@ describe("the chip's row identities and refresh", () => {
 });
 
 describe("the retired duplicate of magna-carta-web", () => {
-  const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const chip = stripComments(source("lib/versions/version-report.svelte"));
   const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
 
   it("drops the build line once the Worker that serves this page reports", () => {
@@ -680,9 +646,9 @@ describe("the retired duplicate of magna-carta-web", () => {
 });
 
 describe("the panel header", () => {
-  const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const chip = stripComments(source("lib/versions/version-report.svelte"));
   const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
-  const header = /<div class="flex flex-col gap-4">([\s\S]*?)\n    <\/div>/.exec(chip)?.[1] ?? "";
+  const header = /<div class="flex flex-col gap-4">([\s\S]*?)\n  <\/div>/.exec(chip)?.[1] ?? "";
 
   it("puts the services line under the header instead of beside the controls", () => {
     // Owner ruling 2026-08-31. The age line grows and shrinks as the clock ticks, and on the
@@ -691,7 +657,7 @@ describe("the panel header", () => {
     expect(header.indexOf("Build Versions")).toBeLessThan(
       header.indexOf("Services {observationAge}"),
     );
-    expect(header.indexOf("Refresh the version read")).toBeLessThan(
+    expect(header.indexOf('aria-label="Refresh the panel"')).toBeLessThan(
       header.indexOf("Services {observationAge}"),
     );
   });
@@ -734,15 +700,20 @@ describe("the panel header", () => {
 });
 
 describe("the fleet fold", () => {
-  const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const chip = stripComments(source("lib/versions/version-report.svelte"));
   const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
+  const panelSection = stripComments(source("lib/versions/version-panel-section.svelte"));
   const preferences = source("lib/versions/version-panel-preferences.svelte.ts");
 
   it("folds only the Workers beneath the pair that serves the app's address", () => {
-    expect(chip).toMatch(/\{#if !fleetSectionPreference\.collapsed\}[\s\S]*deploymentRows\.rest/);
-    // The leading pair and its sync badge never fold: they are what the panel is opened for.
+    // The fold is the section component's now (version-panel-section.svelte), so what this file
+    // decides is WHICH fold each section is handed. Workers takes the fleet's.
+    expect(chip).toMatch(
+      /label=\{FLEET_SECTION_LABEL\}\s*preference=\{PANEL_SECTION_FOLDS\.fleet\}[\s\S]*deploymentRows\.rest/,
+    );
+    // The leading pair and its sync badge sit in the section above, which has a fold of its own.
     expect(chip.indexOf("syncStateLabel(syncState)")).toBeLessThan(
-      chip.indexOf("fleetSectionPreference.collapsed"),
+      chip.indexOf("PANEL_SECTION_FOLDS.fleet"),
     );
   });
 
@@ -754,8 +725,12 @@ describe("the fleet fold", () => {
     expect(heading).toContain("aria-expanded={!collapsed}");
     expect(heading).toContain("onclick={toggle}");
     expect(heading).toContain("{label}");
+    // Every section hands the heading its fold through the ONE section component, which is what
+    // stops a later section from inventing a different idea of what a disclosure is.
+    expect(panelSection).toContain("collapsed={preference.collapsed}");
+    expect(panelSection).toContain("toggle={() => preference.toggle()}");
     expect(chip).toMatch(
-      /label=\{FLEET_SECTION_LABEL\}[\s\S]*collapsed=\{fleetSectionPreference\.collapsed\}[\s\S]*toggle=\{\(\) => fleetSectionPreference\.toggle\(\)\}/,
+      /label=\{FLEET_SECTION_LABEL\}\s*preference=\{PANEL_SECTION_FOLDS\.fleet\}/,
     );
     expect(FLEET_SECTION_LABEL).toBe("Workers");
   });
@@ -812,7 +787,7 @@ describe("the fleet fold", () => {
     // Arriving folded would hide an unreachable Worker from someone who opened the panel to find
     // one, so the fold is a choice this remembers, never the state it starts in.
     expect(preferences).toContain('"expanded"');
-    expect(preferences).toMatch(/\["expanded", "collapsed"\], "expanded"/);
+    expect(preferences).toMatch(/\["expanded", "collapsed"\],\s*"expanded",/);
     // On the shared primitive: storage hazards swallowed there, and two open tabs kept in step.
     expect(preferences).toContain("createPersistedPreference");
     expect(preferences).toContain("stringUnionPreference");
@@ -821,7 +796,7 @@ describe("the fleet fold", () => {
 });
 
 describe("the upstream-update notice", () => {
-  const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const chip = stripComments(source("lib/versions/version-report.svelte"));
   const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
   const svelteConfig = repositoryFile("apps/web/svelte.config.js");
 
@@ -857,7 +832,9 @@ describe("the upstream-update notice", () => {
   });
 
   it("signals on the always-visible chip, not only inside the panel", () => {
-    const trigger = /<Popover\.Trigger[\s\S]*?<\/Popover\.Trigger>/.exec(chip)?.[0] ?? "";
+    // The trigger is the chip's own; the report it opens is the file every other assertion reads.
+    const chipTrigger = stripComments(source("lib/versions/version-chip.svelte"));
+    const trigger = /<Popover\.Trigger[\s\S]*?<\/Popover\.Trigger>/.exec(chipTrigger)?.[0] ?? "";
     expect(trigger).toContain("{#if updateAvailable}");
   });
 });

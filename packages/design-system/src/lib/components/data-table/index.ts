@@ -30,7 +30,7 @@ import ViewMenu from "./data-table-view-menu.svelte";
 import ColumnFilter from "./data-table-column-filter.svelte";
 
 export { createSvelteTable } from "./data-table.svelte.ts";
-export type { GridFigure } from "./grid-figures.ts";
+export type { GridFigure, GridFigureScope } from "./grid-figures.ts";
 // The one-table composition (DataTable.Grid) — the declarative column model and its state engine.
 export {
   createDataTableGrid,

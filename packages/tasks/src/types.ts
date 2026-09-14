@@ -12,9 +12,11 @@ export const MAX_TASK_TITLE_LENGTH = 200;
 // body over this is refused with a named code, never silently truncated.
 export const MAX_TASK_BODY_LENGTH = 20_000;
 
-// The reason a cancellation carries. Required and short: "we decided not to" is the whole content of
-// the record, and a cancellation reason that is an essay belongs in the body.
-export const MAX_CANCELLATION_REASON_LENGTH = 1_000;
+// The reason an archiving may carry. OPTIONAL, which is the difference from the cancellation it
+// replaces: that reason was required, and requiring it is why nobody used the state. Short, for the
+// reason it always was — a sentence about why this is not happening, not an essay, which belongs in
+// the body.
+export const MAX_ARCHIVE_REASON_LENGTH = 1_000;
 
 // The most tasks one page may carry, and the most files one task may point at.
 export const MAX_TASK_PAGE_SIZE = 50;
@@ -46,16 +48,51 @@ export const TASK_PRIORITY_RANK: Readonly<Record<TaskPriority, number>> = Object
   low: 3,
 });
 
-// Three values, and the third is not optional. Without `cancelled`, a task that should not have been
-// created has only `done` — a lie about work — or deletion to reach for, and the firm loses the
-// difference between "we did this" and "we decided not to".
-//
-// Deletion exists too, and the two are not redundant. A delete is for a task that should not exist:
-// a typo, a duplicate, a line somebody started and abandoned before it meant anything. A
-// cancellation is a decision about work, and it carries an actor, an instant and a reason because
-// the decision is the record.
+// WHETHER THE WORK IS FINISHED, and nothing else. `cancelled` is retired — it is still legal at the
+// database, because removing a value from a CHECK costs a table rebuild that matter_task cannot
+// take, and it is never written again. Nothing in the product produces it and the migration emptied
+// the last rows that held it.
 export const TASK_STATES = Object.freeze(["open", "done", "cancelled"] as const);
 export type TaskState = (typeof TASK_STATES)[number];
+
+// The live half of the column above: the only two values a write may produce.
+export const WRITABLE_TASK_STATES = Object.freeze(["open", "done"] as const);
+
+// WHERE AN OPEN TASK STANDS. Three rungs, in the order somebody moves a task along them, and the
+// fourth rung a reader sees — Done — is the state above rather than a value here.
+//
+// The split is the platform's and it is stated where it costs something: `done` carries a completion
+// actor and instant that the database pairs with `state` by CHECK, and widening that CHECK is the
+// table rebuild matter_task cannot take (packages/database/src/per-firm-schema.ts says why, and
+// apps/api-worker/test/durable-object-pragma-context.test.ts proves it). So the reader's one
+// vocabulary is assembled from two columns, in exactly one place — `rungOf` below — and nowhere
+// else in this package or above it decides what rung a task is on.
+export const TASK_PROGRESS = Object.freeze(["to_do", "in_progress", "on_hold"] as const);
+export type TaskProgress = (typeof TASK_PROGRESS)[number];
+export const DEFAULT_TASK_PROGRESS: TaskProgress = "to_do";
+
+// The four rungs as the reader has them, which is what an API takes and returns.
+export const TASK_RUNGS = Object.freeze(["to_do", "in_progress", "on_hold", "done"] as const);
+export type TaskRung = (typeof TASK_RUNGS)[number];
+
+/** The rung a task is on, from the two columns that hold it between them. */
+export function rungOf(task: { state: TaskState; progress: TaskProgress }): TaskRung {
+  return task.state === "done" ? "done" : task.progress;
+}
+
+/**
+ * What moving a task to a rung writes.
+ *
+ * Moving OFF done does not choose a rung — it restores the one the task was left on, which is what
+ * somebody who ticked the wrong row means by putting it back. So `progress` is only written when the
+ * rung names one, and completing a task leaves it where it stood.
+ */
+export function columnsForRung(rung: TaskRung): {
+  state: "open" | "done";
+  progress: TaskProgress | null;
+} {
+  return rung === "done" ? { state: "done", progress: null } : { state: "open", progress: rung };
+}
 
 // What a task says about when it is due. All three are optional TOGETHER — a task with no due date
 // is ordinary, not a gap.

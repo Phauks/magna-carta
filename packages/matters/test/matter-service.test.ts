@@ -373,27 +373,85 @@ describe("closeMatter / reopenMatter", () => {
     ]);
   });
 
-  it("refuses a hold with no reason, and a hold on anything but an open matter", async () => {
+  it("refuses a hold with no reason, and a hold on anything but an active matter or a consultation", async () => {
     const database = await setup();
     const { matterId } = await createMatter(database, { ...baseInput, status: "open" }, options);
     await expect(holdMatter(database, matterId, { reason: "   " }, options)).rejects.toMatchObject({
       code: "empty-hold-reason",
     });
-    const consultation = await createMatter(
-      database,
-      { ...baseInput, status: "consultation" },
-      options,
-    );
+    // An intake has nothing to pause: it is the walk toward a consultation.
+    const intake = await createMatter(database, { ...baseInput, status: "intake" }, options);
     await expect(
-      holdMatter(database, consultation.matterId, { reason: "Waiting" }, options),
+      holdMatter(database, intake.matterId, { reason: "Waiting" }, options),
     ).rejects.toMatchObject({ code: "matter-not-open" });
     await holdMatter(database, matterId, { reason: "Waiting on the client" }, options);
     await expect(
       holdMatter(database, matterId, { reason: "Again" }, options),
     ).rejects.toMatchObject({ code: "matter-not-open" });
+    // A closed matter is not paused either; it is finished.
+    const consultation = await createMatter(
+      database,
+      { ...baseInput, status: "consultation" },
+      options,
+    );
+    await closeMatter(database, consultation.matterId, options);
+    await expect(
+      holdMatter(database, consultation.matterId, { reason: "Waiting" }, options),
+    ).rejects.toMatchObject({ code: "matter-not-open" });
     // And a release of a matter that is not held.
-    await expect(releaseMatter(database, consultation.matterId, options)).rejects.toMatchObject({
+    await expect(releaseMatter(database, intake.matterId, options)).rejects.toMatchObject({
       code: "matter-not-held",
+    });
+  });
+
+  it("puts a consultation on hold, keeps its tentative number, and releases it back to consultation", async () => {
+    const database = await setup();
+    const created = await createMatter(database, { ...baseInput, status: "consultation" }, options);
+    await holdMatter(
+      database,
+      created.matterId,
+      { reason: "The prospect is thinking it over." },
+      options,
+    );
+    expect(await readMatter(database, created.matterId)).toMatchObject({
+      status: "hold",
+      matter_number: null,
+      consultation_number: created.consultationNumber,
+      hold_reason: "The prospect is thinking it over.",
+    });
+    // The release returns the consultation to a consultation, never to active: nothing opened it,
+    // so no matter number is drawn and opened_at stays empty.
+    await releaseMatter(database, created.matterId, options);
+    expect(await readMatter(database, created.matterId)).toMatchObject({
+      status: "consultation",
+      matter_number: null,
+      consultation_number: created.consultationNumber,
+      opened_at: null,
+      held_at: null,
+      hold_reason: null,
+    });
+  });
+
+  it("closes a held consultation and reopens it to the hold, which releases to consultation", async () => {
+    const database = await setup();
+    const created = await createMatter(database, { ...baseInput, status: "consultation" }, options);
+    await holdMatter(database, created.matterId, { reason: "Parked" }, options);
+    await closeMatter(database, created.matterId, options);
+    expect(await readMatter(database, created.matterId)).toMatchObject({
+      status: "closed",
+      matter_number: null,
+    });
+    await reopenMatter(database, created.matterId, options);
+    expect(await readMatter(database, created.matterId)).toMatchObject({
+      status: "hold",
+      hold_reason: "Parked",
+      closed_at: null,
+    });
+    await releaseMatter(database, created.matterId, options);
+    expect(await readMatter(database, created.matterId)).toMatchObject({
+      status: "consultation",
+      matter_number: null,
+      consultation_number: created.consultationNumber,
     });
   });
 

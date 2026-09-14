@@ -1,7 +1,26 @@
 import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { loadEffectivePermissions } from "../session-context.ts";
-import { runConflictsCheck } from "@magna-carta/conflicts/run-check";
+import {
+  fileCheckOnMatterStatement,
+  openCheckRun,
+  openedRunBody,
+  parseRunProgress,
+  parseStoredRunRequest,
+  readNextCheckSequence,
+  readNumberedCheckByAnyId,
+  readLatestNumberedCheckForMatter,
+  readRunsForCheck,
+  renderCheckNumber,
+  RUN_STAGES,
+  RUN_STATUSES,
+  settleStaleRuns,
+  UnknownNumberedCheckError,
+  type CheckRunRow,
+  type NumberedCheckRow,
+  type StoredRunRequest,
+} from "@magna-carta/conflicts/check-run";
+import { type RunCheckInput } from "@magna-carta/conflicts/run-check";
 import {
   recordDisposition,
   readDispositionTrail,
@@ -35,12 +54,10 @@ import {
 import { describeCheck, type ReportedSource } from "@magna-carta/conflicts/report-text";
 import { ConflictsIdempotencyConflictError } from "@magna-carta/conflicts/run-conflicts-effect";
 import {
-  MAX_CANDIDATE_CAP,
   readConflictsPolicy,
   writeConflictsPolicy,
   type ConflictsPolicy,
 } from "@magna-carta/conflicts/settings";
-import { BUDGETED_EDGE_CLASSES } from "@magna-carta/conflicts/edge-classes";
 import { CONFLICTS_CHECK_TABLE, CONFLICTS_HIT_TABLE } from "@magna-carta/conflicts/statements";
 import {
   CONFLICTS_TRIGGERS,
@@ -53,10 +70,14 @@ import { WAIVER_SHORTFALLS, waiverShortfalls } from "@magna-carta/conflicts/waiv
 import type { DirectoryIdentifierContext } from "@magna-carta/directory/identifiers";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
+import type { ConflictsCheckId } from "@magna-carta/identifiers/types";
+import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import { identifierField, identifierPathParam, idempotencyKeyHeader } from "../contracts/common.ts";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
+import { runInBackground } from "../background.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
+import { executeConflictsRunInBackground } from "../conflicts/check-run-executor.ts";
 import {
   requireChokepointFirmContext,
   requireChokepointFirmId,
@@ -70,13 +91,20 @@ import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 
-// The conflicts HTTP surface over the @magna-carta/conflicts domain package: running a
-// conflicts-of-interest check against the directory corpus, reading back a completed check with its
-// surfaced hits, and recording a reviewer's disposition of a hit. A check's trigger is always supplied
-// by the caller — nothing here runs a check on its own. Every mutation rides the chokepoint's
-// idempotency gate (an Idempotency-Key is required); every handler hands the domain service the
-// firm-scoped per-firm database, the real clock, a crypto random source, and the authenticated actor —
-// none of which is ever client input.
+// The conflicts HTTP surface over the @magna-carta/conflicts domain package.
+//
+// A CHECK IS A NUMBERED RECORD WITH RUNS UNDER IT. Asking for a check opens it — the numbered
+// check, its first run queued — and answers at once with the number a person will refer to it by;
+// the search runs after the response and the check's read reports where it has got to until the
+// run settles. A check can be run again from its own screen, which opens a further run under the
+// same number, and it can be filed on a matter after it ran, which is the ordinary case: the
+// pre-engagement screen happens before there is a matter to file it on. Every run's search record
+// stays what it was — the immutable row a court is shown — and reading a check reads the record of
+// whichever run is selected.
+//
+// Every mutation rides the chokepoint's idempotency gate (an Idempotency-Key is required); every
+// handler hands the domain service the firm-scoped per-firm database, the real clock, a crypto
+// random source, and the authenticated actor — none of which is ever client input.
 
 // ---- shared service handles ----
 
@@ -100,6 +128,10 @@ async function conflictsContext(
     clock: { now: () => new Date().toISOString() },
     randomSource: cryptoRandomSource,
   };
+}
+
+function nowInstant(): string {
+  return new Date().toISOString();
 }
 
 // A raw conflicts_check row, read directly (the package exposes no readCheck — it is a route-local
@@ -163,6 +195,33 @@ async function readHitRows(database: SqlDatabase, checkId: string): Promise<HitR
   return results;
 }
 
+// How many hits each run's record holds, in one read for the whole check. Null for a run with no
+// record yet — a search still running has surfaced nothing YET, which is not a count.
+async function readHitCounts(
+  database: SqlDatabase,
+  runIds: readonly string[],
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  if (runIds.length === 0) return counts;
+  const placeholders = runIds.map((_, index) => `?${index + 1}`).join(", ");
+  const { results } = await database
+    .prepare(
+      `SELECT check_id, COUNT(*) AS hit_count FROM ${CONFLICTS_HIT_TABLE} WHERE check_id IN (${placeholders}) GROUP BY check_id`,
+    )
+    .bind(...runIds)
+    .all<{ check_id: string; hit_count: number }>();
+  for (const row of results) counts.set(row.check_id, row.hit_count);
+  return counts;
+}
+
+async function matterExists(database: SqlDatabase, matterId: string): Promise<boolean> {
+  const { results } = await database
+    .prepare(`SELECT id FROM matter WHERE id = ?1`)
+    .bind(matterId)
+    .all<{ id: string }>();
+  return results.length > 0;
+}
+
 // ---- request/response contracts ----
 
 // An entity id supplied as a check subject: a person or organization handle. The domain layer skips
@@ -171,58 +230,38 @@ async function readHitRows(database: SqlDatabase, checkId: string): Promise<HitR
 // per-seed fan-out or the bound-parameter list below.
 const directoryEntityIdPattern = /^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]{1,64}$/;
 
-// Upper bounds that keep one request's work bounded — a conflicts check runs per-seed graph expansion
-// and matching in the request handler, so an unbounded subject set or depth is a caller-triggered
-// fan-out (and, for the subject set, a bound-parameter overflow in the identifier-reference read). A
-// real matter's party set and a real search depth sit far below these, so the caps refuse abuse at the
-// door with a 422 rather than a 500 or a stalled worker.
+// The most subject parties one check may name. A real matter's party set sits far below this; the
+// bound refuses abuse at the door with a 422 rather than a bound-parameter overflow in the
+// identifier-reference read.
 const MAX_SUBJECT_ENTITIES = 200;
-const MAX_GRAPH_DEPTH = 6;
-// The largest closure one request may ask the traversal to expand to. The firm's own setting is the
-// default; this refuses a caller-supplied number that would make one request walk the whole corpus.
-const MAX_CLOSURE_CAP = 5000;
 
 const checkIdParam = z.object({
   checkId: identifierPathParam("conflictsCheck", "checkId"),
 });
 
 // The listing's own query. `cursor` is the shared opaque continuation; `matterId` narrows to one
-// matter's history, which is also the shape the table's index actually serves.
+// matter's history — the checks FILED on it.
 const checkHistoryQuery = cursorQuery.extend({
   matterId: identifierField("matter").optional(),
+});
+
+// Which run a check is read at. Omitted means the latest.
+const checkReadQuery = z.object({
+  run: identifierField("conflictsCheck").optional(),
 });
 
 const hitIdParam = z.object({
   hitId: identifierPathParam("conflictsHit", "hitId"),
 });
 
+// What a check searches, and how names are compared. Nothing about how far or how much: a check
+// follows relationships to closure, and the bound on a run is the platform's rather than a caller's
+// (docs/conventions/conflicts-rulings.md, E1 and E2). A body written under the old contract that
+// still carries a depth or a cap is accepted and those fields are dropped at the door.
 const ScopeRequest = z
   .object({
     sources: z.array(z.enum(SOURCE_CLASSES)).max(SOURCE_CLASSES.length),
     strictness: z.enum(STRICTNESS_LEVELS),
-    // Optional: omitted means the firm's configured default depth is applied; an explicit value
-    // (0 included) is honored as given, capped so no single request can walk an unbounded traversal.
-    // The resolved depth is always recorded on the check.
-    depth: z.number().int().min(0).max(MAX_GRAPH_DEPTH).optional(),
-    // Per-edge-class hop budgets. A class omitted here falls back to `depth`, then to the firm's own
-    // setting, so a caller written before typed budgets existed keeps meaning exactly what it meant.
-    // Corporate-family edges carry no budget: they are traversed transitively, bounded only by the
-    // closure cap, because a rename or merger chain of any length is one legal person continuing.
-    edgeClassBudgets: z
-      .object({
-        control: z.number().int().min(0).max(MAX_GRAPH_DEPTH).optional(),
-        family: z.number().int().min(0).max(MAX_GRAPH_DEPTH).optional(),
-        representation: z.number().int().min(0).max(MAX_GRAPH_DEPTH).optional(),
-      })
-      .optional(),
-    // The most entities this run may expand to. Omitted means the firm's setting. Reaching it stops
-    // the traversal and the check records that it was truncated, with how much it did not reach.
-    closureCap: z.number().int().min(0).max(MAX_CLOSURE_CAP).optional(),
-    // The most candidates this run may record. Omitted means the firm's setting. The closure cap
-    // bounds how many entities are reached; this bounds what reaching them produced, which grows with
-    // the Directory rather than with the graph. Reaching it records that the candidate set was
-    // truncated, how many were refused, and at which evidence tiers.
-    candidateCap: z.number().int().min(0).max(MAX_CANDIDATE_CAP).optional(),
   })
   .openapi("ConflictsScopeRequest");
 
@@ -235,12 +274,33 @@ const CreateCheckRequest = z
   })
   .openapi("CreateConflictsCheckRequest");
 
-const CreatedCheckResponse = z.object({ id: z.string() }).openapi("CreatedConflictsCheckResponse");
+// What opening a check, or a further run of one, answers: the check's handle and number, and the
+// run that was opened under it. The search has not run yet; the check's read says where it is.
+const OpenedCheckResponse = z
+  .object({
+    id: z.string(),
+    checkNumber: z.string(),
+    runId: z.string(),
+    ordinal: z.number().int(),
+  })
+  .openapi("OpenedConflictsCheckResponse");
+
+const NextCheckNumberResponse = z
+  .object({ checkNumber: z.string() })
+  .openapi("NextConflictsCheckNumberResponse");
+
+const FileCheckOnMatterRequest = z
+  .object({ matterId: identifierField("matter") })
+  .openapi("FileConflictsCheckOnMatterRequest");
+
+const FiledCheckResponse = z
+  .object({ id: z.string(), matterId: z.string() })
+  .openapi("FiledConflictsCheckResponse");
 
 /*
- * The firm's own conflicts floor, as every check is judged against it. Read-only here: raising or
- * lowering a floor is an administrative act on the same key family as the scan policy, and it is not
- * built by this route.
+ * The firm's own conflicts floor, as every check is judged against it: the sources every check must
+ * search, the band it must reach, and which names the narrower band compares. Nothing about depth or
+ * bounds — a firm no longer decides how far a check follows relationships or where it stops.
  *
  * Every member who may read a check may read this, because every member is HELD to it — a reviewer
  * looking at a check that fell short of the floor needs to be able to see what the floor is.
@@ -252,12 +312,6 @@ const ConflictsPolicyResponse = z
     // unions it back in even from a stored row that somehow lacks it.
     floorSources: z.array(z.enum(SOURCE_CLASSES)),
     floorStrictness: z.enum(STRICTNESS_LEVELS),
-    // A DEFAULT rather than a floor, unlike the two above: a caller may deliberately search
-    // shallower, and the check row records the depth that actually ran either way.
-    defaultDepth: z.number().int(),
-    edgeClassBudgets: z.record(z.string(), z.number().int()),
-    closureCap: z.number().int(),
-    candidateCap: z.number().int(),
     // The name rows the BALANCED band compares. over_inclusive always searches every role, which is
     // what keeps it a superset whatever this is set to.
     balancedNameRoles: z.array(z.string()),
@@ -270,62 +324,86 @@ const ConflictsPolicyResponse = z
  * policy is one value written whole, so a partial PUT that meant "patch" would let two administrators
  * saving different halves of the same screen compose a floor neither of them chose.
  *
- * The bounds here are the shape of the wire, not the firm's invariants: they refuse what could not be
- * a policy at all (a negative hop budget, a fractional cap). What a firm cannot opt out of — party in
- * the floor, `current` among the name roles, a candidate cap one atomic batch can carry — belongs to
- * the domain and is applied by normalizeConflictsPolicy on the way in, so a caller that bypasses this
+ * What a firm cannot opt out of — party in the floor, `current` among the name roles — belongs to the
+ * domain and is applied by normalizeConflictsPolicy on the way in, so a caller that bypasses this
  * schema is held to the same guards. The response then says what was actually stored.
  */
 const ConflictsPolicyRequest = z
   .object({
     floorSources: z.array(z.enum(SOURCE_CLASSES)).optional(),
     floorStrictness: z.enum(STRICTNESS_LEVELS).optional(),
-    // Non-negative integers and no invented ceiling: these mirror exactly what resolveScope accepts,
-    // so the wire cannot refuse a policy the domain would have run. A depth nobody could walk is
-    // bounded in practice by closureCap, which is the bound that actually stops a traversal, and
-    // candidateCap is clamped to MAX_CANDIDATE_CAP by the domain — the response carries the clamped
-    // value, so an administrator who asks for more is told what they got rather than refused.
-    defaultDepth: z.number().int().min(0).optional(),
-    edgeClassBudgets: z.record(z.enum(BUDGETED_EDGE_CLASSES), z.number().int().min(0)).optional(),
-    closureCap: z.number().int().min(0).optional(),
-    candidateCap: z.number().int().min(0).optional(),
     balancedNameRoles: z.array(z.string().min(1)).optional(),
   })
   .openapi("ConflictsPolicyRequest");
 
+// Where a running search has got to, and the counts it has so far. Every count is optional because
+// a stage reports what it has and no others.
+const RunProgress = z
+  .object({
+    sourcesSearched: z.number().int().optional(),
+    subjectParties: z.number().int().optional(),
+    entitiesReached: z.number().int().optional(),
+    entitiesMatched: z.number().int().optional(),
+    candidatesSurfaced: z.number().int().optional(),
+    candidatesRecorded: z.number().int().optional(),
+  })
+  .openapi("ConflictsRunProgress");
+
+// One run of a check: its place in the check's history, where it is, and what it came to.
+const RunSummary = z
+  .object({
+    id: z.string(),
+    ordinal: z.number().int(),
+    status: z.enum(RUN_STATUSES),
+    // The stage a running search is at, in the engine's own order. Null before it starts and once it
+    // settles: a settled run's account is its record, never a stale progress line.
+    stage: z.enum(RUN_STAGES).nullable(),
+    progress: RunProgress,
+    trigger: z.string(),
+    triggerSource: z.string().nullable(),
+    // Null on an automated run, which is nobody's act.
+    requestedByUserId: z.string().nullable(),
+    createdAt: z.string(),
+    startedAt: z.string().nullable(),
+    finishedAt: z.string().nullable(),
+    // Why a failed run failed, in a sentence a person can act on. Null unless it failed.
+    failure: z.string().nullable(),
+    // How many candidates this run's record holds. Null while it has no record.
+    hitCount: z.number().int().nullable(),
+  })
+  .openapi("ConflictsRunSummary");
+
 /*
- * One line of the firm's check history. Narrow on purpose: this is a listing, and the whole check —
- * its recorded scope, its statement, its hits — is one identifier away. Carrying the scope of every
- * check on a page would read `inputs_json` for a surface that shows none of it.
+ * One line of the firm's log: a numbered check, with its latest run's facts and how many runs it has
+ * had. Narrow on purpose — the whole check with its runs, its record and its hits is one identifier
+ * away.
  */
 const CheckSummary = z
   .object({
     id: z.string(),
-    trigger: z.enum(CONFLICTS_TRIGGERS),
-    // Null for a check against a prospective party set with no matter — the pre-engagement screen
-    // the schema is already shaped for. A listing must not imply every check belongs to a matter.
+    checkNumber: z.string(),
+    // Where the check is filed. Null for the pre-engagement screen, until somebody files it.
     matterId: z.string().nullable(),
-    strictness: z.enum(STRICTNESS_LEVELS),
-    depth: z.number().int(),
-    // True when the scope asked for fell below the firm's floor and was raised to it. On a listing
-    // it is the one fact worth carrying, because it says the check searched WIDER than requested.
-    floorRaised: z.boolean(),
-    // Null on an automated run, which is nobody's act. Distinct from a manual run whose actor the
-    // row records, and the two must never read alike.
-    actorUserId: z.string().nullable(),
-    // What set the run going: manual, event, or schedule. Null on a row written before the column
-    // existed, which reads as "the row does not say" rather than as any of the three.
-    triggerSource: z.string().nullable(),
-    hitCount: z.number().int(),
     createdAt: z.string(),
+    createdByUserId: z.string().nullable(),
+    runCount: z.number().int(),
+    latestRunId: z.string().nullable(),
+    runStatus: z.enum(RUN_STATUSES).nullable(),
+    latestRunAt: z.string().nullable(),
+    trigger: z.string().nullable(),
+    // What set the latest run going: manual, event, or schedule. Null on a row that does not say.
+    triggerSource: z.string().nullable(),
+    // Who asked for the latest run. Null on an automated run, which is nobody's act.
+    actorUserId: z.string().nullable(),
+    // The latest run's record, where it has one: the band it ran under, whether the floor widened
+    // it, and how many candidates surfaced. Null while the latest run has no record.
+    strictness: z.enum(STRICTNESS_LEVELS).nullable(),
+    floorRaised: z.boolean().nullable(),
+    hitCount: z.number().int().nullable(),
   })
   .openapi("ConflictsCheckSummary");
 
 const CheckHistoryResponse = paginated(CheckSummary).openapi("ConflictsCheckPage");
-
-const CreatedRecheckResponse = z
-  .object({ checkId: z.string() })
-  .openapi("CreatedConflictsRecheckResponse");
 
 const GraphPathStep = z
   .object({
@@ -388,6 +466,15 @@ const HitParty = z
   })
   .openapi("ConflictsHitParty");
 
+const PriorConclusion = z
+  .object({
+    checkId: z.string(),
+    kind: z.enum(DISPOSITION_KINDS),
+    reviewerUserId: z.string(),
+    createdAt: z.string(),
+  })
+  .openapi("ConflictsPriorConclusion");
+
 const HitDetail = z
   .object({
     id: z.string(),
@@ -407,20 +494,30 @@ const HitDetail = z
     // The hit's current disposition (the latest reviewer adjudication), or null when no reviewer has
     // acted on it yet.
     disposition: DispositionDetail.nullable(),
+    // What the firm already said about the same party on an EARLIER check. Context only — never
+    // this hit's answer, which stays unanswered until a reviewer answers it.
+    previouslyAnswered: PriorConclusion.nullable(),
   })
   .openapi("ConflictsHitDetail");
 
 const TraversalRecord = z
   .object({
-    // The hop budget in force per budgeted edge class. Corporate family is absent: it is transitive.
+    // True on a run that followed every relationship to closure — every run since the hop budgets
+    // were removed. False on an older record, whose `edgeClassBudgets` say how far it went.
+    followedToClosure: z.boolean(),
+    // The longest chain of relationships the walk followed. Null where the record does not say.
+    longestPathLength: z.number().int().nullable(),
+    // The hop budget per edge class an OLDER run resolved. Empty on a walk to closure.
     edgeClassBudgets: z.record(z.string(), z.number().int()),
+    // The most entities the walk could reach: the platform's ceiling on a walk to closure, the
+    // firm's cap on an older run.
     closureCap: z.number().int().nullable(),
-    // True when the closure cap stopped the walk. A truncated expansion is never reported as a
-    // completed one, for the same reason a source with no corpus is never reported as searched: the
-    // platform looked at part of the world and has to say which part.
+    // True when the bound stopped the walk. A truncated expansion is never reported as a completed
+    // one, for the same reason a source with no corpus is never reported as searched: the platform
+    // looked at part of the world and has to say which part.
     truncated: z.boolean(),
     entitiesReached: z.number().int().nullable(),
-    // Entities the cap refused to admit. These were never matched.
+    // Entities the bound refused to admit. These were never matched.
     unexploredFrontierSize: z.number().int().nullable(),
     // Entities that ARE in the closure and WERE matched, but whose own edges were never read.
     unexpandedReachedCount: z.number().int().nullable(),
@@ -429,10 +526,12 @@ const TraversalRecord = z
 
 const CandidateRecord = z
   .object({
+    // The most candidates the run could write — the platform's bound, the most one record can carry.
     candidateCap: z.number().int().nullable(),
-    // True when the cap refused candidates the channels had already surfaced. Reported for the same
-    // reason a truncated traversal is: the platform searched less than the hit count in front of the
-    // reader would otherwise imply, and it has to say so rather than let the count speak for itself.
+    // True when the bound refused candidates the channels had already surfaced. Reported for the
+    // same reason a truncated traversal is: the platform searched less than the hit count in front
+    // of the reader would otherwise imply, and it has to say so rather than let the count speak for
+    // itself.
     truncated: z.boolean(),
     candidatesSurfaced: z.number().int().nullable(),
     candidatesWritten: z.number().int().nullable(),
@@ -460,17 +559,21 @@ const MatchingRecord = z
   })
   .openapi("ConflictsMatchingRecord");
 
+// One run's search record: what ran, over what, under which settings.
 const CheckDetail = z
   .object({
     id: z.string(),
     trigger: z.enum(CONFLICTS_TRIGGERS),
+    // The matter the search actually ran against — the record's own fact, which stays what it was
+    // even after the check is filed on a matter.
     matterId: z.string().nullable(),
     subjectEntityIds: z.array(z.string()),
-    // Keyed by source class (plus prior_firm_history, which carries no dedicated class of its own) —
-    // every registered source is present, so a caller can always tell "searched and clean" apart from
+    // Keyed by source class (plus the registered sources with no class of their own) — every
+    // registered source is present, so a caller can always tell "searched and clean" apart from
     // "never searched".
     scope: z.record(z.string(), z.enum(SOURCE_AVAILABILITIES)),
     strictness: z.enum(STRICTNESS_LEVELS),
+    // How deep the walk ran on a walk to closure, or the widest hop budget on an older record.
     depth: z.number().int(),
     floorRaised: z.boolean(),
     // Null on a check written before the matching record existed, read exactly as `traversal` is.
@@ -489,9 +592,35 @@ const CheckDetail = z
 // ended and says nothing about the matter.
 const CheckStatement = z.array(z.string());
 
-const GetCheckResponse = z
+// A completed run's record: the search's own account, its recorded scope, and every hit it surfaced.
+const CheckRecord = z
   .object({ check: CheckDetail, statement: CheckStatement, hits: z.array(HitDetail) })
-  .openapi("ConflictsCheckWithHitsResponse");
+  .openapi("ConflictsCheckRecord");
+
+// The numbered check itself: what a person refers to.
+const NumberedCheck = z
+  .object({
+    id: z.string(),
+    checkNumber: z.string(),
+    // Where the check is filed. Null until somebody files it.
+    matterId: z.string().nullable(),
+    createdByUserId: z.string().nullable(),
+    createdAt: z.string(),
+    latestRunId: z.string().nullable(),
+  })
+  .openapi("ConflictsNumberedCheck");
+
+const GetCheckResponse = z
+  .object({
+    check: NumberedCheck,
+    // Every run, oldest first: the check's history.
+    runs: z.array(RunSummary),
+    // The run this read is at — the one asked for, else the latest.
+    run: RunSummary,
+    // That run's record, or null while it has none (queued, running, or failed).
+    record: CheckRecord.nullable(),
+  })
+  .openapi("ConflictsCheckWithRunsResponse");
 
 // ---- the matter conflicts posture ----
 
@@ -521,6 +650,8 @@ const PostureScope = z
 const PostureLatestCheck = z
   .object({
     id: z.string(),
+    // The number of the check this record is a run of.
+    checkNumber: z.string().nullable(),
     createdAt: z.string(),
     trigger: z.string(),
     actorUserId: z.string().nullable(),
@@ -537,7 +668,6 @@ const PostureScopeShortfall = z
     // Source classes the firm's current policy requires that the latest check did not consider.
     sources: z.array(z.enum(SOURCE_CLASSES)),
     strictness: z.object({ firmFloor: z.enum(STRICTNESS_LEVELS), ranUnder: z.string() }).nullable(),
-    depth: z.object({ firmDefault: z.number().int(), ranAt: z.number().int() }).nullable(),
   })
   .openapi("ConflictsPostureScopeShortfall");
 
@@ -707,7 +837,7 @@ function conflictsErrorResponse(
   if (caught instanceof ConflictsIdempotencyConflictError) {
     return problemResponseForIdempotencyConflict(c, caught);
   }
-  if (caught instanceof UnknownHitError) {
+  if (caught instanceof UnknownHitError || caught instanceof UnknownNumberedCheckError) {
     return problemJson(c, {
       type: "not-found",
       title: "Not found",
@@ -735,6 +865,10 @@ function conflictsErrorResponse(
     });
   }
   throw caught;
+}
+
+function notFound(c: Context, detail: string): ProblemResponse<404> {
+  return problemJson(c, { type: "not-found", title: "Not found", status: 404, detail });
 }
 
 // ---- route metas ----
@@ -770,18 +904,91 @@ const runCheckRoute = defineOpenAPIRoute(mutationMeta("runCheck", "conflicts:run
   method: "post",
   path: "/api/v1/conflicts/checks",
   description:
-    "Runs a conflicts-of-interest check against the directory corpus for the given subject parties " +
-    "(and, when a matter is supplied, its existing parties too), and records the search — what was " +
-    "asked for, what actually ran, and what it found — as a new entry in the append-only conflicts " +
-    "log. The trigger must always be supplied; no check ever runs on its own.",
+    "Opens a conflicts check: draws the firm's next check number, records the search that was asked " +
+    "for as the check's first run, and answers at once with the check's handle and number. The " +
+    "search itself runs after the response and follows every recorded relationship to closure; " +
+    "reading the check says where the run has got to until it settles, and then carries the " +
+    "record of what was searched, what actually ran, and what it found. The trigger must always be " +
+    "supplied; no check ever runs on its own.",
   request: {
     headers: idempotencyKeyHeader,
     body: { content: { "application/json": { schema: CreateCheckRequest } }, required: true },
   },
   responses: {
-    201: {
-      description: "The completed check",
-      content: { "application/json": { schema: CreatedCheckResponse } },
+    202: {
+      description: "The check, opened; its first run is queued",
+      content: { "application/json": { schema: OpenedCheckResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const nextCheckNumberRoute = defineOpenAPIRoute(readMeta("nextCheckNumber", "conflicts:read"), {
+  method: "get",
+  path: "/api/v1/conflicts/checks/next-number",
+  description:
+    "The number the next check this firm opens would draw. A preview rather than a reservation: " +
+    "two members opening a check at the same moment both see it, and one of them draws the number " +
+    "after it. Shown on the New Check panel so a check is identified before it is saved.",
+  responses: {
+    200: {
+      description: "The next check number",
+      content: { "application/json": { schema: NextCheckNumberResponse } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    429: authErrors[429],
+  },
+});
+
+const rerunCheckRoute = defineOpenAPIRoute(mutationMeta("rerunCheck", "conflicts:run"), {
+  method: "post",
+  path: "/api/v1/conflicts/checks/{checkId}/runs",
+  description:
+    "Runs a check again: opens a further run under the same check and number, performing the " +
+    "search the check was opened with against the matter the check is filed on today, and answers " +
+    "at once. The earlier runs and their records stay exactly as they were; the check's history " +
+    "gains one entry.",
+  request: { headers: idempotencyKeyHeader, params: checkIdParam },
+  responses: {
+    202: {
+      description: "The further run, queued under the check",
+      content: { "application/json": { schema: OpenedCheckResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const fileCheckRoute = defineOpenAPIRoute(mutationMeta("fileCheckOnMatter", "conflicts:run"), {
+  method: "put",
+  path: "/api/v1/conflicts/checks/{checkId}/matter",
+  description:
+    "Files a check on a matter. A check run before there was a matter is the ordinary case — the " +
+    "pre-engagement screen happens before there is a file — and the moment a matter exists is the " +
+    "moment somebody is reading the report. Filing moves the check into that matter's own history " +
+    "and makes the next run search with the matter's parties; no search record is touched, because " +
+    "each record says which matter its search actually ran against.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: checkIdParam,
+    body: { content: { "application/json": { schema: FileCheckOnMatterRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The check, filed on the matter",
+      content: { "application/json": { schema: FiledCheckResponse } },
     },
     400: authErrors[400],
     401: authErrors[401],
@@ -797,23 +1004,26 @@ const getCheckRoute = defineOpenAPIRoute(readMeta("getCheck", "conflicts:read"),
   method: "get",
   path: "/api/v1/conflicts/checks/{checkId}",
   description:
-    "Returns a completed conflicts check and every hit it surfaced, including each hit's current " +
-    "disposition when a reviewer has already adjudicated it, alongside a plain-language statement of " +
-    "what the search did: which sources ran and with what settings, which could not run and why, and " +
-    "how many candidates surfaced. The statement reports the search and reaches no conclusion about " +
-    "the matter — a search that surfaced nothing ends by saying so, which is a fact about the search " +
-    "and not about whether an interest is adverse. Deciding that is a reviewer's act and is recorded " +
-    "as a disposition naming them. A disposition recording a waiver carries the waiver's own record " +
-    "and, where the platform does not hold the whole of it, what that record is short of.",
-  request: { params: checkIdParam },
+    "Returns a conflicts check with every run under it, and the record of the run asked for (the " +
+    "latest, unless `run` names another). A run still in flight reports its stage and counts so " +
+    "far and carries no record; a settled run carries its record: the recorded scope, every hit it " +
+    "surfaced with each hit's current disposition, and a plain-language statement of what the " +
+    "search did. The statement reports the search and reaches no conclusion about the matter — a " +
+    "search that surfaced nothing ends by saying so, which is a fact about the search and not about " +
+    "whether an interest is adverse. Deciding that is a reviewer's act and is recorded as a " +
+    "disposition naming them. The address accepts the check's own handle or any run's handle, so an " +
+    "address written before runs existed still lands on the check it named. A run that stopped " +
+    "reporting is settled as failed by this read, and says so.",
+  request: { params: checkIdParam, query: checkReadQuery },
   responses: {
     200: {
-      description: "The check, the statement of what it searched, and its hits",
+      description: "The check, its runs, and the selected run's record where it has one",
       content: { "application/json": { schema: GetCheckResponse } },
     },
     401: authErrors[401],
     403: authErrors[403],
     404: authErrors[404],
+    422: authErrors[422],
     429: authErrors[429],
   },
 });
@@ -822,12 +1032,12 @@ const checkHistoryRoute = defineOpenAPIRoute(readMeta("listChecks", "conflicts:r
   method: "get",
   path: "/api/v1/conflicts/checks",
   description:
-    "The checks this firm has run, newest first, keyset-paginated. Filter by `matterId` for one " +
-    "matter's own history. Each line carries what set the run going, who asked for it where anybody " +
-    "did, the strictness and depth it ran at, whether the firm's floor raised the scope above what " +
-    "was requested, and how many candidates surfaced — never a conclusion about any of them, which " +
-    "is a reviewer's act recorded as a disposition. A run nobody asked for carries no actor, and " +
-    "that is a fact about the run rather than a missing value.",
+    "The checks this firm refers to, newest first, keyset-paginated: one line per numbered check " +
+    "carrying its latest run's facts and how many runs it has had. Filter by `matterId` for the " +
+    "checks filed on one matter. Each line carries what set the latest run going, who asked for it " +
+    "where anybody did, the band it ran under, whether the firm's floor raised the scope above " +
+    "what was requested, and how many candidates surfaced — never a conclusion about any of them, " +
+    "which is a reviewer's act recorded as a disposition.",
   request: { query: checkHistoryQuery },
   responses: {
     200: {
@@ -846,12 +1056,12 @@ const firmPolicyRoute = defineOpenAPIRoute(readMeta("firmPolicy", "conflicts:rea
   path: "/api/v1/firm/conflicts-policy",
   description:
     "The firm's conflicts floor: the source classes every check must search whatever a caller asks " +
-    "for, the strictness band it must reach, and the traversal and candidate bounds a run is held " +
-    "to. A per-run scope may only ADD to the floor, never subtract from it — otherwise narrowing a " +
-    "request would manufacture a check that searched less than the firm requires while the log " +
-    "faithfully recorded that a check happened. It reads on conflicts:read because every member who " +
-    "can read a check is held to this, and a reviewer looking at a check that fell short of the " +
-    "floor has to be able to see what the floor is.",
+    "for, the strictness band it must reach, and which of a party's names the narrower band " +
+    "compares. A per-run scope may only ADD to the floor, never subtract from it — otherwise " +
+    "narrowing a request would manufacture a check that searched less than the firm requires while " +
+    "the log faithfully recorded that a check happened. It reads on conflicts:read because every " +
+    "member who can read a check is held to this, and a reviewer looking at a check that fell short " +
+    "of the floor has to be able to see what the floor is.",
   responses: {
     200: {
       description: "The firm's conflicts policy floor",
@@ -876,11 +1086,10 @@ const setFirmPolicyRoute = defineOpenAPIRoute(
       "Owner and Admin alone — this does not act on a check, it decides what every LATER check " +
       "searches, and no single check row records that a person chose that. The stored value is " +
       "normalized first and the normalized value is returned, so what a firm is shown is what its " +
-      "checks will actually run: a floor with every source deselected comes back carrying `party`, " +
-      "and a candidate cap above what one atomic batch can carry comes back clamped. Changing the " +
-      "floor writes no check and re-runs nothing — a matter whose last check no longer covers the " +
-      "new floor reports the shortfall on its own posture read, computed live, which is why raising " +
-      "the floor takes effect everywhere at once with no sweep.",
+      "checks will actually run: a floor with every source deselected comes back carrying `party`. " +
+      "Changing the floor writes no check and re-runs nothing — a matter whose last check no longer " +
+      "covers the new floor reports the shortfall on its own posture read, computed live, which is " +
+      "why raising the floor takes effect everywhere at once with no sweep.",
     request: {
       headers: idempotencyKeyHeader,
       body: {
@@ -911,16 +1120,18 @@ const matterRecheckRoute = defineOpenAPIRoute(mutationMeta("recheckMatter", "con
     "asked for one. It takes NO scope, and that is the point of it existing beside the general " +
     "check route: 're-check this matter' has no scope for a caller to state, and asking for one " +
     "invites a screen to invent a narrower search than the firm requires. The firm's own policy " +
-    "floor is what runs. The check is recorded as a manual run naming the member who asked, and " +
-    "carries no cause — a cause is a corpus change the platform noticed, and a person asking now is " +
-    "not one. It neither reads nor satisfies the automatic re-check ledger: an open cause stays " +
-    "open, because the interval between a cause and the check that answered it is evidence about " +
-    "the firm's procedure and a manual run did not answer it.",
+    "floor is what runs. It opens a further run under the check most recently filed on the matter, " +
+    "or a new numbered check where the matter has none, and answers at once; the search runs after " +
+    "the response. The run is recorded as a manual run naming the member who asked, and carries no " +
+    "cause — a cause is a corpus change the platform noticed, and a person asking now is not one. " +
+    "It neither reads nor satisfies the automatic re-check ledger: an open cause stays open, because " +
+    "the interval between a cause and the check that answered it is evidence about the firm's " +
+    "procedure and a manual run did not answer it.",
   request: { headers: idempotencyKeyHeader, params: matterIdParam },
   responses: {
-    201: {
-      description: "The check that ran",
-      content: { "application/json": { schema: CreatedRecheckResponse } },
+    202: {
+      description: "The run, queued",
+      content: { "application/json": { schema: OpenedCheckResponse } },
     },
     400: authErrors[400],
     401: authErrors[401],
@@ -972,11 +1183,11 @@ const matterPostureRoute = defineOpenAPIRoute(readMeta("matterPosture", "conflic
     "how often it runs, and " +
     "every source that could not be searched with the reason it could not. A matter that has never " +
     "been checked reports that as its own distinct state, separate from a check that searched and " +
-    "surfaced nothing. Every field is computed from the log at the moment of the request and nothing " +
-    "is stored, so raising the firm's policy shows up here immediately. The response reports what was " +
-    "searched and what was found and asserts nothing about whether an interest is adverse: there is no " +
-    "summary field and no single verdict, because concluding is a lawyer's act and the record says " +
-    "whose.",
+    "surfaced nothing. A check filed on the matter after it ran counts as the matter's own. Every " +
+    "field is computed from the log at the moment of the request and nothing is stored, so raising " +
+    "the firm's policy shows up here immediately. The response reports what was searched and what " +
+    "was found and asserts nothing about whether an interest is adverse: there is no summary field " +
+    "and no single verdict, because concluding is a lawyer's act and the record says whose.",
   request: { params: matterIdParam },
   responses: {
     200: {
@@ -1033,41 +1244,244 @@ const recordDispositionRoute = defineOpenAPIRoute(
 
 type ConflictsApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 
+// ---- the run lifecycle, as the routes drive it ----
+
+// The search a stored run performs, as the engine takes it. A person opened this run, so it is a
+// manual run whatever the trigger word says about when it ran.
+function runInputFrom(request: StoredRunRequest): RunCheckInput {
+  return {
+    trigger: request.trigger,
+    ...(request.matterId === null ? {} : { matterId: request.matterId }),
+    subjectEntityIds: [...request.subjectEntityIds],
+    scope: request.scope,
+    triggerSource: "manual",
+  };
+}
+
+// Hands an opened run to the runtime to execute after the response. The row already says it is
+// queued; the executor claims it, reports onto it, and settles it.
+function executeAfterResponse(
+  c: Context<{ Bindings: Bindings; Variables: AppVariables }>,
+  context: DirectoryIdentifierContext,
+  runId: ConflictsCheckId,
+  input: RunCheckInput,
+): void {
+  runInBackground(
+    c,
+    executeConflictsRunInBackground(
+      context,
+      { runId, input },
+      {
+        clock: context.clock,
+        actorUserId: context.actorUserId,
+        randomSource: context.randomSource,
+      },
+      createWorkersLogger(c.env.TELEMETRY),
+    ),
+  );
+}
+
+function runSummary(run: CheckRunRow, hitCounts: ReadonlyMap<string, number>) {
+  return {
+    id: run.id,
+    ordinal: run.ordinal,
+    status: run.status,
+    stage: run.stage,
+    progress: parseRunProgress(run.progress_json),
+    trigger: run.trigger,
+    triggerSource: run.trigger_source,
+    requestedByUserId: run.requested_by_user_id,
+    createdAt: run.created_at,
+    startedAt: run.started_at,
+    finishedAt: run.finished_at,
+    failure: run.failure,
+    hitCount: run.status === "completed" ? (hitCounts.get(run.id) ?? 0) : null,
+  };
+}
+
+function numberedCheckBody(check: NumberedCheckRow) {
+  return {
+    id: check.id,
+    checkNumber: check.check_number,
+    matterId: check.subject_matter_id,
+    createdByUserId: check.created_by_user_id,
+    createdAt: check.created_at,
+    latestRunId: check.latest_run_id,
+  };
+}
+
+// A completed run's record, assembled from the append-only rows: the search's own sentences, its
+// recorded scope, and every hit with who it is about and what a reviewer said.
+async function readRecord(database: SqlDatabase, runId: string) {
+  const checkRow = await readCheckRow(database, runId);
+  if (checkRow === null) return null;
+  const hitRows = await readHitRows(database, runId);
+
+  /*
+   * Two set-valued reads, not two per hit.
+   *
+   * The dispositions were a per-hit readCurrentDisposition inside a Promise.all — the exact N+1
+   * readHitDispositionStates exists to replace, and whose own comment names this shape as the
+   * mistake: a check against a wide corpus surfaces hundreds of hits. It resolves every hit's
+   * latest word in one query, by the same created_at/rowid tie-break, so the answer is identical
+   * and the read is one round trip instead of one per hit.
+   *
+   * The party names are the second read, and they are what lets the hit list say who matched.
+   * The entity set is bounded by the hits already read, and the reader chunks it at D1's
+   * bound-parameter cap.
+   */
+  const [dispositionStates, partyNames, priorConclusions] = await Promise.all([
+    readHitDispositionStates(database, runId),
+    readEntityDisplayNames(
+      database,
+      hitRows.map((hitRow) => hitRow.entity_id),
+    ),
+    // What the firm already said about these parties on any OTHER check. Set-valued for the
+    // same reason the other two are: a check against a wide corpus surfaces hundreds of hits.
+    readPriorConclusions(
+      database,
+      hitRows.map((hitRow) => hitRow.entity_id),
+      runId,
+    ),
+  ]);
+  const dispositionByHit = new Map(
+    dispositionStates.map((state) => [state.hitId, state.disposition]),
+  );
+
+  const hits = hitRows.map((hitRow) => {
+    const disposition = dispositionByHit.get(hitRow.id) ?? null;
+    // An entity the Directory no longer resolves is reported as UNRESOLVED, never as absent:
+    // the log is append-only, so an old hit can name an entity a later merge reshaped, and a
+    // hit whose party read as absent would invert what a conflicts hit means.
+    const party = partyNames.get(hitRow.entity_id) ?? null;
+    const earlier = priorConclusions.get(hitRow.entity_id) ?? null;
+    return {
+      id: hitRow.id,
+      entityId: hitRow.entity_id,
+      party,
+      previouslyAnswered:
+        earlier === null
+          ? null
+          : {
+              checkId: earlier.checkId,
+              kind: earlier.kind,
+              reviewerUserId: earlier.reviewerUserId,
+              createdAt: earlier.createdAt,
+            },
+      sourceClass: hitRow.source_class,
+      evidenceTier: hitRow.evidence_tier,
+      matchedFields: JSON.parse(hitRow.matched_fields_json) as string[],
+      graphPath: JSON.parse(hitRow.graph_path_json) as unknown[],
+      coParty: hitRow.co_party === 1,
+      createdAt: hitRow.created_at,
+      disposition:
+        disposition === null
+          ? null
+          : {
+              id: disposition.id,
+              kind: disposition.kind,
+              rationale: disposition.rationale,
+              reviewerUserId: disposition.reviewerUserId,
+              waiver: disposition.waiver,
+              // Derived on every read from the row itself, never stored: filing the
+              // confirmation later is a second disposition row, and this answer moves with it.
+              shortfalls: waiverShortfalls(disposition.kind, disposition.waiver),
+              createdAt: disposition.createdAt,
+            },
+    };
+  });
+  const scope = parseCheckScope(checkRow.scope_json);
+  const inputs = parseCheckInputs(checkRow.inputs_json);
+  const sources: ReportedSource[] = reportedSourcesFor(scope, {
+    hasSubjectMatter: checkRow.subject_matter_id !== null,
+  });
+  const statement = describeCheck(
+    {
+      createdAt: checkRow.created_at,
+      trigger: checkRow.trigger,
+      actorUserId: checkRow.actor_user_id,
+      strictness: checkRow.strictness as "balanced" | "over_inclusive",
+      depth: checkRow.depth,
+      floorRaised: checkRow.floor_raised === 1,
+      subjectEntityCount: inputs.subjectEntityIds.length,
+      expandedEntityCount: inputs.expandedEntityIds.length,
+      skippedIdentifierTypes: inputs.skippedIdentifierTypes,
+      traversal: inputs.traversal,
+      candidates: inputs.candidates,
+    },
+    hitRows.map((hitRow) => ({ evidenceTier: hitRow.evidence_tier as 1 | 2 | 3 | 4 })),
+    sources,
+  );
+  return {
+    check: {
+      id: checkRow.id,
+      trigger: checkRow.trigger,
+      matterId: checkRow.subject_matter_id,
+      subjectEntityIds: JSON.parse(checkRow.subject_parties_json) as string[],
+      scope,
+      strictness: checkRow.strictness,
+      depth: checkRow.depth,
+      floorRaised: checkRow.floor_raised === 1,
+      matching: inputs.matching,
+      traversal: inputs.traversal,
+      candidates: inputs.candidates,
+      actorUserId: checkRow.actor_user_id,
+      createdAt: checkRow.created_at,
+    },
+    statement,
+    hits,
+  };
+}
+
 export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoint): void {
   // POST /api/v1/conflicts/checks
   app.openapi(
     { ...runCheckRoute, middleware: chokepointMiddleware(chokepoint, runCheckRoute) },
     async (c) => {
-      const userId = requireChokepointUserId(c);
       const idempotency = requireChokepointIdempotency(c);
       const request = c.req.valid("json");
       const context = await conflictsContext(c);
+      const stored: StoredRunRequest = {
+        trigger: request.trigger,
+        matterId: request.matterId ?? null,
+        subjectEntityIds: request.subjectEntityIds,
+        scope: request.scope,
+      };
       try {
-        const id = await runConflictsCheck(
-          context,
+        // Opened, not run: one small batch that draws the number and queues the first run. A person
+        // asked for this one, and the row has to say so — left unset, the run reads on the firm's
+        // log as "the row does not say what started it", beside an actor it does in fact name.
+        const opened = await openCheckRun(
+          context.database,
+          { request: stored, triggerSource: "manual", under: null },
           {
-            trigger: request.trigger,
-            matterId: request.matterId,
-            subjectEntityIds: request.subjectEntityIds,
-            scope: request.scope,
-            // A person asked for this one, and the row has to say so. Left unset, the check is
-            // stored with no trigger source at all — which is the shape of a row written before the
-            // column existed, and reads on the firm's log as "the row does not say what started
-            // it", beside an actor it does in fact name. The re-check route below has always said
-            // it; the deliberate run is the one that has to say it most.
-            triggerSource: "manual",
-          },
-          {
-            clock: { now: () => new Date().toISOString() },
-            actorUserId: userId,
-            randomSource: cryptoRandomSource,
+            clock: context.clock,
+            actorUserId: context.actorUserId,
+            randomSource: context.randomSource,
             idempotency,
           },
         );
-        return c.json({ id } as z.infer<typeof CreatedCheckResponse>, 201);
+        // A replayed key returns the run the first request opened; the executor's claim finds
+        // nothing queued and searches nothing, so handing it over again is safe.
+        executeAfterResponse(c, context, opened.runId, runInputFrom(stored));
+        return c.json(openedRunBody(opened) as z.infer<typeof OpenedCheckResponse>, 202);
       } catch (caught) {
         return conflictsErrorResponse(c, caught);
       }
+    },
+  );
+
+  // GET /api/v1/conflicts/checks/next-number — registered before the {checkId} read so the literal
+  // segment is matched as itself rather than refused as a malformed handle.
+  app.openapi(
+    { ...nextCheckNumberRoute, middleware: chokepointMiddleware(chokepoint, nextCheckNumberRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const sequence = await readNextCheckSequence(firm.firmDatabase);
+      return c.json(
+        { checkNumber: renderCheckNumber(sequence) } as z.infer<typeof NextCheckNumberResponse>,
+        200,
+      );
     },
   );
 
@@ -1091,15 +1505,20 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
         {
           data: rows.map((row) => ({
             id: row.id,
-            trigger: row.trigger,
+            checkNumber: row.check_number,
             matterId: row.subject_matter_id,
-            strictness: row.strictness,
-            depth: row.depth,
-            floorRaised: row.floor_raised === 1,
-            actorUserId: row.actor_user_id,
-            triggerSource: row.trigger_source,
-            hitCount: row.hit_count,
             createdAt: row.created_at,
+            createdByUserId: row.created_by_user_id,
+            runCount: row.run_count,
+            latestRunId: row.latest_run_id,
+            runStatus: row.run_status,
+            latestRunAt: row.latest_run_at,
+            trigger: row.trigger,
+            triggerSource: row.trigger_source,
+            actorUserId: row.requested_by_user_id,
+            strictness: row.strictness,
+            floorRaised: row.floor_raised === null ? null : row.floor_raised === 1,
+            hitCount: row.hit_count,
           })),
           // Keyed on the same (created_at, id) pair the statement orders by, so the walk can
           // neither skip a check nor show one twice.
@@ -1133,11 +1552,11 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
       const request = c.req.valid("json");
       try {
         // The whole policy, written whole. What comes back is the STORED value after normalization,
-        // not the request echoed — a floor the firm cannot actually have (every source deselected, a
-        // candidate cap past one atomic batch) is repaired here and the repair is what the caller is
-        // told, so a screen never shows a floor its own checks would not run.
+        // not the request echoed — a floor the firm cannot actually have (every source deselected)
+        // is repaired here and the repair is what the caller is told, so a screen never shows a
+        // floor its own checks would not run.
         const policy = await writeConflictsPolicy(firm.firmDatabase, request as ConflictsPolicy, {
-          clock: { now: () => new Date().toISOString() },
+          clock: { now: nowInstant },
           actorUserId: userId,
           randomSource: cryptoRandomSource,
           idempotency,
@@ -1161,7 +1580,6 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
   app.openapi(
     { ...matterRecheckRoute, middleware: chokepointMiddleware(chokepoint, matterRecheckRoute) },
     async (c) => {
-      const userId = requireChokepointUserId(c);
       const idempotency = requireChokepointIdempotency(c);
       const { matterId } = c.req.valid("param");
       const context = await conflictsContext(c);
@@ -1170,31 +1588,120 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
         // narrower request to it anyway, so this is not the enforcement — it is the reason the route
         // needs no scope field at all.
         const policy = await readConflictsPolicy(context.database);
-        const checkId = await runConflictsCheck(
-          context,
+        const stored: StoredRunRequest = {
+          // A person asking for a re-check is asking for the full one; `preliminary` is the intake
+          // band and is not something this affordance should be able to select by accident.
+          trigger: "comprehensive",
+          matterId,
+          // Empty on purpose: the engine reads the matter's own live parties. Naming subjects here
+          // would freeze the search to whoever the screen had listed when the button was drawn,
+          // which is precisely the staleness a re-check exists to answer.
+          subjectEntityIds: [],
+          scope: { sources: policy.floorSources, strictness: policy.floorStrictness },
+        };
+        // Under the matter's own check, so the matter's history is one check with its runs rather
+        // than a row per press.
+        const home = await readLatestNumberedCheckForMatter(context.database, matterId);
+        const opened = await openCheckRun(
+          context.database,
           {
-            // A person asking for a re-check is asking for the full one; `preliminary` is the intake
-            // band and is not something this affordance should be able to select by accident.
-            trigger: "comprehensive",
-            matterId,
-            // Empty on purpose: runConflictsCheck reads the matter's own live parties. Naming
-            // subjects here would freeze the search to whoever the screen had listed when the button
-            // was drawn, which is precisely the staleness a re-check exists to answer.
-            subjectEntityIds: [],
-            scope: { sources: policy.floorSources, strictness: policy.floorStrictness },
+            request: stored,
             triggerSource: "manual",
+            under: home === null ? null : { numberedCheckId: home.id },
           },
           {
-            clock: { now: () => new Date().toISOString() },
-            actorUserId: userId,
-            randomSource: cryptoRandomSource,
+            clock: context.clock,
+            actorUserId: context.actorUserId,
+            randomSource: context.randomSource,
             idempotency,
           },
         );
-        return c.json({ checkId } as z.infer<typeof CreatedRecheckResponse>, 201);
+        executeAfterResponse(c, context, opened.runId, runInputFrom(stored));
+        return c.json(openedRunBody(opened) as z.infer<typeof OpenedCheckResponse>, 202);
       } catch (caught) {
         return conflictsErrorResponse(c, caught);
       }
+    },
+  );
+
+  // POST /api/v1/conflicts/checks/{checkId}/runs
+  app.openapi(
+    { ...rerunCheckRoute, middleware: chokepointMiddleware(chokepoint, rerunCheckRoute) },
+    async (c) => {
+      const idempotency = requireChokepointIdempotency(c);
+      const { checkId } = c.req.valid("param");
+      const context = await conflictsContext(c);
+      const numbered = await readNumberedCheckByAnyId(context.database, checkId);
+      if (numbered === null) return notFound(c, "No such conflicts check in this firm.");
+      // The search the check was opened with, from its first run: a later run of one check runs the
+      // same search, against the matter the check is filed on today.
+      const runs = await readRunsForCheck(context.database, numbered.id);
+      const first = runs[0];
+      const stored = first === undefined ? null : parseStoredRunRequest(first.request_json);
+      if (stored === null) {
+        return problemJson(c, {
+          type: "validation",
+          title: "Conflicts request invalid",
+          status: 422,
+          detail:
+            "This check's first run does not record the search it performed, so it cannot be run again.",
+        });
+      }
+      try {
+        const opened = await openCheckRun(
+          context.database,
+          {
+            request: stored,
+            triggerSource: "manual",
+            under: { numberedCheckId: numbered.id },
+          },
+          {
+            clock: context.clock,
+            actorUserId: context.actorUserId,
+            randomSource: context.randomSource,
+            idempotency,
+          },
+        );
+        const openedRun = await readRunsForCheck(context.database, numbered.id);
+        const request = openedRun.find((run) => run.id === opened.runId);
+        const input =
+          request === null || request === undefined
+            ? null
+            : parseStoredRunRequest(request.request_json);
+        if (input !== null) executeAfterResponse(c, context, opened.runId, runInputFrom(input));
+        return c.json(openedRunBody(opened) as z.infer<typeof OpenedCheckResponse>, 202);
+      } catch (caught) {
+        return conflictsErrorResponse(c, caught);
+      }
+    },
+  );
+
+  // PUT /api/v1/conflicts/checks/{checkId}/matter
+  app.openapi(
+    { ...fileCheckRoute, middleware: chokepointMiddleware(chokepoint, fileCheckRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { checkId } = c.req.valid("param");
+      const { matterId } = c.req.valid("json");
+      const numbered = await readNumberedCheckByAnyId(firm.firmDatabase, checkId);
+      if (numbered === null) return notFound(c, "No such conflicts check in this firm.");
+      if (!(await matterExists(firm.firmDatabase, matterId))) {
+        return problemJson(c, {
+          type: "validation",
+          title: "Conflicts request invalid",
+          status: 422,
+          detail: "No such matter in this firm.",
+        });
+      }
+      // A plain update rather than an effect batch: filing moves one column on a mutable row, and
+      // repeating it is harmless — the chokepoint still requires the key so a replay is recognised.
+      await fileCheckOnMatterStatement(
+        firm.firmDatabase,
+        numbered.id,
+        matterId,
+        nowInstant(),
+      ).run();
+      return c.json({ id: numbered.id, matterId } as z.infer<typeof FiledCheckResponse>, 200);
     },
   );
 
@@ -1204,128 +1711,36 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { checkId } = c.req.valid("param");
-      const checkRow = await readCheckRow(firm.firmDatabase, checkId);
-      if (checkRow === null) {
-        return problemJson(c, {
-          type: "not-found",
-          title: "Not found",
-          status: 404,
-          detail: "No such conflicts check in this firm.",
-        });
-      }
-      const hitRows = await readHitRows(firm.firmDatabase, checkId);
-
-      /*
-       * Two set-valued reads, not two per hit.
-       *
-       * The dispositions were a per-hit readCurrentDisposition inside a Promise.all — the exact N+1
-       * readHitDispositionStates exists to replace, and whose own comment names this shape as the
-       * mistake: a check against a wide corpus surfaces hundreds of hits. It resolves every hit's
-       * latest word in one query, by the same created_at/rowid tie-break, so the answer is identical
-       * and the read is one round trip instead of one per hit.
-       *
-       * The party names are the second read, and they are what lets the hit list say who matched.
-       * The entity set is bounded by the hits already read, and the reader chunks it at D1's
-       * bound-parameter cap.
-       */
-      const [dispositionStates, partyNames, priorConclusions] = await Promise.all([
-        readHitDispositionStates(firm.firmDatabase, checkId),
-        readEntityDisplayNames(
-          firm.firmDatabase,
-          hitRows.map((hitRow) => hitRow.entity_id),
-        ),
-        // What the firm already said about these parties on any OTHER check. Set-valued for the
-        // same reason the other two are: a check against a wide corpus surfaces hundreds of hits.
-        readPriorConclusions(
-          firm.firmDatabase,
-          hitRows.map((hitRow) => hitRow.entity_id),
-          checkId,
-        ),
-      ]);
-      const dispositionByHit = new Map(
-        dispositionStates.map((state) => [state.hitId, state.disposition]),
+      const { run: askedRunId } = c.req.valid("query");
+      const numbered = await readNumberedCheckByAnyId(firm.firmDatabase, checkId);
+      if (numbered === null) return notFound(c, "No such conflicts check in this firm.");
+      // A run that stopped reporting is settled here, because this is the moment somebody is
+      // looking at it and the moment the honest answer is owed.
+      const runs = await settleStaleRuns(
+        firm.firmDatabase,
+        await readRunsForCheck(firm.firmDatabase, numbered.id),
+        nowInstant(),
       );
-
-      const hits = hitRows.map((hitRow) => {
-        const disposition = dispositionByHit.get(hitRow.id) ?? null;
-        // An entity the Directory no longer resolves is reported as UNRESOLVED, never as absent:
-        // the log is append-only, so an old hit can name an entity a later merge reshaped, and a
-        // hit whose party read as absent would invert what a conflicts hit means.
-        const party = partyNames.get(hitRow.entity_id) ?? null;
-        const earlier = priorConclusions.get(hitRow.entity_id) ?? null;
-        return {
-          id: hitRow.id,
-          entityId: hitRow.entity_id,
-          party,
-          previouslyAnswered:
-            earlier === null
-              ? null
-              : {
-                  checkId: earlier.checkId,
-                  kind: earlier.kind,
-                  reviewerUserId: earlier.reviewerUserId,
-                  createdAt: earlier.createdAt,
-                },
-          sourceClass: hitRow.source_class,
-          evidenceTier: hitRow.evidence_tier,
-          matchedFields: JSON.parse(hitRow.matched_fields_json) as string[],
-          graphPath: JSON.parse(hitRow.graph_path_json) as unknown[],
-          coParty: hitRow.co_party === 1,
-          createdAt: hitRow.created_at,
-          disposition:
-            disposition === null
-              ? null
-              : {
-                  id: disposition.id,
-                  kind: disposition.kind,
-                  rationale: disposition.rationale,
-                  reviewerUserId: disposition.reviewerUserId,
-                  waiver: disposition.waiver,
-                  // Derived on every read from the row itself, never stored: filing the
-                  // confirmation later is a second disposition row, and this answer moves with it.
-                  shortfalls: waiverShortfalls(disposition.kind, disposition.waiver),
-                  createdAt: disposition.createdAt,
-                },
-        };
-      });
-      const scope = parseCheckScope(checkRow.scope_json);
-      const inputs = parseCheckInputs(checkRow.inputs_json);
-      const sources: ReportedSource[] = reportedSourcesFor(scope, {
-        hasSubjectMatter: checkRow.subject_matter_id !== null,
-      });
-      const statement = describeCheck(
+      const selected =
+        askedRunId === undefined
+          ? (runs.find((run) => run.id === numbered.latest_run_id) ?? runs.at(-1))
+          : runs.find((run) => run.id === askedRunId);
+      if (selected === undefined) return notFound(c, "No such run of this conflicts check.");
+      const hitCounts = await readHitCounts(
+        firm.firmDatabase,
+        runs.filter((run) => run.status === "completed").map((run) => run.id),
+      );
+      const record =
+        selected.status === "completed" ? await readRecord(firm.firmDatabase, selected.id) : null;
+      return c.json(
         {
-          createdAt: checkRow.created_at,
-          trigger: checkRow.trigger,
-          actorUserId: checkRow.actor_user_id,
-          strictness: checkRow.strictness as "balanced" | "over_inclusive",
-          depth: checkRow.depth,
-          floorRaised: checkRow.floor_raised === 1,
-          subjectEntityCount: inputs.subjectEntityIds.length,
-          expandedEntityCount: inputs.expandedEntityIds.length,
-          skippedIdentifierTypes: inputs.skippedIdentifierTypes,
-          traversal: inputs.traversal,
-          candidates: inputs.candidates,
-        },
-        hitRows.map((hitRow) => ({ evidenceTier: hitRow.evidence_tier as 1 | 2 | 3 | 4 })),
-        sources,
+          check: numberedCheckBody(numbered),
+          runs: runs.map((run) => runSummary(run, hitCounts)),
+          run: runSummary(selected, hitCounts),
+          record,
+        } as unknown as z.infer<typeof GetCheckResponse>,
+        200,
       );
-      const check = {
-        id: checkRow.id,
-        trigger: checkRow.trigger,
-        matterId: checkRow.subject_matter_id,
-        subjectEntityIds: JSON.parse(checkRow.subject_parties_json) as string[],
-        scope,
-        strictness: checkRow.strictness,
-        depth: checkRow.depth,
-        floorRaised: checkRow.floor_raised === 1,
-        matching: inputs.matching,
-        traversal: inputs.traversal,
-        candidates: inputs.candidates,
-        actorUserId: checkRow.actor_user_id,
-        createdAt: checkRow.created_at,
-      };
-      return c.json({ check, statement, hits } as unknown as z.infer<typeof GetCheckResponse>, 200);
     },
   );
 
@@ -1344,14 +1759,7 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
       // and nothing else. Conflating the two would let a mistyped handle read as an unanswered
       // candidate.
       const hit = await readHitById(firm.firmDatabase, hitId);
-      if (hit === null) {
-        return problemJson(c, {
-          type: "not-found",
-          title: "Not found",
-          status: 404,
-          detail: "No such conflicts hit in this firm.",
-        });
-      }
+      if (hit === null) return notFound(c, "No such conflicts hit in this firm.");
       const dispositions = await readDispositionTrail(firm.firmDatabase, hitId);
       return c.json(
         {
@@ -1414,7 +1822,7 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
                 : { ...request.waiver, documentFileId: request.waiver.documentFileId ?? null },
           },
           {
-            clock: { now: () => new Date().toISOString() },
+            clock: { now: nowInstant },
             actorUserId: userId,
             randomSource: cryptoRandomSource,
             idempotency,

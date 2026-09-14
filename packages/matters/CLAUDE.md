@@ -77,17 +77,24 @@ list/consultations queries. Validates in memory and composes statements into @ma
 - **Lifecycle transitions are guarded in the batch, not only pre-read.** D1 has no interactive
   transaction, so every read-then-write precondition needs its predicate on the UPDATE too: `openMatter`
   writes `AND status = 'consultation'` and confirms after the commit that the row carries the number it
-  drew; `graduateMatter` writes `AND status = 'intake'` and confirms the consultation number the same way; `holdMatter` writes `AND status = 'open'` and `releaseMatter` writes `AND status = 'hold'`, each confirming the committed status afterwards so a hold never overwrites a close that landed in between; `closeMatter` writes `AND status != 'closed'` so a racing close never moves `closed_at`. A
+  drew; `graduateMatter` writes `AND status = 'intake'` and confirms the consultation number the same way; `holdMatter` writes `AND status IN ('open', 'consultation')` and `releaseMatter` writes `AND status = 'hold'`, each confirming the committed status afterwards so a hold never overwrites a close that landed in between; `closeMatter` writes `AND status != 'closed'` so a racing close never moves `closed_at`. A
   precondition is skipped when the Idempotency-Key has already been seen — that is the same request
   retried, and the shared primitive replays its stored response.
-- **A hold draws nothing and surrenders nothing.** `hold` is reached only from `open` (a matter that
-  was never active has no work to pause), keeps the matter number, and carries its reason and its
-  instant on the row (`hold_reason`, `held_at`, paired by `matter_hold_check`). `releaseMatter`
-  clears both and returns the matter to `open`. A close leaves them standing, so `reopenMatter`
-  reads `held_at` first and returns a matter closed while on hold to that hold. The docket includes
-  held matters (they are numbered); the conflicts corpus treats them as live; auto-file rules still
-  fire on them. There is no precondition registry on either side of a hold: nothing gates it but
-  the `matters:hold` permission, which is one authority in both directions.
+- **A hold draws nothing and surrenders nothing.** `hold` is reached from `open` or from
+  `consultation` (an active matter the firm has stopped working, or a consultation it has parked
+  without deciding on; an intake has nothing yet to pause), keeps whichever number the matter
+  wears, and carries its reason and its instant on the row (`hold_reason`, `held_at`, paired by
+  `matter_hold_check`). `releaseMatter` clears both and returns the matter to where the hold found
+  it, reading `opened_at` as the one honest signal: stamped, it goes back to `open`; empty, it was
+  a consultation and goes back to `consultation`. A close leaves the hold's facts standing, so
+  `reopenMatter` reads `held_at` first and returns a matter closed while on hold to that hold. The
+  docket includes held matters that were numbered; the conflicts corpus treats them as live;
+  auto-file rules still fire on them. There is no precondition registry on either side of a hold:
+  nothing gates it but the `matters:hold` permission, which is one authority in both directions.
+- **A consultation closes as a matter does, and draws no number by closing.** A firm that decides
+  against a consultation closes it; `closeMatter` runs the same preconditions (a consultation with
+  nothing on its ledgers passes them), and the consultation keeps its tentative number and never
+  consumes a matter number. `reopenMatter` restores `consultation` when that is what it left.
 - **Closed = archived-but-additive.** A closed matter still accepts documents; close runs the
   preconditions first. This package's own registry is EMPTY and stays empty — a rule belongs to the
   subsystem that owns the thing it guards, and the composition root passes them in through

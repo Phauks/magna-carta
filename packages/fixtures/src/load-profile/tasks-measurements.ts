@@ -124,7 +124,7 @@ export const taskMeasurements: readonly Measurement<TaskMeasurementHandle, unkno
         viewerUserId: handle.snapshot.manifest.taskProbes.memberUserId,
         includeClosedMatters: false,
         filters: {
-          states: ["open"],
+          rungs: ["to_do", "in_progress", "on_hold"],
           assigneeUserId: handle.snapshot.manifest.taskProbes.memberUserId,
         },
       }).all<TaskListRow>();
@@ -236,7 +236,10 @@ export function taskHotPathPlans(handle: TaskMeasurementHandle): LabeledPlan[] {
           visibility: handle.visibility,
           viewerUserId: probes.memberUserId,
           includeClosedMatters: false,
-          filters: { states: ["open"], assigneeUserId: probes.memberUserId },
+          filters: {
+            rungs: ["to_do", "in_progress", "on_hold"],
+            assigneeUserId: probes.memberUserId,
+          },
         }),
       ),
     },

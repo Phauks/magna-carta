@@ -141,8 +141,6 @@
      * than anything the reader can see.
      */
     columnWidths?: Record<string, number>;
-    /** The surface's own empty state, where a story is exercising one. */
-    empty?: Snippet;
     /**
      * The scroll frame's own sizing classes. Capped by default, which is how most stories want it.
      */
@@ -170,7 +168,6 @@
     rowMark,
     rowDetail,
     columnWidths,
-    empty,
     frameClass = "max-h-96",
     frameHeight,
     onActivate,
@@ -209,7 +206,6 @@
     {loading}
     {density}
     {rowDetail}
-    {empty}
     class={frameClass}
   >
     {#snippet cell({ row, column, text })}

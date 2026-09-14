@@ -28,7 +28,6 @@
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import Badge from "@magna-carta/design-system/badge";
   import { buttonClasses } from "@magna-carta/design-system/button";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import FileIcon from "@magna-carta/design-system/file-icon";
   import EllipsisVertical from "@lucide/svelte/icons/ellipsis-vertical";
   import Upload from "@lucide/svelte/icons/upload";
@@ -115,12 +114,6 @@
   {/if}
 {/snippet}
 
-{#snippet emptyBench()}
-  <!-- Short on purpose: this sits in a narrow pane, and a paragraph here would be clipped by the
-       column it lives in rather than read. What the workbench does and does not keep is said once,
-       full width, beneath the screen's header (workbench.svelte). -->
-  <EmptyState title="Nothing on the Workbench">Drop a file here, or add one.</EmptyState>
-{/snippet}
 
 <div class="flex h-full min-h-0 flex-col">
   <!-- The drop region is the list itself. The border is the only thing that changes under a drag,
@@ -144,7 +137,6 @@
             {cell}
             density="compact"
             caption="Files on the workbench"
-            empty={emptyBench}
             class="min-h-0 flex-1"
           />
         </div>

@@ -32,7 +32,11 @@
   type DropdownMenuStoryArgs = ComponentProps<typeof DropdownMenuRoot>;
 </script>
 
+<!-- The trigger sits at the right of a padded canvas, where a menu trigger usually is: the panel
+     opens end-aligned to it and grows toward the start, which is what the Default story measures
+     (flush against the viewport edge, Bits would hold the panel the collision padding in). -->
 {#snippet template(args: DropdownMenuStoryArgs)}
+  <div class="flex justify-end p-24">
   <DropdownMenu.Root {...args}>
     <DropdownMenu.Trigger class="mc-button mc-button-secondary mc-button-md"
       >Actions</DropdownMenu.Trigger
@@ -62,6 +66,7 @@
       </DropdownMenu.Sub>
     </DropdownMenu.Content>
   </DropdownMenu.Root>
+  </div>
 {/snippet}
 
 <Story
@@ -78,6 +83,17 @@
       // the entrance settles rather than asserting on the first frame.
       await waitFor(() => expect(menu).toBeVisible());
       await expect(body.getByRole("menuitem", { name: "Edit" })).toBeVisible();
+    });
+
+    await step("It opens end-aligned to the trigger, its end edge on the trigger's", async () => {
+      // The component's default, written nowhere in this story.
+      const menu = body.getByRole("menu");
+      await expect(menu).toHaveAttribute("data-align", "end");
+      await waitFor(() => {
+        const panel = menu.getBoundingClientRect();
+        const control = trigger.getBoundingClientRect();
+        expect(Math.abs(panel.right - control.right)).toBeLessThanOrEqual(1);
+      });
     });
 
     await step("ArrowDown highlights the first item", async () => {

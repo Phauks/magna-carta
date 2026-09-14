@@ -133,6 +133,39 @@ export function splitTypedExtension(
   return { number: typed, extension: "" };
 }
 
+/**
+ * The number half and the extension after a keystroke in the number field, with any digits past the
+ * country's own length rolled into the extension.
+ *
+ * THE ROLL KEEPS ROLLING. The first overflow digit lands in the extension; the second must land
+ * there too, without the person leaving the number field. That was the defect: once the extension
+ * held anything, every further digit typed into the number half was split off and dropped, because
+ * the roll refused to touch a non-empty extension — so a four-digit direct dial could be typed only
+ * by clicking into the extension field after its first digit (owner report, 2026-09-14). Once a
+ * digit has rolled, the number field holds the number alone, so each further keystroke carries one
+ * more overflow digit; the roll APPENDS it to an extension IT WROTE — recognised by being exactly
+ * what the last roll produced — and leaves alone one somebody typed by hand, because the person who
+ * typed it knows something the digit count does not. `rolled` is what the caller hands back next
+ * time so the two cases stay apart.
+ */
+export function rollTypedExtension(
+  region: CountryCode,
+  previousNumber: string,
+  typed: string,
+  extension: string,
+  rolled: string,
+): { readonly number: string; readonly extension: string; readonly rolled: string } {
+  const formatted = formatPhoneAfterEdit(region, previousNumber, typed);
+  const split = splitTypedExtension(region, formatted);
+  if (split.extension === "") return { number: formatted, extension, rolled };
+  if (extension.trim() === "") {
+    return { number: split.number, extension: split.extension, rolled: split.extension };
+  }
+  if (extension !== rolled) return { number: split.number, extension, rolled };
+  const grown = `${rolled}${split.extension}`;
+  return { number: split.number, extension: grown, rolled: grown };
+}
+
 export type PhoneEntryCheck =
   | {
       readonly ok: true;

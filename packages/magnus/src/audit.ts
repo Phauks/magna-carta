@@ -2,6 +2,7 @@ import { domainAuditStatement } from "@magna-carta/data-access/audit-statements"
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { RandomSource } from "@magna-carta/identifiers/random";
 import type {
+  FileId,
   MagnusConversationId,
   MagnusTurnId,
   MatterId,
@@ -23,6 +24,9 @@ export const MAGNUS_EVENTS = {
   turnCompleted: "magnus.turn_completed",
   turnFailed: "magnus.turn_failed",
   conversationRenamed: "magnus.conversation_renamed",
+  conversationMoved: "magnus.conversation_moved",
+  attachmentAdded: "magnus.attachment_added",
+  attachmentRemoved: "magnus.attachment_removed",
   conversationDeleted: "magnus.conversation_deleted",
   conversationReadByAdministrator: "magnus.conversation_read_by_administrator",
   memberAcknowledged: "magnus.member_acknowledged",
@@ -142,6 +146,48 @@ export function conversationRenamedAudit(
     input.conversationId,
     { cleared: input.cleared ? 1 : 0 },
   );
+}
+
+// Moving a conversation onto another matter, or off every matter, is an ACCESS decision as much as a
+// filing one: which matter a transcript is kept on is what decides who may read it. So the row names
+// both matters, and how many attachments went with the old one.
+export function conversationMovedAudit(
+  database: SqlDatabase,
+  context: MagnusWriteContext,
+  input: {
+    readonly conversationId: MagnusConversationId;
+    readonly fromMatterId: MatterId | null;
+    readonly toMatterId: MatterId | null;
+    readonly detachedAttachments: number;
+  },
+): SqlStatement {
+  return auditStatement(database, context, MAGNUS_EVENTS.conversationMoved, input.conversationId, {
+    fromMatterId: input.fromMatterId,
+    toMatterId: input.toMatterId,
+    detachedAttachments: input.detachedAttachments,
+  });
+}
+
+// An attachment is a REFERENCE to a matter's file, so the row names the file and nothing of it: which
+// document a member put beside a question is a fact the firm keeps; the document's text is not.
+export function attachmentAddedAudit(
+  database: SqlDatabase,
+  context: MagnusWriteContext,
+  input: { readonly conversationId: MagnusConversationId; readonly fileId: FileId },
+): SqlStatement {
+  return auditStatement(database, context, MAGNUS_EVENTS.attachmentAdded, input.conversationId, {
+    fileId: input.fileId,
+  });
+}
+
+export function attachmentRemovedAudit(
+  database: SqlDatabase,
+  context: MagnusWriteContext,
+  input: { readonly conversationId: MagnusConversationId; readonly fileId: FileId },
+): SqlStatement {
+  return auditStatement(database, context, MAGNUS_EVENTS.attachmentRemoved, input.conversationId, {
+    fileId: input.fileId,
+  });
 }
 
 // A deletion records that a conversation existed and was deleted. It never records what was in it —

@@ -22,12 +22,12 @@
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import type { Snippet } from "svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
   import { listConflictsChecks, type ConflictsCheckSummary } from "./conflicts-api.ts";
+  import { runStatusVocabulary } from "./conflicts-vocabulary.ts";
   import {
     checkRegisterVocabulary,
     conflictsCheckColumns,
@@ -125,8 +125,13 @@
   const narrowed = $derived((grid?.activeFilterCount ?? 0) > 0);
 </script>
 
-{#snippet checkCell({ column, text }: DataTable.GridCellContext<ConflictsCheckSummary>)}
-  {#if column.id === "floorRaised"}
+{#snippet checkCell({ column, text, row }: DataTable.GridCellContext<ConflictsCheckSummary>)}
+  {#if column.id === "runState" && row.runStatus !== null}
+    <!-- Where the latest run is. A settled run wears the calm word; a failed one the open-question
+         tone, because a check whose last run stopped short is one somebody has to look at. -->
+    {@const word = runStatusVocabulary(row.runStatus)}
+    <Badge variant={word.tone} title={word.meaning}>{word.label}</Badge>
+  {:else if column.id === "floorRaised"}
     {#if text === FLOOR_RAISED}
       <!-- It searched WIDER than asked. Worth saying, because it explains a result set larger than
            whoever asked for it expected. -->
@@ -160,16 +165,6 @@
       cell={checkCell}
       loading={checks === null}
     >
-      {#snippet empty()}
-        {#if narrowed}
-          <EmptyState title="Nothing Matches That">
-            No check in the firm's log answers to what is asked. Widening the filters brings the log
-            back.
-          </EmptyState>
-        {:else}
-          <EmptyState title={emptyTitle} actions={emptyActions}>{@render emptyBody()}</EmptyState>
-        {/if}
-      {/snippet}
     </DataTable.Grid>
 
     <!-- The counts strip: how much of the log is on screen, and the way to the rest of it. One
