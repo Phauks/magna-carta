@@ -71,7 +71,11 @@ import type {
   UploadSessionId,
   UserId,
 } from "@magna-carta/identifiers/types";
-import { outboxDeadLettered, outboxSwept } from "@magna-carta/telemetry/events";
+import {
+  migrationArrivedOutOfOrder,
+  outboxDeadLettered,
+  outboxSwept,
+} from "@magna-carta/telemetry/events";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
@@ -283,7 +287,23 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
   // the control-plane schema to head. Idempotent: a no-op once at head. Error-isolated: a migration
   // failure is logged and the rest of the pass still runs.
   try {
-    await runPendingMigrations(d1MigrationTarget(env.DB_CONTROL), controlPlaneMigrations());
+    const report = await runPendingMigrations(
+      d1MigrationTarget(env.DB_CONTROL),
+      controlPlaneMigrations(),
+    );
+    // A migration that reached this database behind its own ledger head: two branches merged and
+    // seated it behind one already applied here, so this database met the pair in a different order
+    // than a fresh one will. It is applied and the schema is at head either way, so this is not a
+    // failure — but it is the only moment the fact is visible, because the ledger it lands in is a
+    // set of tags with no record of which arrived late.
+    for (const tag of report.outOfOrderTags) {
+      logger.log(
+        migrationArrivedOutOfOrder(
+          { correlationId, now: new Date().toISOString() },
+          { database: "control-plane", tag, ledgerHead: report.ledgerHead },
+        ),
+      );
+    }
   } catch (caught) {
     logOperationFailed(logger, "cron:control-plane-migrations", caught, correlationId);
   }

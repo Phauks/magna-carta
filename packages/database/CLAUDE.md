@@ -22,6 +22,8 @@ migrations_ section of [`docs/conventions/operations.md`](../../docs/conventions
 - `src/d1-migration-target.ts` / `src/do-sqlite-migration-target.ts` / `src/node-sqlite.ts` — the
   targets: D1, a Durable Object's SQLite, and node:sqlite for tests and fixtures
 - `src/protected-columns.ts` — the registry of encrypted-at-rest columns
+- `src/declared-tables.ts` — what each lineage's TypeScript declares, as plain data. The one place
+  drizzle's table reflection is done for a caller outside this package
 - `scripts/timestamp-latest-migration.mjs` — renames a fresh `NNNN_slug` migration to a timestamp id
 - `scripts/refresh-snapshot.mjs` — re-derives a lineage's snapshot from the schema (below)
 - `scripts/collapse-baseline.mjs` — folds a whole chain into one baseline, and proves it: the file is
@@ -92,9 +94,16 @@ a review step.
   `apps/api-worker/test/durable-object-pragma-context.test.ts`. `tooling/migration-integrity` refuses
   the shape outright, so widening a CHECK or dropping a column on a parent table needs a different
   answer — not a cleverer rebuild.
-- **The journal is the apply order.** `idx` is dense from 0, every entry has its `.sql`, and every
-  snapshot maps to a journal idx — asserted by `tooling/migration-integrity/`, which also applies the
-  whole chain to a fresh SQLite and rejects any unreviewed destructive table rebuild. It lives outside
+- **Apply order is TAG order, and `idx` is not it.** `src/migration.ts` sorts the journal by tag, so
+  two branches merge without a shared counter and nothing is ever renumbered; `idx` is drizzle's
+  dense append counter, read only by the authoring scripts to find the entry just generated. Do not
+  reintroduce an assertion that the two orders agree — a merge can legitimately seat a migration
+  behind one that already shipped, and satisfying such an assertion by RENAMING is the one repair
+  that must never be made (see the immutability invariant below). What a merge like that does leave
+  is a real hazard, and `runPendingMigrations` reports it: see _Out-of-order arrivals_ below.
+- **The journal's structure is checked.** `idx` is dense from 0, every entry has its `.sql`, and
+  every snapshot maps to a journal idx — asserted by `tooling/migration-integrity/`, which also
+  applies the whole chain to a fresh SQLite and rejects any unreviewed destructive table rebuild. It lives outside
   this package because it is a plain node script rather than a test: `node tooling/migration-integrity/index.mts`
   runs it in under a second, which is what lets the pre-push hook and the CI gate take it as a
   fail-fast without standing up a test runner. Its Vitest twin, driving the same module, runs with the
@@ -103,6 +112,30 @@ a review step.
   written and read exclusively through the data-access `protected()` chokepoint.
 - **No cross-firm reachability.** The per-firm schema carries no firm id and no auth table; isolation
   is the database boundary itself, not a column.
+
+## Out-of-order arrivals
+
+Apply order is tag order, but the chain GROWS from parallel branches, and two of them merging can
+seat a migration behind one that already shipped. A database that woke in between has already moved
+past where the newcomer sorts, so it applies the pair in the order it met them while a database
+provisioned afterwards applies them in tag order.
+
+For independent migrations both orders reach the same schema and nothing is wrong, which is the
+usual case and why this is **reported rather than refused** — the migration is genuinely pending and
+genuinely needed, and stranding a database over it would be worse than the condition. For migrations
+that touch the same objects the two orders do not agree, and the damage is silent: one set of firms
+carries a schema the other does not, with no failure anywhere to point at it.
+
+`runPendingMigrations` names it on the report (`outOfOrderTags`, with `ledgerHead`), measured against
+the ledger BEFORE the batch lands — afterwards every tag is in the ledger and which of them arrived
+late is not recoverable from it. A firm database holds it for its diagnostic read
+(`migrationState().outOfOrderArrivals`); the control-plane pass emits one
+`migration.arrivedOutOfOrder` event per tag.
+
+**What to do when one is reported:** compare the two migrations. If they touch different objects,
+nothing is wrong and the report is noise. If they touch the same ones, the firms that took them in
+each order now differ, and the repair is a new migration that converges them — never a rename, which
+is a hard refusal on wake for every database that applied the old tag.
 
 ## Dependencies & contracts
 
@@ -121,7 +154,10 @@ a review step.
   and a self-referencing foreign key on `custody_location.parent_location_id` exist in the migrations
   but not in the TypeScript schema, so no snapshot records them and no generate will ever reproduce
   them. Anything that compares the
-  applied chain against the schema must expect those extras. Conversely
+  applied chain against the schema must expect those extras — the guard that does
+  (`tooling/migration-integrity/checks.mts`) enumerates them in `UNDECLARED_BY_DESIGN` by exact name
+  rather than by prefix, so a NEW undeclared table is a finding rather than something the rule
+  swallows. Conversely
   `document_template.current_version_id` declares a foreign key the migration deliberately omits (it
   would close a cycle with `document_template_version`).
 - **`drizzle-kit generate` refuses `--config` alongside any other flag**, and resolves `--out`
@@ -129,8 +165,10 @@ a review step.
   spells out `--dialect`/`--schema` (read out of the config file) and uses a relative scratch path.
 - **A snapshot is not a migration.** Refreshing the snapshot changes what the _next_ generate emits;
   it never changes what any database has applied. If the schema and the committed migrations have
-  genuinely diverged, refreshing the snapshot hides the difference — check the chain against the
-  schema first (apply the lineage to node:sqlite and compare `PRAGMA` output), then fix it with a new
-  migration.
+  genuinely diverged, refreshing the snapshot hides the difference — it re-derives the snapshot FROM
+  the TypeScript, so both then agree with each other and disagree with every database. That
+  comparison is no longer a manual step: `tooling/migration-integrity/` applies each lineage to
+  node:sqlite and diffs it against `src/declared-tables.ts`, naming the table or column that
+  disagrees. A divergence it reports is fixed with a new migration, never by refreshing the snapshot.
 - **`vp test` runs the whole repo.** For this package alone use
   `pnpm --filter @magna-carta/database run test`, and never run two test invocations at once.

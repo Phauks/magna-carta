@@ -40,6 +40,15 @@ export interface FirmDatabaseMigrationState {
   readonly appliedCount: number;
   readonly appliedHead: string | null;
   /**
+   * Migrations that reached this database BEHIND its own ledger head, on the wake that applied them.
+   * Two branches merging can seat a migration behind one that already shipped, so this firm met the
+   * pair in a different order than a firm provisioned afterwards will. Independent migrations reach
+   * the same schema either way and this is noise; dependent ones do not, and then it is the only
+   * thing that says which firms diverged. Empty on an ordinary wake, and after any wake that applied
+   * nothing — the ledger is a set of tags, so which arrived late is not recoverable from it later.
+   */
+  readonly outOfOrderArrivals: readonly string[];
+  /**
    * The instant before the last migration batch, as a bookmark Cloudflare can restore this object
    * to. Null when nothing has been applied since restore points began, or when the bookmark could
    * not be taken. The lineage runs only forwards, so this is the only undo a wrong-but-successful
