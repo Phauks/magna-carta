@@ -108,6 +108,7 @@
   import FieldLabel from "@magna-carta/design-system/field-label";
   import Input from "@magna-carta/design-system/input";
   import LabelledField from "@magna-carta/design-system/labelled-field";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import Textarea from "@magna-carta/design-system/textarea";
   import { renumberMatter, RENUMBER_MATTER_PERMISSION } from "./numbering-api.ts";
   import { matterNumberRefusal } from "./numbering-scheme.ts";
@@ -263,7 +264,7 @@
 
   /** The engagement: the fee arrangement in force and its history. Null until the read comes back. */
   let arrangement = $state<ArrangementRecord | null>(null);
-  let arrangementFailed = $state(false);
+  let arrangementFailure = $state<StatedFailure | null>(null);
   let arrangementAsked = false;
   let historyShown = $state(false);
   let amendOpen = $state(false);
@@ -373,9 +374,13 @@
       const outcome = await readArrangement(fetch, matterId);
       if (outcome.kind === "ok") {
         arrangement = outcome.value;
-        arrangementFailed = false;
+        arrangementFailure = null;
       } else {
-        arrangementFailed = true;
+        arrangementFailure = stated(
+          outcome.failure,
+          "The agreement could not be read.",
+          MATTER_LIFECYCLE_TRANSPORT_FAILURE,
+        );
       }
     })();
   });
@@ -895,11 +900,29 @@
              status; the history is folded away because it is rarely read and never short. -->
         <div class="flex flex-col gap-8">
           <FieldLabel as="h3">Engagement</FieldLabel>
-          {#if arrangement === null && !arrangementFailed}
-            <p class="text-xs text-text-subtle">Reading the agreement.</p>
-          {:else if arrangementFailed}
-            <p class="text-xs text-text-subtle">The agreement could not be read.</p>
-          {:else}
+          <!-- The agreement's list stands while it is read, in its own shape over the fields it
+               will carry, so the values land where the reader already expects them. A failed read
+               settles to the notice with Retry in the same place. -->
+          <LoadingRegion
+            loading={arrangement === null && arrangementFailure === null}
+            failed={arrangementFailure !== null}
+            label="Reading the agreement"
+            class="flex flex-col gap-8"
+          >
+            {#snippet failure()}
+              {#if arrangementFailure !== null}
+                <FailureNotice
+                  failure={arrangementFailure.failure}
+                  subject="The agreement"
+                  fallback={arrangementFailure.fallback}
+                  whenSilent={arrangementFailure.whenSilent}
+                  onRetry={() => {
+                    arrangementFailure = null;
+                    arrangementAsked = false;
+                  }}
+                />
+              {/if}
+            {/snippet}
             <dl class="flex flex-col gap-8 text-sm">
               <div class="grid grid-cols-2 items-center gap-16">
                 <dt class="text-text-muted">Agreement</dt>
@@ -995,7 +1018,7 @@
                 </ul>
               {/if}
             {/if}
-          {/if}
+          </LoadingRegion>
         </div>
       {/if}
 

@@ -3701,7 +3701,7 @@ export const costsBatch = <ThrowOnError extends boolean = false>(options: Option
 });
 
 /**
- * Lists cost entries in either of two shapes. By matter: that matter's whole cost record, in every status unless one is named. By a `from`/`to` span of incurred dates: the period listing across every matter, which is what the firm's cost record is asked for at the end of a month, narrowable to one matter, one status and to billable or not. Both are CURSOR-PAGED, most recently incurred first, over the same statement, so a cost reads back identically whichever shape found it. Returns an empty list when neither a matter nor a span is named, rather than scanning the whole table.
+ * Lists cost entries, most recently incurred first, cursor-paged. Nothing named is the firm's whole cost record; `matterId` narrows it to one matter, `from` and `to` bound the incurred dates (each on its own or together), and `status`, `billable` and `search` narrow further. Every narrowing is the server's, so the firm's Costs screen can send its column filters here and have them hold across every page, and a cost reads back identically whichever narrowing found it because every shape runs over one statement.
  */
 export const costsList = <ThrowOnError extends boolean = false>(options?: Options<CostsListData, ThrowOnError>): RequestResult<CostsListResponses, CostsListErrors, ThrowOnError> => (options?.client ?? client).get<CostsListResponses, CostsListErrors, ThrowOnError>({ url: '/api/v1/costs', ...options });
 
@@ -3779,7 +3779,7 @@ export const costsAttachReceipt = <ThrowOnError extends boolean = false>(options
 });
 
 /**
- * Lists fee entries, most recent service date first. Narrowed to one matter with `matterId`, or across every matter with a `from`/`to` span of service dates; either shape takes an optional status and billable filter. With neither a matter nor a span the listing answers empty rather than walking the whole table.
+ * Lists fee entries, most recent service date first, cursor-paged. Nothing named is the firm's whole record; `matterId` narrows it to one matter, `from` and `to` bound the service dates (each on its own or together), and `status`, `billable` and `search` narrow further. Every narrowing is the server's, so the firm's Fees screen can send its column filters here and have them hold across every page.
  */
 export const feesList = <ThrowOnError extends boolean = false>(options?: Options<FeesListData, ThrowOnError>): RequestResult<FeesListResponses, FeesListErrors, ThrowOnError> => (options?.client ?? client).get<FeesListResponses, FeesListErrors, ThrowOnError>({ url: '/api/v1/fees', ...options });
 
@@ -4454,7 +4454,7 @@ export const billingReverseApplication = <ThrowOnError extends boolean = false>(
 export const billingContingencyResidual = <ThrowOnError extends boolean = false>(options: Options<BillingContingencyResidualData, ThrowOnError>): RequestResult<BillingContingencyResidualResponses, BillingContingencyResidualErrors, ThrowOnError> => (options.client ?? client).get<BillingContingencyResidualResponses, BillingContingencyResidualErrors, ThrowOnError>({ url: '/api/v1/billing/matters/{matterId}/contingency-residual', ...options });
 
 /**
- * Lists time entries three ways. By timekeeper and work date: the daily view, complete in one page by construction, so its cursor is always null. By matter: the matter's own record, CURSOR-PAGED newest work date first — a matter that has been billing for years is not a single response, and this read carried no bound at all until it was. By a `from`/`to` span of work dates: the period listing across every matter, cursor-paged the same way, narrowable to one timekeeper, one matter and one status. A period listing that names no timekeeper covers the whole firm and requires the time:viewFirm capability; one that names somebody other than the session member requires it too. A request matching none of the three answers with an empty list rather than scanning the table.
+ * Lists time entries three ways. By timekeeper and work date: the daily view, complete in one page by construction, so its cursor is always null. By matter alone: the matter's own record, CURSOR-PAGED newest work date first — a matter that has been billing for years is not a single response, and this read carried no bound at all until it was. Otherwise the period listing across every matter, cursor-paged the same way: bounded by `from` and `to` (each on its own or together; neither is the whole record), narrowable to one timekeeper, one matter and one status. A period listing that names no timekeeper covers the whole firm and requires the time:viewFirm capability; one that names somebody other than the session member requires it too.
  */
 export const timeEntriesList = <ThrowOnError extends boolean = false>(options?: Options<TimeEntriesListData, ThrowOnError>): RequestResult<TimeEntriesListResponses, TimeEntriesListErrors, ThrowOnError> => (options?.client ?? client).get<TimeEntriesListResponses, TimeEntriesListErrors, ThrowOnError>({ url: '/api/v1/time-entries', ...options });
 

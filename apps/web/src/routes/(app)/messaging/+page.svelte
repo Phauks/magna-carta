@@ -4,17 +4,30 @@
    *
    * WHY THIS IS A TOP-LEVEL SCREEN AND NOT ONLY A MATTER TAB. Two reasons, and the first is the one
    * that made the screen necessary. An inbound text from a number nobody recognises belongs to NO
-   * MATTER until a person decides which — that is the queue below, and it is unreachable from inside
-   * any matter by construction, because the matter is exactly what it does not have. The second is
+   * MATTER until a person decides which — that is the queue, and it is unreachable from inside any
+   * matter by construction, because the matter is exactly what it does not have. The second is
    * that "did anyone call this client back" is a question about the person and the week, not about
    * one file, and a log somebody has to open each matter to read is a log nobody reads.
    *
-   * NOT EVERY CALL BECOMES A MATTER, AND THAT IS THE THIRD TAB. Spam, a wrong number, the landlord,
-   * a prospect who never came back: none of them can be filed, because there is no matter to file
-   * them onto. Before they could be SET ASIDE with a reason they sat in the queue forever, and a
-   * queue nobody can empty is a queue nobody works. Setting one aside deletes nothing — what was
-   * said still happened, and a firm that decides a written-off call was real work after all puts it
-   * back.
+   * NOT EVERY CALL BECOMES A MATTER. Spam, a wrong number, the landlord, a prospect who never came
+   * back: none of them can be filed, because there is no matter to file them onto. Before they
+   * could be SET ASIDE with a reason they sat in the queue forever, and a queue nobody can empty is
+   * a queue nobody works. Setting one aside deletes nothing — what was said still happened, and a
+   * firm that decides a written-off call was real work after all puts it back.
+   *
+   * THE TABLE IS THE ONLY THING THAT NARROWS IT (the owner's ruling of 2026-09-11, recorded in
+   * docs/conventions/design-corrections.md). The screen used to carry four scope tabs above the log
+   * — everything, the queue, what is filed, what was set aside — and no other list screen narrows
+   * itself with a tab strip; what the tabs asked is what the Matter column's own filter asks. The
+   * distinction the tabs were defending was real: the tab asked the server, the column filter ran
+   * over the loaded page, and a filter that narrows only the loaded page lies on a paged register.
+   * So the column filter is the control AND it reaches the server — a selection of "Not filed" is
+   * the queue, a selection of the set-aside reasons is what was set aside, and a selection of
+   * matters is what is filed, each sent as the listing's own scope and re-read.
+   *
+   * THE QUEUE'S COUNT IS NOT A TAB, AND LOSING THE TABS MUST NOT LOSE IT. "Waiting to be filed" is
+   * work the firm owes, so it stands in the counts strip with the log's other figures, whatever the
+   * table is narrowed to.
    *
    * THE QUEUE IS GATED SEPARATELY FROM THE LOG, and that is not caution for its own sake. Every
    * filed row is narrowed server-side to matters this member may see, so a walled matter contributes
@@ -39,7 +52,6 @@
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as Alert from "@magna-carta/design-system/alert";
-  import * as Tabs from "@magna-carta/design-system/tabs";
   import Button from "@magna-carta/design-system/button";
   import CreateControl from "@magna-carta/design-system/create-control";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
@@ -59,6 +71,7 @@
   import { readDirectoryEntity } from "$lib/directory/directory-api.ts";
   import { directoryEntityName } from "$lib/directory/entity-presentation.ts";
   import { AnchorMatters } from "$lib/communications/anchor-matters.svelte.ts";
+  import { scopeForMatterSelection } from "$lib/communications/communication-columns.ts";
   import CommunicationLog from "$lib/communications/communication-log.svelte";
   import CommunicationRecordWindow from "$lib/communications/communication-record-window.svelte";
   import {
@@ -68,7 +81,6 @@
     LOG_COMMUNICATIONS_PERMISSION,
     REVIEW_UNROUTED_PERMISSION,
     type Communication,
-    type CommunicationScope,
     type IntakeSource,
   } from "$lib/communications/communications-api.ts";
 
@@ -98,7 +110,7 @@
   async function refreshQueueCount(): Promise<void> {
     if (!(session?.permissions.includes(REVIEW_UNROUTED_PERMISSION) ?? false)) return;
     const outcome = await readUnroutedCount(fetch);
-    // A count that cannot be read leaves the screen readable: the tab loses its number, not its
+    // A count that cannot be read leaves the screen readable: the strip loses its number, not its
     // rows, and the rows are what the reader came for.
     unroutedCount = outcome.kind === "ok" ? outcome.value.count : null;
   }
@@ -111,7 +123,6 @@
 
   // ---- the log ---------------------------------------------------------------------------------
 
-  let scope = $state<CommunicationScope>("all");
   let searchText = $state("");
   let appliedSearch = $state("");
   let grid = $state<DataTable.DataTableGridState<Communication> | null>(null);
@@ -121,29 +132,49 @@
   /** Which record the window is on, or null while it is recording a new one. */
   let openedId = $state<string | null>(null);
 
+  /*
+   * The Matter column's filter, as the listing's scope. A selection the listing cannot take as one
+   * scope — the queue and one matter together, say — is sent as nothing, and the table narrows the
+   * loaded rows on its own.
+   */
+  const scope = $derived(scopeForMatterSelection(grid?.filterFor("matter")));
+
   const query = $derived({
-    ...(scope === "all" ? {} : { scope }),
+    ...(scope === undefined ? {} : { scope }),
     ...(appliedSearch.trim() === "" ? {} : { search: appliedSearch.trim() }),
   });
 
-  const narrowed = $derived(
-    scope !== "all" || appliedSearch.trim() !== "" || (grid?.activeFilterCount ?? 0) > 0,
+  const narrowed = $derived(appliedSearch.trim() !== "" || (grid?.activeFilterCount ?? 0) > 0);
+  const narrowingSummary = $derived(
+    appliedSearch.trim() === ""
+      ? "Show everything"
+      : `Showing "${appliedSearch.trim()}" of the log`,
   );
-  const narrowingSummary = $derived.by(() => {
-    const parts: string[] = [];
-    if (scope === "routed") parts.push("what is filed");
-    if (scope === "unrouted") parts.push("the queue");
-    if (scope === "setAside") parts.push("what was set aside");
-    if (appliedSearch.trim() !== "") parts.push(`"${appliedSearch.trim()}"`);
-    return parts.length === 0 ? "Show everything" : `Showing ${parts.join(", ")} of the log`;
-  });
 
   function clearNarrowing(): void {
-    scope = "all";
     searchText = "";
     appliedSearch = "";
     grid?.clearAllFilters();
   }
+
+  /*
+   * The work owed, as a figure in the counts strip. It is the whole log's count, read from the
+   * server, so it never moves as the table is narrowed; the caption says so, and says how to reach
+   * the rows themselves.
+   */
+  const figures = $derived(
+    unroutedCount === null
+      ? []
+      : [
+          {
+            identifier: "waiting",
+            label: "waiting to be filed",
+            value: String(unroutedCount),
+            caption:
+              "Calls and texts on no matter that nobody has decided about yet, across the whole log. Filter the Matter column to Not filed to see them.",
+          },
+        ],
+  );
 
   /** Activating a row opens the record. Every act a row offers is inside it. */
   function openRow(row: Communication): void {
@@ -249,8 +280,10 @@
           appliedSearch = next;
         }}
       />
+      <!-- "Message", not "Call": the screen is the messaging log, and a call is one kind of message
+           it holds, not the thing the control creates (owner ruling, 2026-09-14). -->
       <CreateControl
-        noun="Call"
+        noun="Message"
         title="Record a call or a text that happened."
         refusal={createRefusal}
         onpress={openNew}
@@ -281,23 +314,6 @@
     </Alert.Root>
   {/if}
 
-  {#if mayReviewQueue}
-    <!-- The queue is a scope of one log, not a second screen. Two mechanisms narrowing one list is
-         how somebody ends up staring at an almost-empty table with a filter set on a control they
-         are not looking at, so the tabs and the column filters answer different questions: the tab
-         asks the server, the column filters run over what is loaded. -->
-    <Tabs.Root value={scope} onValueChange={(next) => (scope = next as CommunicationScope)}>
-      <Tabs.List>
-        <Tabs.Trigger value="all">Everything</Tabs.Trigger>
-        <Tabs.Trigger value="unrouted">
-          Waiting to be filed{unroutedCount === null ? "" : ` (${String(unroutedCount)})`}
-        </Tabs.Trigger>
-        <Tabs.Trigger value="routed">On a matter</Tabs.Trigger>
-        <Tabs.Trigger value="setAside">Not a matter</Tabs.Trigger>
-      </Tabs.List>
-    </Tabs.Root>
-  {/if}
-
   {#if anchors.failure !== null}
     <Alert.Root variant="warning">
       <Alert.Title>The Firm's Matters Could Not Be Read</Alert.Title>
@@ -307,34 +323,21 @@
 
   <CommunicationLog
     {query}
+    {figures}
     bind:grid
     bind:reread={rereadLog}
     onOpen={openRow}
     caption="The firm's calls and texts"
-    emptyTitle={scope === "unrouted"
-      ? "Nothing Is Waiting"
-      : scope === "setAside"
-        ? "Nothing Has Been Set Aside"
-        : "No Calls Or Texts Yet"}
+    emptyTitle="No Calls Or Texts Yet"
   >
     {#snippet emptyBody()}
-      {#if scope === "unrouted"}
-        Every call and text the firm has recorded is either on a matter or set aside as something
-        that belongs to none. A message that arrives from a number nobody recognises lands here
-        until somebody says which case it belongs to.
-      {:else if scope === "setAside"}
-        Not every call a firm takes is about a case — spam, a wrong number, the landlord, an enquiry
-        that never came to anything. Setting one aside from its own record takes it out of the queue
-        without pretending it was a matter, and nothing is destroyed by it.
-      {:else}
-        A record of a call or a text is what the firm said, to whom, and when — the part of a case's
-        history that otherwise lives only in somebody's memory of the phone call. Recording the
-        first one, with New Call at the top of the screen, starts the log.
-      {/if}
+      A record of a call or a text is what the firm said, to whom, and when — the part of a case's
+      history that otherwise lives only in somebody's memory of the phone call. Recording the first
+      one, with New Message at the top of the screen, starts the log.
     {/snippet}
     {#snippet emptyActions()}
-      {#if scope !== "unrouted" && scope !== "setAside" && createRefusal === undefined}
-        <Button onclick={openNew}>Record A Call</Button>
+      {#if createRefusal === undefined}
+        <Button onclick={openNew}>Record A Message</Button>
       {/if}
     {/snippet}
   </CommunicationLog>

@@ -23,6 +23,7 @@
  */
 import type { ApiOutcome, Failure } from "$lib/api/request.ts";
 import { listMatterParties } from "$lib/matters/party-api.ts";
+import { clientPartyOf } from "./client-party.ts";
 import { listMatterCosts, type CostSummary } from "$lib/matters/cost-api.ts";
 import { listMatterTimeEntries, type TimeEntrySummary } from "$lib/matters/time-api.ts";
 import {
@@ -136,9 +137,7 @@ export class MatterBilling {
     // The client is the party wearing the client role. A matter with none can be read and cannot be
     // billed, which is a fact the surface states rather than a failure.
     if (partiesOutcome.kind === "ok") {
-      const client = partiesOutcome.value.parties.find(
-        (party) => party.role.toLowerCase().replace(/[^a-z]/g, "") === "client",
-      );
+      const client = clientPartyOf(partiesOutcome.value.parties);
       this.clientEntityId = client?.entityId ?? null;
       this.clientName = client?.displayName ?? null;
     }

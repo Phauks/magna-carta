@@ -27,6 +27,7 @@
    */
   import { page } from "$app/state";
   import Badge from "@magna-carta/design-system/badge";
+  import NavigationLayout from "@magna-carta/design-system/navigation-layout";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import Building2 from "@lucide/svelte/icons/building-2";
   import Server from "@lucide/svelte/icons/server";
@@ -64,31 +65,20 @@
 </script>
 
 <!--
-  TWO INDEPENDENT SCROLL COLUMNS (owner-directed): the section nav and the settings content
-  each scroll on their own, and the canvas itself never scrolls on settings routes. The columns
-  reach the canvas's TRUE edges (owner: the padding frame around the scroll areas read as a
-  border and wasted width) — the -m-24 swallows the canvas's own padding and the breathing room
-  moves INSIDE each scroll area, so scrollbars sit at the actual edges. This also retires the
-  whole-canvas scrollbar shift that made the nav appear to move between pages (the content
-  column's own stable scrollbar gutter carries that guarantee now — see the pages).
+  THE FRAME IS THE DESIGN SYSTEM'S. NavigationLayout owns the two independent scroll columns, the
+  canvas-inset cancel, the nav's width (`standard` is the popover measure plus space-24 a side,
+  exactly the width this nav was drawn to) and the reserved scrollbar gutters, so the settings
+  surface cannot drift from the other two-sided screens. What stays here is the nav's CONTENT —
+  the bands, the glyphs, the links — which the layout deliberately imposes no structure on.
 
-  The content column is a flex STACK, not a scroll container: each settings page renders
-  header / scrolling middle / exit footer as its three stories, so the footer holds the bottom
-  of the screen even on short pages.
+  contentScrolls is false because every settings page stages its own three stories: the masthead,
+  the one scroll region (settings-scroll-region.svelte) and the exit footer. The content column
+  is therefore a bare full-height flex stack, and the footer holds the bottom of the screen even
+  on a short page.
 -->
-<div class="-m-24 flex items-start" style="block-size: calc(100dvh - var(--mc-size-top-bar))">
-  <!--
-    The nav column is a narrow fixed measure (the popover width token plus its own internal
-    breathing room) rather than the sidebar width: the labels are short, and the page should
-    read as one composition — nav beside content — not two islands separated by dead air.
-    Fixed (not max-content) so the hover/active pills keep a steady width as sections with
-    longer labels ship.
-  -->
-  <nav
-    aria-label="Settings sections"
-    class="mc-scrollbar flex h-full shrink-0 flex-col gap-32 overflow-y-auto p-24"
-    style="inline-size: calc(var(--mc-size-popover) + var(--mc-space-48))"
-  >
+<NavigationLayout navigationLabel="Settings sections" navigationWidth="standard" contentScrolls={false}>
+  {#snippet navigation()}
+    <div class="flex flex-col gap-32">
     {#each bands as band (band.id)}
       <div class="flex flex-col gap-16">
         <!-- The band header. px-12 aligns the cap-line with the group headers' indent origin;
@@ -153,9 +143,8 @@
         </div>
       </div>
     {/each}
-  </nav>
+    </div>
+  {/snippet}
 
-  <div class="flex h-full min-w-0 grow flex-col">
-    {@render children()}
-  </div>
-</div>
+  {@render children()}
+</NavigationLayout>

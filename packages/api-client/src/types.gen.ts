@@ -28709,21 +28709,25 @@ export type CostsListData = {
         cursor?: string;
         matterId?: string;
         /**
-         * The first incurred date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — the question the firm's cost record is asked at the end of a month, and the one a per-matter listing cannot answer without walking every matter first.
+         * The first incurred date the listing covers, inclusive. Either bound stands alone: a listing with only `from` runs to the present, one with only `to` runs from the first cost the firm ever recorded, and one with neither is the firm's whole record. This is the screen's Date column filter, honoured here so it is true across every page rather than over the page in hand.
          */
         from?: string;
         /**
-         * The last incurred date of a period listing, inclusive. Required alongside `from`.
+         * The last incurred date the listing covers, inclusive.
          */
         to?: string;
         /**
-         * Narrows a period listing to the costs that are billable, or to those that are not. Omitted, it answers with both.
+         * Narrows the listing to the costs that are billable, or to those that are not. Omitted, it answers with both.
          */
         billable?: 'true' | 'false';
         /**
-         * Narrows the listing to one status. Omitted, it answers with every status the matter carries, which is what a matter's cost record is.
+         * Narrows the listing to one status, or to several given repeatedly (`status=draft&status=submitted`): the screen's Status column filter, honoured here so it holds across every page. Omitted, it answers with every status the record carries, which is what a cost record is.
          */
-        status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
+        status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void' | Array<'draft' | 'submitted' | 'approved' | 'billed' | 'void'>;
+        /**
+         * Matched against the description, the matter's title and number, and the payee's name. The screen's search, honoured here so a word absent from the page in hand is looked for across the whole record.
+         */
+        search?: string;
     };
     url: '/api/v1/costs';
 };
@@ -29238,18 +29242,25 @@ export type FeesListData = {
         cursor?: string;
         matterId?: string;
         /**
-         * The first service date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — what the firm charged for work done in a period, which a per-matter listing cannot answer without walking every matter first.
+         * The first service date the listing covers, inclusive. Either bound stands alone: a listing with only `from` runs to the present, one with only `to` runs from the first fee the firm ever recorded, and one with neither is the firm's whole record. This is the screen's Date column filter, honoured here so it is true across every page rather than over the page in hand.
          */
         from?: string;
         /**
-         * The last service date of a period listing, inclusive. Required alongside `from`.
+         * The last service date the listing covers, inclusive.
          */
         to?: string;
         /**
          * Narrows a listing to the fees that are billable, or to those that are not. Omitted, it answers with both.
          */
         billable?: 'true' | 'false';
-        status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
+        /**
+         * Narrows to one status, or to several given repeatedly (`status=draft&status=submitted`): the screen's Status column filter, honoured here so it holds across every page.
+         */
+        status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void' | Array<'draft' | 'submitted' | 'approved' | 'billed' | 'void'>;
+        /**
+         * Matched against the description, the matter's title and number, and the timekeeper's name. The screen's search, honoured here so a word absent from the page in hand is looked for across the whole record.
+         */
+        search?: string;
     };
     url: '/api/v1/fees';
 };
@@ -31331,7 +31342,14 @@ export type BillingListInvoicesData = {
          * Narrows to the bills that charge this matter, drafts included, and adds that matter's own share to every row. Without it the listing answers for the whole firm, or for one client when clientEntityId is given.
          */
         matterId?: string;
-        status?: 'draft' | 'final' | 'void';
+        /**
+         * Narrows to one status, or to several given repeatedly (`status=draft&status=void`): the firm's Billing screen's Status column filter, honoured here so it holds across every page.
+         */
+        status?: 'draft' | 'final' | 'void' | Array<'draft' | 'final' | 'void'>;
+        /**
+         * Matched against the invoice number and the client's name. The screen's search, honoured here so a client absent from the page in hand is looked for across the whole register.
+         */
+        search?: string;
         cursor?: string;
     };
     url: '/api/v1/billing/invoices';
@@ -33181,17 +33199,21 @@ export type TimeEntriesListData = {
         matterId?: string;
         workDate?: string;
         /**
-         * The first work date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — the question a timekeeper asks of their own week and a supervisor asks of the firm's. Without a timekeeper the span covers everybody, which requires the time:viewFirm capability.
+         * The first work date the period listing covers, inclusive. Either bound stands alone: a listing with only `from` runs to the present, one with only `to` runs from the first entry ever recorded, and one with neither is the whole record for whoever is named. This is the firm's Time screen's Date column filter, honoured here so it is true across every page rather than over the page in hand. Without a timekeeper the listing covers everybody, which requires the time:viewFirm capability.
          */
         from?: string;
         /**
-         * The last work date of a period listing, inclusive. Required alongside `from`.
+         * The last work date the period listing covers, inclusive.
          */
         to?: string;
         /**
-         * Narrows a per-matter or period listing to one status. Omitted, the listing answers with every status the scope carries, which is what a time record is.
+         * Narrows the listing to one status, or to several given repeatedly (`status=draft&status=submitted`): the firm's Time screen's Status column filter, honoured here so it holds across every page. Omitted, the listing answers with every status the scope carries, which is what a time record is.
          */
-        status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
+        status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void' | Array<'draft' | 'submitted' | 'approved' | 'billed' | 'void'>;
+        /**
+         * Matched against the narrative, the entry number, the matter's title and number, and the timekeeper's name, on the period listing. The screen's search, honoured here so a word absent from the page in hand is looked for across the whole record.
+         */
+        search?: string;
         cursor?: string;
     };
     url: '/api/v1/time-entries';
