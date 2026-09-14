@@ -66,6 +66,7 @@
     viewSwitch = true,
     agendaDays = AGENDA_SPAN_DAYS,
     limit = null,
+    search = "",
     rail = false,
     onCreate,
     class: className,
@@ -93,6 +94,13 @@
      * linking to it. For an embedded card; the full screens pass nothing and paint the window.
      */
     limit?: number | null;
+    /**
+     * What the reader is looking for in the window on screen. Passed IN from the host, because the
+     * control that carries it belongs in the screen's one action row while the entries it narrows
+     * are here. It narrows the WINDOW — see `search` on the controller for why the window is the
+     * scope and what that deliberately does not claim.
+     */
+    search?: string;
     /**
      * Whether the rail of individual calendars is drawn beside the grid. The firm screen passes
      * true; a matter's section and an embedded card have one calendar each and pass nothing.
@@ -125,6 +133,15 @@
     contextReady: () => context.ready,
     // The catalog is built from what the context already read: the roster and the bookable things.
     catalog: () => ({ members: context.members, resources: context.resources }),
+  });
+
+  /*
+   * The host owns the field; the controller owns what the window is narrowed to. Mirrored rather
+   * than passed as a reader closure because the controller's `search` is plain state a reader can
+   * also clear from inside — the two are the same fact, and this is the one place they meet.
+   */
+  $effect(() => {
+    controller.search = search;
   });
 
   $effect(() => {
@@ -345,6 +362,19 @@
       <a href={moreHref} class="underline underline-offset-2 hover:text-text-default">
         {beyondLimit} more on the calendar
       </a>
+    </p>
+  {/if}
+
+  {#if controller.searching}
+    <!-- WHAT THE COUNT IS A COUNT OF. The search narrows the window on screen, so the line names
+         that window rather than reporting a bare number of matches — "3 matches" beside a month
+         grid would read as three on the calendar, and a reader who then moved to October would be
+         entitled to think it had gone. -->
+    <p class="text-xs text-text-muted">
+      {(controller.visibleEntries ?? []).length}
+      {(controller.visibleEntries ?? []).length === 1 ? "entry" : "entries"} in {controller.title}
+      {(controller.visibleEntries ?? []).length === 1 ? "matches" : "match"} that. Other dates are not
+      searched — move the calendar to look elsewhere.
     </p>
   {/if}
 

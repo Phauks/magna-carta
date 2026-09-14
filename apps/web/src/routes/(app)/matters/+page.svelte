@@ -35,10 +35,9 @@
   import * as DataTable from "@magna-carta/design-system/data-table";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import Badge from "@magna-carta/design-system/badge";
-  import Button from "@magna-carta/design-system/button";
-  import Input from "@magna-carta/design-system/input";
   import CreateControl from "@magna-carta/design-system/create-control";
-  import Search from "@lucide/svelte/icons/search";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
+  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { goto } from "$app/navigation";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { createQuery } from "@tanstack/svelte-query";
@@ -76,37 +75,12 @@
 
   let searchText = $state("");
   let appliedSearch = $state("");
-  let searchOpen = $state(false);
-  let searchField = $state<HTMLInputElement | null>(null);
   let dialogOpen = $state(false);
   let lastCreated = $state<{
     matterId: string;
     matterNumber: string | null;
     consultationNumber: string | null;
   } | null>(null);
-
-  // The typed query settles before it is sent: a docket read per keystroke is a request per
-  // keystroke, and the server's search is the authoritative one over title, number and client.
-  $effect(() => {
-    const typed = searchText;
-    const timer = setTimeout(() => (appliedSearch = typed), 300);
-    return () => clearTimeout(timer);
-  });
-
-  // The field opens where the icon was, so the gesture that revealed it also puts the caret in it.
-  $effect(() => {
-    if (searchOpen) searchField?.focus();
-  });
-
-  function toggleSearch(): void {
-    if (searchOpen && searchText !== "") {
-      // A live search is what the control is for, so the first press on an open field clears it
-      // rather than hiding a narrowing the reader can then no longer see.
-      searchText = "";
-      return;
-    }
-    searchOpen = !searchOpen;
-  }
 
   // ---- the firm's own vocabularies and who is asking -------------------------------------------
 
@@ -210,8 +184,12 @@
   const narrowingSummary = $derived(docketNarrowingSummary(narrowing));
   const searching = $derived(appliedSearch.trim() !== "");
 
+  // Both halves of the query, because the control reports a query it was TYPED into and clearing
+  // from out here is not typing: leaving `appliedSearch` set would clear the field and leave the
+  // docket narrowed by a query no longer on screen.
   function clearNarrowing(): void {
     searchText = "";
+    appliedSearch = "";
     grid.clearAllFilters();
   }
 
@@ -267,27 +245,19 @@
 <div class="flex h-full flex-col gap-16">
   <ScreenHeader title="Matters">
     {#snippet actions()}
-      {#if searchOpen}
-        <Input
-          bind:ref={searchField}
-          type="search"
-          bind:value={searchText}
-          placeholder="Search"
-          aria-label="Search"
-          class="w-xs"
-        />
-      {/if}
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-label={searching ? `Search: ${appliedSearch.trim()}` : "Search"}
-        aria-expanded={searchOpen}
-        title={searching ? `Searching "${appliedSearch.trim()}"` : "Search"}
-        class={searching ? "text-accent-default" : undefined}
-        onclick={toggleSearch}
-      >
-        <Search class="size-16" aria-hidden="true" />
-      </Button>
+      <!-- The search, then the narrowing controls, then the create control: the search grows toward
+           the inline start, so the controls at the row's end never move when it opens. The same
+           pair, in the same order, as every other list screen. -->
+      <ScreenSearch
+        bind:value={searchText}
+        label="Search the docket"
+        placeholder={placeholderOf("Search the docket")}
+        searchOn="pause"
+        fieldClass="w-2xs sm:w-xs"
+        onsearch={(next) => {
+          appliedSearch = next;
+        }}
+      />
 
       <DataTable.ClearFilters
         {grid}

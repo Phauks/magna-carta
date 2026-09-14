@@ -34,6 +34,7 @@ setting and deadline on every matter you can see, and the firm's own events besi
   Two are on when you first arrive — the firm's matters and deadlines, and the firm's events — and
   everything else is yours to add. What you have open is **yours**: it follows you between screens
   and visits on this browser, and changes nothing for anybody else.
+
 - **A colour per calendar.** Press the dot beside a calendar's name and pick a colour. It paints a
   stripe down the edge of every entry from that calendar, and heads that calendar's column on the
   day view, so one person's day is told from another's at a glance. Calendars you have not coloured

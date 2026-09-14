@@ -208,7 +208,6 @@ describe("entryFromTimelineRow", () => {
     // A kind no layer names still reads as something rather than as its key.
     expect(layeredKindLabel("matter_transfer")).toBe(humanizeKind("matter_transfer"));
   });
-
 });
 
 describe("entryFromDeadline", () => {

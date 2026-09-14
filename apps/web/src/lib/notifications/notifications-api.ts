@@ -60,6 +60,18 @@ export interface NotificationQuery {
   readonly category?: NotificationCategory;
   readonly state?: NotificationState;
   readonly pageSize?: number;
+  /**
+   * A member's query, in the shape this subsystem's search has to take.
+   *
+   * The row carries no sentence — the words are composed on this side from the kind and the
+   * declared facts — so the caller resolves the term into the kinds and categories whose WORDS it
+   * reaches (`kindsMatching` / `categoriesMatching` in ./notification-presentation.ts) and sends
+   * those with it. `search` itself is matched server-side against the matter number, the one piece
+   * of member-facing text the row does carry. The three are OR-ed.
+   */
+  readonly kinds?: readonly string[];
+  readonly searchCategories?: readonly NotificationCategory[];
+  readonly search?: string;
 }
 
 /**
@@ -83,6 +95,15 @@ export function listNotifications(
   if (query.category !== undefined) parameters.set("category", query.category);
   if (query.state !== undefined) parameters.set("state", query.state);
   if (query.pageSize !== undefined) parameters.set("pageSize", String(query.pageSize));
+  // Repeated parameters rather than a joined string: a kind is a dotted identifier and a category a
+  // bare word, and neither needs a separator invented for it that one of them could contain.
+  for (const kind of query.kinds ?? []) parameters.append("kinds", kind);
+  for (const category of query.searchCategories ?? []) {
+    parameters.append("searchCategories", category);
+  }
+  if (query.search !== undefined && query.search.trim() !== "") {
+    parameters.set("search", query.search.trim());
+  }
   const search = parameters.toString();
   return requestJson<NotificationPage>(
     fetchImpl,

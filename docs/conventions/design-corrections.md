@@ -1059,6 +1059,47 @@ name, which is every screen outside a matter.
   before they have typed — the scope, the way through to the full results — is unreachable if the
   panel is gated on a query, and gating it made changing where the search looked require starting a
   search first. Empty, the panel is its header row and nothing else. _(matter search, 2026-09-02)_
+- **Every Workspace screen searches itself through the one control, in the top right.** The
+  owner's direction: a member should never have to learn where a screen keeps its search, and the
+  answer is the same everywhere — `ScreenSearch`, in the screen header's `actions` snippet, at the
+  inline end of the title row, resting as an icon so it costs the screen no vertical space. What
+  made this a ruling rather than a habit is what was found when it was checked: the Matters docket,
+  the Directory and a matter's Notes were each still carrying their own search box, every one of
+  them a `type="search"` field beside a Lucide search glyph with its own debounce and its own idea
+  of what pressing the icon on a live query should do. None was wrong; they were three more answers
+  to a question the product had already settled, and both 2026-09-02 corrections above had reached
+  the component and none of them. All three now use the control. _(Workspace screens, 2026-09-14)_
+- **"The read takes no query" is a reason to add the query, not to skip the search.** The owner's
+  correction, on the first pass at the ruling above: four screens had been recorded as declining a
+  search because their rows are paged off a read with no search parameter, and there was no reason
+  they should not have one. Notifications, Conflicts Check, Magnus and Calendar each search now, and
+  the work was in the read rather than on the screen. What survives of the original reasoning is only
+  its narrow true part — narrowing the pages that happen to be in the browser, on a list the server
+  pages, answers "of the forty I have read, which match" while appearing to answer "which of yours
+  match", and does it silently. That remains forbidden. The answer is to push the query to the
+  server, which is what each of these now does. _(Workspace screens, 2026-09-14)_
+- **Where a screen's words are composed in the browser, the browser resolves the query and the
+  server still does the paging.** Two of these screens carry no sentence in the record at all, by
+  design: a notification row holds identifiers, closed labels, counts and dates, and the conflicts
+  log holds closed labels and identifiers recorded by reference. A substring scan server-side would
+  be searching `deadlines.deadline.overdue`, which is not what anybody types. So the client resolves
+  the term into the kinds and categories whose WORDS match — it owns those words — and sends them
+  with the term; the server matches those plus the one member-facing string the row does carry, the
+  matter number. The whole record is searched, the paging never leaves the server, and the
+  vocabulary never leaves the client. _(Notifications and Conflicts Check, 2026-09-14)_
+- **A search states the scope it actually reached.** The calendar's search narrows the window on
+  screen, because each of its three reads caps its horizon server-side and refuses a wider one
+  rather than clamping it — so "search the whole record" is not a request that can be made there
+  yet. That is allowed to be the answer, and it is not allowed to be silent about it: the screen
+  says how many entries in the named window match and that other dates were not searched. A bare
+  "3 matches" beside a month grid would read as three on the calendar. _(Calendar, 2026-09-14)_
+- **A screen that genuinely has nothing of its own to search says so in the gate.** One Workspace
+  screen declines today — Home, which is a summary of other screens rather than a list, and whose
+  answer to a query is the command palette already in its top bar. What is refused is not answering.
+  `pnpm run lint:workspace-search` holds all of this: it refuses a Workspace screen that neither
+  searches nor declines, a control seated anywhere but the header's action row, a decline left
+  standing after its screen got a search, and any second implementation of a search box.
+  _(Workspace screens, 2026-09-14)_
 
 ### Layout
 

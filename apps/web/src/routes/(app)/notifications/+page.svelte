@@ -27,6 +27,12 @@
   import Settings2 from "@lucide/svelte/icons/settings-2";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
+  import { placeholderOf } from "@magna-carta/design-system/formatters";
+  import {
+    categoriesMatching,
+    kindsMatching,
+  } from "$lib/notifications/notification-presentation.ts";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import NotificationRows from "$lib/notifications/notification-rows.svelte";
   import {
@@ -66,13 +72,38 @@
 
   const list = new PagedList<NotificationItem>("Your notifications could not be read.");
 
+  /*
+   * What the feed is being asked. `searchText` is the field's and `appliedSearch` is what the
+   * server was last asked for; ScreenSearch owns the pause between them.
+   *
+   * IT GOES TO THE SERVER, and the shape it takes on the way is the interesting part. This row
+   * carries no sentence to match — the words a member reads are composed here from the kind and the
+   * declared facts — so the query is resolved into the KINDS and CATEGORIES whose words it reaches
+   * and those travel with it. That is what lets the whole feed be searched rather than the page in
+   * hand: a member whose match is two pages down is told about it, instead of being told there is
+   * none.
+   */
+  let searchText = $state("");
+  let appliedSearch = $state("");
+  const searching = $derived(appliedSearch.trim() !== "");
+  const searchFilters = $derived(
+    searching
+      ? {
+          kinds: kindsMatching(appliedSearch),
+          searchCategories: categoriesMatching(appliedSearch),
+          search: appliedSearch.trim(),
+        }
+      : {},
+  );
+
   const items = $derived(list.items);
-  const narrowed = $derived(stateFilter !== "all" || categoryFilter !== ALL);
+  const narrowed = $derived(stateFilter !== "all" || categoryFilter !== ALL || searching);
 
   function readPage(cursor?: string) {
     return listNotifications(fetch, cursor, {
       category: categoryFilter === ALL ? undefined : categoryFilter,
       state: stateFilter === "unread" ? "unread" : undefined,
+      ...searchFilters,
     }).then((outcome) => {
       // Only the FIRST page sets the bound. A later page names an older row, and adopting it would
       // quietly narrow what "mark all read" covers the further a member scrolled.
@@ -90,7 +121,7 @@
    * page the member is still looking at.
    */
   $effect(() => {
-    const subject = `${stateFilter}:${categoryFilter}:${String(reloadToken)}`;
+    const subject = `${stateFilter}:${categoryFilter}:${appliedSearch.trim()}:${String(reloadToken)}`;
     if (list.showing(subject)) return;
     list.reset(subject);
     void list.load(readPage);
@@ -151,6 +182,18 @@
     {/if}
   {/snippet}
   {#snippet actions()}
+    <!-- The search leads the row and grows toward the inline start, so what follows never moves when
+         it opens — the same order as every other Workspace screen. -->
+    <ScreenSearch
+      bind:value={searchText}
+      label="Search your notifications"
+      placeholder={placeholderOf("Search your notifications")}
+      searchOn="pause"
+      fieldClass="w-2xs sm:w-xs"
+      onsearch={(next) => {
+        appliedSearch = next;
+      }}
+    />
     <Button
       variant="secondary"
       size="sm"
@@ -244,7 +287,7 @@
     {#snippet emptyState()}
       <EmptyState title={narrowed ? "Nothing matches" : "You are up to date"}>
         {narrowed
-          ? "No notification matches what you are narrowing by. Widen it to see the rest."
+          ? "No notification matches what you are narrowing by. Clearing the search, or widening the filters, brings the feed back."
           : "When something needs you — a deadline falling due, a task assigned, a movement on client money — it gathers here."}
       </EmptyState>
     {/snippet}
