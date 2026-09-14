@@ -27,6 +27,7 @@
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
   import { listConflictsChecks, type ConflictsCheckSummary } from "./conflicts-api.ts";
+  import { runStatusVocabulary } from "./conflicts-vocabulary.ts";
   import {
     checkRegisterVocabulary,
     conflictsCheckColumns,
@@ -124,8 +125,13 @@
   const narrowed = $derived((grid?.activeFilterCount ?? 0) > 0);
 </script>
 
-{#snippet checkCell({ column, text }: DataTable.GridCellContext<ConflictsCheckSummary>)}
-  {#if column.id === "floorRaised"}
+{#snippet checkCell({ column, text, row }: DataTable.GridCellContext<ConflictsCheckSummary>)}
+  {#if column.id === "runState" && row.runStatus !== null}
+    <!-- Where the latest run is. A settled run wears the calm word; a failed one the open-question
+         tone, because a check whose last run stopped short is one somebody has to look at. -->
+    {@const word = runStatusVocabulary(row.runStatus)}
+    <Badge variant={word.tone} title={word.meaning}>{word.label}</Badge>
+  {:else if column.id === "floorRaised"}
     {#if text === FLOOR_RAISED}
       <!-- It searched WIDER than asked. Worth saying, because it explains a result set larger than
            whoever asked for it expected. -->

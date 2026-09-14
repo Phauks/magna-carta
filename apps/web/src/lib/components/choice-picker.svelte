@@ -12,10 +12,26 @@
    * reader should not have to learn which kind of list they are looking at before they know whether
    * typing will work.
    *
-   * THE FIELD SHOWS WHAT IT HOLDS AT REST. Arriving in it starts a fresh search over the whole set;
-   * leaving it puts the chosen label back, so typed-but-unchosen text is never mistaken for a value.
-   * Same discipline as $lib/time/matter-picker.svelte and $lib/calendar/time-zone-picker.svelte,
-   * which pick over records rather than over a vocabulary.
+   * THE FIELD SHOWS WHAT IT HOLDS AT REST. Opening the list, or typing, starts a fresh search over
+   * the whole set; closing it puts the chosen label back, so typed-but-unchosen text is never
+   * mistaken for a value. Same discipline as $lib/time/matter-picker.svelte and
+   * $lib/calendar/time-zone-picker.svelte, which pick over records rather than over a vocabulary.
+   *
+   * A SEARCH STARTS ON OPENING OR TYPING, NEVER ON FOCUS ALONE. Choosing the item that is already
+   * chosen writes nothing (the primitive treats it as no change), so the label's restoration rests
+   * on the close settling the text — which it does — and the primitive then returns focus to the
+   * input. A search that began on every focus blanked the field again at exactly that moment, so
+   * "united" typed over United States stood as the field's text after United States was re-picked
+   * (owner-reported, 2026-09-14). Focus now only selects the text that is there, so typing still
+   * replaces rather than appends; the reset itself waits for the list to open or a letter to land.
+   *
+   * THE SETTLE WRITES THE INPUT ITSELF. The typed text reaches the input from the keyboard, not
+   * from this component, so the framework's record of what it last wrote there still says the
+   * chosen label — and when the settle hands it that same label again it sees nothing to change
+   * and writes nothing, leaving the typed text standing. That is the second half of the same
+   * defect, and it shows only when the restored label is the one that was there before, which is
+   * exactly the re-pick case. So the settle and the search reset put their text into the input
+   * directly as well; the controlled `inputValue` still says the same thing for every other read.
    *
    * A ROW MAY CARRY MORE THAN ITS LABEL. The `row` snippet renders whatever the choice actually is —
    * a country's flag and its name beside its dial code — while the field itself keeps the short
@@ -63,9 +79,20 @@
   );
   const matching = $derived(matchingChoices(options, searching ? query : ""));
 
+  /** The input element, for the two writes the framework cannot be relied on to make (see above). */
+  let inputElement = $state<HTMLInputElement | null>(null);
+
   function settle(): void {
     searching = false;
     query = "";
+    if (inputElement !== null) inputElement.value = chosenLabel;
+  }
+
+  /** Opening is asking to choose again: the whole set is on offer, not the one option sitting in the field. */
+  function startSearch(): void {
+    searching = true;
+    query = "";
+    if (inputElement !== null) inputElement.value = "";
   }
 
   function pick(picked: string | string[]): void {
@@ -90,20 +117,22 @@
   inputValue={searching ? query : chosenLabel}
   onValueChange={pick}
   onOpenChange={(open) => {
-    if (!open) settle();
+    if (open) startSearch();
+    else settle();
   }}
 >
   <Combobox.Input
+    bind:ref={inputElement}
     id={inputId}
     fieldName={label}
     {title}
     autocomplete="off"
     spellcheck={false}
-    onfocus={() => {
-      // Arriving in the field is asking to choose again, so the whole set is on offer rather than
-      // the one option whose name happens to be sitting in it.
-      searching = true;
-      query = "";
+    onfocus={(event) => {
+      // Arriving selects what is there, so the first letter typed replaces the label rather than
+      // appending to it. Nothing else: a focus that is the primitive returning to the input after a
+      // close must leave the settled label standing.
+      event.currentTarget.select();
     }}
     onblur={settle}
     oninput={(event) => {

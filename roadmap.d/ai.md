@@ -60,11 +60,11 @@
 
 - id: ai.inference.firm-model-selection
   name: Per-firm reasoning-model selection
-  scope: Firm's primary reasoning model in the per-firm setting table; schema refined over the ZDR-eligible subset; total reads with safe default derived from the platform tier rather than a literal model id.
-  status: partial
+  scope: Firm's primary reasoning model in the per-firm setting table; schema refined over the ZDR-eligible subset; total reads with safe default derived from the platform tier rather than a literal model id; chosen on the firm's AI settings screen from the catalog's verified roster, or returned to following the platform.
+  status: shipped
   surface: screen
-  evidence: packages/inference/src/settings.ts (inference-owned FirmSettingDefinition). The value is now STATED to the firm on Settings / AI and the Assistant, with its pinned snapshot and both confidentiality facts, because a consent gate is illegible without them; GET /api/v1/firm/ai/settings reports it and PATCH accepts no model field.
-  notes: Partial because nothing SELECTS. A control that wrote a model id would silently convert a firm that follows the platform's reasoning tier into one pinned to today's occupant of it, which is the asymmetry packages/inference/src/settings.ts deliberately preserves; selection wants a setting that can express the tier itself.
+  evidence: packages/inference/src/settings.ts (inference-owned FirmSettingDefinition). Settings / AI and the Assistant offers the choice through the product's combobox over the roster GET /api/v1/firm/ai/settings returns (every catalog reasoning entry with its retention facts, both verification dates, retirement date and tier, plus the catalog's version and effective date); PATCH takes model.modelId, where a roster id pins the firm and null DELETES the row so the firm follows the platform's tier again. The response reports selection as platform or chosen from the row's existence. apps/api-worker/test/firm-ai-settings-routes.test.ts drives the round trip and the off-roster refusal.
+  notes: The two postures stay legible because following is the ABSENCE of a row: choosing the platform's option never writes today's default. No runtime source lists models (neither the Workers AI binding nor the AI Gateway REST API enumerates them), so the roster is the catalog and the page states its date and that the freshness pass keeps it current.
 
 - id: ai.inference.confidentiality
   name: Confidentiality control plane
@@ -216,14 +216,16 @@
   status: partial
   surface: screen
   spec: docs/specs/2026-09-07-magnus-interface-design.md
-  evidence: The design-system Conversation component (packages/design-system/src/lib/components/conversation), the shared surface and its wire module (apps/web/src/lib/magnus), and the two routes it serves — apps/web/src/routes/(app)/magnus and apps/web/src/routes/(app)/matters/[id]/magnus. Both registries light up: the sidebar destination is shipped and the matter section is at stage alpha.
-  notes: Partial because the surface polls the turn rather than holding the events socket; the socket lands with token streaming, where a frame can carry a partial answer. The firm-administrator enablement screen it used to wait on has landed — see ai.magnus.firm-enablement — so a firm's closed state is now a state the firm chose rather than one it could not leave.
+  evidence: The design-system Conversation component (packages/design-system/src/lib/components/conversation), the shared surface composed of the rail, the transcript, the composer and the in-place name (apps/web/src/lib/magnus), and the two routes it serves — apps/web/src/routes/(app)/magnus and apps/web/src/routes/(app)/matters/[id]/magnus. The rail sorts by date, name or matter on the server; a conversation is renamed in place, kept on a matter after the fact, and carries the matter's files by reference; the composer names the answering model. Both registries light up: the sidebar destination is shipped and the matter section is at stage alpha. The owner's first round is recorded in docs/conventions/magnus-rulings.md.
+  notes: Partial because the surface polls the turn rather than holding the events socket; the socket lands with token streaming, where a frame can carry a partial answer. The workspace's two sides are the design system's NavigationLayout, its second consumer after Settings.
 
 - id: ai.magnus.context
   name: Explicit per-conversation context grants
-  scope: What the assistant can see beyond what the member typed. The shape is settled — the member attaches a named document or matter and can see exactly what was attached; implicit firm-wide retrieval is not on this path and would need a consent decision of its own.
-  status: not-started
-  evidence: The seam is named and deliberately empty in slice 1 — nothing reads a document, matter, calendar, or directory entry today. The grant shape is the ratified answer for the next slice, not a proposal.
+  scope: What the assistant can see beyond what the member typed. The shape is settled — the member attaches a named document and can see exactly what was attached, and what became of it; implicit firm-wide retrieval is not on this path and would need a consent decision of its own.
+  status: partial
+  surface: screen
+  evidence: A conversation kept on a matter attaches that matter's files BY REFERENCE (magnus_conversation_attachment; POST/DELETE /api/v1/magnus/conversations/{id}/attachments). On each question the consumer reads each file's current clean version, takes its text through the platform's extraction port (apps/api-worker/src/magnus/attachment-text.ts), and sends it ahead of the question under a heading naming the file within a 64 KiB budget (packages/magnus/src/window.ts); the row records sent, cut, unreadable or pending and the composer says so per file. The disclosure moved to version 2. apps/api-worker/test/magnus-consumer.test.ts drives the text reaching the port.
+  notes: Partial because a grant is a document, not a matter, a calendar or a directory entry, and because the extraction runs on every question rather than once — a cached extraction is a named seam waiting on its retention posture.
 
 - id: ai.magnus.actions
   name: Tools and actions

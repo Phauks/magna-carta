@@ -1,6 +1,11 @@
 import type { MagnusConversationId, MagnusTurnId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
-import { MEMBER_TURN_MAX_BYTES, contentByteLength } from "../src/limits.ts";
+import {
+  ATTACHMENT_TEXT_MAX_BYTES,
+  MEMBER_TURN_MAX_BYTES,
+  contentByteLength,
+  cutToByteLength,
+} from "../src/limits.ts";
 import type { TurnRow } from "../src/types.ts";
 import { buildConversationWindow, WINDOW_MAX_BYTES, WINDOW_MAX_TURNS } from "../src/window.ts";
 
@@ -130,6 +135,62 @@ describe("the conversation window", () => {
     expect(new Set(window.messages.map((message) => message.role))).toEqual(
       new Set(["member", "assistant"]),
     );
+  });
+});
+
+describe("attached files in the window", () => {
+  const attachment = (fileId: string, name: string, text: string) => ({ fileId, name, text });
+
+  it("puts each file's text ahead of the newest question, under a heading naming the file", () => {
+    const window = buildConversationWindow(conversation(1), {
+      attachments: [attachment("file_a", "lease.pdf", "the lease says")],
+    });
+    const newest = window.messages.at(-1);
+    expect(newest?.role).toBe("member");
+    expect(newest?.content.startsWith("--- Attached file: lease.pdf ---\nthe lease says")).toBe(
+      true,
+    );
+    expect(newest?.content.endsWith("the newest question")).toBe(true);
+    expect(window.attachments).toEqual([{ fileId: "file_a", sent: "whole", bytes: 14 }]);
+  });
+
+  it("leaves every earlier turn as it was typed", () => {
+    const window = buildConversationWindow(conversation(2), {
+      attachments: [attachment("file_a", "lease.pdf", "the lease says")],
+    });
+    for (const message of window.messages.slice(0, -1)) {
+      expect(message.content).not.toContain("Attached file");
+    }
+  });
+
+  it("cuts the file that overruns the budget, marks the cut, and sends nothing of the ones after", () => {
+    const big = "x".repeat(ATTACHMENT_TEXT_MAX_BYTES - 10);
+    const window = buildConversationWindow(conversation(1), {
+      attachments: [
+        attachment("file_a", "a.txt", big),
+        attachment("file_b", "b.txt", "y".repeat(100)),
+        attachment("file_c", "c.txt", "z"),
+      ],
+    });
+    expect(window.attachments.map((outcome) => outcome.sent)).toEqual(["whole", "cut", "none"]);
+    expect(window.attachments[1]?.bytes).toBe(10);
+    const newest = window.messages.at(-1)?.content ?? "";
+    expect(newest).toContain("--- Attached file: b.txt ---\n" + "y".repeat(10));
+    expect(newest).toContain("did not fit and was not sent");
+    expect(newest).not.toContain("--- Attached file: c.txt ---");
+  });
+
+  it("cuts on a character boundary, never inside one", () => {
+    expect(cutToByteLength("日本語", 4)).toBe("日");
+    expect(cutToByteLength("abc", 10)).toBe("abc");
+  });
+
+  it("a file with no text is reported as not sent, with no heading over nothing", () => {
+    const window = buildConversationWindow(conversation(1), {
+      attachments: [attachment("file_a", "blank.pdf", "   ")],
+    });
+    expect(window.attachments).toEqual([{ fileId: "file_a", sent: "none", bytes: 0 }]);
+    expect(window.messages.at(-1)?.content).toBe("the newest question");
   });
 });
 

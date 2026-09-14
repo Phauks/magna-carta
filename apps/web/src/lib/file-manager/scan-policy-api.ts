@@ -57,3 +57,20 @@ export function updateScanPolicy(
     idempotencyKey,
   });
 }
+
+/**
+ * What the scan engine says about itself, read off the score-histogram route — the one place the
+ * engine reports its composite version (`engine/<code>+yara-rules/<tag>+clamav-db/<db>`, split by
+ * $lib/versions/scan-engine-version.ts). Engine-global: identical for every firm. Null where no
+ * scan engine is deployed, which is a fact the page states rather than a fault. The route names
+ * the same permission the policy read does, so a page that may read the policy may read this.
+ */
+export interface ScanEngineReport {
+  engineVersion: string | null;
+}
+
+export function readScanEngineVersion(
+  fetchImpl: typeof fetch,
+): Promise<ApiOutcome<ScanEngineReport>> {
+  return requestJson(fetchImpl, "/api/v1/firm/scan-policy/score-histogram");
+}

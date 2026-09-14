@@ -41,10 +41,50 @@ describe("matterLifecycleStep", () => {
   it("offers the pause beside the close on an active matter, and the close beside the release on a held one", () => {
     expect(matterLifecycleSteps("open").map((step) => step.action)).toEqual(["close", "hold"]);
     expect(matterLifecycleSteps("hold").map((step) => step.action)).toEqual(["release", "close"]);
-    // The unnumbered rungs and the closed one offer exactly one way forward.
+    // The intake and the closed matter offer exactly one way forward.
     expect(matterLifecycleSteps("intake")).toHaveLength(1);
-    expect(matterLifecycleSteps("consultation")).toHaveLength(1);
     expect(matterLifecycleSteps("closed")).toHaveLength(1);
+  });
+
+  it("lets a consultation be put on hold or closed, not only opened", () => {
+    // A firm that parks a consultation, or decides against one, says so from the consultation
+    // itself. The open still leads: it is the step the lifecycle runs toward.
+    expect(matterLifecycleSteps("consultation").map((step) => step.action)).toEqual([
+      "open",
+      "hold",
+      "close",
+    ]);
+    const close = matterLifecycleSteps("consultation").find((step) => step.action === "close");
+    // The close names what it closes, and its sentence says what a declined consultation keeps:
+    // the tentative number, and never a matter number.
+    expect(close?.label).toBe("Close Consultation");
+    expect(close?.doneSentence).toContain("no matter number");
+    const hold = matterLifecycleSteps("consultation").find((step) => step.action === "hold");
+    expect(hold?.doneSentence).toContain("consultation again when released");
+    expect(hold?.doneSentence).not.toContain("active");
+  });
+
+  it("says how each step is taken from the seal: a question, or the window", () => {
+    // A step that needs input (the hold's reason) or has requirements to read first opens the
+    // window at the step; one that needs nothing runs from its own confirmation, and carries it.
+    for (const status of MATTER_STATUSES) {
+      for (const step of matterLifecycleSteps(status)) {
+        if (step.takenFrom === "confirmation") {
+          expect(step.confirmation).not.toBeNull();
+          expect(step.confirmation?.heading).toMatch(/\?$/);
+        } else {
+          expect(step.confirmation).toBeNull();
+        }
+      }
+    }
+    const taken = (status: (typeof MATTER_STATUSES)[number], action: string) =>
+      matterLifecycleSteps(status).find((step) => step.action === action)?.takenFrom;
+    expect(taken("open", "hold")).toBe("window");
+    expect(taken("open", "close")).toBe("window");
+    expect(taken("consultation", "open")).toBe("window");
+    expect(taken("intake", "graduate")).toBe("window");
+    expect(taken("hold", "release")).toBe("confirmation");
+    expect(taken("closed", "reopen")).toBe("confirmation");
   });
 
   it("covers every status the contract stores", () => {
@@ -58,11 +98,17 @@ describe("matterLifecycleStep", () => {
     expect(matterLifecycleStep("consultation").permission).toBe("matters:open");
     expect(matterLifecycleStep("open").permission).toBe("matters:close");
     expect(matterLifecycleStep("closed").permission).toBe("matters:reopen");
-    // The pause and its release are one authority in two directions.
-    for (const step of [...MATTER_LIFECYCLE_STEPS.open, ...MATTER_LIFECYCLE_STEPS.hold]) {
+    // The pause and its release are one authority in two directions, on a consultation as on an
+    // active matter; and a consultation's close is the close's own authority.
+    for (const step of [
+      ...MATTER_LIFECYCLE_STEPS.open,
+      ...MATTER_LIFECYCLE_STEPS.hold,
+      ...MATTER_LIFECYCLE_STEPS.consultation,
+    ]) {
       if (step.action === "hold" || step.action === "release") {
         expect(step.permission).toBe("matters:hold");
       }
+      if (step.action === "close") expect(step.permission).toBe("matters:close");
     }
   });
 });

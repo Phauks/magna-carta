@@ -17,7 +17,6 @@ import { expect, test } from "vitest";
 import type { ConflictsWriteOptions } from "../src/audit.ts";
 import {
   DEFAULT_CONFLICTS_POLICY,
-  MAX_CANDIDATE_CAP,
   normalizeConflictsPolicy,
   readConflictsPolicy,
   resolveScope,
@@ -51,10 +50,6 @@ test("a sound policy is stored verbatim and read back unchanged", async () => {
   const asked: ConflictsPolicy = {
     floorSources: ["party", "graph", "imputation"],
     floorStrictness: "over_inclusive",
-    defaultDepth: 2,
-    edgeClassBudgets: { control: 2, family: 1, representation: 3 },
-    closureCap: 750,
-    candidateCap: 4000,
     balancedNameRoles: ["current", "former", "maiden", "alias"],
   };
 
@@ -96,17 +91,31 @@ test("the current name role is stored back in even when a caller drops it", asyn
   expect((storedPolicyRow(raw) as ConflictsPolicy).balancedNameRoles).toContain("current");
 });
 
-test("a candidate cap past one atomic batch is clamped in the row, not just on the way out", async () => {
-  const { database, raw, options } = fixture("policy-cap");
-
-  const stored = await writeConflictsPolicy(
-    database,
-    { ...DEFAULT_CONFLICTS_POLICY, candidateCap: MAX_CANDIDATE_CAP + 5_000 },
-    options,
+test("a stored policy written under the old bounds reads past them, and the next save drops them", async () => {
+  // A row from before 2026-09-11 carries a default depth, hop budgets and two caps. None of them is
+  // a setting any more: the walk follows relationships to closure and the bound on a run is the
+  // platform's. The read ignores them rather than honouring them, and a save stores the three fields
+  // that are still the firm's to decide.
+  const { database, raw, options } = fixture("policy-old-bounds");
+  raw.exec(
+    `INSERT INTO setting (key, value, updated_at) VALUES ('conflicts.policy', ` +
+      `'{"floorSources":["party","graph"],"floorStrictness":"balanced","defaultDepth":3,"edgeClassBudgets":{"control":3},"closureCap":250,"candidateCap":120,"balancedNameRoles":["current"]}', ` +
+      `'2026-09-01T00:00:00.000Z')`,
   );
+  const read = await readConflictsPolicy(database);
+  expect(read).toEqual({
+    floorSources: ["party", "graph"],
+    floorStrictness: "balanced",
+    balancedNameRoles: ["current"],
+  });
 
-  expect(stored.candidateCap).toBe(MAX_CANDIDATE_CAP);
-  expect((storedPolicyRow(raw) as ConflictsPolicy).candidateCap).toBe(MAX_CANDIDATE_CAP);
+  const stored = await writeConflictsPolicy(database, read, options);
+  expect(Object.keys(storedPolicyRow(raw) as object).toSorted()).toEqual([
+    "balancedNameRoles",
+    "floorSources",
+    "floorStrictness",
+  ]);
+  expect(stored).toEqual(read);
 });
 
 test("an empty request stores the shipped default rather than a policy of holes", async () => {
@@ -176,7 +185,6 @@ test("normalization is one function, so the write cannot drift from the read's r
   const unsound = {
     floorSources: [],
     balancedNameRoles: [],
-    candidateCap: 10 ** 9,
   } as unknown as Partial<ConflictsPolicy>;
   const once = normalizeConflictsPolicy(unsound);
   expect(normalizeConflictsPolicy(once)).toEqual(once);

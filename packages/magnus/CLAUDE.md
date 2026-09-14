@@ -27,7 +27,12 @@ registered there; this file states what they mean for the code, not where they w
   `TurnFailureLabel`, the closed label set a settled turn may carry
 - `src/settings.ts` — `magnus.enabled` (boolean, default **false**) and `magnus.dailyTurnCeiling`
   (integer, default 500). There is **no model setting here**: the firm's shipped
-  `inference.primaryReasoningModel` is what the assistant reads
+  `inference.primaryReasoningModel` is what the assistant reads, and the firm chooses it on its AI
+  settings screen
+- `src/limits.ts` also carries the attachment caps: ten files per conversation, 64 KiB of attachment
+  text per request, a 25 MiB source file; `cutToByteLength` cuts on a character boundary
+- `src/statements.ts` — the fourth table is `magnus_conversation_attachment`; `listConversations`
+  takes the sort and returns each row's sort key so the route can mint the next cursor
 - `src/disclosure.ts` — `MAGNUS_DISCLOSURE_VERSION`, the constant a member's stored acknowledgement is
   compared against
 - `src/limits.ts` — `MEMBER_TURN_MAX_BYTES` / `MAGNUS_TURN_MAX_BYTES` and the UTF-8 byte measure
@@ -143,15 +148,33 @@ registered there; this file states what they mean for the code, not where they w
   not read would look like it worked and do nothing. **Off by default is still the shipped state**; what
   changed is that a firm can now turn it on rather than needing the settings write path.
 
-- **The firm's screen states the model and cannot select one.** It reports
-  `inference.primaryReasoningModel` with its pinned snapshot and the two confidentiality facts, because
-  consenting to third-party processing without being told which model receives the content is consent to
-  nothing legible. It writes no model, and the route accepts no model field. Selection is a different
-  question with a real cost: an unconfigured firm follows the platform's reasoning tier and moves forward
-  with it, while a firm holding a model id keeps that choice forever
-  ([`../inference/src/settings.ts`](../inference/src/settings.ts) says why that asymmetry is deliberate),
-  so a control that wrote an id on the firm's behalf would silently convert "follow the platform" into
-  "pinned". That control wants a setting that can express the tier.
+- **The firm's screen states the model AND selects it, without collapsing the two postures.** It
+  reports `inference.primaryReasoningModel` with its pinned snapshot and the two confidentiality facts,
+  and offers the catalog's reasoning entries as the roster. An unconfigured firm follows the platform's
+  reasoning tier and moves forward with it, while a firm holding a model id keeps that choice until it
+  chooses again ([`../inference/src/settings.ts`](../inference/src/settings.ts) says why that asymmetry
+  is deliberate) — so choosing "the platform's current model" DELETES the firm's row rather than
+  writing today's default, and the route reports `selection` from the row's existence. The composer
+  names the answering model, read from the same setting the consumer reads.
+- **A conversation is kept on a matter after the fact, and moving it is an access decision.**
+  `PATCH .../conversations/{id}/matter` is allowed to whoever can READ the conversation (the author,
+  or `magnus:readAllConversations`) onto a matter the firm still writes to; a closed matter and the
+  platform's own matters are refused; the audit row names both matters. The conversation's attachments
+  go with the move, because each is one of the OLD matter's files.
+- **Attachments are references, and the text is read fresh on every question.** `magnus_conversation_attachment`
+  keys on (conversation, file) and copies nothing. The consumer reads each file's current clean version
+  from the firm's bucket, takes its text through the platform's one extraction port
+  (`apps/api-worker/src/magnus/attachment-text.ts`; plain text directly), and `buildConversationWindow`
+  lays it ahead of the newest member turn under a heading naming the file within
+  `ATTACHMENT_TEXT_MAX_BYTES`, cutting and marking the cut. The row records `sent | cut | unreadable |
+  pending`. A stored extraction would be a second copy of privileged content outside the file's own
+  erasure path; the per-question extraction is the cost paid to keep exactly one. Because what Magnus
+  can SEE changed, `MAGNUS_DISCLOSURE_VERSION` is 2, and the disclosure statement and the system prompt
+  describe the same thing.
+- **The listing's order is the server's, one SQL key per order.** `listConversations` takes
+  `sort: date | name | matter`; the name and matter orders page on the shared composite cursor with a
+  mixed-direction keyset spelled out in `statements.ts` (the group key ascends, the instant beneath it
+  descends). A page is never re-ordered by a client.
 - **The interface polls the turn; it does not hold the socket.** The events route exists and is
   correct, and the surface deliberately reads `GET .../turns/{turnId}` instead, because the two
   return identical state and a socket buys nothing until a frame can carry a partial answer. Token

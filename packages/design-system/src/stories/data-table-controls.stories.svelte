@@ -105,6 +105,46 @@
   {/snippet}
 </Story>
 
+{#snippet figuresWithAWholeRecordCount()}
+  <div class="p-8 text-sm">
+    <GridFigures
+      grid={filteredGrid}
+      figures={[
+        ...FIGURES,
+        {
+          identifier: "waiting",
+          label: "waiting to be filed",
+          value: "3",
+          caption: "Counted by the server over every record, whatever is in view.",
+          scope: "whole-record",
+        },
+      ]}
+    />
+  </div>
+{/snippet}
+
+<Story
+  name="Figures, under a filter, with one over the whole record"
+  template={figuresWithAWholeRecordCount}
+  play={async ({ canvas, canvasElement, step }) => {
+    await step("A whole-record figure stands before the sentence, never under it", async () => {
+      const strip = canvasElement.querySelector("[data-grid-figures]");
+      const items = [...(strip?.querySelectorAll("[data-figure-scope]") ?? [])];
+      await expect(items[0]).toHaveAttribute("data-figure-scope", "whole-record");
+      await expect(items[0]).toHaveTextContent("waiting to be filed");
+      const sentence = canvas.getByText("In view:");
+      await expect(
+        items[0]!.compareDocumentPosition(sentence) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+    await step("The figures that narrow still follow the sentence", async () => {
+      const strip = canvasElement.querySelector("[data-grid-figures]");
+      const narrowing = strip?.querySelectorAll('[data-figure-scope="rows-in-view"]');
+      await expect(narrowing).toHaveLength(FIGURES.length);
+    });
+  }}
+/>
+
 <Story
   name="Clear filters, and the absence that precedes it"
   play={async ({ canvas, step }) => {

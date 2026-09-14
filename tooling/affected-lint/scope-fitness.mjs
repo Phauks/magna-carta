@@ -53,10 +53,17 @@ export const GATE_INVOCATIONS = {
 // `sinks.size === 0` branch below is what stops the deferral becoming a silent no-op. Between them
 // the two failure modes worth failing on are covered.
 //
-// TWO EXTRA CHECKS WERE TRIED HERE TODAY AND BOTH WERE WRONG, in the same way. A ratio against the
-// heaviest NON-sink package: second place moving is not evidence about first place, and it decayed
-// monotonically as apps/web grew — simulated, 1.44 / 1.30 / 1.16 at +50 / +200 / +400 files — until
-// any four-file branch failed it. Then a margin against the selection threshold: better shaped, but
+// A RATIO AGAINST THE NEIGHBOUR WAS TRIED TWICE AND RETUNED TWICE. It compared the sink to the
+// heaviest NON-sink package, and second place moving is not evidence about first place: it decayed
+// monotonically as apps/web grew — simulated, 1.44 / 1.30 / 1.16 at +50 / +200 / +400 files. The
+// floor was set at 1.5 on 2026-08-05 against a 2.29x distribution, and lowered to 1.3 on 2026-09-12
+// when the web application's growth had taken it to exactly 1.50 — the note then recorded that "the
+// distribution did not flatten, its second member grew", which is right, and is the reason this is
+// not a measurement worth gating on: the second member growing is the product being built. Two days
+// later it read 1.50 again on the same numerator. A floor that has to be lowered every few weeks to
+// track ordinary work is a tripwire with a maintenance schedule, not a guard.
+//
+// A MARGIN AGAINST THE SELECTION THRESHOLD replaced it here and was also wrong: better shaped, but
 // still a growth tripwire (apps/web crossing the bar at 1.08x failed the gate at +200 files rather
 // than simply not being selected), and it could DESELECT the expensive package while keeping a
 // cheaper one, which is the opposite of the point. A borderline package is not a problem to fail on:

@@ -1,49 +1,49 @@
 <script lang="ts">
   /*
-   * TIME — the firm's time record over a period, across every matter.
+   * TIME — the firm's time record, across every matter.
    *
    * THE THIRD PLACE, AND THE ONLY ONE THAT READS BACK. Time has three surfaces and each answers a
    * different question. The top bar's Time Sheet is capture: it opens over whatever you were doing
    * so writing a row never costs you your place. A matter's Time tab is that matter's record. This
-   * is the period — "what time went on the record this week", which is the question a timekeeper
+   * is the firm's — "what time went on the record this week", which is the question a timekeeper
    * asks of their own work every day and a supervisor asks of the firm's every month, and which
    * neither of the other two can answer without visiting matters one at a time.
    *
-   * IT WAS A SOON ROW FOR A REASON, AND THE REASON WAS THE SERVER. The listing behind time could
-   * answer one timekeeper on one day, or one matter entire, and nothing else; asked for a span it
-   * returned an empty list rather than scanning the table, which was right. The period listing
-   * (`from`/`to` on GET /api/v1/time-entries) is what this screen is built on, and it is what made
-   * flipping the sidebar row honest rather than a link to a page that could not read anything.
+   * THE TABLE IS THE ONLY THING THAT NARROWS IT. The screen opens on the whole record, newest work
+   * date first, and every narrowing is a column's own filter: the Date column bounds the period,
+   * Status picks a state, Timekeeper picks a person. The screen used to carry a period dropdown and
+   * a whose-time dropdown in its header, each answering a question a column already asked, and each
+   * worded differently from the same control on the Fees and Costs screens (the owner's ruling of
+   * 2026-09-11, docs/conventions/time-tab-rulings.md round twelve).
    *
-   * TWO LAYERS OF NARROWING, AND THEY ARE DIFFERENT KINDS. The period and whose-time controls
-   * change WHAT IS ASKED FOR: they re-read, and the answer is the whole record for that scope, page
-   * by page. The table's own in-header filters narrow WHAT IS LOADED. Keeping the distinction
-   * visible is why there is no free-text search box on this screen: a search that quietly covered
-   * only the loaded page would tell a reader their word appears nowhere in a month it never looked
-   * at. The columns' own filters are the search, and they say "Showing n of m" while they narrow.
+   * A COLUMN FILTER THAT ONLY NARROWED THE LOADED PAGE WOULD NOT BE A FILTER. The record is
+   * cursor-paged, so the filters the listing honours — the two date bounds, the Status column's
+   * whole selection, one timekeeper — and the search are sent to it as its own parameters and
+   * re-read, and the table's in-browser filter then runs over rows that already match.
    *
-   * WHOSE TIME IS A PERMISSION, NOT A PREFERENCE. Reading anybody else's period — one colleague's
-   * or the whole firm's — takes time:viewFirm, and the server refuses without it. The control is
-   * absent rather than disabled for a member who does not hold it, because a disabled list of
-   * colleagues is an inventory of what somebody cannot have.
+   * WHOSE TIME IS A PERMISSION, NOT A PREFERENCE. Reading anybody else's time — one colleague's or
+   * the whole firm's — takes time:viewFirm, and the server refuses without it. A member without it
+   * is always asking for their own time, whatever the Timekeeper column says, and that column offers
+   * them nobody else: an inventory of colleagues they cannot ask for would be an inventory of what
+   * somebody cannot have.
    *
-   * THE SCOPE IS IN THE ADDRESS. A supervisor looking at one person's month sends that view to
-   * somebody by sending the link, so the timekeeper and the span ride the URL and the screen opens
-   * on what the address names.
+   * THE FILTERS ARE IN THE ADDRESS. A supervisor looking at one person's month sends that view to
+   * somebody by sending the link, so the bounds, the statuses and the timekeeper ride the URL and
+   * the screen opens on what the address names.
+   *
+   * THE SEARCH IS THE PRODUCT'S ONE CONTROL, and it is the listing's own: a word is looked for in
+   * the narrative, the entry number, the matter's title and number and the timekeeper's name across
+   * the whole record, never only in the page in hand.
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import * as Popover from "@magna-carta/design-system/popover";
-  import * as Select from "@magna-carta/design-system/select";
   import * as Alert from "@magna-carta/design-system/alert";
-  import Button, { buttonClasses } from "@magna-carta/design-system/button";
   import Badge from "@magna-carta/design-system/badge";
   import CreateControl from "@magna-carta/design-system/create-control";
   import { DateRangePicker } from "@magna-carta/design-system/date-range-picker";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
+  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
-  import { parseDate } from "@internationalized/date";
-  import Calendar from "@lucide/svelte/icons/calendar";
-  import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import { page } from "$app/state";
   import { replaceState } from "$app/navigation";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
@@ -57,6 +57,7 @@
   import TimeRecordWindow from "$lib/time/time-record-window.svelte";
   import {
     TIME_COLUMN_IDENTIFIERS,
+    TIME_STATUS_CHOICES,
     chargeAmount,
     durationParts,
     firmTimeColumns,
@@ -65,32 +66,19 @@
   } from "$lib/time/time-columns.ts";
   import { ledgerCurrency, periodTotals } from "$lib/time/time-figures.ts";
   import { matterDisplay } from "$lib/time/time-sheet-model.ts";
-  import { listTimeEntriesInPeriod } from "$lib/time/time-operations.ts";
-  import { civilDateOf } from "@magna-carta/civil-time/civil-date";
+  import { listTimeEntriesInPeriod, type TimePeriodQuery } from "$lib/time/time-operations.ts";
+  import { VIEW_FIRM_TIME_PERMISSION, periodFigureReading } from "$lib/time/time-period.ts";
   import {
-    PERIOD_PRESET_IDENTIFIERS,
-    customRangeOutcome,
-    isScopeShowing,
-    scopePreset,
-    spanLabel,
-    type SheetScope,
-  } from "$lib/time/time-sheet-scope.ts";
-  import {
-    VIEW_FIRM_TIME_PERMISSION,
-    choiceByIdentifier,
-    periodFigureReading,
-    timekeeperChoices,
-  } from "$lib/time/time-period.ts";
-
-  /*
-   * The firm's first weekday is a firm setting the settings registry will serve. Until it does, the
-   * week presets span Monday to Sunday and each label names the days it actually covered, so the
-   * caption can never disagree with the span. The Time Sheet holds the same interim, deliberately:
-   * two surfaces disagreeing about where a week starts is worse than both being provisional.
-   */
-  const FIRST_WEEKDAY_OF_THE_FIRMS_WEEK = 1;
-
-  const today = civilDateOf(new Date());
+    addressAfterFilters,
+    choicesFilter,
+    choicesOf,
+    civilDateOrNull,
+    dateBoundsOf,
+    dateRangeFilter,
+    filtersSeededBy,
+    singleMemberFilter,
+    singleMemberOf,
+  } from "$lib/money/listing-scope.ts";
 
   // ---- who is asking -----------------------------------------------------------------------------
 
@@ -102,9 +90,8 @@
 
   const roster = new FirmRoster();
   const firmMatters = new FirmMatters();
-
-  const choices = $derived(
-    timekeeperChoices(roster.members ?? [], sessionUserId, maySeeFirmTime),
+  const activeMembers = $derived(
+    (roster.members ?? []).filter((member) => member.status === "active"),
   );
 
   let bootstrapped = false;
@@ -113,7 +100,7 @@
     bootstrapped = true;
     void roster.load(fetch);
     // The matters are read for the Matter column's names and for the record window's picker. The
-    // period is READ without them — a name that has not arrived leaves one column blank, and a
+    // record is READ without them — a name that has not arrived leaves one column blank, and a
     // screen that waited on the firm's whole matter list before showing any time would be slower
     // than it has any reason to be.
     void firmMatters.load(fetch);
@@ -127,99 +114,12 @@
     })();
   });
 
-  // ---- the scope: what is asked for --------------------------------------------------------------
-
-  /*
-   * The address is the source of both halves of the scope, so a linked view opens on what the link
-   * names and a change made here is a link somebody can send back. `replaceState` rather than a
-   * navigation: changing the period is not a place in the reader's history, it is the same screen
-   * looking at different days, and stacking every adjustment would make Back useless.
-   */
-  const addressSpan = $derived.by((): SheetScope | null => {
-    const from = page.url.searchParams.get("from");
-    const to = page.url.searchParams.get("to");
-    if (from === null || to === null) return null;
-    const outcome = customRangeOutcome(from, to);
-    return outcome.kind === "applied" ? outcome.scope : null;
-  });
-
-  const defaultScope = $derived(scopePreset("week", today, FIRST_WEEKDAY_OF_THE_FIRMS_WEEK));
-  const scope = $derived(addressSpan ?? defaultScope);
-
-  /*
-   * Whose time, resolved against what this reader may actually ask for.
-   *
-   * An address naming a colleague, opened by somebody without the capability, falls back to their
-   * own time rather than to a refusal: the link was not written for them, and showing them their
-   * own week is a better answer than an error about a permission they cannot grant themselves.
-   */
-  const chosen = $derived.by(() => {
-    const wanted = page.url.searchParams.get("timekeeper");
-    const named = wanted === null ? undefined : choiceByIdentifier(choices, wanted);
-    if (named !== undefined) return named;
-    return choices.find((choice) => choice.timekeeperUserId === sessionUserId) ?? null;
-  });
-
-  function goToScope(next: SheetScope, timekeeperIdentifier: string | null): void {
-    const url = new URL(page.url);
-    url.searchParams.set("from", next.from);
-    url.searchParams.set("to", next.to);
-    if (timekeeperIdentifier === null) url.searchParams.delete("timekeeper");
-    else url.searchParams.set("timekeeper", timekeeperIdentifier);
-    replaceState(url, page.state);
-  }
-
-  function applyPreset(preset: SheetScope): void {
-    goToScope(preset, chosen?.identifier ?? null);
-  }
-
-  let customRangeRefusal = $state<string | null>(null);
-  function applyCustomRange(from: string, to: string): void {
-    const outcome = customRangeOutcome(from, to);
-    if (outcome.kind === "refused") {
-      customRangeRefusal = outcome.reason;
-      return;
-    }
-    customRangeRefusal = null;
-    applyPreset(outcome.scope);
-  }
-
-  // ---- the read ----------------------------------------------------------------------------------
+  // ---- the table ---------------------------------------------------------------------------------
 
   const list = new PagedList<TimeEntrySummary>("The firm's time could not be read.");
   const entries = $derived(list.items ?? []);
-  /** Bumped after a write, so the period re-reads what the server now holds rather than guessing. */
+  /** Bumped after a write, so the record re-reads what the server now holds rather than guessing. */
   let reloadToken = $state(0);
-
-  const periodQuery = $derived(
-    chosen === null
-      ? null
-      : { from: scope.from, to: scope.to, timekeeperUserId: chosen.timekeeperUserId },
-  );
-
-  $effect(() => {
-    const query = periodQuery;
-    // The session decides whose time is asked for, so nothing is read until it has landed. Reading
-    // "everyone" in the gap and correcting it a moment later would be one refused request per load
-    // for every member who cannot ask that question.
-    if (query === null) return;
-    const subject = `${query.from}:${query.to}:${query.timekeeperUserId ?? "everyone"}:${String(reloadToken)}`;
-    if (list.showing(subject)) return;
-    list.reset(subject);
-    void list.load((cursor) =>
-      listTimeEntriesInPeriod(fetch, { ...query, ...(cursor === undefined ? {} : { cursor }) }),
-    );
-  });
-
-  function loadMore(): void {
-    const query = periodQuery;
-    if (query === null) return;
-    void list.loadMore((cursor) =>
-      listTimeEntriesInPeriod(fetch, { ...query, ...(cursor === undefined ? {} : { cursor }) }),
-    );
-  }
-
-  // ---- the table ---------------------------------------------------------------------------------
 
   const currency = $derived(ledgerCurrency(entries));
   const money = (amountMinor: number): string => formatMoney(amountMinor / 100, { currency });
@@ -244,7 +144,14 @@
   }
 
   const grid = DataTable.createDataTableGrid<TimeEntrySummary>({
-    columns: () => firmTimeColumns(currency, matterText),
+    columns: () =>
+      firmTimeColumns(
+        currency,
+        matterText,
+        maySeeFirmTime
+          ? { timekeeperNames: activeMembers.map((member) => member.displayName) }
+          : {},
+      ),
     rows: () => entries,
     rowKey: (entry) => entry.id,
     initialSort: { columnId: TIME_COLUMN_IDENTIFIERS.workDate, direction: "descending" },
@@ -253,6 +160,123 @@
     totalIncludes: (entry) => entry.status !== "void",
     onActivate: (entry) => openRecord(entry, false),
   });
+
+  // ---- the scope: what the columns ask the listing for ------------------------------------------
+
+  /*
+   * The address seeds the filters once, on open, so a linked view opens already narrowed. The Date
+   * and Status columns need nothing else; the Timekeeper column shows names, so its seed waits on
+   * the roster to say what the address's handle is called.
+   */
+  let seededFromAddress = false;
+  $effect(() => {
+    if (seededFromAddress) return;
+    seededFromAddress = true;
+    grid.filters = filtersSeededBy(grid.filters, {
+      [TIME_COLUMN_IDENTIFIERS.workDate]: dateRangeFilter(
+        civilDateOrNull(page.url.searchParams.get("from")),
+        civilDateOrNull(page.url.searchParams.get("to")),
+      ),
+      [TIME_COLUMN_IDENTIFIERS.status]: choicesFilter(
+        page.url.searchParams.getAll("status"),
+        TIME_STATUS_CHOICES,
+      ),
+    });
+  });
+  let timekeeperSeeded = false;
+  $effect(() => {
+    if (timekeeperSeeded || roster.members === null) return;
+    timekeeperSeeded = true;
+    grid.filters = filtersSeededBy(grid.filters, {
+      [TIME_COLUMN_IDENTIFIERS.timekeeper]: singleMemberFilter(
+        page.url.searchParams.get("timekeeper"),
+        roster.members,
+      ),
+    });
+  });
+
+  /*
+   * The search is the listing's own, so it reads the whole record rather than the page in the
+   * browser; it waits for typing to pause because the read leaves the machine.
+   */
+  let searchText = $state("");
+  let appliedSearch = $state("");
+
+  const dateBounds = $derived(dateBoundsOf(grid.filterFor(TIME_COLUMN_IDENTIFIERS.workDate)));
+  const statusChoices = $derived(
+    choicesOf(grid.filterFor(TIME_COLUMN_IDENTIFIERS.status), TIME_STATUS_CHOICES),
+  );
+  const timekeeperChoice = $derived(
+    maySeeFirmTime
+      ? singleMemberOf(grid.filterFor(TIME_COLUMN_IDENTIFIERS.timekeeper), activeMembers)
+      : undefined,
+  );
+
+  /*
+   * What is asked of the listing. Nothing is read until the session has landed: the session decides
+   * whose time may be asked for, and reading "everyone" in the gap and correcting it a moment later
+   * would be one refused request per load for every member who cannot ask that question.
+   */
+  const periodQuery = $derived.by((): TimePeriodQuery | null => {
+    if (!sessionRead) return null;
+    return {
+      ...dateBounds,
+      // A member who may read only their own time is always asking for it, whatever the column says.
+      timekeeperUserId: maySeeFirmTime ? (timekeeperChoice ?? null) : sessionUserId,
+      ...(statusChoices.length === 0 ? {} : { statuses: statusChoices }),
+      ...(appliedSearch.trim() === "" ? {} : { search: appliedSearch.trim() }),
+    };
+  });
+
+  $effect(() => {
+    const query = periodQuery;
+    if (query === null) return;
+    const subject = `${JSON.stringify(query)}:${String(reloadToken)}`;
+    if (list.showing(subject)) return;
+    list.reset(subject);
+    void list.load((cursor) =>
+      listTimeEntriesInPeriod(fetch, { ...query, ...(cursor === undefined ? {} : { cursor }) }),
+    );
+  });
+
+  function loadMore(): void {
+    const query = periodQuery;
+    if (query === null) return;
+    void list.loadMore((cursor) =>
+      listTimeEntriesInPeriod(fetch, { ...query, ...(cursor === undefined ? {} : { cursor }) }),
+    );
+  }
+
+  /*
+   * The filters the listing honours ride the address, so the view is a link somebody can send.
+   * `replaceState` rather than a navigation: narrowing is not a place in the reader's history, it
+   * is the same screen looking at fewer rows, and stacking every adjustment would make Back useless.
+   * Nothing is written until the reads that seed the filters have landed, so an address is never
+   * rewritten out from under the seed that has not been applied yet.
+   */
+  $effect(() => {
+    if (!sessionRead || roster.members === null) return;
+    const next = addressAfterFilters(page.url, {
+      from: dateBounds.from,
+      to: dateBounds.to,
+      status: statusChoices,
+      timekeeper: timekeeperChoice,
+    });
+    if (next.href !== page.url.href) replaceState(next, page.state);
+  });
+
+  const narrowed = $derived(appliedSearch.trim() !== "" || grid.activeFilterCount > 0);
+  const narrowingSummary = $derived(
+    appliedSearch.trim() === ""
+      ? "Show every entry"
+      : `Showing "${appliedSearch.trim()}" of the record`,
+  );
+
+  function clearNarrowing(): void {
+    searchText = "";
+    appliedSearch = "";
+    grid.clearAllFilters();
+  }
 
   const figures = $derived(
     periodFigureReading(periodTotals(grid.isFiltered ? grid.rowsInView : entries), money),
@@ -299,36 +323,6 @@
     }
     return undefined;
   });
-
-  // ---- what the screen says about its own scope ---------------------------------------------------
-
-  const whoseTimeLine = $derived(
-    chosen === null
-      ? "Reading your session"
-      : chosen.timekeeperUserId === null
-        ? "Everyone's time"
-        : chosen.timekeeperUserId === sessionUserId
-          ? "Your time"
-          : `${chosen.label}'s time`,
-  );
-
-  /*
-   * The same fact mid-sentence, where the masthead's version cannot go.
-   *
-   * The masthead line opens a line of its own and is capitalised for it; dropping it into a
-   * sentence needs the lower case — but only on the words the product chose, never on a person's
-   * name. Lower-casing the whole line turned a colleague into "alba ferreira's time", which is a
-   * screen mis-spelling somebody's name back at them.
-   */
-  const whoseTimePhrase = $derived(
-    chosen === null
-      ? "you"
-      : chosen.timekeeperUserId === null
-        ? "anybody at the firm"
-        : chosen.timekeeperUserId === sessionUserId
-          ? "you"
-          : chosen.label,
-  );
 
   const readRefusal = $derived.by((): string | null => {
     const failure = list.failure;
@@ -386,75 +380,19 @@
 
 <div class="flex h-full min-h-0 flex-col gap-16">
   <ScreenHeader title="Time">
-    {#snippet meta()}
-      <span>{whoseTimeLine} · {spanLabel(scope.from, scope.to)}</span>
-    {/snippet}
     {#snippet actions()}
-      <!-- The period, then whose, then the way to add one: the two controls that change what is
-           READ sit together, ahead of the control that writes. -->
-      <Popover.Root>
-        <Popover.Trigger
-          class={buttonClasses({ variant: "secondary", size: "sm" })}
-          title="Choose the days this screen shows"
-        >
-          <Calendar class="size-16" aria-hidden="true" />
-          {scope.label}
-          <ChevronDown class="size-16" aria-hidden="true" />
-        </Popover.Trigger>
-        <Popover.Content align="start">
-          <div class="flex flex-col gap-12">
-            <p class="text-xs text-text-subtle">Show time for</p>
-            <div class="flex flex-col items-start gap-4">
-              {#each PERIOD_PRESET_IDENTIFIERS as identifier (identifier)}
-                {@const preset = scopePreset(identifier, today, FIRST_WEEKDAY_OF_THE_FIRMS_WEEK)}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-pressed={isScopeShowing(scope, preset)}
-                  onclick={() => applyPreset(preset)}
-                >
-                  {preset.label}
-                </Button>
-              {/each}
-            </div>
-            <p class="text-xs text-text-subtle">Custom range</p>
-            <DateRangePicker
-              value={{ start: parseDate(scope.from), end: parseDate(scope.to) }}
-              onValueChange={(range) => {
-                const from = range?.start?.toString() ?? "";
-                const to = range?.end?.toString() ?? "";
-                if (from !== "" && to !== "") applyCustomRange(from, to);
-              }}
-            />
-            <p class="text-xs text-text-muted">
-              {customRangeRefusal ??
-                "The range applies as you pick it. A preset above returns to a named span."}
-            </p>
-          </div>
-        </Popover.Content>
-      </Popover.Root>
-
-      {#if maySeeFirmTime && chosen !== null}
-        <Select.Root
-          type="single"
-          items={choices.map((choice) => ({ value: choice.identifier, label: choice.label }))}
-          value={chosen.identifier}
-          onValueChange={(next) => {
-            const choice = choiceByIdentifier(choices, next);
-            if (choice !== undefined) goToScope(scope, choice.identifier);
-          }}
-          allowDeselect={false}
-        >
-          <Select.Trigger aria-label="Whose time" class="w-3xs">
-            <Select.Value placeholder="Whose time" />
-          </Select.Trigger>
-          <Select.Content>
-            {#each choices as choice (choice.identifier)}
-              <Select.Item value={choice.identifier} label={choice.label} />
-            {/each}
-          </Select.Content>
-        </Select.Root>
-      {/if}
+      <!-- The search, then the create control, then the way back to everything: the same row, in
+           the same order, as every other list screen. -->
+      <ScreenSearch
+        bind:value={searchText}
+        label="Search the firm's time"
+        placeholder={placeholderOf("Search the firm's time")}
+        searchOn="pause"
+        fieldClass="w-2xs sm:w-xs"
+        onsearch={(next) => {
+          appliedSearch = next;
+        }}
+      />
 
       <CreateControl
         noun="Entry"
@@ -463,7 +401,10 @@
         onpress={openNew}
       />
 
-      <DataTable.ClearFilters {grid} />
+      <DataTable.ClearFilters
+        {grid}
+        narrowing={{ narrowed, summary: narrowingSummary, clear: clearNarrowing }}
+      />
     {/snippet}
   </ScreenHeader>
 
@@ -516,11 +457,11 @@
     </DataTable.GridFooter>
 
     {#if list.nextCursor !== null}
-      <!-- The figures cover what is loaded, and the period is not fully loaded. Saying so is the
+      <!-- The figures cover what is loaded, and the record is not fully loaded. Saying so is the
            difference between a running subtotal and a number somebody bills from. -->
       <p class="text-xs text-text-muted">
-        Showing the {entries.length} most recent entries in this period. The figures cover only what
-        is loaded, so they are not the period's whole total until every page is read.
+        Showing the {entries.length} most recent entries. The figures cover only what is loaded, so
+        they are not the whole total until every page is read.
       </p>
     {/if}
   {/if}

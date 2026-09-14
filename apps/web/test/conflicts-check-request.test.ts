@@ -8,10 +8,9 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  CANDIDATE_LIMIT_LABEL,
   OPENING_DRAFT,
-  RELATED_PARTY_LIMIT_LABEL,
   checkPlan,
+  chosenMatterLine,
   composeCheck,
   sourcesFor,
   triggerFor,
@@ -58,6 +57,13 @@ describe("a check does not need a matter", () => {
   it("composes while the session is still landing, rather than refusing on an unknown", () => {
     expect(composeCheck(draft(), surface({ permissions: null })).refusal).toBeNull();
   });
+
+  it("reads a matter by its number where it has one, and by its title where it has none", () => {
+    expect(chosenMatterLine({ id: "m", matterNumber: "2026-0001", title: "Acme" })).toBe(
+      "2026-0001 · Acme",
+    );
+    expect(chosenMatterLine({ id: "m", matterNumber: null, title: "Acme" })).toBe("Acme");
+  });
 });
 
 describe("the trigger is derived, never asked", () => {
@@ -101,33 +107,16 @@ describe("what is searched", () => {
   });
 });
 
-describe("a bound left blank is the firm's own", () => {
-  it("sends no bound at all rather than a number this form invented", () => {
+describe("nothing limits the search", () => {
+  it("sends where to search and how to compare names, and no number at all", () => {
     const { request } = composeCheck(draft(), surface());
-    expect(request?.scope.closureCap).toBeUndefined();
-    expect(request?.scope.candidateCap).toBeUndefined();
-    expect(request?.scope.edgeClassBudgets).toBeUndefined();
-  });
-
-  it("sends the ones that were filled in, an explicit zero included", () => {
-    const { request } = composeCheck(
-      draft({
-        relationshipHops: { control: "2", family: "0", representation: "" },
-        relatedPartyLimit: "50",
-      }),
-      surface(),
-    );
-    expect(request?.scope.edgeClassBudgets).toEqual({ control: 2, family: 0 });
-    expect(request?.scope.closureCap).toBe(50);
-  });
-
-  it("refuses a bound that is not a whole number, naming the field", () => {
-    expect(composeCheck(draft({ relatedPartyLimit: "many" }), surface()).refusal).toContain(
-      RELATED_PARTY_LIMIT_LABEL,
-    );
-    expect(composeCheck(draft({ candidateLimit: "1.5" }), surface()).refusal).toContain(
-      CANDIDATE_LIMIT_LABEL,
-    );
+    expect(request?.scope).toEqual({ sources: ["party", "graph"], strictness: "balanced" });
+    expect(Object.keys(OPENING_DRAFT)).toEqual([
+      "subjectEntityIds",
+      "searchRelationships",
+      "searchOwnPeople",
+      "nameMatching",
+    ]);
   });
 });
 
@@ -147,43 +136,34 @@ describe("the close guard's answer", () => {
 });
 
 describe("what the panel says the check will do", () => {
-  const policy = {
-    floorSources: ["party" as const],
-    floorStrictness: "balanced" as const,
-    defaultDepth: 1,
-    edgeClassBudgets: { control: 2, family: 1, representation: 1 },
-    closureCap: 500,
-    candidateCap: 5000,
-    balancedNameRoles: ["current"],
-  };
-
-  it("reads a blank hop budget back as the firm's own number", () => {
-    const sentences = checkPlan(draft(), surface(), policy).join(" ");
-    expect(sentences).toContain("2 hops");
-    expect(sentences).toContain("1 hop");
-  });
-
-  it("says the firm's own where the policy could not be read", () => {
-    expect(checkPlan(draft(), surface(), null).join(" ")).toContain("the firm's own budget");
+  it("says relationships are followed as far as they go, with no number to read back", () => {
+    const sentences = checkPlan(draft(), surface()).join(" ");
+    expect(sentences).toContain("as far as the chain goes");
+    expect(sentences).not.toMatch(/\d+ hops?/);
   });
 
   it("says the firm's own people cannot be reached when no matter is named", () => {
-    expect(checkPlan(draft(), surface(), policy).join(" ")).toContain("no matter is named");
+    expect(checkPlan(draft(), surface()).join(" ")).toContain("no matter is named");
   });
 
   it("says which trigger the check goes into the log under", () => {
-    expect(checkPlan(draft(), surface(), policy).join(" ")).toContain("preliminary check");
+    expect(checkPlan(draft(), surface()).join(" ")).toContain("preliminary check");
     expect(
-      checkPlan(draft(), surface({ matterId: "matter-1", matterEngaged: true }), policy).join(" "),
+      checkPlan(draft(), surface({ matterId: "matter-1", matterEngaged: true })).join(" "),
     ).toContain("comprehensive check");
   });
 
   it("says sound-alike matching runs, which is what the setting's name never did", () => {
-    expect(checkPlan(draft(), surface(), policy).join(" ")).toContain("sound alike");
+    expect(checkPlan(draft(), surface()).join(" ")).toContain("sound alike");
+  });
+
+  it("names the places it cannot search, as not searched rather than left out", () => {
+    const sentences = checkPlan(draft(), surface()).join(" ");
+    expect(sentences).toContain("Files, Messaging and Magnus as not searched");
   });
 
   it("describes the search that will actually run, not the one the defaults describe", () => {
-    const off = checkPlan(draft({ searchRelationships: false }), surface(), policy).join(" ");
-    expect(off).toContain("Does not walk out through recorded relationships");
+    const off = checkPlan(draft({ searchRelationships: false }), surface()).join(" ");
+    expect(off).toContain("Does not follow recorded relationships");
   });
 });

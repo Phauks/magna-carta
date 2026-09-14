@@ -12,14 +12,20 @@
    * which is why the write is audited and sits behind its own permission.
    *
    * DRAFT, NOT INSTANT. Every control stages until Save. A settings page that applied on each
-   * keystroke would let a half-typed cap — "5" on the way to "500" — become the firm's bound for as
-   * long as it took to finish the number.
+   * click would make a floor of whatever a half-finished edit happened to say, for as long as it
+   * took to finish it.
    *
    * WHAT IS SAVED IS WHAT IS SHOWN BACK. The platform normalizes a policy on the way in: the party
-   * class is unioned back into the floor, `current` back into the name roles, the candidate cap
-   * clamped to what one atomic transaction can carry. The screen renders the RESPONSE rather than
-   * its own request, so an administrator is never shown a floor their checks would not run — and
-   * where the two differ, they see the difference immediately instead of discovering it on a check.
+   * class is unioned back into the floor, `current` back into the name roles. The screen renders
+   * the RESPONSE rather than its own request, so an administrator is never shown a floor their
+   * checks would not run — and where the two differ, they see the difference immediately instead
+   * of discovering it on a check.
+   *
+   * NOTHING HERE LIMITS A CHECK. The page once carried a hop budget per kind of relationship, a
+   * default depth and two caps, and the owner removed them on 2026-09-11: a check follows every
+   * recorded relationship to closure, and the one bound on a run is the platform's, stated on the
+   * record when it is reached. A firm decides what a check must search and how names are compared,
+   * never how far it may look.
    *
    * TWO CONTROLS ARE DELIBERATELY LOCKED. Party and Current are shown, checked, and disabled with
    * the reason on them, rather than omitted. A firm-wide invariant a reader cannot see reads as an
@@ -30,7 +36,6 @@
   import Button from "@magna-carta/design-system/button";
   import Checkbox from "@magna-carta/design-system/checkbox";
   import FieldLabel from "@magna-carta/design-system/field-label";
-  import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import Separator from "@magna-carta/design-system/separator";
@@ -49,20 +54,13 @@
     type Strictness,
   } from "$lib/conflicts/conflicts-api.ts";
   import {
-    BUDGETED_EDGE_CLASSES,
-    EDGE_CLASS_VOCABULARY,
     NAME_ROLES,
     SOURCE_CLASSES,
     SOURCE_VOCABULARY,
     STRICTNESS_LEVELS,
     STRICTNESS_VOCABULARY,
-    edgeClassLabel,
     nameRoleVocabulary,
   } from "$lib/conflicts/conflicts-vocabulary.ts";
-  import {
-    CANDIDATE_LIMIT_LABEL,
-    RELATED_PARTY_LIMIT_LABEL,
-  } from "$lib/conflicts/check-request.ts";
   import { newWriteKey } from "$lib/matters/tasks-api.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
 
@@ -151,25 +149,6 @@
     draft = { ...draft, balancedNameRoles: NAME_ROLES.filter((each) => next.has(each)).toSorted() };
   }
 
-  /*
-   * A number field, read back as a number. An emptied field stages 0 rather than NaN: the domain
-   * treats every one of these as a non-negative integer, and 0 is a real, sayable value for each of
-   * them (no traversal, no closure, no candidates written), so there is no case where an empty box
-   * should mean something other than the smallest thing it can mean.
-   */
-  function numberFrom(raw: string): number {
-    const parsed = Number.parseInt(raw, 10);
-    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-  }
-
-  function setBudget(edgeClass: string, raw: string): void {
-    if (draft === null) return;
-    draft = {
-      ...draft,
-      edgeClassBudgets: { ...draft.edgeClassBudgets, [edgeClass]: numberFrom(raw) },
-    };
-  }
-
   function discard(): void {
     if (committed === null) return;
     draft = structuredClone(committed);
@@ -222,30 +201,6 @@
       );
     }
 
-    if (stored.candidateCap !== sent.candidateCap) {
-      notes.push(
-        `The candidate cap was set to ${String(stored.candidateCap)} rather than ${String(sent.candidateCap)} — the most one transaction can carry.`,
-      );
-    }
-    if (stored.closureCap !== sent.closureCap) {
-      notes.push(
-        `The closure cap was set to ${String(stored.closureCap)} rather than ${String(sent.closureCap)}.`,
-      );
-    }
-    if (stored.defaultDepth !== sent.defaultDepth) {
-      notes.push(
-        `The default depth was set to ${String(stored.defaultDepth)} rather than ${String(sent.defaultDepth)}.`,
-      );
-    }
-    for (const edgeClass of BUDGETED_EDGE_CLASSES) {
-      const asked = sent.edgeClassBudgets[edgeClass];
-      const got = stored.edgeClassBudgets[edgeClass];
-      if (asked !== undefined && got !== undefined && asked !== got) {
-        notes.push(
-          `The ${edgeClassLabel(edgeClass).toLowerCase()} budget was set to ${String(got)} rather than ${String(asked)}.`,
-        );
-      }
-    }
     return notes;
   }
 
@@ -277,6 +232,8 @@
         and rewrites no check already on the record — a matter whose last check no longer covers what
         the firm now requires reports that shortfall on its own Conflicts section, worked out fresh
         every time it is read. Narrowing the floor reduces what this firm will look at from here on.
+        How far a check follows relationships is not a setting: every check follows every recorded
+        relationship to closure.
       </Alert.Description>
     </Alert.Root>
 
@@ -451,119 +408,6 @@
 
         <Separator />
 
-        <section class="flex flex-col gap-16">
-          <FieldLabel as="h2">How Far A Check Follows Relationships</FieldLabel>
-          <p class="text-sm text-text-muted">
-            A budget is how many hops of that kind of relationship one check may follow. They are
-            spent separately, so a walk that has used up its family budget can still follow a control
-            edge.
-          </p>
-          <div class="grid grid-cols-1 gap-16 sm:grid-cols-3">
-            {#each BUDGETED_EDGE_CLASSES as edgeClass (edgeClass)}
-              <div class="flex flex-col gap-8">
-                <Label for="conflicts-budget-{edgeClass}" title={EDGE_CLASS_VOCABULARY[edgeClass]?.meaning}>
-                  {edgeClassLabel(edgeClass)}
-                </Label>
-                <Input
-                  id="conflicts-budget-{edgeClass}"
-                  type="number"
-                  min="0"
-                  inputmode="numeric"
-                  disabled={!mayConfigure || saving}
-                  value={draft.edgeClassBudgets[edgeClass] ?? 0}
-                  oninput={(event) => setBudget(edgeClass, event.currentTarget.value)}
-                />
-              </div>
-            {/each}
-          </div>
-
-          <div class="flex flex-col gap-2">
-            <Label>{EDGE_CLASS_VOCABULARY.corporate?.label}</Label>
-            <!-- Stated rather than offered, exactly as the check runner states it: a rename, merger
-                 or successor chain of any length is the same legal person continuing, so it carries
-                 no hop budget for anyone to set. -->
-            <p class="text-sm text-text-muted">
-              Followed all the way at no hop cost, bounded only by how many related parties a check
-            may reach.
-            </p>
-          </div>
-
-          <div class="flex flex-col gap-8">
-            <Label for="conflicts-default-depth">Relationships To Follow By Default</Label>
-            <Input
-              id="conflicts-default-depth"
-              type="number"
-              min="0"
-              inputmode="numeric"
-              disabled={!mayConfigure || saving}
-              value={draft.defaultDepth}
-              oninput={(event) => {
-                if (draft !== null) {
-                  draft = { ...draft, defaultDepth: numberFrom(event.currentTarget.value) };
-                }
-              }}
-            />
-            <p class="text-xs text-text-muted">
-              What a check uses when the person running it names no depth of its own. A default
-              rather than a floor: a check may deliberately walk shallower, and it records how far it
-              actually went.
-            </p>
-          </div>
-        </section>
-
-        <Separator />
-
-        <section class="flex flex-col gap-16">
-          <FieldLabel as="h2">Where A Check Stops</FieldLabel>
-          <p class="text-sm text-text-muted">
-            Both bounds are recorded and reported when they bite. A check that reached one says so in
-            words and names how much it did not reach, so a shortened search is never read as a
-            completed one.
-          </p>
-          <div class="grid grid-cols-1 gap-16 sm:grid-cols-2">
-            <div class="flex flex-col gap-8">
-              <Label for="conflicts-closure-cap">{RELATED_PARTY_LIMIT_LABEL}</Label>
-              <Input
-                id="conflicts-closure-cap"
-                type="number"
-                min="0"
-                inputmode="numeric"
-                disabled={!mayConfigure || saving}
-                value={draft.closureCap}
-                oninput={(event) => {
-                  if (draft !== null) {
-                    draft = { ...draft, closureCap: numberFrom(event.currentTarget.value) };
-                  }
-                }}
-              />
-              <p class="text-xs text-text-muted">
-                The most connected parties one check may walk out to before it stops walking.
-              </p>
-            </div>
-            <div class="flex flex-col gap-8">
-              <Label for="conflicts-candidate-cap">{CANDIDATE_LIMIT_LABEL}</Label>
-              <Input
-                id="conflicts-candidate-cap"
-                type="number"
-                min="0"
-                inputmode="numeric"
-                disabled={!mayConfigure || saving}
-                value={draft.candidateCap}
-                oninput={(event) => {
-                  if (draft !== null) {
-                    draft = { ...draft, candidateCap: numberFrom(event.currentTarget.value) };
-                  }
-                }}
-              />
-              <p class="text-xs text-text-muted">
-                The most candidates one check may write. Asking for more than one transaction can
-                carry is reduced on save, and the value you are left with is the one shown here.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <Separator />
 
         <div class="flex flex-wrap items-center gap-8">
           <Button

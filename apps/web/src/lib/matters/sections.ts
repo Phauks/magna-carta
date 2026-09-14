@@ -309,7 +309,7 @@ export const matterSections: readonly MatterSection[] = [
     searchSource: "communications",
     // A call is what the member wrote down about it; a text is its own words. Both are matched, and
     // so is the number, which is how people actually look for a conversation.
-    createNoun: "Call",
+    createNoun: "Message",
   },
   {
     slug: "custodian",
