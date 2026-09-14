@@ -287,13 +287,21 @@ is usually the fastest way to understand the rule.
     (where it belongs); a record already stored opens in its values, and the acts that move it
     between queues live in the action bar. _(the call log, 2026-09-08: "we now have two modals for
     creating a call which is weird")_
-  - **A record with no window of its own is still MADE in a panel, not in the list.** Where a record
-    is read as a row rather than in a record window, starting one is asked for in the shared action
-    dialog. The rule is about where a reader learns a record's fields, not about which shell happens
-    to exist: a form that unfolds between the control row and the rows it will join is a second
-    place to learn them, and the list loses its own shape — its count, its ordering, what is overdue
-    — while somebody is typing in the middle of it. _(tasks, 2026-09-14: "creating a new task should
-    be a modal, not in-line")_
+  - **A record with no window yet GETS one; it does not get a panel instead.** Where a record is
+    read as a row and changed in that row, the answer is the record window, not an action dialog for
+    making one and the row for changing it. Reaching for the panel is the tempting half-step and it
+    produces exactly the defect the ruling above names — one surface to read a record, another to
+    edit it — with the extra cost that the panel and the row then disagree about the record's own
+    fields. A task was moved to the panel and then to its own window in the same afternoon, and only
+    the second half was the fix. _(tasks, 2026-09-14: "creating a new task should be a modal, not
+    in-line", then "do the edit one too. I dislike having two screens, one to read information, and
+    one to edit it")_
+  - **A list row states values and offers acts; it never becomes a form.** Nothing unfolds inside a
+    list: not a composer above the rows, not a row that turns into fields, not a picker for what to
+    attach, not the reason a thing is being cancelled. Each of those is a second place to learn
+    where a record's fields live, and each takes the list's own shape away — its count, its
+    ordering, what is overdue — while somebody types in the middle of it. What a row keeps is the
+    one act a LIST is for: ticking a thing off, and putting it back. _(tasks, 2026-09-14)_
   - **A record that is quoted out loud is identified BEFORE it is saved.** Where a record carries a
     reference number a person reads back — to a caller, onto a message slip — the window states the
     number the next one would draw while it is still being filled in, and says that it is a preview

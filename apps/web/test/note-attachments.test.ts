@@ -5,10 +5,10 @@ import type { MatterFile } from "$lib/file-manager/matter-file-api.ts";
 import {
   attachableFoldersFor,
   isPendingAttachment,
-  noteAttachmentsOf,
+  recordAttachmentsOf,
   pendingAttachmentIdentifier,
   pendingAttachmentsOf,
-} from "$lib/matters/note-attachable-documents.ts";
+} from "$lib/matters/record-attachable-documents.ts";
 import { noteSheet, occurrenceLine } from "$lib/matters/note-print-sheet.ts";
 import type { MatterNote, NoteDocument } from "$lib/matters/notes-api.ts";
 
@@ -106,7 +106,7 @@ describe("what the note already carries", () => {
   };
 
   it("keeps the association's identity apart from the document's", () => {
-    const [attachment] = noteAttachmentsOf([document], () => "Ada Wren");
+    const [attachment] = recordAttachmentsOf([document], () => "Ada Wren");
     // Detaching names the association; the picker asks about the document. Collapsing the two would
     // make "already attached" unanswerable for a document attached to two records.
     expect(attachment?.identifier).toBe("matterNoteDocument_1");
@@ -133,7 +133,7 @@ describe("what the note already carries", () => {
       ["file_1"],
       [file({ id: "file_1", name: "Complaint.pdf" })],
     );
-    const [written] = noteAttachmentsOf([document], () => "Ada Wren");
+    const [written] = recordAttachmentsOf([document], () => "Ada Wren");
     expect(pending === undefined ? false : isPendingAttachment(pending)).toBe(true);
     expect(written === undefined ? true : isPendingAttachment(written)).toBe(false);
   });

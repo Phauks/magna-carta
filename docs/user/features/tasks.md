@@ -14,11 +14,22 @@ apart is deliberate: if the deadline list filled up with reminders, people would
 A task is also not a calendar entry. Nothing about it is scheduled with anybody else, and moving its
 due date is just you changing your mind rather than a hearing being reset.
 
+## Opening a Task
+
+Press a task's own words to open it. It opens in a window — the same window a note, a time entry and
+a cost open in — showing everything the task carries. Press **Edit** in that window's corner to turn
+what you are reading into fields, change what you need, and press **Save**. There is no separate
+screen for changing a task: you change it where you were already reading it, and what you are
+looking at is what you are editing.
+
+The list underneath stays exactly where it was. Closing the window with something unsaved asks
+first.
+
 ## Creating a Task
 
-Press **New Task**. A panel opens over the list — the same panel every other record in Magna
-Carta is started in, so the list you were reading stays where it was. Say what to do, and add
-detail underneath if the title is not enough on its own.
+Press **New Task**. The same window opens with nothing in it yet and its fields already open — a
+task has nothing to read before it exists. Say what to do, and add detail underneath if the title is
+not enough on its own.
 
 **Due** and **Time** are both optional, and plenty of tasks have neither. If you give a date, the
 task is due at the end of that day in your own time zone — so a task due Friday is not treated as
@@ -27,17 +38,18 @@ late on Friday morning. Add a time only where a specific hour matters.
 **Priority** is one of four: Urgent, High, Normal, Low. Normal is the default and means nothing in
 particular, which is why there is no separate "none".
 
-**Assign to** puts the task in somebody's name. You can leave it as _Nobody yet_ and pick somebody
-later. If you cannot see this field, your role does not include assigning work to other people; you
-can still create tasks and take them yourself.
+**Assigned to** puts the task in somebody's name. You can leave it as _Nobody yet_ and pick somebody
+later by opening the task and pressing Edit. If the field reads back a name instead of offering a
+list, your role does not include assigning work to other people; you can still create tasks and take
+them yourself.
 
 You cannot assign a task on a matter to somebody who cannot open that matter. A task nobody can look
 at is a gap in their list that nothing explains, so it is refused when you try rather than appearing
 and then not working.
 
-The panel names the matter the task will land on, and who it will be recorded as coming from, so
-nothing is stored that you were not shown. Closing it before you press **Create Task** asks first and
-then throws the draft away; nothing is created until you press it.
+The window names the matter the task will land on, who it will be recorded as coming from, and the
+moment it will be stamped with, so nothing is stored that you were not shown. Closing it before you
+press **Save** asks first and then throws the draft away; nothing is created until you press it.
 
 ## Tasks That Belong to No Matter
 
@@ -51,20 +63,22 @@ the matter it belongs to.
 
 ## Finishing, Reopening, and Deciding Not To
 
-Press **Done** when the work is finished. The task records who did it and when.
+Press **Done** when the work is finished — on the list, where you are ticking things off, or in the
+task's own window. The task records who did it and when.
 
 Press **Reopen** if you marked something done too early, or if a decision changed. The task comes
 back to the list, and the firm's audit record keeps the fact that it was closed and reopened.
 
-**Cancel** and **Delete** are different and both are offered.
+**Not Doing It** and **Delete** are different, and both are in the task's window.
 
-- **Cancel** is for work the firm decided not to do. It asks why, and that answer stays on the task.
-  Six months later somebody can see what was proposed and why it did not happen.
+- **Not Doing It** is for work the firm decided against. It asks why, and that answer stays on the
+  task, which then shows as Cancelled. Six months later somebody can see what was proposed and why
+  it did not happen.
 - **Delete** is for a task that should not exist — a typo, a duplicate, a line you started and
   abandoned. The task is removed and cannot be recovered.
 
-Use Cancel where the decision matters. Deleting a piece of real work loses the record that anybody
-ever considered it.
+Use Not Doing It where the decision matters. Deleting a piece of real work loses the record that
+anybody ever considered it.
 
 ## Overdue
 
@@ -83,9 +97,14 @@ there to say what the intended order is, not to enforce it.
 
 ## Documents
 
-Press the paperclip on a task to point it at one of the matter's documents. Nothing is uploaded and
-nothing is copied — the document stays in the matter's files with its versions and everything else
-that follows from being there, and detaching it later leaves it exactly where it is.
+Open the task and go to its **Attachments** tab to point it at one of the matter's documents. The
+list names what a task already carries; attaching and detaching happen in the window, with the rest
+of what you can do to a task. Nothing is uploaded and nothing is copied — the document stays in the
+matter's files with its versions and everything else that follows from being there, and detaching it
+later leaves it exactly where it is.
+
+You can pick documents for a task you are still writing. They are attached the moment the task
+itself is saved.
 
 Tasks that belong to no matter cannot point at documents, because every document in Magna Carta
 belongs to a matter.
