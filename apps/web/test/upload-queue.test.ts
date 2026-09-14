@@ -38,7 +38,6 @@ function plan(entries: DroppedEntry[], over: Partial<UploadBatchPlan> = {}): Upl
     entries,
     createdAtBasis: "source",
     documentTypeIds: new Map<string, string | null>(),
-    checkDuplicates: true,
     folders: [{ id: "discovery", parentFolderId: null, name: "Discovery" }],
     files: [
       {
@@ -182,20 +181,95 @@ describe("startUploadBatch", () => {
     expect(filed.get("misc.bin")).toBeNull();
   });
 
-  it("reads nothing and asks nothing when the reader turns the duplicate question off", async () => {
+  it("always reads the file and hands the digest to the transfer; there is no setting that says otherwise", async () => {
     const record: Recorded = { uploads: [], folders: [] };
     let reads = 0;
-    const batch = startUploadBatch(plan([entry("", "a.pdf")], { checkDuplicates: false }), {
+    let askedAgainst: string | undefined;
+    const batch = startUploadBatch(plan([entry("", "a.pdf")]), {
       ...dependencies(record),
-      digest: async () => {
+      digest: async (_chosen, options) => {
         reads += 1;
-        return "unused-digest";
+        askedAgainst = options.matterId;
+        return "the-digest";
       },
     });
     await settled();
-    expect(reads).toBe(0);
-    expect(record.uploads[0]?.sha256).toBeUndefined();
+    expect(reads).toBe(1);
+    // The firm is asked against the matter the batch is bound for.
+    expect(askedAgainst).toBe("matter-1");
+    expect(record.uploads[0]?.sha256).toBe("the-digest");
     expect(batch.items[0]?.stage).toBe("settled");
+  });
+
+  it("starts every file where the panel last showed it, so the press moves nothing in the Status column", async () => {
+    const record: Recorded = { uploads: [], folders: [] };
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const ready = entry("", "ready.pdf");
+    const heldByFirm = entry("", "held.pdf");
+    const reading = entry("", "reading.pdf");
+    const chosen = entry("", "chosen.pdf");
+    const batch = startUploadBatch(
+      plan([ready, heldByFirm, reading, chosen], {
+        readiness: new Map([
+          [intakeEntryKey(ready), { stage: "ready" }],
+          [intakeEntryKey(heldByFirm), { stage: "held" }],
+          [intakeEntryKey(reading), { stage: "hashing", hashedBytes: 2 }],
+          // A stage from an earlier batch is not readiness, and is not carried over.
+          [intakeEntryKey(chosen), { stage: "failed", reason: "before" }],
+        ]),
+      }),
+      {
+        ...dependencies(record),
+        // Nothing moves until released, so the starting stages can be read.
+        digest: async () => {
+          await held;
+          return null;
+        },
+      },
+    );
+    flushSync();
+    // The press has moved nothing: every item stands exactly where the panel showed it, and the
+    // lanes carry on from there.
+    expect(batch.items.map((item) => item.stage)).toEqual(["ready", "held", "hashing", "chosen"]);
+    expect(batch.items[2]?.hashedBytes).toBe(2);
+    expect(batch.inFlight).toBe(0);
+    release();
+    await settled();
+    expect(batch.uploaded).toBe(4);
+  });
+
+  it("says what failed in one line on the item, and the whole account beside it", async () => {
+    const record: Recorded = { uploads: [], folders: [] };
+    const batch = startUploadBatch(
+      plan([entry("", "refused.pdf"), entry("", "silent.pdf"), entry("", "storage.pdf")]),
+      dependencies(record, (request) => {
+        if (request.file.name === "refused.pdf") {
+          return {
+            kind: "problem",
+            stage: "reserving",
+            problem: { status: 403, detail: "This matter is closed to uploads.", errorId: "E-1" },
+          };
+        }
+        if (request.file.name === "silent.pdf") return { kind: "transport", stage: "committing" };
+        return { kind: "transport", stage: "uploading" };
+      }),
+    );
+    await settled();
+    const byName = new Map(batch.items.map((item) => [item.name, item]));
+    // The server's own detail is the line, where it gave one.
+    expect(byName.get("refused.pdf")?.failure).toBe("This matter is closed to uploads.");
+    expect(byName.get("refused.pdf")?.reason).toContain("E-1");
+    // The class of transport fault is the line, where nothing answered.
+    expect(byName.get("silent.pdf")?.failure).toBe("Nothing answered while recording the upload");
+    expect(byName.get("storage.pdf")?.failure).toBe("The firm's storage did not answer");
+    expect(byName.get("storage.pdf")?.reason).toContain("nothing was saved");
+    // The line rides the progress the table reads.
+    expect(batch.progress.get(intakeEntryKey(entry("", "refused.pdf")))?.failure).toBe(
+      "This matter is closed to uploads.",
+    );
   });
 
   it("names the storage as the thing that did not answer when the byte write gets nothing", async () => {

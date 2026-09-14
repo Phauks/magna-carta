@@ -17,8 +17,8 @@
    * The platform ships no procedures. This list starts empty in every firm, on purpose.
    */
   import * as Alert from "@magna-carta/design-system/alert";
-  import * as Select from "@magna-carta/design-system/select";
   import Badge from "@magna-carta/design-system/badge";
+  import ChoicePicker from "$lib/components/choice-picker.svelte";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import Button from "@magna-carta/design-system/button";
   import Checkbox from "@magna-carta/design-system/checkbox";
@@ -32,6 +32,7 @@
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
+  import SettingsScrollRegion from "$lib/settings/components/settings-scroll-region.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import {
@@ -81,7 +82,10 @@
   let draftName = $state("");
   let draftDescription = $state("");
   /** "" binds the procedure to every kind of matter. */
-  let draftMatterTypeId = $state("");
+  // A procedure bound to no kind holds this sentinel rather than an empty string: the choice field
+  // offers "every kind" as a real option, and a real option carries a value of its own.
+  const EVERY_KIND = "every-kind";
+  let draftMatterTypeId = $state(EVERY_KIND);
 
   let composingStep = $state(false);
   let stepKind = $state<IntakeStepKind>("acknowledgement");
@@ -91,7 +95,14 @@
   let stepReference = $state("");
 
   const stepVocabulary = $derived(intakeStepKindVocabulary(stepKind));
-  const EVERY_KIND = "";
+  const matterTypeChoices = $derived([
+    { value: EVERY_KIND, label: "Every kind of matter" },
+    ...matterTypes.filter((type) => type.active).map((type) => ({ value: type.id, label: type.name })),
+  ]);
+  const stepKindChoices = INTAKE_STEP_KIND_VOCABULARY.map((entry) => ({
+    value: entry.kind,
+    label: entry.label,
+  }));
 
   $effect(() => {
     void readSession(fetch).then((outcome) => {
@@ -159,8 +170,7 @@
     return templates.find((template) => template.templateId === templateId)?.name ?? templateId;
   }
 
-  function chooseKind(next: string | string[] | undefined): void {
-    const chosen = Array.isArray(next) ? (next[0] ?? "") : (next ?? "");
+  function chooseKind(chosen: string): void {
     const entry = INTAKE_STEP_KIND_VOCABULARY.find((candidate) => candidate.kind === chosen);
     if (entry !== undefined) {
       stepKind = entry.kind;
@@ -168,13 +178,13 @@
     }
   }
 
-  function chooseMatterType(next: string | string[] | undefined): void {
-    draftMatterTypeId = Array.isArray(next) ? (next[0] ?? "") : (next ?? "");
-  }
-
-  function chooseReference(next: string | string[] | undefined): void {
-    stepReference = Array.isArray(next) ? (next[0] ?? "") : (next ?? "");
-  }
+  // "No template" is a real choice, so the field offers it as a row of its own; the reference the
+  // step stores for it stays the empty string the contract expects.
+  const NO_TEMPLATE = "no-template";
+  const templateChoices = $derived([
+    { value: NO_TEMPLATE, label: "No template" },
+    ...templates.map((template) => ({ value: template.templateId, label: template.name })),
+  ]);
 
   // The shape drawn while the list is read: two procedures in the list's own row, sample words only.
   // The description is the sample vocabulary's sentence; a procedure's name and the kind it binds
@@ -195,8 +205,7 @@
   posture={canManage ? "draft" : "readOnly"}
 />
 
-<div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
-  <div class="flex flex-col gap-24 p-24">
+<SettingsScrollRegion>
   <SettingsDescription>What a kind of matter must clear before it opens, as a list the firm writes for itself.</SettingsDescription>
 
     <Alert.Root variant="info">
@@ -248,22 +257,15 @@
         </div>
         <div class="flex flex-col gap-4">
           <Label for="procedure-matter-type">Binds</Label>
-          <Select.Root
-            type="single"
-            value={draftMatterTypeId}
-            onValueChange={chooseMatterType}
-            disabled={saving}
-          >
-            <Select.Trigger id="procedure-matter-type" class="w-xs">
-              {matterTypeName(draftMatterTypeId === EVERY_KIND ? null : draftMatterTypeId)}
-            </Select.Trigger>
-            <Select.Content>
-              <Select.Item value={EVERY_KIND} label="Every kind of matter" />
-              {#each matterTypes.filter((type) => type.active) as type (type.id)}
-                <Select.Item value={type.id} label={type.name} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
+          <div class="w-xs">
+            <ChoicePicker
+              options={matterTypeChoices}
+              inputId="procedure-matter-type"
+              label="Binds"
+              disabled={saving}
+              bind:value={draftMatterTypeId}
+            />
+          </div>
           <p class="text-xs text-text-muted">
             A consultation is bound by the procedures for its kind and by every procedure bound to
             no kind.
@@ -458,21 +460,15 @@
                         <div class="flex flex-wrap items-end gap-16">
                           <div class="flex flex-col gap-4">
                             <Label for="step-kind">Kind</Label>
-                            <Select.Root
-                              type="single"
-                              value={stepKind}
-                              onValueChange={chooseKind}
-                              disabled={saving}
-                            >
-                              <Select.Trigger id="step-kind" class="w-xs">
-                                {stepVocabulary.label}
-                              </Select.Trigger>
-                              <Select.Content>
-                                {#each INTAKE_STEP_KIND_VOCABULARY as entry (entry.kind)}
-                                  <Select.Item value={entry.kind} label={entry.label} />
-                                {/each}
-                              </Select.Content>
-                            </Select.Root>
+                            <div class="w-xs">
+                              <ChoicePicker
+                                options={stepKindChoices}
+                                inputId="step-kind"
+                                label="Kind"
+                                disabled={saving}
+                                bind:value={() => stepKind, chooseKind}
+                              />
+                            </div>
                           </div>
                           <div class="flex items-center gap-8 pb-8">
                             <Checkbox id="step-required" bind:checked={stepRequired} disabled={saving} />
@@ -499,22 +495,18 @@
                           <div class="flex flex-col gap-4">
                             <Label for="step-reference">{stepVocabulary.reference.label}</Label>
                             {#if stepVocabulary.reference.label === "Template"}
-                              <Select.Root
-                                type="single"
-                                value={stepReference}
-                                onValueChange={chooseReference}
-                                disabled={saving}
-                              >
-                                <Select.Trigger id="step-reference" class="w-xs">
-                                  {stepReference === "" ? "No template" : templateName(stepReference)}
-                                </Select.Trigger>
-                                <Select.Content>
-                                  <Select.Item value="" label="No template" />
-                                  {#each templates as template (template.templateId)}
-                                    <Select.Item value={template.templateId} label={template.name} />
-                                  {/each}
-                                </Select.Content>
-                              </Select.Root>
+                              <div class="w-xs">
+                                <ChoicePicker
+                                  options={templateChoices}
+                                  inputId="step-reference"
+                                  label={stepVocabulary.reference.label}
+                                  disabled={saving}
+                                  bind:value={
+                                    () => (stepReference === "" ? NO_TEMPLATE : stepReference),
+                                    (next) => (stepReference = next === NO_TEMPLATE ? "" : next)
+                                  }
+                                />
+                              </div>
                             {:else}
                               <Input
                                 id="step-reference"
@@ -587,5 +579,4 @@
         </ul>
       {/if}
     </LoadingRegion>
-  </div>
-</div>
+</SettingsScrollRegion>

@@ -3,8 +3,9 @@
    * EventRail — the history presentation, wherever the platform has a history.
    *
    * The stories are the states a real history actually passes through: several events with one
-   * carrying somebody's recorded words, a history with a single event, nothing recorded yet, the
-   * fetch still in flight, and a long one that has to scroll inside the space it is given. The two
+   * carrying somebody's recorded words, a history with a single event, nothing recorded yet (the
+   * frame standing before its first event), the fetch still in flight, a long one that has to
+   * scroll inside the space it is given, and one carrying the rail's own note beneath its events. The two
    * fixtures deliberately come from different worlds — a record's own history and a document's
    * version history — because the whole claim of this component is that it does not know which.
    *
@@ -23,7 +24,15 @@
     component: EventRail,
     parameters: {
       controls: {
-        include: ["events", "label", "emptyMessage", "loading", "loadingMessage", "placeholderCount"],
+        include: [
+          "events",
+          "label",
+          "emptyMessage",
+          "note",
+          "loading",
+          "loadingMessage",
+          "placeholderCount",
+        ],
       },
     },
   });
@@ -193,10 +202,44 @@
 <Story
   name="Nothing recorded yet"
   template={nothingRecorded}
-  play={async ({ canvas, step }) => {
-    await step("Says plainly that there is nothing, rather than showing an empty rail", async () => {
-      await expect(canvas.getByText("Nothing has been recorded here yet.")).toBeVisible();
+  play={async ({ canvas, canvasElement, step }) => {
+    await step("The rail's frame stands, with the words about the emptiness inside it", async () => {
+      const rail = canvas.getByRole("region", { name: "History" });
+      const message = canvas.getByText("Nothing has been recorded here yet.");
+      await expect(message).toBeVisible();
+      await expect(rail.contains(message)).toBe(true);
+      await expect(canvasElement.querySelector(".mc-event-rail-marker")).not.toBeNull();
+      await expect(message.closest('[data-placeholder="true"]')).not.toBeNull();
+    });
+
+    await step("There is no event to list, so nothing is listed", async () => {
       await expect(canvas.queryByRole("list")).toBeNull();
+      await expect(canvas.queryByRole("listitem")).toBeNull();
+    });
+  }}
+/>
+
+{#snippet withANote()}
+  <div class="max-w-md">
+    <EventRail
+      events={SINGLE_EVENT}
+      label="History"
+      note="Every later event is on the firm's audit trail, which is not built yet."
+      formatInstant={pinnedInstant}
+    />
+  </div>
+{/snippet}
+
+<Story
+  name="With a note beneath the events"
+  template={withANote}
+  play={async ({ canvas, step }) => {
+    await step("The note is the rail's own last line, inside the frame", async () => {
+      const rail = canvas.getByRole("region", { name: "History" });
+      const note = canvas.getByText(/audit trail/);
+      await expect(note).toBeVisible();
+      await expect(rail.contains(note)).toBe(true);
+      await expect(canvas.getAllByRole("listitem")).toHaveLength(1);
     });
   }}
 />

@@ -10,7 +10,45 @@ import {
   phoneCountry,
   phoneCountryFlag,
   phoneNumberPlaceholder,
+  rollTypedExtension,
 } from "../src/lib/directory/phone-entry.ts";
+
+describe("digits typed past the number's end roll into the extension", () => {
+  it("keeps rolling after the first digit, without the person leaving the number field", () => {
+    // A number, then the first overflow digit.
+    const first = rollTypedExtension("US", "(312) 555-0148", "(312) 555-01484", "", "");
+    expect(first).toEqual({ number: "(312) 555-0148", extension: "4", rolled: "4" });
+    // The second overflow digit, typed straight after in the same field, which by now holds the
+    // number alone. This was the defect: the digit was dropped because the extension was no longer
+    // empty, so a direct dial could only be finished by clicking into the extension field.
+    const second = rollTypedExtension(
+      "US",
+      first.number,
+      "(312) 555-01481",
+      first.extension,
+      first.rolled,
+    );
+    expect(second).toEqual({ number: "(312) 555-0148", extension: "41", rolled: "41" });
+    const third = rollTypedExtension(
+      "US",
+      second.number,
+      "(312) 555-01480",
+      second.extension,
+      second.rolled,
+    );
+    expect(third).toEqual({ number: "(312) 555-0148", extension: "410", rolled: "410" });
+  });
+
+  it("leaves an extension somebody typed by hand alone", () => {
+    const next = rollTypedExtension("US", "(312) 555-0148", "(312) 555-01489", "22", "");
+    expect(next).toEqual({ number: "(312) 555-0148", extension: "22", rolled: "" });
+  });
+
+  it("does not touch the extension while the number is still being typed", () => {
+    const next = rollTypedExtension("US", "(312) 555", "(312) 555-0", "", "");
+    expect(next).toEqual({ number: "(312) 555-0", extension: "", rolled: "" });
+  });
+});
 
 describe("a number carries its country", () => {
   it("lists every country the formatter knows, the firm's own first, with its dial code", () => {

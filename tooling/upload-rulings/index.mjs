@@ -45,9 +45,11 @@ await check("A20", "Intake on the left, source on the right", async () => {
   const source = await sourcePane.innerText();
   const intakeBox = await intakePane.boundingBox();
   const sourceBox = await sourcePane.boundingBox();
+  // The intake pane is tabbed since the owner's round of 2026-09-11 (A35): "Location" holds the
+  // destination facts and "Advanced Settings" the rest, so the pane reads by its tabs.
   return (
-    /destination/i.test(intake) &&
-    /on arrival/i.test(intake) &&
+    /location/i.test(intake) &&
+    /advanced settings/i.test(intake) &&
     /source/i.test(source) &&
     (await sourceTable.count()) === 1 &&
     intakeBox !== null &&
@@ -82,10 +84,11 @@ await check("A21", "One Add control, offering files or a folder; no second choos
   const items = page.getByRole("menuitem");
   const labels = (await items.allInnerTexts()).map((text) => text.trim().toLowerCase());
   await page.keyboard.press("Escape");
+  // The items read "File" and "Folder" since A37 (2026-09-11); the earlier long form is gone.
   return (
     labels.length === 2 &&
-    labels.some((label) => label === "files") &&
-    labels.some((label) => label.startsWith("a folder")) &&
+    labels.some((label) => label === "file") &&
+    labels.some((label) => label === "folder") &&
     (await sourcePane.getByRole("button", { name: /choose a folder/i }).count()) === 0
   );
 });

@@ -16,6 +16,10 @@
  * (packages/design-system/test/fitness/boundaries.test.ts). What matters most is negative — that a
  * signed-out panel issues no authenticated request at all — and a source assertion states it for
  * every path into the call rather than only the one a render happened to exercise.
+ *
+ * The source read is version-report.svelte: the body the chip's popover and the Versions settings
+ * page both render. The chip itself keeps only the trigger, and the one assertion about the
+ * trigger reads the chip.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -120,7 +124,7 @@ describe("the API-versus-web sync badge", () => {
     // A fixed "Different Builds" sentence read every difference as one alarm, which is wrong: the
     // two Workers deploy separately, so differing is a normal state most of the time. The colour
     // (syncStateBadgeVariant) carries that judgement now, not a standing sentence.
-    const chip = stripComments(source("lib/versions/version-chip.svelte"));
+    const chip = stripComments(source("lib/versions/version-report.svelte"));
     const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
     expect(chip).not.toContain("Different Builds");
     expect(chip).not.toContain("buildsDiffer");
@@ -419,7 +423,7 @@ describe("what each scope is allowed to read", () => {
 });
 
 describe("the chip in its public scope", () => {
-  const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const chip = stripComments(source("lib/versions/version-report.svelte"));
   const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
 
   it("reads each authenticated aggregate from exactly one place, and refuses the public scope", () => {
@@ -485,7 +489,7 @@ describe("the chip in its public scope", () => {
 });
 
 describe("the chip's row identities and refresh", () => {
-  const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const chip = stripComments(source("lib/versions/version-report.svelte"));
   const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
 
   it("heads every row with one name and nothing else, monospaced only when it is a Worker's", () => {
@@ -619,7 +623,7 @@ describe("the chip's row identities and refresh", () => {
 });
 
 describe("the retired duplicate of magna-carta-web", () => {
-  const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const chip = stripComments(source("lib/versions/version-report.svelte"));
   const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
 
   it("drops the build line once the Worker that serves this page reports", () => {
@@ -679,9 +683,9 @@ describe("the retired duplicate of magna-carta-web", () => {
 });
 
 describe("the panel header", () => {
-  const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const chip = stripComments(source("lib/versions/version-report.svelte"));
   const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
-  const header = /<div class="flex flex-col gap-4">([\s\S]*?)\n    <\/div>/.exec(chip)?.[1] ?? "";
+  const header = /<div class="flex flex-col gap-4">([\s\S]*?)\n  <\/div>/.exec(chip)?.[1] ?? "";
 
   it("puts the services line under the header instead of beside the controls", () => {
     // Owner ruling 2026-08-31. The age line grows and shrinks as the clock ticks, and on the
@@ -733,7 +737,7 @@ describe("the panel header", () => {
 });
 
 describe("the fleet fold", () => {
-  const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const chip = stripComments(source("lib/versions/version-report.svelte"));
   const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
   const preferences = source("lib/versions/version-panel-preferences.svelte.ts");
 
@@ -820,7 +824,7 @@ describe("the fleet fold", () => {
 });
 
 describe("the upstream-update notice", () => {
-  const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const chip = stripComments(source("lib/versions/version-report.svelte"));
   const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
   const svelteConfig = repositoryFile("apps/web/svelte.config.js");
 
@@ -856,7 +860,9 @@ describe("the upstream-update notice", () => {
   });
 
   it("signals on the always-visible chip, not only inside the panel", () => {
-    const trigger = /<Popover\.Trigger[\s\S]*?<\/Popover\.Trigger>/.exec(chip)?.[0] ?? "";
+    // The trigger is the chip's own; the report it opens is the file every other assertion reads.
+    const chipTrigger = stripComments(source("lib/versions/version-chip.svelte"));
+    const trigger = /<Popover\.Trigger[\s\S]*?<\/Popover\.Trigger>/.exec(chipTrigger)?.[0] ?? "";
     expect(trigger).toContain("{#if updateAvailable}");
   });
 });

@@ -709,7 +709,9 @@ const deleteFileRoute = defineOpenAPIRoute(
     path: "/api/v1/files/{id}",
     description:
       "Soft-deletes a file: it leaves the default listing and download but its rows and bytes are " +
-      "retained for the recovery window.",
+      "retained, indefinitely by default. Bytes are never destroyed while another file, live or " +
+      "deleted, holds the same content; only a retention policy destroys them, and only once the " +
+      "last file holding them is gone.",
     request: { headers: idempotencyKeyHeader, params: fileParam },
     responses: {
       200: {
@@ -1367,7 +1369,11 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
           return problemResponseForIdempotencyConflict(c, result);
         }
         // Destroy the live working copy only on the winning execution (a replay's batch rolled back and
-        // the winner already handled it); the committed versions and their bytes are retained.
+        // the winner already handled it). The committed versions and their bytes are retained: a
+        // version's bytes may stand behind other files too, and the only door to destroying them is
+        // purgeableVersionObjects in @magna-carta/file-manager, which a retention policy walks —
+        // never this route. The working copy is keyed to this file alone, so it is the one object a
+        // delete may take with it.
         if (result.kind === "executed" && currentR2KeyToDestroy !== null) {
           // Destroy it in the firm's own bucket — the one the working copy was written to.
           await resolveFirmBucket(c.env, firm.bucketName).bucket.delete(currentR2KeyToDestroy);

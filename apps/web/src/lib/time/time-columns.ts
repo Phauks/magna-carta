@@ -24,8 +24,24 @@
 import type { GridColumn } from "@magna-carta/design-system/data-table";
 import { formatDuration, personName } from "@magna-carta/design-system/formatters";
 import { statusEntry } from "@magna-carta/design-system/status-register";
-import { type TimeEntrySummary } from "$lib/matters/time-api.ts";
+import { type TimeEntryStatus, type TimeEntrySummary } from "$lib/matters/time-api.ts";
+import type { FilterChoice } from "$lib/money/listing-scope.ts";
 import { gapCellTitle, type TimeLedgerGapName } from "./time-gaps.ts";
+
+/**
+ * Every status an entry can hold, as the wire spells it and as the Status column shows it.
+ *
+ * The Status column's set filter offers this whole vocabulary rather than only what the loaded
+ * rows carry: a firm with nothing billed this week can still hold billed entries, and a filter that
+ * dropped "Billed" because none was on screen would be telling the reader the firm cannot have
+ * one. The firm's Time screen also reads a choice off it to send as the listing's own `status`.
+ */
+export const TIME_STATUS_CHOICES: readonly FilterChoice<TimeEntryStatus>[] = (
+  ["draft", "submitted", "approved", "billed", "void"] as const
+).map((status) => ({ value: status, label: statusEntry(status).label }));
+
+/** The two words the Billable column shows, in the order the filter offers them. */
+export const TIME_BILLABLE_LABELS = { billable: "Billable", nonBillable: "Non-billable" } as const;
 
 /** Column ids, spelled in full, so a test and a stored layout name the same thing as the code. */
 export const TIME_COLUMN_IDENTIFIERS = {
@@ -261,7 +277,9 @@ export function timeLedgerColumns(currency: string): readonly GridColumn<TimeEnt
       type: "text",
       hidden: true,
       filter: "set",
-      value: (entry) => (entry.billable ? "Billable" : "Non-billable"),
+      filterValues: [TIME_BILLABLE_LABELS.billable, TIME_BILLABLE_LABELS.nonBillable],
+      value: (entry) =>
+        entry.billable ? TIME_BILLABLE_LABELS.billable : TIME_BILLABLE_LABELS.nonBillable,
     },
     // How many of the matter's documents the entry points at. A count, so it sorts and sums.
     {
@@ -277,6 +295,7 @@ export function timeLedgerColumns(currency: string): readonly GridColumn<TimeEnt
       label: "Status",
       type: "text",
       filter: "set",
+      filterValues: TIME_STATUS_CHOICES.map((choice) => choice.label),
       fitExtra: 26,
       value: (entry) => statusEntry(entry.status).label,
     },
@@ -297,12 +316,23 @@ export function timeLedgerColumns(currency: string): readonly GridColumn<TimeEnt
  * matter's identifier and nothing else, so the surface resolves the name against the firm's matters
  * and hands the resolution in. A matter the resolution has not reached reads as its own honest
  * blank rather than as a raw handle.
+ *
+ * THE TIMEKEEPER COLUMN OFFERS THE WHOLE ROSTER, where the reader may read the firm's time: a
+ * supervisor narrowing to one colleague must be able to name them before a row of theirs has
+ * loaded, and the screen sends that one name to the listing as its own `timekeeperUserId`. A
+ * member who may read only their own time is offered nothing beyond what their rows carry, so the
+ * column never inventories colleagues they cannot ask for.
  */
 export function firmTimeColumns(
   currency: string,
   matterText: (entry: TimeEntrySummary) => string,
+  options: { readonly timekeeperNames?: readonly string[] } = {},
 ): readonly GridColumn<TimeEntrySummary>[] {
-  const columns = timeLedgerColumns(currency);
+  const columns = timeLedgerColumns(currency).map((column) =>
+    column.id === TIME_COLUMN_IDENTIFIERS.timekeeper && options.timekeeperNames !== undefined
+      ? { ...column, filterValues: options.timekeeperNames }
+      : column,
+  );
   const matter: GridColumn<TimeEntrySummary> = {
     id: TIME_COLUMN_IDENTIFIERS.matter,
     label: "Matter",
