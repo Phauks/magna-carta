@@ -231,12 +231,28 @@ describe("the span", () => {
     expect(response.status).toBe(422);
   });
 
-  it("still answers empty for a request that names no scope at all", async () => {
+  it("answers the firm's whole record, newest first, when nothing bounds it", async () => {
+    // The firm's Time screen opens on this: every entry on every matter, with the Date column's
+    // filter as the only period control. Answering empty here would leave that screen no read.
     const response = await get("/api/v1/time-entries");
     expect(response.status).toBe(200);
-    const body = (await response.json()) as { data: unknown[]; nextCursor: string | null };
-    expect(body.data).toEqual([]);
+    const body = (await response.json()) as { data: ListedEntry[]; nextCursor: string | null };
+    expect(body.data.map((row) => row.workDate)).toEqual([
+      "2026-07-20",
+      "2026-06-12",
+      "2026-06-11",
+      "2026-06-10",
+    ]);
     expect(body.nextCursor).toBeNull();
+  });
+
+  it("honours either bound on its own, as a Date filter set at one end is", async () => {
+    const fromOnly = await listed(
+      await get(`/api/v1/time-entries?from=2026-07-01&timekeeperUserId=${ownerUserId}`),
+    );
+    expect(fromOnly.map((row) => row.narrative)).toEqual(["Outside the span"]);
+    const toOnly = await listed(await get("/api/v1/time-entries?to=2026-06-10"));
+    expect(toOnly.map((row) => row.narrative)).toEqual(["Inside the span, day one"]);
   });
 });
 
@@ -257,6 +273,8 @@ describe("who may ask for whose", () => {
       colleagueCookie,
     );
     expect(response.status).toBe(403);
+    // The unbounded record is the same question with no dates, and the same refusal.
+    expect((await get("/api/v1/time-entries", colleagueCookie)).status).toBe(403);
   });
 
   it("refuses another timekeeper's span to a member without time:viewFirm (403)", async () => {

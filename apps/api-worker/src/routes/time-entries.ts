@@ -315,19 +315,29 @@ const timeEntryParam = z.object({ id: identifierPathParam("timeEntry", "id") });
 
 const workDateField = z.string().regex(CIVIL_DATE_PATTERN);
 
+/*
+ * The open ends of a period nobody bounded. A civil date is a `YYYY-MM-DD` string and sorts as
+ * text, so these two bracket every work date a firm could record; the range statement asks for
+ * both ends and a listing with neither is the whole record.
+ */
+const OPEN_SPAN_START = "0000-01-01";
+const OPEN_SPAN_END = "9999-12-31";
+
 const listQuery = z.object({
   timekeeperUserId: identifierField("user").optional(),
   matterId: identifierField("matter").optional(),
   workDate: workDateField.optional(),
   from: workDateField.optional().openapi({
     description:
-      "The first work date of a period listing, inclusive. Given with `to`, the listing answers " +
-      "a span of days across every matter — the question a timekeeper asks of their own week and " +
-      "a supervisor asks of the firm's. Without a timekeeper the span covers everybody, which " +
-      "requires the time:viewFirm capability.",
+      "The first work date the period listing covers, inclusive. Either bound stands alone: a " +
+      "listing with only `from` runs to the present, one with only `to` runs from the first " +
+      "entry ever recorded, and one with neither is the whole record for whoever is named. " +
+      "This is the firm's Time screen's Date column filter, honoured here so it is true across " +
+      "every page rather than over the page in hand. Without a timekeeper the listing covers " +
+      "everybody, which requires the time:viewFirm capability.",
   }),
   to: workDateField.optional().openapi({
-    description: "The last work date of a period listing, inclusive. Required alongside `from`.",
+    description: "The last work date the period listing covers, inclusive.",
   }),
   status: z
     .enum(["draft", "submitted", "approved", "billed", "void"])
@@ -505,14 +515,14 @@ const listRoute = defineOpenAPIRoute(listMeta, {
   path: "/api/v1/time-entries",
   description:
     "Lists time entries three ways. By timekeeper and work date: the daily view, complete in one " +
-    "page by construction, so its cursor is always null. By matter: the matter's own record, " +
+    "page by construction, so its cursor is always null. By matter alone: the matter's own record, " +
     "CURSOR-PAGED newest work date first — a matter that has been billing for years is not a " +
-    "single response, and this read carried no bound at all until it was. By a `from`/`to` span " +
-    "of work dates: the period listing across every matter, cursor-paged the same way, narrowable " +
-    "to one timekeeper, one matter and one status. A period listing that names no timekeeper " +
-    "covers the whole firm and requires the time:viewFirm capability; one that names somebody " +
-    "other than the session member requires it too. A request matching none of the three answers " +
-    "with an empty list rather than scanning the table.",
+    "single response, and this read carried no bound at all until it was. Otherwise the period " +
+    "listing across every matter, cursor-paged the same way: bounded by `from` and `to` (each on " +
+    "its own or together; neither is the whole record), narrowable to one timekeeper, one matter " +
+    "and one status. A period listing that names no timekeeper covers the whole firm and requires " +
+    "the time:viewFirm capability; one that names somebody other than the session member " +
+    "requires it too.",
   request: { query: listQuery },
   responses: {
     200: {
@@ -1220,54 +1230,7 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
         return c.json({ data: page.data.map(recordToSummary), nextCursor: null }, 200);
       }
 
-      if (query.from !== undefined && query.to !== undefined) {
-        // Period listing: a span of work dates across every matter. The span is what the firm-wide
-        // time surface reads, and it is the one listing shape that can answer "what time was
-        // recorded this week" without the caller first fetching every matter.
-        //
-        // WHOSE TIME, AND WHO MAY ASK. Naming no timekeeper asks for the firm's whole record for
-        // those days, which is a supervisor's question and gated as one; naming somebody else is
-        // the same question about one person and gated identically. Only a member reading their
-        // OWN span passes without the capability. Defaulting an ungated caller to themselves was
-        // considered and rejected: a listing that silently answers a narrower question than it was
-        // asked is the defect the per-matter status default already was.
-        if (query.timekeeperUserId !== sessionUserId) {
-          const permissions = await loadEffectivePermissions(firm.firmDatabase, sessionUserId);
-          if (!permissions.has(assertPermission("time:viewFirm"))) {
-            return problemJson(c, {
-              type: "permission-denied",
-              title: "Forbidden",
-              status: 403,
-              detail:
-                query.timekeeperUserId === undefined
-                  ? "Listing the firm's time over a period requires the time:viewFirm capability. Ask for your own by naming yourself as the timekeeper."
-                  : "Listing another timekeeper's time over a period requires the time:viewFirm capability.",
-            });
-          }
-        }
-        if (query.from > query.to) {
-          return problemJson(c, {
-            type: "validation",
-            title: "Unprocessable",
-            status: 422,
-            detail:
-              "The period's first date is after its last. The span is not swapped for you, because a swap would answer a question nobody asked.",
-          });
-        }
-        const page = await listTimeEntriesInRange(firm.firmDatabase, {
-          from: query.from,
-          to: query.to,
-          ...(query.timekeeperUserId === undefined
-            ? {}
-            : { timekeeperUserId: query.timekeeperUserId }),
-          ...(query.matterId === undefined ? {} : { matterId: query.matterId }),
-          ...(query.status === undefined ? {} : { status: query.status }),
-          ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
-        });
-        return c.json({ nextCursor: page.nextCursor, data: page.data.map(recordToSummary) }, 200);
-      }
-
-      if (query.matterId !== undefined) {
+      if (query.from === undefined && query.to === undefined && query.matterId !== undefined) {
         // Per-matter listing. An absent status means EVERY status: a matter's time record is all
         // of the time on it, and a caller that wanted only the work in progress says so. This
         // defaulted to "draft" and answered a narrower question than it was asked, silently -- the
@@ -1281,8 +1244,57 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
         return c.json({ nextCursor: page.nextCursor, data: page.data.map(recordToSummary) }, 200);
       }
 
-      // No recognized filter — return an empty list rather than a full-table scan.
-      return c.json({ data: [] as z.infer<typeof TimeEntrySummary>[], nextCursor: null }, 200);
+      // Period listing: a span of work dates, or the whole record when no bound is given,
+      // across every matter. The shape the firm-wide time surface reads, and the one listing
+      // shape that can answer "what time was recorded this week" without the caller first
+      // fetching every matter.
+      //
+      // A BOUND IS OPTIONAL, AND AN ABSENT ONE IS OPEN. The screen's Date column filter may set
+      // either end or neither, and a filter that only narrowed the loaded page would not be a
+      // filter, so each bound is honoured here as it is given. The range statement takes both
+      // ends, so an absent one is passed as the widest civil date that sorts on its side; the
+      // work-date index carries the read either way.
+      //
+      // WHOSE TIME, AND WHO MAY ASK. Naming no timekeeper asks for the firm's whole record for
+      // those days, which is a supervisor's question and gated as one; naming somebody else is
+      // the same question about one person and gated identically. Only a member reading their
+      // OWN span passes without the capability. Defaulting an ungated caller to themselves was
+      // considered and rejected: a listing that silently answers a narrower question than it was
+      // asked is the defect the per-matter status default already was.
+      if (query.timekeeperUserId !== sessionUserId) {
+        const permissions = await loadEffectivePermissions(firm.firmDatabase, sessionUserId);
+        if (!permissions.has(assertPermission("time:viewFirm"))) {
+          return problemJson(c, {
+            type: "permission-denied",
+            title: "Forbidden",
+            status: 403,
+            detail:
+              query.timekeeperUserId === undefined
+                ? "Listing the firm's time over a period requires the time:viewFirm capability. Ask for your own by naming yourself as the timekeeper."
+                : "Listing another timekeeper's time over a period requires the time:viewFirm capability.",
+          });
+        }
+      }
+      if (query.from !== undefined && query.to !== undefined && query.from > query.to) {
+        return problemJson(c, {
+          type: "validation",
+          title: "Unprocessable",
+          status: 422,
+          detail:
+            "The period's first date is after its last. The span is not swapped for you, because a swap would answer a question nobody asked.",
+        });
+      }
+      const page = await listTimeEntriesInRange(firm.firmDatabase, {
+        from: query.from ?? OPEN_SPAN_START,
+        to: query.to ?? OPEN_SPAN_END,
+        ...(query.timekeeperUserId === undefined
+          ? {}
+          : { timekeeperUserId: query.timekeeperUserId }),
+        ...(query.matterId === undefined ? {} : { matterId: query.matterId }),
+        ...(query.status === undefined ? {} : { status: query.status }),
+        ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
+      });
+      return c.json({ nextCursor: page.nextCursor, data: page.data.map(recordToSummary) }, 200);
     },
   );
 

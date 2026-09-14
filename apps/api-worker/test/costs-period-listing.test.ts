@@ -199,10 +199,34 @@ describe("the span", () => {
     expect(response.status).toBe(422);
   });
 
-  it("still answers the empty list when neither a matter nor a span is named", async () => {
+  it("answers the firm's whole record, newest first, when nothing narrows it", async () => {
+    // The firm's Costs screen opens on this: every cost on every matter, with the Date column's
+    // filter as the only period control. Answering empty here would leave that screen no read.
     const response = await get("/api/v1/costs");
     expect(response.status).toBe(200);
-    expect(await listed(response)).toEqual([]);
+    const rows = await listed(response);
+    expect(rows.map((row) => row.incurredDate)).toEqual([
+      "2026-07-20",
+      "2026-06-12",
+      "2026-06-11",
+      "2026-06-10",
+    ]);
+  });
+
+  it("honours either bound on its own, as a Date filter set at one end is", async () => {
+    const fromOnly = await listed(await get("/api/v1/costs?from=2026-07-01"));
+    expect(fromOnly.map((row) => row.description)).toEqual(["Outside the span"]);
+    const toOnly = await listed(await get("/api/v1/costs?to=2026-06-10"));
+    expect(toOnly.map((row) => row.description)).toEqual(["Inside the span, first matter"]);
+  });
+
+  it("searches the description and the matter across the whole record", async () => {
+    const byWord = await listed(await get("/api/v1/costs?search=not%20billable"));
+    expect(byWord.map((row) => row.description)).toEqual(["Inside the span, not billable"]);
+    const byMatter = await listed(await get("/api/v1/costs?search=Harlow"));
+    expect(byMatter.map((row) => row.matterId)).toEqual([harlowMatterId]);
+    // The wildcards are the caller's text: an underscore matches an underscore, not any character.
+    expect(await listed(await get("/api/v1/costs?search=_"))).toEqual([]);
   });
 
   it("pages the span on the same key the per-matter listing walks", async () => {

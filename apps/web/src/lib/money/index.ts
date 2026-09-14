@@ -9,6 +9,19 @@
 export { default as MoneySurface } from "./money-surface.svelte";
 export { default as MoneyToolbar } from "./money-toolbar.svelte";
 export {
+  addressAfterFilters,
+  civilDateOrNull,
+  dateBoundsOf,
+  dateRangeFilter,
+  filtersSeededBy,
+  singleChoiceFilter,
+  singleChoiceOf,
+  singleMemberFilter,
+  singleMemberOf,
+  type DateBounds,
+  type FilterChoice,
+} from "./listing-scope.ts";
+export {
   MONEY_SURFACE_DENSITIES,
   MONEY_SURFACE_DENSITY_KEY,
   MONEY_SURFACE_LAYOUTS,
