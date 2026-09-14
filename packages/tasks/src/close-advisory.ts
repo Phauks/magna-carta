@@ -16,11 +16,11 @@ import { countOpenMatterTasks } from "./task-statements.ts";
 // The contrast that decides it is trust, which DOES block: a closed matter holding somebody else's
 // money is how funds become unclaimed, and the firm that closed it has to answer for them. An open
 // task is a reminder somebody wrote three months ago. A matter that cannot close because of one is a
-// close screen the firm defeats by cancelling tasks nobody read — which would destroy exactly the
+// close screen the firm defeats by archiving tasks nobody read — which would destroy exactly the
 // signal this notice exists to give.
 export const OPEN_TASKS_ON_MATTER = "open-tasks-on-matter";
 
-// THE TASKS ARE NOT TOUCHED. Not cancelled, not completed, not deleted, and not swept. A closed
+// THE TASKS ARE NOT TOUCHED. Not archived, not completed, not deleted, and not swept. A closed
 // matter is archived-but-additive, and a close that mutated a dozen unrelated rows would contradict
 // that. Open tasks stay open and stay on the matter; what happens is that they drop out of the
 // default "my tasks" read, which filters to matters that are not closed — a FILTER, not a state
@@ -37,8 +37,8 @@ async function notice(context: CloseAdvisoryContext): Promise<readonly CloseAdvi
       code: OPEN_TASKS_ON_MATTER,
       message:
         open === 1
-          ? "1 task on this matter is still open. Closing the matter leaves it exactly as it is — nothing is cancelled or completed — but it drops off the day-to-day task list until the matter is reopened."
-          : `${String(open)} tasks on this matter are still open. Closing the matter leaves them exactly as they are — nothing is cancelled or completed — but they drop off the day-to-day task list until the matter is reopened.`,
+          ? "1 task on this matter is still open. Closing the matter leaves it exactly as it is — nothing is archived or completed — but it drops off the day-to-day task list until the matter is reopened."
+          : `${String(open)} tasks on this matter are still open. Closing the matter leaves them exactly as they are — nothing is archived or completed — but they drop off the day-to-day task list until the matter is reopened.`,
     },
   ];
 }

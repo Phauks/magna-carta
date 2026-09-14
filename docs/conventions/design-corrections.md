@@ -296,6 +296,25 @@ is usually the fastest way to understand the rule.
     the second half was the fix. _(tasks, 2026-09-14: "creating a new task should be a modal, not
     in-line", then "do the edit one too. I dislike having two screens, one to read information, and
     one to edit it")_
+  - **A task moves along four rungs — To Do, In Progress, On Hold, Done — and they are the action
+    bar.** One control group, not four scattered verbs, because they answer one question: where is
+    this. The rung the task is on renders pressed and does nothing, so a reader sees where it stands
+    without reading a badge. Beside them are the only two other things that happen to a task, and
+    they differ in exactly one thing the copy has to say: **archiving keeps the data, deleting takes
+    it.** Archiving is not a fifth rung — a task is archived FROM wherever it stood, and putting it
+    back returns it there. _(tasks, 2026-09-14: "Action Bar should be To Do, In-Progress, On-Hold,
+    Done. Besides that, tasks can be deleted or archived")_
+    - **The reason an archive carries is OPTIONAL, and that is the whole lesson of the state it
+      replaces.** Cancelling required one, on the reasoning that the decision is the record. Nobody
+      ever used it: somebody clearing work that is simply not happening is not composing a memo, and
+      a required field at that moment is a reason to reach for delete instead — which loses the
+      record entirely. Offer the sentence where it is cheap to give; do not demand it. _(the owner,
+      2026-09-14: "archived would be similar to cancelled, but we will never use that because no one
+      uses cancelled")_
+    - **A list carries the one act a list is for, not the whole group.** Done belongs on a row,
+      because clearing finished work off a list is what a list is for; the other three rungs live in
+      the record's own window with the rest of its acts. Four controls deep on every row of work
+      somebody is only scanning is a row nobody can read. _(tasks, 2026-09-14)_
   - **A list row states values and offers acts; it never becomes a form.** Nothing unfolds inside a
     list: not a composer above the rows, not a row that turns into fields, not a picker for what to
     attach, not the reason a thing is being cancelled. Each of those is a second place to learn

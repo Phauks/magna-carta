@@ -61,30 +61,50 @@ they will carry no matter.
 sees it, including people who can see every matter. If work should be visible to the team, put it on
 the matter it belongs to.
 
-## Finishing, Reopening, and Deciding Not To
+## Where a Task Stands
 
-Press **Done** when the work is finished — on the list, where you are ticking things off, or in the
-task's own window. The task records who did it and when.
+Every task is on one of four rungs, and moving it along them is the row of controls at the bottom of
+its window:
 
-Press **Reopen** if you marked something done too early, or if a decision changed. The task comes
-back to the list, and the firm's audit record keeps the fact that it was closed and reopened.
+- **To Do** — nobody has started it. Every new task begins here.
+- **In Progress** — somebody is working on it.
+- **On Hold** — it is waiting on something. The task still belongs to whoever has it; it is just not
+  moving.
+- **Done** — finished. The task records who did it and when.
 
-**Not Doing It** and **Delete** are different, and both are in the task's window.
+The rung it is on is the one that looks pressed, so you can see where a task stands without reading
+anything. Press another to move it.
 
-- **Not Doing It** is for work the firm decided against. It asks why, and that answer stays on the
-  task, which then shows as Cancelled. Six months later somebody can see what was proposed and why
-  it did not happen.
-- **Delete** is for a task that should not exist — a typo, a duplicate, a line you started and
-  abandoned. The task is removed and cannot be recovered.
+Moving a task **off** Done puts it back where it was, not back to the start: a task you had On Hold
+and ticked by mistake returns to On Hold. That it was finished and reopened stays in the firm's audit
+record either way.
 
-Use Not Doing It where the decision matters. Deleting a piece of real work loses the record that
-anybody ever considered it.
+**Done is also on the list itself**, beside each row, because ticking finished work off a list is
+what a list is for. The other three rungs are in the task's window with the rest of what you can do
+to it.
+
+## Archiving and Deleting
+
+Both take a task off the list, and they differ in one thing:
+
+- **Archive** keeps it. Everything the task carries stays — its detail, its documents, the time
+  logged against it — and **Show Archived** at the foot of the list brings it back into view. **Put
+  Back** returns it to the rung it left from. You can say why you archived it, but you do not have
+  to.
+- **Delete** removes it. The task is gone and cannot be recovered.
+
+Archive anything you might want to look at again, which is almost everything. Delete is for a task
+that should not exist — a typo, a duplicate, a line you started and abandoned before it meant
+anything.
+
+Archiving is not a fifth rung: a task is archived from wherever it stood, so a finished task you
+archive stays finished, and one you had On Hold comes back On Hold.
 
 ## Overdue
 
-A task shows **Overdue** when its due date has passed and it is still open. Nothing is stored to make
-that happen: it is worked out fresh whenever you look, in the task's own time zone, so it is never
-based on a stale calculation. Tasks that are done or cancelled are never marked overdue.
+A task shows **Overdue** when its due date has passed and the work is still owed. Nothing is stored
+to make that happen: it is worked out fresh whenever you look, in the task's own time zone, so it is
+never based on a stale calculation. Tasks that are done or archived are never marked overdue.
 
 ## Waiting on Another Task
 
@@ -116,10 +136,10 @@ It sits at the top of the screen with **New Task**, in the same place as the sea
 screen. Whenever the search is narrowing the list, a **Show Everything** control appears beside it;
 when it is not there, nothing is hidden.
 
-By default a list shows what is still open, which is what a task list is for. Below the list, past
-everything still owed, **Show Done** and **Show Cancelled** add the closed work to it; each then
-reads **Hide Done** or **Hide Cancelled**, so what is showing is always the control that puts it
-away again.
+By default a list shows what is still owed — everything on To Do, In Progress and On Hold. Below the
+list, past all of that, **Show Done** and **Show Archived** add the rest to it; each then reads
+**Hide Done** or **Hide Archived**, so what is showing is always the control that puts it away
+again.
 
 ## Tasks in the Sidebar
 
@@ -128,7 +148,7 @@ see, plus your own work on no matter. Filter it by yourself to get just your lis
 **Tasks** section is the same list narrowed to that one matter.
 
 Tasks on closed matters are left out. Closing a matter changes nothing about its tasks — they are
-not cancelled or completed — they simply stop cluttering the day-to-day list. Reopen the matter and
+not archived or completed — they simply stop cluttering the day-to-day list. Reopen the matter and
 they come straight back.
 
 ## Being Told About a Task

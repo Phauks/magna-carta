@@ -29,10 +29,10 @@
    * A task on no matter can point at nothing, because every document belongs to a matter, and the
    * tab says that rather than offering an empty picker.
    *
-   * COMPLETING, REOPENING, CANCELLING AND DELETING LIVE IN THE ACTION BAR, and only while the window
-   * is reading. Cancelling and deleting are both offered and the copy says which is which:
-   * cancelling records that the firm decided not to do the work and keeps the decision; deleting is
-   * for a task that should not exist.
+   * THE FOUR RUNGS ARE THE ACTION BAR, and only while the window is reading. Beside them are the two
+   * ways a task leaves a list, and the copy says which is which: archiving keeps every word of it,
+   * deleting takes it. Archiving is not a fifth rung — a task is archived FROM wherever it stood, and
+   * putting it back returns it there.
    */
   import Button from "@magna-carta/design-system/button";
   import Input from "@magna-carta/design-system/input";
@@ -52,8 +52,8 @@
   import { formatDate } from "@magna-carta/design-system/data-table";
   import { formatInstant, instantAttribute } from "@magna-carta/design-system/formatters";
   import { DatePicker } from "@magna-carta/design-system/date-picker";
-  import Ban from "@lucide/svelte/icons/ban";
-  import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
+  import Archive from "@lucide/svelte/icons/archive";
+  import ArchiveRestore from "@lucide/svelte/icons/archive-restore";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -71,10 +71,11 @@
   import { dueLine, taskSheet } from "./task-print-sheet.ts";
   import {
     PRIORITY_LABELS,
-    STATE_LABELS,
+    RUNG_LABELS,
     TASK_PRIORITIES,
+    TASK_RUNGS,
+    archiveTask,
     attachTaskDocument,
-    completeTask,
     createTask,
     deleteTask,
     describeTimeLogged,
@@ -82,12 +83,14 @@
     editTask,
     externalSystemLabel,
     isOverdue,
+    moveTaskToRung,
     newWriteKey,
     reassignTask,
-    reopenTask,
+    unarchiveTask,
     viewerTimeZone,
     type MatterTask,
     type TaskPriority,
+    type TaskRung,
   } from "./tasks-api.ts";
 
   let {
@@ -105,7 +108,7 @@
     canAssign,
     onSaved,
     onAttachmentsUnwritten,
-    onNotDoing,
+    onArchive,
   }: {
     open?: boolean;
     /** The task being read, or null while a new one is being written. */
@@ -150,10 +153,10 @@
      */
     onAttachmentsUnwritten?: (names: readonly string[]) => void;
     /**
-     * Record that the firm decided not to do this. The reason is asked for in the surface's own
-     * panel, so one panel serves the list and the window.
+     * Put this task away. The optional reason is asked for in the surface's own panel, so one panel
+     * serves the list and the window.
      */
-    onNotDoing: (subject: MatterTask) => void;
+    onArchive: (subject: MatterTask) => void;
   } = $props();
 
   const creating = $derived(task === null);
@@ -305,12 +308,8 @@
           matterTitle: subtitleText,
           assigneeName,
           authorName: nameOf(task.createdBy),
-          closedByName:
-            task.state === "done"
-              ? nameOf(task.completedBy)
-              : task.state === "cancelled"
-                ? nameOf(task.cancelledBy)
-                : null,
+          completedByName: task.completedBy === null ? null : nameOf(task.completedBy),
+          archivedByName: task.archivedBy === null ? null : nameOf(task.archivedBy),
           instant: (at) => formatInstant(at),
           ...printSheetDates(),
           attachedNames: task.documents.map((document) => document.fileName),
@@ -529,7 +528,10 @@
          computed against now, here, so it is never stale; waiting is guidance and gates nothing. -->
     {#if task !== null}
       <div class="flex flex-wrap items-center gap-8">
-        <Badge variant="neutral">{STATE_LABELS[task.state]}</Badge>
+        <Badge variant="neutral">{RUNG_LABELS[task.rung]}</Badge>
+        {#if task.archivedAt !== null}
+          <Badge variant="neutral">Archived</Badge>
+        {/if}
         {#if overdue}
           <Badge variant="danger">Overdue</Badge>
         {/if}
@@ -627,7 +629,7 @@
         editable. Each is absent where there is nothing to say rather than stating its own emptiness.
       -->
       <dl class="flex flex-col gap-8">
-        {#if task.state === "done" && task.completedAt !== null}
+        {#if task.rung === "done" && task.completedAt !== null}
           <div class="flex gap-8 text-sm">
             <dt class="text-text-muted">Done by</dt>
             <dd>
@@ -638,11 +640,24 @@
             </dd>
           </div>
         {/if}
-        {#if task.state === "cancelled"}
+        {#if task.archivedAt !== null}
           <div class="flex gap-8 text-sm">
-            <dt class="text-text-muted">Not doing it because</dt>
-            <dd>{task.cancellationReason ?? "Not recorded"}</dd>
+            <dt class="text-text-muted">Archived</dt>
+            <dd>
+              {nameOf(task.archivedBy)},
+              <time datetime={instantAttribute(task.archivedAt)}>
+                {formatInstant(task.archivedAt)}
+              </time>
+            </dd>
           </div>
+          <!-- Only where there is one: an archiving does not have to say why, and a line reading
+               "Not recorded" would put a gap on screen where there is no gap. -->
+          {#if task.archiveReason !== null}
+            <div class="flex gap-8 text-sm">
+              <dt class="text-text-muted">Because</dt>
+              <dd>{task.archiveReason}</dd>
+            </div>
+          {/if}
         {/if}
         <!-- Minutes, never money: what a task cost is a billing question with a different audience.
              "by you" appears where the reader may not see other timekeepers' time, so the number is
@@ -692,46 +707,70 @@
 {/snippet}
 
 <!--
-  The acts, and only while the window is READING: the shell puts the abandon and the commit at the
-  end of this bar while the fields are open, and completing a task somebody is halfway through
-  rewriting is not an act anybody means.
+  THE ACTION BAR IS THE FOUR RUNGS, then the two ways a task leaves a list.
+  ─────────────────────────────────────────────────────────────────────────────────────────────────
+  The rungs are one control group, not four scattered verbs, because they are one question: where is
+  this. The rung the task is ON renders pressed and does nothing — a reader can see where it stands
+  without reading the badge, and pressing it again is not a write. The shell's own geometry puts the
+  abandon and the commit after whatever this renders while the fields are open, which is why none of
+  it draws then: moving a task somebody is halfway through rewriting is not an act anybody means.
+
+  ARCHIVE AND DELETE ARE THE TWO WAYS OUT and they sit apart from the rungs, because they are not a
+  fifth rung: a task is archived FROM wherever it stood. They differ in exactly one thing and the
+  copy says which — an archive keeps every word of the task, a delete takes it.
+
+  AN ARCHIVED TASK SHOWS ONE CONTROL: put it back. Offering the rungs on a task nobody can see would
+  be writing into a list that is not on screen, and the server refuses it anyway.
 -->
 {#snippet actions({ editing: fieldsOpen }: { editing: boolean })}
   {#if task !== null && canWrite && !fieldsOpen}
-    {#if task.state === "open"}
+    {#if task.archivedAt === null}
+      <div class="flex flex-wrap items-center gap-4" role="group" aria-label="Where this task stands">
+        {#each TASK_RUNGS as rung (rung)}
+          {@const here = task.rung === rung}
+          <Button
+            variant={here ? "secondary" : "ghost"}
+            disabled={saving || here}
+            aria-pressed={here}
+            title={here ? `This task is ${RUNG_LABELS[rung]}` : `Move to ${RUNG_LABELS[rung]}`}
+            onclick={() =>
+              void act(
+                (subject) => moveTaskToRung(fetch, subject.id, rung, newWriteKey()),
+                "The task was not moved.",
+              )}
+          >
+            {RUNG_LABELS[rung]}
+          </Button>
+        {/each}
+      </div>
       <Button
         variant="secondary"
         disabled={saving}
-        onclick={() =>
-          void act((subject) => completeTask(fetch, subject.id, newWriteKey()), "The task was not completed.")}
+        title="Put this task away and keep it — every word of it stays on the record"
+        onclick={() => onArchive(task)}
       >
-        Done
-      </Button>
-      <Button
-        variant="secondary"
-        disabled={saving}
-        title="The firm decided not to do this — the task and the decision stay on the record"
-        onclick={() => onNotDoing(task)}
-      >
-        <Ban aria-hidden="true" />
-        Not Doing It
+        <Archive aria-hidden="true" />
+        Archive
       </Button>
     {:else}
       <Button
         variant="secondary"
         disabled={saving}
-        title="Put this task back on the list"
+        title="Put this task back on the list, on the rung it left from"
         onclick={() =>
-          void act((subject) => reopenTask(fetch, subject.id, newWriteKey()), "The task was not reopened.")}
+          void act(
+            (subject) => unarchiveTask(fetch, subject.id, newWriteKey()),
+            "The task was not put back.",
+          )}
       >
-        <RotateCcw aria-hidden="true" />
-        Reopen
+        <ArchiveRestore aria-hidden="true" />
+        Put Back
       </Button>
     {/if}
     <Button
       variant="destructive"
       disabled={saving}
-      title="Delete — for a task that should not exist. Cancelling is the other act."
+      title="Delete — for a task that should not exist. Archiving is the other way out, and it keeps the task."
       onclick={() =>
         void act(
           (subject) => deleteTask(fetch, subject.id, newWriteKey()),

@@ -11,7 +11,7 @@
  */
 import type { PrintSheetDates } from "$lib/print-sheet";
 import type { PrintSheetDocument } from "@magna-carta/design-system/print-sheet/projection";
-import { PRIORITY_LABELS, STATE_LABELS, describeTimeLogged, type MatterTask } from "./tasks-api.ts";
+import { PRIORITY_LABELS, RUNG_LABELS, describeTimeLogged, type MatterTask } from "./tasks-api.ts";
 
 /** Everything the sheet needs that is not the task itself. */
 export interface TaskSheetContext extends PrintSheetDates {
@@ -21,8 +21,10 @@ export interface TaskSheetContext extends PrintSheetDates {
   readonly assigneeName: string;
   /** Who wrote it, as a name. */
   readonly authorName: string;
-  /** Who closed it, where anybody has — completed or cancelled, whichever happened. */
-  readonly closedByName: string | null;
+  /** Who finished it, where anybody has. */
+  readonly completedByName: string | null;
+  /** Who put it away, where anybody has. */
+  readonly archivedByName: string | null;
   /** A stored instant as a reader sees it. */
   readonly instant: (at: string) => string;
   /** The documents the task points at, by name. */
@@ -46,29 +48,31 @@ export function dueLine(task: MatterTask, date: (isoDate: string) => string): st
 /**
  * What became of the task, as the sheet states it.
  *
- * Cancelled and done are kept apart here for the same reason they are kept apart everywhere else:
- * one says the firm did the work, the other says the firm decided not to, and a sheet that
- * flattened them into "closed" would lose the only fact worth printing about a cancellation.
+ * Finished and put away are separate facts and both can be true: a task is archived FROM wherever it
+ * stood, so a done task that was then filed away carries both lines. A sheet that flattened them
+ * into one "closed" would lose which of the two happened, and the reason the firm gave for the
+ * second.
  */
 function outcomeFields(task: MatterTask, context: TaskSheetContext) {
-  if (task.state === "done") {
-    return [
-      { label: "Done By", value: context.closedByName ?? "Not recorded" },
-      ...(task.completedAt === null
-        ? []
-        : [{ label: "Done", value: context.instant(task.completedAt) }]),
-    ];
-  }
-  if (task.state === "cancelled") {
-    return [
-      { label: "Cancelled By", value: context.closedByName ?? "Not recorded" },
-      ...(task.cancelledAt === null
-        ? []
-        : [{ label: "Cancelled", value: context.instant(task.cancelledAt) }]),
-      { label: "Not Doing It Because", value: task.cancellationReason ?? "Not recorded" },
-    ];
-  }
-  return [];
+  return [
+    ...(task.rung === "done" && task.completedAt !== null
+      ? [
+          { label: "Done By", value: context.completedByName ?? "Not recorded" },
+          { label: "Done", value: context.instant(task.completedAt) },
+        ]
+      : []),
+    ...(task.archivedAt === null
+      ? []
+      : [
+          { label: "Archived By", value: context.archivedByName ?? "Not recorded" },
+          { label: "Archived", value: context.instant(task.archivedAt) },
+          // Only where there is one. Most archivings say nothing, and a line reading "Not recorded"
+          // would put a gap on the paper where there is no gap.
+          ...(task.archiveReason === null
+            ? []
+            : [{ label: "Archived Because", value: task.archiveReason }]),
+        ]),
+  ];
 }
 
 /** What one task's sheet says. */
@@ -83,7 +87,7 @@ export function taskSheet(task: MatterTask, context: TaskSheetContext): PrintShe
         id: "standing",
         kind: "fields",
         fields: [
-          { label: "State", value: STATE_LABELS[task.state] },
+          { label: "State", value: RUNG_LABELS[task.rung] },
           { label: "Assigned To", value: context.assigneeName },
           { label: "Due", value: due ?? "Not scheduled" },
           { label: "Priority", value: PRIORITY_LABELS[task.priority] },

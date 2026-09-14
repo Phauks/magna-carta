@@ -6,8 +6,8 @@
    * record and a reader moving between the two screens should not have to learn a second layout.
    *
    * WHAT IS OWED IS THE LIST; WHAT IS CLOSED IS ASKED FOR AT THE FOOT. Open work is all the list
-   * shows until somebody says otherwise, and done and cancelled work is added by a control below
-   * the rows rather than by a filter above them. The row above the list is for the acts a reader
+   * shows until somebody says otherwise, and finished and archived work is added by two controls
+   * below the rows rather than by a filter above them. The row above the list is for the acts a reader
    * arrives wanting — searching, and making a new task.
    *
    * THE LIST IS A LIST. A task is READ AND CHANGED in its own record window (task-record-window.svelte)
@@ -23,7 +23,7 @@
    *
    * OVERDUE IS COMPUTED HERE. There is no overdue field on the wire and no column behind it: it is a
    * comparison against now, made where somebody is reading, so it is never stale. Only an open task
-   * can be overdue — a done task was done, and a cancelled one is not owed.
+   * can be overdue — a done task was done, and an archived one is not owed.
    *
    * CANCELLING AND DELETING ARE BOTH OFFERED — in the window, where the rest of a task's acts live —
    * and the copy says which is which. Cancelling records that the firm decided not to do the work
@@ -41,7 +41,7 @@
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import CreateControl from "@magna-carta/design-system/create-control";
   import TaskRecordWindow from "$lib/matters/task-record-window.svelte";
-  import TaskNotDoingDialog from "$lib/matters/task-not-doing-dialog.svelte";
+  import TaskArchiveDialog from "$lib/matters/task-archive-dialog.svelte";
   import { attachableFoldersFor } from "$lib/matters/record-attachable-documents.ts";
   import { dueLine } from "$lib/matters/task-print-sheet.ts";
   import { SAMPLE_MATTER_REFUSAL } from "$lib/matters/create-action.svelte.ts";
@@ -49,19 +49,21 @@
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
+  import ArchiveRestore from "@lucide/svelte/icons/archive-restore";
   import Paperclip from "@lucide/svelte/icons/paperclip";
   import {
     describeTimeLogged,
     externalSystemLabel,
+    OPEN_RUNGS,
     PRIORITY_LABELS,
-    STATE_LABELS,
-    completeTask,
+    RUNG_LABELS,
     isOverdue,
+    moveTaskToRung,
     newWriteKey,
-    reopenTask,
+    unarchiveTask,
     type MatterTask,
     type TaskListFilters,
-    type TaskState,
+    type TaskRung,
   } from "$lib/matters/tasks-api.ts";
   import { listMatterFiles, type MatterFile } from "$lib/file-manager/matter-file-api.ts";
   import { listMatterFolders, type FolderSummary } from "$lib/file-manager/folder-api.ts";
@@ -138,29 +140,34 @@
   let matterFiles = $state<MatterFile[] | null>(null);
   let matterFolders = $state<readonly FolderSummary[]>([]);
 
-  // What is CLOSED, and whether it has been asked for. Off by default, because a task list whose job
-  // is to say what is owed starts by showing what is owed; asking for either is a disclosure at the
-  // foot of the list rather than a filter above it (see the closed-work controls in the markup).
+  // WHAT IS NO LONGER OWED, and whether it has been asked for. Both off by default, because a task
+  // list whose job is to say what is outstanding starts by showing what is outstanding; asking for
+  // either is a disclosure at the foot of the list rather than a filter above it (see the controls
+  // in the markup). They are two questions and not one: a done task was done, and an archived one
+  // was put away from wherever it stood — including from done.
   let showDone = $state(false);
-  let showCancelled = $state(false);
+  let showArchived = $state(false);
   // ScreenSearch owns the field and the pause before a query leaves the machine; this holds only
   // what the last pause actually sent, which is what the read is filtered by.
   let searchText = $state("");
   let appliedSearch = $state("");
 
-  const states = $derived<readonly TaskState[]>(
-    ["open", ...(showDone ? (["done"] as const) : []), ...(showCancelled ? (["cancelled"] as const) : [])],
-  );
+  // The three open rungs always, and Done only when it is asked for.
+  const rungs = $derived<readonly TaskRung[]>([
+    ...OPEN_RUNGS,
+    ...(showDone ? (["done"] as const) : []),
+  ]);
   // What is NARROWING the view, which is the search and nothing else. Its truth is what draws the
   // clear control, so the control's absence is itself the answer to "is anything hidden". Asking for
-  // done or cancelled work WIDENS the list and is undone by its own control, so neither belongs
+  // done or archived work WIDENS the list and is undone by its own control, so neither belongs
   // here: a clear control that appeared because more was shown would answer the wrong question.
   const narrowed = $derived(appliedSearch !== "");
   // What the clear control says it will undo, so pressing it is never a guess.
   const narrowingSummary = $derived(appliedSearch === "" ? "" : `searching "${appliedSearch}"`);
 
   const filters = $derived<TaskListFilters>({
-    states,
+    rungs,
+    ...(showArchived ? { includeArchived: true } : {}),
     ...(appliedSearch === "" ? {} : { search: appliedSearch }),
   });
 
@@ -182,9 +189,9 @@
   let windowOpen = $state(false);
   let windowEditing = $state(false);
 
-  /** The task the firm is deciding not to do. Its reason is asked for in its own panel. */
-  let notDoing = $state<MatterTask | null>(null);
-  let notDoingOpen = $state(false);
+  /** The task being put away. Its optional reason is asked for in its own panel. */
+  let archiving = $state<MatterTask | null>(null);
+  let archivingOpen = $state(false);
 
   let saving = $state(false);
   // The failure RECORD, not a sentence assembled from it: the Error ID and the remedy reach the
@@ -207,12 +214,12 @@
     taskList.reset(subject);
     windowOpen = false;
     openTask = null;
-    notDoingOpen = false;
-    notDoing = null;
+    archivingOpen = false;
+    archiving = null;
     searchText = "";
     appliedSearch = "";
     showDone = false;
-    showCancelled = false;
+    showArchived = false;
     writeFailure = null;
     matterFiles = null;
     matterFolders = [];
@@ -224,7 +231,7 @@
     void readSession(fetch).then((outcome) => {
       session = outcome.kind === "ok" ? outcome.value : null;
     });
-    void taskList.load((cursor) => read(cursor, { states: ["open"] }));
+    void taskList.load((cursor) => read(cursor, { rungs: OPEN_RUNGS }));
     void roster.load(fetch);
     offeredPlans = null;
     reviewingPlan = null;
@@ -256,7 +263,7 @@
   }
 
   const myName = $derived(session?.user.name ?? "You");
-  // Writing, editing, completing, cancelling and deleting are one permission; putting a task in
+  // Writing, editing, moving along the rungs, archiving and deleting are one permission; putting a task in
   // somebody else's name is a second. A member without either still reads the list, so the controls
   // are absent rather than present-and-refusing.
   const canWrite = $derived(session === null || session.permissions.includes("tasks:write"));
@@ -552,7 +559,11 @@
                     title="Open this task"
                     onclick={() => openWindow(task)}
                   >
-                    <span class={task.state === "open" ? "" : "text-text-muted line-through"}>
+                    <span
+                      class={task.rung === "done" || task.archivedAt !== null
+                        ? "text-text-muted line-through"
+                        : ""}
+                    >
                       {task.title}
                     </span>
                   </Button>
@@ -561,8 +572,14 @@
                       {PRIORITY_LABELS[task.priority]}
                     </Badge>
                   {/if}
-                  {#if task.state !== "open"}
-                    <Badge variant="neutral">{STATE_LABELS[task.state]}</Badge>
+                  <!-- WHERE IT STANDS, said once. To Do is the resting state of every open task
+                       and a badge on every row saying so would be a badge nobody reads, so it is
+                       the one rung that shows nothing. -->
+                  {#if task.rung !== "to_do"}
+                    <Badge variant="neutral">{RUNG_LABELS[task.rung]}</Badge>
+                  {/if}
+                  {#if task.archivedAt !== null}
+                    <Badge variant="neutral">Archived</Badge>
                   {/if}
                   <!-- Overdue is a comparison against now, made here. It is not a state and there is
                        no column behind it. -->
@@ -628,10 +645,10 @@
                       </dd>
                     </div>
                   {/each}
-                  {#if task.state === "cancelled" && task.cancellationReason !== null}
+                  {#if task.archiveReason !== null}
                     <div class="flex gap-4">
-                      <dt>Not doing it because</dt>
-                      <dd class="text-text">{task.cancellationReason}</dd>
+                      <dt>Archived because</dt>
+                      <dd class="text-text">{task.archiveReason}</dd>
                     </div>
                   {/if}
                 </dl>
@@ -651,36 +668,55 @@
               </div>
 
               {#if canWrite}
-                <!-- THE ONE ACT A LIST IS FOR: ticking a thing off, and putting it back. Everything
-                     else a task can have done to it is an act on the record and lives in its window.
+                <!-- THE ONE ACT A LIST IS FOR: ticking a thing off, and putting it back. The four
+                     rungs are in the task's own window, where the rest of its acts are; a list that
+                     carried the whole group on every row would be four controls deep on work
+                     somebody is only scanning. Done is the one that belongs out here, because
+                     clearing finished work off a list IS what a list is for.
+                     An ARCHIVED row offers only the way back: everything else about it is an act on
+                     a record nobody is looking at from here.
                      It renders at rest rather than on hover: a control somebody has to discover by
                      pointing at it is a control most people never find. -->
                 <div class="flex shrink-0 flex-wrap items-center justify-end gap-4">
-                  {#if task.state === "open"}
+                  {#if task.archivedAt !== null}
                     <Button
                       variant="secondary"
                       disabled={saving}
+                      title="Put this task back on the list, on the rung it left from"
                       onclick={() =>
                         runWrite(
-                          () => completeTask(fetch, task.id, newWriteKey()),
-                          "The task was not completed.",
+                          () => unarchiveTask(fetch, task.id, newWriteKey()),
+                          "The task was not put back.",
                         )}
                     >
-                      Done
+                      <ArchiveRestore aria-hidden="true" />
+                      Put Back
                     </Button>
-                  {:else}
+                  {:else if task.rung === "done"}
                     <Button
                       variant="secondary"
                       disabled={saving}
                       title="Put this task back on the list"
                       onclick={() =>
                         runWrite(
-                          () => reopenTask(fetch, task.id, newWriteKey()),
+                          () => moveTaskToRung(fetch, task.id, "to_do", newWriteKey()),
                           "The task was not reopened.",
                         )}
                     >
                       <RotateCcw aria-hidden="true" />
                       Reopen
+                    </Button>
+                  {:else}
+                    <Button
+                      variant="secondary"
+                      disabled={saving}
+                      onclick={() =>
+                        runWrite(
+                          () => moveTaskToRung(fetch, task.id, "done", newWriteKey()),
+                          "The task was not completed.",
+                        )}
+                    >
+                      Done
                     </Button>
                   {/if}
                 </div>
@@ -707,10 +743,11 @@
     {/if}
   </LoadingRegion>
 
-  <!-- WHAT IS CLOSED IS ASKED FOR WHERE THE OPEN WORK ENDS. Done and cancelled tasks are not what
+  <!-- WHAT IS NO LONGER OWED IS ASKED FOR WHERE THE OPEN WORK ENDS. Finished and archived tasks are not what
        this list is for, so they are not two boxes over it competing with the search for the row a
        reader searches from: they are two disclosures at the foot, met after everything still owed
-       has been read. Each is undone by its own label, which is why neither draws the clear control
+       has been read. Two questions and not one: a task is archived FROM wherever it stood, done
+       included. Each is undone by its own label, which is why neither draws the clear control
        — a control that says "Show Everything" because MORE is on screen answers the wrong
        question. Absent while the list has not settled, so nothing offers to widen a list that is
        not there yet. -->
@@ -731,16 +768,16 @@
       <Button
         variant="ghost"
         size="sm"
-        class={showCancelled ? "text-accent-default" : "text-text-muted"}
-        title={showCancelled
-          ? "Leave the cancelled work out of the list"
-          : "Add the work the firm decided not to do to the list"}
+        class={showArchived ? "text-accent-default" : "text-text-muted"}
+        title={showArchived
+          ? "Leave the archived work out of the list"
+          : "Add the work that has been put away to the list"}
         onclick={() => {
-          showCancelled = !showCancelled;
+          showArchived = !showArchived;
           applyFilters();
         }}
       >
-        {showCancelled ? "Hide Cancelled" : "Show Cancelled"}
+        {showArchived ? "Hide Archived" : "Show Archived"}
       </Button>
     </div>
   {/if}
@@ -763,17 +800,17 @@
   {writeRefusal}
   {canAssign}
   onSaved={afterWrite}
-  onNotDoing={(subject) => {
-    notDoing = subject;
-    notDoingOpen = true;
+  onArchive={(subject) => {
+    archiving = subject;
+    archivingOpen = true;
   }}
 />
 
-<!-- The decision not to do a task, asked for once and serving both the window and this list. -->
-<TaskNotDoingDialog
-  bind:open={notDoingOpen}
-  task={notDoing}
-  onCancelled={() => {
-    if (notDoing !== null) afterWrite(notDoing.id);
+<!-- Putting a task away, asked for once and serving both the window and this list. -->
+<TaskArchiveDialog
+  bind:open={archivingOpen}
+  task={archiving}
+  onArchived={() => {
+    if (archiving !== null) afterWrite(archiving.id);
   }}
 />

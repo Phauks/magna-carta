@@ -25,8 +25,16 @@
 // THESE SIX ARE DEBT, NOT PERMISSION. Each was written before that was understood, and each is
 // unappliable to a firm whose rebuilt table has children — one of them is why a firm's database sat
 // unreachable for a day. They are listed so the guard can tell an old mistake from a new one; the
-// list must never grow. Widening a CHECK or dropping a column on a parent table needs a different
-// answer, and choosing one is an open decision rather than something to work around here.
+// list must never grow.
+//
+// WIDENING A CHECK OR DROPPING A COLUMN ON A PARENT TABLE NOW HAS AN ANSWER, and it is not a
+// cleverer rebuild: you add a column. Six mechanisms were probed against real durable-object storage
+// and all six fail, `PRAGMA writable_schema` — SQLite's own documented way to change a constraint
+// with nothing dropped — included, which workerd's authorizer refuses outright (SQLITE_AUTH). The
+// probes are apps/api-worker/test/durable-object-pragma-context.test.ts, and the same file proves
+// that an ADDED column may carry its own CHECK, including one naming a second column, which is what
+// the route rests on. ADR-a-vocabulary-on-a-parent-table-grows-by-adding-a-column; the worked case is
+// matter_task's rungs (20260914T120000_task-rungs-and-archive).
 export const PARENT_REBUILDS_PREDATING_THE_DURABLE_OBJECT_FINDING: ReadonlySet<string> =
   new Set<string>(["20260829T101500_firmless-account"]);
 

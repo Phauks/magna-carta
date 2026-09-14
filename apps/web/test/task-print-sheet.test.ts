@@ -19,12 +19,12 @@ function task(over: Partial<MatterTask> = {}): MatterTask {
     dueOn: null,
     dueAtTime: null,
     timeZone: null,
-    state: "open",
+    rung: "to_do",
     completedAt: null,
     completedBy: null,
-    cancelledAt: null,
-    cancelledBy: null,
-    cancellationReason: null,
+    archivedAt: null,
+    archivedBy: null,
+    archiveReason: null,
     blockedByTaskId: null,
     triggerEventId: null,
     deadlineId: null,
@@ -42,7 +42,8 @@ const CONTEXT = {
   matterTitle: "Kowalski v. Reno Transit",
   assigneeName: "Dana Whitfield",
   authorName: "Trevor Goldsmith",
-  closedByName: null,
+  completedByName: null,
+  archivedByName: null,
   instant: (at: string) => `instant:${at}`,
   // The two date questions a sheet asks, kept apart: a civil day the firm wrote down, and the day a
   // recorded moment fell on. Fixed here rather than taken from printSheetDates(), so the assertions
@@ -91,28 +92,50 @@ describe("taskSheet", () => {
   });
 
   it("says who finished a done task and when", () => {
-    const sheet = taskSheet(task({ state: "done", completedAt: "2026-09-02T17:00:00.000Z" }), {
+    const sheet = taskSheet(task({ rung: "done", completedAt: "2026-09-02T17:00:00.000Z" }), {
       ...CONTEXT,
-      closedByName: "Dana Whitfield",
+      completedByName: "Dana Whitfield",
     });
     expect(valueOf(sheet, "Done By")).toBe("Dana Whitfield");
     expect(valueOf(sheet, "Done")).toBe("instant:2026-09-02T17:00:00.000Z");
-    expect(standingLabels(sheet)).not.toContain("Not Doing It Because");
+    expect(standingLabels(sheet)).not.toContain("Archived By");
   });
 
-  it("prints the firm's reason on a cancelled task, which is the point of keeping it", () => {
+  it("prints the reason an archived task carries, where it carries one", () => {
     const sheet = taskSheet(
       task({
-        state: "cancelled",
-        cancelledAt: "2026-09-02T17:00:00.000Z",
-        cancellationReason: "The client settled the claim this covered.",
+        archivedAt: "2026-09-02T17:00:00.000Z",
+        archiveReason: "The client settled the claim this covered.",
       }),
-      { ...CONTEXT, closedByName: "Dana Whitfield" },
+      { ...CONTEXT, archivedByName: "Dana Whitfield" },
     );
-    expect(valueOf(sheet, "Not Doing It Because")).toBe(
-      "The client settled the claim this covered.",
-    );
+    expect(valueOf(sheet, "Archived By")).toBe("Dana Whitfield");
+    expect(valueOf(sheet, "Archived Because")).toBe("The client settled the claim this covered.");
     expect(standingLabels(sheet)).not.toContain("Done By");
+  });
+
+  it("says nothing about why on an archiving that gave no reason", () => {
+    const sheet = taskSheet(task({ archivedAt: "2026-09-02T17:00:00.000Z" }), {
+      ...CONTEXT,
+      archivedByName: "Dana Whitfield",
+    });
+    expect(standingLabels(sheet)).toContain("Archived");
+    expect(standingLabels(sheet)).not.toContain("Archived Because");
+  });
+
+  it("carries BOTH lines for a done task that was then put away", () => {
+    // Archiving is orthogonal to the rung: a task is archived FROM wherever it stood, so a sheet
+    // that printed one outcome would have to pick, and picking loses the other.
+    const sheet = taskSheet(
+      task({
+        rung: "done",
+        completedAt: "2026-09-01T17:00:00.000Z",
+        archivedAt: "2026-09-02T17:00:00.000Z",
+      }),
+      { ...CONTEXT, completedByName: "Dana Whitfield", archivedByName: "Trevor Goldsmith" },
+    );
+    expect(valueOf(sheet, "Done By")).toBe("Dana Whitfield");
+    expect(valueOf(sheet, "Archived By")).toBe("Trevor Goldsmith");
   });
 
   it("leaves the time logged out entirely where nobody recorded any", () => {

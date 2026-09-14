@@ -148,7 +148,9 @@ describe("the filters", () => {
         (row) => row.title,
       ),
     ).toEqual(["Theirs"]);
-    expect(await listMatter(database, { filters: { states: ["open"] } })).toHaveLength(3);
+    expect(
+      await listMatter(database, { filters: { rungs: ["to_do", "in_progress", "on_hold"] } }),
+    ).toHaveLength(3);
   });
 
   it("matches a search against the title and the body, and treats wildcards as text", async () => {
