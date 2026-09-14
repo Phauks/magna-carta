@@ -913,6 +913,26 @@ name, which is every screen outside a matter.
   before they have typed — the scope, the way through to the full results — is unreachable if the
   panel is gated on a query, and gating it made changing where the search looked require starting a
   search first. Empty, the panel is its header row and nothing else. _(matter search, 2026-09-02)_
+- **Every Workspace screen searches itself through the one control, in the top right.** The
+  owner's direction: a member should never have to learn where a screen keeps its search, and the
+  answer is the same everywhere — `ScreenSearch`, in the screen header's `actions` snippet, at the
+  inline end of the title row, resting as an icon so it costs the screen no vertical space. What
+  made this a ruling rather than a habit is what was found when it was checked: the Matters docket,
+  the Directory and a matter's Notes were each still carrying their own search box, every one of
+  them a `type="search"` field beside a Lucide search glyph with its own debounce and its own idea
+  of what pressing the icon on a live query should do. None was wrong; they were three more answers
+  to a question the product had already settled, and both 2026-09-02 corrections above had reached
+  the component and none of them. All three now use the control. _(Workspace screens, 2026-09-14)_
+- **A screen that cannot honestly search says so, rather than searching badly.** Narrowing the
+  pages already in the browser, on a list the server pages without taking a query, answers a
+  different question from the one being asked — "of the forty I have read, which match" — and
+  answers it silently, so a member whose match is two pages down is told there is none. Five
+  Workspace screens decline on exactly that ground today (Home, Notifications, Conflicts Check,
+  Magnus, Calendar), each recorded with what its search is waiting on. What is refused is not
+  answering. `pnpm run lint:workspace-search` holds all of this: it refuses a Workspace screen that
+  neither searches nor declines, a control seated anywhere but the header's action row, a decline
+  left standing after its screen got a search, and any second implementation of a search box.
+  _(Workspace screens, 2026-09-14)_
 
 ### Layout
 
