@@ -2182,3 +2182,12 @@ navigational menu (such as for magnus and settings), and a right content menu."
   a swap of its frame: the list of tools, or of reports, becomes the left navigation and the chosen
   one the right content. The file manager's folder tree beside its list is the other candidate.
   None of the three is in this round; each is a follow-up once the component exists.
+
+### 2026-09-14 — messaging's create control names a message
+
+The owner: "messaging, new should say new message, not new call".
+
+- **The messaging screen's create control reads "New Message".** The screen is the messaging log;
+  a call is one kind of message it holds, and a control named for one kind claims the whole screen
+  is that kind. The same control on the matter's Messaging section carries the same word.
+  _(status: open — routed to the messaging round in flight)_
