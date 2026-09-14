@@ -2,10 +2,15 @@
   /*
    * The calendar's one action row, at the reading edge.
    *
-   * Three groups, left to right: what is painted (on the agenda, whether settled entries are
-   * hidden), which view (month, week, day, agenda, as icon buttons held pressed), and where in time
-   * (previous, the window's name, next, and Today). Nothing above the grid that is not the grid is
-   * anywhere else.
+   * Three groups, left to right: what is painted (on the agenda, whether settled entries are hidden;
+   * on a time grid, how things that run at the same time are drawn), which view (month, week, day,
+   * agenda, as icon buttons held pressed), and where in time (previous, the window's name, next, and
+   * Today). Nothing above the grid that is not the grid is anywhere else.
+   *
+   * HOW CONCURRENT ENTRIES ARE DRAWN IS OFFERED WHERE IT MEANS SOMETHING, which is the week and the
+   * day: those are the two views with an hour axis, where two things at ten o'clock either divide
+   * their column or lie over one another. A month cell and an agenda are lists — a list has no
+   * concurrency to present — so the control is not drawn there rather than drawn inert.
    *
    * WHOSE CALENDAR IS NOT IN THIS ROW, AND WHICH CALENDARS ARE ON NEVER WAS. Both are the rail
    * beside the grid (calendar-rail.svelte), which lists a calendar per attorney, per room and per
@@ -32,6 +37,7 @@
   import ChevronLeft from "@lucide/svelte/icons/chevron-left";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import List from "@lucide/svelte/icons/list";
+  import type { CalendarGridConcurrency } from "@magna-carta/design-system/calendar-grid";
   import type { CalendarController } from "./calendar-controller.svelte.ts";
   import { CALENDAR_VIEWS, type CalendarView as CalendarViewKind } from "./calendar-window.ts";
 
@@ -43,6 +49,19 @@
     /** Whether the month / week / agenda switch is drawn; a host with its own switch passes false. */
     viewSwitch?: boolean;
   } = $props();
+
+  /**
+   * The two presentations of things that run at the same time, and the word for each. Side by side
+   * divides the column, so nothing hides; overlapping steps them over one another, so each block
+   * keeps more of its width. Named for what the reader sees, not for the arithmetic behind it.
+   */
+  const CONCURRENCY_CHOICES: ReadonlyArray<{ value: CalendarGridConcurrency; label: string }> = [
+    { value: "side-by-side", label: "Side by side" },
+    { value: "overlap", label: "Overlapping" },
+  ];
+
+  /** The views with an hour axis, which are the only ones concurrency is a question on. */
+  const timeGrid = $derived(controller.view === "week" || controller.view === "day");
 
   const VIEW_PRESENTATION: Record<CalendarViewKind, { label: string; icon: typeof List }> = {
     month: { label: "Month", icon: CalendarDays },
@@ -72,6 +91,24 @@
       >
         Hide settled
       </Button>
+    </div>
+  {/if}
+
+  {#if timeGrid}
+    <!-- Only where there is an hour axis to be concurrent ON. The pressed half wears the secondary
+         register and the other the ghost one, as every toggle on this row does. -->
+    <div class="flex items-center gap-4" role="group" aria-label="Things at the same time">
+      {#each CONCURRENCY_CHOICES as choice (choice.value)}
+        {@const pressed = controller.concurrency === choice.value}
+        <Button
+          variant={pressed ? "secondary" : "ghost"}
+          size="sm"
+          aria-pressed={pressed}
+          onclick={() => controller.chooseConcurrency(choice.value)}
+        >
+          {choice.label}
+        </Button>
+      {/each}
     </div>
   {/if}
 

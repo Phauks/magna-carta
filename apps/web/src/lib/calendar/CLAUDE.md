@@ -50,7 +50,9 @@ and a firm event. The backend it consumes is `packages/calendar` behind
 - `calendar-settings-draft.svelte.ts` — the firm's calendar settings (the day the week begins on)
   as a server-backed draft the settings page at `(app)/settings/calendar` renders through the
   shared settings rows and footer; the one draft on that surface with no local-storage copy
-- `calendar-view.svelte`, `calendar-toolbar.svelte` — the component and its one action row
+- `calendar-view.svelte`, `calendar-toolbar.svelte` — the component and its one action row. The row
+  is handed UP to a host's header through the `header` snippet, so the firm screen seats the view
+  switch and the window navigation beside its create control rather than in a band under it
 - `matter-calendar-list.svelte` — the matter section's List view: the two tables (deadlines lead,
   then events), each walked to its end by its own read
 - `entry-window.svelte` — the `RecordWindow` an event, a firm event or a deadline opens in: the
@@ -133,6 +135,15 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   reads `GET /api/v1/calendar/settings` once with the rest of its context and hands
   `weekStartsOn` to every grid; a surface never picks a week start of its own, and a member has
   no override. The setting is edited under Settings › Practice › Calendar.
+- **The week and the day are TIME GRIDS; the month and the agenda are lists of days.** A timed
+  entry on a time grid is a block from its start to its end (owner ruling, 2026-09-14), which is why
+  `endMinute` matters: the projection sets it for every source that has one, and an entry arriving
+  without one — the federated read declares a time of day and no duration — is drawn at the grid's
+  minimum block rather than given a guessed hour. **How concurrent entries are drawn is the
+  reader's**, held per browser beside the colours (`calendar-preferences.svelte.ts`) and offered on
+  the toolbar only where there is an hour axis to be concurrent on. Widening the federated read to
+  carry an end would make those entries stretch too, and is the one thing standing between a firm's
+  week and a complete picture of it.
 - **The grid tones are the subtle status register.** `info` for a court appearance, `danger` for an
   open past-due deadline, `success` satisfied, `warning` and struck for cancelled, `accent` for a
   firm entry; neutral otherwise. Decided once in `calendar-vocabulary.ts` and `calendar-entries.ts`.

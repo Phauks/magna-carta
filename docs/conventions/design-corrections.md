@@ -2413,6 +2413,37 @@ different, perhaps only when one has value."
   full width, under the two moments it qualifies. _(built 2026-09-14. A separate zone for the END of
   a setting — the owner's "they may start and end separately" — is a schema change and is open.)_
 
+### 2026-09-14 — the calendar's grids answer time
+
+The owner, in one round: "move month view controls to next to the new event button. week view
+should be taller since we can include time. there should be a setting to allow for overlapping
+events on one calendar, or showing them next to each other. you did something like that for daily
+view, but this should be a choice for all views." And separately: "start and end time need to
+properly show themselves on the calendar, not just on the start, should stretch accordingly."
+
+- **A timed entry is a BLOCK from its start to its end, on every grid with an hour axis.** The Day
+  had argued the other way in its own comment — a two-pixel sliver for a fifteen-minute call is
+  unreadable, and a block that overlapped its neighbour needs positioning a table cannot give — and
+  both halves of that are answered rather than accepted: the sliver by a minimum block height, the
+  positioning by placing the block out of the table cell it already sits in. A chip parked in its
+  starting hour with the duration written on it was a calendar that made the reader do the
+  arithmetic. _(built 2026-09-14)_
+- **The week is a time grid, not seven cells.** A week is the span a firm plans in, and a list per
+  day answers none of what it is read for. Hours down the leading edge, a day per column, and a band
+  above the hours for what is true of a whole day — where a multi-day run is still drawn across its
+  days. _(built 2026-09-14)_
+- **How things that run at the same time are drawn is the READER's choice, not the grid's.** Side by
+  side divides the column so nothing hides; overlapping steps them over one another so each keeps
+  more of its width. Held per browser beside the calendar colours, because it changes nothing anyone
+  else sees. _(built 2026-09-14, on the week and the day — the two views with an hour axis. The
+  month and the agenda are lists of days, where there is no spatial concurrency to choose between;
+  if "all views" meant something else there, it is unbuilt and needs saying.)_
+- **A screen decides WHERE a component's controls sit, even though the component owns them.**
+  `CalendarView` hands its action row up through the `header` snippet, and the firm calendar seats
+  it on the masthead's line beside New. The component keeps the controls — only it holds the
+  controller they act on — and a host that ignores the snippet still gets the row above the grid.
+  _(built 2026-09-14)_
+
 ### 2026-09-14 — messaging's create control names a message
 
 The owner: "messaging, new should say new message, not new call".

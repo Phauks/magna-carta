@@ -37,7 +37,11 @@
  */
 import { replaceState } from "$app/navigation";
 import { page } from "$app/state";
-import type { CalendarGridColor, CalendarGridLane } from "@magna-carta/design-system/calendar-grid";
+import type {
+  CalendarGridColor,
+  CalendarGridConcurrency,
+  CalendarGridLane,
+} from "@magna-carta/design-system/calendar-grid";
 import { colored, perLane, type CalendarEntry, type EntryContext } from "./calendar-entries.ts";
 import { readCalendarWindow, type CalendarReadFailure } from "./calendar-reads.ts";
 import {
@@ -50,8 +54,10 @@ import { calendarLayer } from "./calendar-vocabulary.ts";
 import {
   calendarsOn,
   chosenColors,
+  chosenConcurrency,
   setCalendarColor,
   setCalendarsOn,
+  setConcurrency,
 } from "./calendar-preferences.svelte.ts";
 import {
   assignedColors,
@@ -324,6 +330,19 @@ export class CalendarController {
   /** Give a calendar a colour. */
   chooseColor(sourceKey: string, color: CalendarGridColor): void {
     setCalendarColor(sourceKey, color);
+  }
+
+  /**
+   * How things that run at the same time are drawn on a time grid: divided between them
+   * (`side-by-side`) or lying over one another (`overlap`). The reader's own answer, held per
+   * browser beside the colours, because it changes nothing anybody else sees.
+   */
+  get concurrency(): CalendarGridConcurrency {
+    return chosenConcurrency();
+  }
+
+  chooseConcurrency(concurrency: CalendarGridConcurrency): void {
+    setConcurrency(concurrency);
   }
 
   /**

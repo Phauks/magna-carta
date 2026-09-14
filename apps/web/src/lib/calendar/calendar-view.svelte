@@ -24,6 +24,13 @@
    * its masthead down instead and it is rendered at the top of the content column — the arrangement
    * the Magnus workspace already uses, for the same reason.
    *
+   * AND THE HEADER IS HANDED THE ACTION ROW BACK, so a host can seat it beside its own create control
+   * rather than under it (owner, 2026-09-14: "move month view controls to next to the new event
+   * button"). The controls are the component's — only it holds the controller they act on — but WHERE
+   * they sit is the screen's, and on this screen they belong on the masthead's own line with New. A
+   * host that renders the snippet gets the row there and nothing under the masthead; a host that
+   * ignores it, or gives no header at all, gets the row above the grid where it has always been.
+   *
    * DOUBLE-CLICKING AN EMPTY DAY OR HOUR STARTS A RECORD ON IT. The component does not own the
    * forms — the host does, because the host is what knows whether a matter is in scope — so the
    * gesture is reported upward with the day, and the hour where a day grid gave one.
@@ -121,8 +128,12 @@
      * height under the top bar and cancels the canvas inset, so a masthead above it would sit above
      * the whole canvas. A host with no rail is under no such layout: it draws its own masthead above
      * this tag and passes nothing here, which is why the plain frame renders no header.
+     *
+     * It is handed the ACTION ROW — the view switch and the window navigation — so it can seat them
+     * beside its own create control. A header that renders the snippet owns where they sit and the
+     * row is not drawn again above the grid; one that does not gets them there.
      */
-    header?: Snippet;
+    header?: Snippet<[Snippet]>;
     class?: string;
   } = $props();
 
@@ -291,6 +302,13 @@
    * empty navigation column.
    */
   const railStands = $derived(rail && controller.firmSide);
+
+  /*
+   * Whether the action row is the header's rather than the body's. A host that takes a header takes
+   * the row with it — the snippet is handed over unconditionally, and a header is only ever given by
+   * a screen that seats it — so the row is drawn once and the two arrangements cannot both claim it.
+   */
+  const headerTookTheControls = $derived(header !== undefined);
 </script>
 
 <!--
@@ -299,10 +317,19 @@
   around it is one of two — the navigation layout where the rail stands, a plain full-height stack
   everywhere else — and the calendar inside them is the same calendar.
 -->
+<!--
+  The action row: the view switch and the window navigation. Declared once and rendered in exactly
+  one place — beside the host's create control where a header took it, above the grid where none
+  did — so the two arrangements can never both draw it.
+-->
+{#snippet actionRow()}
+  <CalendarToolbar {controller} {viewSwitch} />
+{/snippet}
+
 {#snippet calendar(frameClass: string)}
 <div class="flex min-h-0 flex-col gap-12 {frameClass}">
-  {#if toolbar}
-    <CalendarToolbar {controller} {viewSwitch} />
+  {#if toolbar && !headerTookTheControls}
+    {@render actionRow()}
   {/if}
 
   {#each controller.failures as failed (readFailureKey(failed))}
@@ -329,12 +356,15 @@
           {onCreate}
         />
       {:else if view === "week"}
+        <!-- The week is a TIME GRID now: seven day columns over an hour axis, with every timed
+             entry a block from its start to its end. -->
         <CalendarGrid.Week
           entries={painted}
           label={gridLabel}
           anchor={controller.anchor}
           weekStartsOn={controller.weekStartsOn}
           today={controller.today}
+          concurrency={controller.concurrency}
           loading={controller.loading}
           {emptyMessage}
           onActivate={activate}
@@ -349,6 +379,7 @@
           date={controller.anchor}
           lanes={controller.lanes}
           today={controller.today}
+          concurrency={controller.concurrency}
           loading={controller.loading}
           {emptyMessage}
           onActivate={activate}
@@ -416,7 +447,7 @@
     {/snippet}
     <div class="flex min-h-0 flex-1 flex-col gap-16 p-24">
       {#if header}
-        {@render header()}
+        {@render header(actionRow)}
       {/if}
       {@render calendar("flex-1")}
     </div>

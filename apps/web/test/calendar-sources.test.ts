@@ -6,6 +6,7 @@
  * without a browser.
  */
 import { describe, expect, it } from "vitest";
+import { DEFAULT_CONCURRENCY } from "@magna-carta/design-system/calendar-grid";
 import type { FirmMemberSummary } from "$lib/members/members-api.ts";
 import type { FirmResource } from "$lib/calendar/calendar-api.ts";
 import {
@@ -233,12 +234,23 @@ describe("what a browser remembers", () => {
   });
 
   it("drops a payload that is not one, an override that is not a boolean, and a colour that is not offered", () => {
-    expect(normalizeCalendarPreferences("nonsense")).toEqual({ onOverrides: {}, colors: {} });
+    expect(normalizeCalendarPreferences("nonsense")).toEqual({
+      onOverrides: {},
+      colors: {},
+      concurrency: DEFAULT_CONCURRENCY,
+    });
     const salvaged = normalizeCalendarPreferences({
       onOverrides: { records: true, firmEvents: "yes" },
       colors: { records: "blue", firmEvents: "chartreuse" },
     });
     expect(salvaged.onOverrides).toEqual({ records: true });
     expect(salvaged.colors).toEqual({ records: "blue" });
+  });
+
+  it("keeps a stored presentation of concurrent entries, and drops one it does not offer", () => {
+    expect(normalizeCalendarPreferences({ concurrency: "overlap" }).concurrency).toBe("overlap");
+    expect(normalizeCalendarPreferences({ concurrency: "cascade" }).concurrency).toBe(
+      DEFAULT_CONCURRENCY,
+    );
   });
 });

@@ -157,9 +157,14 @@
   {openEntry}
   {refreshToken}
 >
-  {#snippet header()}
+  {#snippet header(controls)}
     <ScreenHeader {title} {back}>
       {#snippet actions()}
+        <!-- The component's own controls — the view switch, the window, Today — seated on the
+             masthead's line rather than in a row under it (owner ruling, 2026-09-14). They act on
+             the component's controller, so the component owns them; this screen owns only where
+             they sit, and on a calendar they belong beside the act they are read with. -->
+        {@render controls()}
         <!-- The glyphs are the ones each kind already wears wherever it is named
              (calendar-activity-contribution.ts): one kind, one glyph, across the product. -->
         <CreateControl

@@ -371,11 +371,54 @@
     vertical-align: top;
     white-space: nowrap;
   }
-  /* An hour row holds one or two chips, not a month cell's worth, so it keeps a reading height
-     rather than the month's 96px step. */
+  /*
+   * THE HOUR STEP is the one length the whole time grid is built on: a row is one step tall, and a
+   * block's offset into its row and its own height are that step multiplied by a number of hours
+   * (time-blocks.ts). Declared on the grid so the arithmetic in the component is unitless and a
+   * denser or roomier hour is one value here.
+   */
+  .mc-calendar-grid-day-view {
+    --mc-calendar-grid-hour-size: var(--mc-space-48);
+  }
   .mc-calendar-grid-day-view .mc-calendar-grid-day-cell {
-    block-size: var(--mc-space-40);
+    block-size: var(--mc-calendar-grid-hour-size);
     padding-inline: var(--mc-space-8);
+  }
+  /*
+   * An hour cell is the positioning context for the blocks that BEGIN in it. They are placed
+   * inside it and run PAST it — a two-hour setting is twice the cell it started in — so the cell
+   * cannot clip and the row cannot collapse: the height above is a fixed step, not a minimum.
+   */
+  .mc-calendar-grid-time-cell {
+    position: relative;
+    overflow: visible;
+    padding-block: var(--mc-space-0);
+    vertical-align: top;
+  }
+  .mc-calendar-grid-blocks {
+    display: contents;
+  }
+  /*
+   * One block: from its start to its end, across its share of the column. Every length on it is
+   * the component's arithmetic (an inline style over the hour step and a percentage of the
+   * column), because where a particular hearing sits is data, not design. What is decided here is
+   * that a block is a positioned box with a hair of separation from its neighbour, and that it
+   * paints over the cell hairlines rather than under them.
+   */
+  .mc-calendar-grid-block {
+    position: absolute;
+    display: flex;
+    padding-inline-end: var(--mc-space-4);
+    padding-block-end: var(--mc-space-4);
+  }
+  /* The chip FILLS the block it was placed in rather than sitting at the top of it — the height is
+     the duration, and a chip that ignored it would put the stretch back where it started. A flex
+     child stretches to its container by default, which is how the height is taken without naming a
+     length: a recipe here may only say a token or a structural keyword. */
+  .mc-calendar-grid-block > .mc-calendar-grid-entry {
+    flex: auto;
+    align-items: flex-start;
+    overflow: hidden;
   }
   /* The band above the hours is where what is true of the whole day sits, so it is separated from
      them by a heavier rule than the hairline between two hours. */
@@ -401,9 +444,13 @@
   /* The calendar's colour is the shared pip (styles/recipes/palette-swatches.css), so a row in the
      rail and a column head on this grid cannot disagree about what blue is. */
   /* A day column is narrow once a firm turns eight calendars on: both lines of a chip truncate
-     rather than breaking inside a word, as the week's do and for the same reason. */
+     rather than breaking inside a word, as the month's do and for the same reason. */
   .mc-calendar-grid-day-view .mc-calendar-grid-entry {
     flex-wrap: wrap;
+  }
+  /* The week's day heads name a weekday and a number; today's is firmer, as it is on the month. */
+  .mc-calendar-grid-week .mc-calendar-grid-weekday[data-today="true"] {
+    color: var(--mc-text-default);
   }
   .mc-calendar-grid-day-view .mc-calendar-grid-entry-label,
   .mc-calendar-grid-day-view .mc-calendar-grid-entry-detail {
