@@ -367,13 +367,6 @@ export class CalendarController {
     return memberId === null ? null : { kind: "mine", memberId };
   }
 
-  /** Why Mine cannot be chosen yet, or undefined when it can. */
-  get mineRefusal(): string | undefined {
-    const hostScope = this.#host.scope();
-    if (hostScope.kind === "mine" || this.#host.memberId() !== null) return undefined;
-    return "Reading your session.";
-  }
-
   // The derived fields read the host through a closure: a field initializer runs before the
   // constructor assigns the host, and a derived is only evaluated when something reads it.
   readonly window: CalendarWindow = $derived.by(() =>
@@ -471,14 +464,15 @@ export class CalendarController {
     this.#host.setView("agenda");
   }
 
+  /**
+   * Which of the firm's own records are read: everyone's, or one member's. No control offers this
+   * any more — the rail of calendars answers "whose day" a calendar at a time, and the Mine /
+   * Everyone pair beside it was a second mechanism for the same question (owner ruling,
+   * 2026-09-14). It survives for the two callers that are not controls: a host whose scope changes
+   * under it, and an arriving address whose `scope=` key is a promise somebody was handed.
+   */
   chooseScope(choice: ScopeChoice): void {
     this.scopeChoice = choice;
-  }
-
-  /** One colleague's calendar; null returns to Everyone. */
-  chooseMember(memberId: string | null): void {
-    this.memberChoice = memberId;
-    this.scopeChoice = memberId === null ? "everyone" : "member";
   }
 
   toggleHideSettled(): void {

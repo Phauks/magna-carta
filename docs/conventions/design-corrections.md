@@ -2365,6 +2365,15 @@ navigational menu (such as for magnus and settings), and a right content menu."
   _(built 2026-09-14: Settings, Magnus, Tools and Reports all render on `NavigationLayout`; Tools
   and Reports share one catalogue column, with the landing index kept in the content column so a
   route's back control never bounces. The folder tree remains the follow-up.)_
+- **The firm calendar's rail of calendars is the fifth consumer**, named by the owner on 2026-09-14
+  ("calendar … has a permanent left sidebar, similar to what we have in tools and settings; let's
+  try and get these components together"). It had been a `<nav>` at `w-3xs` with a scroll region and
+  a gutter of its own beside the grid — a sixth width for the one shape. `CalendarView` now renders
+  the layout where the rail stands, and the screen's masthead is handed DOWN into the content column
+  (the Magnus arrangement) because the layout takes the full height under the top bar. The rail's
+  rows stay CHECKBOX rows: `NavigationLayout.Row` renders its own anchor or button and a switch
+  cannot be nested inside one, so what the columns share is the frame and the indent stagger — which
+  is what "the layout imposes no structure on what the navigation holds" is for. _(built 2026-09-14)_
 - **The row inside that column is `NavigationLayout.Row`, and a navigation row's name wraps rather
   than truncating.** The treatment had been written three times — the settings nav, the catalogue
   column, and inline in both. A row reading "Property Listin… Soon" has stopped naming the thing it
@@ -2373,6 +2382,36 @@ navigational menu (such as for magnus and settings), and a right content menu."
   has about thirteen characters a line at the `standard` measure: the column's content box is
   `size.popover` at every width, so a wider gutter cannot buy the name room — only a third row
   measure would, which is the owner's to settle if the wrapping reads cramped.)_
+
+### 2026-09-14 — the calendar's left column, and four corrections on its surface
+
+The owner, on the firm calendar: "calendar is starting to look really good. it has a permanent left
+sidebar, similar to what we have in tools and settings. let's try and get these components
+together." Then, in the same round: "remove colleague, mine, everyone buttons since that is covered
+by leftside bar functionality"; "type field should be the common component that allows for typing
+and dropdown, we have it, if not, make it. should be sorted alphabetically"; and on the record
+form's timing, "zone dropdown is separate from where it should be, one is a dropdown, the other
+isn't and i cant see the contents of the dropdown … size of start and end boxes are slightly
+different, perhaps only when one has value."
+
+- **The rail of calendars is `NavigationLayout`'s navigation column**, which makes the firm calendar
+  the fifth consumer of the one two-sided screen. See the 2026-09-11 ruling above for the component
+  and for why the screen's masthead moves inside it. _(built 2026-09-14)_
+- **Whose calendar is the rail's question, not a toolbar's.** Mine / Everyone / a colleague narrowed
+  the SAME firm read that the rail narrows a calendar at a time, so the three controls are gone. A
+  reader wanting their own day turns their own calendar on. The address's `scope=` key is still
+  honoured, because a link somebody was handed is a promise about what they will see.
+  _(built 2026-09-14)_
+- **A long closed list is typed at, not scrolled.** The event type is the product's combobox, sorted
+  alphabetically — the same control the zone field and the member pickers already were. A catalog
+  ordered by when somebody happened to create each entry has no order at all. _(built 2026-09-14)_
+- **Two lines that ask the same shape of question are built on equal tracks, never fitted
+  controls.** An empty time field and a filled one are different widths in every browser, so Starts
+  and Ends drifted apart as soon as one was answered; `FieldRow` cannot do that. And **a control
+  and a sentence are not two renderings of one field** — the zone was a dropdown on one line and a
+  statement on the other, both in a 40-pixel slot. A record still has one zone, so it is asked once,
+  full width, under the two moments it qualifies. _(built 2026-09-14. A separate zone for the END of
+  a setting — the owner's "they may start and end separately" — is a schema change and is open.)_
 
 ### 2026-09-14 — messaging's create control names a message
 

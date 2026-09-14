@@ -2,19 +2,19 @@
   /*
    * The calendar's one action row, at the reading edge.
    *
-   * Four groups, left to right: whose calendar (Mine, Everyone, or one colleague, on the firm side
-   * only), what is painted (on the agenda, whether settled entries are hidden), which view (month,
-   * week, day, agenda, as icon buttons held pressed), and where in time (previous, the window's
-   * name, next, and Today). Nothing above the grid that is not the grid is anywhere else.
+   * Three groups, left to right: what is painted (on the agenda, whether settled entries are
+   * hidden), which view (month, week, day, agenda, as icon buttons held pressed), and where in time
+   * (previous, the window's name, next, and Today). Nothing above the grid that is not the grid is
+   * anywhere else.
    *
-   * WHICH CALENDARS ARE ON IS NOT IN THIS ROW. It was — custody dates were a toggle here — and a
-   * row of toggles is the wrong shape for a firm with twenty calendars in five folders. They are
-   * the rail beside the grid now (calendar-rail.svelte), where a list of calendars belongs.
-   *
-   * THE COLLEAGUE PICKER IS A SELECT, NOT A THIRD BUTTON. Mine and Everyone are two answers; a
-   * firm's roster is many, so it is a dropdown seated after the pair, reading the chosen name and
-   * "Colleague" otherwise. Choosing one presses neither button, because the calendar is then
-   * neither the reader's nor everyone's.
+   * WHOSE CALENDAR IS NOT IN THIS ROW, AND WHICH CALENDARS ARE ON NEVER WAS. Both are the rail
+   * beside the grid (calendar-rail.svelte), which lists a calendar per attorney, per room and per
+   * kind of date and switches each on its own. The row carried a Mine / Everyone pair and a
+   * colleague dropdown beside them until 2026-09-14, when the owner removed all three as covered by
+   * the rail: a reader wanting their own day turns their own calendar on, and a pair of buttons
+   * narrowing the SAME firm read was a second mechanism answering a question the rail answers
+   * better. The address's `scope=` key is still read, so a link somebody was handed still opens
+   * where it says.
    *
    * THE WINDOW'S NAME SITS IN A FIXED-WIDTH SLOT. "September 2026" and "Sep 28 – Oct 11, 2026" are
    * different lengths, and a name that reflowed the controls beside it would move the very button
@@ -26,37 +26,23 @@
    * in $lib/view-shell/view-switch.svelte.
    */
   import Button from "@magna-carta/design-system/button";
-  import * as Select from "@magna-carta/design-system/select";
   import CalendarDays from "@lucide/svelte/icons/calendar-days";
   import CalendarRange from "@lucide/svelte/icons/calendar-range";
   import Columns3 from "@lucide/svelte/icons/columns-3";
   import ChevronLeft from "@lucide/svelte/icons/chevron-left";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import List from "@lucide/svelte/icons/list";
-  import type { FirmMemberSummary } from "$lib/members/members-api.ts";
-  import type { CalendarController, ScopeChoice } from "./calendar-controller.svelte.ts";
+  import type { CalendarController } from "./calendar-controller.svelte.ts";
   import { CALENDAR_VIEWS, type CalendarView as CalendarViewKind } from "./calendar-window.ts";
 
   let {
     controller,
     viewSwitch = true,
-    members = [],
   }: {
     controller: CalendarController;
     /** Whether the month / week / agenda switch is drawn; a host with its own switch passes false. */
     viewSwitch?: boolean;
-    /** The firm's roster, for the colleague picker on the firm side. */
-    members?: readonly FirmMemberSummary[];
   } = $props();
-
-  const memberItems = $derived(
-    members
-      .map((member) => ({ value: member.userId, label: member.displayName }))
-      .toSorted((left, right) => left.label.localeCompare(right.label)),
-  );
-  const chosenMember = $derived(
-    controller.scopeChoice === "member" ? (controller.memberChoice ?? "") : "",
-  );
 
   const VIEW_PRESENTATION: Record<CalendarViewKind, { label: string; icon: typeof List }> = {
     month: { label: "Month", icon: CalendarDays },
@@ -65,11 +51,6 @@
     day: { label: "Day", icon: Columns3 },
     agenda: { label: "Agenda", icon: List },
   };
-
-  const SCOPE_CHOICES: ReadonlyArray<{ value: Exclude<ScopeChoice, "member">; label: string }> = [
-    { value: "mine", label: "Mine" },
-    { value: "everyone", label: "Everyone" },
-  ];
 
   /** What one step of the navigation moves by, so the arrows say where they go. */
   const STEP_NAMES: Record<CalendarViewKind, string> = {
@@ -81,53 +62,7 @@
 </script>
 
 <div class="flex flex-wrap items-center gap-16">
-  {#if controller.firmSide}
-    <div class="flex items-center gap-4" role="group" aria-label="Whose calendar">
-      {#each SCOPE_CHOICES as choice (choice.value)}
-        {@const pressed = controller.scopeChoice === choice.value}
-        {@const refusal = choice.value === "mine" ? controller.mineRefusal : undefined}
-        <Button
-          variant={pressed ? "secondary" : "ghost"}
-          size="sm"
-          aria-pressed={pressed}
-          disabled={refusal !== undefined}
-          title={refusal}
-          onclick={() => controller.chooseScope(choice.value)}
-        >
-          {choice.label}
-        </Button>
-      {/each}
-      {#if memberItems.length > 0}
-        <Select.Root
-          type="single"
-          items={memberItems}
-          bind:value={() => chosenMember, (next) => controller.chooseMember(next === "" ? null : next)}
-        >
-          <Select.Trigger aria-label="A colleague's calendar" style="inline-size: var(--mc-size-popover)">
-            <Select.Value placeholder="Colleague" />
-          </Select.Trigger>
-          <Select.Content>
-            {#each memberItems as item (item.value)}
-              <Select.Item value={item.value} label={item.label} />
-            {/each}
-          </Select.Content>
-        </Select.Root>
-      {/if}
-    </div>
-
-    {#if controller.view === "agenda"}
-      <div class="flex items-center gap-4" role="group" aria-label="What is shown">
-        <Button
-          variant={controller.hideSettled ? "secondary" : "ghost"}
-          size="sm"
-          aria-pressed={controller.hideSettled}
-          onclick={() => controller.toggleHideSettled()}
-        >
-          Hide settled
-        </Button>
-      </div>
-    {/if}
-  {:else if controller.view === "agenda"}
+  {#if controller.view === "agenda"}
     <div class="flex items-center gap-4" role="group" aria-label="What is shown">
       <Button
         variant={controller.hideSettled ? "secondary" : "ghost"}
