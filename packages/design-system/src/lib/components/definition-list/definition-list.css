@@ -5,7 +5,9 @@
    * A two-column grid: the term column as wide as its longest term, the definition column taking
    * the rest and wrapping a long value inside the frame. Each row is `display: contents`, so the
    * term and the definition are the grid's own items and every row's columns line up; the empty
-   * row spans both columns and sits beneath the terms, inside the frame.
+   * row's message sits in the definition column beneath the values it stands in for, inside the
+   * frame, with its own term held in the grid at no height so the columns still line up and a
+   * screen reader still hears what the message is.
    *
    * It is a WORK SURFACE, so it stays quiet: no fills, no rules between rows, the term in the
    * muted voice and the value in the reading voice. The only mark it draws on its own is the muted
@@ -13,7 +15,7 @@
    */
   .mc-definition-list {
     display: grid;
-    grid-template-columns: max-content minmax(var(--mc-space-0), 1fr);
+    grid-template-columns: max-content 1fr;
     column-gap: var(--mc-space-16);
     row-gap: var(--mc-space-8);
     margin: var(--mc-space-0);
@@ -36,12 +38,15 @@
   .mc-definition-list-empty-value {
     color: var(--mc-text-subtle);
   }
-  /* The list's own empty state: beneath the terms, spanning both columns, in the muted voice. */
+  /* The list's own empty state: beneath the values, in the definition column, in the muted voice. */
   .mc-definition-list-empty {
     display: contents;
   }
+  .mc-definition-list-empty-term {
+    block-size: var(--mc-space-0);
+    overflow: hidden;
+  }
   .mc-definition-list-empty-message {
-    grid-column: 1 / -1;
     margin: var(--mc-space-0);
     padding-block-start: var(--mc-space-4);
     color: var(--mc-text-muted);

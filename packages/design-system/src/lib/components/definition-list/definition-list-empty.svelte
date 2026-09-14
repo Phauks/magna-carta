@@ -4,9 +4,10 @@
    *
    * The words about why the definitions are empty belong beneath the terms, in the same frame, and
    * nowhere else: a paragraph beside the list on the canvas is what the owner named as leaving the
-   * reader unprepared for the values that will arrive. It is a full-width row spanning both
-   * columns, with a term of its own that only assistive technology reads, because a definition
-   * list's grammar has no row without one.
+   * reader unprepared for the values that will arrive. The message sits in the definition column,
+   * under the values it stands in for, with a term of its own that holds the grid's term column at
+   * no height and that only assistive technology reads, because a definition list's grammar has no
+   * row without one.
    */
   import type { Snippet } from "svelte";
   import type { HTMLAttributes } from "svelte/elements";
@@ -33,6 +34,6 @@
   data-placeholder="true"
   {...restProps}
 >
-  <dt class="sr-only">{term}</dt>
+  <dt class="mc-definition-list-empty-term">{term}</dt>
   <dd class="mc-definition-list-empty-message">{@render children()}</dd>
 </div>
