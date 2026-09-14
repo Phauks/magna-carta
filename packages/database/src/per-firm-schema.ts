@@ -452,6 +452,11 @@ export const location = sqliteTable(
     addressBlock: text("address_block"), // free-text letterhead address
     footer: text("footer"), // free-text letterhead footer
     remitTo: text("remit_to"), // free-text billing remit-to
+    // The office's own email address — what a letterhead, a bill and a portal page name as the way
+    // to write to THIS office. One per office: an office's telephone belongs to each of its
+    // addresses (a mailing address can carry a different line from the street one), but mail reaches
+    // an office, not a building.
+    email: text("email"),
     // The office's letterhead logo. The BYTES live in the firm's own bucket (bulk content never goes in
     // D1); the row carries the object key, what the bytes are, and how large the mark prints.
     // letterhead_logo_width_emu is the only dimension stored on purpose: the height follows from the
@@ -491,10 +496,18 @@ export const locationAddress = sqliteTable(
       .$type<LocationId>()
       .references(() => location.id),
     kind: text("kind", { enum: ["physical", "mailing"] }).notNull(),
+    // The international field set, named for POSITION in an address rather than for any one
+    // country's words — the same columns the directory's addresses carry, so the product's one
+    // address form (the design system's AddressFields) writes an office's address the way it writes
+    // a client's. The country is what decides which of them a form shows and what each is called.
     street: text("street"),
+    streetTwo: text("street_two"),
+    dependentLocality: text("dependent_locality"),
     city: text("city"),
     region: text("region"),
     postal: text("postal"),
+    sortingCode: text("sorting_code"),
+    country: text("country"), // ISO 3166-1 alpha-2; null on an address recorded before the column
     phone: text("phone"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
@@ -502,6 +515,42 @@ export const locationAddress = sqliteTable(
   (table) => [
     index("location_address_location_id_index").on(table.locationId),
     check("location_address_kind_check", sql`${table.kind} IN ('physical', 'mailing')`),
+  ],
+);
+
+// The firm's own marks — the images branding the product and printed into generated documents.
+// FIRM-WIDE, where the letterhead logo on `location` is per office: an office with no logo of its
+// own prints the firm's primary mark, so a single-office firm sets its mark once and never has to
+// know the difference. Content-addressed: the primary key IS the SHA-256 of the bytes, so uploading
+// the same mark twice is the same row, and a replaced mark never overwrites the object a document
+// was already produced from. The bytes live in the firm's own bucket under that hash; the row
+// carries what a document needs to draw them — what they are, and their intrinsic pixel size.
+// There is exactly one `primary` row at a time, enforced in the write path rather than by a
+// partial index (the snapshot cannot record one): promoting an image demotes the previous primary
+// to `additional` rather than removing it, so nothing is lost by choosing.
+export const firmBrandImage = sqliteTable(
+  "firm_brand_image",
+  {
+    id: text("id").primaryKey(), // sha256 hex of the bytes
+    role: text("role", { enum: ["primary", "additional"] }).notNull(),
+    // What the image is FOR, in the firm's own words ("Seal", "Wordmark"). Nullable: the primary
+    // mark needs no caption, and an additional image without one is still an image.
+    label: text("label"),
+    objectKey: text("object_key").notNull(),
+    contentType: text("content_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    widthPixels: integer("width_pixels").notNull(),
+    heightPixels: integer("height_pixels").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    check("firm_brand_image_role_check", sql`${table.role} IN ('primary', 'additional')`),
+    check("firm_brand_image_size_check", sql`${table.sizeBytes} > 0`),
+    check(
+      "firm_brand_image_pixels_check",
+      sql`${table.widthPixels} > 0 AND ${table.heightPixels} > 0`,
+    ),
   ],
 );
 

@@ -895,6 +895,7 @@ export const NO_PII_TABLES: readonly string[] = [
   "location",
   "location_address",
   "member_location",
+  "firm_brand_image",
   // Matters, Locations & File Manager structure — classification catalogs, matter/folder shells, and
   // file-lifecycle bookkeeping.
   "matter_type",

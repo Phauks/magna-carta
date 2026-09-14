@@ -3,9 +3,11 @@ import { domainAuditStatement } from "@magna-carta/data-access/audit-statements"
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { OutboxMessage } from "@magna-carta/data-access/outbox-statements";
+import { writeFirmSettingStatement } from "@magna-carta/data-access/setting-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
 import type { LocationId, UserId } from "@magna-carta/identifiers/types";
+import { firmDefaultLocationDefinition } from "./settings.ts";
 import {
   clearLetterheadLogoStatement,
   closeLocationStatement,
@@ -15,6 +17,7 @@ import {
   insertLocationStatement,
   insertMemberLocationStatement,
   type LocationFields,
+  readMemberLocations,
   selectLocationStatement,
   setLetterheadLogoStatement,
   updateLocationFieldsStatement,
@@ -47,14 +50,26 @@ export interface CreateLocationInput {
   readonly addressBlock?: string | null;
   readonly footer?: string | null;
   readonly remitTo?: string | null;
+  // The one way to write to this office. Checked loosely (an @ with something either side): the
+  // address is stored to be printed and written to, and a stricter grammar refuses real addresses
+  // more often than it catches a typo.
+  readonly email?: string | null;
 }
 
+// The international address field set, named for POSITION in an address: the same columns the
+// directory's addresses carry, so the product's one country-shaped address form writes an office's
+// address the way it writes anybody's.
 export interface AddressInput {
   readonly kind: "physical" | "mailing";
   readonly street?: string | null;
+  readonly streetTwo?: string | null;
+  readonly dependentLocality?: string | null;
   readonly city?: string | null;
   readonly region?: string | null;
   readonly postal?: string | null;
+  readonly sortingCode?: string | null;
+  /** ISO 3166-1 alpha-2. What decides which of the lines a form shows and what each is called. */
+  readonly country?: string | null;
   readonly phone?: string | null;
 }
 
@@ -116,6 +131,25 @@ function requireResolvableTimeZone(timeZone: string | null): void {
   }
 }
 
+// One @ with something on either side, and no whitespace. What an address is FOR here is being
+// printed on a letterhead and written to; the mail system is the authority on whether it exists.
+function requireEmailShape(email: string | null): void {
+  if (email === null) return;
+  if (!/^[^\s@]+@[^\s@]+$/u.test(email)) {
+    throw new LocationValidationError(
+      "invalid-email",
+      "an office's email is one address, such as reno@example.com",
+    );
+  }
+}
+
+/** An empty or whitespace-only email is no email, which is a real answer rather than a refusal. */
+function normalizeEmail(email: string | null | undefined): string | null {
+  if (email === null || email === undefined) return null;
+  const trimmed = email.trim();
+  return trimmed === "" ? null : trimmed;
+}
+
 async function loadLocation(
   database: SqlDatabase,
   id: LocationId,
@@ -130,6 +164,7 @@ async function loadLocation(
     address_block: string | null;
     footer: string | null;
     remit_to: string | null;
+    email: string | null;
     letterhead_logo_object_key: string | null;
   }>();
   const row = results[0];
@@ -144,6 +179,7 @@ async function loadLocation(
     addressBlock: row.address_block,
     footer: row.footer,
     remitTo: row.remit_to,
+    email: row.email ?? null,
     letterheadLogoObjectKey: row.letterhead_logo_object_key ?? null,
   };
 }
@@ -160,6 +196,8 @@ export async function createLocation(
 ): Promise<CreatedLocation> {
   requireNonEmptyName(input.name);
   requireResolvableTimeZone(input.timeZone ?? null);
+  const email = normalizeEmail(input.email);
+  requireEmailShape(email);
   const locationId = newIdentifier("location", options.randomSource);
   const createdAt = options.clock.now();
   const message: OutboxMessage = {
@@ -179,6 +217,7 @@ export async function createLocation(
           addressBlock: input.addressBlock ?? null,
           footer: input.footer ?? null,
           remitTo: input.remitTo ?? null,
+          email,
           createdAt,
         }),
         auditStatement(database, options, "location.created", locationId),
@@ -210,9 +249,11 @@ export async function updateLocation(
     addressBlock: patch.addressBlock !== undefined ? patch.addressBlock : existing.addressBlock,
     footer: patch.footer !== undefined ? patch.footer : existing.footer,
     remitTo: patch.remitTo !== undefined ? patch.remitTo : existing.remitTo,
+    email: patch.email !== undefined ? normalizeEmail(patch.email) : existing.email,
   };
   requireNonEmptyName(merged.name);
   requireResolvableTimeZone(merged.timeZone);
+  requireEmailShape(merged.email);
   return {
     effect: {
       statements: [
@@ -371,9 +412,13 @@ export async function setLocationAddresses(
             locationId,
             kind: address.kind,
             street: address.street ?? null,
+            streetTwo: address.streetTwo ?? null,
+            dependentLocality: address.dependentLocality ?? null,
             city: address.city ?? null,
             region: address.region ?? null,
             postal: address.postal ?? null,
+            sortingCode: address.sortingCode ?? null,
+            country: address.country ?? null,
             phone: address.phone ?? null,
             createdAt,
           }),
@@ -420,6 +465,100 @@ export async function assignMemberLocations(
       ],
       // No external consequence — member↔location assignment is audited, not published.
       outboxMessages: [],
+    },
+  };
+}
+
+// ---- assignment from the OFFICE's side ---------------------------------------------------------
+//
+// The contract's write is per MEMBER: the whole set at once, exactly one primary. An office record
+// adds and removes one person at a time, so these two read the member's set, change the one entry,
+// and hand the result to assignMemberLocations — the one-primary rule is enforced once, there.
+
+/**
+ * Put a member at an office. Their FIRST office is their primary whatever the caller said, because
+ * a member with any office must have one; a later one is primary only when asked, and asking
+ * demotes the office that was.
+ */
+export async function addMemberToLocation(
+  database: SqlDatabase,
+  memberUserId: UserId,
+  locationId: LocationId,
+  isPrimary: boolean,
+  options: LocationServiceOptions,
+): Promise<{ effect: EffectWrite }> {
+  const existing = await loadLocation(database, locationId);
+  if (existing === undefined) {
+    throw new LocationValidationError("unknown-location", `no such location: ${locationId}`);
+  }
+  const held = await readMemberLocations(database, memberUserId);
+  const others = held.filter((assignment) => assignment.locationId !== locationId);
+  const primary = others.length === 0 || isPrimary;
+  const assignments: MemberLocationInput[] = [
+    ...others.map((assignment) => ({
+      locationId: assignment.locationId,
+      isPrimary: primary ? false : assignment.isPrimary,
+    })),
+    { locationId, isPrimary: primary },
+  ];
+  return assignMemberLocations(database, memberUserId, assignments, options);
+}
+
+/**
+ * Take a member off an office. Where the office they leave was their primary and others remain,
+ * the first remaining one becomes primary: a member with offices and no primary is a state the
+ * write path refuses, and refusing the removal instead would leave nobody able to press it.
+ */
+export async function removeMemberFromLocation(
+  database: SqlDatabase,
+  memberUserId: UserId,
+  locationId: LocationId,
+  options: LocationServiceOptions,
+): Promise<{ effect: EffectWrite }> {
+  const held = await readMemberLocations(database, memberUserId);
+  const remaining = held.filter((assignment) => assignment.locationId !== locationId);
+  const hasPrimary = remaining.some((assignment) => assignment.isPrimary);
+  const assignments: MemberLocationInput[] = remaining.map((assignment, index) => ({
+    locationId: assignment.locationId,
+    isPrimary: hasPrimary ? assignment.isPrimary : index === 0,
+  }));
+  return assignMemberLocations(database, memberUserId, assignments, options);
+}
+
+// ---- the firm's default office ----------------------------------------------------------------
+
+/**
+ * Name the office a matter with no office of its own numbers and prints against. It is the one
+ * office that cannot be closed, which is why closing needs a way to move the role first — and why
+ * a closed office cannot take it.
+ */
+export async function setFirmDefaultLocation(
+  database: SqlDatabase,
+  locationId: LocationId,
+  options: LocationServiceOptions,
+): Promise<{ effect: EffectWrite }> {
+  const existing = await loadLocation(database, locationId);
+  if (existing === undefined) {
+    throw new LocationValidationError("unknown-location", `no such location: ${locationId}`);
+  }
+  if (existing.status === "closed") {
+    throw new LocationValidationError(
+      "location-is-closed",
+      "a closed office cannot be the firm's default; choose an open one",
+    );
+  }
+  return {
+    effect: {
+      statements: [
+        writeFirmSettingStatement(
+          database,
+          firmDefaultLocationDefinition,
+          locationId,
+          options.clock.now(),
+        ),
+        auditStatement(database, options, "location.firm_default_set", locationId),
+      ],
+      outboxMessages: [{ topic: "location.updated", payload: { locationId } }],
     },
   };
 }

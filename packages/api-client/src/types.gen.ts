@@ -1558,6 +1558,7 @@ export type LocationRequest = {
     addressBlock?: string | null;
     footer?: string | null;
     remitTo?: string | null;
+    email?: string | null;
 };
 
 export type LocationListResponse = {
@@ -1569,7 +1570,26 @@ export type LocationSummary = {
     name: string;
     status: 'active' | 'closed';
     jurisdiction: string | null;
+    timeZone: string | null;
     numberCode: string | null;
+    email: string | null;
+    addresses: Array<LocationAddress>;
+    members: number;
+    hasLetterheadLogo: boolean;
+    firmDefault: boolean;
+};
+
+export type LocationAddress = {
+    kind: 'physical' | 'mailing';
+    street: string | null;
+    streetTwo: string | null;
+    dependentLocality: string | null;
+    city: string | null;
+    region: string | null;
+    postal: string | null;
+    sortingCode: string | null;
+    country: string | null;
+    phone: string | null;
 };
 
 export type LocationDetail = {
@@ -1582,7 +1602,21 @@ export type LocationDetail = {
     addressBlock: string | null;
     footer: string | null;
     remitTo: string | null;
+    email: string | null;
+    addresses: Array<LocationAddress>;
+    members: Array<LocationMember>;
+    firmDefault: boolean;
     letterheadLogo: LetterheadLogo;
+    letterheadSource: 'office' | 'firm' | 'none';
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type LocationMember = {
+    userId: string;
+    displayName: string;
+    status: 'active' | 'deactivated';
+    isPrimary: boolean;
 };
 
 export type LetterheadLogo = {
@@ -1602,6 +1636,7 @@ export type PatchLocationRequest = {
     addressBlock?: string | null;
     footer?: string | null;
     remitTo?: string | null;
+    email?: string | null;
 };
 
 export type LetterheadLogoRequest = {
@@ -1613,11 +1648,19 @@ export type LocationAddressesRequest = {
     addresses: Array<{
         kind: 'physical' | 'mailing';
         street?: string | null;
+        streetTwo?: string | null;
+        dependentLocality?: string | null;
         city?: string | null;
         region?: string | null;
         postal?: string | null;
+        sortingCode?: string | null;
+        country?: string | null;
         phone?: string | null;
     }>;
+};
+
+export type LocationMemberRequest = {
+    isPrimary?: boolean;
 };
 
 export type MemberLocationsRequest = {
@@ -7582,6 +7625,38 @@ export type PatchFirmNotificationPolicyRequest = {
     };
     retentionDays?: number;
     digestLocalHour?: number;
+};
+
+export type FirmBrandImagesResponse = {
+    primary: FirmBrandImage;
+    additional: Array<FirmBrandImage>;
+    additionalLimit: number;
+};
+
+export type FirmBrandImage = {
+    sha256: string;
+    role: 'primary' | 'additional';
+    label: string | null;
+    contentType: string;
+    sizeBytes: number;
+    widthPixels: number;
+    heightPixels: number;
+    updatedAt: string;
+} | null;
+
+export type FirmBrandImageAck = {
+    sha256: string;
+};
+
+export type SetFirmBrandImageRequest = {
+    imageBase64: string;
+    role: 'primary' | 'additional';
+    label?: string | null;
+};
+
+export type UpdateFirmBrandImageRequest = {
+    role?: 'primary' | 'additional';
+    label?: string | null;
 };
 
 export type FirmProfileResponse = {
@@ -13736,6 +13811,149 @@ export type LocationsCreateResponses = {
 
 export type LocationsCreateResponse = LocationsCreateResponses[keyof LocationsCreateResponses];
 
+export type LocationsClearLetterheadLogoData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/locations/{id}/letterhead-logo';
+};
+
+export type LocationsClearLetterheadLogoErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks locations:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the location is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the firm-default cannot be closed
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LocationsClearLetterheadLogoError = LocationsClearLetterheadLogoErrors[keyof LocationsClearLetterheadLogoErrors];
+
+export type LocationsClearLetterheadLogoResponses = {
+    /**
+     * The letterhead logo was removed
+     */
+    200: LocationAck;
+};
+
+export type LocationsClearLetterheadLogoResponse = LocationsClearLetterheadLogoResponses[keyof LocationsClearLetterheadLogoResponses];
+
+export type LocationsGetLetterheadLogoData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/locations/{id}/letterhead-logo';
+};
+
+export type LocationsGetLetterheadLogoErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the location is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LocationsGetLetterheadLogoError = LocationsGetLetterheadLogoErrors[keyof LocationsGetLetterheadLogoErrors];
+
+export type LocationsGetLetterheadLogoResponses = {
+    /**
+     * The image bytes
+     */
+    200: string;
+};
+
+export type LocationsGetLetterheadLogoResponse = LocationsGetLetterheadLogoResponses[keyof LocationsGetLetterheadLogoResponses];
+
+export type LocationsSetLetterheadLogoData = {
+    body: LetterheadLogoRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/locations/{id}/letterhead-logo';
+};
+
+export type LocationsSetLetterheadLogoErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks locations:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the location is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the firm-default cannot be closed
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the file is not a PNG or a JPEG, it is too large, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LocationsSetLetterheadLogoError = LocationsSetLetterheadLogoErrors[keyof LocationsSetLetterheadLogoErrors];
+
+export type LocationsSetLetterheadLogoResponses = {
+    /**
+     * The letterhead logo was set
+     */
+    200: LocationAck;
+};
+
+export type LocationsSetLetterheadLogoResponse = LocationsSetLetterheadLogoResponses[keyof LocationsSetLetterheadLogoResponses];
+
 export type LocationsGetData = {
     body?: never;
     path: {
@@ -13879,114 +14097,6 @@ export type LocationsCloseResponses = {
 
 export type LocationsCloseResponse = LocationsCloseResponses[keyof LocationsCloseResponses];
 
-export type LocationsClearLetterheadLogoData = {
-    body?: never;
-    headers: {
-        'idempotency-key': string;
-    };
-    path: {
-        id: string;
-    };
-    query?: never;
-    url: '/api/v1/locations/{id}/letterhead-logo';
-};
-
-export type LocationsClearLetterheadLogoErrors = {
-    /**
-     * Missing Idempotency-Key (this operation requires one)
-     */
-    400: Problem;
-    /**
-     * No valid session
-     */
-    401: Problem;
-    /**
-     * The session member lacks locations:manage
-     */
-    403: Problem;
-    /**
-     * The firm is unreachable, the member is deactivated, or the location is unknown
-     */
-    404: Problem;
-    /**
-     * A request with this Idempotency-Key is in progress, or the firm-default cannot be closed
-     */
-    409: Problem;
-    /**
-     * The request is invalid, or the Idempotency-Key was reused with a different payload
-     */
-    422: Problem;
-    /**
-     * Rate limit exceeded
-     */
-    429: Problem;
-};
-
-export type LocationsClearLetterheadLogoError = LocationsClearLetterheadLogoErrors[keyof LocationsClearLetterheadLogoErrors];
-
-export type LocationsClearLetterheadLogoResponses = {
-    /**
-     * The letterhead logo was removed
-     */
-    200: LocationAck;
-};
-
-export type LocationsClearLetterheadLogoResponse = LocationsClearLetterheadLogoResponses[keyof LocationsClearLetterheadLogoResponses];
-
-export type LocationsSetLetterheadLogoData = {
-    body: LetterheadLogoRequest;
-    headers: {
-        'idempotency-key': string;
-    };
-    path: {
-        id: string;
-    };
-    query?: never;
-    url: '/api/v1/locations/{id}/letterhead-logo';
-};
-
-export type LocationsSetLetterheadLogoErrors = {
-    /**
-     * Missing Idempotency-Key (this operation requires one)
-     */
-    400: Problem;
-    /**
-     * No valid session
-     */
-    401: Problem;
-    /**
-     * The session member lacks locations:manage
-     */
-    403: Problem;
-    /**
-     * The firm is unreachable, the member is deactivated, or the location is unknown
-     */
-    404: Problem;
-    /**
-     * A request with this Idempotency-Key is in progress, or the firm-default cannot be closed
-     */
-    409: Problem;
-    /**
-     * The request is invalid, the file is not a PNG or a JPEG, it is too large, or the Idempotency-Key was reused with a different payload
-     */
-    422: Problem;
-    /**
-     * Rate limit exceeded
-     */
-    429: Problem;
-};
-
-export type LocationsSetLetterheadLogoError = LocationsSetLetterheadLogoErrors[keyof LocationsSetLetterheadLogoErrors];
-
-export type LocationsSetLetterheadLogoResponses = {
-    /**
-     * The letterhead logo was set
-     */
-    200: LocationAck;
-};
-
-export type LocationsSetLetterheadLogoResponse = LocationsSetLetterheadLogoResponses[keyof LocationsSetLetterheadLogoResponses];
-
 export type LocationsSetAddressesData = {
     body: LocationAddressesRequest;
     headers: {
@@ -14040,6 +14150,170 @@ export type LocationsSetAddressesResponses = {
 };
 
 export type LocationsSetAddressesResponse = LocationsSetAddressesResponses[keyof LocationsSetAddressesResponses];
+
+export type LocationsRemoveMemberData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+        userId: string;
+    };
+    query?: never;
+    url: '/api/v1/locations/{id}/members/{userId}';
+};
+
+export type LocationsRemoveMemberErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks locations:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the location is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the firm-default cannot be closed
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LocationsRemoveMemberError = LocationsRemoveMemberErrors[keyof LocationsRemoveMemberErrors];
+
+export type LocationsRemoveMemberResponses = {
+    /**
+     * The member is no longer at the office
+     */
+    200: LocationAck;
+};
+
+export type LocationsRemoveMemberResponse = LocationsRemoveMemberResponses[keyof LocationsRemoveMemberResponses];
+
+export type LocationsAddMemberData = {
+    body: LocationMemberRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+        userId: string;
+    };
+    query?: never;
+    url: '/api/v1/locations/{id}/members/{userId}';
+};
+
+export type LocationsAddMemberErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks locations:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the location is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the firm-default cannot be closed
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LocationsAddMemberError = LocationsAddMemberErrors[keyof LocationsAddMemberErrors];
+
+export type LocationsAddMemberResponses = {
+    /**
+     * The member is at the office
+     */
+    200: LocationAck;
+};
+
+export type LocationsAddMemberResponse = LocationsAddMemberResponses[keyof LocationsAddMemberResponses];
+
+export type LocationsSetFirmDefaultData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/locations/{id}/firm-default';
+};
+
+export type LocationsSetFirmDefaultErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks locations:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the location is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the firm-default cannot be closed
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LocationsSetFirmDefaultError = LocationsSetFirmDefaultErrors[keyof LocationsSetFirmDefaultErrors];
+
+export type LocationsSetFirmDefaultResponses = {
+    /**
+     * The office is the firm's default
+     */
+    200: LocationAck;
+};
+
+export type LocationsSetFirmDefaultResponse = LocationsSetFirmDefaultResponses[keyof LocationsSetFirmDefaultResponses];
 
 export type LocationsAssignMemberData = {
     body: MemberLocationsRequest;
@@ -35872,6 +36146,234 @@ export type FirmNotificationPolicyUpdateResponses = {
 };
 
 export type FirmNotificationPolicyUpdateResponse = FirmNotificationPolicyUpdateResponses[keyof FirmNotificationPolicyUpdateResponses];
+
+export type FirmProfileListBrandImagesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/profile/brand-images';
+};
+
+export type FirmProfileListBrandImagesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmProfileListBrandImagesError = FirmProfileListBrandImagesErrors[keyof FirmProfileListBrandImagesErrors];
+
+export type FirmProfileListBrandImagesResponses = {
+    /**
+     * The firm's marks
+     */
+    200: FirmBrandImagesResponse;
+};
+
+export type FirmProfileListBrandImagesResponse = FirmProfileListBrandImagesResponses[keyof FirmProfileListBrandImagesResponses];
+
+export type FirmProfileSetBrandImageData = {
+    body: SetFirmBrandImageRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/profile/brand-images';
+};
+
+export type FirmProfileSetBrandImageErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageProfile
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the file is not a PNG or a JPEG, it is too large, the firm already holds as many additional images as it may, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmProfileSetBrandImageError = FirmProfileSetBrandImageErrors[keyof FirmProfileSetBrandImageErrors];
+
+export type FirmProfileSetBrandImageResponses = {
+    /**
+     * The image is held
+     */
+    200: FirmBrandImageAck;
+};
+
+export type FirmProfileSetBrandImageResponse = FirmProfileSetBrandImageResponses[keyof FirmProfileSetBrandImageResponses];
+
+export type FirmProfileGetBrandImageContentData = {
+    body?: never;
+    path: {
+        sha256: string;
+    };
+    query?: never;
+    url: '/api/v1/firm/profile/brand-images/{sha256}/content';
+};
+
+export type FirmProfileGetBrandImageContentErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmProfileGetBrandImageContentError = FirmProfileGetBrandImageContentErrors[keyof FirmProfileGetBrandImageContentErrors];
+
+export type FirmProfileGetBrandImageContentResponses = {
+    /**
+     * The image bytes
+     */
+    200: string;
+};
+
+export type FirmProfileGetBrandImageContentResponse = FirmProfileGetBrandImageContentResponses[keyof FirmProfileGetBrandImageContentResponses];
+
+export type FirmProfileRemoveBrandImageData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        sha256: string;
+    };
+    query?: never;
+    url: '/api/v1/firm/profile/brand-images/{sha256}';
+};
+
+export type FirmProfileRemoveBrandImageErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageProfile
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The name is empty or too long, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmProfileRemoveBrandImageError = FirmProfileRemoveBrandImageErrors[keyof FirmProfileRemoveBrandImageErrors];
+
+export type FirmProfileRemoveBrandImageResponses = {
+    /**
+     * The image was removed
+     */
+    200: FirmBrandImageAck;
+};
+
+export type FirmProfileRemoveBrandImageResponse = FirmProfileRemoveBrandImageResponses[keyof FirmProfileRemoveBrandImageResponses];
+
+export type FirmProfileUpdateBrandImageData = {
+    body: UpdateFirmBrandImageRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        sha256: string;
+    };
+    query?: never;
+    url: '/api/v1/firm/profile/brand-images/{sha256}';
+};
+
+export type FirmProfileUpdateBrandImageErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageProfile
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The name is empty or too long, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmProfileUpdateBrandImageError = FirmProfileUpdateBrandImageErrors[keyof FirmProfileUpdateBrandImageErrors];
+
+export type FirmProfileUpdateBrandImageResponses = {
+    /**
+     * The image was changed
+     */
+    200: FirmBrandImageAck;
+};
+
+export type FirmProfileUpdateBrandImageResponse = FirmProfileUpdateBrandImageResponses[keyof FirmProfileUpdateBrandImageResponses];
 
 export type FirmProfileSetData = {
     body: SetFirmProfileRequest;
