@@ -15,9 +15,9 @@ import type {
 } from "@magna-carta/identifiers/types";
 import {
   blockingChainReaches,
-  cancelMatterTaskStatement,
+  archiveMatterTaskStatement,
   clearBlockedByStatement,
-  completeMatterTaskStatement,
+  moveMatterTaskToRungStatement,
   countMatterTaskDocuments,
   deleteMatterTaskDocumentStatement,
   deleteMatterTaskDocumentsStatement,
@@ -29,7 +29,7 @@ import {
   readMatterTask,
   readMatterTaskDocument,
   reassignMatterTaskStatement,
-  reopenMatterTaskStatement,
+  unarchiveMatterTaskStatement,
   updateMatterTaskStatement,
   type MatterTaskRow,
 } from "./task-statements.ts";
@@ -39,11 +39,22 @@ import {
   MAX_BLOCKING_CHAIN_DEPTH,
   MAX_TASK_DOCUMENT_COUNT,
   NO_TASK_DUE,
+  rungOf,
   type TaskPriority,
+  type TaskRung,
 } from "./types.ts";
+
+// The rung in the words a refusal uses. Here rather than in the message, so "already done" and
+// "already on hold" are one sentence with a word swapped rather than four sentences.
+const TASK_RUNG_WORDS: Readonly<Record<TaskRung, string>> = Object.freeze({
+  to_do: "to do",
+  in_progress: "in progress",
+  on_hold: "on hold",
+  done: "done",
+});
 import {
   TaskValidationError,
-  normalizeCancellationReason,
+  normalizeArchiveReason,
   normalizeTaskBody,
   normalizeTaskDue,
   normalizeTaskPriority,
@@ -54,7 +65,7 @@ import {
   insertTaskDeletionStatement,
 } from "./sync-statements.ts";
 
-// The task's write paths: create, edit, reassign, complete, reopen, cancel, delete, and the two that
+// The task's write paths: create, edit, reassign, move along the rungs, archive, delete, and the two that
 // attach and detach a file.
 //
 // Nothing here reads a clock, holds a database binding, or calls anything external: the clock, the
@@ -375,29 +386,57 @@ export async function reassignMatterTask(
   };
 }
 
-export async function completeMatterTask(
+/*
+ * MOVING A TASK ALONG ITS RUNGS — one service for all four, because a reader pressing To Do and a
+ * reader pressing Done are doing the same thing.
+ *
+ * The audit event still distinguishes them, because they are not the same fact about the matter: a
+ * completion and a reopening are events a firm reads back, and moving between the three open rungs
+ * is the ordinary traffic of working. So the move is one write and the log says which kind it was.
+ *
+ * An ARCHIVED task does not move. It is put away, and picking it back up is unarchiving it — a
+ * surface that let somebody advance a task nobody can see would be writing into a list that is not
+ * on screen.
+ */
+export async function moveMatterTaskToRung(
   database: SqlDatabase,
   taskId: MatterTaskId,
+  rung: TaskRung,
   options: TaskServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
   const task = await requireTask(database, taskId, options);
-  if (task.state !== "open") {
+  if (task.archived_at !== null) {
     throw new TaskValidationError(
-      "task-not-open",
-      task.state === "done" ? "that task is already done" : "that task was cancelled",
+      "task-already-archived",
+      "that task is archived; put it back on the list before moving it",
+    );
+  }
+  const was = rungOf({ state: task.state, progress: task.progress });
+  if (was === rung) {
+    throw new TaskValidationError(
+      rung === "done" ? "task-not-open" : "task-not-done",
+      `that task is already ${TASK_RUNG_WORDS[rung]}`,
     );
   }
   const now = options.clock.now();
   return {
     effect: {
       statements: [
-        completeMatterTaskStatement(database, {
+        moveMatterTaskToRungStatement(database, {
           id: taskId,
-          completedBy: options.actorUserId,
+          rung,
+          actor: options.actorUserId,
           now,
         }),
         domainAuditStatement(database, {
-          event: "tasks.task.completed",
+          // Completing and reopening keep the names they had: they are the two moves a firm reads
+          // back years later, and a feed that renamed them would lose every task closed before this.
+          event:
+            rung === "done"
+              ? "tasks.task.completed"
+              : was === "done"
+                ? "tasks.task.reopened"
+                : "tasks.task.moved",
           subjectId: taskId,
           actorUserId: options.actorUserId,
           clock: options.clock,
@@ -406,6 +445,8 @@ export async function completeMatterTask(
             matterId: task.matter_id,
             assigneeUserId: task.assignee_user_id,
             dueOn: task.due_on,
+            fromRung: was,
+            toRung: rung,
           },
         }),
       ],
@@ -414,33 +455,51 @@ export async function completeMatterTask(
   };
 }
 
-// Reopening a completed or cancelled task. The row's terminal columns clear because the CHECK
-// requires an open row to carry none of them, and the audit row is what keeps the fact: a task that
-// was closed and reopened is a fact about how the matter ran, and it survives here rather than in a
-// column nothing else reads.
-export async function reopenMatterTask(
+/*
+ * PUTTING A TASK AWAY, AND KEEPING IT. Archiving and deleting are the two ways a task leaves a list
+ * and they differ in exactly one thing: this keeps the data, a delete takes it.
+ *
+ * It replaced cancelling, which said the same thing and demanded a reason before it would say it.
+ * The reason here is OPTIONAL — somebody clearing work that is simply not happening is not composing
+ * a memo, and requiring a sentence is why the state it replaces went unused.
+ *
+ * The rung is untouched: a task is archived FROM where it stood, and unarchiving puts it back there.
+ */
+export async function archiveMatterTask(
   database: SqlDatabase,
   taskId: MatterTaskId,
+  reason: string | null,
   options: TaskServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
+  const normalizedReason = normalizeArchiveReason(reason);
   const task = await requireTask(database, taskId, options);
-  if (task.state === "open") {
-    throw new TaskValidationError("task-not-done", "that task is already open");
+  if (task.archived_at !== null) {
+    throw new TaskValidationError("task-already-archived", "that task is already archived");
   }
   const now = options.clock.now();
   return {
     effect: {
       statements: [
-        reopenMatterTaskStatement(database, { id: taskId, now, actor: options.actorUserId }),
+        archiveMatterTaskStatement(database, {
+          id: taskId,
+          archivedBy: options.actorUserId,
+          reason: normalizedReason,
+          now,
+        }),
         domainAuditStatement(database, {
-          event: "tasks.task.reopened",
+          event: "tasks.task.archived",
           subjectId: taskId,
           actorUserId: options.actorUserId,
           clock: options.clock,
           randomSource: options.randomSource,
-          // Which terminal state it came back from, so the log distinguishes undoing a completion
-          // from undoing a decision not to do the work.
-          metadata: { matterId: task.matter_id, fromState: task.state },
+          // The reason is on the ROW, where the surface reads it. It is deliberately not copied into
+          // the audit metadata: the log carries identifiers and enums, and an archive reason is free
+          // text a member typed about a matter.
+          metadata: {
+            matterId: task.matter_id,
+            assigneeUserId: task.assignee_user_id,
+            fromRung: rungOf({ state: task.state, progress: task.progress }),
+          },
         }),
       ],
       outboxMessages: [],
@@ -448,42 +507,30 @@ export async function reopenMatterTask(
   };
 }
 
-// Cancelling. The third state, and the reason is required because the decision IS the record: "we
-// decided not to" with no explanation is a row that tells a firm nothing six months later.
-export async function cancelMatterTask(
+// Back onto the list, on the rung it left from.
+export async function unarchiveMatterTask(
   database: SqlDatabase,
   taskId: MatterTaskId,
-  reason: string,
   options: TaskServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
-  const normalizedReason = normalizeCancellationReason(reason);
   const task = await requireTask(database, taskId, options);
-  if (task.state === "cancelled") {
-    throw new TaskValidationError("task-already-cancelled", "that task was already cancelled");
+  if (task.archived_at === null) {
+    throw new TaskValidationError("task-not-archived", "that task is not archived");
   }
   const now = options.clock.now();
   return {
     effect: {
       statements: [
-        cancelMatterTaskStatement(database, {
-          id: taskId,
-          cancelledBy: options.actorUserId,
-          reason: normalizedReason,
-          now,
-        }),
+        unarchiveMatterTaskStatement(database, { id: taskId, now, actor: options.actorUserId }),
         domainAuditStatement(database, {
-          event: "tasks.task.cancelled",
+          event: "tasks.task.unarchived",
           subjectId: taskId,
           actorUserId: options.actorUserId,
           clock: options.clock,
           randomSource: options.randomSource,
-          // The reason is on the ROW, where the surface reads it. It is deliberately not copied into
-          // the audit metadata: the log carries identifiers and enums, and a cancellation reason is
-          // free text a member typed about a matter.
           metadata: {
             matterId: task.matter_id,
-            fromState: task.state,
-            assigneeUserId: task.assignee_user_id,
+            toRung: rungOf({ state: task.state, progress: task.progress }),
           },
         }),
       ],
@@ -494,9 +541,9 @@ export async function cancelMatterTask(
 
 // Deleting a task. The row goes; the audit row carrying identifiers is what survives.
 //
-// This is NOT the same act as cancelling and neither replaces the other. A cancellation says the
-// firm decided not to do the work and records why. A delete is for a task that should not exist: a
-// typo, a duplicate, a line somebody started and abandoned before it meant anything. The owner made
+// This is NOT the same act as archiving and neither replaces the other. An archive puts the task
+// away and keeps every word of it. A delete is for a task that should not exist: a typo, a
+// duplicate, a line somebody started and abandoned before it meant anything. The owner made
 // the same call for notes on 2026-09-01 and the reasoning carries: a record that can only ever
 // accumulate is a record people stop keeping.
 export async function deleteMatterTask(

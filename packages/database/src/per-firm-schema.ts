@@ -6910,6 +6910,17 @@ export const matterTask = sqliteTable(
     // row. A task reassigned across offices keeps its zone unless somebody changes the date: silently
     // moving a due date by three hours on a reassignment is worse than a mismatch a person can see.
     timeZone: text("time_zone"),
+    // WHETHER THE WORK IS FINISHED. Two live values, `open` and `done`, and it answers only that.
+    // Where a task stands WHILE it is open is `progress` below, and the two are not a duplicated
+    // fact: this column is what `completed_at`/`completed_by` are paired with by CHECK, and it is
+    // what every index and every closed-matter read already leads on.
+    //
+    // `cancelled` IS RETIRED AND IS NEVER WRITTEN AGAIN. It said the firm decided not to do the
+    // work, with a required reason — and in practice nobody reached for it, because deciding not to
+    // do something and putting it away are the same gesture to the person doing it. Archiving
+    // replaced it (`archived_at` below), and the migration moved every cancelled row across with its
+    // reason intact. The VALUE stays in the CHECK because removing it is a table rebuild, and
+    // matter_task is a parent: see the archive columns below for why that is not available here.
     state: text("state", { enum: ["open", "done", "cancelled"] })
       .notNull()
       .default("open"),
@@ -6918,12 +6929,47 @@ export const matterTask = sqliteTable(
     // reopened is a fact about how the matter ran.
     completedAt: text("completed_at"), // UTC instant
     completedBy: text("completed_by").$type<UserId>(),
-    // Cancellation is the third state and it is not optional. Without it, a task that should not have
-    // been created has only `done` — a lie about work — or deletion to reach for. A reason is
-    // required, because "we decided not to" is the entire content of the record.
+    // Retired with `cancelled` above, and kept for the same reason: dropping a column from a parent
+    // table is the rebuild that cannot run. Every row is NULL — the migration emptied the last of
+    // them into the archive columns — and nothing reads or writes them.
     cancelledAt: text("cancelled_at"), // UTC instant
     cancelledBy: text("cancelled_by").$type<UserId>(),
     cancellationReason: text("cancellation_reason"),
+    // WHERE AN OPEN TASK STANDS: the rung a person moves it along as they work. Four rungs reach the
+    // reader — To Do, In Progress, On Hold, Done — and the fourth is `state` above, which is why it
+    // is not repeated here. A task that is done has a completion actor and instant to carry; the
+    // three rungs below carry nothing but themselves, so they are one column and not four booleans.
+    //
+    // The rung a task is left on is NOT cleared by completing it. Reopening a finished task puts it
+    // back where it was rather than at the start, which is what somebody who ticked the wrong row
+    // means by reopening it.
+    progress: text("progress", { enum: ["to_do", "in_progress", "on_hold"] })
+      .notNull()
+      .default("to_do"),
+    // PUT AWAY, KEPT. Archiving and deleting are the two ways a task leaves a list and they differ in
+    // exactly one thing: a delete takes the data, an archive keeps it. So an archived task is absent
+    // from every ordinary read and whole underneath — its documents, its time, its history.
+    //
+    // It is ORTHOGONAL to the rungs rather than a fifth one: a task is archived FROM wherever it
+    // stood, and unarchiving puts it back there. A fifth rung would have made "On Hold, archived" and
+    // "archived, was on hold" two different records of the same thing.
+    //
+    // The reason is OPTIONAL, which is the difference from the cancellation it replaces. That reason
+    // was required, and requiring it is why the state went unused: somebody clearing a list of
+    // work that is simply not happening is not composing a memo. It carries the reasons the
+    // migration brought over from cancelled tasks, so nothing a firm wrote is lost.
+    //
+    // THESE ARE ADDED COLUMNS RATHER THAN A WIDER `state`, and that is the platform's constraint
+    // rather than a modelling choice. Widening a CHECK in SQLite costs a table rebuild, a rebuild
+    // drops the table it replaces, and this table has three children plus its own
+    // `blocked_by_task_id` — a drop a durable object refuses at the commit, whatever pragma is set.
+    // Six mechanisms were probed against real durable-object storage and all six fail
+    // (apps/api-worker/test/durable-object-pragma-context.test.ts); the same file proves that an
+    // added column may carry its own CHECK, including one naming a second column, which is what the
+    // pair below rests on.
+    archivedAt: text("archived_at"), // UTC instant
+    archivedBy: text("archived_by").$type<UserId>(),
+    archiveReason: text("archive_reason"),
     // One predecessor, and it GATES NOTHING. A blocked task renders as blocked and sorts below; it is
     // not refused and completing it out of order is allowed. A firm's real sequence has exceptions
     // constantly, and a checklist that enforces order is a checklist people stop using. Cycles are
@@ -6993,6 +7039,22 @@ export const matterTask = sqliteTable(
       sql`${table.priority} IN ('low', 'normal', 'high', 'urgent')`,
     ),
     check("matter_task_state_check", sql`${table.state} IN ('open', 'done', 'cancelled')`),
+    check(
+      "matter_task_progress_check",
+      sql`${table.progress} IN ('to_do', 'in_progress', 'on_hold')`,
+    ),
+    // Archived is an instant and an actor together or neither, and a reason is a thing said ABOUT an
+    // archiving — so a reason with no archiving is a row that says why something happened that did
+    // not. The reverse is allowed and is the ordinary case: most archivings say nothing.
+    //
+    // No index is added for it. Every ordinary read gains `archived_at IS NULL`, and the reads that
+    // matter already lead on the assignee and the state; whether an archive-aware index earns its
+    // write cost is a question for the load-profile harness rather than a guess made here.
+    check(
+      "matter_task_archive_shape_check",
+      sql`(${table.archivedAt} IS NULL) = (${table.archivedBy} IS NULL)
+        AND (${table.archivedAt} IS NOT NULL OR ${table.archiveReason} IS NULL)`,
+    ),
     check("matter_task_due_on_shape_check", civilDateShape(table.dueOn, true)),
     check(
       "matter_task_due_at_time_shape_check",

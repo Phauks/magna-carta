@@ -22,6 +22,7 @@ export default defineConfig({
     __MC_BUILD_COMMIT__: JSON.stringify("test"),
     __MC_BUILD_COMMIT_TIME__: JSON.stringify(null),
     __MC_BUILD_TIME__: JSON.stringify("2026-01-01T00:00:00.000Z"),
+    __MC_SOURCE_REPOSITORY__: JSON.stringify("https://github.com/example/magna-carta"),
   },
   // `$lib` is SvelteKit's alias, and SvelteKit's plugin is deliberately absent here (see above), so
   // nothing resolves it: any module under test that imports `$lib/...` fails to load with

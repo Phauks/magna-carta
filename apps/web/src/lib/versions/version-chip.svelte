@@ -11,6 +11,16 @@
    * answer "what is running" differently — the page is the report at page size, not a second
    * implementation of it.
    *
+   * THE CHIP SAYS WHICH BUILD MODE IT IS, outside production. Two screenshots of one commit, one
+   * from a preview deploy and one from the real site, were indistinguishable, and a fault reported
+   * against the wrong deployment costs a whole round of diagnosis. Production carries no badge:
+   * that is the assumption a reader already holds.
+   *
+   * THE CHIP IS NOT THE ONLY WAY IN. Whether the panel is open lives in build-panel.svelte.ts
+   * rather than here, so the command palette can open it through the diagnostic-action registry
+   * ($lib/developer/diagnostic-actions.ts). The popover still binds to that state, so a dismiss by
+   * Escape or click-away is the gesture it always was.
+   *
    * THE CHIP NOTICES AN UPSTREAM DEPLOY. SvelteKit's version poll (svelte.config.js names each
    * build by its commit) compares the running bundle against what the deployment serving it is
    * publishing now; when a newer bundle is live the chip carries a warning dot and the report
@@ -31,18 +41,24 @@
   import { updated } from "$app/state";
   import { BUILD_IDENTITY } from "$lib/build-identity.ts";
   import VersionReport from "./version-report.svelte";
-  import { versionChipLabel, type VersionScope } from "$lib/versions/version-overlay-model.ts";
+  import Badge from "@magna-carta/design-system/badge";
+  import { buildPanel } from "$lib/versions/build-panel.svelte.ts";
+  import {
+    describeBuildEnvironment,
+    versionChipLabel,
+    type VersionScope,
+  } from "$lib/versions/version-overlay-model.ts";
 
   let { scope = "app" }: { scope?: VersionScope } = $props();
 
-  let open = $state(false);
   const chipLabel = versionChipLabel(BUILD_IDENTITY.commit);
+  const buildEnvironment = describeBuildEnvironment(BUILD_IDENTITY.mode);
 
   // True once the version poll has seen a bundle newer than the one this tab is running.
   const updateAvailable = $derived(updated.current);
 </script>
 
-<Popover.Root bind:open>
+<Popover.Root bind:open={buildPanel.isOpen}>
   <!-- The hover names the control — "Build Information", the same one-name answer the bell, the
        Time Sheet's handle and the download tray give. The chip already shows the build; what the
        hover has to say is what pressing it opens. The tooltip and the popover share ONE button
@@ -55,10 +71,17 @@
           {...props}
           class="mc-top-bar-icon-button gap-8 border text-xs tabular-nums"
           style="border-color: var(--mc-chrome-border)"
-          aria-label="Build Information: {chipLabel}{updateAvailable ? ' (update available)' : ''}"
+          aria-label="Build Information: {chipLabel}{buildEnvironment === null
+            ? ''
+            : ` (${buildEnvironment.label})`}{updateAvailable ? ' (update available)' : ''}"
         >
           <GitCommitHorizontal class="size-16" aria-hidden="true" />
           <span class="font-mono">{chipLabel}</span>
+          {#if buildEnvironment !== null}
+            <!-- Outside production only: a badge that said "production" on every screen would be
+                 chrome announcing the absence of news. -->
+            <Badge variant={buildEnvironment.variant}>{buildEnvironment.label}</Badge>
+          {/if}
           {#if updateAvailable}
             <!-- The quiet signal that a newer deployment is live; the panel carries the words. -->
             <span
@@ -80,6 +103,6 @@
     class="mc-scrollbar overflow-y-auto"
     style="inline-size: var(--mc-size-prose); max-height: var(--bits-floating-available-height)"
   >
-    <VersionReport {scope} {open} />
+    <VersionReport {scope} open={buildPanel.isOpen} />
   </Popover.Content>
 </Popover.Root>

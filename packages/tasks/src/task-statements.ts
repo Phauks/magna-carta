@@ -11,7 +11,15 @@ import type {
   MatterTaskId,
   UserId,
 } from "@magna-carta/identifiers/types";
-import { TASK_PRIORITY_RANK, type TaskDue, type TaskPriority, type TaskState } from "./types.ts";
+import {
+  TASK_PRIORITY_RANK,
+  columnsForRung,
+  type TaskDue,
+  type TaskPriority,
+  type TaskProgress,
+  type TaskRung,
+  type TaskState,
+} from "./types.ts";
 
 // Table names tracked against @magna-carta/database's per-firm schema by the schema-name-sync
 // fitness test.
@@ -75,9 +83,18 @@ export interface MatterTaskRow {
   readonly state: TaskState;
   readonly completed_at: string | null;
   readonly completed_by: UserId | null;
+  // Retired with `cancelled`, kept because a column cannot be dropped from a parent table here.
+  // Always null, never read, never written. See packages/database/src/per-firm-schema.ts.
   readonly cancelled_at: string | null;
   readonly cancelled_by: UserId | null;
   readonly cancellation_reason: string | null;
+  // Where an OPEN task stands. The fourth rung a reader sees is `state` above — rungOf() in
+  // ./types.ts is the one place the two are put back together.
+  readonly progress: TaskProgress;
+  // Put away, kept. Orthogonal to the rungs: a task is archived from wherever it stood.
+  readonly archived_at: string | null;
+  readonly archived_by: UserId | null;
+  readonly archive_reason: string | null;
   readonly blocked_by_task_id: MatterTaskId | null;
   readonly trigger_event_id: MatterEventId | null;
   readonly deadline_id: MatterDeadlineId | null;
@@ -124,6 +141,10 @@ export const TASK_COLUMNS = [
   "cancelled_at",
   "cancelled_by",
   "cancellation_reason",
+  "progress",
+  "archived_at",
+  "archived_by",
+  "archive_reason",
   "blocked_by_task_id",
   "trigger_event_id",
   "deadline_id",
@@ -182,12 +203,17 @@ export function insertMatterTaskStatement(
     .prepare(
       `INSERT INTO ${MATTER_TASK_TABLE} (id, matter_id, title, body, assignee_user_id, created_by, ` +
         `priority, due_on, due_at_time, time_zone, state, completed_at, completed_by, cancelled_at, ` +
-        `cancelled_by, cancellation_reason, blocked_by_task_id, trigger_event_id, deadline_id, ` +
+        `cancelled_by, cancellation_reason, progress, archived_at, archived_by, archive_reason, ` +
+        `blocked_by_task_id, trigger_event_id, deadline_id, ` +
         `plan_template_id, plan_task_template_id, created_at, updated_at, updated_by) ` +
         // updated_by is the CREATOR on a fresh row: "who touched it last" at creation is whoever
         // wrote it, and a feed where some rows have an actor and some do not would make echo
         // suppression a special case at exactly the moment a sync first sees a task.
+        // A fresh task is on the first rung, unarchived, and open. None of the three is a caller's
+        // to set at creation: a task nobody has started is To Do, and one archived at birth is one
+        // nobody should have written.
         `VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 'open', NULL, NULL, NULL, NULL, NULL, ` +
+        `'to_do', NULL, NULL, NULL, ` +
         `?11, ?12, ?13, ?14, ?15, ?16, ?16, ?6)`,
     )
     .bind(
@@ -276,55 +302,87 @@ export function reassignMatterTaskStatement(
     .bind(input.assigneeUserId, input.now, input.actor, input.id);
 }
 
-export function completeMatterTaskStatement(
-  database: SqlDatabase,
-  input: { readonly id: MatterTaskId; readonly completedBy: UserId; readonly now: string },
-): SqlStatement {
-  return database
-    .prepare(
-      `UPDATE ${MATTER_TASK_TABLE} SET state = 'done', completed_at = ?1, completed_by = ?2, ` +
-        `updated_at = ?1, updated_by = ?2 WHERE id = ?3`,
-    )
-    .bind(input.now, input.completedBy, input.id);
-}
-
-// Reopening. The completion columns clear because the CHECK requires an `open` row to carry none —
-// but the audit row records that a completion was undone, so a task that was closed and reopened
-// stays a fact about how the matter ran even though the row no longer shows it.
-export function reopenMatterTaskStatement(
-  database: SqlDatabase,
-  input: { readonly id: MatterTaskId; readonly now: string; readonly actor: UserId | null },
-): SqlStatement {
-  return database
-    .prepare(
-      `UPDATE ${MATTER_TASK_TABLE} SET state = 'open', completed_at = NULL, completed_by = NULL, ` +
-        `cancelled_at = NULL, cancelled_by = NULL, cancellation_reason = NULL, updated_at = ?1, ` +
-        `updated_by = ?3 WHERE id = ?2`,
-    )
-    .bind(input.now, input.id, input.actor);
-}
-
-export function cancelMatterTaskStatement(
+/*
+ * MOVING A TASK TO A RUNG — one statement for all four, because a reader pressing To Do and a reader
+ * pressing Done are doing the same thing and a surface that reached for four endpoints would be
+ * deciding that they are not.
+ *
+ * `progress` is written only where the rung names one, so moving OFF Done restores the rung the task
+ * was left on rather than sending it back to the start. That is what somebody who ticked the wrong
+ * row means by putting it back, and it is why completing a task does not clear the rung.
+ *
+ * The completion pair moves with the state because the database requires it: a `done` row carries an
+ * actor and an instant, an `open` row carries neither. The audit row records that a completion was
+ * undone, so a task that was closed and reopened stays a fact about how the matter ran even though
+ * the row no longer shows it.
+ */
+export function moveMatterTaskToRungStatement(
   database: SqlDatabase,
   input: {
     readonly id: MatterTaskId;
-    readonly cancelledBy: UserId;
-    readonly reason: string;
+    readonly rung: TaskRung;
+    readonly actor: UserId;
+    readonly now: string;
+  },
+): SqlStatement {
+  const columns = columnsForRung(input.rung);
+  if (columns.state === "done") {
+    return database
+      .prepare(
+        `UPDATE ${MATTER_TASK_TABLE} SET state = 'done', completed_at = ?1, completed_by = ?2, ` +
+          `updated_at = ?1, updated_by = ?2 WHERE id = ?3`,
+      )
+      .bind(input.now, input.actor, input.id);
+  }
+  return database
+    .prepare(
+      `UPDATE ${MATTER_TASK_TABLE} SET state = 'open', progress = ?1, completed_at = NULL, ` +
+        `completed_by = NULL, updated_at = ?2, updated_by = ?3 WHERE id = ?4`,
+    )
+    .bind(columns.progress, input.now, input.actor, input.id);
+}
+
+/*
+ * PUT AWAY, KEPT. The rung is untouched on purpose: a task is archived FROM wherever it stood, and
+ * unarchiving puts it back there rather than at the start. Archiving a done task keeps it done.
+ *
+ * The reason is optional and may be null, which is the difference from the cancellation this
+ * replaces — requiring a sentence is why that state went unused.
+ */
+export function archiveMatterTaskStatement(
+  database: SqlDatabase,
+  input: {
+    readonly id: MatterTaskId;
+    readonly archivedBy: UserId;
+    readonly reason: string | null;
     readonly now: string;
   },
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${MATTER_TASK_TABLE} SET state = 'cancelled', cancelled_at = ?1, cancelled_by = ?2, ` +
-        `cancellation_reason = ?3, completed_at = NULL, completed_by = NULL, updated_at = ?1, ` +
-        `updated_by = ?2 WHERE id = ?4`,
+      `UPDATE ${MATTER_TASK_TABLE} SET archived_at = ?1, archived_by = ?2, archive_reason = ?3, ` +
+        `updated_at = ?1, updated_by = ?2 WHERE id = ?4`,
     )
-    .bind(input.now, input.cancelledBy, input.reason, input.id);
+    .bind(input.now, input.archivedBy, input.reason, input.id);
 }
 
-// Deleting a task, and it really is a delete. Cancellation and deletion are not redundant: a
-// cancellation is a decision about work and carries its reason, while a delete is for a task that
-// should not exist — a typo, a duplicate, a line somebody abandoned before it meant anything. The
+// Back onto the list, on the rung it left from. The reason clears with the archiving because the
+// database pairs them: a reason with no archiving says why something happened that did not.
+export function unarchiveMatterTaskStatement(
+  database: SqlDatabase,
+  input: { readonly id: MatterTaskId; readonly now: string; readonly actor: UserId },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MATTER_TASK_TABLE} SET archived_at = NULL, archived_by = NULL, ` +
+        `archive_reason = NULL, updated_at = ?1, updated_by = ?2 WHERE id = ?3`,
+    )
+    .bind(input.now, input.actor, input.id);
+}
+
+// Deleting a task, and it really is a delete. Archiving and deleting are not redundant and they
+// differ in exactly one thing: an archive keeps the data, a delete takes it. A delete is for a task
+// that should not exist — a typo, a duplicate, a line somebody abandoned before it meant anything. The
 // audit row is what survives, and it carries identifiers rather than text.
 export function deleteMatterTaskStatement(
   database: SqlDatabase,
@@ -411,7 +469,19 @@ function searchConditionFor(
 }
 
 export interface TaskListFilters {
-  readonly states?: readonly TaskState[];
+  /**
+   * Which rungs to show. The four the reader has, not the two columns behind them — a caller asking
+   * for On Hold work should not have to know that three of the four live in one column and the
+   * fourth in another.
+   */
+  readonly rungs?: readonly TaskRung[];
+  /**
+   * Whether ARCHIVED tasks are included. Left off, they are not, which is the whole point of putting
+   * one away: a list that still showed it would be a list nobody could clear. `true` adds them to
+   * whatever the rungs already select; there is no "archived only" here, because that is a rung
+   * filter of all four plus this.
+   */
+  readonly includeArchived?: boolean;
   readonly assigneeUserId?: UserId;
   readonly priorities?: readonly TaskPriority[];
   readonly search?: string;
@@ -429,9 +499,26 @@ interface TaskListConditions {
 function filterConditions(filters: TaskListFilters): TaskListConditions {
   const conditions: string[] = [];
   const bindings: unknown[] = [];
-  if (filters.states !== undefined && filters.states.length > 0) {
-    conditions.push(`${MATTER_TASK_TABLE}.state IN (${filters.states.map(() => "?").join(", ")})`);
-    bindings.push(...filters.states);
+  // The four rungs, resolved back onto the two columns that hold them. `done` is the state; the
+  // other three are the progress column on an open row — so a request for some of each is one OR
+  // over two terms rather than a scan.
+  if (filters.rungs !== undefined && filters.rungs.length > 0) {
+    const open = filters.rungs.filter((rung): rung is TaskProgress => rung !== "done");
+    const terms: string[] = [];
+    if (filters.rungs.includes("done")) terms.push(`${MATTER_TASK_TABLE}.state = 'done'`);
+    if (open.length > 0) {
+      terms.push(
+        `(${MATTER_TASK_TABLE}.state = 'open' AND ${MATTER_TASK_TABLE}.progress IN ` +
+          `(${open.map(() => "?").join(", ")}))`,
+      );
+      bindings.push(...open);
+    }
+    conditions.push(`(${terms.join(" OR ")})`);
+  }
+  // Archived work is absent unless it is asked for. Stated as its own condition rather than folded
+  // into the rungs because it is orthogonal to them: a task is archived FROM a rung.
+  if (filters.includeArchived !== true) {
+    conditions.push(`${MATTER_TASK_TABLE}.archived_at IS NULL`);
   }
   if (filters.assigneeUserId !== undefined) {
     conditions.push(`${MATTER_TASK_TABLE}.assignee_user_id = ?`);
@@ -554,7 +641,7 @@ export function selectMatterTasksStatement(
 // own matterless work. It is one statement rather than two unioned, which is the whole argument for
 // the nullable column: the branch is in the visibility fragment and the list does not know it exists.
 //
-// CLOSED MATTERS ARE FILTERED OUT, not their tasks cancelled. The matter close is advisory and
+// CLOSED MATTERS ARE FILTERED OUT, not their tasks archived. The matter close is advisory and
 // changes no task row, so reopening a matter brings its tasks back with no backfill. A matterless
 // task has no matter to be closed and is always in scope.
 export function selectMyTasksStatement(
@@ -601,7 +688,10 @@ export async function countOpenMatterTasks(
 ): Promise<number> {
   const { results } = await database
     .prepare(
-      `SELECT COUNT(*) AS count FROM ${MATTER_TASK_TABLE} WHERE matter_id = ? AND state = 'open'`,
+      // An ARCHIVED task is not outstanding. Putting one away is the firm saying it is not happening,
+      // so counting it would make the close advisory warn about work nobody is waiting on.
+      `SELECT COUNT(*) AS count FROM ${MATTER_TASK_TABLE} ` +
+        `WHERE matter_id = ? AND state = 'open' AND archived_at IS NULL`,
     )
     .bind(matterId)
     .all<{ count: number }>();

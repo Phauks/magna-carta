@@ -3,7 +3,7 @@ import { isResolvableTimeZone } from "@magna-carta/civil-time/time-zone";
 import { isWallClockTime } from "@magna-carta/civil-time/wall-clock";
 import {
   DEFAULT_PLAN_DUE_ANCHOR,
-  MAX_CANCELLATION_REASON_LENGTH,
+  MAX_ARCHIVE_REASON_LENGTH,
   MAX_PLAN_DESCRIPTION_LENGTH,
   MAX_PLAN_NAME_LENGTH,
   MAX_PLAN_OFFSET_DAYS,
@@ -11,9 +11,11 @@ import {
   MAX_TASK_TITLE_LENGTH,
   PLAN_DUE_ANCHORS,
   TASK_PRIORITIES,
+  TASK_RUNGS,
   type PlanDueAnchor,
   type TaskDue,
   type TaskPriority,
+  type TaskRung,
 } from "./types.ts";
 
 // Every refusal this subsystem raises, as a code the route maps to a problem type. Codes — never
@@ -39,12 +41,13 @@ export type TaskValidationCode =
   // that nobody can explain is worse than a refusal somebody can act on.
   | "task-unknown-assignee"
   | "task-assignee-cannot-see-matter"
-  // State moves that do not apply to the state the task is in.
+  // Moves that do not apply where the task stands.
   | "task-not-open"
   | "task-not-done"
-  | "task-already-cancelled"
-  | "task-cancellation-reason-required"
-  | "task-cancellation-reason-too-long"
+  | "task-already-archived"
+  | "task-not-archived"
+  | "task-unknown-rung"
+  | "task-archive-reason-too-long"
   // Sequencing.
   | "task-unknown-predecessor"
   | "task-predecessor-matter-mismatch"
@@ -128,21 +131,34 @@ export function normalizeTaskBody(body: string | null | undefined): string | nul
   return normalized;
 }
 
-export function normalizeCancellationReason(reason: string): string {
+/*
+ * The reason an archiving may carry, or null where it carries none.
+ *
+ * OPTIONAL, unlike the cancellation reason it replaces. That one was required on the reasoning that
+ * the decision is the record — which is true of a decision, and archiving is usually not one:
+ * somebody clearing work that is simply not happening is not composing a memo, and demanding a
+ * sentence is why the state it replaces went unused. An empty reason is therefore null rather than a
+ * refusal, so nothing stores a row that says why with nothing in it.
+ */
+export function normalizeArchiveReason(reason: string | null | undefined): string | null {
+  if (reason === null || reason === undefined) return null;
   const normalized = reason.trim();
-  if (normalized.length === 0) {
+  if (normalized.length === 0) return null;
+  if (normalized.length > MAX_ARCHIVE_REASON_LENGTH) {
     refuse(
-      "task-cancellation-reason-required",
-      "cancelling a task records why, because the decision is the record",
-    );
-  }
-  if (normalized.length > MAX_CANCELLATION_REASON_LENGTH) {
-    refuse(
-      "task-cancellation-reason-too-long",
-      `a cancellation reason is at most ${String(MAX_CANCELLATION_REASON_LENGTH)} characters; a longer explanation belongs in the task body`,
+      "task-archive-reason-too-long",
+      `an archive reason is at most ${String(MAX_ARCHIVE_REASON_LENGTH)} characters; a longer explanation belongs in the task body`,
     );
   }
   return normalized;
+}
+
+/** The rung a caller named, refused by name rather than by silently landing on the default. */
+export function normalizeTaskRung(rung: string): TaskRung {
+  if (!(TASK_RUNGS as readonly string[]).includes(rung)) {
+    refuse("task-unknown-rung", `${rung} is not a rung; the four are ${TASK_RUNGS.join(", ")}`);
+  }
+  return rung as TaskRung;
 }
 
 export function normalizeTaskPriority(priority: string | null | undefined): TaskPriority | null {

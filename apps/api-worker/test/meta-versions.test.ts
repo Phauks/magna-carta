@@ -65,7 +65,34 @@ describe("collectServiceVersions", () => {
     for (const service of services) {
       expect(service.state).toBe("unbound");
       expect(service.commit).toBeNull();
+      // Never asked, so there is nothing to time. A zero would read as an instant answer, which is
+      // the opposite of what "not wired here" means.
+      expect(service.latencyMilliseconds).toBeNull();
     }
+  });
+
+  it("times what the probe cost, so a worker close to the timeout is visible before it flips", async () => {
+    // The number was being paid for and thrown away: every probe is raced against a fixed timeout,
+    // so "reported" and "unreachable" are two ends of one measurement with nothing in between.
+    const services = await collectServiceVersions({
+      SCAN_SERVICE: answeringFetcher(REPORTED_IDENTITY),
+    } as ServiceVersionBindings);
+    const scan = reportFor(services, "scan");
+    expect(scan.state).toBe("reported");
+    expect(scan.latencyMilliseconds).not.toBeNull();
+    expect(scan.latencyMilliseconds ?? -1).toBeGreaterThanOrEqual(0);
+  });
+
+  it("times a probe that failed too — a timeout is the slowest answer there is", async () => {
+    const services = await collectServiceVersions(
+      { SCAN_SERVICE: hangingFetcher() } as ServiceVersionBindings,
+      20,
+    );
+    const scan = reportFor(services, "scan");
+    expect(scan.state).toBe("unreachable");
+    // Stated rather than null: it distinguishes a worker that ran out of time from one that
+    // refused immediately, and both arrive here as "unreachable".
+    expect(scan.latencyMilliseconds).not.toBeNull();
   });
 
   it("a bound service answering the version route is reported with its own identity", async () => {

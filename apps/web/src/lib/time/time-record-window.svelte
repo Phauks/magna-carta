@@ -87,7 +87,7 @@
   } from "./time-operations.ts";
   import { listMatterFiles, type MatterFile } from "$lib/file-manager/matter-file-api.ts";
   import { timeEntrySheet } from "./time-print-sheet.ts";
-  import { listMatterTasks, type MatterTask } from "$lib/matters/tasks-api.ts";
+  import { OPEN_RUNGS, listMatterTasks, type MatterTask } from "$lib/matters/tasks-api.ts";
   import { civilDateOf } from "@magna-carta/civil-time/civil-date";
   import { printSheetDates } from "$lib/print-sheet";
 
@@ -444,7 +444,7 @@
       matterTasks = [];
       return;
     }
-    void listMatterTasks(fetch, forMatter, undefined, { states: ["open"] }).then((outcome) => {
+    void listMatterTasks(fetch, forMatter, undefined, { rungs: OPEN_RUNGS }).then((outcome) => {
       matterTasks = outcome.kind === "ok" ? outcome.value.data : [];
     });
   });

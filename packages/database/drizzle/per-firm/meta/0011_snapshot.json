@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "1d3c2cf7-a5f5-4e03-b521-ec0ca97cd59a",
+  "id": "3300fc2e-111d-45a9-9160-700ee9275618",
   "prevId": "14206ddd-34d9-4720-a28b-b8a0c656a232",
   "tables": {
     "account_balance": {
@@ -13202,13 +13202,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "physical_file_location_id": {
-          "name": "physical_file_location_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "responsible_member_id": {
           "name": "responsible_member_id",
           "type": "text",
@@ -13387,19 +13380,6 @@
           "tableTo": "location",
           "columnsFrom": [
             "location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "matter_physical_file_location_id_location_id_fk": {
-          "name": "matter_physical_file_location_id_location_id_fk",
-          "tableFrom": "matter",
-          "tableTo": "location",
-          "columnsFrom": [
-            "physical_file_location_id"
           ],
           "columnsTo": [
             "id"
@@ -17340,6 +17320,35 @@
           "notNull": false,
           "autoincrement": false
         },
+        "progress": {
+          "name": "progress",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'to_do'"
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "archived_by": {
+          "name": "archived_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "archive_reason": {
+          "name": "archive_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "blocked_by_task_id": {
           "name": "blocked_by_task_id",
           "type": "text",
@@ -17544,6 +17553,14 @@
         "matter_task_state_check": {
           "name": "matter_task_state_check",
           "value": "\"matter_task\".\"state\" IN ('open', 'done', 'cancelled')"
+        },
+        "matter_task_progress_check": {
+          "name": "matter_task_progress_check",
+          "value": "\"matter_task\".\"progress\" IN ('to_do', 'in_progress', 'on_hold')"
+        },
+        "matter_task_archive_shape_check": {
+          "name": "matter_task_archive_shape_check",
+          "value": "(\"matter_task\".\"archived_at\" IS NULL) = (\"matter_task\".\"archived_by\" IS NULL)\n        AND (\"matter_task\".\"archived_at\" IS NOT NULL OR \"matter_task\".\"archive_reason\" IS NULL)"
         },
         "matter_task_due_on_shape_check": {
           "name": "matter_task_due_on_shape_check",

@@ -2,14 +2,14 @@ import { describe, expect, it } from "vitest";
 import type { MatterTaskDocumentId, MatterTaskId, UserId } from "@magna-carta/identifiers/types";
 import {
   attachFileToMatterTask,
-  cancelMatterTask,
-  completeMatterTask,
+  archiveMatterTask,
+  moveMatterTaskToRung,
   createMatterTask,
   deleteMatterTask,
   detachFileFromMatterTask,
   editMatterTask,
   reassignMatterTask,
-  reopenMatterTask,
+  unarchiveMatterTask,
 } from "../src/task-service.ts";
 import {
   countMatterTaskDocuments,
@@ -212,53 +212,110 @@ describe("the visibility branch", () => {
   });
 });
 
-describe("state moves", () => {
+describe("rungs", () => {
+  it("moves through the three open rungs, and refuses a move to where it already is", async () => {
+    const { database, taskId } = await writeTask();
+    const fresh = await readMatterTask(database, taskId, visibility, ACTOR);
+    expect(fresh?.progress).toBe("to_do");
+
+    await commit(
+      database,
+      (await moveMatterTaskToRung(database, taskId, "in_progress", options)).effect,
+    );
+    const started = await readMatterTask(database, taskId, visibility, ACTOR);
+    expect(started?.progress).toBe("in_progress");
+    expect(started?.state).toBe("open");
+
+    await expect(
+      moveMatterTaskToRung(database, taskId, "in_progress", options),
+    ).rejects.toMatchObject({ code: "task-not-done" });
+  });
+
   it("completes, and refuses a second completion", async () => {
     const { database, taskId } = await writeTask();
-    const { effect } = await completeMatterTask(database, taskId, options);
+    const { effect } = await moveMatterTaskToRung(database, taskId, "done", options);
     await commit(database, effect);
     const task = await readMatterTask(database, taskId, visibility, ACTOR);
     expect(task?.state).toBe("done");
     expect(task?.completed_by).toBe(ACTOR);
     expect(task?.completed_at).not.toBeNull();
-    await expect(completeMatterTask(database, taskId, options)).rejects.toMatchObject({
+    await expect(moveMatterTaskToRung(database, taskId, "done", options)).rejects.toMatchObject({
       code: "task-not-open",
     });
   });
 
-  it("reopens a completed task and clears the completion columns", async () => {
+  it("puts a completed task back on the rung it was left on, not at the start", async () => {
+    // The whole reason `progress` survives a completion. Somebody who ticked the wrong row means
+    // "put it back", and putting it back on To Do would lose that the work was under way.
     const { database, taskId } = await writeTask();
-    await commit(database, (await completeMatterTask(database, taskId, options)).effect);
-    await commit(database, (await reopenMatterTask(database, taskId, options)).effect);
-    const task = await readMatterTask(database, taskId, visibility, ACTOR);
-    expect(task?.state).toBe("open");
-    expect(task?.completed_at).toBeNull();
-    expect(task?.completed_by).toBeNull();
-  });
-
-  it("cancels with a reason, and refuses a cancellation with none", async () => {
-    const { database, taskId } = await writeTask();
-    await expect(cancelMatterTask(database, taskId, "   ", options)).rejects.toMatchObject({
-      code: "task-cancellation-reason-required",
-    });
-    const { effect } = await cancelMatterTask(
+    await commit(
       database,
-      taskId,
-      "Client withdrew the claim",
-      options,
+      (await moveMatterTaskToRung(database, taskId, "on_hold", options)).effect,
     );
-    await commit(database, effect);
+    await commit(database, (await moveMatterTaskToRung(database, taskId, "done", options)).effect);
+    const done = await readMatterTask(database, taskId, visibility, ACTOR);
+    expect(done?.state).toBe("done");
+    expect(done?.progress).toBe("on_hold");
+
+    await commit(
+      database,
+      (await moveMatterTaskToRung(database, taskId, "on_hold", options)).effect,
+    );
+    const back = await readMatterTask(database, taskId, visibility, ACTOR);
+    expect(back?.state).toBe("open");
+    expect(back?.progress).toBe("on_hold");
+    expect(back?.completed_at).toBeNull();
+    expect(back?.completed_by).toBeNull();
+  });
+});
+
+describe("archiving", () => {
+  it("archives with an optional reason, and takes none without complaint", async () => {
+    const { database, taskId } = await writeTask();
+    await commit(database, (await archiveMatterTask(database, taskId, null, options)).effect);
     const task = await readMatterTask(database, taskId, visibility, ACTOR);
-    expect(task?.state).toBe("cancelled");
-    expect(task?.cancellation_reason).toBe("Client withdrew the claim");
-    expect(task?.cancelled_by).toBe(ACTOR);
+    expect(task?.archived_at).not.toBeNull();
+    expect(task?.archived_by).toBe(ACTOR);
+    expect(task?.archive_reason).toBeNull();
+    await expect(archiveMatterTask(database, taskId, null, options)).rejects.toMatchObject({
+      code: "task-already-archived",
+    });
   });
 
-  it("keeps the cancellation reason off the audit metadata", async () => {
+  it("keeps the rung the task was archived from, and restores it on the way back", async () => {
+    const { database, taskId } = await writeTask();
+    await commit(
+      database,
+      (await moveMatterTaskToRung(database, taskId, "in_progress", options)).effect,
+    );
+    await commit(
+      database,
+      (await archiveMatterTask(database, taskId, "Client withdrew the claim", options)).effect,
+    );
+    const archived = await readMatterTask(database, taskId, visibility, ACTOR);
+    expect(archived?.progress).toBe("in_progress");
+    expect(archived?.archive_reason).toBe("Client withdrew the claim");
+
+    await commit(database, (await unarchiveMatterTask(database, taskId, options)).effect);
+    const back = await readMatterTask(database, taskId, visibility, ACTOR);
+    expect(back?.archived_at).toBeNull();
+    expect(back?.archive_reason).toBeNull();
+    expect(back?.progress).toBe("in_progress");
+  });
+
+  it("refuses to move an archived task until it is put back", async () => {
+    const { database, taskId } = await writeTask();
+    await commit(database, (await archiveMatterTask(database, taskId, null, options)).effect);
+    await expect(moveMatterTaskToRung(database, taskId, "done", options)).rejects.toMatchObject({
+      code: "task-already-archived",
+    });
+  });
+
+  it("keeps the archive reason off the audit metadata", async () => {
     const { database, raw, taskId } = await writeTask();
     await commit(
       database,
-      (await cancelMatterTask(database, taskId, "Client withdrew the claim", options)).effect,
+      (await archiveMatterTask(database, taskId, "Client withdrew the claim", options)).effect,
     );
     const rows = raw
       .prepare(`SELECT metadata FROM audit_log WHERE subject_id = ?`)
@@ -292,7 +349,10 @@ describe("sequencing", () => {
       editMatterTask(database, first, { title: TITLE, blockedByTaskId: second.taskId }, options),
     ).rejects.toMatchObject({ code: "task-blocking-cycle" });
     // A blocked task still completes: the sequence is guidance, not a gate.
-    await commit(database, (await completeMatterTask(database, second.taskId, options)).effect);
+    await commit(
+      database,
+      (await moveMatterTaskToRung(database, second.taskId, "done", options)).effect,
+    );
     const task = await readMatterTask(database, second.taskId, visibility, ACTOR);
     expect(task?.state).toBe("done");
   });
@@ -404,7 +464,7 @@ describe("the matter close advisory's count", () => {
     const second = await createMatterTask(database, { matterId: MATTER, title: "Second" }, options);
     await commit(database, second.effect);
     expect(await countOpenMatterTasks(database, MATTER)).toBe(2);
-    await commit(database, (await completeMatterTask(database, taskId, options)).effect);
+    await commit(database, (await moveMatterTaskToRung(database, taskId, "done", options)).effect);
     expect(await countOpenMatterTasks(database, MATTER)).toBe(1);
   });
 });
@@ -413,11 +473,16 @@ describe("refusals that never say which", () => {
   it("reports an unreachable task the same way as one that does not exist", async () => {
     const { database, taskId } = await writeTask({ matterId: null, title: "Private" });
     // A colleague cannot reach the creator's matterless task, and the refusal names neither reason.
-    await expect(completeMatterTask(database, taskId, colleagueOptions)).rejects.toMatchObject({
-      code: "task-unknown",
-    });
     await expect(
-      completeMatterTask(database, "matterTask_neverExisted00000000" as MatterTaskId, options),
+      moveMatterTaskToRung(database, taskId, "done", colleagueOptions),
+    ).rejects.toMatchObject({ code: "task-unknown" });
+    await expect(
+      moveMatterTaskToRung(
+        database,
+        "matterTask_neverExisted00000000" as MatterTaskId,
+        "done",
+        options,
+      ),
     ).rejects.toMatchObject({ code: "task-unknown" });
   });
 
@@ -436,7 +501,10 @@ describe("refusals that never say which", () => {
 describe("who the actor is", () => {
   it("records the acting member on a completion, not the assignee", async () => {
     const { database, taskId } = await writeTask({ assigneeUserId: COLLEAGUE });
-    await commit(database, (await completeMatterTask(database, taskId, colleagueOptions)).effect);
+    await commit(
+      database,
+      (await moveMatterTaskToRung(database, taskId, "done", colleagueOptions)).effect,
+    );
     const task = await readMatterTask(database, taskId, visibility, ACTOR);
     expect(task?.completed_by).toBe(COLLEAGUE as UserId);
   });
