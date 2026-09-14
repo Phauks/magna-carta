@@ -40,7 +40,6 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { formatInstant } from "@magna-carta/design-system/formatters";
@@ -448,13 +447,6 @@
   {/if}
 {/snippet}
 
-{#snippet emptyLedger()}
-  <EmptyState title="No Fees Recorded Yet">
-    Flat charges for professional services land here &mdash; recorded by hand, and billed like any
-    other work in progress. A fee is never computed from time entries. New Fee, at the top of the
-    matter, records the first.
-  </EmptyState>
-{/snippet}
 
 <!-- The counts strip's trailing figures. The surface seats the pane toggle after them. -->
 {#snippet figures()}
@@ -501,7 +493,6 @@
         class={tableClass}
         {density}
         caption="Fees recorded on this matter"
-        empty={emptyLedger}
         {loading}
       />
     </div>

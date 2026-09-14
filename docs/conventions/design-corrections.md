@@ -508,8 +508,10 @@ is usually the fastest way to understand the rule.
   registry (`sections.ts` answers `createNoun` for every section, or declines with a line);
   the section's page claims the behaviour while it is mounted. Elsewhere it sits in the
   masthead's action row, after the search. Nothing else on the screen makes the record: the
-  action-row buttons and the empty-state buttons that used to are removed, not moved, and an empty
-  state names the control at the top instead. When nothing can be made right now the control is
+  action-row buttons and the empty-state buttons that used to are removed, not moved. (The rest of
+  that sentence — "and an empty state names the control at the top instead" — was **reversed on
+  2026-09-14**; see _An empty list says "No Results", and nothing else_ below. An empty state names
+  nothing now.) When nothing can be made right now the control is
   disabled with the reason as its title; it never leaves the row. Enforced by
   `pnpm run lint:matter-create-control`. _(the matter screens, 2026-09-03)_
 - **The verb is New, and a control that opens a MENU reads the bare "New".** New is the word this
@@ -720,6 +722,22 @@ is usually the fastest way to understand the rule.
   transiently (a registry rate-limiting, a renderer at capacity), the surface retries a bounded
   number of times before reporting failure, and shows each attempt as it happens; the member is
   never made to be the retry loop. _(WHOIS lookup, 2026-08-31)_
+- **An empty list says "No Results", and nothing else.** Two words, in title case, for BOTH the
+  record that holds nothing and the narrowing that excludes everything — one wording serves both
+  because it is true of both, where "no matters yet" is a lie about a filtered table and a sentence
+  naming the filters is a second copy of what the header already shows. No description under it, and
+  no sentence naming the way in: the create control is in the masthead's action row on every screen
+  by the product's own grammar, so prose naming it duplicates a label that is free to change without
+  the prose changing with it. **This reverses** the 2026-09-03 "an empty state names the control at
+  the top" clause above. Where the reader can widen a narrowing, the way back is a CONTROL beside the
+  words, never more words. What the empty states used to carry instead was a definition of the domain
+  term — "A packet is the physical thing the firm holds and moves: an envelope, a deed box, a sealed
+  wallet…" — which is the explanatory prose _No info lines_ already forbids everywhere else, and
+  whose home is `docs/user/`. Not a rule to remember: `DataTable.Grid` has no `empty` snippet to pass
+  and `NoResults` takes no props, so there is nothing to get wrong. Three narrower states stay
+  distinct because they state a fact about the SUBJECT rather than about the result set — a sample
+  matter, a firm that has not enabled something, and a read that failed (which is `FailureNotice`,
+  not an empty state at all). _(the custodian register, 2026-09-14)_
 - **An empty screen is the filled screen lacking information**, not a different screen. The same
   regions render, each saying what it is missing. A centred card that replaces the layout teaches a
   person nothing about where things will be, and it makes the first real use of the screen a second

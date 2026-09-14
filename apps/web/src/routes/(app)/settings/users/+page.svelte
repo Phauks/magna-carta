@@ -30,7 +30,6 @@
   import Button from "@magna-carta/design-system/button";
   import Checkbox from "@magna-carta/design-system/checkbox";
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
@@ -326,12 +325,6 @@
         loading={members === null}
         placeholderCount={3}
       >
-        {#snippet empty()}
-          <EmptyState title="No Members Yet">
-            Invite the first colleague and they arrive holding the role you name. Until somebody
-            holds a role, they can sign in and reach nothing.
-          </EmptyState>
-        {/snippet}
       </DataTable.Grid>
       <DataTable.GridFooter {grid} />
     {/if}

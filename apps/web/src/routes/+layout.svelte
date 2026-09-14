@@ -16,13 +16,21 @@
   // rather than leaving a blank page (the same crash above was the console-only kind). Inside the
   // Provider, so the failure screen's own controls have every context the rest of the app has.
   import RenderBoundary from '$lib/diagnostics/render-boundary.svelte'
+  // The one query cache: every screen's reads resolve against it, which is what lets a read started
+  // in a route's load (on hover, before the click) be the same read the component then renders from.
+  // It sits at the root rather than inside the (app) group because the sign-in and joining screens
+  // read too, and a second cache under them would answer the same questions twice.
+  import { QueryClientProvider } from '@tanstack/svelte-query'
+  import { queryClient } from '$lib/api/screen-data.ts'
 
   let { children } = $props()
 </script>
 
-<Tooltip.Provider>
-  <RenderBoundary>
-    {@render children()}
-  </RenderBoundary>
-  <Toaster />
-</Tooltip.Provider>
+<QueryClientProvider client={queryClient}>
+  <Tooltip.Provider>
+    <RenderBoundary>
+      {@render children()}
+    </RenderBoundary>
+    <Toaster />
+  </Tooltip.Provider>
+</QueryClientProvider>

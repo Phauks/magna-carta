@@ -36,22 +36,25 @@
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import Input from "@magna-carta/design-system/input";
   import CreateControl from "@magna-carta/design-system/create-control";
   import Search from "@lucide/svelte/icons/search";
   import { goto } from "$app/navigation";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
-  import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
+  import { createQuery } from "@tanstack/svelte-query";
+  import {
+    locationsListOptions,
+    matterTypesListOptions,
+    matterTypesListQueryKey,
+    meGetOptions,
+    membersListOptions,
+    type MatterType,
+  } from "@magna-carta/api-client";
+  import { failureOf } from "$lib/api/api-client.ts";
+  import { queryClient, SESSION_STABLE } from "$lib/api/screen-data.ts";
   import {
     listEveryMatter,
-    listLocations,
-    listMatterTypes,
-    readSession,
-    type LocationSummary,
     type MatterSummary,
-    type MatterTypeSummary,
-    type SessionBootstrap,
     CREATE_MATTER_PERMISSION,
   } from "$lib/matters/matters-api.ts";
   import {
@@ -107,33 +110,47 @@
 
   // ---- the firm's own vocabularies and who is asking -------------------------------------------
 
-  let session = $state<SessionBootstrap | null>(null);
-  let matterTypes = $state<readonly MatterTypeSummary[]>([]);
-  let locations = $state<readonly LocationSummary[]>([]);
-  let bootstrapped = $state(false);
+  /*
+   * The firm's own vocabularies, and who is asking.
+   *
+   * FOUR READS, NO EFFECT, AND USUALLY NO REQUESTS. Each is warmed from this route's `+page.ts`, so
+   * they start while the pointer is still on the link that leads here and resolve out of the cache
+   * by the time this component mounts. The `$effect` that used to fan them out could not start until
+   * the chunk had been fetched and mounted, which put a whole round trip after the click.
+   *
+   * They are session-stable: the firm's practice areas, its Locations and its roster change when an
+   * administrator changes them, so a second screen asking the same question inside ten minutes is
+   * answered from the cache rather than from the server. A vocabulary that cannot be read leaves its
+   * column empty rather than failing the screen — `data` is simply undefined and the fallbacks below
+   * carry it, which is the same posture the four separate outcome unpacks used to take one at a time.
+   */
+  const sessionRead = createQuery(() => ({ ...meGetOptions(), staleTime: SESSION_STABLE }));
+  const matterTypesRead = createQuery(() => ({
+    ...matterTypesListOptions(),
+    staleTime: SESSION_STABLE,
+  }));
+  const locationsRead = createQuery(() => ({ ...locationsListOptions(), staleTime: SESSION_STABLE }));
+  const rosterRead = createQuery(() => ({ ...membersListOptions(), staleTime: SESSION_STABLE }));
 
-  $effect(() => {
-    if (bootstrapped) return;
-    bootstrapped = true;
-    void (async () => {
-      const [sessionOutcome, typesOutcome, locationsOutcome] = await Promise.all([
-        readSession(fetch),
-        listMatterTypes(fetch),
-        listLocations(fetch),
-        // The roster settles its own failure internally and is shared with the rest of the app, so
-        // it rides the same bootstrap without a fourth outcome to unpack here.
-        firmRoster.load(fetch),
-      ]);
-      if (sessionOutcome.kind === "ok") session = sessionOutcome.value;
-      // A vocabulary that cannot be read leaves its column empty rather than failing the screen.
-      if (typesOutcome.kind === "ok") matterTypes = typesOutcome.value.data;
-      if (locationsOutcome.kind === "ok") locations = locationsOutcome.value.data;
-    })();
-  });
-
+  const session = $derived(sessionRead.data ?? null);
+  const matterTypes = $derived(matterTypesRead.data?.data ?? []);
+  const locations = $derived(locationsRead.data?.data ?? []);
   // Every member the firm has, not only the active ones: a closed matter's responsible attorney may
   // have left, and their name is still the true answer for that row.
-  const members = $derived(firmRoster.members ?? []);
+  const members = $derived(rosterRead.data?.data ?? []);
+  /*
+   * The roster is not this screen's subject, so its failure never fails the screen: the responsible
+   * attorney column renders empty and a line beside the table says why. A member refused the read
+   * (403) is told the same thing as a member whose request did not arrive, because the remedy — ask
+   * an administrator — is the same, and naming the permission at somebody who cannot grant it
+   * themselves is noise.
+   */
+  const rosterFailure = $derived.by(() => {
+    if (rosterRead.error === null) return null;
+    return failureOf(rosterRead.error).problem?.status === 403
+      ? "Your account cannot read the firm's member list."
+      : "The firm's member list could not be read.";
+  });
   const vocabulary = $derived(
     matterTypes.length === 0 && locations.length === 0 && members.length === 0
       ? EMPTY_MATTER_VOCABULARY
@@ -212,13 +229,18 @@
    *
    * The screen read the firm's matter types once, and the intake can add one — so without this the
    * new area would name the new matter's Practice Area cell nothing until the next page load, and
-   * the column's filter would not offer it. Held rather than re-read: the answer is already in
-   * hand, and a second list read to learn what this screen just did would be a request for a fact
-   * it already has.
+   * the column's filter would not offer it. Written into the CACHE rather than into this screen's
+   * own state, which is the difference the shared cache makes: every other surface reading the
+   * firm's practice areas — the new-matter dialog, the intake desk, settings — sees the new one
+   * too, where a screen-local copy would have left them all stale until their next read. Still not
+   * a re-read: a list request to learn what this screen just did would be asking for a fact already
+   * in hand.
    */
-  function onMatterTypeAdopted(created: MatterTypeSummary): void {
+  function onMatterTypeAdopted(created: MatterType): void {
     if (matterTypes.some((type) => type.id === created.id)) return;
-    matterTypes = [...matterTypes, created];
+    queryClient.setQueryData(matterTypesListQueryKey(), (held: { data: MatterType[] } | undefined) =>
+      held === undefined ? { data: [created] } : { data: [...held.data, created] },
+    );
   }
 </script>
 
@@ -300,10 +322,10 @@
     </Alert.Root>
   {/if}
 
-  {#if firmRoster.failure !== null}
+  {#if rosterFailure !== null}
     <Alert.Root variant="info">
       <Alert.Title>The Firm's Member List Could Not Be Read</Alert.Title>
-      <Alert.Description>{firmRoster.failure}</Alert.Description>
+      <Alert.Description>{rosterFailure}</Alert.Description>
     </Alert.Root>
   {/if}
 
@@ -330,18 +352,6 @@
       cell={matterCell}
       loading={matters === null}
     >
-      {#snippet empty()}
-        {#if searching}
-          <EmptyState title="Nothing Matches That Search">
-            No matter answers to that title, number or client.
-          </EmptyState>
-        {:else}
-          <EmptyState title="No Matters Yet">
-            Numbering, documents, time and trust all hang from a matter. New Matter, at the top of
-            the screen, opens the first.
-          </EmptyState>
-        {/if}
-      {/snippet}
     </DataTable.Grid>
 
     <!-- The counts strip: how much of the record is on screen, what is hiding the rest, and the

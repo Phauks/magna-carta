@@ -167,6 +167,7 @@ describe("schema conformance (fitness functions)", () => {
       "invoice_number_allocation",
       "time_entry_number_allocation",
       "time_entry_attachment",
+      "magnus_conversation_attachment",
       "invoice_matter_balance",
       "document_template_field_binding",
       "scan_cache",

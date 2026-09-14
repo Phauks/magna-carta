@@ -116,6 +116,10 @@
       "home": "packages/design-system/src/lib/components/empty-state"
     },
     {
+      "name": "NoResults",
+      "home": "packages/design-system/src/lib/components/empty-state"
+    },
+    {
       "name": "LabelledField",
       "home": "packages/design-system/src/lib/components/labelled-field"
     },

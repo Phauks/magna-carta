@@ -85,7 +85,7 @@ if (problems.length > 0) {
   console.error(
     `${problems.length} finding(s) across ${byFile.size} file(s) of ${files.length} read. A ` +
       "structure renders its frame before its data arrives, and the words about the emptiness go " +
-      "inside it — DataTable.Grid's `empty` snippet, EventRail's `emptyMessage`, the list's own " +
+      "inside it — DataTable.Grid says its own No Results, EventRail's `emptyMessage`, the list's own " +
       "empty row. A genuinely prose-only case carries `<!-- structured-empty-allow: <why> -->` " +
       "immediately before the element.",
   );
