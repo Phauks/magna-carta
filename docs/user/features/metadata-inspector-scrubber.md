@@ -27,9 +27,9 @@ Use it before sending any file outside the firm — before attaching a document 
 
 **Inspect a file**
 
-1. Open the Tools sidebar.
-2. Select **Metadata Inspector & Scrubber** under **Documents**.
-3. Upload the file by dragging it onto the upload area or selecting it with the file picker.
+1. Open **File Workbench** in the sidebar, under **Firm**.
+2. Drop in the file, or use **Add Files**.
+3. Open the **Metadata** tab.
 4. The Inspector shows the findings grouped by category — identifying metadata, tracked changes, comments, hidden content, custom properties, a stored preview image of the first page, embedded data attached to the document, stored settings such as a mail-merge data source or template location, editing history, and (for images) camera data, GPS location, editing-software markers, and any data appended after the end of the picture. Each finding shows a risk level and a count.
 
 **Make a file safe to send — one click**
@@ -62,4 +62,4 @@ After scrubbing, the tool re-inspects the output and shows you the result. A cle
 ## Related features
 
 - **File Converter** — convert an unsupported file type (for example, HEIC to JPEG) before scrubbing.
-- **Tools** — Metadata Inspector & Scrubber is in the **Documents** group, accessible from the Tools sidebar.
+- **File Workbench** — inspecting and scrubbing is the **Metadata** tab there, alongside every other thing the firm can do to a file.

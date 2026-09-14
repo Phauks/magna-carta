@@ -27,10 +27,10 @@ All five are produced from a single read of the file, so asking for every finger
 
 **Get a file's fingerprints**
 
-1. Open the Tools sidebar.
-2. Select **File Hash & Integrity** under **Documents**.
-3. Drop in the file (or pick it with the file picker) and select **Generate all hashes**.
-4. All five fingerprints appear, with the file's size. Copy any of them to share.
+1. Open **File Workbench** in the sidebar, under **Firm**.
+2. Drop in the file, or use **Add Files**.
+3. Open the **Hash** tab.
+4. The fingerprints appear, with the file's size. Copy any of them to share.
 
 **Check a file against an expected hash**
 
@@ -67,4 +67,4 @@ All five are produced from a single read of the file, so asking for every finger
 ## Related features
 
 - **Metadata Inspector & Scrubber** — remove hidden information from a file before you produce it; pair with a hash to fingerprint the cleaned copy.
-- **Tools** — File Hash & Integrity is in the **Documents** group of the Tools sidebar, and is also available as an action on any stored file.
+- **File Workbench** — hashing is the **Hash** tab there, alongside every other thing the firm can do to a file. It is also available as an action on any stored file.
