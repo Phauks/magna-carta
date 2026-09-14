@@ -172,6 +172,7 @@ describe("the controller over the router", () => {
       weekStartsOn: () => 0,
       agendaDays: () => 14,
       memberId: () => "user_me",
+      catalog: () => ({ members: [], resources: [] }),
       context: () => ({
         matterNumbers: new Map(),
         eventTypesByCode: new Map(),
@@ -243,6 +244,9 @@ describe("the calendar's search", () => {
         readerTimeZone: "UTC",
       }),
       contextReady: () => true,
+      // The rail's catalog, empty: this block is about which rows survive a query, not about which
+      // calendars the firm has.
+      catalog: () => ({ members: [], resources: [] }),
     };
   }
 
@@ -258,6 +262,9 @@ describe("the calendar's search", () => {
       matterId: null,
       link: null,
       settled,
+      // Which reads produced the entry. Empty here on purpose: this block is about which rows a
+      // query keeps, and an entry on no named calendar still has to survive the colouring pass.
+      sourceKeys: [] as readonly string[],
     };
   }
 

@@ -134,3 +134,37 @@ export function instantAttribute(at: Instant): string | undefined {
   const date = readInstant(at);
   return date === null ? undefined : date.toISOString();
 }
+
+/**
+ * A ZONE'S OWN SHORT NAME on a given day — "PST", "EDT", or the offset ("GMT+5:30") where the zone
+ * has no letters of its own.
+ *
+ * It is here, in the display vocabulary, because it is a word a surface prints and there is exactly
+ * one right way to print it; three surfaces each reaching for `formatToParts` is three answers to
+ * one question, which is what this file exists to prevent.
+ *
+ * ON A DAY, AND THAT IS THE WHOLE SUBTLETY. An abbreviation is a fact about a zone AT A MOMENT: the
+ * same zone is PST in January and PDT in July, so a control printing one of them all year would be
+ * wrong for half of it. The caller passes the day its record falls on; today is the default, for a
+ * surface that has no record in front of it yet.
+ *
+ * NOTHING IS EVER STORED FROM THIS. A record holds an IANA identifier; this is a rendering. An
+ * abbreviation is ambiguous — CST is three different zones — and storing one is how a hearing moves
+ * by an hour when the clocks change.
+ */
+export function formatTimeZoneAbbreviation(
+  timeZone: string,
+  on: Instant = new Date(),
+  locale?: string,
+): string {
+  try {
+    const parts = new Intl.DateTimeFormat(locale ?? "en-US", {
+      timeZone,
+      timeZoneName: "short",
+    }).formatToParts(readInstant(on) ?? new Date());
+    return parts.find((part) => part.type === "timeZoneName")?.value ?? timeZone;
+  } catch {
+    // A zone this runtime cannot resolve is shown as what it is, rather than as nothing.
+    return timeZone;
+  }
+}

@@ -18,6 +18,7 @@
    * THE KEYS ARE MINTED PER ATTEMPT, one per write, kept while nothing answered so a retry after a
    * dropped connection repeats the same write, and dropped once the server has answered.
    */
+  import DaySchedule from "./day-schedule.svelte";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as Select from "@magna-carta/design-system/select";
@@ -209,7 +210,7 @@
   commitLabel={superseding ? "Supersede Deadline" : "Record Deadline"}
   commitBusyLabel={superseding ? "Superseding" : "Recording"}
   commitRefusal={refusal}
-  width="wide"
+
   unsavedChanges={started}
   onOpen={reset}
   onCommit={submit}
@@ -218,6 +219,12 @@
     {#if superseding}
       {supersededLine}
     {/if}
+  {/snippet}
+
+  {#snippet context()}
+    <!-- The day the deadline falls on, so a person setting one can see what else is already due
+         and who is in court that morning. -->
+    <DaySchedule date={draft.dueOn} heading="That day" />
   {/snippet}
 
   {#snippet notice()}

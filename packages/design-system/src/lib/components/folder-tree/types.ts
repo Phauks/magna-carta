@@ -1,4 +1,5 @@
 import type Folder from "@lucide/svelte/icons/folder";
+import type { PaletteColorName } from "../../palette/index.ts";
 
 /**
  * The folder rail's data, kept in a plain module (not the .svelte) so the types re-export and
@@ -10,22 +11,11 @@ import type Folder from "@lucide/svelte/icons/folder";
 export type FolderIconComponent = typeof Folder;
 
 /**
- * The colours a folder can be given. Rainbow first, then the achromatics — the order is the palette
- * the reader sees, and it is the order this array is written in, so there is nowhere else for a
- * sort to disagree with it.
+ * The colours a folder can be given: the product's one member-chosen palette, every name of it.
+ * Rainbow first, then the achromatics — the order is the palette the reader sees, and it is the
+ * order `PALETTE_COLORS` is written in, so there is nowhere else for a sort to disagree with it.
  */
-export type FolderColorName =
-  | "red"
-  | "orange"
-  | "yellow"
-  | "green"
-  | "blue"
-  | "purple"
-  | "pink"
-  | "brown"
-  | "grey"
-  | "black"
-  | "white";
+export type FolderColorName = PaletteColorName;
 
 /** The marks a folder can carry instead of the plain one. */
 export type FolderIconName =

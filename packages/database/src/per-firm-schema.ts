@@ -6491,6 +6491,12 @@ export const matterEvent = sqliteTable(
     // user interface defaults it from the matter's office and a person overrides it per row.
     timeZone: text("time_zone").notNull(),
     locationText: text("location_text"),
+    // Where an online setting is JOINED: the meeting's own link, whoever hosts it. A URL rather than
+    // a provider and a room number, because every conferencing service the firm might use — and the
+    // next one it moves to — expresses a meeting as a link, and a schema that named providers would
+    // be a list this repository maintains on their release schedules. Nullable, and null is the
+    // ordinary case: most settings are somewhere.
+    conferenceUrl: text("conference_url"),
     courtReference: text("court_reference"),
     // When a person asserted this, as against when it happens. The custody-movement precedent: the
     // two diverge routinely, and collapsing them would make a hearing typed on Monday for a Friday
@@ -7361,6 +7367,9 @@ export const firmEvent = sqliteTable(
       .$type<LocationId>()
       .references(() => location.id),
     locationText: text("location_text"),
+    // The same link a matter event carries, for the same reason: a firm meeting is as likely to be
+    // held on a call as in a room, and where it is joined is a different fact from where it is.
+    conferenceUrl: text("conference_url"),
     recordedAt: text("recorded_at").notNull(),
     recordedBy: text("recorded_by").$type<UserId>(),
     createdAt: text("created_at").notNull(),

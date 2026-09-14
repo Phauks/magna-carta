@@ -12417,6 +12417,18 @@
           "link": {
             "type": "string"
           },
+          "timeOfDay": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeZone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "title": {
             "type": [
               "string",
@@ -12446,6 +12458,8 @@
           "actorUserId",
           "label",
           "link",
+          "timeOfDay",
+          "timeZone",
           "title",
           "typeText",
           "facts"
@@ -12546,6 +12560,12 @@
               "null"
             ]
           },
+          "conferenceUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "courtReference": {
             "type": [
               "string",
@@ -12589,6 +12609,7 @@
           "endsAtTime",
           "timeZone",
           "locationText",
+          "conferenceUrl",
           "courtReference",
           "recordedAt",
           "recordedBy",
@@ -12976,6 +12997,14 @@
             ],
             "maxLength": 300
           },
+          "conferenceUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000,
+            "format": "uri"
+          },
           "courtReference": {
             "type": [
               "string",
@@ -13123,6 +13152,14 @@
               "null"
             ],
             "maxLength": 300
+          },
+          "conferenceUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000,
+            "format": "uri"
           },
           "courtReference": {
             "type": [
@@ -13455,6 +13492,12 @@
               "null"
             ]
           },
+          "conferenceUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "recordedAt": {
             "type": "string"
           },
@@ -13480,6 +13523,7 @@
           "audience",
           "locationId",
           "locationText",
+          "conferenceUrl",
           "recordedAt",
           "recordedBy"
         ]
@@ -13583,6 +13627,14 @@
             ],
             "maxLength": 300
           },
+          "conferenceUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000,
+            "format": "uri"
+          },
           "participants": {
             "type": "array",
             "items": {
@@ -13677,6 +13729,14 @@
               "null"
             ],
             "maxLength": 300
+          },
+          "conferenceUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000,
+            "format": "uri"
           },
           "participants": {
             "type": "array",
@@ -14320,6 +14380,14 @@
               "null"
             ],
             "maxLength": 300
+          },
+          "conferenceUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000,
+            "format": "uri"
           },
           "courtReference": {
             "type": [

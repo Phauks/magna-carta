@@ -12,9 +12,20 @@
    * leaving it puts the chosen zone's name back. A filled field rendering its ghost text would read
    * as a record with no zone, which on a calendar is a different and important fact. Same
    * discipline as $lib/matters/member-picker.svelte, for the same reason.
+   *
+   * COMPACT IS THE SAME FIELD, READ BY ITS SHORTCODE. Beside a time on a record form the zone is
+   * "PST", not "America / Los Angeles" (owner ruling, 2026-09-14): a moment is one line, and a
+   * field wide enough for a continent and a city pushes the time it belongs to onto the next one.
+   * The list still carries both, because CST is three different zones and a reader choosing between
+   * them needs the name. The code is worked out ON THE EVENT'S OWN DAY, since the same zone is PST
+   * in January and PDT in July.
    */
   import * as Combobox from "@magna-carta/design-system/combobox";
-  import { timeZoneLabel, timeZoneOptions } from "./time-zone-options.ts";
+  import {
+    timeZoneLabel,
+    timeZoneOptions,
+    timeZoneShortCode,
+  } from "./time-zone-options.ts";
 
   let {
     value = $bindable(""),
@@ -22,6 +33,8 @@
     label,
     preferred,
     disabled = false,
+    compact = false,
+    on = undefined,
   }: {
     /** The chosen IANA zone, or empty for none. Bindable. */
     value?: string;
@@ -32,6 +45,16 @@
     /** The zones offered first: the reader's own and the firm's offices, in that order. */
     preferred: readonly string[];
     disabled?: boolean;
+    /**
+     * Whether the field reads by SHORTCODE — "PST" — rather than by the zone's full name. For the
+     * control that sits beside a time, where a moment has to stay on one line.
+     */
+    compact?: boolean;
+    /**
+     * The day the shortcode is worked out for. An abbreviation is a fact about a zone at a moment,
+     * so the event's own day is the right one; today where the form has no date yet.
+     */
+    on?: Date;
   } = $props();
 
   /** What has been typed. Meaningful only while the field is being searched. */
@@ -39,9 +62,19 @@
   /** Whether the reader is searching rather than reading the zone the field holds. */
   let searching = $state(false);
 
-  const options = $derived(timeZoneOptions(preferred));
+  const options = $derived(
+    timeZoneOptions(preferred).map((option) =>
+      compact
+        ? { value: option.value, label: `${timeZoneShortCode(option.value, on)} · ${option.label}` }
+        : option,
+    ),
+  );
 
-  const selectedLabel = $derived(value === "" ? "" : timeZoneLabel(value));
+  // At rest the field shows the shortest true thing: the code where it is compact, the name where
+  // it is not. The LIST keeps both either way, so nobody picks CST without seeing which CST.
+  const selectedLabel = $derived(
+    value === "" ? "" : compact ? timeZoneShortCode(value, on) : timeZoneLabel(value),
+  );
 
   const matching = $derived.by(() => {
     const needle = query.trim().toLowerCase().replaceAll("_", " ");

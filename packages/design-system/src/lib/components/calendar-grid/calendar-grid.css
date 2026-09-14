@@ -297,6 +297,128 @@
   }
 
   /*
+   * THE CALENDAR'S OWN COLOUR — the member's answer to "which of my calendars is this", set in the
+   * rail and carried on the chip as `data-color`. It is a RULE DOWN THE LEADING EDGE and nothing
+   * else: the chip's fill and ink stay the status register's, so a cancelled setting on the blue
+   * calendar is still visibly cancelled. Colouring the whole chip would put two facts in one
+   * property and lose whichever was written second.
+   *
+   * The fills are the product's one palette (styles/recipes/palette.css); the calendar offers the
+   * nine of them that read here (calendar-grid/colors.ts). The rule is drawn with a leading border
+   * rather than a box-shadow, because an offset shadow needs a bare length the purity gate rejects.
+   */
+  .mc-calendar-grid-entry[data-color] {
+    border-inline-start-width: var(--mc-space-4);
+  }
+  .mc-calendar-grid-entry[data-color="red"] {
+    border-inline-start-color: var(--mc-palette-red);
+  }
+  .mc-calendar-grid-entry[data-color="orange"] {
+    border-inline-start-color: var(--mc-palette-orange);
+  }
+  .mc-calendar-grid-entry[data-color="yellow"] {
+    border-inline-start-color: var(--mc-palette-yellow);
+  }
+  .mc-calendar-grid-entry[data-color="green"] {
+    border-inline-start-color: var(--mc-palette-green);
+  }
+  .mc-calendar-grid-entry[data-color="blue"] {
+    border-inline-start-color: var(--mc-palette-blue);
+  }
+  .mc-calendar-grid-entry[data-color="purple"] {
+    border-inline-start-color: var(--mc-palette-purple);
+  }
+  .mc-calendar-grid-entry[data-color="pink"] {
+    border-inline-start-color: var(--mc-palette-pink);
+  }
+  .mc-calendar-grid-entry[data-color="brown"] {
+    border-inline-start-color: var(--mc-palette-brown);
+  }
+  .mc-calendar-grid-entry[data-color="grey"] {
+    border-inline-start-color: var(--mc-palette-grey);
+  }
+  /* A run that continues into the next day squares its leading edge, so the colour rule comes off
+     with the rounding: a rule in the middle of a span would read as a second entry starting. */
+  .mc-calendar-grid-entry[data-color][data-span="true"]:not([data-span-start="true"]) {
+    border-inline-start-width: var(--mc-border-width-default);
+    border-inline-start-color: var(--mc-border-default);
+  }
+
+  /*
+   * The Day: an hour axis crossed with a column per calendar.
+   *
+   * It is the month's own table grammar — the same frame, the same sunken heads, the same hairline
+   * cells — turned ninety degrees: the hours are ROW heads down the leading edge and the calendars
+   * are column heads across the top. Nothing here re-declares a chip, a placeholder or a caption;
+   * those are the family's and the Day gets them by being one of its tables.
+   */
+  .mc-calendar-grid-day-view .mc-calendar-grid-gutter {
+    inline-size: var(--mc-space-64);
+  }
+  /* The hour down the side: the weekday head's structural voice, in tabular figures so the column
+     of them aligns, and top-aligned so an hour names the row it opens rather than floating in it. */
+  .mc-calendar-grid-hour {
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-8);
+    background-color: var(--mc-surface-sunken);
+    border-block-end: var(--mc-border-width-default) solid var(--mc-border-default);
+    border-inline-end: var(--mc-border-width-default) solid var(--mc-border-default);
+    color: var(--mc-text-subtle);
+    font-size: var(--mc-font-size-xs);
+    font-weight: var(--mc-weight-medium);
+    font-variant-numeric: tabular-nums;
+    text-align: end;
+    vertical-align: top;
+    white-space: nowrap;
+  }
+  /* An hour row holds one or two chips, not a month cell's worth, so it keeps a reading height
+     rather than the month's 96px step. */
+  .mc-calendar-grid-day-view .mc-calendar-grid-day-cell {
+    block-size: var(--mc-space-40);
+    padding-inline: var(--mc-space-8);
+  }
+  /* The band above the hours is where what is true of the whole day sits, so it is separated from
+     them by a heavier rule than the hairline between two hours. */
+  .mc-calendar-grid-all-day-row .mc-calendar-grid-cell,
+  .mc-calendar-grid-all-day-row .mc-calendar-grid-hour {
+    border-block-end-color: var(--mc-border-strong);
+  }
+  .mc-calendar-grid-all-day-row .mc-calendar-grid-hour {
+    font-weight: var(--mc-weight-semibold);
+  }
+  /* A lane head names a calendar, so it reads as a name rather than as a structural caps label. */
+  .mc-calendar-grid-lane-head {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-4);
+    min-inline-size: var(--mc-space-0);
+  }
+  .mc-calendar-grid-lane-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* The calendar's colour is the shared pip (styles/recipes/palette-swatches.css), so a row in the
+     rail and a column head on this grid cannot disagree about what blue is. */
+  /* A day column is narrow once a firm turns eight calendars on: both lines of a chip truncate
+     rather than breaking inside a word, as the week's do and for the same reason. */
+  .mc-calendar-grid-day-view .mc-calendar-grid-entry {
+    flex-wrap: wrap;
+  }
+  .mc-calendar-grid-day-view .mc-calendar-grid-entry-label,
+  .mc-calendar-grid-day-view .mc-calendar-grid-entry-detail {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* The Day's caption names the day rather than standing empty, because a day grid carries no
+     month name of its own and the hours say nothing about which day they are. */
+  .mc-calendar-grid-day-view .mc-calendar-grid-caption {
+    color: var(--mc-text-default);
+    font-weight: var(--mc-weight-semibold);
+  }
+
+  /*
    * The agenda. A scrolling child, like the event rail: it takes the block space it is given and
    * scrolls inside it, and the zero minimum is what lets it shrink below its content in a flex
    * parent. Focusable because its content can scroll past every control in it.

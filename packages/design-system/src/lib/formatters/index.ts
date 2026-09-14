@@ -29,6 +29,7 @@ export {
   formatInstant,
   formatInstantDate,
   formatTimeOfDay,
+  formatTimeZoneAbbreviation,
   instantAttribute,
   readInstant,
   type Instant,

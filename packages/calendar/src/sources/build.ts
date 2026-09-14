@@ -35,6 +35,12 @@ export interface BoundedSelectSpec {
   readonly actorExpression: string;
   // The DECLARED non-privileged label, or the literal NULL where the source declares it has none.
   readonly labelExpression: string;
+  // The wall-clock time of day this row falls at and the zone it is read in, as SQL expressions —
+  // absent on a source whose rows have no hour, which projects NULL for both. It is the same class
+  // of fact the sort key already is (when a thing happens, in the record's own terms) and carries
+  // nothing about a case, which is why it rides a projection a title may not.
+  readonly timeOfDayExpression?: string;
+  readonly timeZoneExpression?: string;
   // Source-specific narrowing (a matter filter, a state filter, a date window), already expressed
   // with `?` placeholders in binding order.
   readonly conditions: readonly string[];
@@ -67,7 +73,9 @@ export function boundedSelect(database: SqlDatabase, spec: BoundedSelectSpec): S
     `SELECT ${spec.sortColumn} AS sort_key, ${spec.idColumn} AS row_id, ` +
     `${spec.linkIdExpression ?? spec.idColumn} AS link_id, ` +
     `${spec.matterExpression} AS matter_id, ${spec.kindExpression} AS kind, ` +
-    `${spec.actorExpression} AS actor_user_id, ${spec.labelExpression} AS label ` +
+    `${spec.actorExpression} AS actor_user_id, ${spec.labelExpression} AS label, ` +
+    `${spec.timeOfDayExpression ?? "NULL"} AS time_of_day, ` +
+    `${spec.timeZoneExpression ?? "NULL"} AS time_zone ` +
     `FROM ${spec.from} ` +
     `WHERE ${conditions.join(" AND ")} ` +
     `ORDER BY ${spec.sortColumn} ${order}, ${spec.idColumn} ${order} ` +
@@ -90,6 +98,12 @@ export interface BoundedFirmScopedSelectSpec {
   readonly kindExpression: string;
   readonly actorExpression: string;
   readonly labelExpression: string;
+  // The wall-clock time of day this row falls at and the zone it is read in, as SQL expressions —
+  // absent on a source whose rows have no hour, which projects NULL for both. It is the same class
+  // of fact the sort key already is (when a thing happens, in the record's own terms) and carries
+  // nothing about a case, which is why it rides a projection a title may not.
+  readonly timeOfDayExpression?: string;
+  readonly timeZoneExpression?: string;
   readonly conditions: readonly string[];
   readonly bindings: readonly unknown[];
 }
@@ -117,7 +131,9 @@ export function boundedFirmScopedSelect(
   const sql =
     `SELECT ${spec.sortColumn} AS sort_key, ${spec.idColumn} AS row_id, ` +
     `${spec.idColumn} AS link_id, NULL AS matter_id, ${spec.kindExpression} AS kind, ` +
-    `${spec.actorExpression} AS actor_user_id, ${spec.labelExpression} AS label ` +
+    `${spec.actorExpression} AS actor_user_id, ${spec.labelExpression} AS label, ` +
+    `${spec.timeOfDayExpression ?? "NULL"} AS time_of_day, ` +
+    `${spec.timeZoneExpression ?? "NULL"} AS time_zone ` +
     `FROM ${spec.from} ` +
     `WHERE ${conditions.join(" AND ")} ` +
     `ORDER BY ${spec.sortColumn} ${order}, ${spec.idColumn} ${order} ` +
@@ -168,8 +184,9 @@ export function instantWindowConditions(
 }
 
 // The projection every source shares: a reference, never a record. It carries identifiers, a kind, a
-// sort key, an actor where there is one, the source's DECLARED non-privileged label, and the deep
-// link. Nothing else — no title, no subject line, no narrative, no name.
+// sort key, the hour where the row has one, an actor where there is one, the source's DECLARED
+// non-privileged label, and the deep link. Nothing else — no title, no subject line, no narrative,
+// no name.
 export function projectRow(
   sourceKey: string,
   linkFor: (row: TimelineRawRow) => string,
@@ -182,6 +199,8 @@ export function projectRow(
   actorUserId: string | null;
   label: string | null;
   link: string;
+  timeOfDay: string | null;
+  timeZone: string | null;
   title: null;
   typeText: null;
   facts: null;
@@ -190,6 +209,10 @@ export function projectRow(
     sourceKey,
     kind: row.kind,
     sortKey: row.sort_key,
+    // Said in the record's own zone and never converted: the reader's surface names the zone where
+    // it is not theirs, exactly as every other calendar surface does.
+    timeOfDay: row.time_of_day ?? null,
+    timeZone: row.time_zone ?? null,
     // Never described by the projection: the words come from `describe`, on a matter-scoped read.
     title: null,
     typeText: null,

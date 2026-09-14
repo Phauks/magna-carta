@@ -13,6 +13,15 @@
  *                 until it passes the window's start (page one for the near future, which is the
  *                 common case); and the deadlines read for the matter over the window.
  *
+ * ON THE FIRM SIDE THE PLAN IS A PLAN PER CALENDAR, NOT ONE READ. A reader who has turned on four
+ * attorneys and two rooms gets the firm's own reads plus one member-filtered federated read each
+ * and one availability read each — because "what is on Ada's calendar" is a predicate the server
+ * already resolves in SQL, and the alternative is reading the whole firm into the browser and
+ * deciding there who was at what. Every entry is tagged with the calendar its read returned it
+ * from, and the same record arriving from two of them is merged into one row that knows it is on
+ * both (`mergeByRecord`). The reads are made together, and a calendar whose read failed is named
+ * on its own rather than taking the others down with it.
+ *
  * THE READS FAIL INDEPENDENTLY. A firm whose deadline read errored still needs to see its hearings,
  * so a failure is reported beside the entries the other reads returned, named by which read it was.
  *
@@ -36,13 +45,20 @@ import {
   entryFromFirmEvent,
   entryFromMatterEvent,
   entryFromTimelineRow,
+  mergeByRecord,
   orderEntries,
+  taggedWith,
   type CalendarEntry,
   type EntryContext,
 } from "./calendar-entries.ts";
 import type { CalendarScope } from "./calendar-scope.ts";
 import { windowOverlaps, type CalendarWindow } from "./calendar-window.ts";
-import { firmCalendarKinds } from "./calendar-vocabulary.ts";
+import { calendarLayer, FIRM_CALENDAR_KINDS } from "./calendar-vocabulary.ts";
+import {
+  FIRM_EVENTS_SOURCE_KEY,
+  RECORDS_SOURCE_KEY,
+  type CalendarSource,
+} from "./calendar-sources.ts";
 
 /** Which of the plan's reads a failure belongs to, in the words a notice uses. */
 export type CalendarReadName = "events" | "deadlines" | "firmEvents" | "bookings";
@@ -50,6 +66,11 @@ export type CalendarReadName = "events" | "deadlines" | "firmEvents" | "bookings
 export interface CalendarReadFailure {
   readonly read: CalendarReadName;
   readonly failure: Failure;
+  /**
+   * The calendar whose read this was, where it was one particular calendar's — so a notice can say
+   * WHOSE events could not be read rather than leaving a reader with six calendars on to guess.
+   */
+  readonly sourceName?: string;
 }
 
 export interface CalendarWindowResult {
@@ -90,14 +111,21 @@ async function walk<T>(read: PageReader<T>, stopAfter?: (page: T[]) => boolean):
 
 export interface CalendarReadOptions {
   /**
-   * The layers turned on over the firm calendar (calendar-vocabulary.ts, `CALENDAR_LAYERS`): the
-   * timeline's other date-bearing sources the federated read is widened to. None by default, so
-   * the firm grid opens on what the firm recorded as a calendar entry.
+   * The calendars the reader has turned on, in the rail's own order (calendar-sources.ts). Given,
+   * they decide the whole firm-side plan; absent, the plan is the firm's own two calendars, which
+   * is what every embedded host that never drew a rail asks for.
    */
-  readonly layers?: ReadonlySet<string>;
+  readonly sources?: readonly CalendarSource[];
 }
 
-const NO_LAYERS: ReadonlySet<string> = new Set();
+/**
+ * The plan a host that drew no rail gets: the firm's own two calendars, which is what every
+ * embedded calendar (Home's Today card, a matter's Coming up) has always read.
+ */
+const FIRM_OWN_CALENDARS: readonly CalendarSource[] = [
+  { key: RECORDS_SOURCE_KEY, name: "Matters and deadlines", kind: { kind: "records" } },
+  { key: FIRM_EVENTS_SOURCE_KEY, name: "Firm events", kind: { kind: "firmEvents" } },
+];
 
 /** Everything the window holds for the scope, projected and ordered. */
 export async function readCalendarWindow(
@@ -113,7 +141,13 @@ export async function readCalendarWindow(
     case "resource":
       return readResourceWindow(fetchImpl, scope.resourceId, window, context);
     default:
-      return readFirmWindow(fetchImpl, scope, window, context, options.layers ?? NO_LAYERS);
+      return readFirmWindow(
+        fetchImpl,
+        scope,
+        window,
+        context,
+        options.sources ?? FIRM_OWN_CALENDARS,
+      );
   }
 }
 
@@ -145,49 +179,233 @@ async function readResourceWindow(
   return { entries: orderEntries(entries), failures: [], truncated: false };
 }
 
+/**
+ * The firm side: the calendars the reader turned on, each read in the way it is read, then merged.
+ *
+ * A calendar that was not turned on is not read at all — which is the point of the rail, and what
+ * keeps the request count the reader's own choice rather than the roster's size. When no rail said
+ * otherwise the plan is the firm's own two calendars, exactly as it was before there were
+ * calendars to choose between, so every embedded host keeps working unchanged.
+ */
 async function readFirmWindow(
   fetchImpl: typeof fetch,
   scope: CalendarScope,
   window: CalendarWindow,
   context: EntryContext,
-  layers: ReadonlySet<string>,
+  sources: readonly CalendarSource[],
 ): Promise<CalendarWindowResult> {
+  // `mine` is the member the host embedded the calendar with, and it narrows the FIRM'S OWN
+  // records read rather than adding a calendar: "my calendar" and "the calendar I turned on for
+  // Ada" are the same predicate asked by two different people.
   const memberId = scope.kind === "mine" ? scope.memberId : undefined;
-  const [events, deadlines, firmEvents] = await Promise.all([
+  const plans = sources.map((source) =>
+    readOneCalendar(fetchImpl, source, window, context, scope, { memberId }),
+  );
+  const results = await Promise.all(plans);
+
+  const entries = results.flatMap((result) => result.entries);
+  const failures = results.flatMap((result) => result.failures);
+  return {
+    entries: orderEntries(mergeByRecord(entries)),
+    failures,
+    truncated: results.some((result) => result.truncated),
+  };
+}
+
+/** What one calendar's read needs beyond the window: whose calendar this is. */
+interface FirmReadOptions {
+  /** The member a `mine` scope narrowed the firm's own records to, where it did. */
+  readonly memberId: string | undefined;
+}
+
+/**
+ * One calendar, read the way that kind of calendar is read, with every entry tagged as its.
+ *
+ * The five arms are the five things a calendar can BE (calendar-sources.ts), and the switch is
+ * here rather than at the rail because a rail draws rows and a plan makes requests. A calendar
+ * still waiting on a source it does not have is never in this list — the catalog refuses to turn
+ * one on — so there is no arm for it and no read that quietly returns nothing.
+ */
+async function readOneCalendar(
+  fetchImpl: typeof fetch,
+  source: CalendarSource,
+  window: CalendarWindow,
+  context: EntryContext,
+  scope: CalendarScope,
+  options: FirmReadOptions,
+): Promise<CalendarWindowResult> {
+  switch (source.kind.kind) {
+    case "records":
+      return readRecordsCalendar(fetchImpl, source, window, context, scope, options);
+    case "firmEvents":
+      return readFirmEventsCalendar(fetchImpl, source, window, context);
+    case "member":
+      return readMemberCalendar(fetchImpl, source, source.kind.memberId, window, context);
+    case "resource":
+      return readRoomCalendar(fetchImpl, source, source.kind.resourceId, window, context);
+    case "layer":
+      return readLayerCalendar(fetchImpl, source, source.kind.layerKey, window, context);
+  }
+}
+
+/**
+ * The firm's matters: their settings from the federated read, and their deadlines from the
+ * deadlines read, which is the one that carries titles and the read-time overdue flag.
+ */
+async function readRecordsCalendar(
+  fetchImpl: typeof fetch,
+  source: CalendarSource,
+  window: CalendarWindow,
+  context: EntryContext,
+  scope: CalendarScope,
+  options: FirmReadOptions,
+): Promise<CalendarWindowResult> {
+  const [events, deadlines] = await Promise.all([
     walk((cursor) =>
       readFirmCalendar(fetchImpl, {
         from: window.from,
         to: window.to,
         side: "matter",
-        kinds: firmCalendarKinds(layers),
-        memberId,
+        // The EVENT kind only. A date calendar (custody dates) is its own row in the rail with its
+        // own read; widening this one with it would read the same rows twice and put a custody
+        // due-back on the calendar of the firm's matters and deadlines, which is not where it is.
+        kinds: FIRM_CALENDAR_KINDS,
+        memberId: options.memberId,
         cursor,
       }),
     ),
     walk((cursor) => listDeadlines(fetchImpl, { from: window.from, through: window.to, cursor })),
-    walk((cursor) => listFirmEvents(fetchImpl, { from: window.from, to: window.to, cursor })),
   ]);
-
   const entries: CalendarEntry[] = [];
   for (const row of events.rows) {
     const entry = entryFromTimelineRow(row, context);
-    if (entry !== null) entries.push(entry);
+    if (entry !== null) entries.push(taggedWith(entry, source.key));
   }
-  for (const deadline of deadlines.rows) entries.push(entryFromDeadline(deadline, context, scope));
-  for (const firmEvent of firmEvents.rows) {
-    if (windowOverlaps(window, firmEvent.startsOn, firmEvent.endsOn)) {
-      entries.push(entryFromFirmEvent(firmEvent, context));
-    }
+  for (const deadline of deadlines.rows) {
+    entries.push(taggedWith(entryFromDeadline(deadline, context, scope), source.key));
   }
-
   return {
-    entries: orderEntries(entries),
+    entries,
     failures: collectFailures([
       ["events", events.failure],
       ["deadlines", deadlines.failure],
-      ["firmEvents", firmEvents.failure],
     ]),
-    truncated: events.truncated || deadlines.truncated || firmEvents.truncated,
+    truncated: events.truncated || deadlines.truncated,
+  };
+}
+
+/** The firm's own events, from the firm's own listing, which carries their titles. */
+async function readFirmEventsCalendar(
+  fetchImpl: typeof fetch,
+  source: CalendarSource,
+  window: CalendarWindow,
+  context: EntryContext,
+): Promise<CalendarWindowResult> {
+  const firmEvents = await walk((cursor) =>
+    listFirmEvents(fetchImpl, { from: window.from, to: window.to, cursor }),
+  );
+  const entries = firmEvents.rows
+    .filter((firmEvent) => windowOverlaps(window, firmEvent.startsOn, firmEvent.endsOn))
+    .map((firmEvent) => taggedWith(entryFromFirmEvent(firmEvent, context), source.key));
+  return {
+    entries,
+    failures: collectFailures([["firmEvents", firmEvents.failure]], source.name),
+    truncated: firmEvents.truncated,
+  };
+}
+
+/**
+ * One colleague's calendar: the federated read with the member filter the server resolves in SQL —
+ * a participant, the matter's responsible member, or an all-members firm event.
+ *
+ * SETTINGS, NOT DEADLINES. The deadlines read takes a matter and a window and has no member
+ * predicate, because a deadline belongs to a case rather than to a person; the firm's own records
+ * calendar is where a firm sees its deadlines, and it is on by default.
+ */
+async function readMemberCalendar(
+  fetchImpl: typeof fetch,
+  source: CalendarSource,
+  memberId: string,
+  window: CalendarWindow,
+  context: EntryContext,
+): Promise<CalendarWindowResult> {
+  const events = await walk((cursor) =>
+    readFirmCalendar(fetchImpl, {
+      from: window.from,
+      to: window.to,
+      side: "all",
+      memberId,
+      cursor,
+    }),
+  );
+  const entries: CalendarEntry[] = [];
+  for (const row of events.rows) {
+    const entry = entryFromTimelineRow(row, context);
+    if (entry !== null) entries.push(taggedWith(entry, source.key));
+  }
+  return {
+    entries,
+    failures: collectFailures([["events", events.failure]], source.name),
+    truncated: events.truncated,
+  };
+}
+
+/** A room's calendar: its live bookings, with the conflicts the server already paired. */
+async function readRoomCalendar(
+  fetchImpl: typeof fetch,
+  source: CalendarSource,
+  resourceId: string,
+  window: CalendarWindow,
+  context: EntryContext,
+): Promise<CalendarWindowResult> {
+  const outcome = await readResourceAvailability(fetchImpl, resourceId, {
+    from: window.from,
+    to: window.to,
+  });
+  if (outcome.kind !== "ok") {
+    return {
+      entries: [],
+      failures: collectFailures([["bookings", outcome.failure]], source.name),
+      truncated: false,
+    };
+  }
+  const entries = outcome.value.data
+    .filter((entry) => windowOverlaps(window, entry.startsOn, entry.endsOn))
+    .map((entry) => taggedWith(entryFromAvailability(entry, context), source.key));
+  return { entries, failures: [], truncated: false };
+}
+
+/**
+ * A calendar that is dates rather than people: the federated read narrowed to that layer's own
+ * sources, so a reader can have custody dates on without the firm's whole record beside them.
+ */
+async function readLayerCalendar(
+  fetchImpl: typeof fetch,
+  source: CalendarSource,
+  layerKey: string,
+  window: CalendarWindow,
+  context: EntryContext,
+): Promise<CalendarWindowResult> {
+  const layer = calendarLayer(layerKey);
+  if (layer === undefined) return { entries: [], failures: [], truncated: false };
+  const rows = await walk((cursor) =>
+    readFirmCalendar(fetchImpl, {
+      from: window.from,
+      to: window.to,
+      side: "matter",
+      kinds: layer.sources,
+      cursor,
+    }),
+  );
+  const entries: CalendarEntry[] = [];
+  for (const row of rows.rows) {
+    const entry = entryFromTimelineRow(row, context);
+    if (entry !== null) entries.push(taggedWith(entry, source.key));
+  }
+  return {
+    entries,
+    failures: collectFailures([["events", rows.failure]], source.name),
+    truncated: rows.truncated,
   };
 }
 
@@ -229,10 +447,11 @@ async function readMatterWindow(
 
 function collectFailures(
   named: readonly (readonly [CalendarReadName, Failure | null])[],
+  sourceName?: string,
 ): CalendarReadFailure[] {
   const failures: CalendarReadFailure[] = [];
   for (const [read, failure] of named) {
-    if (failure !== null) failures.push({ read, failure });
+    if (failure !== null) failures.push({ read, failure, sourceName });
   }
   return failures;
 }
@@ -245,10 +464,17 @@ const READ_SUBJECTS: Record<CalendarReadName, string> = {
   bookings: "the resource's bookings",
 };
 
-/** The sentence a notice leads with for a failed read, in this surface's own words. */
-export function describeReadFailure(read: CalendarReadName): string {
+/**
+ * The sentence a notice leads with for a failed read, in this surface's own words — naming the
+ * CALENDAR where the failure was one calendar's, because a reader with six on has no way to tell
+ * which of them is missing from a grid that is still standing.
+ */
+export function describeReadFailure(read: CalendarReadName, sourceName?: string): string {
   const subject = READ_SUBJECTS[read];
-  return `${subject.charAt(0).toUpperCase()}${subject.slice(1)} could not be read.`;
+  const opened = `${subject.charAt(0).toUpperCase()}${subject.slice(1)}`;
+  return sourceName === undefined
+    ? `${opened} could not be read.`
+    : `${opened} on ${sourceName} could not be read.`;
 }
 
 /** The title a notice stands under for a failed read: the same fact, set as a heading. */
@@ -257,4 +483,12 @@ export function readFailureTitle(read: CalendarReadName): string {
     /(^|\s)([a-z])/g,
     (_match: string, before: string, letter: string) => `${before}${letter.toUpperCase()}`,
   );
+}
+
+/**
+ * A stable key for a failure, so a surface renders one notice per failed calendar rather than one
+ * per read name. Two calendars whose events read failed are two facts.
+ */
+export function readFailureKey(failure: CalendarReadFailure): string {
+  return `${failure.read}:${failure.sourceName ?? ""}`;
 }
