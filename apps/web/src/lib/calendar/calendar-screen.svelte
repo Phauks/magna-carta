@@ -34,6 +34,8 @@
   import Building2 from "@lucide/svelte/icons/building-2";
   import CalendarClock from "@lucide/svelte/icons/calendar-clock";
   import CalendarDays from "@lucide/svelte/icons/calendar-days";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
+  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import type { BackTarget } from "$lib/screen/screen-header.ts";
   import { calendarContext } from "./calendar-context.svelte.ts";
@@ -85,6 +87,18 @@
 
   const preferredTimeZones = [context.readerTimeZone];
 
+  /*
+   * What the reader is looking for in the window on screen. It narrows the entries the read plan
+   * already walked into the browser, so it answers as fast as they type and makes no request.
+   *
+   * The window is the scope, deliberately: the three reads behind this screen each cap their
+   * horizon server-side and REFUSE a wider one rather than clamping it, so "search the whole
+   * record" is not a request that can be made today. The view says which window the count belongs
+   * to rather than reporting a bare number, so the control never implies the reach it does not have.
+   */
+  let searchText = $state("");
+  let appliedSearch = $state("");
+
   let eventOpen = $state(false);
   let deadlineOpen = $state(false);
   let firmEventOpen = $state(false);
@@ -97,6 +111,19 @@
 <div class="flex h-full min-h-0 flex-col gap-16">
   <ScreenHeader {title} {back}>
     {#snippet actions()}
+      <!-- The search leads the row and grows toward the inline start, so the create control at the
+           row's end never moves when it opens — the same order as every other Workspace screen.
+           Keystroke, not pause: the window's entries are already here, so there is nothing to wait
+           for. -->
+      <ScreenSearch
+        bind:value={searchText}
+        label="Search this calendar"
+        placeholder={placeholderOf("Search this calendar")}
+        fieldClass="w-2xs sm:w-xs"
+        onsearch={(next) => {
+          appliedSearch = next;
+        }}
+      />
       <!-- The glyphs are the ones each kind already wears wherever it is named
            (calendar-activity-contribution.ts): one kind, one glyph, across the product. -->
       <CreateControl
@@ -126,6 +153,7 @@
     address={true}
     {openEntry}
     {refreshToken}
+    search={appliedSearch}
     class="min-h-0 flex-1"
   />
 </div>

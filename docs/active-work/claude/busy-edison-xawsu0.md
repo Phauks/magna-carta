@@ -2,7 +2,7 @@
 worktree: C:/dev/magna-carta-worktrees/claude/busy-edison-xawsu0
 area: ScreenSearch on every Workspace screen, and the gate that keeps it there
 status: building
-touches: apps/web/src/routes/(app)/*, tooling/lint-workspace-search, package.json, docs/conventions/design-corrections.md
+touches: apps/web/src/routes/(app)/*, apps/web/src/lib/{calendar,magnus,conflicts,notifications}, apps/api-worker/src/routes/{magnus,conflicts,notifications}.ts, packages/{magnus,conflicts,notifications,data-access}, tooling/lint-workspace-search, package.json, docs/conventions/design-corrections.md
 ---
 
 Every shipped Workspace destination gets the one screen-search control in its header's action row,

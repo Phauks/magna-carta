@@ -177,6 +177,23 @@ const listMeta: RouteMeta = {
   rateLimit: "default",
 };
 
+/*
+ * A repeated query parameter arrives as a string when it was sent once and an array when it was
+ * sent several times, and a caller that sent it none of the times sends undefined. One reading, so
+ * no handler has to remember the three-way shape.
+ */
+function asList<T>(value: T | readonly T[] | undefined): readonly T[] {
+  if (value === undefined) return [];
+  return Array.isArray(value) ? value : [value as T];
+}
+
+/*
+ * The ceiling on how many kinds one search may name. The client derives them from its own registry,
+ * so in practice this is never reached — it bounds a HAND-WRITTEN request, which is the only way an
+ * unbounded IN list could be composed here.
+ */
+const MAX_SEARCH_KINDS = 200;
+
 const listRoute = defineOpenAPIRoute(listMeta, {
   method: "get",
   path: "/api/v1/notifications",
@@ -190,12 +207,27 @@ const listRoute = defineOpenAPIRoute(listMeta, {
     "a filename or a subject line; follow the link to resolve the record it points at through that " +
     "subsystem's own access-checked read. " +
     "readThroughCursor names the newest row on this page and is what read-all takes as its bound; " +
-    "it is null only when the page is empty.",
+    "it is null only when the page is empty. " +
+    "Searching has an unusual shape here, and it follows from the row carrying no sentence: the " +
+    "words a member reads are composed by the client from the kind and the declared facts, so the " +
+    "client resolves a query into the `kinds` and `searchCategories` whose words match it and " +
+    "sends those alongside `search`, which is matched against the matter number — the one piece of " +
+    "member-facing text the row itself carries. The three are OR-ed; supplying none of them " +
+    "narrows nothing, and an empty `kinds` means the query matched no kind rather than matching " +
+    "no row.",
   request: {
     query: z.object({
       cursor: z.string().optional(),
       category: NotificationCategoryEnum.optional(),
       state: NotificationStateEnum.optional(),
+      // Repeated query parameters, so `?kinds=a&kinds=b`. Capped at the registry's own size: a
+      // caller cannot ask for more kinds than exist, and the bound is what keeps a hand-written
+      // request from composing an unbounded IN list.
+      kinds: z.union([z.string(), z.array(z.string())]).optional(),
+      searchCategories: z
+        .union([NotificationCategoryEnum, z.array(NotificationCategoryEnum)])
+        .optional(),
+      search: z.string().max(200).optional(),
       pageSize: z.coerce.number().int().min(1).max(MAX_FEED_PAGE_SIZE).optional(),
     }),
   },
@@ -409,6 +441,9 @@ export function registerNotificationsRoutes(app: NotificationsApp, chokepoint: C
           visibility: visibleMatterPredicate(),
           category: query.category,
           state: query.state,
+          kinds: asList(query.kinds).slice(0, MAX_SEARCH_KINDS),
+          searchCategories: asList(query.searchCategories),
+          search: query.search,
         },
         {
           cursor: decodeCursor(query.cursor),

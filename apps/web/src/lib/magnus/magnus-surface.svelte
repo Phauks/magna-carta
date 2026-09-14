@@ -27,7 +27,9 @@
    * NOTHING ABOUT A CONVERSATION IS LOGGED HERE. Not a console line, not a diagnostics record: a
    * failure reports what the server said about the request, never what anybody typed.
    */
+  import type { Snippet } from "svelte";
   import * as Conversation from "@magna-carta/design-system/conversation";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
   import * as Select from "@magna-carta/design-system/select";
   import Button from "@magna-carta/design-system/button";
   import ChoiceRow from "@magna-carta/design-system/choice-row";
@@ -36,7 +38,7 @@
   import Label from "@magna-carta/design-system/label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import Textarea from "@magna-carta/design-system/textarea";
-  import { instantAttribute } from "@magna-carta/design-system/formatters";
+  import { instantAttribute, placeholderOf } from "@magna-carta/design-system/formatters";
   import { SAMPLE_SENTENCE, sampleInstant } from "@magna-carta/design-system/loading-fixtures";
   import MessageSquare from "@lucide/svelte/icons/message-square";
   import PencilLine from "@lucide/svelte/icons/pencil-line";
@@ -94,6 +96,14 @@
      * use is disabled with the reason, never live and inert.
      */
     createRefusal?: string | undefined;
+    /**
+     * The band above the surface, drawn by the host and handed this surface's search to seat in it.
+     * A screen with a masthead of its own passes one and puts the control in its action row, which
+     * is where every other Workspace screen keeps it; a matter's section seats it in the row under
+     * its own heading. WHERE it sits is the host's business — WHAT it searches is this surface's,
+     * because the read it narrows is here.
+     */
+    screenHeader?: Snippet<[Snippet]>;
   }
 
   let {
@@ -105,6 +115,7 @@
     emptyTitle,
     emptyDescription,
     createRefusal = $bindable(undefined),
+    screenHeader,
   }: Props = $props();
 
   /** The switcher's value for a conversation that has not been started yet. */
@@ -137,6 +148,18 @@
   let deletingConversation = $state<MagnusConversation | null>(null);
   let composerElement = $state<HTMLTextAreaElement | null>(null);
   let loadedSubject: string | null = null;
+  /*
+   * What the rail is being asked. `searchText` is the field's, `appliedSearch` is what the server
+   * was last asked for — ScreenSearch owns the pause between them, so a query leaves the machine
+   * once per thought rather than once per keystroke.
+   *
+   * The search is a filter on the READ, never over the rows in hand: the rail is paged, so
+   * narrowing what happened to arrive would tell a member their question was never asked when it is
+   * simply two pages down. It reaches what they SAID, which is the only way a conversation nobody
+   * titled can be found again.
+   */
+  let searchText = $state("");
+  let appliedSearch = $state("");
 
   const rows = $derived(conversations.items);
   const readFailure = $derived(conversations.failure);
@@ -208,6 +231,8 @@
     renaming = false;
     selectedId = null;
     composingNew = false;
+    searchText = "";
+    appliedSearch = "";
     session.close();
     citations.reset();
     conversations.reset(subject);
@@ -235,7 +260,25 @@
   }
 
   function readPage(cursor?: string) {
-    return listConversations(fetch, cursor, matterId === null ? {} : { matterId });
+    return listConversations(fetch, cursor, {
+      ...(matterId === null ? {} : { matterId }),
+      ...(appliedSearch.trim() === "" ? {} : { search: appliedSearch.trim() }),
+    });
+  }
+
+  const searching = $derived(appliedSearch.trim() !== "");
+
+  /*
+   * A new question is a new list, so the rows are replaced rather than appended to — the subject
+   * carries the query for exactly that reason. It deliberately does NOT re-open the newest result:
+   * a reader searching is looking for one conversation, and yanking the transcript pane onto a
+   * different one under them on every keystroke-pause would make the search unusable.
+   */
+  async function applySearch(next: string): Promise<void> {
+    appliedSearch = next;
+    conversations.reset(`${subject}:${next.trim()}`);
+    await conversations.load(readPage);
+    if (showMatter) void citations.resolve((conversations.items ?? []).map((row) => row.matterId));
   }
 
   async function loadConversations(): Promise<void> {
@@ -713,9 +756,30 @@
   </ul>
 {/snippet}
 
+<!-- The surface's search, for the host to seat. It grows toward the inline start as it opens, so a
+     create control after it in the host's row never moves. WHAT it searches is decided here, with
+     the read it narrows; WHERE it sits is the host's. -->
+{#snippet controls()}
+  <ScreenSearch
+    bind:value={searchText}
+    label="Search your conversations"
+    placeholder={placeholderOf("Search your conversations")}
+    searchOn="pause"
+    fieldClass="w-2xs sm:w-xs"
+    disabled={isSample || !isOpen}
+    onsearch={(next) => void applySearch(next)}
+  />
+{/snippet}
+
 {#snippet railColumn()}
   {@render conversationRows(rows ?? [])}
-  {#if (rows?.length ?? 0) === 0}
+  {#if (rows?.length ?? 0) === 0 && searching}
+    <!-- Conversations exist and the query reaches none of them, so the line is about the query
+         rather than about the record. -->
+    <p class="text-sm text-text-muted">
+      Nothing you asked matches &ldquo;{appliedSearch.trim()}&rdquo;.
+    </p>
+  {:else if (rows?.length ?? 0) === 0}
     <p class="text-sm text-text-muted">Nothing asked yet.</p>
   {/if}
   {#if conversations.nextCursor !== null}
@@ -778,6 +842,10 @@
     {@render detailFixture()}
   {/if}
 {/snippet}
+
+{#if screenHeader !== undefined}
+  {@render screenHeader(controls)}
+{/if}
 
 {#if isSample}
   <EmptyState title="No Magnus Conversations On A Sample Matter">

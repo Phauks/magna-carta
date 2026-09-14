@@ -190,6 +190,7 @@ const checkIdParam = z.object({
 // matter's history, which is also the shape the table's index actually serves.
 const checkHistoryQuery = cursorQuery.extend({
   matterId: identifierField("matter").optional(),
+  search: z.string().max(200).optional(),
 });
 
 const hitIdParam = z.object({
@@ -827,7 +828,11 @@ const checkHistoryRoute = defineOpenAPIRoute(readMeta("listChecks", "conflicts:r
     "did, the strictness and depth it ran at, whether the firm's floor raised the scope above what " +
     "was requested, and how many candidates surfaced — never a conclusion about any of them, which " +
     "is a reviewer's act recorded as a disposition. A run nobody asked for carries no actor, and " +
-    "that is a fact about the run rather than a missing value.",
+    "that is a fact about the run rather than a missing value. `search` narrows to the checks a " +
+    "term reaches: the matter a run was made against, by number or title, and the names it " +
+    'surfaced, so "has this firm ever checked this person" is one question rather than a walk ' +
+    "through the log. The closed labels — what set the run going, who asked, the strictness — are " +
+    "narrowed from the listing's own column filters instead, which match them exactly.",
   request: { query: checkHistoryQuery },
   responses: {
     200: {
@@ -1076,11 +1081,12 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
     { ...checkHistoryRoute, middleware: chokepointMiddleware(chokepoint, checkHistoryRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      const { cursor, matterId } = c.req.valid("query");
+      const { cursor, matterId, search } = c.req.valid("query");
       // One row past the page, which is how "there is more" is measured rather than estimated —
       // the same probe every other listing here uses.
       const { results } = await selectConflictsChecksStatement(firm.firmDatabase, {
         matterId,
+        search,
         cursor: decodeCursor(cursor),
         limit: DEFAULT_PAGE_SIZE + 1,
       }).all<ConflictsCheckSummaryRow>();

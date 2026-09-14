@@ -1,4 +1,6 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import { askableTerm, likePattern, LIKE_ESCAPE_CLAUSE } from "@magna-carta/data-access/like-search";
+import { normalizeName } from "@magna-carta/directory/normalize-name";
 import type {
   ConflictsCheckId,
   ConflictsDispositionId,
@@ -175,10 +177,68 @@ export interface ConflictsCheckSummaryRow {
   readonly hit_count: number;
 }
 
+/*
+ * WHAT A SEARCH OVER THE LOG CAN MATCH, and why it is these two things.
+ *
+ * The check row itself holds almost no text a person would type. `trigger`, `strictness` and
+ * `trigger_source` are closed labels the register already narrows by from its own column filters —
+ * a set filter offers "New Party" and matches it exactly, which is strictly better than a substring
+ * scan for the same thing — and `inputs_json` records identifiers BY REFERENCE, never a plaintext
+ * name, which is the whole point of that column.
+ *
+ * So the search answers the two questions the column filters cannot:
+ *
+ *   * WHICH MATTER was this run against — its number or its title. The first thing anybody types.
+ *   * WHOSE NAME did this run surface. "Have we ever checked Henderson" is a
+ *     professional-responsibility question with a date on it, and before this there was no way to
+ *     ask it short of opening every check in the log.
+ *
+ * The name half goes through the directory's stored `normalized_display`, so the term is normalized
+ * the same way the corpus was (`normalizeName` in @magna-carta/directory) and `O'Brien` finds
+ * `OBrien`. It is a LIKE rather than the trigram FTS `searchNames` uses: this is narrowing a paged
+ * register in date order, not ranking names by relevance, and a bm25 score is not a key a keyset
+ * cursor can page over.
+ */
+function checkSearchCondition(term: string): { condition: string; bindings: readonly unknown[] } {
+  const literal = likePattern(term);
+  const arms = [
+    `EXISTS (SELECT 1 FROM matter WHERE matter.id = ${CONFLICTS_CHECK_TABLE}.subject_matter_id ` +
+      `AND (matter.matter_number LIKE ? ${LIKE_ESCAPE_CLAUSE} OR matter.title LIKE ? ${LIKE_ESCAPE_CLAUSE}))`,
+  ];
+  const bindings: unknown[] = [literal, literal];
+
+  /*
+   * The name arm is DROPPED when the term normalizes away to nothing, and that guard is not
+   * defensive tidiness — without it the arm is a match-everything.
+   *
+   * `normalizeName` strips punctuation, so a term of `%`, `&` or `...` normalizes to the empty
+   * string; a contains-pattern built from an empty term is `%%`, which every stored name matches.
+   * The reader would have typed one stray character and been handed the firm's entire conflicts
+   * log as though every check had surfaced their query.
+   */
+  const normalized = normalizeName(term);
+  if (normalized !== "") {
+    // The candidates the run surfaced, by the name the directory holds for them. Correlated rather
+    // than joined: a check matches once however many of its hits match, and a join would have to
+    // de-duplicate the check row before the limit could be applied.
+    arms.push(
+      `EXISTS (SELECT 1 FROM ${CONFLICTS_HIT_TABLE} JOIN directory_name ` +
+        `ON directory_name.entity_id = ${CONFLICTS_HIT_TABLE}.entity_id ` +
+        `WHERE ${CONFLICTS_HIT_TABLE}.check_id = ${CONFLICTS_CHECK_TABLE}.id ` +
+        `AND directory_name.deleted_at IS NULL ` +
+        `AND directory_name.normalized_display LIKE ? ${LIKE_ESCAPE_CLAUSE})`,
+    );
+    bindings.push(likePattern(normalized));
+  }
+  return { condition: `(${arms.join(" OR ")})`, bindings };
+}
+
 export function selectConflictsChecksStatement(
   database: SqlDatabase,
   options: {
     readonly matterId?: string;
+    /** Narrows to the checks a term reaches — see `checkSearchCondition`. */
+    readonly search?: string;
     readonly cursor?: { readonly createdAt: string; readonly id: string };
     readonly limit: number;
   },
@@ -188,6 +248,12 @@ export function selectConflictsChecksStatement(
   if (options.matterId !== undefined) {
     conditions.push(`${CONFLICTS_CHECK_TABLE}.subject_matter_id = ?`);
     bindings.push(options.matterId);
+  }
+  const term = askableTerm(options.search);
+  if (term !== undefined) {
+    const search = checkSearchCondition(term);
+    conditions.push(search.condition);
+    bindings.push(...search.bindings);
   }
   if (options.cursor !== undefined) {
     conditions.push(

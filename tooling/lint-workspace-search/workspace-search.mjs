@@ -67,12 +67,18 @@ export const WORKSPACE_GROUP = "top";
  * visible in the gate rather than absent from it. Every run prints them; a decline recorded for a
  * screen that HAS the control fails, because a stale exemption is an exemption nobody re-reads.
  *
- * Every entry here is the same shape of reason and it is worth naming: the screen's rows are read
- * a page at a time from a server whose read takes no query. Narrowing what happens to be in the
- * browser would answer a different question from the one being asked — "of the forty I have read,
- * which match" rather than "which of yours match" — and would do it silently. The control goes on
- * each of these the day its read takes a query, which is a change to that subsystem's API and not
- * to this screen.
+ * WHAT IS NOT A REASON TO DECLINE, established by the owner's correction of 2026-09-14: that the
+ * screen's read takes no search parameter. Four screens were recorded here on exactly that ground
+ * — Notifications, Conflicts Check, Magnus, Calendar — and the correction was that a read with no
+ * query is a read that should be given one. All four search now, and the work was in the read
+ * rather than on the screen. So a decline written here must say why the SCREEN has nothing to
+ * search, never why its current API is inconvenient.
+ *
+ * The true part of that original reasoning survives and still binds, as the thing a screen may not
+ * do INSTEAD of declining: narrowing the rows that happen to be in the browser, on a list the
+ * server pages, answers "of the forty I have read, which match" while appearing to answer "which
+ * of yours match", and answers it silently. Push the query to the server, or say the window is the
+ * scope the way the calendar does. Do not quietly search a fraction.
  */
 export const DECLINED = new Map([
   [
@@ -81,32 +87,6 @@ export const DECLINED = new Map([
       "rows of somebody else's register, and the thing to do with a query here is go to the " +
       "register that holds the answer. That is the command palette's job, which is already on " +
       "this screen in the top bar.",
-  ],
-  [
-    "notifications",
-    "The feed is paged off /api/v1/notifications, whose read takes a category and a state and no " +
-      "query. Narrowing the pages in hand would report 'nothing matches' to a member whose match " +
-      "is two pages further down. Waiting on: the notifications read taking a query.",
-  ],
-  [
-    "conflicts",
-    "The log is paged off the conflicts read, which takes no query. Same failure as the feed, and " +
-      "worse here: a check somebody cannot find is a professional-responsibility record they have " +
-      "to produce. Waiting on: the conflicts log read taking a query.",
-  ],
-  [
-    "magnus",
-    "The rail lists conversations, and a search over them is a search over what was SAID in them " +
-      "— the transcript, not the title, since nothing generates a title. That is a read across " +
-      "message bodies rather than a filter over the rail. Waiting on: the conversation read " +
-      "taking a query.",
-  ],
-  [
-    "calendar",
-    "A calendar search that reaches only the window on screen answers the wrong question: " +
-      "somebody looking for a hearing does not know which month it is in, which is why they are " +
-      "searching. Waiting on: the entry read taking a query across a date range rather than one " +
-      "window.",
   ],
 ]);
 

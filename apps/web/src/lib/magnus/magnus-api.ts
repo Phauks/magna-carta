@@ -204,18 +204,30 @@ export function readAvailability(fetchImpl: typeof fetch): Promise<ApiOutcome<Ma
 export interface ConversationListFilters {
   /** Narrows the page to the transcripts kept on one matter's file. */
   matterId?: string;
+  /**
+   * Narrows to the conversations a term reaches — the title, and what was said in them. The server
+   * searches the whole record rather than the page in hand, which is why this is a filter on the
+   * read and not something the rail does to the rows it already holds.
+   */
+  search?: string;
 }
 
 function conversationQuery(filters: ConversationListFilters, cursor?: string): string {
   const query = new URLSearchParams();
   if (cursor !== undefined) query.set("cursor", cursor);
   if (filters.matterId !== undefined) query.set("matterId", filters.matterId);
+  // A blank term is not a search. Sending one would ask the server to match every row against "%%",
+  // which is the whole record at a cost, for an answer identical to asking nothing.
+  if (filters.search !== undefined && filters.search.trim() !== "") {
+    query.set("search", filters.search.trim());
+  }
   return query.size === 0 ? "" : `?${query.toString()}`;
 }
 
 /**
  * The caller's own conversations, newest first. With a matter filter, only the ones kept on that
- * matter's file, which is what a matter's own assistant section reads.
+ * matter's file, which is what a matter's own assistant section reads; with a search, only the ones
+ * whose title or transcript the term reaches.
  */
 export function listConversations(
   fetchImpl: typeof fetch,

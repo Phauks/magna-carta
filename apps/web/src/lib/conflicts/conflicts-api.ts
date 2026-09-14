@@ -553,13 +553,22 @@ export function recheckMatterConflicts(
  * `matterId` narrows to one matter's own history, which is also the shape the table's index serves
  * directly; the firm-wide read has its own index, added when the load-profile plan probe measured
  * it as a full table scan of a log that only grows.
+ *
+ * `search` narrows to the checks a term reaches — the matter a run was made against, and the names
+ * it surfaced. It is a filter on the READ rather than over the rows in hand, because the log is
+ * paged and a check nobody can find is a record the firm may have to produce.
  */
 export function listConflictsChecks(
   fetchImpl: typeof fetch,
-  options: { matterId?: string; cursor?: string } = {},
+  options: { matterId?: string; search?: string; cursor?: string } = {},
 ): Promise<ApiOutcome<ConflictsCheckPage>> {
   const parameters = new URLSearchParams();
   if (options.matterId !== undefined) parameters.set("matterId", options.matterId);
+  // A blank term is not a search: it would ask the server to match every row against "%%" for an
+  // answer identical to asking nothing, at the cost of the scan.
+  if (options.search !== undefined && options.search.trim() !== "") {
+    parameters.set("search", options.search.trim());
+  }
   if (options.cursor !== undefined) parameters.set("cursor", options.cursor);
   const query = parameters.toString();
   return requestJson(fetchImpl, `/api/v1/conflicts/checks${query === "" ? "" : `?${query}`}`);

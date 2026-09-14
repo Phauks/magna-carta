@@ -14,6 +14,7 @@ const allowedPackages = new Set([
   "@magna-carta/data-access/cursor-pagination",
   "@magna-carta/data-access/effect-batch",
   "@magna-carta/data-access/idempotency-statements",
+  "@magna-carta/data-access/like-search",
   "@magna-carta/data-access/setting-statements",
   "@magna-carta/identifiers/generate",
   "@magna-carta/identifiers/random",

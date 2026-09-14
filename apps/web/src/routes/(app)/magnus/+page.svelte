@@ -39,16 +39,6 @@
 </svelte:head>
 
 <div class="flex h-full min-h-0 flex-col gap-16">
-  <ScreenHeader title="Magnus">
-    {#snippet actions()}
-      <CreateControl
-        title="Start a conversation with Magnus, on no matter."
-        refusal={createRefusal}
-        onpress={() => surface?.startNew()}
-      />
-    {/snippet}
-  </ScreenHeader>
-
   <MagnusSurface
     bind:this={surface}
     bind:createRefusal
@@ -58,5 +48,22 @@
     showMatter
     emptyTitle="Nothing Asked Yet"
     emptyDescription="You have not asked Magnus anything. Type a question below to start a conversation."
-  />
+  >
+    <!-- The surface owns the search because it owns the read the search narrows; this screen owns
+         where it sits, which is the action row every other Workspace screen keeps its search in.
+         The search leads and the create control follows: the field grows toward the inline start as
+         it opens, so New never moves under the pointer. -->
+    {#snippet screenHeader(controls)}
+      <ScreenHeader title="Magnus">
+        {#snippet actions()}
+          {@render controls()}
+          <CreateControl
+            title="Start a conversation with Magnus, on no matter."
+            refusal={createRefusal}
+            onpress={() => surface?.startNew()}
+          />
+        {/snippet}
+      </ScreenHeader>
+    {/snippet}
+  </MagnusSurface>
 </div>

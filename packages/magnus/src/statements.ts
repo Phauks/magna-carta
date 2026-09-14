@@ -4,6 +4,7 @@ import {
   type SortCursor,
 } from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import { askableTerm, likePattern, LIKE_ESCAPE_CLAUSE } from "@magna-carta/data-access/like-search";
 import type {
   MagnusConversationId,
   MagnusTurnId,
@@ -181,8 +182,30 @@ export interface ListConversationsOptions {
   // other conditions allow, whether it names a matter or not — never "the ones on no matter", which
   // is a third question nothing asks.
   readonly matterId?: MatterId;
+  /**
+   * Narrows to the conversations a query reaches. It matches the TITLE always, and what was SAID —
+   * the turn content — only when `createdBy` names a member, which is what keeps this from becoming
+   * the cross-record transcript sweep this package's CLAUDE.md prohibits until the discovery
+   * surface owns an include-or-exclude control for it. The administrative read (`createdBy` absent)
+   * therefore searches titles alone, and `searchesContent` below reports which of the two ran so a
+   * caller never has to re-derive it.
+   *
+   * Searching titles alone would be close to useless here: nothing generates a title, so most
+   * conversations have none and a member looking for "the one about the Henderson lease" is looking
+   * for words they typed, not words they named.
+   */
+  readonly search?: string;
   readonly cursor?: SortCursor;
   readonly limit?: number;
+}
+
+/**
+ * Whether a search over these options reaches turn content, or titles alone. One place, because the
+ * rule is a confidentiality boundary rather than a detail: a surface that told a member it had
+ * searched what they said, having searched only titles, would be lying about a null result.
+ */
+export function searchesContent(options: ListConversationsOptions): boolean {
+  return options.search !== undefined && options.search !== "" && options.createdBy !== undefined;
 }
 
 export async function listConversations(
@@ -198,6 +221,25 @@ export async function listConversations(
   if (options.matterId !== undefined) {
     conditions.push("matter_id = ?");
     bindings.push(options.matterId);
+  }
+  const term = askableTerm(options.search);
+  if (term !== undefined) {
+    const pattern = likePattern(term);
+    if (searchesContent(options)) {
+      // The member's own conversations, so what they SAID is in scope. The EXISTS is correlated
+      // rather than a join: a conversation matches once however many of its turns match, and a join
+      // would have to de-duplicate the conversation row before the limit could be applied.
+      conditions.push(
+        `(title LIKE ? ${LIKE_ESCAPE_CLAUSE} OR EXISTS (SELECT 1 FROM ${MAGNUS_TURN_TABLE} ` +
+          `WHERE ${MAGNUS_TURN_TABLE}.conversation_id = ${MAGNUS_CONVERSATION_TABLE}.id ` +
+          `AND ${MAGNUS_TURN_TABLE}.content LIKE ? ${LIKE_ESCAPE_CLAUSE}))`,
+      );
+      bindings.push(pattern, pattern);
+    } else {
+      // The administrative read. Titles only — see `search` on the options above.
+      conditions.push(`title LIKE ? ${LIKE_ESCAPE_CLAUSE}`);
+      bindings.push(pattern);
+    }
   }
   appendCursorPredicate(conditions, bindings, options.cursor);
   const limit = options.limit ?? DEFAULT_PAGE_SIZE;

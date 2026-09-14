@@ -4,6 +4,7 @@ import {
   type SortCursor,
 } from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import { askableTerm, likePattern, LIKE_ESCAPE_CLAUSE } from "@magna-carta/data-access/like-search";
 import type { NotificationCategory, NotificationRecipientState } from "./types.ts";
 import { MAX_DIGEST_ITEMS_PER_RUN, MAX_FEED_PAGE_SIZE } from "./types.ts";
 import {
@@ -39,6 +40,28 @@ export interface VisibleNotificationScope {
   readonly visibility: VisibleMatterPredicate;
   readonly category?: NotificationCategory;
   readonly state?: NotificationRecipientState;
+  /**
+   * What a member's search reaches, and it has an unusual shape for a good reason.
+   *
+   * THERE IS NO SENTENCE IN THIS SUBSYSTEM TO SEARCH. A notification row carries identifiers,
+   * closed labels, counts and dates — deliberately, because a stored sentence would outlive the
+   * access check that justified writing it and would go stale the moment the matter behind it was
+   * renumbered. The words a member actually reads ("Deadline overdue", "A payment failed") are
+   * composed in the client from the kind and the declared facts. So a substring scan on this side
+   * would be searching `deadlines.deadline.overdue`, which is not what anybody types.
+   *
+   * The client therefore resolves the query into the KINDS and CATEGORIES whose words match it —
+   * it owns those words — and sends them here alongside the raw term, which this matches against
+   * the one piece of member-facing text the row does carry: the matter's own number.
+   *
+   * The three arms are OR-ed, and an empty `kinds` is not "match nothing": it means the query
+   * matched no kind's words and the answer rests on the other arms. All three absent is not a
+   * search at all, and narrows nothing.
+   */
+  readonly kinds?: readonly string[];
+  readonly searchCategories?: readonly NotificationCategory[];
+  /** Matched against the matter number. See `kinds`. */
+  readonly search?: string;
 }
 
 // The FROM and the WHERE every notification read shares. Returned rather than inlined so the count
@@ -70,6 +93,41 @@ function visibleNotificationScope(scope: VisibleNotificationScope): {
   if (scope.state !== undefined) {
     conditions.push(`${NOTIFICATION_RECIPIENT_TABLE}.state = ?`);
     bindings.push(scope.state);
+  }
+
+  /*
+   * The search, as one OR-ed group so it cannot widen the wall above it. Composed here beside the
+   * other narrowings rather than in the feed statement, because the FEED and any future count over
+   * the same question must not be able to disagree about what a search means — which is the same
+   * argument this whole module is built on.
+   *
+   * The unread badge deliberately does NOT pass a search: it counts what is waiting for a member,
+   * which is a fact about their work rather than about the box they last typed in.
+   */
+  const searchArms: string[] = [];
+  const kinds = scope.kinds ?? [];
+  if (kinds.length > 0) {
+    searchArms.push(`${NOTIFICATION_EVENT_TABLE}.kind IN (${kinds.map(() => "?").join(", ")})`);
+    bindings.push(...kinds);
+  }
+  const searchCategories = scope.searchCategories ?? [];
+  if (searchCategories.length > 0) {
+    searchArms.push(
+      `${NOTIFICATION_EVENT_TABLE}.category IN (${searchCategories.map(() => "?").join(", ")})`,
+    );
+    bindings.push(...searchCategories);
+  }
+  const term = askableTerm(scope.search);
+  if (term !== undefined) {
+    // The matter's number, through the same correlated read the row's own matter_number comes from,
+    // so the two can never disagree about which matter a row belongs to.
+    searchArms.push(
+      `(SELECT matter.matter_number FROM matter WHERE matter.id = ${NOTIFICATION_EVENT_TABLE}.matter_id) LIKE ? ${LIKE_ESCAPE_CLAUSE}`,
+    );
+    bindings.push(likePattern(term));
+  }
+  if (searchArms.length > 0) {
+    conditions.push(`(${searchArms.join(" OR ")})`);
   }
 
   return {

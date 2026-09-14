@@ -290,11 +290,15 @@ const listConversationsRoute = defineOpenAPIRoute(readMeta("listConversations"),
     "permission may pass `scope=firm` to list every member's instead; that read is audited. The " +
     "optional matter filter narrows the page to the conversations kept on one matter's file, which " +
     "is what a matter's own assistant surface reads; it narrows the RECORD and says nothing about " +
-    "what any of those conversations was built from.",
+    "what any of those conversations was built from. `search` narrows to the conversations a term " +
+    "reaches: on the caller's own conversations it matches the title and what was said in them, " +
+    "and on `scope=firm` it matches titles alone — one member searching their own work is not the " +
+    "same act as reading across the firm's transcripts, and only the first is what this offers.",
   request: {
     query: cursorQuery.extend({
       scope: z.enum(["own", "firm"]).optional(),
       matterId: identifierField("matter").optional(),
+      search: z.string().max(200).optional(),
     }),
   },
   responses: {
@@ -676,7 +680,7 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
       const refusal = consentRefusal(c, consent);
       if (refusal !== null) return refusal;
 
-      const { cursor, scope, matterId } = c.req.valid("query");
+      const { cursor, scope, matterId, search } = c.req.valid("query");
       // The firm-wide scope is a separate grant. Without it a member sees exactly their own, which is
       // the default and needs no opt-in.
       if (scope === "firm" && !requireChokepointPermissions(c).has(READ_ALL_PERMISSION)) {
@@ -692,6 +696,7 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
       const rows = await listConversations(firm.firmDatabase, {
         ...(scope === "firm" ? {} : { createdBy: userId }),
         ...(matterId !== undefined && { matterId }),
+        ...(search !== undefined && { search }),
         ...(decodeCursor(cursor) !== undefined && { cursor: decodeCursor(cursor) }),
         limit: DEFAULT_PAGE_SIZE + 1,
       });
