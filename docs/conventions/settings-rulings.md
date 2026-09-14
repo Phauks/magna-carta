@@ -70,8 +70,8 @@ var(--bits-floating-anchor-width)` and pass `align` straight through to Bits UI,
 
 | #   | Ruling                                                                                                                                                                                 | Status |
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| F1  | **Firm Profile carries the firm's identity, not one field.** The empty space under the name is the symptom: the page holds one setting where it should hold what the firm actually is. | open   |
-| F2  | **The firm can upload an image, or images, for use across the platform** — branding in the product and marks printed into generated documents.                                         | open   |
+| F1  | **Firm Profile carries the firm's identity, not one field.** The empty space under the name is the symptom: the page holds one setting where it should hold what the firm actually is. | settled|
+| F2  | **The firm can upload an image, or images, for use across the platform** — branding in the product and marks printed into generated documents.                                         | settled|
 
 **What the code says today.**
 
@@ -92,7 +92,7 @@ var(--bits-floating-anchor-width)` and pass `align` straight through to Bits UI,
 
 | #   | Ruling                                                                                                                                                                                                                      | Status |
 | --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| O1  | **Offices are settable, from Settings, and there can be several.** Each carries its address, its contact information and its location. There is no way to do this in the product today, which is why it could not be found. | open   |
+| O1  | **Offices are settable, from Settings, and there can be several.** Each carries its address, its contact information and its location. There is no way to do this in the product today, which is why it could not be found. | settled|
 
 **What the code says today.** The whole subsystem is built except the screen. `packages/locations/`
 owns validation and the service; `apps/api-worker/src/routes/locations.ts` exposes create, update,
