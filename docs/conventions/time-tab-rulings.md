@@ -683,23 +683,22 @@ a workspace branch holding no commits of its own. Neither note has been retired.
   is the translation, and it also carries the same choices into the address, so a bookkeeper's month
   is still a link. The Status, Billable and Timekeeper columns declare their whole vocabulary
   (`filterValues`), so a reader can pick a state no loaded row carries.
-- **The seam MS3 leaves.** A set filter holding SEVERAL values the listing takes one of — Draft and
-  Submitted together — is sent as nothing, and the table narrows the loaded rows alone. Closing it
-  wants the listings to take a status list; named in the report rather than built, because two of
-  the four statements live outside this round's ownership.
+- **The multi-value seam MS3 first left is closed (2026-09-14).** The four listings take a status
+  LIST (`status=draft&status=submitted`, given repeatedly), so a Status column holding several
+  states reaches the server whole; on Billing the standings map to the invoice statuses they are
+  readings of, and the table narrows those to the standing chosen.
 - **The four screens open on the whole record, not on a default period.** The matters docket's
   ruling (a list screen shows its whole record by default, and the table is the only thing that
   narrows it) is applied as written. The named-span presets the old dropdown offered ("this month",
   "last month", a custom range) are gone with it; the Date column's filter offers two date pickers
   and nothing more, because the column filter belongs to the design system and this round does not
   touch it. Whether the date filter should grow the calendar presets is a DataTable question.
-- **MS1 is built on two of the four and honestly marked on the other two.** Fees and Costs gained
-  a `search` on their listings (the inline SQL in their routes: the description, the matter's title
-  and number, the timekeeper's or payee's name) and their `ScreenSearch` drives it. The time and
-  invoice listings' statements live in `packages/timekeeping` and `packages/billing`, outside this
-  round, so Time and Billing render the same control disabled with the Soon mark and the dependency
-  on its hover — the standing rule for a designed-but-unserved control — rather than a search that
-  quietly covered the loaded page.
+- **MS1 is live on all four (2026-09-14).** Each listing gained a `search` of its own — the
+  description or narrative, the entry number, the matter's title and number, the timekeeper's or
+  payee's name; the invoice number and the client's name on Billing — and every screen's
+  `ScreenSearch` drives it. The time and invoice statements (`packages/timekeeping`,
+  `packages/billing`) took the predicate and, for time, optional bounds, so the sentinel bounds the
+  route carried for a day are gone.
 - **MS2 opens the draft where the work is.** "+ Bill" leads with a matter picker in the one draft
   dialog the matter's register already uses (`draft-bill-dialog.svelte` grew the matter-first shape;
   the client is resolved from the matter's party record through `client-party.ts`, shared with the

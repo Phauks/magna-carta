@@ -40,8 +40,7 @@ supplier, in any combination. The counts strip says how many rows are showing ou
 are, so you always know what a filter left out.
 
 The Date, Status and Billing filters reach the record itself, so they hold across every page. A
-Status filter holding two states at once narrows only the rows already loaded; pick one state to
-have it hold across the whole record.
+Status filter holding several states at once holds across the whole record too.
 
 The search at the top reads the whole record too: type part of a description, a matter's name or
 number, or a payee's name, and the rows that answer arrive from wherever they are.

@@ -28523,9 +28523,9 @@ export type CostsListData = {
          */
         billable?: 'true' | 'false';
         /**
-         * Narrows the listing to one status. Omitted, it answers with every status the record carries, which is what a cost record is.
+         * Narrows the listing to one status, or to several given repeatedly (`status=draft&status=submitted`): the screen's Status column filter, honoured here so it holds across every page. Omitted, it answers with every status the record carries, which is what a cost record is.
          */
-        status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
+        status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void' | Array<'draft' | 'submitted' | 'approved' | 'billed' | 'void'>;
         /**
          * Matched against the description, the matter's title and number, and the payee's name. The screen's search, honoured here so a word absent from the page in hand is looked for across the whole record.
          */
@@ -29055,7 +29055,10 @@ export type FeesListData = {
          * Narrows a listing to the fees that are billable, or to those that are not. Omitted, it answers with both.
          */
         billable?: 'true' | 'false';
-        status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
+        /**
+         * Narrows to one status, or to several given repeatedly (`status=draft&status=submitted`): the screen's Status column filter, honoured here so it holds across every page.
+         */
+        status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void' | Array<'draft' | 'submitted' | 'approved' | 'billed' | 'void'>;
         /**
          * Matched against the description, the matter's title and number, and the timekeeper's name. The screen's search, honoured here so a word absent from the page in hand is looked for across the whole record.
          */
@@ -31141,7 +31144,14 @@ export type BillingListInvoicesData = {
          * Narrows to the bills that charge this matter, drafts included, and adds that matter's own share to every row. Without it the listing answers for the whole firm, or for one client when clientEntityId is given.
          */
         matterId?: string;
-        status?: 'draft' | 'final' | 'void';
+        /**
+         * Narrows to one status, or to several given repeatedly (`status=draft&status=void`): the firm's Billing screen's Status column filter, honoured here so it holds across every page.
+         */
+        status?: 'draft' | 'final' | 'void' | Array<'draft' | 'final' | 'void'>;
+        /**
+         * Matched against the invoice number and the client's name. The screen's search, honoured here so a client absent from the page in hand is looked for across the whole register.
+         */
+        search?: string;
         cursor?: string;
     };
     url: '/api/v1/billing/invoices';
@@ -32999,9 +33009,13 @@ export type TimeEntriesListData = {
          */
         to?: string;
         /**
-         * Narrows a per-matter or period listing to one status. Omitted, the listing answers with every status the scope carries, which is what a time record is.
+         * Narrows the listing to one status, or to several given repeatedly (`status=draft&status=submitted`): the firm's Time screen's Status column filter, honoured here so it holds across every page. Omitted, the listing answers with every status the scope carries, which is what a time record is.
          */
-        status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
+        status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void' | Array<'draft' | 'submitted' | 'approved' | 'billed' | 'void'>;
+        /**
+         * Matched against the narrative, the entry number, the matter's title and number, and the timekeeper's name, on the period listing. The screen's search, honoured here so a word absent from the page in hand is looked for across the whole record.
+         */
+        search?: string;
         cursor?: string;
     };
     url: '/api/v1/time-entries';

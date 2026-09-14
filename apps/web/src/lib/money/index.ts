@@ -10,6 +10,8 @@ export { default as MoneySurface } from "./money-surface.svelte";
 export { default as MoneyToolbar } from "./money-toolbar.svelte";
 export {
   addressAfterFilters,
+  choicesFilter,
+  choicesOf,
   civilDateOrNull,
   dateBoundsOf,
   dateRangeFilter,

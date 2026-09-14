@@ -220,6 +220,14 @@ describe("the span", () => {
     expect(toOnly.map((row) => row.description)).toEqual(["Inside the span, first matter"]);
   });
 
+  it("takes several statuses at once, given repeatedly, as the Status filter holds them", async () => {
+    const drafts = await listed(await get("/api/v1/costs?status=draft"));
+    expect(drafts.length).toBe(4);
+    const two = await listed(await get("/api/v1/costs?status=draft&status=void"));
+    expect(two.length).toBe(4);
+    expect(await listed(await get("/api/v1/costs?status=billed&status=void"))).toEqual([]);
+  });
+
   it("searches the description and the matter across the whole record", async () => {
     const byWord = await listed(await get("/api/v1/costs?search=not%20billable"));
     expect(byWord.map((row) => row.description)).toEqual(["Inside the span, not billable"]);

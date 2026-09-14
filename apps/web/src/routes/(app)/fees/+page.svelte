@@ -21,9 +21,9 @@
    * twelve).
    *
    * A COLUMN FILTER THAT ONLY NARROWED THE LOADED PAGE WOULD NOT BE A FILTER. The record is
-   * cursor-paged, so the filters the listing can honour — the two date bounds, one status, one
-   * billing choice — and the search are sent to it as its own parameters and re-read, and the
-   * table's in-browser filter then runs over rows that already match.
+   * cursor-paged, so the filters the listing honours — the two date bounds, the Status column's
+   * whole selection, one billing choice — and the search are sent to it as its own parameters and
+   * re-read, and the table's in-browser filter then runs over rows that already match.
    *
    * THE FILTERS ARE IN THE ADDRESS, so a bookkeeper's month is a link somebody can send.
    *
@@ -77,6 +77,8 @@
     dateBoundsOf,
     dateRangeFilter,
     filtersSeededBy,
+    choicesFilter,
+    choicesOf,
     singleChoiceFilter,
     singleChoiceOf,
   } from "$lib/money/listing-scope.ts";
@@ -126,8 +128,8 @@
         civilDateOrNull(page.url.searchParams.get("from")),
         civilDateOrNull(page.url.searchParams.get("to")),
       ),
-      [FEE_COLUMN_IDENTIFIERS.status]: singleChoiceFilter(
-        page.url.searchParams.get("status"),
+      [FEE_COLUMN_IDENTIFIERS.status]: choicesFilter(
+        page.url.searchParams.getAll("status"),
         FEE_STATUS_CHOICES,
       ),
       [FEE_COLUMN_IDENTIFIERS.billable]: singleChoiceFilter(
@@ -145,8 +147,8 @@
   let appliedSearch = $state("");
 
   const dateBounds = $derived(dateBoundsOf(grid.filterFor(FEE_COLUMN_IDENTIFIERS.serviceDate)));
-  const statusChoice = $derived(
-    singleChoiceOf(grid.filterFor(FEE_COLUMN_IDENTIFIERS.status), FEE_STATUS_CHOICES),
+  const statusChoices = $derived(
+    choicesOf(grid.filterFor(FEE_COLUMN_IDENTIFIERS.status), FEE_STATUS_CHOICES),
   );
   const billingChoice = $derived(
     singleChoiceOf(grid.filterFor(FEE_COLUMN_IDENTIFIERS.billable), FEE_BILLING_CHOICES),
@@ -154,7 +156,7 @@
 
   const scope = $derived<FeePeriodScope>({
     ...dateBounds,
-    ...(statusChoice === undefined ? {} : { status: statusChoice }),
+    ...(statusChoices.length === 0 ? {} : { statuses: statusChoices }),
     ...(billingChoice === undefined ? {} : { billable: billingChoice === "true" }),
     ...(appliedSearch.trim() === "" ? {} : { search: appliedSearch.trim() }),
   });
@@ -186,7 +188,7 @@
     const next = addressAfterFilters(page.url, {
       from: dateBounds.from,
       to: dateBounds.to,
-      status: statusChoice,
+      status: statusChoices,
       billable: billingChoice,
     });
     if (next.href !== page.url.href) replaceState(next, page.state);

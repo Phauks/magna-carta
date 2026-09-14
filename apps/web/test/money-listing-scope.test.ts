@@ -8,6 +8,8 @@
 import { describe, expect, it } from "vitest";
 import {
   addressAfterFilters,
+  choicesFilter,
+  choicesOf,
   civilDateOrNull,
   dateBoundsOf,
   dateRangeFilter,
@@ -83,6 +85,25 @@ describe("a column that the listing takes one value of", () => {
   });
 });
 
+describe("a column that the listing takes a list of", () => {
+  it("sends every choice the set filter holds, as the wire spells them, ignoring strangers", () => {
+    expect(choicesOf({ kind: "set", values: ["Billed", "Draft", "Paid"] }, STATUSES)).toEqual([
+      "draft",
+      "billed",
+    ]);
+    expect(choicesOf({ kind: "set", values: [] }, STATUSES)).toEqual([]);
+    expect(choicesOf(undefined, STATUSES)).toEqual([]);
+  });
+
+  it("rebuilds the filter from the address's list, in the column's own words", () => {
+    expect(choicesFilter(["billed", "draft", "stranger"], STATUSES)).toEqual({
+      kind: "set",
+      values: ["Draft", "Billed"],
+    });
+    expect(choicesFilter([], STATUSES)).toBeUndefined();
+  });
+});
+
 describe("the timekeeper column, which shows names and sends a handle", () => {
   it("sends the one member the filter names", () => {
     expect(singleMemberOf({ kind: "set", values: ["Wren Adeyemi"] }, ROSTER)).toBe("user_wren");
@@ -110,6 +131,14 @@ describe("the address", () => {
     expect(next.searchParams.get("invoice")).toBe("inv_1");
     // The given address is untouched: the caller decides whether to replace it.
     expect(url.searchParams.get("status")).toBe("draft");
+  });
+
+  it("writes a list once per value, as the listings take it, and an empty list as nothing", () => {
+    const url = new URL("https://example.com/fees?status=void");
+    const listed = addressAfterFilters(url, { status: ["draft", "submitted"] });
+    expect(listed.searchParams.getAll("status")).toEqual(["draft", "submitted"]);
+    const cleared = addressAfterFilters(listed, { status: [] });
+    expect(cleared.searchParams.has("status")).toBe(false);
   });
 
   it("seeds the grid with what the address names and leaves the rest of the filters alone", () => {

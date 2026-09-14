@@ -57,6 +57,30 @@ export function singleChoiceOf<TValue extends string>(
   return choices.find((choice) => choice.label === label)?.value;
 }
 
+/**
+ * Every choice a set filter holds, as the wire spells them, for a listing that takes a list.
+ *
+ * The Status columns send their whole selection: Draft and Submitted together is "the work in
+ * progress", and a listing that took one status would have left that narrowing to the loaded rows.
+ * Empty where nothing is filtered, or where the filter holds only words the column does not offer.
+ */
+export function choicesOf<TValue extends string>(
+  filter: GridColumnFilter | undefined,
+  choices: readonly FilterChoice<TValue>[],
+): readonly TValue[] {
+  if (filter?.kind !== "set") return [];
+  return choices.filter((choice) => filter.values.includes(choice.label)).map((c) => c.value);
+}
+
+/** The set filter holding these choices, by their wire values; undefined where none is offered. */
+export function choicesFilter<TValue extends string>(
+  values: readonly string[],
+  choices: readonly FilterChoice<TValue>[],
+): GridColumnFilter | undefined {
+  const labels = choices.filter((choice) => values.includes(choice.value)).map((c) => c.label);
+  return labels.length === 0 ? undefined : { kind: "set", values: labels };
+}
+
 /** The set filter holding exactly one choice, by its wire value. Undefined for a value nobody offers. */
 export function singleChoiceFilter<TValue extends string>(
   value: string | null | undefined,
@@ -82,18 +106,22 @@ export function dateRangeFilter(
 }
 
 /**
- * The address after the filters, as one record of parameters: a key set to a string is written and
- * one set to undefined is removed, so a cleared filter leaves the address rather than lingering as
- * a value that would re-narrow the screen the next time the link is opened.
+ * The address after the filters, as one record of parameters: a key set to a string is written, one
+ * set to a list is written once per value (`status=draft&status=submitted`, as the listings take
+ * it), and one set to undefined or an empty list is removed, so a cleared filter leaves the address
+ * rather than lingering as a value that would re-narrow the screen the next time the link is opened.
  */
 export function addressAfterFilters(
   url: URL,
-  parameters: Readonly<Record<string, string | undefined>>,
+  parameters: Readonly<Record<string, string | readonly string[] | undefined>>,
 ): URL {
   const next = new URL(url);
   for (const [key, value] of Object.entries(parameters)) {
-    if (value === undefined) next.searchParams.delete(key);
-    else next.searchParams.set(key, value);
+    next.searchParams.delete(key);
+    if (value === undefined) continue;
+    for (const each of typeof value === "string" ? [value] : value) {
+      next.searchParams.append(key, each);
+    }
   }
   return next;
 }
