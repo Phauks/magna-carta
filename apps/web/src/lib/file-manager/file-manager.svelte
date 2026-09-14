@@ -133,6 +133,12 @@
   } from "./file-names.ts";
   import { countPhrase } from "./file-manager-vocabulary.ts";
   import {
+    destinationFolderIdOf,
+    dragDescription,
+    dropKeyOfFolder,
+    landableKeys,
+  } from "./file-drag.ts";
+  import {
     deleteLabel,
     deleteStep,
     moveLabel,
@@ -162,6 +168,11 @@
   import RestoreFileDialog from "./restore-file-dialog.svelte";
   import UploadDialog from "./upload-dialog.svelte";
   import { entriesFromDataTransfer, type DroppedEntry } from "@magna-carta/design-system/dropzone";
+  import {
+    carriesExternalFiles,
+    createItemDrag,
+    type ItemDragAnchor,
+  } from "@magna-carta/design-system/item-drag";
   import SafetyMark from "./safety-mark.svelte";
   import DocumentTypeMenu from "./document-type-menu.svelte";
 
@@ -1471,9 +1482,13 @@
   let dragDepth = $state(0);
   const dragOver = $derived(dragDepth > 0);
 
-  /** Only a drag that carries FILES is an upload; a row or folder being moved must not open it. */
+  /*
+   * Only a drag that carries files from OUTSIDE the page is an upload. A row being dragged into a
+   * folder is the SAME event on the SAME square inch, and the two are told apart by the payload:
+   * `carriesExternalFiles` answers false for our own drag by design. See the drag primitive.
+   */
   function carriesFiles(event: DragEvent): boolean {
-    return [...(event.dataTransfer?.types ?? [])].includes("Files");
+    return carriesExternalFiles(event.dataTransfer);
   }
 
   // --- the side panes -------------------------------------------------------------------------------
@@ -1811,6 +1826,70 @@
     manager.clearClipboard();
   }
 
+  // --- dragging something into a folder ------------------------------------------------------------
+
+  /*
+   * ONE gesture across four surfaces. A file or a folder can be picked up in the list, in the icon
+   * grid or in the rail, and put down on a folder row in the rail, a folder row in the list, a
+   * folder tile, or a crumb — and a crumb is how something comes back OUT of a folder, since every
+   * ancestor of where the reader is standing is on the strip in front of them.
+   *
+   * The keys are this surface's own row keys, so the rail, the table and the crumbs all name a
+   * folder the same way and a drag begun in one is understood by the others. The matter root is not
+   * a row, so it carries a key of its own.
+   *
+   * WHAT A DROP DOES is `moveRows`, the same path the clipboard's paste and the rail's own move
+   * already take: the same write, the same refusal, and the same step on the undo stack. A move
+   * made by pointer is the same change as a move made by menu, and undo must not be able to tell
+   * them apart.
+   *
+   * KEYBOARD PARITY. Nothing here is the only way to move a file: Cut and Paste are on every
+   * right-click menu with their shortcuts, and the folder picker in the delete dialog chooses a
+   * destination without a pointer. A drag is the fast way, never the only way.
+   */
+  function movableKeys(keys: readonly string[], targetKey: string): readonly string[] {
+    return landableKeys(index, keys, targetKey, findRowAnywhere);
+  }
+
+  const itemDrag = createItemDrag({
+    // Dragging one row of a selection carries the whole selection; dragging a row outside it
+    // carries that row alone, and leaves the selection where the reader put it.
+    keysFor: (key) => {
+      // A row this surface cannot place — a deleted file, a changelog entry, a row inside an
+      // archive — is not a thing that moves, so the gesture never starts on one.
+      if (findRowAnywhere(key) === null) return [];
+      return manager.selectedKeys.includes(key) ? [...manager.selectedKeys] : [key];
+    },
+    describe: dragDescription,
+    // At least one of them has somewhere to go. Refusing the whole gesture because ONE row of a
+    // selection already sits in the destination would make a mixed selection undraggable.
+    accepts: (keys, targetKey) => movableKeys(keys, targetKey).length > 0,
+    onDrop: (keys, targetKey) => {
+      const destination = destinationFolderIdOf(targetKey);
+      const moving = movableKeys(keys, targetKey);
+      if (destination === undefined || moving.length === 0) return;
+      void moveRows(moving, destination, moveLabel(moving.length, index.pathText(destination)));
+    },
+  });
+
+  /*
+   * The list's rows are the shared table's, which stamps `data-grid-row` on each and puts no
+   * `draggable` there — so the drag reads its rows through that attribute and lifts the row it is
+   * pressed on. The icon grid's tiles carry the same attribute for the same reason.
+   */
+  const gridDragRegion = {
+    sourceAt: (element: HTMLElement): ItemDragAnchor | null => {
+      const row = element.closest<HTMLElement>("[data-grid-row]");
+      const key = row?.getAttribute("data-grid-row") ?? null;
+      return row === null || key === null ? null : { key, element: row };
+    },
+    targetAt: (element: HTMLElement): ItemDragAnchor | null => {
+      const row = element.closest<HTMLElement>("[data-grid-row]");
+      const key = row?.getAttribute("data-grid-row") ?? null;
+      return row === null || key === null ? null : { key, element: row };
+    },
+  };
+
   // --- the footer's tally ---------------------------------------------------------------------------
 
   /** "2 folders, 5 files" — the artifact's phrasing; folders lead because they render first. */
@@ -1913,12 +1992,8 @@
                 : "This view has no current folder to make one in."}
               onNewFolder={() => void makeFolder()}
               onSelectView={(viewId) => manager.openView(viewId as FileManagerView)}
-              onMoveFolder={(move) =>
-                void moveRows(
-                  [folderKey(move.folderId)],
-                  move.destinationFolderId,
-                  moveLabel(1, index.pathText(move.destinationFolderId)),
-                )}
+              drag={itemDrag}
+              dragKeyOf={dropKeyOfFolder}
               onChangeColor={({ folderId, color }) => {
                 folderAppearance = { ...folderAppearance, [folderId]: { ...folderAppearance[folderId], color } };
               }}
@@ -1959,7 +2034,13 @@
               });
             }}
           >
-            <FileManagerToolbar {manager} {trail} viewTitle={VIEW_TITLES[manager.view]} />
+            <FileManagerToolbar
+              {manager}
+              {trail}
+              viewTitle={VIEW_TITLES[manager.view]}
+              drag={itemDrag}
+              dropKeyOf={dropKeyOfFolder}
+            />
 
             {#if archiveBrowse !== null}
               <!-- Inside a zip, the archive stands in for the LIST and only the list: the toolbar
@@ -2098,6 +2179,7 @@
                   }
                   retarget(event, row);
                 }}
+                {...itemDrag.handlers(gridDragRegion)}
               >
                 {#if manager.view === "deleted"}
                   <div class="flex min-h-0 flex-1 flex-col">

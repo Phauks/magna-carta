@@ -19,7 +19,11 @@
    * only spill over its neighbours because its own box was never told it could shrink; it is told
    * now, which is the part that makes the wrap honest rather than decorative.
    *
-   * THE PIN'S SPACE IS RESERVED WHETHER OR NOT THE TILE IS PINNED, and an equal space closes the
+   * A TILE IS A DRAG SOURCE AND, WHERE IT IS A FOLDER, A DESTINATION. The gesture is not this
+ * component's: the list column owns one shared drag and this marks its tiles for it, so a file
+ * dragged off a tile lands on a folder in the rail exactly as it would from a table row.
+ *
+ * THE PIN'S SPACE IS RESERVED WHETHER OR NOT THE TILE IS PINNED, and an equal space closes the
    * line, so pinning lights a glyph and moves nothing — not the icon under the pointer, and not the
    * tiles beside it. It rides the GLYPH's line rather than the name's: on a tile this narrow a
    * gutter each side of the name would have taken a third of the room the name is there to use.
@@ -75,10 +79,15 @@
       {@const mark = grid.markFor(row)}
       {@const name =
         row.kind === "folder" ? row.folder.name : displayName(row.file.name, hideExtensions)}
+      <!-- The tile carries the same `data-grid-row` the table stamps on a row, because it stands
+           for the same row: one delegated handler over the list column then finds a tile and a
+           table row alike, which is how a drag works in both layouts without a second gesture. -->
       <button
         type="button"
         class="flex w-96 flex-col items-center gap-4 rounded-md p-8 text-center"
         title={name}
+        draggable="true"
+        data-grid-row={row.key}
         data-state={grid.isSelected(row.key) ? "selected" : undefined}
         data-clipboard={mark?.clipboard}
         aria-pressed={grid.isSelected(row.key)}
