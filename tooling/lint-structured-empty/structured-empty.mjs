@@ -62,7 +62,7 @@ export const STRUCTURES = new Map([
   [
     "DataTable.",
     "the table's own empty body — DataTable.Grid renders its header row over an empty body on its " +
-      "own, and says \"No Results\" in it without being asked",
+      'own, and says "No Results" in it without being asked',
   ],
   ["table", "the table's own empty body, under its header row"],
   [
