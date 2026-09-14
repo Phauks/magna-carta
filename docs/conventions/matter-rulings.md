@@ -15,15 +15,21 @@ Status values: `settled` (built and confirmed) · `regressed` (was settled, a la
 ## R1 — round one: the status seal becomes the control it was already called
 
 The owner's notes of 2026-09-11, staged and then built the same day — except the status window's
-Location (W1), which waited on the Offices component and was built on 2026-09-14. All three are
-settled. The research beneath each group is what the code said when the round was staged.
+Location (W1), which waited on the Offices component and was built on 2026-09-14. All three were
+built; L2 was then reversed by round two, three days later, and its notes below are the record of
+what it built rather than of what stands. The research beneath each group is what the code said when
+the round was staged.
 
 ### The lifecycle and the seal
 
-| #   | Ruling                                                                                                                                                                                                                                                             | Status  |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
-| L1  | **A consultation can be closed or put on hold, not only opened.** A firm that decides against a consultation, or parks one, has to be able to say so from the consultation itself.                                                                                 | settled |
-| L2  | **The status seal is a dropdown that changes the status.** Today it offers the one step the lifecycle runs toward; it becomes the control the status is actually changed from. This **amends the "steps, never a picker" rule** recorded in `matter-lifecycle.ts`. | settled |
+| #   | Ruling                                                                                                                                                                                                                                                             | Status     |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
+| L1  | **A consultation can be closed or put on hold, not only opened.** A firm that decides against a consultation, or parks one, has to be able to say so from the consultation itself.                                                                                 | settled    |
+| L2  | **The status seal is a dropdown that changes the status.** Today it offers the one step the lifecycle runs toward; it becomes the control the status is actually changed from. This **amends the "steps, never a picker" rule** recorded in `matter-lifecycle.ts`. | superseded |
+
+L2 is superseded by **S1** in round two below, issued 2026-09-14, three days after it shipped: the
+seal is a pillbox again and no menu hangs off it. **L1 still stands** — a consultation can be
+opened, put on hold, or closed as declined, and what replaced the dropdown still offers all three.
 
 **Notes recorded this round (2026-09-11).**
 
@@ -163,3 +169,70 @@ The office record itself did not exist as a screen — the backend did (`package
 `/api/v1/locations`, letterhead logo included), which is the finding recorded under `O1`. So W1 was
 sequenced behind the Offices work rather than beside it, and the notes above are what it built once
 that landed.
+
+## R2 — round two: the seal is a pillbox, and one control changes the status
+
+The owner, 2026-09-14: "for the matter status pillbox, it should not be a dropdown. It should still
+just be a pillbox. Instead of buttons that say Open Matter / Close Matter / On Hold, just make it a
+button to change status, which will populate a different modal that will discuss the requirements.
+This may mean that you need to move any checks for changing information into this new modal."
+
+**This reverses L2 above**, which shipped three days earlier. L1 is untouched: a consultation can
+still be opened, put on hold, or closed as declined, and all three are offered by what replaced the
+dropdown.
+
+| #   | Ruling                                                                                                                                                                                          | Status  |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| S1  | **The seal is a pillbox.** It reads the status and nothing more: no menu hangs off it, no chevron. Pressing it opens the status window, as it did before L2.                                    | settled |
+| S2  | **One control changes the status, labelled for that act** rather than for any particular step. Not three buttons, not a menu of steps.                                                          | settled |
+| S3  | **It opens a modal that discusses the requirements** — where the matter stands, which steps the lifecycle allows from here, what each requires and whether that is met, and the act itself.     | settled |
+| S4  | **The checks move into it.** What belongs in the change modal and what stays in the window that reads the record is the round's own design work, and the owner said explicitly that it is open. | settled |
+
+**Notes recorded this round (2026-09-14).**
+
+- **The division is what a fact is ABOUT, and that is the answer to S4.** The requirement lists (to
+  close, to open, to complete the intake), the hold's reason field and the step controls are all
+  about a CHANGE to the status, so they moved into the panel that makes the change, where the
+  decision is actually taken. The number, the engagement and the paper file are STANDING facts about
+  the record — true whatever the status is, changed from their own controls, read by somebody who
+  did not come to change anything — so they stay in the window. The window carrying both made the
+  requirements read as a standing property of the matter, which they are not: they are the answer to
+  a question nobody has asked yet. A held matter's Since and Reason stay in the window for the same
+  test: they state what IS, not what could be done.
+- **Why a modal that names the requirements is not a status picker**, which is what
+  `matter-lifecycle.ts`'s opening comment now says. The lifecycle still decides which steps exist
+  from where the matter stands; the reader is choosing among those steps, never setting a status.
+  The contract is unchanged — one POST per step, none of which takes a status, the hold alone
+  carrying a body. What the panel adds is the reasoning a menu of verbs could not carry.
+- **The steps are `ChoiceRow`s and the commit is the chosen step's own verb.** Each row carries one
+  line saying where that step stands: the block sentence where there is one (a sample matter, a
+  permission the account does not hold, a session still being read), otherwise "Nothing stands in
+  the way", "One requirement is not met", "Checking what this requires", or "This could not be
+  checked". A refused step is offered refused ON THE ROW rather than in a hover a disabled control
+  cannot show — which is strictly better than the dropdown, where the reasons had to be collected
+  under the list. Choosing a step states what it would do to the record and lists everything it
+  requires; the footer commit then reads that step's own label, per the 2026-09-05 ruling that a
+  lifecycle control reads the step's own verb.
+- **Every step gained a `consequence` sentence, and `takenFrom`/`confirmation` went.** The three
+  steps no rule gates — the pause, its release and the reopen — have no requirement list to read,
+  so the consequence is the whole of what the panel can say about them; it is what the release's
+  and the reopen's confirmation panels used to say, moved to where the choice is made. With one
+  panel taking every step, there is nothing left for `takenFrom` to decide, and the separate
+  confirm panel is gone.
+- **One function answers where any step stands** (`matterStepStanding`), because the three gated
+  steps answer in two different shapes: the close has a fixed roster of rules to state as MET,
+  while the open and the intake's completion have only whatever the firm's own procedure refused.
+  A step gated by the procedure gets ONE met row saying so rather than a sentence standing where
+  the list would be, which is what keeps the panel rendering a structure in every state
+  (`lint:structured-empty`).
+- **The readiness reads moved to the panel and are made per opening.** The window used to ask up to
+  three readiness questions every time it opened, on most visits for nothing. The panel asks only
+  the ones its steps need, from the opening transition rather than an effect (the `onOpen` ordering
+  defect recorded under W1), and asks again on every opening because money moves between them.
+- **A sample matter's control is disabled with the reason beside it**, not absent, and the sentence
+  is now one exported constant so the window and the panel cannot word it differently.
+- **A seam left.** The panel preselects the only step where a status offers exactly one (a closed
+  matter's reopen, an intake's completion), which saves a press but means a status with three steps
+  opens with the commit refused until one is chosen. That is the honest shape of the choice and it
+  is deliberate; if it reads as friction, the fix is to lead with the step the lifecycle runs
+  toward rather than to preselect nothing.
