@@ -5,23 +5,29 @@
  * WHY THIS IS A MODEL AND NOT MARKUP. The words on the window that closes a firm's file are worth a
  * test, and a test cannot reach a sentence written inside a template.
  *
- * STEPS, NEVER A PICKER — AND THE SEAL OFFERS THE STEPS. A matter's status is not a field somebody
- * chooses a value for. Each status offers the next steps the lifecycle allows from where it
- * stands, and no others: an intake completes into a consultation; a consultation opens, is put on
- * hold, or closes (the firm decided against it); an active matter closes or is put on hold; a
+ * STEPS, NEVER A PICKER — AND ONE MODAL IS WHERE THEY ARE READ AND TAKEN. A matter's status is not
+ * a field somebody chooses a value for. Each status offers the next steps the lifecycle allows from
+ * where it stands, and no others: an intake completes into a consultation; a consultation opens, is
+ * put on hold, or closes (the firm decided against it); an active matter closes or is put on hold; a
  * matter on hold is released or closes; a closed matter reopens. That is also the shape of the
  * contract — one operation per step, each a POST, none of which takes a status (the hold alone
  * takes a body: its reason).
  *
- * The status seal on the matter's header is a dropdown of exactly these steps (owner ruling,
- * 2026-09-11), and that is why the dropdown is still not a picker: what it lists is what can be
- * DONE from where the matter stands, never the five statuses. A control that let somebody pick
- * "Closed" from a list would be offering a state the lifecycle may not put a matter in from where
- * it stands — and it would have nowhere to ask for the hold's reason, or to show what closing
- * requires. So each step says how it is taken from the seal (`takenFrom`): a step that needs
- * input, or that has requirements worth reading before it is pressed, opens the status window at
- * that step; a step that needs nothing runs from its own confirmation. The window stays either
- * way, because it is where the facts live — the number, the engagement, the paper file.
+ * The status seal on the matter's header is a PILLBOX: it states the status and opens the window
+ * that reads the record (owner ruling, 2026-09-14, which reverses the dropdown of 2026-09-11). One
+ * control in that window changes the status, named for the act rather than for any one step, and it
+ * opens the status-change modal — where the steps available from here are listed, each with what it
+ * requires already answered, and where the chosen one is taken.
+ *
+ * WHY THAT MODAL IS STILL NOT A STATUS PICKER. What it offers is what can be DONE from where the
+ * matter stands, never the five statuses. A control that let somebody pick "Closed" from a list
+ * would be offering a state the lifecycle may not put a matter in from where it stands, and it
+ * would have nowhere to ask for the hold's reason or to state what closing requires. The lifecycle
+ * still decides which steps exist; naming their requirements on the way past is what a reader
+ * needed and a menu of verbs could not give them. The contract is unchanged by any of it.
+ *
+ * So each step carries its own `consequence`: the plain sentence saying what taking it does to the
+ * record, which is what the modal states beside a chosen step that has no rules of its own to read.
  *
  * Where a status offers several steps, the first is the one the lifecycle runs toward, then the
  * pause, then the exit.
@@ -64,18 +70,13 @@ export interface MatterLifecycleStep {
   /** What is said when the step failed and the server did not say why. */
   readonly failureSentence: string;
   /**
-   * How the step is taken from the status seal's menu. `window` opens the status window at the
-   * step: it needs input (the hold's reason), or it has requirements the reader should see
-   * answered before pressing (the close, the open, the intake's completion). `confirmation` asks
-   * its one question and runs: nothing gates it but the permission, and there is nothing to read
-   * first.
+   * What taking this step does to the record, in one sentence, before it is taken.
+   *
+   * Every step has one, including the three that no rule gates. A reader choosing between Release
+   * Hold and Close Matter is asking what each would do, and for those two there is no requirement
+   * list to answer it — the consequence is the whole of what the modal has to say about them.
    */
-  readonly takenFrom: "window" | "confirmation";
-  /**
-   * The confirmation, for a step taken from one: what is asked, and the one sentence saying what
-   * the step does to the record. Null for a step taken in the window, which shows that itself.
-   */
-  readonly confirmation: { readonly heading: string; readonly sentence: string } | null;
+  readonly consequence: string;
 }
 
 /**
@@ -95,8 +96,8 @@ const GRADUATE_STEP: MatterLifecycleStep = {
   permission: GRADUATE_MATTER_PERMISSION,
   doneSentence: "The intake is complete. The matter is a consultation.",
   failureSentence: "The intake could not be completed.",
-  takenFrom: "window",
-  confirmation: null,
+  consequence:
+    "The matter becomes a consultation and draws its tentative consultation number. No matter number is drawn until the matter opens.",
 };
 const OPEN_STEP: MatterLifecycleStep = {
   action: "open",
@@ -105,8 +106,8 @@ const OPEN_STEP: MatterLifecycleStep = {
   permission: OPEN_MATTER_PERMISSION,
   doneSentence: "The matter is open.",
   failureSentence: "The matter could not be opened.",
-  takenFrom: "window",
-  confirmation: null,
+  consequence:
+    "The matter becomes active and draws its permanent matter number. The consultation number it wore stays on the record.",
 };
 const HOLD_STEP: MatterLifecycleStep = {
   action: "hold",
@@ -115,8 +116,8 @@ const HOLD_STEP: MatterLifecycleStep = {
   permission: HOLD_MATTER_PERMISSION,
   doneSentence: "The matter is on hold. It keeps its number, and returns to active when released.",
   failureSentence: "The matter could not be put on hold.",
-  takenFrom: "window",
-  confirmation: null,
+  consequence:
+    "Work pauses. The matter keeps its number, the reason is recorded beside the status, and releasing the hold returns it to active.",
 };
 // The same pause on a consultation, said in the consultation's own terms: the firm has parked a
 // file it has not decided on. It wears its tentative number, and a release returns it to being a
@@ -126,6 +127,8 @@ const CONSULTATION_HOLD_STEP: MatterLifecycleStep = {
   doneSentence:
     "The consultation is on hold. It keeps its tentative number, and is a consultation again when released.",
   failureSentence: "The consultation could not be put on hold.",
+  consequence:
+    "Work pauses. The consultation keeps its tentative number, the reason is recorded beside the status, and releasing the hold returns it to being a consultation.",
 };
 const RELEASE_STEP: MatterLifecycleStep = {
   action: "release",
@@ -134,12 +137,8 @@ const RELEASE_STEP: MatterLifecycleStep = {
   permission: HOLD_MATTER_PERMISSION,
   doneSentence: "The hold is released. The matter is back where the hold found it.",
   failureSentence: "The hold could not be released.",
-  takenFrom: "confirmation",
-  confirmation: {
-    heading: "Release the Hold?",
-    sentence:
-      "Work resumes. The matter returns to where the hold found it, the reason clears, and the record keeps that it was held.",
-  },
+  consequence:
+    "Work resumes. The matter returns to where the hold found it, the reason clears, and the record keeps that it was held.",
 };
 const CLOSE_STEP: MatterLifecycleStep = {
   action: "close",
@@ -148,8 +147,8 @@ const CLOSE_STEP: MatterLifecycleStep = {
   permission: CLOSE_MATTER_PERMISSION,
   doneSentence: "The matter is closed.",
   failureSentence: "The matter could not be closed.",
-  takenFrom: "window",
-  confirmation: null,
+  consequence:
+    "The file closes and the day it closed is stamped on the record. Nothing is deleted, and a closed matter can be reopened.",
 };
 // Declining a consultation is a close: the same operation, the same requirements (which a
 // consultation with nothing on its ledgers passes), and the same additive record afterwards. It
@@ -160,6 +159,8 @@ const CONSULTATION_CLOSE_STEP: MatterLifecycleStep = {
   doneSentence:
     "The consultation is closed. It keeps its tentative number and drew no matter number.",
   failureSentence: "The consultation could not be closed.",
+  consequence:
+    "The firm declines the consultation. It keeps its tentative number, draws no matter number, and can be reopened.",
 };
 const REOPEN_STEP: MatterLifecycleStep = {
   action: "reopen",
@@ -168,12 +169,8 @@ const REOPEN_STEP: MatterLifecycleStep = {
   permission: REOPEN_MATTER_PERMISSION,
   doneSentence: "The matter is back where it was before it closed.",
   failureSentence: "The matter could not be reopened.",
-  takenFrom: "confirmation",
-  confirmation: {
-    heading: "Reopen the Matter?",
-    sentence:
-      "The matter returns to the status it left: the hold it was in, Active if it had been opened, else the consultation or intake it was. Its number is unchanged and the recorded close date clears.",
-  },
+  consequence:
+    "The matter returns to the status it left: the hold it was in, Active if it had been opened, else the consultation or intake it was. Its number is unchanged and the recorded close date clears.",
 };
 
 /**
@@ -428,6 +425,163 @@ export function matterOpenRefusals(problem: Problem): readonly MatterCloseBlocke
   return (problem.errors ?? []).map((reason) => ({ code: reason.code, message: reason.detail }));
 }
 
+// ---- where a step stands, for the modal that offers it --------------------------------------------
+
+/**
+ * Every readiness answer the status-change modal holds at once, so one function can say where any
+ * step stands instead of the template asking three different questions in three different shapes.
+ *
+ * Each pair is the answer and whether the read failed, and the two are not the same: a rule that
+ * refused and a question nobody could put are different facts, and only the first is one a person
+ * can act on.
+ */
+export interface MatterLifecycleReadiness {
+  readonly close: MatterCloseReadiness | null;
+  readonly closeFailed: boolean;
+  readonly open: MatterOpenReadiness | null;
+  readonly openFailed: boolean;
+  readonly graduate: MatterGraduateReadiness | null;
+  readonly graduateFailed: boolean;
+}
+
+/** Nothing asked and nothing answered: what the modal holds before its reads come back. */
+export const NO_LIFECYCLE_READINESS: MatterLifecycleReadiness = {
+  close: null,
+  closeFailed: false,
+  open: null,
+  openFailed: false,
+  graduate: null,
+  graduateFailed: false,
+};
+
+/** Where one step stands right now: what it requires, whether that is met, and the line saying so. */
+export interface MatterStepStanding {
+  /**
+   * One row per rule, already answered. Empty for a step no rule gates — the release, the reopen
+   * and the pause — where the step's own consequence is the whole of what there is to read.
+   */
+  readonly requirements: readonly MatterCloseRequirementStatus[];
+  /** Whether the rules have refused the step. An unanswered question is never a refusal. */
+  readonly refused: boolean;
+  /** Whether the answer could not be had at all, so taking the step is what will ask. */
+  readonly unanswered: boolean;
+  /** The one line the step's row carries before it is chosen. */
+  readonly summary: string;
+}
+
+const NOTHING_IN_THE_WAY = "Nothing stands in the way.";
+const STILL_CHECKING = "Checking what this requires.";
+const COULD_NOT_CHECK = "This could not be checked. Taking the step will check it.";
+
+/**
+ * Where a step stands, from the answers the modal holds.
+ *
+ * The three gated steps answer in two different shapes — the close has a fixed roster of rules to
+ * state as MET, while the open and the intake's completion have only whatever the firm's own
+ * procedure refused — and this is where that difference stops being the template's problem. Both
+ * come out as rows that are never empty while the step is gated, so the modal renders one structure
+ * rather than a sentence opposite a list.
+ */
+export function matterStepStanding(
+  step: MatterLifecycleStep,
+  readiness: MatterLifecycleReadiness,
+): MatterStepStanding {
+  switch (step.action) {
+    case "close": {
+      const rows = matterCloseRequirements(readiness.close, readiness.closeFailed);
+      return standing(rows, matterCanClose(readiness.close) === false, readiness.closeFailed);
+    }
+    case "open":
+      return proceduralStanding(
+        matterOpenRequirements(readiness.open, readiness.openFailed),
+        readiness.open === null,
+        readiness.openFailed,
+        matterCanOpen(readiness.open) === false,
+        "Nothing in the firm's intake procedure is outstanding.",
+      );
+    case "graduate":
+      return proceduralStanding(
+        matterGraduateRequirements(readiness.graduate, readiness.graduateFailed),
+        readiness.graduate === null,
+        readiness.graduateFailed,
+        matterCanGraduate(readiness.graduate) === false,
+        "Every step the firm's intake procedure requires is answered.",
+      );
+    // The pause, its release and the reopen have no rules of their own: nothing gates them but the
+    // permission, which is a different sentence and is answered by matterLifecycleBlock.
+    default:
+      return { requirements: [], refused: false, unanswered: false, summary: NOTHING_IN_THE_WAY };
+  }
+}
+
+function standing(
+  rows: readonly MatterCloseRequirementStatus[],
+  refused: boolean,
+  unanswered: boolean,
+): MatterStepStanding {
+  if (unanswered) return { requirements: rows, refused, unanswered, summary: COULD_NOT_CHECK };
+  if (rows.some((row) => row.state === "checking")) {
+    return { requirements: rows, refused, unanswered, summary: STILL_CHECKING };
+  }
+  const unmet = rows.filter((row) => row.state === "unmet").length;
+  return {
+    requirements: rows,
+    refused,
+    unanswered,
+    summary: unmet === 0 ? NOTHING_IN_THE_WAY : unmetSentence(unmet),
+  };
+}
+
+/**
+ * A step gated by the firm's own procedure rather than by a roster this build knows. There is
+ * nothing to state as met until the answer arrives, so the met case is ONE row saying so — which
+ * keeps the modal rendering a list in every state instead of prose opposite a list.
+ */
+function proceduralStanding(
+  refusals: readonly MatterOpenRequirementStatus[],
+  waiting: boolean,
+  unanswered: boolean,
+  refused: boolean,
+  metLabel: string,
+): MatterStepStanding {
+  if (unanswered) {
+    return {
+      requirements: [{ key: "procedure", label: metLabel, state: "unknown", detail: null }],
+      refused,
+      unanswered,
+      summary: COULD_NOT_CHECK,
+    };
+  }
+  if (waiting) {
+    return {
+      requirements: [{ key: "procedure", label: metLabel, state: "checking", detail: null }],
+      refused,
+      unanswered,
+      summary: STILL_CHECKING,
+    };
+  }
+  if (refusals.length === 0) {
+    return {
+      requirements: [{ key: "procedure", label: metLabel, state: "met", detail: null }],
+      refused,
+      unanswered,
+      summary: NOTHING_IN_THE_WAY,
+    };
+  }
+  return {
+    requirements: refusals.map((row) => ({ ...row, detail: null })),
+    refused,
+    unanswered,
+    summary: unmetSentence(refusals.length),
+  };
+}
+
+// Spelled for one and counted past it: "One requirement is not met." reads as a sentence, and
+// beyond that the figure is what a reader is actually taking in.
+function unmetSentence(count: number): string {
+  return count === 1 ? "One requirement is not met." : `${String(count)} requirements are not met.`;
+}
+
 // ---- the physical file ------------------------------------------------------------------------
 
 /**
@@ -499,6 +653,13 @@ export const MATTER_PHYSICAL_FILE_FACTS: readonly MatterPhysicalFileFact[] = [
  * missing permission is an account question for whoever administers the firm; a session still being
  * read is a wait.
  */
+/**
+ * Why a sample matter's status cannot be changed. Its own sentence rather than one written twice,
+ * because the window that states it and the panel that offers the steps have to say it the same way.
+ */
+export const SAMPLE_MATTER_STATUS_SENTENCE =
+  "This is a sample matter, not one of the firm's. Its status is fixed so every lifecycle state stays reviewable.";
+
 export function matterLifecycleBlock(options: {
   readonly step: MatterLifecycleStep;
   readonly isSample: boolean;
@@ -507,9 +668,7 @@ export function matterLifecycleBlock(options: {
   /** The permissions it answered with, or null where the read itself failed. */
   readonly permissions: readonly string[] | null;
 }): string | null {
-  if (options.isSample) {
-    return "This is a sample matter, not one of the firm's. Its status is fixed so every lifecycle state stays reviewable.";
-  }
+  if (options.isSample) return SAMPLE_MATTER_STATUS_SENTENCE;
   if (!options.sessionSettled) return "Reading your session.";
   // A session that could not be read is UNKNOWN, not unprivileged, and the two must not be said the
   // same way. Blocking here would refuse somebody who holds the permission, on the strength of a
