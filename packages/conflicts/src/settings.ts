@@ -1,66 +1,22 @@
-import { MAX_BATCH_STATEMENTS, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
+import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { conflictsAuditStatement, type ConflictsWriteOptions } from "./audit.ts";
-import { BUDGETED_EDGE_CLASSES, type BudgetedEdgeClass } from "./edge-classes.ts";
 import { runConflictsEffect } from "./run-conflicts-effect.ts";
 import { SOURCE_CLASSES, STRICTNESS_LEVELS, type SourceClass, type Strictness } from "./types.ts";
 
-// A hop budget per budgeted edge class. Corporate family carries no entry: it is traversed
-// transitively at zero cost and bounded only by `closureCap`, because a rename or merger chain of any
-// length is the same legal person continuing.
-export type EdgeClassBudgets = Readonly<Record<BudgetedEdgeClass, number>>;
-
-// The default hop budget for every budgeted class, and the default per-run closure cap. Both are
-// numbers that decide what gets searched rather than how the search is coded, so both are firm
-// settings and neither is hard-coded at a call site: the values here are the shipped default the firm
-// starts from, and the value in force is recorded on every check row.
-export const DEFAULT_EDGE_CLASS_BUDGETS: EdgeClassBudgets = Object.freeze({
-  control: 1,
-  family: 1,
-  representation: 1,
-});
-
-// The most entities one run may expand to. A bound has to exist — an unbounded traversal over a real
-// corporate group is an availability problem, and a Directory holding a clearing bank can put
-// thousands of entities in one closure. What must never happen is the bound being applied silently,
-// so reaching it is recorded and reported rather than quietly shortening the answer.
-export const DEFAULT_CLOSURE_CAP = 500;
-
-// THE SECOND BOUND, AND WHY ONE BOUND WAS NOT ENOUGH.
+// WHAT A FIRM DECIDES ABOUT A CHECK, AND WHAT IT NO LONGER DECIDES.
 //
-// `closureCap` bounds how many entities the walk reaches. It does not bound the work, because hits do
-// not scale with the closure — they scale with the closure TIMES the corpus. The load profile's corpus
-// sweep (`conflictsCandidateBounds` in
-// packages/fixtures/src/load-profile/conflicts-measurements.ts) pins the closure and grows the
-// directory: candidates per reached entity rise linearly with the corpus, at roughly six tenths of the
-// organization corpus for an organization subject and roughly a tenth of the person corpus for a
-// person. Around ninety-nine per cent of that volume is the trigram channel with no other signal
-// beside it, because a trigram-OR match asks only whether two names share ONE three-character window
-// and multi-word names nearly always do.
+// A firm sets a FLOOR — the sources every check must search and the name-matching band it must
+// reach — and which name rows the narrower band compares. Those decide what a check looks for, and
+// a firm is entitled to decide that.
 //
-// So the uneven consequence is worth stating plainly: a firm with a deep corporate group is fine, and
-// a firm with a large Directory is not — and the second is the ordinary case. A cap on the walk cannot
-// see that, so the run carries a second cap on what it WRITES.
-//
-// This is a capacity refusal, not a threshold. A threshold removes a candidate because of what its
-// evidence is, at any volume, and this package has none and never will. This removes candidates only
-// when one run exceeds a stated capacity, records exactly how many and at which evidence tiers, and
-// says in words that the search is incomplete — the same contract the closure cap already carries.
-export const DEFAULT_CANDIDATE_CAP = 5_000;
-
-// Statements a check's batch carries beside its BOUNDED hits: the idempotency record, the check row,
-// the audit row, the notification, and the imputation hits — which are bounded by the matter's own
-// party list rather than by the candidate cap, since an identity join finding a firm member who
-// genuinely IS a party is the strongest thing this engine produces and is never refused. Sized well
-// past the route's cap on subject parties so even a matter staffed entirely by the firm's own members
-// leaves room; its only job is to keep the two bounds from colliding.
-const CHECK_BATCH_OVERHEAD_STATEMENTS = 500;
-
-// A candidate cap raised past what one atomic batch may carry would turn a truncation the platform can
-// report into a check that fails outright, which is strictly worse: a bounded answer on the record
-// beats no answer at all. The two bounds therefore compose mechanically rather than by convention —
-// nothing a firm can store in its settings row can put them in conflict.
-export const MAX_CANDIDATE_CAP = MAX_BATCH_STATEMENTS - CHECK_BATCH_OVERHEAD_STATEMENTS;
+// A firm does not set how far a check follows relationships, and it does not set where a search
+// stops. Both used to be settings here (a hop budget per edge class, a closure cap, a candidate
+// cap) and the owner removed them on 2026-09-11 (docs/conventions/conflicts-rulings.md, E1 and E2):
+// a limit on the walk is a conflict the firm does not find, and that is the failure that matters.
+// The engine now follows every recorded relationship to closure. The one ceiling that survives is
+// not a setting — it is the platform's own bound on what one run may do, named in expansion.ts with
+// its reasoning, and a run that reaches it records that it did and the report says so.
 
 // WHICH NAME ROWS THE BALANCED BAND SEARCHES — a firm setting, not a constant.
 //
@@ -98,10 +54,6 @@ export const OVER_INCLUSIVE_NAME_ROLES = null;
 export interface ConflictsPolicy {
   readonly floorSources: readonly SourceClass[];
   readonly floorStrictness: Strictness;
-  readonly defaultDepth: number;
-  readonly edgeClassBudgets: EdgeClassBudgets;
-  readonly closureCap: number;
-  readonly candidateCap: number;
   // The name roles the BALANCED band compares against. over_inclusive always searches every role, so
   // this is the only band the firm configures and the superset relationship holds whatever it is set
   // to. Never empty: an emptied set would search no name rows at all, which is a check that runs and
@@ -109,37 +61,17 @@ export interface ConflictsPolicy {
   readonly balancedNameRoles: readonly string[];
 }
 
+// What a caller asks a check to search: the sources, and the band. Nothing about how far or how
+// much — a check follows relationships all the way through, and the ceiling on a run is the
+// platform's, not the caller's.
 export interface ScopeRequest {
   readonly sources: readonly SourceClass[];
   readonly strictness: Strictness;
-  // Traversal depth for the graph source. Omitted means "use the firm's configured default"
-  // (`ConflictsPolicy.defaultDepth`); an explicit value (including 0) is honored as given. Unlike
-  // sources and strictness, depth is a default, not a floor — a caller may deliberately search
-  // shallower than the default, and the recorded `depth` on the check row keeps that transparent.
-  //
-  // It is also the uniform budget: supplying it sets every budgeted edge class to that number, which
-  // is exactly what it has always meant. `edgeClassBudgets` overrides it per class.
-  readonly depth?: number;
-  // Per-class overrides. A class the caller omits falls back to `depth`, then to the firm's setting.
-  readonly edgeClassBudgets?: Partial<Record<BudgetedEdgeClass, number>>;
-  // A per-run closure cap. Omitted means the firm's setting. Like depth, this is a default rather
-  // than a floor: a caller may run with a smaller cap, and the cap in force is recorded either way.
-  readonly closureCap?: number;
-  // A per-run candidate cap. Same posture as `closureCap`: omitted means the firm's setting, a caller
-  // may run under a smaller one, and whichever is in force is recorded on the check row.
-  readonly candidateCap?: number;
 }
 
 export interface ResolvedScope {
   readonly sources: readonly SourceClass[];
   readonly strictness: Strictness;
-  // The single hop number the shipped `conflicts_check.depth` column carries. It is the WIDEST of the
-  // resolved per-class budgets, so a reader of the column alone is never told the traversal was
-  // shallower than it was; the per-class detail is recorded beside it.
-  readonly depth: number;
-  readonly edgeClassBudgets: EdgeClassBudgets;
-  readonly closureCap: number;
-  readonly candidateCap: number;
   // The name roles this run compared against, resolved from the strictness preset and the firm's
   // setting, recorded verbatim on the check row. `null` means every role — the over-inclusive band —
   // and is a distinct statement from a list that happens to name them all, because a firm that later
@@ -153,20 +85,10 @@ export interface ResolvedScope {
 export const DEFAULT_CONFLICTS_POLICY: ConflictsPolicy = {
   floorSources: ["party"],
   floorStrictness: "balanced",
-  defaultDepth: 1,
-  edgeClassBudgets: DEFAULT_EDGE_CLASS_BUDGETS,
-  closureCap: DEFAULT_CLOSURE_CAP,
-  candidateCap: DEFAULT_CANDIDATE_CAP,
   balancedNameRoles: DEFAULT_BALANCED_NAME_ROLES,
 };
 
 const SETTING_KEY = "conflicts.policy";
-
-// A cap value, from a setting or from a request, normalized the one way. Clamped at both ends: never
-// negative, and never past what one atomic batch can carry.
-function resolveCandidateCap(value: number): number {
-  return Math.min(MAX_CANDIDATE_CAP, Math.max(0, Math.trunc(value)));
-}
 
 // over_inclusive is a strict superset of balanced, so it is the higher floor.
 const STRICTNESS_RANK: Record<Strictness, number> = { balanced: 0, over_inclusive: 1 };
@@ -194,41 +116,9 @@ export function resolveScope(policy: ConflictsPolicy, request: ScopeRequest): Re
     floorRaised = true;
   }
 
-  // Depth defaults to the firm's configured value when the caller omits it; an explicit value (0
-  // included) is honored. Defaulting is not a floor-raise — the caller asked for nothing narrower —
-  // so it never sets floorRaised.
-  const requestedDepth =
-    request.depth === undefined ? undefined : Math.max(0, Math.trunc(request.depth));
-
-  // Per class, in order of specificity: an explicit per-class override, then the caller's uniform
-  // depth, then the firm's per-class setting. The middle rung is what keeps every caller written
-  // against the shipped single `depth` field meaning exactly what it always meant.
-  const edgeClassBudgets = Object.fromEntries(
-    BUDGETED_EDGE_CLASSES.map((edgeClass) => {
-      const override = request.edgeClassBudgets?.[edgeClass];
-      if (override !== undefined) return [edgeClass, Math.max(0, Math.trunc(override))];
-      if (requestedDepth !== undefined) return [edgeClass, requestedDepth];
-      return [edgeClass, Math.max(0, Math.trunc(policy.edgeClassBudgets[edgeClass]))];
-    }),
-  ) as unknown as EdgeClassBudgets;
-
-  const closureCap =
-    request.closureCap === undefined
-      ? Math.max(0, Math.trunc(policy.closureCap))
-      : Math.max(0, Math.trunc(request.closureCap));
-
-  const candidateCap = resolveCandidateCap(
-    request.candidateCap === undefined ? policy.candidateCap : request.candidateCap,
-  );
-
   return {
     sources: orderSources(requested),
     strictness,
-    // The widest budget in force, so the one-number column never understates the traversal.
-    depth: Math.max(...BUDGETED_EDGE_CLASSES.map((edgeClass) => edgeClassBudgets[edgeClass])),
-    edgeClassBudgets,
-    closureCap,
-    candidateCap,
     nameRoles: strictness === "balanced" ? policy.balancedNameRoles : OVER_INCLUSIVE_NAME_ROLES,
     floorRaised,
   };
@@ -238,17 +128,21 @@ export function resolveScope(policy: ConflictsPolicy, request: ScopeRequest): Re
 // read.
 //
 // The read has always repaired what it loads: party unioned back into the floor, `current` unioned
-// into the name roles, caps clamped, a corrupt number replaced by the shipped default. That is the
-// right posture for a value the platform did not write. But it means a STORED policy and the policy
-// that actually runs are two different objects whenever the stored one is unsound, and a settings
-// screen makes that gap visible and dangerous: an administrator who deselects every source would
-// save `[]`, see `[]` when the screen reloads, and be shown a floor the platform would never run.
-// The screen would be lying, and it would be lying by faithfully echoing what was stored.
+// into the name roles, a corrupt value replaced by the shipped default. That is the right posture for
+// a value the platform did not write. But it means a STORED policy and the policy that actually runs
+// are two different objects whenever the stored one is unsound, and a settings screen makes that gap
+// visible and dangerous: an administrator who deselects every source would save `[]`, see `[]` when
+// the screen reloads, and be shown a floor the platform would never run. The screen would be lying,
+// and it would be lying by faithfully echoing what was stored.
 //
 // So the write normalizes through this same function and stores the RESULT. What is in the row is
 // what runs, the screen can read the row back and believe it, and the read's repairs become a
 // backstop against corruption and hand edits rather than a routine correction of the platform's own
 // writes. Read and write cannot drift, because there is one implementation and both call it.
+//
+// A stored row written before the bounds were removed still carries them (`defaultDepth`,
+// `edgeClassBudgets`, `closureCap`, `candidateCap`). They are read past, never honoured: the policy
+// that runs is the three fields below, and the next save stores exactly those.
 export function normalizeConflictsPolicy(parsed: Partial<ConflictsPolicy>): ConflictsPolicy {
   // A missing, non-array, or emptied-out floorSources is treated as "use the default"; `??` alone
   // does not catch an empty array. Then — regardless of what was stored — party is unioned back in:
@@ -258,7 +152,9 @@ export function normalizeConflictsPolicy(parsed: Partial<ConflictsPolicy>): Conf
   const storedFloorSources = parsed.floorSources;
   const baseFloorSources =
     Array.isArray(storedFloorSources) && storedFloorSources.length > 0
-      ? storedFloorSources
+      ? storedFloorSources.filter((source): source is SourceClass =>
+          SOURCE_CLASSES.includes(source as SourceClass),
+        )
       : DEFAULT_CONFLICTS_POLICY.floorSources;
   const floorSources = orderSources(new Set([...baseFloorSources, "party"]));
 
@@ -266,27 +162,9 @@ export function normalizeConflictsPolicy(parsed: Partial<ConflictsPolicy>): Conf
     ? (parsed.floorStrictness as Strictness)
     : DEFAULT_CONFLICTS_POLICY.floorStrictness;
 
-  const defaultDepth =
-    typeof parsed.defaultDepth === "number" && Number.isFinite(parsed.defaultDepth)
-      ? Math.max(0, Math.trunc(parsed.defaultDepth))
-      : DEFAULT_CONFLICTS_POLICY.defaultDepth;
-
   return {
     floorSources,
     floorStrictness,
-    defaultDepth,
-    edgeClassBudgets: parseEdgeClassBudgets(parsed.edgeClassBudgets, defaultDepth),
-    closureCap:
-      typeof parsed.closureCap === "number" && Number.isFinite(parsed.closureCap)
-        ? Math.max(0, Math.trunc(parsed.closureCap))
-        : DEFAULT_CONFLICTS_POLICY.closureCap,
-    // A firm that configured a policy before the candidate cap existed gets the shipped default rather
-    // than an absent bound: an unbounded run is the state this cap exists to end, so "the row does not
-    // say" resolves to the bound, never to none.
-    candidateCap:
-      typeof parsed.candidateCap === "number" && Number.isFinite(parsed.candidateCap)
-        ? resolveCandidateCap(parsed.candidateCap)
-        : DEFAULT_CONFLICTS_POLICY.candidateCap,
     balancedNameRoles: parseBalancedNameRoles(parsed.balancedNameRoles),
   };
 }
@@ -311,27 +189,6 @@ export async function readConflictsPolicy(database: SqlDatabase): Promise<Confli
   }
 
   return normalizeConflictsPolicy(parsed);
-}
-
-// A firm that configured `defaultDepth` before the typed budgets existed still means that number for
-// every class, so a stored row with no `edgeClassBudgets` resolves to the depth it does carry — never
-// to the shipped default. Falling back to the shipped default here would silently NARROW the search
-// for exactly the firms that took the trouble to widen it, which is the one direction this subsystem
-// may never move without saying so.
-function parseEdgeClassBudgets(stored: unknown, defaultDepth: number): EdgeClassBudgets {
-  const record =
-    typeof stored === "object" && stored !== null && !Array.isArray(stored)
-      ? (stored as Record<string, unknown>)
-      : {};
-  return Object.fromEntries(
-    BUDGETED_EDGE_CLASSES.map((edgeClass) => {
-      const value = record[edgeClass];
-      if (typeof value === "number" && Number.isFinite(value)) {
-        return [edgeClass, Math.max(0, Math.trunc(value))];
-      }
-      return [edgeClass, defaultDepth];
-    }),
-  ) as unknown as EdgeClassBudgets;
 }
 
 // A stored name-role set is honoured as given, with two guards. A non-array or an EMPTY array falls
@@ -361,8 +218,8 @@ function parseBalancedNameRoles(stored: unknown): readonly string[] {
 // function the read repairs with — and the NORMALIZED result is what goes in the row and what comes
 // back to the caller. A screen therefore never has to model the platform's repairs to predict its own
 // behaviour: it sends what an administrator chose, and it is told what took effect. Where the two
-// differ (a floor with every source deselected, a candidate cap above what one atomic batch can
-// carry) the difference is visible in the response rather than discovered on the next check.
+// differ (a floor with every source deselected) the difference is visible in the response rather
+// than discovered on the next check.
 //
 // It deliberately does NOT refuse an unsound policy. The guards here are invariants a firm cannot opt
 // out of rather than mistakes it might have meant — `party` is in the floor because conflicts impute

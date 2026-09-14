@@ -22,9 +22,25 @@
  */
 import type { GridColumn } from "@magna-carta/design-system/data-table";
 import { statusEntry } from "@magna-carta/design-system/status-register";
+import type { FilterChoice } from "$lib/money/listing-scope.ts";
 import { gapCellTitle, type FeeLedgerGapName } from "./fee-gaps.ts";
 import { recorderText, returnedDraftReason } from "$lib/records/work-in-progress-record.ts";
 import { billingLabel, feeMatterText, feeStatusKey, type FeeRecord } from "./fee-record.ts";
+
+/**
+ * Every status a fee can hold, as the wire spells it and as the Status column shows it. The
+ * column's set filter offers the whole vocabulary rather than only what the loaded rows carry, and
+ * the firm's Fees screen reads a single choice off it to send as the listing's own `status`.
+ */
+export const FEE_STATUS_CHOICES: readonly FilterChoice<FeeRecord["status"]>[] = (
+  ["draft", "submitted", "approved", "billed", "void"] as const
+).map((status) => ({ value: status, label: statusEntry(feeStatusKey(status)).label }));
+
+/** The Billable column's two words, keyed by the listing's own `billable` value. */
+export const FEE_BILLING_CHOICES: readonly FilterChoice<"true" | "false">[] = [
+  { value: "true", label: billingLabel(true) },
+  { value: "false", label: billingLabel(false) },
+];
 
 /** Column ids, spelled in full, so a test and a stored layout name the same thing as the code. */
 export const FEE_COLUMN_IDENTIFIERS = {
@@ -184,6 +200,7 @@ export function feeLedgerColumns(currency: string): readonly GridColumn<FeeRecor
       type: "text",
       hidden: true,
       filter: "set",
+      filterValues: FEE_BILLING_CHOICES.map((choice) => choice.label),
       value: (fee) => billingLabel(fee.billable),
     },
     {
@@ -201,6 +218,7 @@ export function feeLedgerColumns(currency: string): readonly GridColumn<FeeRecor
       label: "Status",
       type: "text",
       filter: "set",
+      filterValues: FEE_STATUS_CHOICES.map((choice) => choice.label),
       fitExtra: 26,
       value: (fee) => statusEntry(feeStatusKey(fee.status)).label,
     },

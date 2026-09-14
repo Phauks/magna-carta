@@ -38,11 +38,25 @@
     outline-color: var(--mc-focus-ring);
     outline-width: var(--mc-focus-ring-width);
   }
+  /* The words inside the empty frame sit on the first event's action line, in the muted voice. */
   .mc-event-rail-empty {
-    padding-block: var(--mc-space-16);
     color: var(--mc-text-muted);
     font-family: var(--mc-font-sans);
     font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-tight);
+  }
+  /*
+   * The rail's own last line, beneath the events and inside the frame: what the history does not
+   * carry yet. Quieter than an event's meta line, and set off from the last event by the space an
+   * event's own trailing padding gives it.
+   */
+  .mc-event-rail-note-row {
+    padding-block-start: var(--mc-space-12);
+  }
+  .mc-event-rail-note {
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
     line-height: var(--mc-leading-normal);
   }
   /* No gap between events: the connector is what runs through the space between two markers, so a
@@ -96,6 +110,12 @@
   .mc-event-rail-event[data-latest="true"] .mc-event-rail-dot {
     border-color: var(--mc-accent-strong);
     background-color: var(--mc-accent-strong);
+  }
+  /* Where the first event will land: the marker's geometry with nothing recorded behind it. */
+  .mc-event-rail-dot-empty {
+    border-style: dashed;
+    border-color: var(--mc-border-default);
+    background-color: transparent;
   }
   .mc-event-rail-connector {
     flex: auto;

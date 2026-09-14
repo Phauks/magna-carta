@@ -13,6 +13,11 @@
    * A roster is a list of people the firm acts on one at a time, and staging a batch of them
    * behind one Save would make "who works here" a document with a draft.
    *
+   * THE ROSTER IS THE PRODUCT'S ONE TABLE (catalog-columns.ts declares its columns): it sorts,
+   * filters from its headers, offers its column roster, resizes and counts itself. The grid is
+   * re-created when the session lands, because the Actions column exists only for a member who
+   * may act and the grid fixes its columns when it is made.
+   *
    * TWO REFUSALS COME FROM THE SERVER AND ARE SHOWN, NOT PREDICTED. A member cannot administer
    * themselves, and the firm must keep somebody who can administer it — the acting member's own
    * row therefore offers no actions, which is the honest half this page CAN know. Whether a
@@ -28,9 +33,8 @@
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
-  import LoadingRegion from "@magna-carta/design-system/loading-region";
-  import * as Select from "@magna-carta/design-system/select";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
+  import ChoicePicker from "$lib/components/choice-picker.svelte";
   import type { Failure } from "$lib/api/request.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -45,9 +49,15 @@
     type FirmRole,
   } from "$lib/members/members-api.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
+  import {
+    CATALOG_ACTIONS_COLUMN_ID,
+    memberColumns,
+    memberStandingKey,
+  } from "$lib/settings/catalog-columns.ts";
   import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
+  import SettingsScrollRegion from "$lib/settings/components/settings-scroll-region.svelte";
 
   let session = $state<SessionBootstrap | null>(null);
   const canEdit = $derived(session?.permissions.includes(MANAGE_MEMBERS_PERMISSION) ?? false);
@@ -57,14 +67,11 @@
   let members = $state<readonly FirmMemberSummary[] | null>(null);
   let roles = $state<readonly FirmRole[]>([]);
   let readFailure = $state<Failure | null>(null);
-  let reading = $state(false);
   let actionFailure = $state<StatedFailure | null>(null);
 
   async function load(): Promise<void> {
     readFailure = null;
-    reading = true;
     const outcome = await listFirmMembers(fetch);
-    reading = false;
     if (outcome.kind !== "ok") {
       readFailure = outcome.failure;
       return;
@@ -85,10 +92,14 @@
     });
   });
 
-  /** A member's standing as the status register words it — never a tone chosen here. */
-  function standingKey(member: FirmMemberSummary): "member-has-access" | "member-no-access" {
-    return member.status === "active" ? "member-has-access" : "member-no-access";
-  }
+  const grid = $derived(
+    DataTable.createDataTableGrid<FirmMemberSummary>({
+      columns: () => memberColumns(canEdit),
+      rows: () => members ?? [],
+      rowKey: (member) => member.userId,
+      itemNoun: { singular: "member", plural: "members" },
+    }),
+  );
 
   function roleName(roleId: string): string {
     return roles.find((role) => role.id === roleId)?.name ?? roleId;
@@ -96,16 +107,22 @@
 
   // ---- inviting somebody ------------------------------------------------------------------------
 
+  /** "No role" is a real choice, so the field offers it as a row; the invitation sends null for it. */
+  const NO_ROLE = "no-role";
+
   let inviteOpen = $state(false);
   let inviteName = $state("");
   let inviteEmail = $state("");
-  let inviteRoleName = $state("");
+  let inviteRoleName = $state(NO_ROLE);
   let inviteFailure = $state<StatedFailure | null>(null);
   let inviteKey: string | null = null;
 
-  const roleItems = $derived(roles.map((role) => ({ value: role.name, label: role.name })));
+  const roleChoices = $derived([
+    { value: NO_ROLE, label: "No role" },
+    ...roles.map((role) => ({ value: role.name, label: role.name })),
+  ]);
   const inviteStarted = $derived(
-    inviteName.trim() !== "" || inviteEmail.trim() !== "" || inviteRoleName !== "",
+    inviteName.trim() !== "" || inviteEmail.trim() !== "" || inviteRoleName !== NO_ROLE,
   );
   const inviteRefusal = $derived.by((): string | undefined => {
     if (inviteName.trim() === "") return "Give the person a name.";
@@ -119,7 +136,7 @@
   function openInvite(): void {
     inviteName = "";
     inviteEmail = "";
-    inviteRoleName = "";
+    inviteRoleName = NO_ROLE;
     inviteFailure = null;
     inviteKey = null;
     inviteOpen = true;
@@ -134,7 +151,7 @@
       {
         name: inviteName.trim(),
         email: inviteEmail.trim(),
-        roleName: inviteRoleName === "" ? null : inviteRoleName,
+        roleName: inviteRoleName === NO_ROLE ? null : inviteRoleName,
       },
       inviteKey,
     );
@@ -226,19 +243,39 @@
         : `${member.displayName}'s access was not withdrawn.`,
     );
   }
-
-  // The shape drawn while the roster is read: three rows in the table's own columns. A colleague's
-  // name and role are the roster's own kind of words, which the sample vocabulary does not carry.
-  const MEMBER_FIXTURE = [
-    { name: "Adaeze Okafor", roles: "Attorney" },
-    { name: "Marcus Reed", roles: "Paralegal" },
-    { name: "Priya Raman", roles: "Billing" },
-  ] as const;
 </script>
 
 <svelte:head>
   <title>Users · Settings · Magna Carta</title>
 </svelte:head>
+
+{#snippet memberCell({ row, column, text }: DataTable.GridCellContext<FirmMemberSummary>)}
+  {#if column.id === "roles" && row.roleNames.length === 0}
+    <!-- A real state with a real consequence, so it is stated rather than left as an empty cell
+         that reads as data still loading. -->
+    <Badge variant="warning">{text}</Badge>
+  {:else if column.id === "standing"}
+    {@const standing = memberStandingKey(row)}
+    <Badge {...statusBadgeAttributes(standing)}>{statusEntry(standing).label}</Badge>
+  {:else if column.id === CATALOG_ACTIONS_COLUMN_ID}
+    {#if row.userId === actingUserId}
+      <span class="text-xs text-text-muted">Ask another administrator</span>
+    {:else}
+      <span class="inline-flex items-center justify-end gap-4">
+        <Button variant="ghost" size="sm" onclick={() => openRoles(row)}>Change Roles</Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onclick={() => void setActive(row, row.status !== "active")}
+        >
+          {row.status === "active" ? "Withdraw Access" : "Restore Access"}
+        </Button>
+      </span>
+    {/if}
+  {:else}
+    {text}
+  {/if}
+{/snippet}
 
 <SettingsMasthead
   sectionId="users"
@@ -247,141 +284,59 @@
   showHistory={false}
 />
 
-<!-- The middle story: the one scroll area, reaching the canvas's true edges (the breathing
-     room rides INSIDE it); scrollbar-gutter keeps pages that scroll and pages that do not at
-     identical width. -->
-<div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
-  <div class="flex flex-col gap-24 p-24">
-    <SettingsDescription>
-      The firm's members and what their roles allow. What each role means is listed under Roles and
-      Permissions.
-    </SettingsDescription>
+<SettingsScrollRegion>
+  <SettingsDescription>
+    The firm's members and what their roles allow. What each role means is listed under Roles and
+    Permissions.
+  </SettingsDescription>
 
-    {#if actionFailure !== null}
-      <FailureNotice failure={actionFailure.failure} fallback={actionFailure.fallback} />
-    {/if}
+  {#if actionFailure !== null}
+    <FailureNotice failure={actionFailure.failure} fallback={actionFailure.fallback} />
+  {/if}
 
-    <SettingsPlate heading="Membership">
-      {#if canEdit}
-        <div class="flex justify-end py-12">
+  <SettingsPlate heading="Membership">
+    {#if canEdit || grid.isFiltered}
+      <div class="flex items-center justify-end gap-8 py-12">
+        <DataTable.ClearFilters {grid} />
+        {#if canEdit}
           <Button variant="primary" size="sm" onclick={openInvite}>Invite a Member</Button>
-        </div>
-      {/if}
-      <LoadingRegion
-        loading={members === null}
-        failed={readFailure !== null && members === null}
-        refreshing={reading}
-        empty={members !== null && members.length === 0}
-        label="Reading the firm's members"
+        {/if}
+      </div>
+    {/if}
+    {#if readFailure !== null && members === null}
+      <FailureNotice
+        failure={readFailure}
+        title="The Members Could Not Be Read"
+        fallback="The firm's member list was not read."
         onRetry={() => void load()}
-        class="flex flex-col"
+      />
+    {:else}
+      {#if readFailure !== null}
+        <FailureNotice
+          failure={readFailure}
+          title="The Members Were Not Re-read"
+          fallback="The roster was not read again. What is shown was read and stands."
+          onRetry={() => void load()}
+        />
+      {/if}
+      <DataTable.Grid
+        {grid}
+        caption="The firm's members"
+        cell={memberCell}
+        loading={members === null}
+        placeholderCount={3}
       >
-        {#snippet failure()}
-          {#if readFailure !== null}
-            <FailureNotice
-              failure={readFailure}
-              title="The Members Could Not Be Read"
-              fallback="The firm's member list was not read."
-              onRetry={() => void load()}
-            />
-          {/if}
-        {/snippet}
-        {#snippet emptyState()}
-          <EmptyState title="No members yet">
+        {#snippet empty()}
+          <EmptyState title="No Members Yet">
             Invite the first colleague and they arrive holding the role you name. Until somebody
             holds a role, they can sign in and reach nothing.
           </EmptyState>
         {/snippet}
-        {#snippet fixture()}
-          <DataTable.Root>
-            <DataTable.Header>
-              <DataTable.Row>
-                <DataTable.Head>Name</DataTable.Head>
-                <DataTable.Head>Roles</DataTable.Head>
-                <DataTable.Head>Standing</DataTable.Head>
-              </DataTable.Row>
-            </DataTable.Header>
-            <DataTable.Body>
-              {#each MEMBER_FIXTURE as row (row.name)}
-                <DataTable.Row>
-                  <DataTable.Cell>{row.name}</DataTable.Cell>
-                  <DataTable.Cell>{row.roles}</DataTable.Cell>
-                  <DataTable.Cell>
-                    <Badge {...statusBadgeAttributes("member-has-access")}>
-                      {statusEntry("member-has-access").label}
-                    </Badge>
-                  </DataTable.Cell>
-                </DataTable.Row>
-              {/each}
-            </DataTable.Body>
-          </DataTable.Root>
-        {/snippet}
-        {@const shown = members ?? []}
-        {#if readFailure !== null}
-          <FailureNotice
-            failure={readFailure}
-            title="The Members Were Not Re-read"
-            fallback="The roster was not read again. What is shown was read and stands."
-            onRetry={() => void load()}
-          />
-        {/if}
-        {#if shown.length > 0}
-          <DataTable.Root>
-            <DataTable.Caption class="sr-only">The firm's members</DataTable.Caption>
-            <DataTable.Header>
-              <DataTable.Row>
-                <DataTable.Head>Name</DataTable.Head>
-                <DataTable.Head>Roles</DataTable.Head>
-                <DataTable.Head>Standing</DataTable.Head>
-                {#if canEdit}
-                  <DataTable.Head class="sr-only">Actions</DataTable.Head>
-                {/if}
-              </DataTable.Row>
-            </DataTable.Header>
-            <DataTable.Body>
-              {#each shown as member (member.userId)}
-                <DataTable.Row>
-                  <DataTable.Cell>{member.displayName}</DataTable.Cell>
-                  <DataTable.Cell>
-                    {#if member.roleNames.length === 0}
-                      <!-- A real state with a real consequence, so it is stated rather than left
-                           as an empty cell that reads as data still loading. -->
-                      <Badge variant="warning">No role</Badge>
-                    {:else}
-                      {member.roleNames.join(", ")}
-                    {/if}
-                  </DataTable.Cell>
-                  <DataTable.Cell>
-                    {@const standing = standingKey(member)}
-                    <Badge {...statusBadgeAttributes(standing)}>{statusEntry(standing).label}</Badge>
-                  </DataTable.Cell>
-                  {#if canEdit}
-                    <DataTable.Cell class="text-end">
-                      {#if member.userId === actingUserId}
-                        <span class="text-xs text-text-muted">Ask another administrator</span>
-                      {:else}
-                        <Button variant="ghost" size="sm" onclick={() => openRoles(member)}>
-                          Change Roles
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onclick={() => void setActive(member, member.status !== "active")}
-                        >
-                          {member.status === "active" ? "Withdraw Access" : "Restore Access"}
-                        </Button>
-                      {/if}
-                    </DataTable.Cell>
-                  {/if}
-                </DataTable.Row>
-              {/each}
-            </DataTable.Body>
-          </DataTable.Root>
-        {/if}
-      </LoadingRegion>
-    </SettingsPlate>
-  </div>
-</div>
+      </DataTable.Grid>
+      <DataTable.GridFooter {grid} />
+    {/if}
+  </SettingsPlate>
+</SettingsScrollRegion>
 
 <ActionDialog
   bind:open={inviteOpen}
@@ -417,16 +372,12 @@
       </div>
       <div class="flex flex-col gap-4">
         <Label for="invite-role">Role</Label>
-        <Select.Root type="single" items={roleItems} bind:value={inviteRoleName}>
-          <Select.Trigger id="invite-role" class="w-full">
-            <Select.Value placeholder="No role" />
-          </Select.Trigger>
-          <Select.Content>
-            {#each roleItems as item (item.value)}
-              <Select.Item value={item.value} label={item.label} />
-            {/each}
-          </Select.Content>
-        </Select.Root>
+        <ChoicePicker
+          options={roleChoices}
+          inputId="invite-role"
+          label="Role"
+          bind:value={inviteRoleName}
+        />
         <p class="text-xs text-text-muted">
           A member with no role can sign in and reach nothing. The role can be changed at any time.
         </p>

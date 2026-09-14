@@ -4,9 +4,24 @@ import { readMatterParties } from "@magna-carta/directory/party";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { ConflictsCheckId } from "@magna-carta/identifiers/types";
 import { conflictsAuditStatement, type ConflictsWriteOptions } from "./audit.ts";
-import { boundCandidateHits, type CandidateTruncation } from "./candidate-bound.ts";
+import {
+  boundCandidateHits,
+  CANDIDATE_WRITE_CEILING,
+  type CandidateTruncation,
+} from "./candidate-bound.ts";
+import {
+  claimRunStatement,
+  completeRunStatement,
+  failRunStatement,
+  openCheckRun,
+  readLatestNumberedCheckForMatter,
+  reportRunProgressStatement,
+  type OpenedRun,
+  type RunProgress,
+  type RunStage,
+} from "./check-run.ts";
 import { assignTier, describeEvidence } from "./evidence.ts";
-import { expandGraph, type ExpansionTruncation } from "./expansion.ts";
+import { expandGraph, WALK_CEILING, type ExpansionTruncation } from "./expansion.ts";
 import { findImputationHits } from "./imputation.ts";
 import { matchPartyBatch } from "./matching.ts";
 import { nicknameCatalogueIsPopulated } from "@magna-carta/directory/nickname";
@@ -15,6 +30,7 @@ import { runConflictsEffect } from "./run-conflicts-effect.ts";
 import { readConflictsPolicy, resolveScope, type ScopeRequest } from "./settings.ts";
 import {
   availabilityOf,
+  MAGNUS_CONVERSATIONS_SOURCE,
   NICKNAME_EQUIVALENCE_SOURCE,
   PRIOR_FIRM_HISTORY_SOURCE,
 } from "./sources.ts";
@@ -46,6 +62,18 @@ export interface RunCheckInput {
   // into a single check, never out of existence.
   readonly causes?: readonly ConflictsCause[];
 }
+
+// What a run has been opened as, so the execution knows which record it writes.
+export interface RunToExecute {
+  readonly runId: ConflictsCheckId;
+  readonly input: RunCheckInput;
+}
+
+// The sentence a run failed with. Generic on purpose: the error itself goes to the telemetry
+// pipeline, and a database message on a row a firm reads back would be the wrong words in the one
+// place they cannot be edited.
+export const RUN_FAILURE =
+  "The search stopped before it finished, and nothing was recorded. Run it again.";
 
 // The identifier ids (and their types) attached to the given entities — NEVER the sealed ciphertext
 // or blind-index column. This is what "recorded by reference" means: the log can point back at the
@@ -90,11 +118,53 @@ async function matterHasEarlierHits(
   return results.length > 0;
 }
 
-export async function runConflictsCheck(
+// EXECUTING AN OPENED RUN: the search, reported as it goes, settled with its record.
+//
+// The run is CLAIMED first, guarded on its status, so a second executor — a replayed request, a
+// retried invocation — finds nothing to claim and returns without searching. Progress is written onto
+// the run row at each stage with a heartbeat, which is what a screen polls and what tells a dead run
+// from a slow one. The search record, its hits and the run's settlement commit in ONE batch, so the
+// run reads completed exactly when its record exists; a throw anywhere settles the run as failed and
+// is rethrown for the caller's telemetry.
+//
+// Returns the record's id, which is the run's id, or null when there was nothing to claim.
+export async function executeCheckRun(
   context: DirectoryIdentifierContext,
-  input: RunCheckInput,
-  options: ConflictsWriteOptions,
-): Promise<ConflictsCheckId> {
+  run: RunToExecute,
+  options: Omit<ConflictsWriteOptions, "idempotency">,
+): Promise<ConflictsCheckId | null> {
+  const { database } = context;
+  const claimed = await claimRunStatement(database, run.runId, options.clock.now()).run();
+  if (claimed.meta.changes === 0) return null;
+
+  const report = async (stage: RunStage, progress: RunProgress): Promise<void> => {
+    await reportRunProgressStatement(
+      database,
+      run.runId,
+      stage,
+      progress,
+      options.clock.now(),
+    ).run();
+  };
+
+  try {
+    await search(context, run, options, report);
+    return run.runId;
+  } catch (error) {
+    await failRunStatement(database, run.runId, RUN_FAILURE, options.clock.now()).run();
+    throw error;
+  }
+}
+
+async function search(
+  context: DirectoryIdentifierContext,
+  run: RunToExecute,
+  options: Omit<ConflictsWriteOptions, "idempotency">,
+  report: (stage: RunStage, progress: RunProgress) => Promise<void>,
+): Promise<void> {
+  const { input } = run;
+  const checkId = run.runId;
+
   // Read everything before composing the batch: D1 has no interactive transactions.
   const policy = await readConflictsPolicy(context.database);
   const scope = resolveScope(policy, input.scope);
@@ -107,21 +177,23 @@ export async function runConflictsCheck(
       seedIds.add(party.entityId);
     }
   }
+  await report("sources", { sourcesSearched: scope.sources.length, subjectParties: seedIds.size });
 
   // The check's own instant, taken once. Edge expiry is judged against it rather than against an
   // ambient clock read inside the traversal, so a long walk cannot have two different opinions about
   // whether a relationship had ended, and a recorded path is reproducible.
   const now = options.clock.now();
 
+  await report("walking", { entitiesReached: seedIds.size });
   const expansion = inScope.has("graph")
     ? await expandGraph(context.database, [...seedIds], {
-        edgeClassBudgets: scope.edgeClassBudgets,
-        closureCap: scope.closureCap,
         asOf: now,
+        onRound: (reached) => report("walking", { entitiesReached: reached }),
       })
     : {
         entities: [...seedIds].map((entityId) => ({ entityId, path: [] as never[] })),
         truncation: null as ExpansionTruncation | null,
+        longestPathLength: 0,
       };
   const expanded = expansion.entities;
 
@@ -129,10 +201,9 @@ export async function runConflictsCheck(
   // the edges that reached it, which is the hit's explanation.
   //
   // Two set-valued reads, not two reads per entity: one subject-facts read per node table over the
-  // whole closure, then each blocking channel once over the whole closure. A traversal widened to a
-  // five-hundred-entity cap without this is roughly two and a half thousand queries in one
-  // invocation, which is why the batching lands in the same change as the widening rather than after
-  // a measurement — it is the foundation the cap stands on, not an optimization of it.
+  // whole closure, then each blocking channel once over the whole closure. A closure walked to its
+  // end without this is thousands of queries in one invocation, which is why the batching is the
+  // foundation the unbounded walk stands on rather than an optimization of it.
   interface CandidateHit {
     entityId: string;
     sourceClass: SourceClass;
@@ -143,6 +214,7 @@ export async function runConflictsCheck(
   }
   const similarityHits: CandidateHit[] = [];
 
+  await report("matching", { entitiesReached: expanded.length, entitiesMatched: 0 });
   const subjectFacts = await readSubjectFactsBatch(
     context,
     expanded.map((entity) => entity.entityId),
@@ -179,8 +251,13 @@ export async function runConflictsCheck(
       });
     }
   }
+  await report("matching", {
+    entitiesReached: expanded.length,
+    entitiesMatched: subjectFacts.size,
+    candidatesSurfaced: similarityHits.length,
+  });
 
-  // The candidate bound applies HERE, to the similarity channels only — they are the pair whose output
+  // The write ceiling applies HERE, to the similarity channels only — they are the pair whose output
   // is the closure times the corpus. Imputation below is an identity join over one matter's own party
   // list: it is bounded by the matter, it is tier 1 by construction, and a bound that could refuse a
   // firm member who genuinely IS a party would be refusing the strongest thing the engine can find.
@@ -189,7 +266,7 @@ export async function runConflictsCheck(
   // returning exactly the per-entity matcher's hit set by test/matcher-equivalence.test.ts, and a bound
   // reaching into either path would make that proof about a narrowed answer instead of the answer.
   // Bounding the run's OUTPUT leaves the matchers identical and the proof intact by construction.
-  const bounded = boundCandidateHits(similarityHits, scope.candidateCap);
+  const bounded = boundCandidateHits(similarityHits, CANDIDATE_WRITE_CEILING);
   const hits: CandidateHit[] = [...bounded.hits];
   const candidateTruncation: CandidateTruncation | null = bounded.truncation;
 
@@ -208,6 +285,12 @@ export async function runConflictsCheck(
       });
     }
   }
+  await report("candidates", {
+    entitiesReached: expanded.length,
+    entitiesMatched: subjectFacts.size,
+    candidatesSurfaced: similarityHits.length,
+    candidatesRecorded: hits.length,
+  });
 
   const scopeRecord: Record<string, SourceAvailability> = {};
   for (const sourceClass of scope.sources) scopeRecord[sourceClass] = availabilityOf(sourceClass);
@@ -224,8 +307,11 @@ export async function runConflictsCheck(
   scopeRecord[NICKNAME_EQUIVALENCE_SOURCE] = (await nicknameCatalogueIsPopulated(context.database))
     ? "searched"
     : "unavailable";
+  // The assistant's conversations: a place the product holds and nothing indexes. Recorded so the
+  // check screen can list it as a place that was not searched rather than a place that does not
+  // exist.
+  scopeRecord[MAGNUS_CONVERSATIONS_SOURCE] = "unavailable";
 
-  const checkId = newIdentifier("conflictsCheck", options.randomSource);
   const triggerSource = input.triggerSource ?? null;
 
   // WHETHER TO ANNOUNCE THIS RUN. A check a person asked for never announces: the person who asked is
@@ -247,11 +333,13 @@ export async function runConflictsCheck(
 
   // Identifiers are recorded BY REFERENCE. No plaintext value ever enters the log.
   //
-  // `traversal` records the walk VERBATIM — the budget per edge class, the closure cap, and, when the
-  // cap stopped the walk, that it stopped and how much it did not see. A reader of a years-old row
-  // must not have to know what the code did with the strictness word and the depth integer on the day
-  // the check ran, and a truncated expansion must never read as a completed one: that is the depth
-  // analogue of the rule that a source recording `unavailable` never reads as searched and clean.
+  // `traversal` records the walk VERBATIM: that every relationship was followed to closure, how deep
+  // the closure ran, the ceiling in force and, when the ceiling stopped the walk, that it stopped and
+  // how much it did not see. A reader of a years-old row must not have to know what the code did on
+  // the day the check ran, and a truncated expansion must never read as a completed one: that is the
+  // depth analogue of the rule that a source recording `unavailable` never reads as searched and
+  // clean. The key names are the ones rows written under the old hop budgets carry, so one parser
+  // reads both.
   const inputs = {
     subjectEntityIds: [...seedIds].sort(),
     expandedEntityIds: expanded.map((entity) => entity.entityId).sort(),
@@ -272,12 +360,12 @@ export async function runConflictsCheck(
       nameRoles: scope.nameRoles,
     },
     traversal: {
-      edgeClassBudgets: scope.edgeClassBudgets,
-      // Corporate-family edges are traversed transitively at no hop cost, so the closure cap is the
-      // only thing that bounds them. Recorded as a word rather than a number because there is no
-      // number that would be true.
+      followedToClosure: true,
+      longestPathLength: expansion.longestPathLength,
+      // The platform's ceiling on one walk, under the key the old cap wrote to, so a reader of any
+      // row finds the bound in force under one name.
+      closureCap: WALK_CEILING,
       corporateFamily: "transitive",
-      closureCap: scope.closureCap,
       expiredEdgesTraversed: true,
       truncated: expansion.truncation !== null,
       ...(expansion.truncation === null
@@ -289,12 +377,12 @@ export async function runConflictsCheck(
           }),
     },
     // WHAT THE RUN SURFACED VERSUS WHAT IT WROTE. Recorded beside `traversal` and read the same way:
-    // the cap in force always, and — when it bit — how many candidates were refused and at which
+    // the ceiling in force always, and — when it bit — how many candidates were refused and at which
     // tiers. `truncated: false` is the ordinary case and says the written hits are everything the
     // channels found; a row predating this record carries no `candidates` key at all, which reads as
     // the row not saying rather than as the search having been complete.
     candidates: {
-      candidateCap: scope.candidateCap,
+      candidateCap: CANDIDATE_WRITE_CEILING,
       truncated: candidateTruncation !== null,
       ...(candidateTruncation === null
         ? {}
@@ -307,7 +395,8 @@ export async function runConflictsCheck(
     },
   };
 
-  return runConflictsEffect(context.database, options.idempotency, options.clock, () => ({
+  const settledAt = options.clock.now();
+  await runConflictsEffect(context.database, undefined, options.clock, () => ({
     statements: [
       insertCheckStatement(context.database, {
         id: checkId,
@@ -316,7 +405,11 @@ export async function runConflictsCheck(
         subjectPartiesJson: JSON.stringify(inputs.subjectEntityIds),
         scopeJson: JSON.stringify(scopeRecord),
         strictness: scope.strictness,
-        depth: scope.depth,
+        // The shipped column meant the widest hop budget in force. There is no budget now, so it
+        // records how deep the closure actually ran — a true fact about the corpus, and never a
+        // number smaller than the walk. `traversal.followedToClosure` is what says which reading a
+        // row takes.
+        depth: expansion.longestPathLength,
         inputsJson: JSON.stringify(inputs),
         floorRaised: scope.floorRaised,
         actorUserId: options.actorUserId,
@@ -342,6 +435,8 @@ export async function runConflictsCheck(
           createdAt: now,
         }),
       ),
+      // The run settles in the same commit as its record, so a completed run always has one.
+      completeRunStatement(context.database, checkId, settledAt),
       conflictsAuditStatement(context.database, options, "conflicts.check.run", checkId),
     ],
     // The announcement, in the same atomic batch as the check and its hits, so the message exists if
@@ -368,4 +463,45 @@ export async function runConflictsCheck(
     value: checkId,
     fromBody: (body) => (body as { id: ConflictsCheckId }).id,
   }));
+}
+
+// Where a run of a check that names a matter lands: under the check most recently filed on that
+// matter, so an automated re-check is a further run of the matter's check rather than an unrelated
+// row in the firm's log; or as a new numbered check where the matter has none yet.
+async function homeForMatterRun(
+  context: DirectoryIdentifierContext,
+  matterId: string | undefined,
+): Promise<{ readonly numberedCheckId: ConflictsCheckId } | null> {
+  if (matterId === undefined) return null;
+  const latest = await readLatestNumberedCheckForMatter(context.database, matterId);
+  return latest === null ? null : { numberedCheckId: latest.id };
+}
+
+// The synchronous composition: open a run and execute it, in the invocation that asked. This is what
+// the automated paths and the fixtures call — a queue consumer or a cron pass has nobody watching a
+// screen, and its budget is its own. A run a person asked for is opened by its route and executed
+// after the response, through the same two functions.
+export async function runConflictsCheck(
+  context: DirectoryIdentifierContext,
+  input: RunCheckInput,
+  options: ConflictsWriteOptions,
+): Promise<ConflictsCheckId> {
+  const opened: OpenedRun = await openCheckRun(
+    context.database,
+    {
+      request: {
+        trigger: input.trigger,
+        matterId: input.matterId ?? null,
+        subjectEntityIds: [...input.subjectEntityIds],
+        scope: input.scope,
+      },
+      triggerSource: input.triggerSource ?? null,
+      under: await homeForMatterRun(context, input.matterId),
+    },
+    options,
+  );
+  const executed = await executeCheckRun(context, { runId: opened.runId, input }, options);
+  // A replayed idempotency key returns the run the first request opened, which has been executed
+  // already (or is being executed now); its id is the record's id either way.
+  return executed ?? opened.runId;
 }

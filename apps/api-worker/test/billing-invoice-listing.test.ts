@@ -273,6 +273,21 @@ describe("the firm's whole register", () => {
     const rows = await listed(await get("/api/v1/billing/invoices?status=draft"));
     expect(rows.map((row) => row.id)).toEqual([acmeDraftId]);
   });
+
+  it("takes several statuses at once, given repeatedly, as the Status filter holds them", async () => {
+    const rows = await listed(await get("/api/v1/billing/invoices?status=draft&status=final"));
+    expect(rows.map((row) => row.id)).toEqual([redwoodBillId, acmeDraftId, acmeSplitBillId]);
+    expect(await listed(await get("/api/v1/billing/invoices?status=void"))).toEqual([]);
+  });
+
+  it("searches the invoice number and the client's name across the whole register", async () => {
+    const byNumber = await listed(await get("/api/v1/billing/invoices?search=00102"));
+    expect(byNumber.map((row) => row.id)).toEqual([redwoodBillId]);
+    const byClient = await listed(await get("/api/v1/billing/invoices?search=acme"));
+    expect(byClient.map((row) => row.id)).toEqual([acmeDraftId, acmeSplitBillId]);
+    // The wildcards are the caller's text: a percent sign matches a percent sign, not everything.
+    expect(await listed(await get("/api/v1/billing/invoices?search=%25"))).toEqual([]);
+  });
 });
 
 describe("the matters a bill charges", () => {

@@ -22,16 +22,56 @@
  *   - SAID is one line of what was said, and a call with nothing written says so. A missed call is a
  *     real record — the phone rang and nobody answered — and an empty cell would read as a gap.
  */
-import type { GridColumn } from "@magna-carta/design-system/data-table";
-import type { Communication } from "./communications-api.ts";
+import type { GridColumn, GridColumnFilter } from "@magna-carta/design-system/data-table";
+import type { Communication, CommunicationScope } from "./communications-api.ts";
 import {
   anchorText,
   channelEntry,
   counterpartyNumberText,
   directionEntry,
+  DISPOSITION_CHOICES,
   durationText,
+  NOT_FILED_TEXT,
   NOT_NUMBERED_TEXT,
 } from "./communication-vocabulary.ts";
+
+/**
+ * What the Matter column always offers, whatever is loaded: the queue's own word and the three
+ * reasons a row is on no matter. The matters themselves follow from the rows in hand. A firm with
+ * nothing waiting today still has a queue, and a filter that dropped "Not filed" because none was
+ * on screen would be telling the reader the firm cannot have one.
+ */
+export const MATTER_FILTER_VOCABULARY: readonly string[] = [
+  NOT_FILED_TEXT,
+  ...DISPOSITION_CHOICES.map((choice) => choice.label),
+];
+
+const SET_ASIDE_LABELS = new Set(DISPOSITION_CHOICES.map((choice) => choice.label));
+
+/**
+ * The listing's scope a Matter filter's selection stays inside, or undefined where it crosses two.
+ *
+ * The four scope tabs the screen used to carry asked exactly what this column's filter asks — the
+ * queue, what is filed, what was set aside — so the filter is the control and this is how it
+ * reaches the server: "Not filed" alone is the queue, the set-aside reasons alone are what was set
+ * aside, and any selection of matters alone is what is filed. A selection crossing those lines is
+ * a question the listing cannot take, so the server is asked for everything and the table narrows
+ * the loaded rows.
+ */
+export function scopeForMatterSelection(
+  filter: GridColumnFilter | undefined,
+): Exclude<CommunicationScope, "all"> | undefined {
+  if (filter?.kind !== "set" || filter.values.length === 0) return undefined;
+  const scopes = new Set(
+    filter.values.map((value): Exclude<CommunicationScope, "all"> => {
+      if (value === NOT_FILED_TEXT) return "unrouted";
+      return SET_ASIDE_LABELS.has(value) ? "setAside" : "routed";
+    }),
+  );
+  if (scopes.size !== 1) return undefined;
+  const [only] = scopes;
+  return only;
+}
 
 /** What a counterparty handle resolves to, by handle. Empty until the Directory read lands. */
 export interface CommunicationVocabulary {
@@ -125,6 +165,7 @@ export function communicationColumns(
       id: "matter",
       label: "Matter",
       filter: "set",
+      filterValues: MATTER_FILTER_VOCABULARY,
       value: (communication) => anchorText(communication),
     });
   }

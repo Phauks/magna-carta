@@ -28,12 +28,12 @@ does not. A bill settled this morning is never counted as late.
 
 ## Choosing Which Bills
 
-The control at the top names which bills you are looking at:
-
-- **All bills** — the whole register, which is where it opens.
-- **Drafts** — bills still being written, which no client has been given.
-- **Finalized** — the bills that have been issued.
-- **Voided drafts** — drafts that were abandoned. They stay on the register and count toward nothing.
+The screen opens on the whole register. To see only the drafts, the finalized bills or the voided
+drafts, filter the **Status** column from its own heading. The filter offers every state whether or
+not a bill in it has loaded, and it reaches the register itself: filtering to Draft finds every draft
+the firm has, not only the ones already on screen. Unpaid, Partially Paid and Paid are all readings
+of a finalized bill, so any of them asks for the finalized ones and the table shows the standing you
+chose. Several states at once hold across the whole register too.
 
 The choice is in the address, so a partner looking at the firm's open drafts can send that exact view
 by sending the link.
@@ -41,9 +41,12 @@ by sending the link.
 ## Narrowing the Table
 
 Every column carries its own filter, reached from the column's own heading — Client, Status,
-Delivered, and the rest. That is the search on this screen: filter Client to one client, Status to
-unpaid, in any combination. The counts strip says how many rows are showing out of how many there
-are, so you always know what a filter left out.
+Delivered, and the rest. Filter Client to one client, Status to unpaid, in any combination. The
+counts strip says how many rows are showing out of how many there are, so you always know what a
+filter left out.
+
+The search at the top reads the whole register: type part of an invoice number or a client's name,
+and the bills that answer arrive from wherever they are.
 
 ## What the Columns Say
 
@@ -66,6 +69,18 @@ applied to it, what is still owed, and its lines.
 The address changes when you do, so **the open bill is a link**. Sending that link sends the
 document, not a register and an instruction to go looking for it.
 
+## Starting a Bill
+
+**New Bill** at the top of the screen opens a draft. Because this screen is not standing on a
+matter, the first field is the matter: type any part of its number or its name and pick it. The
+client is read from that matter's own party record and shown, never chosen — an invoice belongs to
+one client and may bill several of that client's matters, and a matter with no client party says so
+rather than opening a draft against nobody.
+
+Once the draft is open the screen takes you to that matter's Billing section with the draft
+selected, because a draft is built up there, by claiming the matter's unbilled time, fees and costs
+onto it. Nothing is asserted to the client until the draft is finalized.
+
 ## Acting on a Bill
 
 Applying a client's trust funds, writing off a balance and recording a credit note are a **matter's**
@@ -78,12 +93,6 @@ three of a client's matters offers all three, because which one you want is a ch
 make.
 
 ## What Is Not Here Yet
-
-**Raising a bill** starts on the matter it charges. There is no "new bill" here, and the reason is
-not simply that a bill needs a matter: a bill is not a form you fill in. A draft is opened and then
-built up by claiming that matter's unbilled time, fees and costs onto it, and that work is on the
-matter's own Billing section. A New Bill here would open an empty draft on a screen that could not
-then fill it.
 
 **Batch and recurring bills** — running a month's billing for many matters at once — are designed and
 not built.

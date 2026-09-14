@@ -23,12 +23,16 @@ makes a place to put them.
 
 The Upload panel has two sides.
 
-**On the right are your files.** Press **Add** to choose files. For a folder, use the small arrow
-beside Add and choose **A Folder, With Everything Inside It** — a browser will not let one picker
-offer files and folders together. Dragging has no such limit: drop any mix of files and folders from
-your computer anywhere on that side of the panel. A folder arrives with its contents, in the folders
-they came from, and you can add several folders before you send anything. Fold a folder to hide what
-is inside it. Nothing is sent until you press **Upload**.
+**On the right are your files.** Press **Add** and choose **File** or **Folder** — a browser will
+not let one picker offer files and folders together, so they are two choices. Dragging has no such
+limit: drop any mix of files and folders from your computer anywhere on that side of the panel. A
+folder arrives with its contents, in the folders they came from, and you can add several folders
+before you send anything. Fold a folder to hide what is inside it. Nothing is sent until you press
+**Upload**.
+
+The panel opens at one size and keeps it. Switching tabs on the left, adding a folder, or unfolding
+one never moves what you were looking at; whichever side has more than fits scrolls inside its own
+space.
 
 The list is the same table you use everywhere else in Magna Carta. Click a column heading to sort by
 it — folders stay with the files inside them, so a sort still reads as the tree it is. Right-click a
@@ -37,22 +41,19 @@ the list to the files that match, with a **Folder** column saying where each one
 is filtered, **Clear Filters** appears above the list, and the strip underneath says how many of your
 files you are looking at. Remove anything you did not mean to include with **Remove Selected**.
 
-**On the left is where they go and what they become.**
+**On the left is where they go and what they become**, in two tabs. **Location** is what every
+upload decides:
 
 - **Matter** — the matter you are on, unless you choose another. Start typing a matter's name or
   number to find it.
 - **Folder** — the folder you were looking at, the matter's Home, or any folder you pick from the
   tree. A folder you upload is recreated inside the one you choose.
-  **Advanced Settings**, at the foot of that side, is folded shut and holds the three answers most
-  uploads never need to change:
+
+**Advanced Settings** holds what most uploads never need to change:
 
 - **Date Created** — whether each file keeps the date it already carries, or takes the date of the
   upload. Files keep their own date unless you say otherwise; that date is kept on the record either
-  way, and shows in the file's details as **Source File Date**: the last-modified date the file
-  carried on the device it came from, as distinct from **Date Created**, which is when the record
-  was made here.
-- **Files the Firm Already Holds** — whether a file your firm already has is sent again, or copied
-  into place without sending. Copied, by default; see _Files you already have_ below.
+  way, and shows in the file's details as **File's Own Date**.
 - **When a Name Is Already Taken** — what happens to a file whose name is already in the folder it
   lands in: kept beside the other under a numbered name (the default), filed as the next version of
   the file that has the name, or skipped. See _When a name is taken_ below.
@@ -72,16 +73,15 @@ the file being sent is given back; the rest read **Not sent**, and **Send the Re
 later. A large file (over your firm's limit for a single send, 100 MB unless it was changed) goes in
 pieces behind the scenes; you see one upload, and a piece that stumbles is sent again on its own.
 
-### Files you already have
+### Whether each file is ready, and files you already have
 
-Before a file is sent, Magna Carta reads it and asks whether your firm already holds exactly those
-bytes. If it does — on this matter or on another — the file is copied into place without an upload,
-and its row reads **Uploaded** as usual, with a note saying where the copy came from. It is still a
-file of its own: choosing to upload it means you wanted it there, and holding the same bytes
-elsewhere is only a reason not to send them over the wire again. So two identical files you chose
-both arrive, and a file you upload twice is there twice. The read happens on your computer, a chunk
-at a time, with the row reading **Reading** and the share done, so a file of any size is asked about
-before a byte of it is sent.
+As soon as you choose a file, Magna Carta reads it on your computer, a chunk at a time, and asks
+whether your firm already holds exactly those bytes. The **Status** column says where each file
+stands before you press anything: **Reading** with the share done while it is read, then **Ready**
+once it is, or **Held** if your firm already has a file with those bytes, or **Not read** if the
+file could not be read here (it is sent as it is). A folder row sums its files: "2 of 3 ready ·
+1 held". By the time you press **Upload** most of the answers are already in, and nothing waits on a
+read that could have happened earlier.
 
 ### When a name is taken
 
@@ -97,11 +97,12 @@ read.
 Two files in the same batch that share a name are filed as numbered copies without asking — there is
 no existing file to make a version of.
 
-**Reading starts as soon as you choose a file**, while you are still deciding where it goes, so by
-the time you press **Upload** most of the answers are already in and nothing waits on a read that
-could have happened earlier. If you would rather send everything regardless of what your firm holds,
-turn **Files the Firm Already Holds** to **Send Every File** under Advanced Settings; no reading is
-then done at all.
+A held file is never sent. If the matter already has it, its row reads **Already here** once the
+upload runs and nothing is made; if another of your firm's matters has it, the file is copied onto
+this matter without an upload and reads **Uploaded** as usual. So if a batch fails part-way and you
+send the same folder again, only the files that did not land are sent. There is no setting for
+this: a file your firm holds is simply never uploaded twice. Deleting one copy of such a file never
+removes the stored bytes while any other file, even a deleted one, still holds them.
 
 ### Watching an upload
 
@@ -121,9 +122,11 @@ files that had not finished would need to be uploaded again.
 
 ### If a file does not upload
 
-Its row reads **Upload failed**, and pointing at it tells you why, with an Error ID you can quote to
-support. The file is not added to the matter — a failed upload leaves nothing behind — and the rest
-of the upload carries on.
+Its row reads **Upload failed**, and a line under the file's name says what failed: the reason the
+server gave, or which part of the route did not answer. Pointing at it gives the whole account, with
+an Error ID you can quote to support. The uploads tray in the top bar names the failed files and
+what failed under the upload they belong to. The file is not added to the matter — a failed upload
+leaves nothing behind — and the rest of the upload carries on.
 
 If the reason says **the firm's storage did not answer**, the fault is not with your file, your
 matter, or your connection to Magna Carta — the rest of the application is plainly still answering.

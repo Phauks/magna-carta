@@ -114,18 +114,25 @@ would not be real.
 ## Changing a matter's status
 
 A matter's status is the badge at the top left of its own page, beside the matter number: **Intake**,
-**Consultation**, **Active**, **On Hold** or **Closed**. Press the badge to change it.
+**Consultation**, **Active**, **On Hold** or **Closed**. Press the badge and a menu opens with the
+steps the matter can take from where it stands: an intake completes into a consultation; a
+consultation opens, is put on hold, or is closed; an active matter closes or is put on hold; a
+matter on hold is released or closed; a closed matter reopens. There is no list of statuses to pick
+from, because a matter reaches a status by being opened, held, released, closed or reopened, not by
+being set to one.
+
+A step that needs something from you opens the status window at that step: **Put On Hold** opens it
+with the reason field ready, and **Close Matter**, **Open Matter** and **Complete Intake** open it
+with the requirements in view, already answered. **Release Hold** and **Reopen Matter** need nothing
+but your say-so, so they ask once and go. The last item on the menu, **Matter Status**, opens the
+window on its own, for when you want to read the number, the engagement or the physical file
+without changing anything.
 
 The window is short on purpose, and it has two sides. On the left, the matter's status, the steps
 the current status allows, and what closing requires. On the right, the firm's own physical file for
-the matter.
-
-The steps sit beside the status itself, not at the foot of the window: an intake completes into a
-consultation, a consultation opens, an active matter closes or is put on hold, a matter on hold is
-released or closed, a closed matter reopens. There is no list of statuses to pick from, because a
-matter reaches a status by being opened, held, released, closed or reopened, not by being set to
-one. The bottom of the window offers only **Done**, so a window you opened to read something cannot
-close a matter with a press in the corner your hand goes to by habit.
+the matter. The steps sit beside the status itself, not at the foot of the window, and the bottom of
+the window offers only **Done**, so a window you opened to read something cannot close a matter with
+a press in the corner your hand goes to by habit.
 
 **Putting a matter on hold.** An active matter the firm has stopped working, without ending it, goes
 on hold: a client who has stopped paying, a party who has gone quiet, an instruction to wait. Press
@@ -133,11 +140,19 @@ on hold: a client who has stopped paying, a party who has gone quiet, an instruc
 hold with nothing said about why is a matter nobody knows how to resume, and it prints on the
 matter's Overview and in this window under **On Hold**, with the date the pause began. The matter
 keeps its number; nothing is drawn or surrendered. It stays on the docket wearing **On Hold** so it
-can be found and filtered, and its mail still files to it. Press **Release Hold** to make it active
-again; the reason clears and the record keeps that it was held. A matter can also be closed from
-hold, and reopening it later returns it to the hold it was in. Both directions need the same
-permission, `matters:hold`, and a matter cannot be started on hold: a hold pauses work, so there
-has to be work to pause.
+can be found and filtered, and its mail still files to it. Press **Release Hold** to resume; the
+matter goes back to where the hold found it, the reason clears, and the record keeps that it was
+held. A matter can also be closed from hold, and reopening it later returns it to the hold it was
+in. Both directions need the same permission, `matters:hold`, and a matter cannot be started on
+hold: a hold pauses work, so there has to be work to pause.
+
+**A consultation can be parked or declined.** A consultation the prospect is still thinking over
+goes on hold the same way, with its reason, and keeps its consultation number; releasing it makes
+it a consultation again, never an active matter, because nothing opened it. A consultation the firm
+decides against is closed with **Close Consultation**: it keeps its consultation number, draws no
+matter number, and stays on the record so a later conflicts check can still find its parties.
+Reopening it returns it to being a consultation. An intake cannot be put on hold: it is the walk
+toward a consultation, and there is nothing yet to pause.
 
 **Requirements to close** lists what has to be true, each one already answered. Magna Carta runs
 the firm's own rules against the matter when the window opens, so a requirement is marked met or not
@@ -182,8 +197,9 @@ after the matter closes. The property stays exactly where it is, listed in the r
 somebody moves, releases or destroys it.
 
 **"This step needs the matters:close permission."** Closing, opening, holding and reopening are
-each a permission your firm grants, and this account does not have that one. Ask whoever administers your
-firm.
+each a permission your firm grants, and this account does not have that one. The step still shows
+on the status menu, greyed, with this line under the list, so you can see what the matter could do
+and who to ask. Ask whoever administers your firm.
 
 ### The physical file
 

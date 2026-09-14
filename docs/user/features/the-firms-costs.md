@@ -1,14 +1,14 @@
 # The Firm's Costs
 
-**Costs** in the sidebar shows what the firm laid out across every matter, for the days you choose —
+**Costs** in the sidebar shows what the firm laid out across every matter, most recent first —
 filing fees, service, experts, postage, copying. It answers the question a matter cannot: not "what
 has this file cost", which is the matter's own Costs section, but "what did the firm advance this
 month, and how much of it is still waiting on a bill".
 
 ## Where Costs Live, in Two Places
 
-- **Costs, in the sidebar.** This screen. Every cost across every matter, for a span of days. It is
-  where the month gets read back, reconciled and checked before billing.
+- **Costs, in the sidebar.** This screen. Every cost across every matter. It is where the month
+  gets read back, reconciled and checked before billing.
 - **A matter's Costs section.** That matter's own record: every cost advanced for it, and where a new
   one is written down.
 
@@ -17,35 +17,33 @@ two doors.
 
 ## Choosing the Days
 
-The control at the top names the span you are looking at. It opens on **this month**, because a cost
-record is read back at a month end rather than day by day as it is written.
+The screen opens on the whole record. To look at a span, filter the **Date** column from its own
+heading: right-click the heading, choose Filter Date, and set a first day, a last day, or both. A
+filter set at one end runs to the present, or back to the first cost ever recorded.
 
-Six named spans are offered — today, yesterday, this week, last week, this month, last month — and
-below them a calendar you can drag across for any range you like. A custom range applies the moment
-you have picked both ends; there is no Apply button to forget.
-
-Each span's name says which days it actually covered, so "Last month, Aug 1 to 31" can never be
-showing you something narrower than it claims.
-
-The span is dated by **when the cost was incurred**, not when somebody typed it in.
+The date is **when the cost was incurred**, not when somebody typed it in.
 
 ## Billable or Absorbed
 
-The second control chooses which costs you see:
+The **Billing** column starts hidden; turn it on from any column's heading and filter it to
+**Billable** for what a client can be charged for, or **Absorbed** for what the firm decided to carry
+itself. Real spending either way; nobody is charged for the absorbed.
 
-- **Billable and absorbed** — everything, which is where it opens.
-- **Billable only** — what a client can be charged for.
-- **Absorbed only** — what the firm decided to carry itself. Real spending; nobody is charged for it.
-
-Both choices are in the address, so a bookkeeper's month is a link somebody can send, and it opens
-where they left it rather than on this month.
+The Date, Status and Billing filters are in the address, so a bookkeeper's month is a link somebody
+can send, and it opens where they left it.
 
 ## Narrowing the Table
 
-Every column carries its own filter, reached from the column's own heading — Matter, Payee, Expense
-Code, Status, and the rest. That is the search on this screen: filter Matter to one file, Status to
-approved, Payee to one supplier, in any combination. The counts strip says how many rows are showing
-out of how many there are, so you always know what a filter left out.
+Every column carries its own filter, reached from the column's own heading — Date, Matter, Payee,
+Expense Code, Status, and the rest. Filter Matter to one file, Status to approved, Payee to one
+supplier, in any combination. The counts strip says how many rows are showing out of how many there
+are, so you always know what a filter left out.
+
+The Date, Status and Billing filters reach the record itself, so they hold across every page. A
+Status filter holding several states at once holds across the whole record too.
+
+The search at the top reads the whole record too: type part of a description, a matter's name or
+number, or a payee's name, and the rows that answer arrive from wherever they are.
 
 ## What the Figures Mean
 
@@ -58,7 +56,7 @@ The three figures on the bottom edge split the money the way the decisions do:
 Withdrawn costs stay on the record with their marker and count toward none of the three.
 
 When a column filter is narrowing the table, the figures cover what is in view and say so. And when
-the period runs past what has loaded, the line beneath the table says the figures cover only what is
+the record runs past what has loaded, the line beneath the table says the figures cover only what is
 loaded — so a running subtotal is never mistaken for a month's total.
 
 ## Going to the Matter

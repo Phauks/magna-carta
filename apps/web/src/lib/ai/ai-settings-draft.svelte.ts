@@ -22,6 +22,7 @@ import {
   DAILY_TURN_CEILING_MINIMUM,
   readFirmAiSettings,
   updateFirmAiSettings,
+  type AiModelChoice,
   type FirmAiSettings,
 } from "./ai-settings-api.ts";
 
@@ -73,14 +74,43 @@ export const MAGNUS_DAILY_TURN_CEILING_DEFINITION: SettingDefinition = {
   audited: true,
 };
 
+/**
+ * The value the model choice stores for "follow the platform". A roster id is provider-prefixed, so
+ * this can never collide with one; it is spelled here once rather than at each place that compares.
+ */
+export const PLATFORM_MODEL_CHOICE = "platform";
+
+const MODEL_PLATE = "The Model Your Content Reaches";
+
+/**
+ * The model choice's definition, MINUS its options: the options are the roster the server sends,
+ * so the whole definition is composed per read (`AiSettingsDraft.modelDefinition`). The id and the
+ * words are fixed here so the staging, the recap and the row all agree on them.
+ */
+export const MODEL_CHOICE_DEFINITION_BASE: Omit<SettingDefinition, "options"> = {
+  id: "ai.model",
+  sectionId: AI_SETTINGS_SECTION_ID,
+  plateLabel: MODEL_PLATE,
+  label: "Model",
+  description:
+    "Which model answers. The platform's current model moves forward as better ones are verified; a model you choose stays chosen until you choose again.",
+  kind: "select",
+  defaultValue: PLATFORM_MODEL_CHOICE,
+  sensitivity: "open",
+  audited: true,
+};
+
 export const AI_SETTINGS_DEFINITIONS: readonly SettingDefinition[] = [
   AI_PROCESSING_ELIGIBILITY_DEFINITION,
+  MODEL_CHOICE_DEFINITION_BASE,
   MAGNUS_ENABLED_DEFINITION,
   MAGNUS_DAILY_TURN_CEILING_DEFINITION,
 ];
 
 type StagedFields = {
   eligible?: boolean;
+  /** A roster id, or PLATFORM_MODEL_CHOICE for following the platform. */
+  model?: string;
   enabled?: boolean;
   dailyTurnCeiling?: number;
 };
@@ -89,6 +119,7 @@ type FieldKey = keyof StagedFields;
 
 const FIELD_BY_DEFINITION: Readonly<Record<string, FieldKey>> = {
   [AI_PROCESSING_ELIGIBILITY_DEFINITION.id]: "eligible",
+  [MODEL_CHOICE_DEFINITION_BASE.id]: "model",
   [MAGNUS_ENABLED_DEFINITION.id]: "enabled",
   [MAGNUS_DAILY_TURN_CEILING_DEFINITION.id]: "dailyTurnCeiling",
 };
@@ -99,8 +130,15 @@ const FIELD_BY_DEFINITION: Readonly<Record<string, FieldKey>> = {
 const DEFAULT_SETTINGS: FirmAiSettings = {
   aiProcessing: { eligible: false },
   model: null,
+  models: [],
+  catalog: { version: 0, effectiveDate: "" },
   magnus: { enabled: false, dailyTurnCeiling: 500 },
 };
+
+/** How a roster entry reads as a choice: its id, with the platform's own marked as such. */
+function modelChoiceLabel(choice: AiModelChoice): string {
+  return choice.modelId;
+}
 
 export class AiSettingsDraft extends SettingsDraft {
   /** What the server said the firm's settings are; null until the read lands. */
@@ -134,6 +172,49 @@ export class AiSettingsDraft extends SettingsDraft {
     );
   }
 
+  /**
+   * The model choice's definition with the roster as its options: "the platform's current model"
+   * first, naming what that is today, then every verified entry. Composed from the read rather than
+   * written once, so the options are exactly the roster the server will accept.
+   */
+  get modelDefinition(): SettingDefinition {
+    const settings = this.committed ?? DEFAULT_SETTINGS;
+    const platform = settings.models.find((choice) => choice.platformDefault);
+    return {
+      ...MODEL_CHOICE_DEFINITION_BASE,
+      options: [
+        {
+          value: PLATFORM_MODEL_CHOICE,
+          label:
+            platform === undefined
+              ? "The platform's current model"
+              : `The platform's current model (${platform.modelId})`,
+        },
+        ...settings.models.map((choice) => ({
+          value: choice.modelId,
+          label: modelChoiceLabel(choice),
+        })),
+      ],
+    };
+  }
+
+  /**
+   * The roster entry the STAGED choice names, so the facts beneath the control describe what is
+   * about to be saved rather than what was saved last — a form whose result is invisible reads back
+   * what it will do.
+   */
+  get stagedModelChoice(): AiModelChoice | null {
+    const settings = this.committed;
+    if (settings === null) return null;
+    const staged = this.stagedValue(this.modelDefinition);
+    const modelId =
+      staged === PLATFORM_MODEL_CHOICE
+        ? (settings.models.find((choice) => choice.platformDefault)?.modelId ??
+          settings.model?.modelId)
+        : String(staged);
+    return settings.models.find((choice) => choice.modelId === modelId) ?? null;
+  }
+
   async load(): Promise<void> {
     const outcome = await readFirmAiSettings(this.#fetchImpl);
     if (outcome.kind === "ok") {
@@ -149,6 +230,12 @@ export class AiSettingsDraft extends SettingsDraft {
     switch (key) {
       case "eligible":
         return settings.aiProcessing.eligible;
+      case "model":
+        // A firm following the platform holds the platform choice, whatever model that is today; a
+        // firm that has chosen holds the id it chose.
+        return settings.model === null || settings.model.selection === "platform"
+          ? PLATFORM_MODEL_CHOICE
+          : settings.model.modelId;
       case "enabled":
         return settings.magnus.enabled;
       case "dailyTurnCeiling":
@@ -176,6 +263,9 @@ export class AiSettingsDraft extends SettingsDraft {
     else if (key === "dailyTurnCeiling") {
       if (typeof next !== "number" || !Number.isInteger(next)) return;
       staged[key] = next;
+    } else if (key === "model") {
+      if (typeof next !== "string" || next === "") return;
+      staged[key] = next;
     } else {
       if (typeof next !== "boolean") return;
       staged[key] = next;
@@ -197,10 +287,12 @@ export class AiSettingsDraft extends SettingsDraft {
     from: SettingValue;
     to: SettingValue;
   }> {
-    return AI_SETTINGS_DEFINITIONS.flatMap((definition) => {
-      const key = FIELD_BY_DEFINITION[definition.id];
+    return AI_SETTINGS_DEFINITIONS.flatMap((base) => {
+      const key = FIELD_BY_DEFINITION[base.id];
       const to = key === undefined ? undefined : this.#staged[key];
       if (key === undefined || to === undefined) return [];
+      // The model's recap needs the roster as options, so its label reads as a choice.
+      const definition = key === "model" ? this.modelDefinition : base;
       return [{ definition, from: this.#committedValue(key), to }];
     });
   }
@@ -229,6 +321,9 @@ export class AiSettingsDraft extends SettingsDraft {
       this.#fetchImpl,
       {
         ...(staged.eligible === undefined ? {} : { aiProcessing: { eligible: staged.eligible } }),
+        ...(staged.model === undefined
+          ? {}
+          : { model: { modelId: staged.model === PLATFORM_MODEL_CHOICE ? null : staged.model } }),
         ...(staged.enabled === undefined && staged.dailyTurnCeiling === undefined
           ? {}
           : {

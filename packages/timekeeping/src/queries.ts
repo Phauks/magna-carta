@@ -401,10 +401,17 @@ export async function listUnbilledByMatter(
  * the matters one at a time is not an answer: the caller would need every matter first, and the
  * page boundaries would fall inside matters rather than inside the period.
  *
- * THE SPAN IS REQUIRED AND THE NARROWING IS NOT. A range with no timekeeper is the firm's whole
- * record for those days, which is exactly what a supervisor asks for; the route decides who may ask
- * it. What is never optional is the span itself, because a listing over all time with no bound is a
- * full-table scan wearing a cursor.
+ * EITHER BOUND STANDS ALONE, AND NEITHER IS THE WHOLE RECORD. The firm's Time screen opens on the
+ * whole record and narrows it with its Date column, which may set one end, both, or none — and a
+ * column filter that narrowed only the loaded page would not be a filter, so each bound is honoured
+ * here as it is given. The read is a walk over the work-date index either way, a page at a time,
+ * which is what makes an unbounded listing a listing rather than a scan. A range with no timekeeper
+ * is the firm's whole record; the route decides who may ask it.
+ *
+ * THE STATUS IS A LIST AND THE SEARCH IS THE SCREEN'S. A Status column filter may hold several
+ * states at once, and a search box that quietly covered only the loaded page would tell a reader
+ * their word appears nowhere in a record it never looked at; both reach the statement so they hold
+ * across every page.
  *
  * VOIDS ARE INCLUDED, on the per-matter read's rule: a void stays on the record with its chip and
  * counts toward nothing, and a listing that dropped it would make a record look smaller than it is.
@@ -414,18 +421,45 @@ export async function listUnbilledByMatter(
  * cursor means the same thing on both and the two surfaces page identically.
  */
 export interface ListTimeEntriesInRangeParams {
-  /** The first work date in the span, inclusive. */
-  readonly from: string;
-  /** The last work date in the span, inclusive. */
-  readonly to: string;
+  /** The first work date, inclusive. Absent, the listing runs from the first entry recorded. */
+  readonly from?: string;
+  /** The last work date, inclusive. Absent, the listing runs to the present. */
+  readonly to?: string;
   /** One timekeeper's own record; omitted, the span covers every timekeeper in the firm. */
   readonly timekeeperUserId?: UserId;
   /** One matter inside the span, for a caller narrowing a period read to a file. */
   readonly matterId?: MatterId;
-  /** One status inside the span. Omitted means every status, as the per-matter read means it. */
-  readonly status?: TimeEntryStatus;
+  /** One status or several. Omitted or empty means every status, as the per-matter read means it. */
+  readonly status?: TimeEntryStatus | readonly TimeEntryStatus[];
+  /** Matched against the narrative, the entry number, the matter's title and number, and the timekeeper's name. */
+  readonly search?: string;
   readonly cursor?: string;
   readonly pageSize?: number;
+}
+
+/**
+ * The listing's search, as one predicate over the joined statement.
+ *
+ * A LIKE scan rather than an index, bounded by the page the caller already asked for. The wildcards
+ * are the caller's text, not their instruction: a narrative reading "50% of the brief" must not
+ * match everything.
+ */
+function timeSearchCondition(
+  search: string | undefined,
+): { readonly condition: string; readonly bindings: readonly unknown[] } | undefined {
+  const term = search?.trim();
+  if (term === undefined || term.length === 0) return undefined;
+  const escaped = term.replaceAll(/[\\%_]/gu, (character) => `\\${character}`);
+  const pattern = `%${escaped}%`;
+  return {
+    condition:
+      "(time_entry.narrative LIKE ? ESCAPE '\\' " +
+      "OR time_entry.entry_number LIKE ? ESCAPE '\\' " +
+      "OR matter.title LIKE ? ESCAPE '\\' " +
+      "OR matter.matter_number LIKE ? ESCAPE '\\' " +
+      "OR timekeeper.display_name LIKE ? ESCAPE '\\')",
+    bindings: [pattern, pattern, pattern, pattern, pattern],
+  };
 }
 
 export async function listTimeEntriesInRange(
@@ -434,8 +468,16 @@ export async function listTimeEntriesInRange(
 ): Promise<Page<TimeEntryRecordItem>> {
   const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE;
 
-  const conditions = ["time_entry.work_date >= ?", "time_entry.work_date <= ?"];
-  const bindings: unknown[] = [params.from, params.to];
+  const conditions: string[] = [];
+  const bindings: unknown[] = [];
+  if (params.from !== undefined) {
+    conditions.push("time_entry.work_date >= ?");
+    bindings.push(params.from);
+  }
+  if (params.to !== undefined) {
+    conditions.push("time_entry.work_date <= ?");
+    bindings.push(params.to);
+  }
   if (params.timekeeperUserId !== undefined) {
     conditions.push("time_entry.timekeeper_user_id = ?");
     bindings.push(params.timekeeperUserId);
@@ -444,9 +486,20 @@ export async function listTimeEntriesInRange(
     conditions.push("time_entry.matter_id = ?");
     bindings.push(params.matterId);
   }
-  if (params.status !== undefined) {
-    conditions.push("time_entry.status = ?");
-    bindings.push(params.status);
+  const statuses =
+    params.status === undefined
+      ? []
+      : typeof params.status === "string"
+        ? [params.status]
+        : params.status;
+  if (statuses.length > 0) {
+    conditions.push(`time_entry.status IN (${statuses.map(() => "?").join(", ")})`);
+    bindings.push(...statuses);
+  }
+  const search = timeSearchCondition(params.search);
+  if (search !== undefined) {
+    conditions.push(search.condition);
+    bindings.push(...search.bindings);
   }
   appendCursorPredicateOnColumn(conditions, bindings, decodeCursor(params.cursor), {
     sortColumn: "time_entry.work_date",
@@ -456,12 +509,15 @@ export async function listTimeEntriesInRange(
   // One more than the page, as the has-more probe.
   bindings.push(pageSize + 1);
 
+  // The matter is joined here and nowhere else in this module: only the search reads its name,
+  // and the per-matter and daily reads already know which matter they are on.
   const { results } = await database
     .prepare(
       `SELECT ${TIME_ENTRY_RECORD_COLUMNS}
          FROM ${TIME_ENTRY_TABLE} AS time_entry
          ${TIME_ENTRY_RECORD_JOINS}
-        WHERE ${conditions.join(" AND ")}
+         LEFT JOIN matter ON matter.id = time_entry.matter_id
+        ${conditions.length === 0 ? "" : `WHERE ${conditions.join(" AND ")}`}
         ORDER BY time_entry.work_date DESC, time_entry.id DESC
         LIMIT ?`,
     )

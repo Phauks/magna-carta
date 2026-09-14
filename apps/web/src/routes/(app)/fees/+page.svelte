@@ -1,9 +1,9 @@
 <script lang="ts">
   /*
-   * FEES — what the firm charged for work done over a period, across every matter.
+   * FEES — what the firm charged for work done, across every matter.
    *
    * THE SECOND PLACE A FEE IS MET, AND THE ONLY ONE THAT CROSSES MATTERS. A matter's Fees section
-   * is that matter's record of the flat charges made on it. This is the period — "what did the firm
+   * is that matter's record of the flat charges made on it. This is the firm's — "what did the firm
    * charge for work done this month, and how much of it is still waiting on a bill" — which neither
    * that section nor the Billing register can answer: the first knows one file, and the second
    * knows only what a bill has already taken up.
@@ -13,37 +13,33 @@
    * arrangement's is the arrangement's; what is listed here is the third thing — the charge
    * somebody decided on — which is why it needed a store of its own.
    *
-   * IT WAS NOT A SOON ROW; IT WAS NOT A ROW AT ALL, for the same structural reason Costs was not:
-   * nothing served the record. The sidebar and the matter disagreed about what Money holds, and the
-   * fee work-in-progress store is what made adding the row honest rather than aspirational.
+   * THE TABLE IS THE ONLY THING THAT NARROWS IT. The screen opens on the whole record, most recent
+   * service date first, and every narrowing is a column's own filter: Date bounds the period,
+   * Status picks a state, Billable picks the charged or the absorbed. The screen used to carry a
+   * period dropdown and a billing dropdown in its header, each answering a question a column
+   * already asked (the owner's ruling of 2026-09-11, docs/conventions/time-tab-rulings.md round
+   * twelve).
    *
-   * TWO LAYERS OF NARROWING, AND THEY ARE DIFFERENT KINDS. The period and the billing control
-   * change WHAT IS ASKED FOR: they re-read, and the answer is the whole record for that scope, page
-   * by page. The table's own in-header filters narrow WHAT IS LOADED, and say so while they do it.
-   * That distinction is why there is no free-text search box here: a search quietly covering only
-   * the loaded page would tell a reader their word appears nowhere in a month it never looked at.
+   * A COLUMN FILTER THAT ONLY NARROWED THE LOADED PAGE WOULD NOT BE A FILTER. The record is
+   * cursor-paged, so the filters the listing honours — the two date bounds, the Status column's
+   * whole selection, one billing choice — and the search are sent to it as its own parameters and
+   * re-read, and the table's in-browser filter then runs over rows that already match.
    *
-   * THE SCOPE IS IN THE ADDRESS, so a bookkeeper's month is a link somebody can send.
+   * THE FILTERS ARE IN THE ADDRESS, so a bookkeeper's month is a link somebody can send.
    *
    * ONE COLUMN SET, TWO ARRANGEMENTS. The columns are the matter ledger's own declaration with the
    * Matter column brought forward (fee-columns.ts), so a fee carries the same words and the same
-   * meaning whichever screen a reader found it on. Costs is the working template for every one of
-   * these decisions, deliberately: the two screens answer the same shape of question.
+   * meaning whichever screen a reader found it on.
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import * as Popover from "@magna-carta/design-system/popover";
-  import * as Select from "@magna-carta/design-system/select";
   import * as Alert from "@magna-carta/design-system/alert";
   import Badge from "@magna-carta/design-system/badge";
-  import Button, { buttonClasses } from "@magna-carta/design-system/button";
   import CreateControl from "@magna-carta/design-system/create-control";
   import EmptyState from "@magna-carta/design-system/empty-state";
-  import { DateRangePicker } from "@magna-carta/design-system/date-range-picker";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
+  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
-  import { parseDate } from "@internationalized/date";
-  import Calendar from "@lucide/svelte/icons/calendar";
-  import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import { page } from "$app/state";
   import { replaceState } from "$app/navigation";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
@@ -52,9 +48,10 @@
   import { recorderText } from "$lib/records/work-in-progress-record.ts";
   import { FirmMatters } from "$lib/time/firm-matters.svelte.ts";
   import FeeRecordWindow from "$lib/billing/fee-record-window.svelte";
-  import { todayInUtc } from "@magna-carta/civil-time/civil-date";
   import {
+    FEE_BILLING_CHOICES,
     FEE_COLUMN_IDENTIFIERS,
+    FEE_STATUS_CHOICES,
     firmFeeColumns,
     isUnservedFeeColumn,
     timekeeperText,
@@ -74,30 +71,17 @@
     feeStatusKey,
     type FeeRecord,
   } from "$lib/billing/fee-record.ts";
-  /*
-   * The period arithmetic is the Time Sheet's, reused rather than written a third time: it is pure
-   * calendar work — a named span, its label, and the refusal a backwards custom range earns — with
-   * no knowledge of any ledger in it. Three money screens computing "last month" separately is
-   * three chances to disagree about where a month starts.
-   */
   import {
-    PERIOD_PRESET_IDENTIFIERS,
-    customRangeOutcome,
-    isScopeShowing,
-    scopePreset,
-    spanLabel,
-    type SheetScope,
-  } from "$lib/time/time-sheet-scope.ts";
-
-  /*
-   * The firm's first weekday is a firm setting the settings registry will serve. Until it does, the
-   * week presets span Monday to Sunday and each label names the days it actually covered — the same
-   * interim every other period screen holds, deliberately: two surfaces disagreeing about where a
-   * week starts is worse than all of them being provisional.
-   */
-  const FIRST_WEEKDAY_OF_THE_FIRMS_WEEK = 1;
-
-  const today = todayInUtc();
+    addressAfterFilters,
+    civilDateOrNull,
+    dateBoundsOf,
+    dateRangeFilter,
+    filtersSeededBy,
+    choicesFilter,
+    choicesOf,
+    singleChoiceFilter,
+    singleChoiceOf,
+  } from "$lib/money/listing-scope.ts";
 
   const firmMatters = new FirmMatters();
   let bootstrapped = false;
@@ -105,94 +89,18 @@
     if (bootstrapped) return;
     bootstrapped = true;
     // The matters are read for the record window's picker alone — every row already names its own
-    // matter, resolved by the listing — so the period is read without waiting on them.
+    // matter, resolved by the listing — so the record is read without waiting on them.
     void firmMatters.load(fetch);
   });
 
-  // ---- the scope: what is asked for --------------------------------------------------------------
-
-  const addressSpan = $derived.by((): SheetScope | null => {
-    const from = page.url.searchParams.get("from");
-    const to = page.url.searchParams.get("to");
-    if (from === null || to === null) return null;
-    const outcome = customRangeOutcome(from, to);
-    return outcome.kind === "applied" ? outcome.scope : null;
-  });
-
-  /* A month, not a week: a fee record is read back at a month end, not day by day as it is typed. */
-  const defaultScope = $derived(scopePreset("month", today, FIRST_WEEKDAY_OF_THE_FIRMS_WEEK));
-  const scope = $derived(addressSpan ?? defaultScope);
-
-  const BILLING_CHOICES = [
-    { value: "all", label: "Billable and absorbed" },
-    { value: "true", label: "Billable only" },
-    { value: "false", label: "Absorbed only" },
-  ] as const;
-
-  const chosenBilling = $derived.by((): boolean | null => {
-    const named = page.url.searchParams.get("billable");
-    return named === "true" ? true : named === "false" ? false : null;
-  });
-
-  function goToScope(next: SheetScope, billable: boolean | null): void {
-    const url = new URL(page.url);
-    url.searchParams.set("from", next.from);
-    url.searchParams.set("to", next.to);
-    if (billable === null) url.searchParams.delete("billable");
-    else url.searchParams.set("billable", billable ? "true" : "false");
-    // Not a navigation: changing the period is not a place in the reader's history, it is the same
-    // screen looking at different days, and stacking every adjustment would make Back useless.
-    replaceState(url, page.state);
-  }
-
-  function applyPreset(preset: SheetScope): void {
-    goToScope(preset, chosenBilling);
-  }
-
-  let customRangeRefusal = $state<string | null>(null);
-  function applyCustomRange(from: string, to: string): void {
-    const outcome = customRangeOutcome(from, to);
-    if (outcome.kind === "refused") {
-      customRangeRefusal = outcome.reason;
-      return;
-    }
-    customRangeRefusal = null;
-    applyPreset(outcome.scope);
-  }
-
-  // ---- the read ----------------------------------------------------------------------------------
+  // ---- the table ---------------------------------------------------------------------------------
 
   const list = new PagedList<FeeRecord>("The firm's fees could not be read.");
   const fees = $derived(list.items ?? []);
-  /** Bumped after a write, so the period re-reads what the server now holds rather than guessing. */
+  /** Bumped after a write, so the record re-reads what the server now holds rather than guessing. */
   let reloadToken = $state(0);
 
-  const periodScope = $derived<FeePeriodScope>({
-    from: scope.from,
-    to: scope.to,
-    ...(chosenBilling === null ? {} : { billable: chosenBilling }),
-  });
-
-  $effect(() => {
-    const query = periodScope;
-    const subject = `${query.from}:${query.to}:${String(query.billable ?? "both")}:${String(reloadToken)}`;
-    if (list.showing(subject)) return;
-    list.reset(subject);
-    void list.load((cursor) =>
-      listFeeLedgerInPeriod(fetch, { ...query, ...(cursor === undefined ? {} : { cursor }) }),
-    );
-  });
-
-  function loadMore(): void {
-    const query = periodScope;
-    void list.loadMore((cursor) =>
-      listFeeLedgerInPeriod(fetch, { ...query, ...(cursor === undefined ? {} : { cursor }) }),
-    );
-  }
-
-  // ---- the table ---------------------------------------------------------------------------------
-
-  /* The currency the period is written in, read off the rows rather than assumed. */
+  /* The currency the record is written in, read off the rows rather than assumed. */
   const currency = $derived(fees[0]?.currency ?? "USD");
   const money = (amountMinor: number): string => formatMoney(amountMinor / 100, { currency });
 
@@ -208,10 +116,101 @@
     onActivate: (fee) => openRecord(fee, canWorkDraft(fee).allowed),
   });
 
+  // ---- the scope: what the columns and the search ask the listing for ---------------------------
+
+  /* The address seeds the filters once, on open, so a linked view opens already narrowed. */
+  let seededFromAddress = false;
+  $effect(() => {
+    if (seededFromAddress) return;
+    seededFromAddress = true;
+    grid.filters = filtersSeededBy(grid.filters, {
+      [FEE_COLUMN_IDENTIFIERS.serviceDate]: dateRangeFilter(
+        civilDateOrNull(page.url.searchParams.get("from")),
+        civilDateOrNull(page.url.searchParams.get("to")),
+      ),
+      [FEE_COLUMN_IDENTIFIERS.status]: choicesFilter(
+        page.url.searchParams.getAll("status"),
+        FEE_STATUS_CHOICES,
+      ),
+      [FEE_COLUMN_IDENTIFIERS.billable]: singleChoiceFilter(
+        page.url.searchParams.get("billable"),
+        FEE_BILLING_CHOICES,
+      ),
+    });
+  });
+
+  /*
+   * The search is the listing's own, so it reads the whole record rather than the page in the
+   * browser; it waits for typing to pause because the read leaves the machine.
+   */
+  let searchText = $state("");
+  let appliedSearch = $state("");
+
+  const dateBounds = $derived(dateBoundsOf(grid.filterFor(FEE_COLUMN_IDENTIFIERS.serviceDate)));
+  const statusChoices = $derived(
+    choicesOf(grid.filterFor(FEE_COLUMN_IDENTIFIERS.status), FEE_STATUS_CHOICES),
+  );
+  const billingChoice = $derived(
+    singleChoiceOf(grid.filterFor(FEE_COLUMN_IDENTIFIERS.billable), FEE_BILLING_CHOICES),
+  );
+
+  const scope = $derived<FeePeriodScope>({
+    ...dateBounds,
+    ...(statusChoices.length === 0 ? {} : { statuses: statusChoices }),
+    ...(billingChoice === undefined ? {} : { billable: billingChoice === "true" }),
+    ...(appliedSearch.trim() === "" ? {} : { search: appliedSearch.trim() }),
+  });
+
+  $effect(() => {
+    const query = scope;
+    const subject = `${JSON.stringify(query)}:${String(reloadToken)}`;
+    if (list.showing(subject)) return;
+    list.reset(subject);
+    void list.load((cursor) =>
+      listFeeLedgerInPeriod(fetch, { ...query, ...(cursor === undefined ? {} : { cursor }) }),
+    );
+  });
+
+  function loadMore(): void {
+    const query = scope;
+    void list.loadMore((cursor) =>
+      listFeeLedgerInPeriod(fetch, { ...query, ...(cursor === undefined ? {} : { cursor }) }),
+    );
+  }
+
+  /*
+   * The filters the listing honours ride the address, so the view is a link somebody can send.
+   * `replaceState` rather than a navigation: narrowing is not a place in the reader's history, it
+   * is the same screen looking at fewer rows, and stacking every adjustment would make Back useless.
+   */
+  $effect(() => {
+    if (!seededFromAddress) return;
+    const next = addressAfterFilters(page.url, {
+      from: dateBounds.from,
+      to: dateBounds.to,
+      status: statusChoices,
+      billable: billingChoice,
+    });
+    if (next.href !== page.url.href) replaceState(next, page.state);
+  });
+
+  const narrowed = $derived(appliedSearch.trim() !== "" || grid.activeFilterCount > 0);
+  const narrowingSummary = $derived(
+    appliedSearch.trim() === ""
+      ? "Show every fee"
+      : `Showing "${appliedSearch.trim()}" of the record`,
+  );
+
+  function clearNarrowing(): void {
+    searchText = "";
+    appliedSearch = "";
+    grid.clearAllFilters();
+  }
+
   const position = $derived(feePosition(grid.isFiltered ? grid.rowsInView : fees));
 
   /*
-   * The two figures this period ends with. The captions are the whole reason the pair is not a bare
+   * The two figures the record ends with. The captions are the whole reason the pair is not a bare
    * total: "unbilled" and "billed" are positions in a process, and a reader hovering either needs
    * to know which. Both count billable fees only and neither counts a void.
    */
@@ -265,14 +264,6 @@
     }
     return undefined;
   });
-
-  const billingLine = $derived(
-    chosenBilling === null
-      ? "Billable and absorbed"
-      : chosenBilling
-        ? "Billable only"
-        : "Absorbed only",
-  );
 </script>
 
 <svelte:head><title>Fees · Magna Carta</title></svelte:head>
@@ -318,70 +309,19 @@
 
 <div class="flex h-full min-h-0 flex-col gap-16">
   <ScreenHeader title="Fees">
-    {#snippet meta()}
-      <span>{billingLine} · {spanLabel(scope.from, scope.to)}</span>
-    {/snippet}
     {#snippet actions()}
-      <!-- The period, then what kind: the two controls that change what is READ sit together. -->
-      <Popover.Root>
-        <Popover.Trigger
-          class={buttonClasses({ variant: "secondary", size: "sm" })}
-          title="Choose the days this screen shows"
-        >
-          <Calendar class="size-16" aria-hidden="true" />
-          {scope.label}
-          <ChevronDown class="size-16" aria-hidden="true" />
-        </Popover.Trigger>
-        <Popover.Content align="start">
-          <div class="flex flex-col gap-12">
-            <p class="text-xs text-text-subtle">Show fees for work done</p>
-            <div class="flex flex-col items-start gap-4">
-              {#each PERIOD_PRESET_IDENTIFIERS as identifier (identifier)}
-                {@const preset = scopePreset(identifier, today, FIRST_WEEKDAY_OF_THE_FIRMS_WEEK)}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-pressed={isScopeShowing(scope, preset)}
-                  onclick={() => applyPreset(preset)}
-                >
-                  {preset.label}
-                </Button>
-              {/each}
-            </div>
-            <p class="text-xs text-text-subtle">Custom range</p>
-            <DateRangePicker
-              value={{ start: parseDate(scope.from), end: parseDate(scope.to) }}
-              onValueChange={(range) => {
-                const from = range?.start?.toString() ?? "";
-                const to = range?.end?.toString() ?? "";
-                if (from !== "" && to !== "") applyCustomRange(from, to);
-              }}
-            />
-            <p class="text-xs text-text-muted">
-              {customRangeRefusal ??
-                "The range applies as you pick it. A preset above returns to a named span."}
-            </p>
-          </div>
-        </Popover.Content>
-      </Popover.Root>
-
-      <Select.Root
-        type="single"
-        items={BILLING_CHOICES.map((choice) => ({ value: choice.value, label: choice.label }))}
-        value={chosenBilling === null ? "all" : chosenBilling ? "true" : "false"}
-        onValueChange={(next) =>
-          goToScope(scope, next === "true" ? true : next === "false" ? false : null)}
-        allowDeselect={false}
-      >
-        <Select.Trigger aria-label="Which fees" class="w-3xs">
-          <Select.Value placeholder="Which fees" />
-        </Select.Trigger>
-        <Select.Content>
-          {#each BILLING_CHOICES as choice (choice.value)}
-            <Select.Item value={choice.value} label={choice.label} />
-          {/each}
-        </Select.Content>
-      </Select.Root>
+      <!-- The search, then the create control, then the way back to everything: the same row, in
+           the same order, as every other list screen. -->
+      <ScreenSearch
+        bind:value={searchText}
+        label="Search the firm's fees"
+        placeholder={placeholderOf("Search the firm's fees")}
+        searchOn="pause"
+        fieldClass="w-2xs sm:w-xs"
+        onsearch={(next) => {
+          appliedSearch = next;
+        }}
+      />
 
       <CreateControl
         noun="Fee"
@@ -390,7 +330,10 @@
         onpress={openNew}
       />
 
-      <DataTable.ClearFilters {grid} />
+      <DataTable.ClearFilters
+        {grid}
+        narrowing={{ narrowed, summary: narrowingSummary, clear: clearNarrowing }}
+      />
     {/snippet}
   </ScreenHeader>
 
@@ -421,15 +364,15 @@
       loading={list.items === null}
     >
       {#snippet empty()}
-        {#if grid.isFiltered}
+        {#if narrowed}
           <EmptyState title="Nothing Matches That">
-            No fee in this period answers to what is asked. Widening the column filters brings the
-            period back.
+            No fee answers to what is asked. Widening the search or the column filters brings the
+            record back.
           </EmptyState>
         {:else}
-          <EmptyState title="No Fees In This Period">
-            Nothing was charged for work done between {spanLabel(scope.from, scope.to)}. A wider span
-            is one click away, and a fee is recorded on the matter it charges.
+          <EmptyState title="No Fees Yet">
+            Nothing has been charged for work done. A fee is recorded on the matter it charges, and
+            New Fee above records one from here.
           </EmptyState>
         {/if}
       {/snippet}
@@ -450,11 +393,11 @@
     </DataTable.GridFooter>
 
     {#if list.nextCursor !== null}
-      <!-- The figures cover what is loaded, and the period is not fully loaded. Saying so is the
+      <!-- The figures cover what is loaded, and the record is not fully loaded. Saying so is the
            difference between a running subtotal and a number somebody reconciles from. -->
       <p class="text-xs text-text-muted">
-        Showing the {fees.length} most recent fees in this period. The figures cover only what is
-        loaded, so they are not the period's whole total until every page is read.
+        Showing the {fees.length} most recent fees. The figures cover only what is loaded, so they
+        are not the whole total until every page is read.
       </p>
     {/if}
   {/if}
