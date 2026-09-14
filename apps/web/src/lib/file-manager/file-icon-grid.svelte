@@ -10,6 +10,19 @@
    *
    * Arrow keys move in two dimensions here, because the grid genuinely has two. The table has no
    * horizontal axis, so there Left and Right move up and down rather than being dead keys.
+   *
+   * A NAME WRAPS, AND NO TILE EVER COVERS ITS NEIGHBOUR. A tile has a fixed width and its whole job
+   * is to name one file, so the name breaks onto a second and a third line rather than being cut
+   * off at the first — the same reading a navigation row is given, for the same reason. What it may
+   * not do is grow without end: past the third line the name ends in an ellipsis and the whole name
+   * is on the tile's hover, so a folder of long names stays a grid of even tiles. The name could
+   * only spill over its neighbours because its own box was never told it could shrink; it is told
+   * now, which is the part that makes the wrap honest rather than decorative.
+   *
+   * THE PIN'S SPACE IS RESERVED WHETHER OR NOT THE TILE IS PINNED, and an equal space closes the
+   * line, so pinning lights a glyph and moves nothing — not the icon under the pointer, and not the
+   * tiles beside it. It rides the GLYPH's line rather than the name's: on a tile this narrow a
+   * gutter each side of the name would have taken a third of the room the name is there to use.
    */
   import FileIcon from "@magna-carta/design-system/file-icon";
   import FolderGlyph from "@magna-carta/design-system/folder-glyph";
@@ -60,9 +73,12 @@
         <Separator class="w-full" />
       {/if}
       {@const mark = grid.markFor(row)}
+      {@const name =
+        row.kind === "folder" ? row.folder.name : displayName(row.file.name, hideExtensions)}
       <button
         type="button"
         class="flex w-96 flex-col items-center gap-4 rounded-md p-8 text-center"
+        title={name}
         data-state={grid.isSelected(row.key) ? "selected" : undefined}
         data-clipboard={mark?.clipboard}
         aria-pressed={grid.isSelected(row.key)}
@@ -74,27 +90,31 @@
             shift: event.shiftKey,
           })}
       >
-        {#if row.kind === "folder"}
-          <FolderGlyph
-            class="size-48"
-            color={folderAppearance[row.folder.id]?.color}
-            icon={folderAppearance[row.folder.id]?.icon}
-          />
-        {:else}
-          <FileIcon
-            contentType={row.file.sniffedContentType ?? undefined}
-            fileName={row.file.name}
-            class="size-48"
-          />
-        {/if}
-        <span class="flex items-center gap-4 text-xs">
-          {#if mark?.pinned === true}
-            <Pin class="size-12" aria-hidden="true" fill="currentColor" />
-          {/if}
-          <span class="truncate">
-            {row.kind === "folder" ? row.folder.name : displayName(row.file.name, hideExtensions)}
+        <!-- The glyph's line, not the name's: the pin's gutter is held open beside the icon, with
+             an equal space closing the line so the icon stays centred. Putting it on the name's
+             line would have taken a third of the room the name is there to use. -->
+        <span class="flex w-full items-center justify-center gap-4">
+          <span class="size-12 shrink-0 text-accent-default">
+            {#if mark?.pinned === true}
+              <Pin class="size-12" aria-hidden="true" fill="currentColor" />
+            {/if}
           </span>
+          {#if row.kind === "folder"}
+            <FolderGlyph
+              class="size-48 shrink-0"
+              color={folderAppearance[row.folder.id]?.color}
+              icon={folderAppearance[row.folder.id]?.icon}
+            />
+          {:else}
+            <FileIcon
+              contentType={row.file.sniffedContentType ?? undefined}
+              fileName={row.file.name}
+              class="size-48 shrink-0"
+            />
+          {/if}
+          <span class="size-12 shrink-0" aria-hidden="true"></span>
         </span>
+        <span class="line-clamp-3 w-full break-words text-xs">{name}</span>
         {#if row.kind === "file"}
           <SafetyMark verdict={safetyKeyOf(row.file)} />
         {/if}
