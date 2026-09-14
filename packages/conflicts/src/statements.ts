@@ -1,4 +1,6 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import { askableTerm, likePattern, LIKE_ESCAPE_CLAUSE } from "@magna-carta/data-access/like-search";
+import { normalizeName } from "@magna-carta/directory/normalize-name";
 import type {
   ConflictsCheckId,
   ConflictsDispositionId,
@@ -188,10 +190,76 @@ export interface ConflictsCheckSummaryRow {
 const NUMBERED_CHECK_TABLE = "conflicts_numbered_check";
 const CHECK_RUN_TABLE = "conflicts_check_run";
 
+/*
+ * WHAT A SEARCH OVER THE LOG CAN MATCH, and why it is these two things.
+ *
+ * The numbered check itself holds almost no text a person would type. The trigger, the strictness
+ * and the trigger source are closed labels the register already narrows by from its own column
+ * filters — a set filter offers "New Party" and matches it exactly, which is strictly better than a
+ * substring scan for the same thing — and `inputs_json` on the search record holds identifiers BY
+ * REFERENCE, never a plaintext name, which is the whole point of that column.
+ *
+ * So the search answers the two questions the column filters cannot:
+ *
+ *   * WHICH MATTER is this check filed on — its number or its title. The first thing anybody types.
+ *     Matched against the NUMBERED check's matter, which is the one the register's row shows; the
+ *     matter a given run searched stays on that run's own record and is a different question.
+ *   * WHOSE NAME has this check surfaced. "Have we ever checked Henderson" is a
+ *     professional-responsibility question with a date on it, and before this there was no way to
+ *     ask it short of opening every check in the log.
+ *
+ * THE NAME ARM REACHES EVERY RUN OF THE CHECK, not only its latest. The listing shows the latest
+ * run, but the question being asked is about the firm's history: a name that surfaced on the first
+ * run and not on the re-run after a waiver still surfaced, and a search that could not find it would
+ * answer "no" to the one question this log exists to answer. So it walks the check's runs rather
+ * than the `record` the row happens to be displaying.
+ *
+ * The name half goes through the directory's stored `normalized_display`, so the term is normalized
+ * the same way the corpus was (`normalizeName` in @magna-carta/directory) and `O'Brien` finds
+ * `OBrien`. It is a LIKE rather than the trigram FTS `searchNames` uses: this is narrowing a paged
+ * register in date order, not ranking names by relevance, and a bm25 score is not a key a keyset
+ * cursor can page over.
+ */
+function checkSearchCondition(term: string): { condition: string; bindings: readonly unknown[] } {
+  const literal = likePattern(term);
+  const arms = [
+    `EXISTS (SELECT 1 FROM matter WHERE matter.id = numbered.subject_matter_id ` +
+      `AND (matter.matter_number LIKE ? ${LIKE_ESCAPE_CLAUSE} OR matter.title LIKE ? ${LIKE_ESCAPE_CLAUSE}))`,
+  ];
+  const bindings: unknown[] = [literal, literal];
+
+  /*
+   * The name arm is DROPPED when the term normalizes away to nothing, and that guard is not
+   * defensive tidiness — without it the arm is a match-everything.
+   *
+   * `normalizeName` strips punctuation, so a term of `%`, `&` or `...` normalizes to the empty
+   * string; a contains-pattern built from an empty term is `%%`, which every stored name matches.
+   * The reader would have typed one stray character and been handed the firm's entire conflicts
+   * log as though every check had surfaced their query.
+   */
+  const normalized = normalizeName(term);
+  if (normalized !== "") {
+    // Correlated rather than joined: a check matches once however many of its runs and hits match,
+    // and a join would have to de-duplicate the check row before the limit could be applied.
+    arms.push(
+      `EXISTS (SELECT 1 FROM ${CHECK_RUN_TABLE} AS search_run ` +
+        `JOIN ${CONFLICTS_HIT_TABLE} ON ${CONFLICTS_HIT_TABLE}.check_id = search_run.id ` +
+        `JOIN directory_name ON directory_name.entity_id = ${CONFLICTS_HIT_TABLE}.entity_id ` +
+        `WHERE search_run.numbered_check_id = numbered.id ` +
+        `AND directory_name.deleted_at IS NULL ` +
+        `AND directory_name.normalized_display LIKE ? ${LIKE_ESCAPE_CLAUSE})`,
+    );
+    bindings.push(likePattern(normalized));
+  }
+  return { condition: `(${arms.join(" OR ")})`, bindings };
+}
+
 export function selectConflictsChecksStatement(
   database: SqlDatabase,
   options: {
     readonly matterId?: string;
+    /** Narrows to the checks a term reaches — see `checkSearchCondition`. */
+    readonly search?: string;
     readonly cursor?: { readonly createdAt: string; readonly id: string };
     readonly limit: number;
   },
@@ -201,6 +269,12 @@ export function selectConflictsChecksStatement(
   if (options.matterId !== undefined) {
     conditions.push(`numbered.subject_matter_id = ?`);
     bindings.push(options.matterId);
+  }
+  const term = askableTerm(options.search);
+  if (term !== undefined) {
+    const search = checkSearchCondition(term);
+    conditions.push(search.condition);
+    bindings.push(...search.bindings);
   }
   if (options.cursor !== undefined) {
     conditions.push(`(numbered.created_at < ? OR (numbered.created_at = ? AND numbered.id < ?))`);

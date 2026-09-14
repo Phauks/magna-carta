@@ -24,6 +24,7 @@
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { sampleDate, sampleMatter } from "@magna-carta/design-system/loading-fixtures";
   import { toast } from "@magna-carta/design-system/toast";
@@ -43,7 +44,7 @@
     renderStoredExport,
   } from "$lib/export/bulk-download.ts";
   import { exportFilename, saveExport } from "$lib/export/tabular-export.ts";
-  import { formatInstant } from "@magna-carta/design-system/formatters";
+  import { formatInstant, placeholderOf } from "@magna-carta/design-system/formatters";
 
   let items = $state<ShelfItem[] | null>(null);
   let failure = $state<StatedFailure | null>(null);
@@ -69,6 +70,27 @@
   }
 
   const selectedItems = $derived((items ?? []).filter((item) => selectedIds.includes(item.id)));
+
+  /*
+   * Narrowing the shelf. The whole shelf is already in the browser — it is one member's week of
+   * generated files, not a paged register — so the query runs on every keystroke and never leaves
+   * the machine. It reads the title and what produced the row, which is what a person remembers
+   * about a file they asked for on Tuesday.
+   */
+  let searchText = $state("");
+  let appliedSearch = $state("");
+  const shelfSearch = $derived(appliedSearch.trim().toLowerCase());
+  const narrowedItems = $derived(
+    items === null
+      ? null
+      : shelfSearch === ""
+        ? items
+        : items.filter((item) =>
+            `${item.title} ${item.producer} ${item.requestedFormat ?? ""}`
+              .toLowerCase()
+              .includes(shelfSearch),
+          ),
+  );
 
   function toggleSelected(id: string): void {
     selectedIds = selectedIds.includes(id)
@@ -261,6 +283,17 @@
   class="mb-24"
 >
   {#snippet actions()}
+    <!-- The search leads the row and grows toward the inline start, so Refresh never moves when it
+         opens — the same order as every other Workspace screen. -->
+    <ScreenSearch
+      bind:value={searchText}
+      label="Search your downloads"
+      placeholder={placeholderOf("Search your downloads")}
+      fieldClass="w-2xs sm:w-xs"
+      onsearch={(next) => {
+        appliedSearch = next;
+      }}
+    />
     <Button variant="ghost" onclick={() => void load()}>
       <RotateCcw class="size-16" aria-hidden="true" />
       Refresh
@@ -329,7 +362,15 @@
       </DataTable.Body>
     </DataTable.Root>
   {/snippet}
-  {@const shown = items ?? []}
+  {@const shown = narrowedItems ?? []}
+  {#if shown.length === 0}
+    <!-- The shelf HAS rows (the region's own empty state covers a shelf with none) and the query
+         reaches none of them, so the answer is about the query rather than about the shelf. -->
+    <EmptyState title="Nothing Matches That Search">
+      No download on your shelf matches "{appliedSearch.trim()}". Clear the search to see the whole
+      shelf again.
+    </EmptyState>
+  {:else}
   {#if selectedItems.length > 0}
     <!-- Present only while a selection is in play: its absence is itself the answer to whether
          anything is selected. -->
@@ -430,4 +471,5 @@
       {/each}
     </DataTable.Body>
   </DataTable.Root>
+  {/if}
 </LoadingRegion>

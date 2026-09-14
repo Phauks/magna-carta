@@ -17740,6 +17740,7 @@ export type ConflictsListChecksData = {
     query?: {
         cursor?: string;
         matterId?: string;
+        search?: string;
     };
     url: '/api/v1/conflicts/checks';
 };
@@ -26024,6 +26025,7 @@ export type MagnusListConversationsData = {
         cursor?: string;
         scope?: 'own' | 'firm';
         matterId?: string;
+        search?: string;
         sort?: 'date' | 'name' | 'matter';
     };
     url: '/api/v1/magnus/conversations';
@@ -35735,6 +35737,9 @@ export type NotificationsListData = {
         cursor?: string;
         category?: 'deadlines' | 'calendar' | 'tasks' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system';
         state?: 'unread' | 'read' | 'dismissed';
+        kinds?: string | Array<string>;
+        searchCategories?: 'deadlines' | 'calendar' | 'tasks' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system' | Array<'deadlines' | 'calendar' | 'tasks' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system'>;
+        search?: string;
         pageSize?: number;
     };
     url: '/api/v1/notifications';

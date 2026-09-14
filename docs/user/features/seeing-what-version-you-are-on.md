@@ -14,6 +14,8 @@ Each reporting entry shows its build identifier, when that build's change was ma
 
 Worker names are links: opening one takes you to that worker in the platform's own hosting console. That console belongs to Magna Carta rather than to your firm, so the link is there for the people who run the platform; nothing in the overlay needs it.
 
+The symbol at the end of the row of controls at the top opens the source the build on screen was made from. Like the worker links, it is there for the people who run the platform: the overlay answers every question about which version you are on without it.
+
 The overlay has two sections, **Deployment** and **Database**, each behind a caret beside its heading. Both open by default and the overlay remembers whichever way you leave them, on this browser. A shut heading still carries anything wrong beneath it, so folding a section can hide rows but never hides a fault — and if one of the overlay's own readings failed, it says so whether the section is folded or not.
 
 Under **Deployment**, the two workers that serve the application's address lead the list. Everything beneath them is grouped under **Workers**, which folds away behind a caret of its own. If any of the folded workers came back without a version, the shut heading says how many.
@@ -66,7 +68,7 @@ The copy symbol at the top of the overlay puts the whole reading on your clipboa
 
 **Report a problem from here**
 
-The speech-bubble symbol at the top of the overlay opens the usual issue report with all of that already attached, so you can describe what happened without copying or pasting anything. The report goes to Magna Carta's own reporting pipeline, never to a third party.
+The speech-bubble symbol at the top of the overlay opens the usual issue report with all of that already attached, so you can describe what happened without copying or pasting anything. The report goes to Magna Carta's own reporting pipeline, never to a third party. The overlay closes as the report opens, so the report has the screen to itself; closing the report without sending it keeps what you have written, and opening it again from anywhere — here, the profile menu, or the command menu — brings the same draft back.
 
 **Get onto the newest version**
 

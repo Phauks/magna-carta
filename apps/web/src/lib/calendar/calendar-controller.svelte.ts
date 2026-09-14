@@ -201,6 +201,26 @@ export interface CalendarHost {
   catalog(): CalendarCatalogInput;
 }
 
+/*
+ * The entries a term reaches, matched against exactly what the grid PAINTS: the entry's own label
+ * and the second line under it, which is where the matter number and the place already are. Nothing
+ * else — matching a field the reader cannot see would make a cell appear for a reason with no
+ * evidence on screen for it.
+ *
+ * A plain case-insensitive substring, no stemming and no fuzziness, which is what every other
+ * search in this product matches by.
+ */
+function narrowToSearch(
+  entries: readonly CalendarEntry[],
+  search: string,
+): readonly CalendarEntry[] {
+  const term = search.trim().toLowerCase();
+  if (term === "") return entries;
+  return entries.filter((entry) =>
+    `${entry.label} ${entry.detail ?? ""}`.toLowerCase().includes(term),
+  );
+}
+
 export class CalendarController {
   readonly #host: CalendarHost;
   #generation = 0;
@@ -223,6 +243,22 @@ export class CalendarController {
   addressLayers = $state<ReadonlySet<string>>(new Set());
   /** Whether the agenda leaves out what is settled: cancelled, satisfied, vacated, superseded. */
   hideSettled = $state(false);
+  /*
+   * What the reader is looking for in the window on screen, as the search control last settled it.
+   *
+   * IT NARROWS THE WINDOW, and the window is the scope on purpose rather than by omission. A
+   * calendar is always a view of some stretch of time — the toolbar's whole job is moving it — and
+   * the entries for the stretch on screen are already in the browser, walked by the read plan. So
+   * this is a real answer to "which of these is the Henderson hearing", answered as fast as the
+   * reader types, with no request.
+   *
+   * What it is NOT is a search across the record. The horizon on each of the three reads is capped
+   * server-side and REFUSED rather than clamped, so asking them for "all time" is not a request
+   * that can be made today; a search that spanned the record is its own build on all three, and
+   * until it exists this control must not imply it — which is why the surface states the window the
+   * count belongs to rather than reporting a bare number of matches.
+   */
+  search = $state("");
   /** The entries the window holds, or null while they are being read. */
   entries = $state<readonly CalendarEntry[] | null>(null);
   failures = $state<readonly CalendarReadFailure[]>([]);
@@ -408,10 +444,11 @@ export class CalendarController {
       this.view === "agenda" && this.hideSettled
         ? this.entries.filter((entry) => !entry.settled)
         : this.entries;
+    const matching = narrowToSearch(kept, this.search);
     // The colour of the first calendar in the rail's order that this entry is on. The day grid
     // overrides it per lane, because there the column already says which calendar it is.
     const order = this.selectedSources.map((source) => source.key);
-    return kept.map((entry) => colored(entry, this.colors, order));
+    return matching.map((entry) => colored(entry, this.colors, order));
   });
 
   /**
@@ -430,10 +467,20 @@ export class CalendarController {
     );
   });
 
-  /** How many entries the agenda's hide left out, so the surface can say so. */
-  readonly hiddenCount: number = $derived(
-    (this.entries?.length ?? 0) - (this.visibleEntries?.length ?? 0),
-  );
+  /**
+   * How many entries the agenda's hide left out, so the surface can say so.
+   *
+   * Measured against the settled filter ALONE, not against the search: a search that narrowed forty
+   * entries to one would otherwise report thirty-nine "settled entries hidden", which is a sentence
+   * about the wrong thing and is false besides.
+   */
+  readonly hiddenCount: number = $derived.by(() => {
+    if (this.entries === null || this.view !== "agenda" || !this.hideSettled) return 0;
+    return this.entries.filter((entry) => entry.settled).length;
+  });
+
+  /** True while a query is holding entries back, so a surface can say what it is looking at. */
+  readonly searching: boolean = $derived(this.search.trim() !== "");
 
   /**
    * Everything a fresh read depends on, as one string. The component reads it in an effect and

@@ -40,18 +40,16 @@
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
-  import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
-  import Input from "@magna-carta/design-system/input";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { sampleOrganization, samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import Building2 from "@lucide/svelte/icons/building-2";
   import CreateControl from "@magna-carta/design-system/create-control";
-  import Search from "@lucide/svelte/icons/search";
   import UserPlus from "@lucide/svelte/icons/user-plus";
   import { goto, replaceState } from "$app/navigation";
   import { page } from "$app/state";
   import { untrack } from "svelte";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
@@ -108,31 +106,6 @@
 
   let typed = $state("");
   let asked = $state("");
-  let searchOpen = $state(false);
-  let searchField = $state<HTMLInputElement | null>(null);
-
-  // The typed query settles before it is sent: one request per keystroke asks the firm's record a
-  // question nobody has finished asking.
-  $effect(() => {
-    const query = typed;
-    const timer = setTimeout(() => (asked = query), 300);
-    return () => clearTimeout(timer);
-  });
-
-  // The field opens where the icon was, so the gesture that revealed it also puts the caret in it.
-  $effect(() => {
-    if (searchOpen) searchField?.focus();
-  });
-
-  function toggleSearch(): void {
-    if (searchOpen && typed !== "") {
-      // A live search is what the control is for, so the first press on an open field clears it
-      // rather than hiding a narrowing the reader can then no longer see.
-      typed = "";
-      return;
-    }
-    searchOpen = !searchOpen;
-  }
 
   const searching = $derived(isAskableQuery(asked));
   // Typed, but not yet enough to ask. The index stays on screen and one line says what is missing,
@@ -387,27 +360,19 @@
 <div class="flex h-full flex-col gap-16">
   <ScreenHeader title="Directory">
     {#snippet actions()}
-      {#if searchOpen}
-        <Input
-          bind:ref={searchField}
-          type="search"
-          bind:value={typed}
-          placeholder={placeholderOf("Search")}
-          aria-label="Search"
-          class="w-xs"
-        />
-      {/if}
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-label={searching ? `Search: ${asked.trim()}` : "Search"}
-        aria-expanded={searchOpen}
-        title={searching ? `Searching "${asked.trim()}"` : "Search"}
-        class={searching ? "text-accent-default" : undefined}
-        onclick={toggleSearch}
-      >
-        <Search class="size-16" aria-hidden="true" />
-      </Button>
+      <!-- The search, then the narrowing control, then the create control: the search grows toward
+           the inline start, so the controls at the row's end never move when it opens. The same
+           pair, in the same order, as every other list screen. -->
+      <ScreenSearch
+        bind:value={typed}
+        label="Search the directory"
+        placeholder={placeholderOf("Search the directory")}
+        searchOn="pause"
+        fieldClass="w-2xs sm:w-xs"
+        onsearch={(next) => {
+          asked = next;
+        }}
+      />
 
       <!-- The way back to the whole book, and the only control on this row that is about narrowing.
            It renders only while something is actually holding rows back, so an unfiltered screen

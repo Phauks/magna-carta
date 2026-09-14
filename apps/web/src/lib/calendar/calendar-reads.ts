@@ -141,7 +141,13 @@ export async function readCalendarWindow(
     case "resource":
       return readResourceWindow(fetchImpl, scope.resourceId, window, context);
     default:
-      return readFirmWindow(fetchImpl, scope, window, context, options.sources ?? FIRM_OWN_CALENDARS);
+      return readFirmWindow(
+        fetchImpl,
+        scope,
+        window,
+        context,
+        options.sources ?? FIRM_OWN_CALENDARS,
+      );
   }
 }
 
