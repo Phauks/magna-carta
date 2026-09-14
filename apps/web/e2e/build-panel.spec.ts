@@ -110,3 +110,26 @@ test("the signed-out panel states the boundary instead of reporting an outage", 
   // so it must not even attempt the call and render the rejection as a fault.
   expect(authenticatedReads).toEqual([]);
 });
+
+test("Report an Issue outlives the panel that opened it", async ({ page }) => {
+  await signIn(page);
+  await chip(page).click();
+
+  // The panel dismisses itself as it opens the reporter, because a popover cannot be read from
+  // under a modal. That is exactly what used to take the reporter down with it: the dialog was
+  // mounted inside the popover, so the popover's exit unmounted the report about a second after it
+  // appeared. Whether it is STILL on screen after that exit is the whole property.
+  await page.getByRole("button", { name: "Report an issue with this diagnosis attached" }).click();
+
+  const reporter = page.getByRole("dialog").filter({ hasText: "Report an Issue" });
+  await expect(reporter).toBeVisible();
+  await expect(page.getByText("Build Versions")).toBeHidden();
+  await expect(reporter).toBeVisible({ timeout: 5000 });
+
+  // And it carries the panel's diagnosis, which is why it is opened from here rather than from the
+  // profile menu: the filed report says which builds were live.
+  await page.getByRole("button", { name: "Included diagnostics" }).click();
+  // "This page" is the build line, which the panel knows without the network — so the assertion
+  // holds whether or not the deployment read landed inside this test's window.
+  await expect(page.locator("#bug-report-diagnostics")).toContainText("This page");
+});
