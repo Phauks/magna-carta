@@ -75,7 +75,13 @@ screens that do not exist and never will. Two things had to survive them, neithe
 What the retirement does NOT do is give each capability a palette row of its own that lands on its
 tab. The `?capability=` seam supports it, but deriving those rows means importing the capability
 registry into the app shell, and every capability module imports a Lucide icon — ten Svelte
-components plus the conversion format graph, in the chunk the shell loads, to serve search. While
-all ten capabilities are `awaiting`, landing on the Overview and landing on a disabled tab are
-nearly the same experience, so the cost buys little. Worth revisiting as capabilities start
-shipping for real.
+components plus the conversion format graph, in the chunk the shell loads, to serve search. The
+established way around that in this codebase is a hand-written list held to the registry by a test
+(`tool-permissions.ts` does it twice), so the cost is avoidable rather than fixed.
+
+It is left undone because it is a judgement about how many rows a search should show, made
+immediately after a ruling to show fewer, and that is the owner's call rather than a detail of this
+one. Three capabilities are served today — File Type, Hash and Unlock — so the value is real and
+not hypothetical: someone searching "checksum" or "pdf password" would land on a tab that works.
+The remaining seven render the standard pending treatment. Worth putting to the owner as its own
+question.

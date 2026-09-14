@@ -515,11 +515,11 @@
   notes: Partial rather than in-build: the placement module is on main and the matter-save wiring is gated on the execution substrate, so nothing is being written right now.
 
 - id: documents.conversion.convert-ui
-  name: Convert-to menu / converter tool UI
-  scope: Data-driven Convert-to menu answered by the registry; file-converter tool surface.
+  name: Convert-to menu / converter UI
+  scope: Data-driven Convert-to menu answered by the registry; the File Workbench's Convert tab.
   status: designed
   spec: docs/specs/2026-06-22-tools-file-converter-design.md
-  evidence: Design on main; no converter page in the merged tools UI wave (baseline report lists Tools listing, WHOIS, Malware Scan pages only).
+  evidence: Design on main; the Convert panel is built in the workbench (capability-panels.ts) and offers the formats a selection can reach, awaiting the conversion container to execute. The separate file-converter tool row it was originally drawn for is retired — the capability tab is the surface.
 
 - id: documents.pdf
   name: PDF services
@@ -901,10 +901,10 @@
   notes: PDF-side scrub exists separately in crates/pdf-core (documents.pdf.scrub).
 
 - id: documents.metadata.ui
-  name: Metadata tool UI
-  scope: User-facing inspect/scrub surface.
+  name: Metadata UI
+  scope: User-facing inspect/scrub surface — the File Workbench's Metadata tab.
   status: not-started
-  evidence: Status fragment: UI todo.
+  evidence: The tab exists and renders the standard pending treatment naming what it waits on; no panel draws findings yet. Not a separate tool page: the metadata-scrubber catalog row is retired into this tab.
 
 - id: documents.file-integrity
   name: File hash & integrity
@@ -960,11 +960,11 @@
   evidence: 2026-07-14 baseline report lists email LZFu compressed-RTF decoding merged to main.
 
 - id: documents.email.inspector-tool
-  name: Email Inspector tool
-  scope: Worker route + tool exposing the parse engine.
+  name: Email Inspector
+  scope: Worker route exposing the parse engine, surfaced as the File Workbench's Email tab.
   status: shipped
   surface: awaiting-screen
-  evidence: apps/api-worker/src/routes/email-inspector.ts.
+  evidence: apps/api-worker/src/routes/email-inspector.ts. The tab exists and renders the pending treatment; the route has no panel reading it yet. The email-inspector catalog row is retired into this tab.
 
 - id: documents.engine-host
   name: Engine-host harness

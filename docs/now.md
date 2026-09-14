@@ -333,7 +333,7 @@ _No capability is marked `in-build`._
 - `discovery.search.semantic` · **Semantic search** — Vectorize-backed semantic search alongside keyword search.
 - `discovery.review.near-duplicates` · **Near-duplicate detection** — Detect near-duplicate documents in the review set.
 - `documents.preview.player` · **Video player UI** — Vidstack-based inline player with consistent themed controls; HLS support dormant for future transcoding.
-- `documents.conversion.convert-ui` · **Convert-to menu / converter tool UI** — Data-driven Convert-to menu answered by the registry; file-converter tool surface.
+- `documents.conversion.convert-ui` · **Convert-to menu / converter UI** — Data-driven Convert-to menu answered by the registry; the File Workbench's Convert tab.
 - `exhibits` · **Exhibits and exhibit lists** — Matter-level exhibits, ordered per-document sets, labels computed from position, in-text references that follow a reorder, the freeze at issue, exhibit lists, and compiled exhibit packages.
 - `exhibits.register` · **Exhibit register** — A matter-scoped exhibit — a stable reference name, a title that may change daily, and a link to an ordinary matter file rather than bytes of its own.
 - `exhibits.sets` · **Exhibit sets and computed labels** — An ordered membership for one document, with the label a pure function of position and the set's scheme while the set is a draft, and a pre-commit report of which citations a reorder is about to move.
@@ -800,7 +800,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.conversion.searchable-pdf` · `shipped` · **Scanned PDF to searchable PDF** — OCR text layer applied to scanned PDFs via the OCR pipeline. _Note: searchable-pdf is deliberately a distinct target format rather than pdf-to-pdf, because pathfinding treats a self-edge as no path and "make this searchable" is a real request. Like every container engine here the hop needs its image deployed before a firm can run it, which is the same posture documents.conversion.raster ships under._
     - `documents.conversion.background-jobs` · `partial` · **Background job orchestration** — Durable Object per job holding queued/running/per-item progress, container spin-up/sleep, completion notification for large or batch conversions. _Note: Single-file jobs only — per-item batch progress and completion notification are not built. Container spin-up and sleep now cover both engine containers rather than raster alone: raster sleeps after five minutes on a roughly one-second boot, and the office container after fifteen, because its suite spends twenty to thirty seconds initialising and scaling to zero too eagerly turns a cheap idle into a user-visible stall._
     - `documents.conversion.output-placement` · `partial` · **Output placement** — Per-job choice of save-into-matter (versioned R2 sibling, audit-logged) or download a copy. _Note: Partial rather than in-build: the placement module is on main and the matter-save wiring is gated on the execution substrate, so nothing is being written right now._
-    - `documents.conversion.convert-ui` · `designed` · **Convert-to menu / converter tool UI** — Data-driven Convert-to menu answered by the registry; file-converter tool surface.
+    - `documents.conversion.convert-ui` · `designed` · **Convert-to menu / converter UI** — Data-driven Convert-to menu answered by the registry; the File Workbench's Convert tab.
   - `documents.pdf` · `partial` · **PDF services** — Unified PDF operation service — client-side WASM by default, server only for seal, no-client, server-only-engine, and batch cases. _Note: ADR-0045 marks the whole PDF/e-signature design provisional pending verification._
     - `documents.pdf.engine` · `shipped` · **Pure-Rust engine core** — crates/pdf-core compiled to WASM for client and Worker, superseding the composed pdf-lib/PDFium/qpdf roster with one memory-safe engine.
     - `documents.pdf.render` · `shipped` · **Render to raster** — PDF page rendering for preview/flatten via the pure-Rust engine (hayro dependency doctrine).
@@ -846,14 +846,14 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.metadata.ooxml` · `shipped` · **OOXML metadata** — Inspect/scrub DOCX/XLSX/PPTX metadata, stateless.
     - `documents.metadata.image` · `shipped` · **Image metadata** — Inspect/scrub JPEG/PNG/TIFF metadata (EXIF et al.), stateless.
     - `documents.metadata.extended-formats` · `deferred` · **HEIC / PDF / container-engine metadata** — HEIC and PDF metadata handling via a container engine. _Note: PDF-side scrub exists separately in crates/pdf-core (documents.pdf.scrub)._
-    - `documents.metadata.ui` · `not-started` · **Metadata tool UI** — User-facing inspect/scrub surface.
+    - `documents.metadata.ui` · `not-started` · **Metadata UI** — User-facing inspect/scrub surface — the File Workbench's Metadata tab.
   - `documents.file-integrity` · `partial` · **File hash & integrity** — Multi-algorithm streaming hash, ingest-baseline comparison, and verification receipt for evidence-grade fixity. _Note: Backend shipped; tool UI deferred to the shell wave._
   - `documents.file-type` · `partial` · **File type verification** — Content-based file-type identification (Magika ONNX) with filename/extension mismatch analysis and a report. _Note: Backend shipped; UI todo per the status fragment._
   - `documents.email` · `partial` · **Email parsing (email-core)** — Pure-Rust .eml/.msg/mbox parse engine on the engine-host seam with a WASM edge and an Email Inspector tool. _Note: Parse-only by design — rendering and DKIM verification stand outside; container/native lane deferred until Discovery's bulk mbox needs._
     - `documents.email.parse` · `shipped` · **EML / MSG / mbox parse** — Full message parse to a normalized record model.
     - `documents.email.msg-mapi` · `shipped` · **MSG via CFB + in-house MAPI** — .msg read over the cfb crate with MAPI property decoding written in-house.
     - `documents.email.lzfu-rtf` · `shipped` · **LZFu compressed-RTF bodies** — Decoder for compressed-RTF .msg bodies.
-    - `documents.email.inspector-tool` · `shipped` · **Email Inspector tool** — Worker route + tool exposing the parse engine.
+    - `documents.email.inspector-tool` · `shipped` · **Email Inspector** — Worker route exposing the parse engine, surfaced as the File Workbench's Email tab.
   - `documents.engine-host` · `shipped` · **Engine-host harness** — Shared hosting seam (format / wasm_edge / host) so pure-Rust file engines run identically as WASM edges and container services. _Note: Status fragment marks tested todo._
 
 ### Exhibits and Exhibit Lists
