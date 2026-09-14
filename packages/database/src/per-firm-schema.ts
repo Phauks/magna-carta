@@ -452,6 +452,11 @@ export const location = sqliteTable(
     addressBlock: text("address_block"), // free-text letterhead address
     footer: text("footer"), // free-text letterhead footer
     remitTo: text("remit_to"), // free-text billing remit-to
+    // The office's own email address — what a letterhead, a bill and a portal page name as the way
+    // to write to THIS office. One per office: an office's telephone belongs to each of its
+    // addresses (a mailing address can carry a different line from the street one), but mail reaches
+    // an office, not a building.
+    email: text("email"),
     // The office's letterhead logo. The BYTES live in the firm's own bucket (bulk content never goes in
     // D1); the row carries the object key, what the bytes are, and how large the mark prints.
     // letterhead_logo_width_emu is the only dimension stored on purpose: the height follows from the
@@ -491,10 +496,18 @@ export const locationAddress = sqliteTable(
       .$type<LocationId>()
       .references(() => location.id),
     kind: text("kind", { enum: ["physical", "mailing"] }).notNull(),
+    // The international field set, named for POSITION in an address rather than for any one
+    // country's words — the same columns the directory's addresses carry, so the product's one
+    // address form (the design system's AddressFields) writes an office's address the way it writes
+    // a client's. The country is what decides which of them a form shows and what each is called.
     street: text("street"),
+    streetTwo: text("street_two"),
+    dependentLocality: text("dependent_locality"),
     city: text("city"),
     region: text("region"),
     postal: text("postal"),
+    sortingCode: text("sorting_code"),
+    country: text("country"), // ISO 3166-1 alpha-2; null on an address recorded before the column
     phone: text("phone"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
@@ -502,6 +515,42 @@ export const locationAddress = sqliteTable(
   (table) => [
     index("location_address_location_id_index").on(table.locationId),
     check("location_address_kind_check", sql`${table.kind} IN ('physical', 'mailing')`),
+  ],
+);
+
+// The firm's own marks — the images branding the product and printed into generated documents.
+// FIRM-WIDE, where the letterhead logo on `location` is per office: an office with no logo of its
+// own prints the firm's primary mark, so a single-office firm sets its mark once and never has to
+// know the difference. Content-addressed: the primary key IS the SHA-256 of the bytes, so uploading
+// the same mark twice is the same row, and a replaced mark never overwrites the object a document
+// was already produced from. The bytes live in the firm's own bucket under that hash; the row
+// carries what a document needs to draw them — what they are, and their intrinsic pixel size.
+// There is exactly one `primary` row at a time, enforced in the write path rather than by a
+// partial index (the snapshot cannot record one): promoting an image demotes the previous primary
+// to `additional` rather than removing it, so nothing is lost by choosing.
+export const firmBrandImage = sqliteTable(
+  "firm_brand_image",
+  {
+    id: text("id").primaryKey(), // sha256 hex of the bytes
+    role: text("role", { enum: ["primary", "additional"] }).notNull(),
+    // What the image is FOR, in the firm's own words ("Seal", "Wordmark"). Nullable: the primary
+    // mark needs no caption, and an additional image without one is still an image.
+    label: text("label"),
+    objectKey: text("object_key").notNull(),
+    contentType: text("content_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    widthPixels: integer("width_pixels").notNull(),
+    heightPixels: integer("height_pixels").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    check("firm_brand_image_role_check", sql`${table.role} IN ('primary', 'additional')`),
+    check("firm_brand_image_size_check", sql`${table.sizeBytes} > 0`),
+    check(
+      "firm_brand_image_pixels_check",
+      sql`${table.widthPixels} > 0 AND ${table.heightPixels} > 0`,
+    ),
   ],
 );
 
@@ -2638,6 +2687,109 @@ export const conflictsDisposition = sqliteTable(
       "conflicts_disposition_kind_check",
       sql`${table.kind} IN ('cleared', 'waiver_obtained', 'wall_erected', 'representation_declined')`,
     ),
+  ],
+);
+
+// THE CHECK A PERSON REFERS TO, AND THE RUNS UNDER IT.
+//
+// `conflicts_check` above is the immutable record of ONE search — what ran, over what, and what it
+// found. It is what a court is shown, so it never moves. But the thing a firm refers to out loud is a
+// CHECK: "CC-0042", run when the caller first rang, run again when the matter opened, filed on the
+// matter once there was one. That is a record with a number, a history and a matter that can be
+// assigned after the fact, and none of those can live on an append-only row. So two mutable tables
+// sit over the log: the numbered check, and the runs that belong to it.
+//
+// A CHECK IS IDENTIFIED BY ITS FIRST RUN'S HANDLE, and every run is identified by the handle of the
+// search record it writes — a run's id IS the `conflicts_check.id` its search lands under once it
+// completes. So `/conflicts/checks/{id}` accepts a numbered check's id or any run's id and resolves
+// to the check, every address written before the runs existed still lands on the check it named,
+// and no new identifier kind was needed for a thing that is, in the domain's own words, a conflicts
+// check.
+export const conflictsNumberedCheck = sqliteTable(
+  "conflicts_numbered_check",
+  {
+    id: text("id").primaryKey().$type<ConflictsCheckId>(),
+    // The firm's own sequence, drawn once and never re-drawn: 1, 2, 3. The rendered form is stored
+    // beside it so the log lists and searches the number a person actually says.
+    checkSequence: integer("check_sequence").notNull(),
+    checkNumber: text("check_number").notNull(),
+    // Where the check is FILED. Null for the pre-engagement screen — a check run on a name given
+    // over the telephone — and set later from the check's own screen once a matter exists. This is
+    // the one column here that moves after the fact, and it is the reason the numbered check is not
+    // the append-only search record: the matter a search ran against stays on that record.
+    subjectMatterId: text("subject_matter_id").$type<MatterId>(),
+    // The run most recently opened under this check: a plain handle rather than a foreign key,
+    // because the run references this row and a key in both directions would make the first
+    // insert impossible to order.
+    latestRunId: text("latest_run_id").$type<ConflictsCheckId>(),
+    // Null on an automated check, which is nobody's act.
+    createdByUserId: text("created_by_user_id").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("conflicts_numbered_check_sequence_unique_index").on(table.checkSequence),
+    uniqueIndex("conflicts_numbered_check_number_unique_index").on(table.checkNumber),
+    // A matter's own checks, newest first, and the firm-wide log in the same order.
+    index("conflicts_numbered_check_matter_created_index").on(
+      table.subjectMatterId,
+      table.createdAt,
+      table.id,
+    ),
+    index("conflicts_numbered_check_created_id_index").on(table.createdAt, table.id),
+    check("conflicts_numbered_check_sequence_check", sql`${table.checkSequence} > 0`),
+    check("conflicts_numbered_check_number_check", sql`length(${table.checkNumber}) > 0`),
+  ],
+);
+
+// One run of a numbered check: opened before the search starts, so the screen watching it has a
+// row to read, and settled when the search has written its record or failed to. The lifecycle is
+// queued, running, completed, failed — and a run is the one conflicts row that is UPDATED, because
+// it is a report on work in flight rather than the record of what the work found.
+//
+// `request_json` is the search as it was asked for, kept so a later run of the same check runs the
+// same search (with the check's current matter) rather than whatever the panel would compose today.
+export const conflictsCheckRun = sqliteTable(
+  "conflicts_check_run",
+  {
+    // The handle the search record takes when it completes — see the numbered check above.
+    id: text("id").primaryKey().$type<ConflictsCheckId>(),
+    numberedCheckId: text("numbered_check_id")
+      .notNull()
+      .$type<ConflictsCheckId>()
+      .references(() => conflictsNumberedCheck.id),
+    // 1 for the first run, counting up: what the check screen's history is ordered by.
+    ordinal: integer("ordinal").notNull(),
+    status: text("status").notNull(),
+    // Where a running search has got to (sources, walking, matching, candidates) and its counts so
+    // far, as JSON. Null before the run starts and after it settles: a settled run's account is the
+    // search record, never a stale progress line.
+    stage: text("stage"),
+    progressJson: text("progress_json"),
+    requestJson: text("request_json").notNull(),
+    trigger: text("trigger").notNull(),
+    triggerSource: text("trigger_source"),
+    requestedByUserId: text("requested_by_user_id").$type<UserId>(),
+    startedAt: text("started_at"),
+    // Written on every progress report. What tells a stale run from a slow one: a run whose
+    // heartbeat has stopped is a run whose invocation died, and the read settles it as failed rather
+    // than letting a screen poll a row nothing will ever finish.
+    heartbeatAt: text("heartbeat_at"),
+    finishedAt: text("finished_at"),
+    // Why a failed run failed, in a sentence a reader can act on. Null unless the status is failed.
+    failure: text("failure"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("conflicts_check_run_check_ordinal_unique_index").on(
+      table.numberedCheckId,
+      table.ordinal,
+    ),
+    check(
+      "conflicts_check_run_status_check",
+      sql`${table.status} IN ('queued', 'running', 'completed', 'failed')`,
+    ),
+    check("conflicts_check_run_ordinal_check", sql`${table.ordinal} > 0`),
   ],
 );
 
@@ -8267,6 +8419,43 @@ export const magnusMemberAcknowledgement = sqliteTable("magnus_member_acknowledg
   disclosureVersion: integer("disclosure_version").notNull(),
   acknowledgedAt: text("acknowledged_at").notNull(),
 });
+
+// A matter's file attached to a conversation BY REFERENCE. The row points at the file and copies
+// nothing of it: the readable text the model is sent is taken from the file's current clean version
+// at the moment a question is asked and is kept nowhere else, so the file subsystem's erasure and
+// retention posture is the attachment's too. No handle of its own — the pair is the identity, and a
+// retried attach of the same pair is the same attachment.
+//
+// `text_status` and `text_bytes` record what became of the file's text on the most recent question:
+// whether it reached the model whole, was cut to fit the request's budget, or yielded nothing
+// readable. Recorded so the surface can say so per file rather than the member wondering whether the
+// model saw the document. No member column: only the conversation's author can attach, and the
+// conversation row already names them.
+export const magnusConversationAttachment = sqliteTable(
+  "magnus_conversation_attachment",
+  {
+    conversationId: text("conversation_id")
+      .notNull()
+      .$type<MagnusConversationId>()
+      .references(() => magnusConversation.id),
+    fileId: text("file_id")
+      .notNull()
+      .$type<FileId>()
+      .references(() => file.id),
+    attachedAt: text("attached_at").notNull(),
+    textStatus: text("text_status", { enum: ["pending", "sent", "cut", "unreadable"] })
+      .notNull()
+      .default("pending"),
+    textBytes: integer("text_bytes"),
+  },
+  (table) => [
+    primaryKey({ columns: [table.conversationId, table.fileId] }),
+    check(
+      "magnus_conversation_attachment_text_status_check",
+      sql`${table.textStatus} IN ('pending', 'sent', 'cut', 'unreadable')`,
+    ),
+  ],
+);
 
 // ---------------------------------------------------------------------------------------------
 // Discovery — the corpus of documents under review on a matter.

@@ -796,12 +796,16 @@ export async function closeMatter(
   }
 }
 
-// The hold: an open matter the firm has stopped working without closing it. Nothing is drawn and
-// nothing is surrendered — the matter number stands — so unlike open and close there is no counter
-// to protect and no precondition registry to run: the one thing a hold must carry is its reason,
-// and the one thing it must not do is overwrite a close that landed between the read and the
-// commit, which the statement's own `status = 'open'` guard refuses in the batch.
+// The hold: an open matter the firm has stopped working without closing it, or a consultation it
+// has parked without deciding on. Nothing is drawn and nothing is surrendered — whichever number
+// the matter wears stands — so unlike open and close there is no counter to protect and no
+// precondition registry to run: the one thing a hold must carry is its reason, and the one thing
+// it must not do is overwrite a close that landed between the read and the commit, which the
+// statement's own status guard refuses in the batch. An intake is not held: it is the walk toward
+// a consultation and has nothing yet to pause.
 export const HOLD_REASON_MAX_LENGTH = 500;
+
+const HOLDABLE_STATUSES: ReadonlySet<MatterRow["status"]> = new Set(["open", "consultation"]);
 
 export interface HoldMatterInput {
   readonly reason: string;
@@ -832,10 +836,13 @@ export async function holdMatter(
   }
   // Same replay rule as every other lifecycle step: a retry under an already-seen key is the request
   // that put the matter on hold, so the stored response is replayed rather than refused.
-  if (matter.status !== "open" && !(await isIdempotentRetry(database, options.idempotency?.key))) {
+  if (
+    !HOLDABLE_STATUSES.has(matter.status) &&
+    !(await isIdempotentRetry(database, options.idempotency?.key))
+  ) {
     throw new MatterValidationError(
       "matter-not-open",
-      `matter ${matterId} is ${matter.status}, not open; only an active matter goes on hold`,
+      `matter ${matterId} is ${matter.status}; only an active matter or a consultation goes on hold`,
     );
   }
   const result = await runMatterEffect<{ matterId: MatterId }>(database, options, 200, () => {
@@ -879,11 +886,15 @@ export async function releaseMatter(
       `matter ${matterId} is ${matter.status}, not on hold`,
     );
   }
+  // A release returns the matter to where the hold found it. opened_at is the honest signal: it is
+  // stamped when a matter opens and never before, so a held matter without one was a consultation
+  // when it was parked, and goes back to being one. The same signal the reopen reads.
+  const restored = matter.openedAt !== null ? "open" : "consultation";
   const result = await runMatterEffect<{ matterId: MatterId }>(database, options, 200, () => {
     const now = options.clock.now();
     return {
       statements: [
-        releaseMatterStatement(database, matterId, now),
+        releaseMatterStatement(database, matterId, restored, now),
         auditStatement(database, options, "matter.released", matterId),
       ],
       outboxMessages: [{ topic: MATTER_RELEASED_TOPIC, payload: { matterId } }],
@@ -892,7 +903,7 @@ export async function releaseMatter(
   });
   if (!result.idempotentReplay) {
     const committed = await loadMatter(database, matterId);
-    if (committed?.status !== "open") {
+    if (committed?.status !== restored) {
       throw new MatterValidationError(
         "matter-not-held",
         `matter ${matterId} changed concurrently; it is ${committed?.status ?? "gone"}, not released`,

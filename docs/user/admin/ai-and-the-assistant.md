@@ -22,17 +22,32 @@ saved — so you can see what will be true before you save it.
 
 ## The model your content reaches
 
-Under the switches, the page states which model your content may be sent to once you open the gate, the
-exact release behind any given answer, and two facts about it:
+Under the switches, **Model** is the one choice on this plate. The list offers **the platform's
+current model** and every model the platform has verified; type to narrow it. Beneath the control
+the page states, for whatever the control holds right now, the exact release behind any given
+answer and the facts a choice is made on:
 
-- **Zero Data Retention** — the provider keeps nothing that is sent to it.
+- **Zero Data Retention** — the provider keeps nothing that is sent to it, and when that was last
+  checked.
 - **Training on Your Content** — never.
+- **Still Published** — when the platform last confirmed the model is still offered, and the
+  earliest date the provider says it may retire it.
 
-These are stated rather than chosen. Consenting to send client content to somebody else's model
-without being told which model, what it keeps, and whether it learns from it, would be consenting to
-nothing you could explain to a client. Choosing among models is not on this page: your firm follows
-the platform's current model, which moves forward as better ones are verified, and picking one by hand
-would freeze your firm on today's answer.
+Every model on the list keeps nothing and trains on nothing; a model that did would not be on it.
+Consenting to send client content to somebody else's model without being told which model, what it
+keeps, and whether it learns from it, would be consenting to nothing you could explain to a client,
+which is why the facts sit beside the choice.
+
+**Following the platform or choosing.** A firm that has never chosen follows the platform's current
+model, which moves forward as better ones are verified. Choosing a model pins your firm to it until
+you choose again. Choosing **the platform's current model** returns your firm to following, rather
+than pinning it to today's answer. The line above the message box in Magnus names whichever model is
+answering.
+
+**Where the list comes from.** The list is the platform's own verified catalog; the **Roster** row
+states the catalog's version and the date it took effect. Nothing lists models automatically,
+because a model joins the list only once somebody has checked what it keeps, and that is a check no
+automatic list can carry. The platform's verification pass is what keeps it current.
 
 ## Questions a day
 
@@ -66,7 +81,8 @@ particular that record is the point: it is the firm's account of who consented, 
 Closing either switch stops the assistant at once, including for questions already sent and still
 waiting for an answer — those come back saying the firm's setting changed rather than quietly going
 through. Conversations already held are not deleted; they stay on the firm's record, and their authors
-can delete them.
+can delete them. Files members attached to conversations were never copied, so nothing of them
+needs removing either.
 
 ## Related
 

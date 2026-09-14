@@ -253,7 +253,10 @@ export interface InvoiceListScope {
    * whole billing history and state totals that are true of the documents and false of the matter.
    */
   readonly matterId?: string;
-  readonly status?: InvoiceStatus;
+  /** The statuses the firm screen's Status column holds; empty or absent is every status. */
+  readonly statuses?: readonly InvoiceStatus[];
+  /** The firm screen's search: the invoice number and the client's name. */
+  readonly search?: string;
   readonly cursor?: string;
 }
 
@@ -271,7 +274,10 @@ export function listInvoices(
   const query = new URLSearchParams();
   if (scope.clientEntityId !== undefined) query.set("clientEntityId", scope.clientEntityId);
   if (scope.matterId !== undefined) query.set("matterId", scope.matterId);
-  if (scope.status !== undefined) query.set("status", scope.status);
+  for (const status of scope.statuses ?? []) query.append("status", status);
+  if (scope.search !== undefined && scope.search.trim() !== "") {
+    query.set("search", scope.search.trim());
+  }
   if (scope.cursor !== undefined) query.set("cursor", scope.cursor);
   const suffix = query.size === 0 ? "" : `?${query.toString()}`;
   return requestJson(fetchImpl, `/api/v1/billing/invoices${suffix}`);

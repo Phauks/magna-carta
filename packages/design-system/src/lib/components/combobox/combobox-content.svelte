@@ -6,11 +6,19 @@
    * module, and the surface reuses the shared mc-select-content recipe (a Combobox listbox looks like
    * a Select's).
    *
+   * WHERE IT OPENS AND HOW WIDE IT GROWS IS THE COMPONENT'S, NOT THE CALLER'S. The panel opens
+   * end-aligned to the field (FLOATING_ALIGN) and never extends past the field's end edge: at least
+   * the field's width, at most the room Bits measured (LISTBOX_PANEL_STYLE), with Bits' collision
+   * handling held off the viewport edges by FLOATING_COLLISION_PADDING. Bits anchors a combobox to
+   * its INPUT element alone, which is the text box inside the bordered field, not the field — so
+   * end-aligned to that the panel would stop short of the chevron. Root shares the field box that
+   * Combobox.Input renders, and it is the anchor unless a caller passes `customAnchor`.
+   *
    * ANCHORED, NEVER MODAL. The panel positions itself against whatever opened it and nothing else
    * happens: no scrim, no focus trap, no dialog. `side`/`align`/`sideOffset` pass through, so a
    * listbox opened from a menu opens as a flyout BESIDE its menu item (`side="right"`,
    * `align="start"`) rather than jumping to the middle of the screen. Where the thing that opened the
-   * listbox is not the input — a menu item, a table cell, a row's chip — pass that element as
+   * listbox is not the field — a menu item, a table cell, a row's chip — pass that element as
    * `customAnchor`; anchoring to an element that is about to be unmounted is what produces a panel
    * measured against a zero-sized rect and parked at the screen edge, so the anchor must be an element
    * that outlives the open.
@@ -29,18 +37,31 @@
   import { Combobox as ComboboxPrimitive } from "bits-ui";
   import { getContext } from "svelte";
   import { mergeClasses } from "../../internal/merge-classes.ts";
-  import { floatingContentClasses, PRESENCE_SCALE_FADE } from "../../internal/floating.ts";
-  import { COMBOBOX_LISTBOX_ID } from "./context.ts";
+  import {
+    FLOATING_ALIGN,
+    FLOATING_COLLISION_PADDING,
+    floatingContentClasses,
+    floatingContentStyle,
+    LISTBOX_PANEL_STYLE,
+    PRESENCE_SCALE_FADE,
+  } from "../../internal/floating.ts";
+  import { COMBOBOX_FIELD_ANCHOR, COMBOBOX_LISTBOX_ID, type ComboboxFieldAnchor } from "./context.ts";
   import type { WithoutChild } from "../../internal/types.ts";
 
   let {
     ref = $bindable(null),
     class: className,
+    align = FLOATING_ALIGN,
     sideOffset = 6,
+    collisionPadding = FLOATING_COLLISION_PADDING,
+    customAnchor,
+    style,
     virtualized = false,
     children,
     ...restProps
   }: WithoutChild<ComboboxPrimitive.ContentProps> & {
+    /** Inline style, composed AFTER the panel's own width rules so a caller's declaration wins. */
+    style?: string | null;
     /**
      * Whether the caller nests its own bounded scroller (a VirtualList). The panel then imposes no
      * viewport of its own, so the two do not fight over the scroll.
@@ -49,14 +70,21 @@
   } = $props();
 
   const listboxId = getContext<string>(COMBOBOX_LISTBOX_ID);
+  const fieldAnchor = getContext<ComboboxFieldAnchor | undefined>(COMBOBOX_FIELD_ANCHOR);
+  // The field box is the anchor unless the caller named one; Bits' own default (the input) is not
+  // the control a person sees, so it is never what the panel aligns to.
+  const anchor = $derived(customAnchor ?? fieldAnchor?.element ?? null);
 </script>
 
 <ComboboxPrimitive.Portal>
   <ComboboxPrimitive.Content
     bind:ref
     id={listboxId}
+    {align}
     {sideOffset}
-    style="min-width: var(--bits-floating-anchor-width)"
+    {collisionPadding}
+    customAnchor={anchor}
+    style={floatingContentStyle(LISTBOX_PANEL_STYLE, style)}
     class={mergeClasses(
       floatingContentClasses("anchored", PRESENCE_SCALE_FADE),
       "mc-select-content",

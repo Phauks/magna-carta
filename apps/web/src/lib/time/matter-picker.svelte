@@ -8,9 +8,23 @@
    * for a value. Either half of a matter finds it — the number or the name — because a person
    * recording time knows one or the other and rarely both.
    *
-   * THE FIELD SHOWS WHAT IT HOLDS AT REST. Arriving in it is what starts a fresh search; leaving it
-   * puts the chosen matter's name back. A filled field rendering its ghost text reads as a row
+   * THE FIELD SHOWS WHAT IT HOLDS AT REST. Opening the list is what starts a fresh search; leaving
+   * it puts the chosen matter's name back. A filled field rendering its ghost text reads as a row
    * nobody has filed, which on this surface is a different and important fact.
+   *
+   * A SEARCH STARTS ON OPENING OR TYPING, NEVER ON FOCUS ALONE. Choosing the matter already chosen
+   * writes nothing, so the name's restoration rests on the close settling the text, after which
+   * the primitive returns focus to the input. A search that began on every focus blanked the
+   * field again at exactly that moment and reopened the list, so typed text stood after the same
+   * matter was re-picked ($lib/components/choice-picker.svelte carries the same correction, from
+   * the owner's report of 2026-09-14). Arriving still opens the list — that is the one gesture a
+   * person makes to see the record — but a focus handed back from the list after a pick is the
+   * primitive's, not the person's, and is left alone.
+   *
+   * THE SETTLE WRITES THE INPUT ITSELF, for the reason choice-picker.svelte states in full: typed
+   * text reaches the input from the keyboard, so the framework's record of what it last wrote
+   * there still says the chosen name, and handing it that same name again writes nothing. The
+   * settle and the search reset put their text into the input directly as well.
    *
    * NO MATTER IS A CHOICE, NOT AN ABSENCE. A person captures time before they know where it
    * belongs, so the list leads with a row that says so and takes the matter back off. Leaving it
@@ -99,9 +113,37 @@
     extraChoices.filter((choice) => choice.label.toLowerCase().includes(query.trim().toLowerCase())),
   );
 
+  /**
+   * Whether a focus is the primitive handing the input back after a pick, rather than a person
+   * arriving. Focus that returns from the list carries the list as where it came from; a person
+   * arrives from somewhere outside it, or from nowhere. The list closing is not the signal — the
+   * primitive also closes it when a person leaves the field, and their return must still open it.
+   */
+  function focusReturnsFromList(event: FocusEvent): boolean {
+    const origin = event.relatedTarget;
+    return origin instanceof Element && origin.closest('[role="listbox"], [role="option"]') !== null;
+  }
+
+  /** The input element, for the two writes the framework cannot be relied on to make (see above). */
+  let inputElement = $state<HTMLInputElement | null>(null);
+
   function settle(): void {
     searching = false;
     query = "";
+    if (inputElement !== null) inputElement.value = selectedText;
+  }
+
+  /** The whole record is on offer, not the one matter in the field. */
+  function startSearch(): void {
+    searching = true;
+    query = "";
+    if (inputElement !== null) inputElement.value = "";
+  }
+
+  /** Opening is asking to search. */
+  function openForSearch(): void {
+    startSearch();
+    listOpen = true;
   }
 
   function pick(picked: string | string[]): void {
@@ -129,24 +171,28 @@
   onValueChange={pick}
   onOpenChange={(open) => {
     listOpen = open;
-    if (!open) settle();
+    if (open) startSearch();
+    else settle();
   }}
 >
   <Combobox.Input
+    bind:ref={inputElement}
     id={inputId}
     fieldName="Matter"
     {title}
     autocomplete="off"
     spellcheck={false}
-    onfocus={() => {
-      // Arriving in the field is asking to search, so the whole record is on offer at once rather
-      // than the one matter whose name happens to be sitting in it — the list opens before a
-      // letter is typed, and typing narrows it.
-      searching = true;
-      query = "";
-      listOpen = true;
+    onfocus={(event) => {
+      // A person arriving in the field is asking to search, so the whole record is on offer at
+      // once rather than the one matter whose name happens to be sitting in it — the list opens
+      // before a letter is typed, and typing narrows it. The focus the primitive hands back from
+      // the list after a pick is not that, and leaves the settled name and the shut list alone.
+      if (focusReturnsFromList(event)) return;
+      openForSearch();
     }}
-    onclick={() => (listOpen = true)}
+    onclick={() => {
+      if (!listOpen) openForSearch();
+    }}
     onblur={settle}
     oninput={(event) => {
       searching = true;

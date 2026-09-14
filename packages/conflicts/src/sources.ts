@@ -20,6 +20,21 @@ export const PRIOR_FIRM_HISTORY_SOURCE = "prior_firm_history";
 // ran. Same posture as prior-firm history above, for the same reason.
 export const NICKNAME_EQUIVALENCE_SOURCE = "nickname_equivalence";
 
+// The assistant's conversations. A place the product's listings hold and a check could one day
+// search — a party named in a conversation with Magnus is a party the firm has heard of — and one
+// nothing indexes today. Registered so every check records it as a place it could not search, for
+// the same reason the two above are: a reader must be able to tell "searched and found nothing"
+// from "never searched", and a place missing from the list reads as the first.
+export const MAGNUS_CONVERSATIONS_SOURCE = "magnus_conversations";
+
+// Every registered source with no class of its own, in the order the record lists them. A check
+// writes all of them; a reader of an older row treats an absent key as the row not saying.
+export const REGISTERED_SOURCES_WITHOUT_A_CLASS: readonly string[] = [
+  PRIOR_FIRM_HISTORY_SOURCE,
+  NICKNAME_EQUIVALENCE_SOURCE,
+  MAGNUS_CONVERSATIONS_SOURCE,
+];
+
 // The classes with a corpus behind them today. The content class has none — nothing indexes document
 // text, and the email parse core is not wired to a consumer — so it records `unavailable` rather than
 // being omitted: a reader must be able to tell "searched and nothing surfaced" apart from "never
@@ -28,6 +43,29 @@ const SOURCES_WITH_A_CORPUS: ReadonlySet<SourceClass> = new Set(["party", "graph
 
 export function availabilityOf(sourceClass: SourceClass): SourceAvailability {
   return SOURCES_WITH_A_CORPUS.has(sourceClass) ? "searched" : "unavailable";
+}
+
+// WHERE A SOURCE LIVES. The owner's direction of 2026-09-11 (docs/conventions/conflicts-rulings.md,
+// P3): a check is asked for by PLACE — the Directory, the firm's files, its messaging, its Magnus
+// conversations — and the technique keys above are what the record stores. This map is the one
+// crossing between the two, so an old row keyed by technique still reads as a place, and a new
+// place is an entry here rather than a redesign. The content class is what document text and
+// message bodies will both be searched through, so it sits under both places until the two grow
+// corpora of their own; the two dimensions (prior-firm history, nickname equivalents) are not
+// places at all and carry none.
+export const SEARCH_LOCATIONS = ["directory", "files", "messaging", "magnus"] as const;
+export type SearchLocation = (typeof SEARCH_LOCATIONS)[number];
+
+const LOCATIONS_BY_SOURCE: Readonly<Record<string, readonly SearchLocation[]>> = {
+  party: ["directory"],
+  graph: ["directory"],
+  imputation: ["directory"],
+  content: ["files", "messaging"],
+  [MAGNUS_CONVERSATIONS_SOURCE]: ["magnus"],
+};
+
+export function locationsOfSource(source: string): readonly SearchLocation[] {
+  return LOCATIONS_BY_SOURCE[source] ?? [];
 }
 
 // How a source key reads in a sentence a lawyer is meant to understand. The stored key is a column
@@ -39,6 +77,7 @@ const SOURCE_DISPLAY_NAMES: Readonly<Record<string, string>> = {
   content: "content",
   [PRIOR_FIRM_HISTORY_SOURCE]: "prior-firm history",
   [NICKNAME_EQUIVALENCE_SOURCE]: "nickname equivalents",
+  [MAGNUS_CONVERSATIONS_SOURCE]: "Magnus conversations",
 };
 
 export function displayNameForSource(source: string): string {
@@ -67,6 +106,9 @@ export function unavailabilityReason(source: string, context: UnavailabilityCont
   }
   if (source === NICKNAME_EQUIVALENCE_SOURCE) {
     return "no equivalents are curated: the catalogue exists and holds nothing, so no name was compared against a nickname of itself";
+  }
+  if (source === MAGNUS_CONVERSATIONS_SOURCE) {
+    return "no conversation index exists: nothing reads a party's name out of a Magnus conversation";
   }
   if (source === "imputation" && !context.hasSubjectMatter) {
     return "no matter was supplied, so there were no matter parties to join the firm's members against";

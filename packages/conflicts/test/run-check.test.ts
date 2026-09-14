@@ -19,7 +19,8 @@ import { matchParty } from "../src/matching.ts";
 import { parseCheckInputs, readMatterConflictsPosture } from "../src/posture.ts";
 import { describeCheck } from "../src/report-text.ts";
 import { runConflictsCheck } from "../src/run-check.ts";
-import { DEFAULT_CANDIDATE_CAP } from "../src/settings.ts";
+import { CANDIDATE_WRITE_CEILING } from "../src/candidate-bound.ts";
+import { WALK_CEILING } from "../src/expansion.ts";
 
 // The exact-name probe and the directory channels both need a full DirectoryIdentifierContext
 // (firm key material, effective permissions, clock, seeded randomness) — reproduced here from
@@ -114,7 +115,7 @@ async function readHits(database: BatchDatabase, checkId: string): Promise<HitRo
   return results;
 }
 
-test("a check writes one row recording the trigger, scope, strictness and depth", async () => {
+test("a check writes one row recording the trigger, scope, strictness and how deep it went", async () => {
   const { ctx, options } = await conflictsTestContext("run-basic");
   const clientId = await createPerson(ctx.database, { given: "Jane", family: "Roe" }, options);
 
@@ -123,7 +124,7 @@ test("a check writes one row recording the trigger, scope, strictness and depth"
     {
       trigger: "comprehensive",
       subjectEntityIds: [clientId],
-      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+      scope: { sources: ["party"], strictness: "balanced" },
     },
     options,
   );
@@ -131,7 +132,9 @@ test("a check writes one row recording the trigger, scope, strictness and depth"
   const row = await readCheck(ctx.database, checkId);
   expect(row.trigger).toBe("comprehensive");
   expect(row.strictness).toBe("balanced");
-  expect(row.depth).toBe(1);
+  // The shipped column used to carry the widest hop budget. There is no budget now, so it records
+  // how deep the closure actually ran: a lone party with no relationships walks nowhere.
+  expect(row.depth).toBe(0);
 });
 
 test("a matter with no parties produces an empty run, not an error", async () => {
@@ -141,7 +144,7 @@ test("a matter with no parties produces an empty run, not an error", async () =>
     {
       trigger: "preliminary",
       subjectEntityIds: [],
-      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+      scope: { sources: ["party"], strictness: "balanced" },
     },
     options,
   );
@@ -156,7 +159,7 @@ test("a source that cannot run records as unavailable, never as clean", async ()
     {
       trigger: "comprehensive",
       subjectEntityIds: [],
-      scope: { sources: ["party", "content"], strictness: "balanced", depth: 1 },
+      scope: { sources: ["party", "content"], strictness: "balanced" },
     },
     options,
   );
@@ -173,7 +176,7 @@ test("imputation in scope with no matter recorded as unavailable, since it never
     {
       trigger: "comprehensive",
       subjectEntityIds: [],
-      scope: { sources: ["party", "imputation"], strictness: "balanced", depth: 1 },
+      scope: { sources: ["party", "imputation"], strictness: "balanced" },
     },
     options,
   );
@@ -193,7 +196,7 @@ test("a scope below the floor is raised and the raise is recorded on the row", a
     {
       trigger: "comprehensive",
       subjectEntityIds: [],
-      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+      scope: { sources: ["party"], strictness: "balanced" },
     },
     options,
   );
@@ -212,7 +215,7 @@ test("no plaintext identifier value reaches the log", async () => {
     {
       trigger: "comprehensive",
       subjectEntityIds: [personId],
-      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+      scope: { sources: ["party"], strictness: "balanced" },
     },
     options,
   );
@@ -239,7 +242,7 @@ test("a shared SSN surfaces a tier-1 hit even when the names do not match", asyn
     {
       trigger: "comprehensive",
       subjectEntityIds: [subject],
-      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+      scope: { sources: ["party"], strictness: "balanced" },
     },
     options,
   );
@@ -274,7 +277,7 @@ test("a party carrying a middle name still surfaces its same-name twin at tier 2
     {
       trigger: "comprehensive",
       subjectEntityIds: [subject],
-      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+      scope: { sources: ["party"], strictness: "balanced" },
     },
     options,
   );
@@ -300,7 +303,7 @@ test("a match on another subject party surfaces flagged co_party, while a non-pa
     {
       trigger: "comprehensive",
       subjectEntityIds: [subjectA, subjectB],
-      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+      scope: { sources: ["party"], strictness: "balanced" },
     },
     options,
   );
@@ -330,7 +333,7 @@ test("a merged-away former name still surfaces the surviving master", async () =
     {
       trigger: "new_party",
       subjectEntityIds: [],
-      scope: { sources: ["party"], strictness: "over_inclusive", depth: 0 },
+      scope: { sources: ["party"], strictness: "over_inclusive" },
     },
     options,
   );
@@ -377,7 +380,7 @@ test("every hit carries its evidence tier and connecting graph path", async () =
     {
       trigger: "comprehensive",
       subjectEntityIds: [orgId],
-      scope: { sources: ["party", "graph"], strictness: "balanced", depth: 1 },
+      scope: { sources: ["party", "graph"], strictness: "balanced" },
     },
     options,
   );
@@ -403,7 +406,7 @@ test("a replayed idempotency key writes exactly one check", async () => {
   const input = {
     trigger: "comprehensive" as const,
     subjectEntityIds: [],
-    scope: { sources: ["party"] as const, strictness: "balanced" as const, depth: 1 },
+    scope: { sources: ["party"] as const, strictness: "balanced" as const },
   };
 
   const first = await runConflictsCheck(ctx, input, { ...options, idempotency });
@@ -417,16 +420,30 @@ test("a replayed idempotency key writes exactly one check", async () => {
   expect(results[0]!.count).toBe(1);
 });
 
-test("a completed walk records the budgets and caps in force, and does not record a truncation", async () => {
+test("a completed walk records that every relationship was followed to closure, under the platform's ceiling", async () => {
   const { ctx, options } = await conflictsTestContext("traversal-record");
   const clientId = await createPerson(ctx.database, { given: "Jane", family: "Roe" }, options);
+  const spouse = await createPerson(ctx.database, { given: "Jean", family: "Roe" }, options);
+  await createEdge(
+    ctx.database,
+    {
+      from: clientId,
+      to: spouse,
+      edgeType: "relationship",
+      role: "spouse",
+      note: null,
+      validFrom: null,
+      validTo: null,
+    },
+    options,
+  );
 
   const checkId = await runConflictsCheck(
     ctx,
     {
       trigger: "comprehensive",
       subjectEntityIds: [clientId],
-      scope: { sources: ["party", "graph"], strictness: "balanced", depth: 1, closureCap: 50 },
+      scope: { sources: ["party", "graph"], strictness: "balanced" },
     },
     options,
   );
@@ -434,9 +451,15 @@ test("a completed walk records the budgets and caps in force, and does not recor
   const row = await readCheck(ctx.database, checkId);
   const traversal = (JSON.parse(row.inputs_json) as { traversal: Record<string, unknown> })
     .traversal;
-  expect(traversal.edgeClassBudgets).toEqual({ control: 1, family: 1, representation: 1 });
+  // No budget of any class: the row says the walk went all the way, and how far that turned out to
+  // be. A reader of a years-old row must not have to know that budgets were once a thing.
+  expect(traversal.followedToClosure).toBe(true);
+  expect(traversal.edgeClassBudgets).toBeUndefined();
+  expect(traversal.longestPathLength).toBe(1);
+  expect(row.depth).toBe(1);
   expect(traversal.corporateFamily).toBe("transitive");
-  expect(traversal.closureCap).toBe(50);
+  // The bound in force is the platform's, recorded under the key every row has always used.
+  expect(traversal.closureCap).toBe(WALK_CEILING);
   expect(traversal.expiredEdgesTraversed).toBe(true);
   expect(traversal.truncated).toBe(false);
   // A completed walk has no boundary to describe, so the truncation counts are absent rather than
@@ -444,97 +467,7 @@ test("a completed walk records the budgets and caps in force, and does not recor
   expect(traversal["unexploredFrontierSize"]).toBeUndefined();
 });
 
-test("a check that hits the closure cap records the truncation, and the posture read surfaces it", async () => {
-  const { ctx, options } = await conflictsTestContext("traversal-truncation");
-  const hub = await createOrganization(ctx.database, { legalName: "Hub Holdings" }, options);
-  for (let index = 0; index < 20; index += 1) {
-    const spoke = await createOrganization(
-      ctx.database,
-      { legalName: `Spoke ${index} Limited` },
-      options,
-    );
-    await createEdge(
-      ctx.database,
-      {
-        from: hub,
-        to: spoke,
-        edgeType: "corporate_subsidiary",
-        role: null,
-        note: null,
-        validFrom: null,
-        validTo: null,
-      },
-      options,
-    );
-  }
-
-  const checkId = await runConflictsCheck(
-    ctx,
-    {
-      trigger: "comprehensive",
-      subjectEntityIds: [hub],
-      scope: { sources: ["party", "graph"], strictness: "balanced", depth: 1, closureCap: 5 },
-    },
-    options,
-  );
-
-  const row = await readCheck(ctx.database, checkId);
-  const traversal = (JSON.parse(row.inputs_json) as { traversal: Record<string, unknown> })
-    .traversal;
-  expect(traversal.truncated).toBe(true);
-  expect(traversal.closureCap).toBe(5);
-  expect(traversal.entitiesReached).toBe(5);
-  // The number that makes the bound acceptable: how much was reachable and NOT searched.
-  expect(traversal["unexploredFrontierSize"]).toBeGreaterThan(0);
-});
-
-test("an unbounded candidate set is refused loudly, and the record adds up", async () => {
-  // THE SECOND BOUND. The closure cap bounds the walk; hits scale with the walk TIMES the corpus, so a
-  // small closure over a large corpus still produces an unbounded set. This corpus is deliberately the
-  // shape that produces it: multi-word organization names, which share a three-character window with
-  // nearly every other name, so the trigram channel returns most of the corpus for every subject.
-  const { ctx, options } = await conflictsTestContext("candidate-truncation");
-  for (let index = 0; index < 25; index += 1) {
-    await createOrganization(
-      ctx.database,
-      { legalName: `Meridian Holdings and Partners ${index} Limited` },
-      options,
-    );
-  }
-  const subject = await createOrganization(
-    ctx.database,
-    { legalName: "Meridian Holdings and Partners Group" },
-    options,
-  );
-
-  const checkId = await runConflictsCheck(
-    ctx,
-    {
-      trigger: "comprehensive",
-      subjectEntityIds: [subject],
-      scope: { sources: ["party"], strictness: "balanced", candidateCap: 4 },
-    },
-    options,
-  );
-
-  const row = await readCheck(ctx.database, checkId);
-  const candidates = (JSON.parse(row.inputs_json) as { candidates: Record<string, unknown> })
-    .candidates;
-  expect(candidates.truncated).toBe(true);
-  expect(candidates.candidateCap).toBe(4);
-  expect(candidates.candidatesWritten).toBe(4);
-  expect(candidates.candidatesSurfaced as number).toBeGreaterThan(4);
-  expect(candidates.candidatesRefused).toBe(
-    (candidates.candidatesSurfaced as number) - (candidates.candidatesWritten as number),
-  );
-
-  // The bound governs what is WRITTEN, so the log has to match the record rather than merely agree
-  // with it in spirit.
-  const hits = await readHits(ctx.database, checkId);
-  expect(hits).toHaveLength(4);
-});
-
-test("a run under the cap records the cap in force and no truncation", async () => {
+test("a run records the write ceiling in force and no truncation", async () => {
   const { ctx, options } = await conflictsTestContext("candidate-untruncated");
   const clientId = await createPerson(ctx.database, { given: "Jane", family: "Roe" }, options);
 
@@ -551,30 +484,20 @@ test("a run under the cap records the cap in force and no truncation", async () 
   const row = await readCheck(ctx.database, checkId);
   const candidates = (JSON.parse(row.inputs_json) as { candidates: Record<string, unknown> })
     .candidates;
-  // The cap in force is recorded on every check, truncating or not — a reader of a years-old row must
-  // be able to tell what the run was allowed to do, not only what it happened to need.
-  expect(candidates.candidateCap).toBe(DEFAULT_CANDIDATE_CAP);
+  // The bound in force is recorded on every check, truncating or not — a reader of a years-old row
+  // must be able to tell what the run was allowed to write, not only what it happened to need. It is
+  // the platform's, not the firm's: nothing in the request or the policy can move it.
+  expect(candidates.candidateCap).toBe(CANDIDATE_WRITE_CEILING);
   expect(candidates.truncated).toBe(false);
   // Nothing was refused, so the refusal counts are absent rather than present-and-zero — the same
   // rule the completed traversal follows.
   expect(candidates["candidatesRefused"]).toBeUndefined();
 });
 
-test("the truncated candidate record reaches the posture read and the report statement", async () => {
-  const { ctx, options } = await conflictsTestContext("candidate-posture");
-  for (let index = 0; index < 25; index += 1) {
-    await createOrganization(
-      ctx.database,
-      { legalName: `Meridian Holdings and Partners ${index} Limited` },
-      options,
-    );
-  }
-  const subject = await createOrganization(
-    ctx.database,
-    { legalName: "Meridian Holdings and Partners Group" },
-    options,
-  );
-  const matterId = "matter_candidatebound";
+test("the statement of a walk to closure says so, and reaches the posture read", async () => {
+  const { ctx, options } = await conflictsTestContext("closure-statement");
+  const subject = await createOrganization(ctx.database, { legalName: "Meridian Group" }, options);
+  const matterId = "matter_closure";
 
   const checkId = await runConflictsCheck(
     ctx,
@@ -582,16 +505,14 @@ test("the truncated candidate record reaches the posture read and the report sta
       trigger: "comprehensive",
       matterId,
       subjectEntityIds: [subject],
-      scope: { sources: ["party"], strictness: "balanced", candidateCap: 3 },
+      scope: { sources: ["party", "graph"], strictness: "balanced" },
     },
     options,
   );
-  expect(checkId).toBeTruthy();
 
   const posture = await readMatterConflictsPosture(ctx.database, matterId);
-  expect(posture.latestCheck?.scope.candidates?.truncated).toBe(true);
-  expect(posture.latestCheck?.scope.candidates?.candidateCap).toBe(3);
-  expect(posture.latestCheck?.scope.candidates?.refusedByTier.length).toBeGreaterThan(0);
+  expect(posture.latestCheck?.scope.traversal?.followedToClosure).toBe(true);
+  expect(posture.latestCheck?.scope.traversal?.truncated).toBe(false);
 
   const row = await readCheck(ctx.database, checkId);
   const inputs = parseCheckInputs(row.inputs_json);
@@ -609,10 +530,12 @@ test("the truncated candidate record reaches the posture read and the report sta
       traversal: inputs.traversal,
       candidates: inputs.candidates,
     },
-    (await readHits(ctx.database, checkId)).map((hit) => ({
-      evidenceTier: hit.evidence_tier as 1 | 2 | 3 | 4,
-    })),
-    [{ source: "party", availability: "searched", reason: null }],
+    [],
+    [
+      { source: "party", availability: "searched", reason: null },
+      { source: "graph", availability: "searched", reason: null },
+    ],
   );
-  expect(statement.some((line) => line.includes("THE CANDIDATE SET WAS TRUNCATED"))).toBe(true);
+  expect(statement.some((line) => line.includes("followed to closure"))).toBe(true);
+  expect(statement.some((line) => line.includes("TRUNCATED"))).toBe(false);
 });

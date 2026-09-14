@@ -175,7 +175,7 @@ test("raising the firm floor makes the shortfall appear, with no write to any co
   });
 
   const before = await readMatterConflictsPosture(value.database, MATTER);
-  expect(before.scopeShortfall).toEqual({ sources: [], strictness: null, depth: null });
+  expect(before.scopeShortfall).toEqual({ sources: [], strictness: null });
 
   const countRows = async (table: string): Promise<number> => {
     const { results } = await value.database
@@ -199,7 +199,10 @@ test("raising the firm floor makes the shortfall appear, with no write to any co
     firmFloor: "over_inclusive",
     ranUnder: "balanced",
   });
-  expect(after.scopeShortfall.depth).toEqual({ firmDefault: 3, ranAt: 1 });
+  // Depth is no longer a firm setting, so a policy row that still carries one reports no shortfall
+  // for it: the check followed relationships as far as they went, and there is nothing to fall short
+  // of.
+  expect(after.scopeShortfall).not.toHaveProperty("depth");
 
   // The shortfall is a comparison, not a record. Nothing was written.
   expect(await countRows("conflicts_check")).toBe(checksBefore);

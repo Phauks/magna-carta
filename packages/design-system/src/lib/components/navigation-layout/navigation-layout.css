@@ -1,0 +1,35 @@
+@layer components {
+  /*
+   * NavigationLayout (Tier 2, native). A screen's two sides: the navigation column and the content
+   * beside it. Only the measures and the scroll behaviour live here; the row/column arrangement and
+   * the viewport stacking are layout utilities on the elements (a recipe cannot carry a breakpoint
+   * without a literal length, which this file refuses), and the canvas geometry is on the component.
+   *
+   * The navigation column is sized CONTENT-BOX so its width is two tokens and no arithmetic: the
+   * popover measure holds the rows, and the gutter each side is what the two widths differ in.
+   * Standard is space-24 a side (the settings nav's width); narrow is space-16 a side, which lands
+   * on the global sidebar's own width. The scrollbar gutter is reserved in both, so the rows never
+   * shift when a long navigation grows a scrollbar.
+   */
+  .mc-navigation-layout-navigation {
+    box-sizing: content-box;
+    inline-size: var(--mc-size-popover);
+    padding: var(--mc-space-24);
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+  .mc-navigation-layout-navigation-narrow {
+    padding-inline: var(--mc-space-16);
+  }
+  /*
+   * The content column as the page's scroll region: it carries the canvas gutter INSIDE the scroll
+   * area, so the scrollbar sits at the canvas's true edge, and reserves the gutter so a page that
+   * scrolls and a page that does not are the same width. Without this class the column is a bare
+   * full-height stack and the page stages its own scroller.
+   */
+  .mc-navigation-layout-content-scrolling {
+    padding: var(--mc-space-24);
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+}

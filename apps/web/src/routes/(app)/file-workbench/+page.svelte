@@ -17,6 +17,11 @@
    * The route is thin on purpose: it supplies the source and what the member holds, and reads the
    * capability the address names. The screen — masthead included — is the Workbench component,
    * because every control in that masthead acts on the surface rather than on the route.
+   *
+   * The Tools layout draws this beside the tools column, and this page owns the column's
+   * scrolling (its +page.ts says so): the column is a bare full-height stack, so the page takes
+   * the height and carries the canvas inset itself, and the workbench's rail and panes scroll
+   * inside their own frames as they always have.
    */
   import { page } from "$app/state";
   import Workbench from "$lib/tools/file-workbench/workbench.svelte";
@@ -37,6 +42,6 @@
 
 <svelte:head><title>File Workbench · Magna Carta</title></svelte:head>
 
-<div class="flex h-full min-h-0 flex-col">
+<div class="flex h-full min-h-0 flex-col p-24">
   <Workbench {source} {permissions} bind:capabilityId />
 </div>

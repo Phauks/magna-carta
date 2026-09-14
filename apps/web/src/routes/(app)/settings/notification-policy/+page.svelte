@@ -13,6 +13,10 @@
    * audit log and the visibility filter is not a thing a firm may do to somebody. The page says all
    * of that in the controls rather than in a paragraph nobody reads.
    *
+   * THE MATRIX IS THE PRODUCT'S ONE TABLE (catalog-columns.ts declares its columns), with the
+   * category's meaning as the row's second line; the two scalars beneath it are settings rows in
+   * the shared anatomy, each committing on its own as it is left.
+   *
    * INSTANT, and the departure from mode-follows-scope is deliberate — the same one Users makes.
    * This is a matrix of twelve rows and two scalars; staging twenty-six independently meaningful
    * choices behind one Save would make the pending count meaningless and the recap unreadable, and
@@ -24,8 +28,7 @@
   import Badge from "@magna-carta/design-system/badge";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Input from "@magna-carta/design-system/input";
-  import LoadingRegion from "@magna-carta/design-system/loading-region";
-  import * as Select from "@magna-carta/design-system/select";
+  import ChoicePicker from "$lib/components/choice-picker.svelte";
   import type { Failure } from "$lib/api/request.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -45,34 +48,26 @@
     MIN_RETENTION_DAYS,
     readFirmNotificationPolicy,
     updateFirmNotificationPolicy,
+    type FirmCategoryPolicy,
     type FirmNotificationPolicy,
     type FirmNotificationPolicyPatch,
   } from "$lib/notifications/firm-policy-api.ts";
+  import {
+    EMAIL_POLICY_OPTIONS,
+    IN_APP_POLICY_OPTIONS,
+    notificationPolicyColumns,
+    POLICY_MEMBERS_CHOOSE,
+  } from "$lib/settings/catalog-columns.ts";
   import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
-
-  /*
-   * The firm's in-app lever, said as what it DOES. "Off" is worded as the default it is rather than
-   * as a prohibition, because a member may still raise it.
-   */
-  const IN_APP_OPTIONS = [
-    { value: "", label: "Members choose" },
-    { value: "on", label: "Everyone hears this" },
-    { value: "off", label: "Off unless a member turns it on" },
-  ] as const;
-
-  /** Every one of these is a default a member's own choice overrides — never a ceiling. */
-  const EMAIL_OPTIONS = [
-    { value: "", label: "Members choose" },
-    { value: "off", label: "No email by default" },
-    { value: "daily", label: "Daily summary by default" },
-    { value: "weekly", label: "Weekly summary by default" },
-  ] as const;
+  import SettingsPlateNote from "$lib/settings/components/settings-plate-note.svelte";
+  import SettingsRow from "$lib/settings/components/settings-row.svelte";
+  import SettingsScrollRegion from "$lib/settings/components/settings-scroll-region.svelte";
+  import type { SettingDefinition } from "$lib/settings/settings-definitions.ts";
 
   let policy = $state<FirmNotificationPolicy | null>(null);
   let readFailure = $state<Failure | null>(null);
-  let reading = $state(false);
   let writeFailure = $state<StatedFailure | null>(null);
   let pending = $state<string[]>([]);
 
@@ -80,9 +75,7 @@
 
   async function load(): Promise<void> {
     readFailure = null;
-    reading = true;
     const outcome = await readFirmNotificationPolicy(fetch);
-    reading = false;
     if (outcome.kind !== "ok") {
       readFailure = outcome.failure;
       return;
@@ -123,7 +116,52 @@
     );
   }
 
+  function inAppFromValue(value: string): NotificationInAppChoice | null {
+    return value === "on" || value === "off" ? value : null;
+  }
+
+  function emailFromValue(value: string): NotificationEmailCadence | null {
+    return value === "off" || value === "daily" || value === "weekly" ? value : null;
+  }
+
+  const rows = $derived(policy?.categories ?? []);
+
+  const grid = DataTable.createDataTableGrid<FirmCategoryPolicy>({
+    columns: () => notificationPolicyColumns(),
+    rows: () => rows,
+    rowKey: (row) => row.category,
+    itemNoun: { singular: "category", plural: "categories" },
+  });
+
   // ---- the two scalars ---------------------------------------------------------------------------
+
+  const RETENTION_DEFINITION: SettingDefinition = {
+    id: "notification-policy.retention-days",
+    sectionId: "notification-policy",
+    plateLabel: "The Feed And The Mail",
+    label: "How Long Notifications Are Kept",
+    description: "How long every member's notifications stay in their feed before they age out.",
+    kind: "number",
+    minimum: MIN_RETENTION_DAYS,
+    maximum: MAX_RETENTION_DAYS,
+    unit: "day",
+    defaultValue: MIN_RETENTION_DAYS,
+    sensitivity: "open",
+  };
+
+  const DIGEST_HOUR_DEFINITION: SettingDefinition = {
+    id: "notification-policy.digest-local-hour",
+    sectionId: "notification-policy",
+    plateLabel: "The Feed And The Mail",
+    label: "When The Summary Arrives",
+    description: "The hour of the firm's own day that the daily and weekly summaries are sent.",
+    kind: "number",
+    minimum: MIN_DIGEST_LOCAL_HOUR,
+    maximum: MAX_DIGEST_LOCAL_HOUR,
+    unit: "hour",
+    defaultValue: MIN_DIGEST_LOCAL_HOUR,
+    sensitivity: "open",
+  };
 
   let retentionText = $state("");
   let hourText = $state("");
@@ -163,14 +201,47 @@
     if (digestLocalHour === null || digestLocalHour === policy?.digestLocalHour) return;
     void apply("hour", { digestLocalHour }, "The summary hour");
   }
-
-  const rows = $derived(policy?.categories ?? []);
-  const FIXTURE = ["deadlines", "tasks", "billing"] as const;
 </script>
 
 <svelte:head>
   <title>Notification Policy · Settings · Magna Carta</title>
 </svelte:head>
+
+{#snippet policyCell({ row, column, text }: DataTable.GridCellContext<FirmCategoryPolicy>)}
+  {#if column.id === "inApp" && canEdit}
+    <ChoicePicker
+      options={IN_APP_POLICY_OPTIONS}
+      label="{notificationCategoryLabel(row.category)} in app"
+      disabled={pending.includes(row.category)}
+      bind:value={
+        () => row.inApp ?? POLICY_MEMBERS_CHOOSE,
+        (next) =>
+          setCategory(row.category, {
+            inApp: next === POLICY_MEMBERS_CHOOSE ? null : inAppFromValue(next),
+          })
+      }
+    />
+  {:else if column.id === "email" && canEdit}
+    <ChoicePicker
+      options={EMAIL_POLICY_OPTIONS}
+      label="{notificationCategoryLabel(row.category)} email"
+      disabled={pending.includes(row.category)}
+      bind:value={
+        () => row.email ?? POLICY_MEMBERS_CHOOSE,
+        (next) =>
+          setCategory(row.category, {
+            email: next === POLICY_MEMBERS_CHOOSE ? null : emailFromValue(next),
+          })
+      }
+    />
+  {:else}
+    {text}
+  {/if}
+{/snippet}
+
+{#snippet categoryDetail(row: FirmCategoryPolicy)}
+  <span class="text-xs text-text-muted">{notificationCategoryDescription(row.category)}</span>
+{/snippet}
 
 <SettingsMasthead
   sectionId="notification-policy"
@@ -179,202 +250,102 @@
   showHistory={false}
 />
 
-<div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
-  <div class="flex flex-col gap-24 p-24">
-    <SettingsDescription>
-      What the firm insists its members hear, and what it merely suggests. Each member still sets
-      their own preferences under My Settings.
-    </SettingsDescription>
+<SettingsScrollRegion>
+  <SettingsDescription>
+    What the firm insists its members hear, and what it merely suggests. Each member still sets
+    their own preferences under My Settings.
+  </SettingsDescription>
 
-    {#if writeFailure !== null}
-      <FailureNotice
-        failure={writeFailure.failure}
-        fallback={writeFailure.fallback}
-        whenSilent={writeFailure.whenSilent}
-      />
+  {#if writeFailure !== null}
+    <FailureNotice
+      failure={writeFailure.failure}
+      fallback={writeFailure.fallback}
+      whenSilent={writeFailure.whenSilent}
+    />
+  {/if}
+
+  <SettingsPlate heading="By Category">
+    {#if grid.isFiltered}
+      <div class="flex items-center justify-end gap-8 py-12">
+        <DataTable.ClearFilters {grid} />
+      </div>
     {/if}
-
-    <SettingsPlate heading="By Category">
-      <LoadingRegion
-        loading={policy === null}
-        failed={readFailure !== null && policy === null}
-        refreshing={reading && policy !== null}
-        label="Reading the firm's notification policy"
+    {#if readFailure !== null && policy === null}
+      <FailureNotice
+        failure={readFailure}
+        title="The Policy Could Not Be Read"
+        fallback="The firm's notification policy was not read."
         onRetry={() => void load()}
-        class="flex flex-col"
-      >
-        {#snippet failure()}
-          {#if readFailure !== null}
-            <FailureNotice
-              failure={readFailure}
-              title="The Policy Could Not Be Read"
-              fallback="The firm's notification policy was not read."
-              onRetry={() => void load()}
+      />
+    {:else}
+      {#if readFailure !== null}
+        <FailureNotice
+          failure={readFailure}
+          title="The Policy Was Not Re-read"
+          fallback="What is shown was read and stands."
+          onRetry={() => void load()}
+        />
+      {/if}
+      <DataTable.Grid
+        {grid}
+        caption="The firm's notification policy, by category and channel"
+        cell={policyCell}
+        rowDetail={categoryDetail}
+        loading={policy === null}
+        placeholderCount={3}
+      />
+      <DataTable.GridFooter {grid} />
+    {/if}
+    <SettingsPlateNote>
+      Trust and Security always reach every member in app, whatever this page says: a firm cannot
+      be in a position where nobody was told.
+    </SettingsPlateNote>
+  </SettingsPlate>
+
+  <SettingsPlate heading="The Feed And The Mail">
+    <!-- Two instant scalars in the shared row anatomy: each commits on its own as the field is
+         left, and its refusal reads under the field it refuses. -->
+    <SettingsRow definition={RETENTION_DEFINITION}>
+      {#snippet control()}
+        <div class="flex flex-col items-end gap-4">
+          <div class="flex items-center gap-8">
+            <Input
+              id="settings-{RETENTION_DEFINITION.id}"
+              bind:value={retentionText}
+              inputmode="numeric"
+              class="tabular-nums"
+              disabled={!canEdit || pending.includes("retention")}
+              aria-label="How long notifications are kept, in days"
+              onblur={commitRetention}
             />
-          {/if}
-        {/snippet}
-        {#snippet fixture()}
-          <DataTable.Root>
-            <DataTable.Header>
-              <DataTable.Row>
-                <DataTable.Head>Category</DataTable.Head>
-                <DataTable.Head>In app</DataTable.Head>
-                <DataTable.Head>Email</DataTable.Head>
-              </DataTable.Row>
-            </DataTable.Header>
-            <DataTable.Body>
-              {#each FIXTURE as category (category)}
-                <DataTable.Row>
-                  <DataTable.Cell>{notificationCategoryLabel(category)}</DataTable.Cell>
-                  <DataTable.Cell>Members choose</DataTable.Cell>
-                  <DataTable.Cell>Members choose</DataTable.Cell>
-                </DataTable.Row>
-              {/each}
-            </DataTable.Body>
-          </DataTable.Root>
-        {/snippet}
-
-        {#if rows.length > 0}
-          <DataTable.Root>
-            <DataTable.Caption class="sr-only">
-              The firm's notification policy, by category and channel
-            </DataTable.Caption>
-            <DataTable.Header>
-              <DataTable.Row>
-                <DataTable.Head>Category</DataTable.Head>
-                <DataTable.Head>In app</DataTable.Head>
-                <DataTable.Head>Email</DataTable.Head>
-              </DataTable.Row>
-            </DataTable.Header>
-            <DataTable.Body>
-              {#each rows as row (row.category)}
-                <DataTable.Row>
-                  <DataTable.Cell>
-                    <span class="flex flex-col gap-2">
-                      <span class="font-medium">{notificationCategoryLabel(row.category)}</span>
-                      <span class="text-xs text-text-muted">
-                        {notificationCategoryDescription(row.category)}
-                      </span>
-                    </span>
-                  </DataTable.Cell>
-                  <DataTable.Cell>
-                    {#if canEdit}
-                      <Select.Root
-                        type="single"
-                        items={[...IN_APP_OPTIONS]}
-                        value={row.inApp ?? ""}
-                        allowDeselect={false}
-                        disabled={pending.includes(row.category)}
-                        onValueChange={(next) =>
-                          setCategory(row.category, {
-                            inApp: next === "" ? null : (next as NotificationInAppChoice),
-                          })}
-                      >
-                        <Select.Trigger
-                          class="w-full"
-                          aria-label="{notificationCategoryLabel(row.category)} in app"
-                        >
-                          <Select.Value placeholder="Members choose" />
-                        </Select.Trigger>
-                        <Select.Content>
-                          {#each IN_APP_OPTIONS as option (option.value)}
-                            <Select.Item value={option.value} label={option.label} />
-                          {/each}
-                        </Select.Content>
-                      </Select.Root>
-                    {:else}
-                      <span class="text-sm">
-                        {IN_APP_OPTIONS.find((option) => option.value === (row.inApp ?? ""))?.label}
-                      </span>
-                    {/if}
-                  </DataTable.Cell>
-                  <DataTable.Cell>
-                    {#if canEdit}
-                      <Select.Root
-                        type="single"
-                        items={[...EMAIL_OPTIONS]}
-                        value={row.email ?? ""}
-                        allowDeselect={false}
-                        disabled={pending.includes(row.category)}
-                        onValueChange={(next) =>
-                          setCategory(row.category, {
-                            email: next === "" ? null : (next as NotificationEmailCadence),
-                          })}
-                      >
-                        <Select.Trigger
-                          class="w-full"
-                          aria-label="{notificationCategoryLabel(row.category)} email"
-                        >
-                          <Select.Value placeholder="Members choose" />
-                        </Select.Trigger>
-                        <Select.Content>
-                          {#each EMAIL_OPTIONS as option (option.value)}
-                            <Select.Item value={option.value} label={option.label} />
-                          {/each}
-                        </Select.Content>
-                      </Select.Root>
-                    {:else}
-                      <span class="text-sm">
-                        {EMAIL_OPTIONS.find((option) => option.value === (row.email ?? ""))?.label}
-                      </span>
-                    {/if}
-                  </DataTable.Cell>
-                </DataTable.Row>
-              {/each}
-            </DataTable.Body>
-          </DataTable.Root>
-          <p class="py-8 text-xs text-text-muted">
-            Trust and Security always reach every member in app, whatever this page says: a firm
-            cannot be in a position where nobody was told.
-          </p>
-        {/if}
-      </LoadingRegion>
-    </SettingsPlate>
-
-    <SettingsPlate heading="The Feed And The Mail">
-      <div class="flex items-start justify-between gap-16 py-12">
-        <div class="flex min-w-0 grow flex-col gap-4">
-          <span class="text-md">How Long Notifications Are Kept</span>
-          <p class="text-sm text-text-muted">
-            How long every member's notifications stay in their feed before they age out.
-          </p>
+            <span class="text-sm text-text-muted">days</span>
+          </div>
           {#if retentionRefusal !== undefined}
             <p class="text-xs text-text-muted">{retentionRefusal}</p>
           {/if}
         </div>
-        <div class="flex shrink-0 items-center gap-8" style="inline-size: var(--mc-size-popover)">
-          <Input
-            bind:value={retentionText}
-            inputmode="numeric"
-            disabled={!canEdit || pending.includes("retention")}
-            aria-label="How long notifications are kept, in days"
-            onblur={commitRetention}
-          />
-          <span class="text-sm text-text-muted">days</span>
-        </div>
-      </div>
-
-      <div class="flex items-start justify-between gap-16 border-t border-border-subtle py-12">
-        <div class="flex min-w-0 grow flex-col gap-4">
-          <span class="text-md">When The Summary Arrives</span>
-          <p class="text-sm text-text-muted">
-            The hour of the firm's own day that the daily and weekly summaries are sent.
-          </p>
+      {/snippet}
+    </SettingsRow>
+    <SettingsRow definition={DIGEST_HOUR_DEFINITION}>
+      {#snippet control()}
+        <div class="flex flex-col items-end gap-4">
+          <div class="flex items-center gap-8">
+            <Input
+              id="settings-{DIGEST_HOUR_DEFINITION.id}"
+              bind:value={hourText}
+              inputmode="numeric"
+              class="tabular-nums"
+              disabled={!canEdit || pending.includes("hour")}
+              aria-label="The hour the summary is sent"
+              onblur={commitHour}
+            />
+            <Badge variant="neutral">24-hour</Badge>
+          </div>
           {#if hourRefusal !== undefined}
             <p class="text-xs text-text-muted">{hourRefusal}</p>
           {/if}
         </div>
-        <div class="flex shrink-0 items-center gap-8" style="inline-size: var(--mc-size-popover)">
-          <Input
-            bind:value={hourText}
-            inputmode="numeric"
-            disabled={!canEdit || pending.includes("hour")}
-            aria-label="The hour the summary is sent"
-            onblur={commitHour}
-          />
-          <Badge variant="neutral">24-hour</Badge>
-        </div>
-      </div>
-    </SettingsPlate>
-  </div>
-</div>
+      {/snippet}
+    </SettingsRow>
+  </SettingsPlate>
+</SettingsScrollRegion>
