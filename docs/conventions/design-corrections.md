@@ -2146,7 +2146,8 @@ matter'".
 
 - **The four scope tabs are removed.** No other list screen in the product narrows itself with a tab
   strip above its table, and what these tabs ask — filed, unfiled, set aside — is what the column
-  filters already ask.
+  filters already ask. _(built 2026-09-14: the tabs are gone, the Matter column's filter reaches the
+  server, and "waiting to be filed" is a figure in the counts strip)_
 - The screen's own comment argues the opposite and is what the correction overturns: "the tabs and
   the column filters answer different questions: the tab asks the server, the column filters run
   over what is loaded". That distinction is real and it is the thing to solve rather than to keep a
@@ -2190,7 +2191,7 @@ The owner: "messaging, new should say new message, not new call".
 - **The messaging screen's create control reads "New Message".** The screen is the messaging log;
   a call is one kind of message it holds, and a control named for one kind claims the whole screen
   is that kind. The same control on the matter's Messaging section carries the same word.
-  _(status: open — routed to the messaging round in flight)_
+  _(built 2026-09-14, on both screens; the channel vocabulary keeps "Call" as the kind of message)_
 
 ### 2026-09-14 — where data will arrive, its structure renders first
 
