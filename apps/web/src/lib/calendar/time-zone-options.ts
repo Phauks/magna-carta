@@ -11,6 +11,7 @@
  * zone that observes daylight saving, and storing one is how a hearing moves by an hour when the
  * clocks change.
  */
+import { formatTimeZoneAbbreviation } from "@magna-carta/design-system/formatters";
 import { isResolvableTimeZone } from "$lib/dates";
 
 export interface TimeZoneOption {
@@ -61,4 +62,31 @@ export function timeZoneOptions(
     options.push({ value: zone, label: timeZoneLabel(zone) });
   }
   return options;
+}
+
+/**
+ * The SHORTCODE a zone is read by on a form — "PST", "EDT", "GMT+5:30" where a zone has no letters
+ * of its own (owner ruling, 2026-09-14: "time zones should go by shortcode like PST").
+ *
+ * The wording is the platform's, not this module's: `formatTimeZoneAbbreviation` in the design
+ * system's display vocabulary, where every word a surface prints about a moment is decided once. A
+ * formatter built here would be a second answer to a question that has one.
+ *
+ * The DAY matters and is passed through: an abbreviation is a fact about a zone at a moment, so the
+ * same zone is PST in January and PDT in July, and the date the event is on is the date the code is
+ * worked out for.
+ */
+export function timeZoneShortCode(timeZone: string, on: Date = new Date()): string {
+  return formatTimeZoneAbbreviation(timeZone, on);
+}
+
+/**
+ * How a zone reads in the compact control beside a time: the shortcode, with the zone's own name
+ * behind it in the list so "CST" is never the whole of what somebody is choosing between.
+ */
+export function timeZoneShortOption(timeZone: string, on?: Date): TimeZoneOption {
+  return {
+    value: timeZone,
+    label: `${timeZoneShortCode(timeZone, on)} · ${timeZoneLabel(timeZone)}`,
+  };
 }

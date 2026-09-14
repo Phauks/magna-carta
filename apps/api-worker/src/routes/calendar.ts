@@ -173,6 +173,12 @@ const CreateEventRequest = z
     // An IANA identifier — the zone the COURT sits in, which is frequently not the firm's own.
     timeZone: z.string().min(1).max(120),
     locationText: z.string().max(300).nullable().optional(),
+    // Where an online setting is JOINED, whoever hosts it. Held as a URL rather than a provider and
+    // a room number, because every conferencing service a firm might use expresses a meeting as a
+    // link, and a schema naming providers would be a list this platform maintained on somebody
+    // else's release schedule. A different fact from where it is HELD: a deposition can be in a
+    // conference room AND on a call.
+    conferenceUrl: z.string().url().max(2000).nullable().optional(),
     courtReference: z.string().max(120).nullable().optional(),
     participants: z.array(ParticipantRequest).max(50).optional(),
   })
@@ -200,6 +206,7 @@ const EventDetail = z
     endsAtTime: z.string().nullable(),
     timeZone: z.string(),
     locationText: z.string().nullable(),
+    conferenceUrl: z.string().nullable(),
     courtReference: z.string().nullable(),
     recordedAt: z.string(),
     recordedBy: z.string().nullable(),
@@ -300,6 +307,13 @@ const TimelineEntryResponse = z
     // the link into the owning subsystem's own access-gated read.
     label: z.string().nullable(),
     link: z.string(),
+    // THE HOUR, where the row has one: `HH:MM` read in `timeZone`, the zone the record itself
+    // names, never converted. It is the same class of fact as `sortKey` — when a thing happens,
+    // said in the record's own terms — and carries nothing about a case, which is what lets a day
+    // grid place a hearing at ten o'clock without the projection ever naming it. Null where the
+    // row has no hour, which is what a filing due on a day is.
+    timeOfDay: z.string().nullable(),
+    timeZone: z.string().nullable(),
     // THE DESCRIPTION, on the matter's own timeline only. Each source names its rows for the one
     // matter in scope through its own describe statement, behind its own read capability: the
     // title a reader recognises the row by, the subsystem's own word for what it is, and that
@@ -377,6 +391,12 @@ const CreateFirmEventRequest = z
     audience: z.enum(FIRM_EVENT_AUDIENCES).optional(),
     locationId: identifierField("location").nullable().optional(),
     locationText: z.string().max(300).nullable().optional(),
+    // Where an online setting is JOINED, whoever hosts it. Held as a URL rather than a provider and
+    // a room number, because every conferencing service a firm might use expresses a meeting as a
+    // link, and a schema naming providers would be a list this platform maintained on somebody
+    // else's release schedule. A different fact from where it is HELD: a deposition can be in a
+    // conference room AND on a call.
+    conferenceUrl: z.string().url().max(2000).nullable().optional(),
     participants: z.array(ParticipantRequest).max(50).optional(),
   })
   .openapi("CreateFirmEventRequest");
@@ -407,6 +427,7 @@ const FirmEventDetail = z
     audience: z.enum(FIRM_EVENT_AUDIENCES),
     locationId: z.string().nullable(),
     locationText: z.string().nullable(),
+    conferenceUrl: z.string().nullable(),
     recordedAt: z.string(),
     recordedBy: z.string().nullable(),
   })
@@ -587,6 +608,7 @@ const ContinueEventRequest = z
     endsAtTime: z.string().regex(WALL_CLOCK_TIME).nullable().optional(),
     timeZone: z.string().min(1).max(120).optional(),
     locationText: z.string().max(300).nullable().optional(),
+    conferenceUrl: z.string().url().max(2000).nullable().optional(),
     courtReference: z.string().max(120).nullable().optional(),
     // Why the old setting is not happening ("Continued on defendant's motion").
     statusReason: z.string().max(2000).nullable().optional(),
@@ -1994,6 +2016,7 @@ function eventDetail(
     endsAtTime: row.ends_at_time,
     timeZone: row.time_zone,
     locationText: row.location_text,
+    conferenceUrl: row.conference_url,
     courtReference: row.court_reference,
     recordedAt: row.recorded_at,
     recordedBy: row.recorded_by,
@@ -2018,6 +2041,7 @@ function firmEventDetail(row: FirmEventRow): z.infer<typeof FirmEventDetail> {
     audience: row.audience,
     locationId: row.location_id,
     locationText: row.location_text,
+    conferenceUrl: row.conference_url,
     recordedAt: row.recorded_at,
     recordedBy: row.recorded_by,
   };

@@ -161,7 +161,8 @@ export function entrySheet(record: EntryRecord, context: EntrySheetContext): Pri
           id: "facts",
           kind: "fields",
           fields: [
-            { label: "Where", value: event.locationText ?? NOT_RECORDED },
+            { label: "Location", value: event.locationText ?? NOT_RECORDED },
+            { label: "Conference Link", value: event.conferenceUrl ?? NOT_RECORDED },
             { label: "Court Reference", value: event.courtReference ?? NOT_RECORDED },
             { label: "Status", value: eventStatusLabel(event.status) },
             ...(event.statusReason === null
@@ -218,7 +219,8 @@ export function entrySheet(record: EntryRecord, context: EntrySheetContext): Pri
         fields: [
           { label: "Audience", value: firmEventAudienceLabel(event.audience) },
           { label: "Office", value: context.officeName ?? NOT_RECORDED },
-          { label: "Venue", value: event.locationText ?? NOT_RECORDED },
+          { label: "Location", value: event.locationText ?? NOT_RECORDED },
+          { label: "Conference Link", value: event.conferenceUrl ?? NOT_RECORDED },
           { label: "Status", value: eventStatusLabel(event.status) },
           ...(event.statusReason === null ? [] : [{ label: "Reason", value: event.statusReason }]),
         ],

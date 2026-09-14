@@ -12,6 +12,8 @@ function entry(sourceKey: string, sortKey: string, rowId: string): TimelineEntry
     actorUserId: null,
     label: null,
     link: "/matters/matter_test/overview",
+    timeOfDay: null,
+    timeZone: null,
     title: null,
     typeText: null,
     facts: null,

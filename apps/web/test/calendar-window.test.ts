@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  CALENDAR_VIEWS,
   anchorFromAddress,
   calendarWindow,
   isCivilDate,
@@ -167,5 +168,33 @@ describe("restOfCalendarAddress", () => {
     expect(restOfCalendarAddress({ kind: "firm" }, "2026-09-02", "mine")).toBe(
       "/calendar?view=agenda&date=2026-09-02&scope=mine",
     );
+  });
+});
+
+describe("the day view's window", () => {
+  it("is exactly the day it is anchored on", () => {
+    expect(calendarWindow("day", "2026-09-15")).toEqual({
+      view: "day",
+      anchor: "2026-09-15",
+      from: "2026-09-15",
+      to: "2026-09-15",
+    });
+  });
+
+  it("steps by one day, over a month boundary and a leap day alike", () => {
+    expect(shiftAnchor("day", "2026-09-30", 1)).toBe("2026-10-01");
+    expect(shiftAnchor("day", "2026-03-01", -1)).toBe("2026-02-28");
+    expect(shiftAnchor("day", "2028-03-01", -1)).toBe("2028-02-29");
+  });
+
+  it("names itself as a date rather than as a span of no length", () => {
+    const title = windowTitle(calendarWindow("day", "2026-09-15"), "en-US");
+    expect(title).toContain("2026");
+    expect(title).not.toMatch(/[–-]\s*\w+\s*\d+,?\s*2026\s*$/);
+  });
+
+  it("is one of the views an address can name", () => {
+    expect(viewFromAddress("day", "month")).toBe("day");
+    expect(CALENDAR_VIEWS).toContain("day");
   });
 });

@@ -19,15 +19,26 @@
  *
  * "TODAY" IS THE READER'S, resolved once through Intl: the today mark answers where the reader is.
  *
- * THREE REFINEMENTS BEYOND THE VIEW, all on the firm side and all mirrored: whose calendar (Mine,
- * Everyone, or one colleague, which is the same member filter the read already takes), which LAYERS
- * are turned on (the timeline's other date-bearing sources, custody dates first), and whether the
- * agenda hides what is settled. Layers and the hide are refinements of the read and of the
- * painting respectively; neither is a destination.
+ * WHICH CALENDARS ARE ON IS THE FIRM SIDE'S MAIN REFINEMENT. The rail's catalog (calendar-sources.ts)
+ * says which individual calendars exist; what this reader has turned on, and what colour they gave
+ * each, is theirs and is held per browser (calendar-preferences.svelte.ts). The controller reads
+ * both and hands the read plan the calendars to read, the grid the colours to paint in, and the day
+ * grid a lane per calendar. A calendar turned on is a read; a calendar turned off is no read at all,
+ * which is what keeps the request count the reader's own choice rather than the roster's size.
+ *
+ * TWO REFINEMENTS BESIDE IT, both mirrored: whose calendar the firm's own records are narrowed to
+ * (Mine, Everyone, or one colleague, which is the same member filter the read already takes), and
+ * whether the agenda hides what is settled. Neither is a destination.
+ *
+ * THE LAYERS ARE STILL LAYERS, they are just rows now. A date calendar (custody dates) was a toggle
+ * in the toolbar and is a row in the Dates folder; the word `layers` survives here because it is
+ * what the address has carried since the day the toolbar had them, and an address somebody was
+ * handed is a promise about what they will see.
  */
 import { replaceState } from "$app/navigation";
 import { page } from "$app/state";
-import type { CalendarEntry, EntryContext } from "./calendar-entries.ts";
+import type { CalendarGridColor, CalendarGridLane } from "@magna-carta/design-system/calendar-grid";
+import { colored, perLane, type CalendarEntry, type EntryContext } from "./calendar-entries.ts";
 import { readCalendarWindow, type CalendarReadFailure } from "./calendar-reads.ts";
 import {
   isFirmSideScope,
@@ -36,6 +47,26 @@ import {
   type ScopeChoice,
 } from "./calendar-scope.ts";
 import { calendarLayer } from "./calendar-vocabulary.ts";
+import {
+  calendarsOn,
+  chosenColors,
+  setCalendarColor,
+  setCalendarsOn,
+} from "./calendar-preferences.svelte.ts";
+import {
+  assignedColors,
+  calendarFolders,
+  flattenSources,
+  folderSelection,
+  layerSourceKey,
+  selectableSources,
+  toggleFolder,
+  toggleSource,
+  type CalendarCatalogInput,
+  type CalendarFolder,
+  type CalendarSource,
+  type FolderSelection,
+} from "./calendar-sources.ts";
 import {
   anchorFromAddress,
   calendarWindow,
@@ -166,6 +197,8 @@ export interface CalendarHost {
   context(): EntryContext;
   /** Whether the context has settled enough for a chip to paint honestly. */
   contextReady(): boolean;
+  /** What the catalog of individual calendars is built from: the roster and the bookable things. */
+  catalog(): CalendarCatalogInput;
 }
 
 export class CalendarController {
@@ -179,8 +212,15 @@ export class CalendarController {
   scopeChoice = $state<ScopeChoice>("everyone");
   /** The colleague chosen, when the choice is `member`. */
   memberChoice = $state<string | null>(null);
-  /** The layers turned on over the firm calendar, by key (calendar-vocabulary.ts). */
-  layers = $state<ReadonlySet<string>>(new Set());
+  /**
+   * The date calendars an ARRIVING ADDRESS asked for, unioned into whatever the reader had on.
+   *
+   * The rail's selection is personal and lives in the browser, but a link somebody was handed
+   * saying "custody dates, this month" is a promise about what they will see, so the address's own
+   * `layers` still reaches the grid. It is a seed, not a second source of truth: the moment the
+   * reader touches the rail the selection is written back whole, and this is folded into it.
+   */
+  addressLayers = $state<ReadonlySet<string>>(new Set());
   /** Whether the agenda leaves out what is settled: cancelled, satisfied, vacated, superseded. */
   hideSettled = $state(false);
   /** The entries the window holds, or null while they are being read. */
@@ -200,9 +240,99 @@ export class CalendarController {
       const refinements = refinementsFromAddress(parameters);
       if (refinements.scopeChoice !== undefined) this.scopeChoice = refinements.scopeChoice;
       this.memberChoice = refinements.memberChoice;
-      this.layers = refinements.layers;
+      this.addressLayers = refinements.layers;
       this.hideSettled = refinements.hideSettled;
     }
+  }
+
+  // ---- the calendars this reader has open ------------------------------------------------------
+
+  /**
+   * The catalog: every individual calendar the firm has, in the folders the rail draws. Derived
+   * from the roster and the bookable things the context already read, so a hire or a new room
+   * appears without anything here being told about it.
+   */
+  // Through a closure, like every other derived that reads the host: a field initializer runs
+  // before the constructor assigns it, and a derived is evaluated only when something reads it.
+  readonly folders: readonly CalendarFolder[] = $derived.by(() =>
+    calendarFolders(this.#host.catalog()),
+  );
+
+  /** Every calendar key the catalog holds, which is what a stored preference is validated against. */
+  readonly sourceKeys: readonly string[] = $derived(
+    flattenSources(this.folders).map((source) => source.key),
+  );
+
+  /**
+   * The calendars turned on: what this reader decided, plus whatever an arriving address asked for.
+   * A key the catalog no longer holds never reaches here, because the preference is read through
+   * the catalog's own keys.
+   */
+  readonly onKeys: ReadonlySet<string> = $derived.by(() => {
+    const on = new Set(calendarsOn(this.sourceKeys));
+    for (const layerKey of this.addressLayers) on.add(layerSourceKey(layerKey));
+    return on;
+  });
+
+  /** The calendars the read plan is given, in the rail's own order. A Soon row is never among them. */
+  readonly selectedSources: readonly CalendarSource[] = $derived(
+    selectableSources(this.folders).filter((source) => this.onKeys.has(source.key)),
+  );
+
+  /**
+   * The date calendars among them, by LAYER key — what the address mirrors and what the firm's own
+   * records read is widened with, so custody dates paint beside the firm's settings rather than as
+   * a second read of the same window.
+   */
+  readonly layers: ReadonlySet<string> = $derived(
+    new Set(
+      this.selectedSources
+        .map((source) => (source.kind.kind === "layer" ? source.kind.layerKey : null))
+        .filter((key): key is string => key !== null && calendarLayer(key) !== undefined),
+    ),
+  );
+
+  /** The colour each calendar paints in: the reader's choice, or the palette dealt by position. */
+  readonly colors: ReadonlyMap<string, CalendarGridColor> = $derived(
+    assignedColors(this.folders, chosenColors()),
+  );
+
+  /** The day grid's columns: one per calendar that is on, in the rail's own order. */
+  readonly lanes: readonly CalendarGridLane[] = $derived(
+    this.selectedSources.map((source) => ({
+      key: source.key,
+      label: source.name,
+      color: this.colors.get(source.key),
+    })),
+  );
+
+  /** How much of a folder is on, for its own three-state control. */
+  folderState(folder: CalendarFolder): FolderSelection {
+    return folderSelection(folder, this.onKeys);
+  }
+
+  /** Turn one calendar on or off. A Soon row does not move. */
+  toggleCalendar(source: CalendarSource): void {
+    this.#writeSelection(toggleSource(source, this.onKeys));
+  }
+
+  /** Turn a whole folder on, or — where it is already wholly on — off. */
+  toggleCalendarFolder(folder: CalendarFolder): void {
+    this.#writeSelection(toggleFolder(folder, this.onKeys));
+  }
+
+  /** Give a calendar a colour. */
+  chooseColor(sourceKey: string, color: CalendarGridColor): void {
+    setCalendarColor(sourceKey, color);
+  }
+
+  /**
+   * Write a selection back. The address's seed is folded in and then cleared, so the stored
+   * selection is the whole answer from here and the reader can turn OFF something a link turned on.
+   */
+  #writeSelection(next: ReadonlySet<string>): void {
+    setCalendarsOn(next, this.sourceKeys);
+    this.addressLayers = new Set();
   }
 
   get view(): CalendarViewKind {
@@ -274,8 +404,30 @@ export class CalendarController {
    */
   readonly visibleEntries: readonly CalendarEntry[] | null = $derived.by(() => {
     if (this.entries === null) return null;
-    if (this.view !== "agenda" || !this.hideSettled) return this.entries;
-    return this.entries.filter((entry) => !entry.settled);
+    const kept =
+      this.view === "agenda" && this.hideSettled
+        ? this.entries.filter((entry) => !entry.settled)
+        : this.entries;
+    // The colour of the first calendar in the rail's order that this entry is on. The day grid
+    // overrides it per lane, because there the column already says which calendar it is.
+    const order = this.selectedSources.map((source) => source.key);
+    return kept.map((entry) => colored(entry, this.colors, order));
+  });
+
+  /**
+   * What the DAY grid paints: the same entries, one copy per calendar they are on, each in that
+   * calendar's column and colour. A hearing two attorneys are at is drawn in both their columns on
+   * purpose — a column that left it out of one of them would be lying about that attorney's
+   * afternoon — and both copies reach the one record through `recordKeyOf`.
+   */
+  readonly laneEntries: readonly CalendarEntry[] | null = $derived.by(() => {
+    const visible = this.visibleEntries;
+    if (visible === null) return null;
+    return perLane(
+      visible,
+      this.lanes.map((lane) => lane.key),
+      this.colors,
+    );
   });
 
   /** How many entries the agenda's hide left out, so the surface can say so. */
@@ -293,7 +445,9 @@ export class CalendarController {
       this.scope === null ? "waiting" : scopeKey(this.scope),
       this.window.from,
       this.window.to,
-      [...this.layers].toSorted().join(","),
+      // Which calendars are on IS what is read, so it belongs in the key rather than being
+      // discovered by whatever the effect happened to touch.
+      this.selectedSources.map((source) => source.key).join(","),
       this.#host.contextReady() ? "ready" : "settling",
     ].join("|"),
   );
@@ -327,17 +481,6 @@ export class CalendarController {
     this.scopeChoice = memberId === null ? "everyone" : "member";
   }
 
-  toggleLayer(key: string): void {
-    if (calendarLayer(key) === undefined) return;
-    const next = new Set(this.layers);
-    if (next.has(key)) {
-      next.delete(key);
-    } else {
-      next.add(key);
-    }
-    this.layers = next;
-  }
-
   toggleHideSettled(): void {
     this.hideSettled = !this.hideSettled;
   }
@@ -360,7 +503,7 @@ export class CalendarController {
     const scope = this.scope;
     if (scope === null || !this.#host.contextReady()) return;
     const result = await readCalendarWindow(fetchImpl, scope, this.window, this.#host.context(), {
-      layers: this.layers,
+      sources: this.firmSide ? this.selectedSources : undefined,
     });
     if (generation !== this.#generation) return;
     this.entries = result.entries;

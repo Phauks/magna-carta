@@ -77,14 +77,26 @@ export function calendarLabel(whose: string): string {
 }
 
 /**
- * The sentence an empty grid says over the window's name. A resource is booked, not recorded on;
- * the firm's and a matter's calendars say what was recorded; a person's says whose it is.
+ * The sentence an empty LIST says over the window's name — the agenda's, and nothing else's.
+ *
+ * A GRID THAT IS EMPTY SAYS SO BY BEING EMPTY (owner ruling, 2026-09-14: "Nothing recorded in
+ * September 2026" on the main calendar screen — "doesn't seem very helpful"). A month, a week and a
+ * day all draw their days whether or not anything is on them, so a reader looking at thirty empty
+ * squares has already been told; a line above them repeating it is a sentence the surface spends
+ * on a fact the reader can see. An agenda is different: an empty agenda is a blank rectangle, which
+ * reads as something that failed to load rather than as a fortnight with nothing in it, so the
+ * agenda keeps its sentence.
+ *
+ * A resource is booked, not recorded on; the firm's and a matter's calendars say what was recorded;
+ * a person's says whose it is.
  */
 export function emptyCalendarMessage(
   scope: CalendarScope,
   whose: string,
   windowTitle: string,
-): string {
+  view: "month" | "week" | "day" | "agenda",
+): string | undefined {
+  if (view !== "agenda") return undefined;
   if (scope.kind === "resource") return `Nothing booked in ${windowTitle}.`;
   return whose === "the firm's" || whose === "this matter's"
     ? `Nothing recorded in ${windowTitle}.`

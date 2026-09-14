@@ -11,7 +11,7 @@
  * "Today" is the one fact that needs a zone, and it is the READER'S: the today mark answers where
  * the reader is, and it is resolved once through Intl rather than taken from any row.
  */
-import { formatDateRange, formatMonth } from "@magna-carta/design-system/formatters";
+import { formatDate, formatDateRange, formatMonth } from "@magna-carta/design-system/formatters";
 import { isCivilDate } from "$lib/dates";
 import {
   CalendarDate,
@@ -25,7 +25,14 @@ import {
 } from "@internationalized/date";
 import type { CalendarScope, ScopeChoice } from "./calendar-scope.ts";
 
-export const CALENDAR_VIEWS = ["month", "week", "agenda"] as const;
+/**
+ * The four views, in the order the switch draws them: widest to narrowest, then the list.
+ *
+ * DAY IS THE ONE WITH A TIME AXIS. Month and week put a civil DAY in a column; the day puts an
+ * HOUR in a row and a CALENDAR in a column, which is the only way a firm reads a Tuesday its six
+ * attorneys spend in four places. Its window is one day, because that is what it shows.
+ */
+export const CALENDAR_VIEWS = ["month", "week", "day", "agenda"] as const;
 export type CalendarView = (typeof CALENDAR_VIEWS)[number];
 
 /** 0 is Sunday, 1 is Monday: the firm's setting, read by the calendar context. */
@@ -99,6 +106,8 @@ export function calendarWindow(
       const last = endOfWeek(date, WEEK_LOCALE, firstDayOf(weekStartsOn));
       return { view, anchor, from: first.toString(), to: last.toString() };
     }
+    case "day":
+      return { view, anchor, from: anchor, to: anchor };
     case "agenda": {
       const last = date.add({ days: Math.max(1, agendaDays) - 1 });
       return { view, anchor, from: anchor, to: last.toString() };
@@ -123,6 +132,8 @@ export function shiftAnchor(
     }
     case "week":
       return date.add({ days: 7 * direction }).toString();
+    case "day":
+      return date.add({ days: direction }).toString();
     case "agenda":
       return date.add({ days: Math.max(1, agendaDays) * direction }).toString();
   }
@@ -142,6 +153,11 @@ export function civilDateAsUtc(civilDate: string): Date {
 export function windowTitle(window: CalendarWindow, locale?: string): string {
   if (window.view === "month") {
     return formatMonth(civilDateAsUtc(window.anchor), { locale });
+  }
+  // A day names itself. The range formatter would print one date twice with a separator between,
+  // which reads as a span of no length rather than as the day it is.
+  if (window.view === "day") {
+    return formatDate(civilDateAsUtc(window.anchor), { locale });
   }
   return formatDateRange(civilDateAsUtc(window.from), civilDateAsUtc(window.to), { locale });
 }

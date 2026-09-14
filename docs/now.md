@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 819 nodes of the feature ledger in
+is the complete register rather than a digest: all 821 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,26 +21,26 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**819 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**821 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 142 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **677 that are units of work**, for the reason set out under [What a roll-up is
+count the **679 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 312 | 46% |
+| Done | shipped | 314 | 46% |
 | Part-built | partial, in-build | 123 | 18% |
 | Ahead | designed, planned, researching, not-started | 201 | 30% |
 | Parked | deferred, cut | 41 | 6% |
-| **All units of work** | | **677** | **100%** |
+| **All units of work** | | **679** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 312 | 46% |
+| `shipped` | 314 | 46% |
 | `partial` | 123 | 18% |
 | `in-build` | 0 | 0% |
 | `designed` | 46 | 7% |
@@ -49,11 +49,11 @@ not](#what-a-roll-up-is-not).
 | `not-started` | 135 | 20% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 0% |
-| **All statuses** | **677** | **100%** |
+| **All statuses** | **679** | **100%** |
 
 ### What a roll-up is not
 
-**142 of the 819 nodes are parents, and 111 of those parents are `partial`.** A parent's status is a
+**142 of the 821 nodes are parents, and 111 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 312 of 677 (46%). Shipped plus partial is 435 (64%).**
+**Shipped alone is 314 of 679 (46%). Shipped plus partial is 437 (64%).**
 
 The 123 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**435 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**437 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 97 | 22% |
+| A person can open it today (`screen`) | 99 | 23% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 158 | 36% |
-| No user surface by nature (`internal`) | 180 | 42% |
+| No user surface by nature (`internal`) | 180 | 41% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **435** | **100%** |
+| **Everything with something built** | **437** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -97,7 +97,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | AI & Inference | 17 | 5 | 0 | 0 | 0 | 1 | 4 | 3 | 0 | 30 | 57% |
 | Authentication, Access Control & Encryption | 13 | 5 | 0 | 0 | 0 | 0 | 5 | 3 | 0 | 26 | 50% |
-| Calendar and Rules-Based Docketing | 13 | 1 | 0 | 0 | 0 | 1 | 4 | 0 | 0 | 19 | 68% |
+| Calendar and Rules-Based Docketing | 15 | 1 | 0 | 0 | 0 | 1 | 4 | 0 | 0 | 21 | 71% |
 | Communications Layer | 5 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 17 | 29% |
 | Community & Feedback Forum | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 1 | 0 | 10 | 0% |
 | Conflicts Check | 6 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 75% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 13 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 20 | 65% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **312** | **123** | **0** | **46** | **15** | **5** | **135** | **38** | **3** | **677** | **46%** |
+| **All areas** | **314** | **123** | **0** | **46** | **15** | **5** | **135** | **38** | **3** | **679** | **46%** |
 
 ## Where we have been
 
@@ -472,7 +472,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Calendar and Rules-Based Docketing
 
-[`roadmap.d/calendar.md`](../roadmap.d/calendar.md) — 19 units of work, 68% shipped. 13 done, 1 part-built, 5 ahead, 0 parked.
+[`roadmap.d/calendar.md`](../roadmap.d/calendar.md) — 21 units of work, 71% shipped. 15 done, 1 part-built, 5 ahead, 0 parked.
 
 - `calendar` · `partial` · **Calendar and docketing** — Calendar surface for matters, deadlines, and appointments; two-way external sync; rules-based court-deadline computation.
   - `calendar.events` · `shipped` · **Litigation events and deadlines** — Member-entered hearings, filings, service, orders, depositions and the like, plus first-class deadlines with a stated authority, satisfaction, and a vacate/supersede trail. _Note: Read on the matter's Calendar section and on the firm calendar; recorded, edited, cancelled, continued, satisfied, vacated and superseded from those screens through the record forms and the entry window._
@@ -481,11 +481,13 @@ to change a line here, edit the node in its area file and re-run the build.
   - `calendar.firm-events` · `shipped` · **Firm events** — Events that belong to the firm rather than to a case — meetings, closures, training, holidays, reservations — with an all-members/participants audience and the same civil-date/zone model as case events. _Note: On the firm calendar at /calendar beside the matters' settings, recorded from its Record menu, opened and edited in the entry window; /calendar/firm-events is the deep link the federated read emits._
   - `calendar.resources` · `shipped` · **Rooms and resources** — Bookable firm resources (rooms, vehicles, equipment) with availability as a read, bookings attached to exactly one event, liveness derived from event status, and double-booking as a warn-and-allow visible fact. _Note: The catalog is kept under Settings › Practice › Rooms and Resources; a room is booked from an event's window (its Rooms tab) and read on the room grid at /calendar/rooms. A per-firm hard-refuse booking policy, approval workflows, and room-panel sync are named seams._
   - `calendar.links-continuance` · `shipped` · **Event links and continuance** — Typed relations between events, and continuance as a new setting pointing at the vacated one — old row byte-untouched, chain held by partial unique indexes, no deadline ever moved. _Note: Continue Setting is a verb on a scheduled matter event in the entry window, which lists the trigger-linked open deadlines the operation reports and states that none moved; the Links tab shows continued-from and continued-to, and the settings related by hand with their titles, Relate (a setting on the same matter, or a firm event within six months) and Remove._
-  - `calendar.surface` · `partial` · **Calendar surface** — Calendar of matters, deadlines, and appointments. _Note: One reusable calendar component (CalendarView over the design system's CalendarGrid) embedded with a scope: the firm screen, the matter section, and later the dashboard, an entity and a room._
+  - `calendar.surface` · `partial` · **Calendar surface** — Calendar of matters, deadlines, and appointments. _Note: One reusable calendar component (CalendarView over the design system's CalendarGrid) embedded with a scope: the firm screen, the matter section, a record form's context pane, and later the dashboard, an entity and a room. Four presentations — month, week, day, agenda — of which only the day has a time axis._
+    - `calendar.surface.calendars-rail` · `shipped` · **Individual calendars, in folders** — Every calendar the firm has as its own row — the firm's records, its own events, a member per role the firm handed out, a room, a date calendar — kept in folders, turned on one at a time or a folder at a time, each wearing a colour the member chose. _Note: The folders are the FIRM'S vocabulary — a folder is a role it handed out — so nothing in the product decides who counts as support staff; a member holding two roles is filed under the first. What is on and what colour it wears is personal and per browser, unlike the week start, which is the firm's and lives on the server. File-destruction dates are listed, marked Soon and refused until a retention schedule exists._
+    - `calendar.surface.day-view` · `shipped` · **The day, as a column per calendar** — One day drawn as an hour axis crossed with a column per calendar turned on, with an all-day band above the hours, for a day a firm spends in several places at once. _Note: A record on two calendars is drawn in both their columns deliberately. The hours are the working day, widened by anything outside it and never narrowed. It is fed by the hour the federated read now carries._
     - `calendar.surface.firm-calendar` · `shipped` · **Firm calendar screen** — The firm-wide calendar at /calendar: month, week and agenda views over the federated read, the deadlines read and the firm-events read, with a Mine / Everyone scope and a Record menu. _Note: Paints kinds and matter numbers, never titles, on the firm-wide grid; the title is fetched for the one entry opened. The week is seven civil-day columns rather than a time axis (owner flag C3)._
     - `calendar.surface.matter-section` · `shipped` · **Matter calendar section** — The matter's Calendar section: the deadlines and events tables as the List view, plus Month and Agenda views over the same component with the matter scope, and live record controls.
     - `calendar.surface.entry-window` · `shipped` · **Entry window** — The one window an event, a firm event or a deadline opens in: the record, its participants and links, in-place editing, and the verbs (cancel, continue, satisfy, vacate, supersede). _Note: The History tab is a marked Soon seam until a per-record audit read exists; a deadline reached by deep link outside the window on screen says so rather than reading one by id, because no single-deadline route exists._
-    - `calendar.surface.record-forms` · `shipped` · **Record forms** — Recording an event on a matter, a deadline on a matter (including superseding one), and a firm event from a screen, with a participant picker over the roster, the directory and external names.
+    - `calendar.surface.record-forms` · `shipped` · **Record forms** — Recording an event on a matter or on nobody's, a deadline on a matter (including superseding one), and a firm event from a screen, with a participant picker over the roster, the directory and external names; a Location offered from the firm's own offices and rooms, a conference link for a setting held on a call, times as time fields with the zone beside them as a shortcode, and the day being booked in the panel's context pane. _Note: The matter is not required — no matter is a choice whose row says what it writes, and the form records a firm event instead, which is the table an event belonging to no case already had. Double-clicking an empty day or hour opens the event form on it, as an accelerator beside the create control every screen carries._
     - `calendar.surface.firm-settings` · `shipped` · **Firm calendar settings** — What the firm decides once about how it reads its calendar, held in the per-firm setting table and edited under Settings › Practice › Calendar; today the day the week begins on. _Note: A firm setting, never a personal preference (owner ruling 2026-09-02); Sunday by default. Read by every member who can read the calendar, moved only under calendar:manage, audited, idempotent. The page is the first settings page with a server behind it and shows no per-browser history._
     - `calendar.surface.event-types` · `shipped` · **Event-type catalog** — The vocabulary a setting is classified under, kept under Settings › Practice › Event Types: the platform's shipped types (recategorized or retired, never renamed) and the firm's own (added, renamed, retired). _Note: Retiring is one way, as the contract is; a word wanted back is added again as the firm's own. Gated on the session's calendar:manage._
     - `calendar.surface.kind-narrowing` · `shipped` · **Layers, the colleague picker and the settled filter** — Turning the timeline's date-bearing sources (custody due-backs and review dates) on over the firm calendar as a layer, reading one colleague's calendar beside Mine and Everyone, and narrowing the agenda to what is still coming. _Note: Only date-bearing sources are offered as layers; the timeline's history sources (time, costs, mail, documents, trust) stay in the matter timeline rather than flooding a month. Every refinement is mirrored into the address._

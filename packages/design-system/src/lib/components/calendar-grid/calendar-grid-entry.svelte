@@ -9,8 +9,13 @@
    * make three entries cost the height of six.
    *
    * A struck entry is shown and struck, never hidden, and a reader who cannot see the line through
-   * it is told in words. The tone and the span position ride on data attributes the recipe keys
-   * off; nothing here chooses a colour.
+   * it is told in words. The tone, the calendar's colour and the span position ride on data
+   * attributes the recipe keys off; nothing here chooses a colour.
+   *
+   * THE TONE AND THE COLOUR ANSWER DIFFERENT QUESTIONS AND NEVER FIGHT. The tone is the product's
+   * status register and paints the chip; the colour is the reader's own answer to which of their
+   * calendars this came from, and paints a rule down the chip's leading edge. A chip with no
+   * colour is exactly the chip this family drew before there were calendars to tell apart.
    */
   import type { CalendarGridEntry } from "./types.ts";
 
@@ -76,6 +81,7 @@
     class="mc-calendar-grid-entry"
     title={layout === "cell" ? fullText : undefined}
     data-tone={entry.tone}
+    data-color={entry.color}
     data-struck={entry.struck ? "true" : undefined}
     data-span={span ? "true" : undefined}
     data-span-start={spanStart ? "true" : undefined}
@@ -90,6 +96,7 @@
     class="mc-calendar-grid-entry"
     title={layout === "cell" ? fullText : undefined}
     data-tone={entry.tone}
+    data-color={entry.color}
     data-struck={entry.struck ? "true" : undefined}
     data-span={span ? "true" : undefined}
     data-span-start={spanStart ? "true" : undefined}

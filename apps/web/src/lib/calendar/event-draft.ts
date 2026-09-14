@@ -49,7 +49,10 @@ export interface EventDraft extends EventTimingDraft {
   title: string;
   eventTypeId: string | null;
   description: string;
+  /** Where it is HELD: an office, a room, a courthouse. Free text, offered from what the firm has. */
   locationText: string;
+  /** Where it is JOINED, where it is online. A different question, so a different field. */
+  conferenceUrl: string;
   courtReference: string;
   participants: ParticipantDraft[];
 }
@@ -65,6 +68,7 @@ export function emptyEventDraft(timeZone: string, startsOn: string | null = null
     endsAtTime: "",
     timeZone,
     locationText: "",
+    conferenceUrl: "",
     courtReference: "",
     participants: [],
   };
@@ -107,7 +111,31 @@ export function eventDraftShortfalls(draft: EventDraft): string[] {
   const shortfalls: string[] = [];
   if (draft.title.trim() === "") shortfalls.push("A title is needed.");
   shortfalls.push(...timingShortfalls(draft));
+  shortfalls.push(...conferenceShortfalls(draft.conferenceUrl));
   return shortfalls;
+}
+
+/**
+ * Whether a typed conference link is one a person could actually follow.
+ *
+ * Refused rather than stored, because a link that does not open is worse than no link at all: the
+ * one moment it is read is the moment somebody is late for the meeting. The check is the platform's
+ * own URL parse and a scheme test — `javascript:` and `data:` are not places to join a meeting, and
+ * a field that accepted them would be a link a surface then had to be careful about rendering.
+ */
+export function conferenceShortfalls(conferenceUrl: string): string[] {
+  const trimmed = conferenceUrl.trim();
+  if (trimmed === "") return [];
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return ["The conference link does not read as a web address."];
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    return ["The conference link has to be a web address."];
+  }
+  return [];
 }
 
 export function eventDraftReady(draft: EventDraft): boolean {
@@ -126,6 +154,7 @@ export function eventDraftStarted(draft: EventDraft, since: EventDraft): boolean
     draft.endsAtTime !== since.endsAtTime ||
     draft.timeZone !== since.timeZone ||
     draft.locationText !== since.locationText ||
+    draft.conferenceUrl !== since.conferenceUrl ||
     draft.courtReference !== since.courtReference ||
     draft.participants.length !== since.participants.length ||
     draft.participants.some((participant, index) => {
@@ -159,6 +188,7 @@ export function eventDraftRequest(draft: EventDraft): CreateEventRequest {
     endsAtTime: optionalText(draft.endsAtTime),
     timeZone: draft.timeZone,
     locationText: optionalText(draft.locationText),
+    conferenceUrl: optionalText(draft.conferenceUrl),
     courtReference: optionalText(draft.courtReference),
     participants: draft.participants.map(participantInput),
   };
@@ -180,6 +210,7 @@ export function eventDraftFrom(
     endsAtTime: event.endsAtTime ?? "",
     timeZone: event.timeZone,
     locationText: event.locationText ?? "",
+    conferenceUrl: event.conferenceUrl ?? "",
     courtReference: event.courtReference ?? "",
     participants: participants.map((participant) =>
       participantDraftFrom(participant, displayNames),

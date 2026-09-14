@@ -58,6 +58,7 @@
     "./loading-fixtures": "./src/lib/loading-fixtures/index.ts",
     "./label": "./src/lib/components/label/index.ts",
     "./maturity": "./src/lib/components/maturity/index.ts",
+    "./palette": "./src/lib/palette/index.ts",
     "./masthead": "./src/lib/components/masthead/index.ts",
     "./merge-field-chip": "./src/lib/components/merge-field-chip/index.ts",
     "./merge-field-picker": "./src/lib/components/merge-field-picker/index.ts",
