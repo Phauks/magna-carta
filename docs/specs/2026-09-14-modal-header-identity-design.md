@@ -38,14 +38,14 @@ scan that reads the call sites.
 
 The measured state of 82 `ActionDialog` openings across 60 files, at the head of this branch:
 
-| Fact                                                          | Count |
-| ------------------------------------------------------------- | ----- |
-| Openings carrying a subtitle                                  | 54    |
-| Openings carrying none                                        | 28    |
-| Subtitles that are explanatory prose rather than an identity  | 18    |
-| Subtitles mixing an identity and a sentence in one string     | 4     |
-| Distinct separators between an identity and a fact            | 3     |
-| Panels previewing the number they are about to draw           | 1     |
+| Fact                                                         | Count |
+| ------------------------------------------------------------ | ----- |
+| Openings carrying a subtitle                                 | 54    |
+| Openings carrying none                                       | 28    |
+| Subtitles that are explanatory prose rather than an identity | 18    |
+| Subtitles mixing an identity and a sentence in one string    | 4     |
+| Distinct separators between an identity and a fact           | 3     |
+| Panels previewing the number they are about to draw          | 1     |
 
 Eighteen subtitles are the thing the owner struck from the New Check panel on 2026-09-08, still
 standing in `file-to-matter`, `set-aside`, `bug-report`, `new-review-set`, `declare-load`,
@@ -124,12 +124,12 @@ The three standings are the domain's own, not a UI nicety:
 
 Rendering is the shell's, in one place:
 
-| Standing    | Number   | Renders                                        |
-| ----------- | -------- | ---------------------------------------------- |
-| `drawn`     | `"…"`    | `Matter 2026-0147`                             |
-| `tentative` | `"…"`    | `Consultation 2026-C-0042`                     |
-| `preview`   | `"…"`    | `Call 2026-09-08-0042 · drawn when this is saved` |
-| any         | `null`   | `A number is drawn when this is saved.`        |
+| Standing    | Number | Renders                                           |
+| ----------- | ------ | ------------------------------------------------- |
+| `drawn`     | `"…"`  | `Matter 2026-0147`                                |
+| `tentative` | `"…"`  | `Consultation 2026-C-0042`                        |
+| `preview`   | `"…"`  | `Call 2026-09-08-0042 · drawn when this is saved` |
+| any         | `null` | `A number is drawn when this is saved.`           |
 
 The last two rows are the call log's own two branches
 (`apps/web/src/lib/communications/communication-record-window.svelte`), lifted out of the one file
@@ -168,14 +168,14 @@ heading says it.
 pure rules over text in `modal-headers.mjs`, the impure runner in `index.mjs`, a fixture test beside
 them. A type stops the shape; a scan stops what a type cannot see.
 
-| Rule                 | What it asserts                                                                                                                                                                              |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `heading-form`       | The heading matches its kind: imperative for an acting panel, `New <Noun>` for one that makes a record, a noun phrase for a reading panel. No trailing `?`.                                    |
-| `heading-case`       | Interior articles and short prepositions are lower case.                                                                                                                                       |
-| `subject-not-prose`  | No fact, and no literal in a subtitle snippet, is sentence-shaped. The 2026-09-08 ruling, enforced.                                                                                            |
-| `subject-declared`   | An acting panel declares a subtitle, or carries an allowance naming why its act has no subject.                                                                                                |
+| Rule                             | What it asserts                                                                                                                                                                                                    |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `heading-form`                   | The heading matches its kind: imperative for an acting panel, `New <Noun>` for one that makes a record, a noun phrase for a reading panel. No trailing `?`.                                                        |
+| `heading-case`                   | Interior articles and short prepositions are lower case.                                                                                                                                                           |
+| `subject-not-prose`              | No fact, and no literal in a subtitle snippet, is sentence-shaped. The 2026-09-08 ruling, enforced.                                                                                                                |
+| `subject-declared`               | An acting panel declares a subtitle, or carries an allowance naming why its act has no subject.                                                                                                                    |
 | `reference-reaches-the-subtitle` | Where a panel's own source holds a value named for one of the platform's record numbers, that value reaches the subtitle's `reference`. This is what catches a panel that has the number and shows something else. |
-| `allowance`          | Every recorded allowance still describes a real violation, on `lint-one-ui`'s discipline: a list nobody re-reads is how a gate goes quiet.                                                      |
+| `allowance`                      | Every recorded allowance still describes a real violation, on `lint-one-ui`'s discipline: a list nobody re-reads is how a gate goes quiet.                                                                         |
 
 `reference-reaches-the-subtitle` needs a registry of what counts as a record number, and it must not
 be a hand list that goes stale. It is **derived from the schema** — the `*_number` columns of

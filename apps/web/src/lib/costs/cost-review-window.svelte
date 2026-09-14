@@ -16,6 +16,7 @@
    * closing — so the three sit in the body under the facts they decide, and the bar ends at Close.
    */
   import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import Button from "@magna-carta/design-system/button";
@@ -60,8 +61,8 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText } from "$lib/records/wo
 
   const current = $derived(queue[position] ?? null);
   const money = (amountMinor: number): string => formatMoney(amountMinor / 100, { currency });
-  const subtitle = $derived(
-    current === null ? "Nothing is waiting for review." : `${position + 1} of ${queue.length} submitted`,
+  const subtitle = $derived<RecordSubject>(
+    current === null ? {} : { facts: [`${position + 1} of ${queue.length} submitted`] },
   );
 
   function step(): void {

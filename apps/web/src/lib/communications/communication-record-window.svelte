@@ -49,6 +49,10 @@
   import FieldLabel from "@magna-carta/design-system/field-label";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import RecordWindow, { type RecordWindowTab } from "@magna-carta/design-system/record-window";
+  import type {
+    RecordReference,
+    RecordSubject,
+  } from "@magna-carta/design-system/record-reference";
   import { formatInstant, personName } from "@magna-carta/design-system/formatters";
   import FilePlus2 from "@lucide/svelte/icons/file-plus-2";
   import FolderInput from "@lucide/svelte/icons/folder-input";
@@ -254,6 +258,43 @@
    * and null forever where the read fails, in which case the number stands on its own, which is a
    * real answer a person can use where a handle is not.
    */
+  /*
+   * The line under the heading: this record, by the number somebody quotes.
+   *
+   * WHILE IT IS BEING ENTERED the number is a PREVIEW — the one the next record would draw — because
+   * the person typing is usually still on the telephone and the save is too late for the sentence
+   * they are in the middle of. Nothing is reserved by asking, and the shell says so in the words it
+   * says everywhere. The kind stays the panel's own noun rather than the chosen channel, for the
+   * same reason the heading does: a line that renamed itself under the hand of the person filling
+   * it in is a panel arguing with its reader.
+   */
+  const subtitle = $derived<RecordSubject>(
+    creating
+      ? {
+          reference: { kind: "Communication", number: previewedNumber, standing: "preview" },
+        }
+      : record === null
+        ? {}
+        : {
+            reference: {
+              kind: channelEntry(record.channel).label,
+              number: record.referenceNumber,
+            },
+            facts: [directionEntry(record.direction).label, formatInstant(record.occurredAt)],
+          },
+  );
+
+  /*
+   * The record as the two queue acts name it. Both panels act on THIS row, so both state its own
+   * number rather than describing what filing or setting aside does — the heading already says
+   * that, and a handle is not something a reader can check.
+   */
+  const actingReference = $derived<RecordReference | null>(
+    record === null
+      ? null
+      : { kind: channelEntry(record.channel).label, number: record.referenceNumber },
+  );
+
   let counterpartyName = $state<string | null>(null);
 
   $effect(() => {
@@ -522,22 +563,6 @@
   );
 </script>
 
-{#snippet subtitle()}
-  {#if creating}
-    <!-- The number this record will carry, said before it exists, because the person entering it is
-         usually still on the telephone. A preview and not a reservation, and it says so. -->
-    {#if previewedNumber === null}
-      A number is drawn when this is saved.
-    {:else}
-      <span class="tabular-nums">{previewedNumber}</span> &middot; drawn when this is saved
-    {/if}
-  {:else if record !== null}
-    {#if record.referenceNumber !== null}
-      <span class="tabular-nums">{record.referenceNumber}</span> &middot;
-    {/if}
-    {directionEntry(record.direction).label} &middot; {formatInstant(record.occurredAt)}
-  {/if}
-{/snippet}
 
 {#snippet fact(label: string, value: string)}
   <div class="flex items-baseline justify-between gap-16">
@@ -743,6 +768,7 @@
 <FileToMatterDialog
   bind:open={filingOpen}
   communicationId={record?.id ?? null}
+  reference={actingReference}
   {matters}
   {mattersCapped}
   onFiled={anchorMoved}
@@ -751,5 +777,6 @@
 <SetAsideDialog
   bind:open={setAsideOpen}
   communicationId={record?.id ?? null}
+  reference={actingReference}
   onSetAside={anchorMoved}
 />

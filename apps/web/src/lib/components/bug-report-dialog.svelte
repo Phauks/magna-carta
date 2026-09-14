@@ -132,7 +132,6 @@
   bind:open
   kind="form"
   heading="Report an Issue"
-  subtitle="This goes to the firm's own reporting pipeline, not to a third party."
   commitLabel="Submit Issue"
   commitBusyLabel="Submitting"
   commitRefusal={descriptionEmpty
@@ -151,6 +150,10 @@
         </Alert.Description>
       </Alert.Root>
     {:else}
+      <p class="text-xs text-text-muted">
+        This goes to the firm's own reporting pipeline, not to a third party.
+      </p>
+
       <LabelledField
         label="What happened?"
         hint="What you did, what you expected, what happened instead"

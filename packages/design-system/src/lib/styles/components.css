@@ -109,6 +109,9 @@
    picker dresses a Combobox and the parties tab hosts the picker and dresses rows inside a record
    window's pane, so each follows what it dresses. */
 @import "../components/entity-identity/entity-identity.css";
+/* RecordSubject names a RECORD by its number, where EntityIdentity names a person or an
+   organization — the two identity marks sit together so the pair is read together. */
+@import "../components/record-reference/record-reference.css";
 @import "../components/entity-picker/entity-picker.css";
 @import "../components/record-parties/record-parties.css";
 /* The file manager left rail, dressed over the tree recipe it extends, so its rules win where

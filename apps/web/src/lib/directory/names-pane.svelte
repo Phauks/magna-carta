@@ -464,8 +464,8 @@
 <ActionDialog
   bind:open={changeOpen}
   kind="form"
-  heading="Change The Name On The Record"
-  subtitle={`${currentName} will answer to the new name from now on. The name on file is not erased — it is kept as a former name, stamped with today's date, and still finds this record in a search or a conflicts check.`}
+  heading="Change the Name on the Record"
+  subtitle={{ facts: [currentName] }}
   commitLabel="Change Name"
   commitBusyLabel="Changing"
   commitRefusal={refusal}
@@ -473,6 +473,13 @@
   onCommit={submitChange}
 >
   {#snippet fields({ busy })}
+    <!-- What the change does to the name already on file. It is about the act, so it sits with the
+         fields the act happens in rather than in the line that names the record. -->
+    <p class="text-xs text-text-muted">
+      The name on file is not erased: it is kept as a former name, stamped with today's date, and
+      still finds this record in a search or a conflicts check.
+    </p>
+
     {@render nameFields(busy)}
   {/snippet}
 
@@ -492,7 +499,7 @@
   bind:open={addOpen}
   kind="form"
   heading="Record Another Name"
-  subtitle={`This adds a name ${currentName} also answers to. It does not replace the name currently on the record.`}
+  subtitle={{ facts: [currentName] }}
   commitLabel="Record Name"
   commitBusyLabel="Recording"
   commitRefusal={refusal}

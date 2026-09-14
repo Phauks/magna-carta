@@ -80,6 +80,10 @@
       "home": "packages/design-system/src/lib/components/entity-identity"
     },
     {
+      "name": "RecordSubjectLine",
+      "home": "packages/design-system/src/lib/components/record-reference"
+    },
+    {
       "name": "EntityPicker",
       "home": "packages/design-system/src/lib/components/entity-picker"
     },
@@ -367,12 +371,6 @@
       "file": "apps/web/src/routes/(app)/tools/safe-website-viewer/+page.svelte",
       "text": "aria-busy",
       "reason": "a capture narrating its own real stages in the shell's viewport (owner ruling 2026-08-31: the loading viewport says what is happening, never a generic spinner), not a region whose data has not arrived. The tabs beside it are regions; the mark on the frame is the act's own semantics."
-    },
-    {
-      "rule": "silent-loading",
-      "file": "apps/web/src/lib/custodian/packet-window.svelte",
-      "text": "{#if packet === null}",
-      "reason": "the record window's subtitle, a line of furniture naming the act while the pane beneath it renders the shape as a region. A subtitle has no shape to render; the sentence is the honest thing to show in a slot that holds one line."
     },
     {
       "rule": "fixture-shape",

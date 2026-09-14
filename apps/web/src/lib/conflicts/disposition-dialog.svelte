@@ -31,6 +31,7 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as RadioGroup from "@magna-carta/design-system/radio-group";
   import { DatePicker } from "@magna-carta/design-system/date-picker";
@@ -162,10 +163,16 @@
     return ahead;
   });
 
-  const subject = $derived(
+  const subtitle = $derived<RecordSubject>(
     hit === null
-      ? "No hit is open."
-      : `${evidenceTier(hit.evidenceTier).label} · ${sourceVocabulary(hit.sourceClass).label} · ${partyName ?? "Party unread"}`,
+      ? {}
+      : {
+          facts: [
+            evidenceTier(hit.evidenceTier).label,
+            sourceVocabulary(hit.sourceClass).label,
+            partyName ?? "Party unread",
+          ],
+        },
   );
 
   async function record(): Promise<ActionOutcome> {
@@ -207,7 +214,7 @@
   bind:open
   kind="form"
   heading="Answer This Hit"
-  subtitle={subject}
+  {subtitle}
   commitLabel="Record the Answer"
   commitBusyLabel="Recording"
   commitRefusal={refusal}

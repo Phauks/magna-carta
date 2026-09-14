@@ -190,7 +190,6 @@
   bind:open={consentOpen}
   kind="confirm"
   heading="Join the Beta Programme"
-  subtitle="The firm runs pre-release behavior on its live client data."
   commitLabel="Join the Beta Programme"
   commitBusyLabel="Joining"
   unsavedChanges={false}

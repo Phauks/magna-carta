@@ -195,7 +195,6 @@
   bind:open
   kind="form"
   heading="Add a Document"
-  subtitle="Bring a document onto this matter, either from a file you have or from one of the firm's templates."
   commitLabel={path === "file" ? "Add Document" : "Build Document"}
   commitBusyLabel={path === "file" ? "Adding" : "Building"}
   commitRefusal={refusal}

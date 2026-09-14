@@ -677,6 +677,7 @@
 <InvoiceLineDialog
   bind:open={lineOpen}
   invoiceId={(openRow ?? soleRow)?.summary.id ?? null}
+  invoiceNumber={(openRow ?? soleRow)?.summary.invoiceNumber ?? null}
   line={editingLine}
   onSaved={() => {
     actionNotice = "Line updated. The entry it was composed from is unchanged.";
