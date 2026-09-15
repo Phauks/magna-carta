@@ -30,10 +30,30 @@ migrations_ section of [`docs/conventions/operations.md`](../../docs/conventions
 
 ## Local conventions
 
-- **Migration ids are UTC timestamps, snapshots keep their idx.** `generate-*-migrations` runs
-  drizzle-kit and then rewrites the new `NNNN_slug` migration to `YYYYMMDDThhmmss_slug`, so two
-  branches never collide on a number. The journal keeps a dense `idx` (apply order); the `meta/`
-  snapshots stay on their `NNNN_` names because that is what drizzle diffs by.
+- **Migration ids are UTC timestamps, and the TAG is the apply order — not `idx`.**
+  `generate-*-migrations` runs drizzle-kit and then rewrites the new `NNNN_slug` migration to
+  `YYYYMMDDThhmmss_slug`, so two branches never collide on a number. `migrationsFromJournal` sorts
+  the journal lexically **by tag**, so that is the order every database applies in. `idx` is
+  drizzle's dense counter — the order migrations were INTEGRATED in — and it names the `meta/`
+  snapshots, which stay on their `NNNN_` names because that is what drizzle diffs by. Three modules
+  in this repo used to say `idx` was the apply order; all three were wrong, and that belief is what
+  let two inversions merge in September 2026.
+- **After merging `main` into a branch that adds a migration, RE-STAMP it:**
+  `node scripts/timestamp-latest-migration.mjs <lineage>`. A branch cut on Monday and merged on
+  Wednesday keeps Monday's timestamp while drizzle renumbers its `idx` to the end — and since apply
+  order is by tag, a fresh database then runs it before the migrations it was written on top of,
+  building its schema in an order no already-migrated firm ever used. The script is idempotent (a
+  migration already above the head is left alone) and prints the old and new tags, because the
+  worker bundle that imports the `.sql` by name is a hand-kept map. `tooling/migration-integrity`
+  refuses the lineage on **every pull request** if the re-stamp is skipped — it used to be a Vitest
+  fitness function only, which the gate runs solely under the `run-tests` label.
+- **Never renumber `idx` to fix an ordering complaint.** The snapshots are named for it and describe
+  the schema at that point; reordering `idx` makes each one describe a state its name denies. Move
+  the TAG.
+- **A tag is immutable once any database has applied it.** Re-stamping is free only before the
+  migration deploys — the runner refuses a database holding an applied tag it does not recognise. See
+  `src/legacy-baselines.ts` for what that costs after the fact, and `docs/deploy-queue.md` for the
+  2026-09-15 rename and the window that made it safe.
 - **Hand-written migrations are normal here.** Partial indexes with a `WHERE`, FTS5 virtual tables
   and their triggers, seed `INSERT`s, and column adds that must land in a specific order are written
   by hand and appended to the journal — drizzle-kit cannot express them, or expresses them as a
