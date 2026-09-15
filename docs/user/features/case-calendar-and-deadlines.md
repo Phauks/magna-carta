@@ -34,6 +34,7 @@ setting and deadline on every matter you can see, and the firm's own events besi
   Two are on when you first arrive — the firm's matters and deadlines, and the firm's events — and
   everything else is yours to add. What you have open is **yours**: it follows you between screens
   and visits on this browser, and changes nothing for anybody else.
+
 - **A colour per calendar.** Press the dot beside a calendar's name and pick a colour. It paints a
   stripe down the edge of every entry from that calendar, and heads that calendar's column on the
   day view, so one person's day is told from another's at a glance. Calendars you have not coloured
@@ -43,22 +44,28 @@ setting and deadline on every matter you can see, and the firm's own events besi
   its custody number and opens the register. **File destruction dates** is listed beside it and
   marked Soon: it waits on a retention schedule for a matter's files, which the platform does not
   hold yet.
-- **Mine, Everyone, or a colleague.** Mine narrows the firm's own records to what is on your own
-  calendar: settings you are a participant at or the responsible attorney for, and every firm event
-  whose audience is everyone. The colleague picker beside the pair reads one colleague's calendar
-  the same way, over the matters you can see. The address remembers the choice, so a link you send
-  opens the same way.
+- **Whose calendar you are reading is the list on the left.** To read your own day, turn your own
+  calendar on and the others off; to read a colleague's, turn theirs on. A colleague's calendar
+  shows the settings they are a participant at or the responsible attorney for, over the matters
+  you can see, and every firm event whose audience is everyone.
 - **Hide settled.** On the agenda, press it to leave out what is no longer coming: cancelled
   settings and satisfied, vacated or superseded deadlines. The agenda says how many it left out.
   The month and the week always show them, struck through.
-- **Month, week, day, agenda.** Four views of the same calendar. The month grid shows a few entries
-  per day and says how many more there are; press that and the agenda opens on that day. The week is
-  seven days side by side with each day's entries listed. The **day** is the one with hours: the
-  time runs down the side and every calendar you have turned on gets its own column, so a Tuesday
-  your firm spends in four places reads at a glance and a free afternoon shows as a gap. Anything
-  with no time — a filing, a deadline — sits in the band above the hours. A setting two people are
-  at appears in both their columns, because it is on both their days. The agenda is a fortnight as
-  a list. The view and the date live in the address.
+- **Month, week, day, agenda.** Four views of the same calendar, chosen at the top right beside
+  **New**, with the arrows and **Today** that move you through time. The month grid shows a few
+  entries per day and says how many more there are; press that and the agenda opens on that day.
+  The **week** and the **day** are the two with hours: the time runs down the side, and an entry is
+  drawn from the hour it starts at to the hour it ends, so a two-hour deposition is twice the block
+  a one-hour conference is and a free afternoon shows as a gap. The week's columns are its seven
+  days; the day's are the calendars you have turned on, so a Tuesday your firm spends in four
+  places reads at a glance and a setting two people are at appears in both their columns. Anything
+  with no time — a filing, a deadline, anything running several days — sits in the band above the
+  hours. The agenda is a fortnight as a list. The view and the date live in the address.
+- **Side by side, or overlapping.** On the week and the day, two things at the same hour can either
+  divide their column between them, so neither hides the other, or lie over one another so each
+  keeps more of its width. Press whichever you want at the top of the screen; the choice is yours
+  and follows you on this browser. Something too short to hold its own name is still drawn tall
+  enough to read, so a fifteen-minute call is never a sliver.
 - **Double-click an empty day, or an empty hour on the day view, to start recording an event on
   it.** The form opens with that date, and that time, already filled in. It is a shortcut and not
   the only way: **New** at the top right does the same thing and reaches the keyboard. The week begins on the day your firm chose, Sunday unless
@@ -113,13 +120,19 @@ training, a reservation, anything that belongs to the firm rather than to a case
   morning is nine in the morning. Nothing about your firm, the matter, or your office can work that
   out on its own, so you are asked.
 - **A range is a range.** Set an end date for a three-day trial; leave it off for a point in time.
-- **The times are time fields, and the zone reads as a shortcode beside them** — PST, EDT — rather
-  than as a long name. The code is the right one for the day the event falls on, so a July hearing
-  reads PDT and a January one PST. One setting is read in one zone, so the end line shows the same
-  code rather than asking again.
+- **Starts and Ends ask the same two questions**, a date and a time each, on lines the same shape
+  so the second never shifts under the first. **Zone** is asked once beneath them, because one
+  setting is read in one zone; type a city or a code to find it, and the list names both — PST and
+  America / Los Angeles — because CST is three different zones.
 - **Location** offers the places your firm already has: your offices, then your conference rooms,
   each under its own heading. Type anything else and it is kept — a courthouse, a department number,
   opposing counsel's address — because most hearings are not at one of your offices.
+- **Choosing one of your conference rooms books it.** The room is held for the event's own window
+  and the event appears on that room's calendar, so "held here" and "this room is taken" are one
+  act rather than two you have to remember. If the room cannot be held — somebody else has it, or
+  the booking is refused — the form says so and names the room; the event is still recorded, and
+  you can book the room from its Rooms tab. Typing a place your firm has no record of books
+  nothing, which is what a courthouse should do.
 - **A conference link** is its own field, for a setting held on a call: paste the Zoom, Teams or
   other meeting link. It is separate from Location on purpose, because a deposition can be in a
   conference room and on a call at the same time.
@@ -207,6 +220,10 @@ That list is a starting vocabulary and not a claim about how any court works. Ad
 whatever your practice sees, and retire the ones you never use — anything already classified under a
 retired type keeps its meaning. The shipped types can be retired or regrouped but not renamed, so
 "Hearing" means the same thing everywhere.
+
+**Type is a field you type into.** Once a firm has added its own, the list runs long, so start
+typing and it narrows to what matches. The list is alphabetical whatever order the types were added
+in.
 
 ## Tips and edge cases
 
