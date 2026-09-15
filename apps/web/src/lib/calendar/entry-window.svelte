@@ -1255,10 +1255,10 @@
       <Button
         variant="secondary"
         disabled={eventVerbRefusal !== undefined}
-        title={eventVerbRefusal ?? "Relate this setting to another on the same matter"}
+        title={eventVerbRefusal ?? "Link this setting to another on the same matter"}
         onclick={() => void linksTab?.openRelate()}
       >
-        Relate
+        Link Settings
       </Button>
     {:else if current?.kind === "deadline"}
       <Button
@@ -1305,10 +1305,10 @@
       <Button
         variant="secondary"
         disabled={eventVerbRefusal !== undefined}
-        title={eventVerbRefusal ?? "Relate this event to another of the firm's"}
+        title={eventVerbRefusal ?? "Link this event to another of the firm's"}
         onclick={() => void linksTab?.openRelate()}
       >
-        Relate
+        Link Events
       </Button>
     {/if}
     <Button onclick={() => (open = false)}>Close</Button>

@@ -98,10 +98,11 @@ record in place. A scheduled setting can be **cancelled** with a reason or **con
 deadline can be **satisfied**, **vacated** with a reason, or **superseded** by a new one. A verb the
 record's state or your permissions refuse stays visible and says why.
 
-**Related settings.** Open an event and press **Relate** to link it to another setting on the same
-matter (or, for a firm event, to another firm event within six months), with a note on why they
-belong together. The Links tab lists them by title and opens either; **Remove** takes a relation off
-without touching either setting. A continuance is never related by hand: the record makes that link.
+**Linked settings.** Open an event and press **Link Settings** — **Link Events** on a firm event —
+to link it to another setting on the same matter (or, for a firm event, to another firm event within
+six months), with a note on why they belong together. The Links tab lists them by title and opens
+either; **Remove** takes a link off without touching either setting. A continuance is never linked by
+hand: the record makes that link itself.
 
 **Who is at an event.** When recording, pick a person from the firm, from the directory, or type a
 name once for somebody who is neither, such as a judge or a court reporter; each can carry a role.
