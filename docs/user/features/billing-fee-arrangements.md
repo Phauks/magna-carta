@@ -9,7 +9,7 @@ document or as a page per matter with a summary, at your firm's choice.
 
 ## Where the arrangement lives
 
-Open the matter and press its status seal, in the top-left corner of the masthead. The status
+Open the matter and press its status badge, in the top-left corner of the masthead. The status
 window's **Engagement** section shows the agreement on file, how the matter is billed, the terms,
 and when the version in force started; **Show the earlier versions** unfolds the history, and
 **Amend** beside the arrangement records a new version. The Fees screen no longer states the

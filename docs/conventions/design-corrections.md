@@ -2531,3 +2531,28 @@ place we need to structure data will just be a table, but may have other element
 - **It is not always a table.** The Hashes tab is a definition list; a transcript is a
   `Conversation`; a chain is a rail. The rule is about the structure the data takes, and the lint
   looks for prose standing where any of them should.
+
+### 2026-09-14 — two gestures share the drag event, and the payload tells them apart
+
+The owner, on the file manager: "I should be able to drag and drop files to move them in or out of
+folders. This includes in the left sidebar, the breadcrumbs, and in the main area. Should likely be
+a common component."
+
+- **One drag primitive, not one per surface.** A screen with four places to drop something has four
+  copies of the same five handlers unless the gesture is a component. The payload's shape, which
+  targets accept which sources, the mark drawn under the pointer, and clearing state on `dragend`
+  however the gesture ended are all one implementation's to decide. _(built 2026-09-14: `ItemDrag`
+  in `packages/design-system/src/lib/components/item-drag/`, registered in `lint:one-ui` so a
+  second set of handlers is a defect rather than a choice. `FolderTree` was rewritten onto it and
+  its five handlers are gone.)_
+- **A drag is told from an upload by what it carries, never by where it lands.** The same
+  `dragover` reaches a folder row whether the pointer holds a file from the desktop or a row being
+  filed, so a surface that decides by target treats one as the other the first time they overlap.
+  Both questions — is this ours, is this the operating system's — belong to the one module, and
+  every surface asks it rather than reading `dataTransfer.types` itself. _(the upload dropzone and
+  the File Workbench's drop target both ask it now.)_
+- **A refusal is the pointer, not a banner.** A drop that cannot land is refused by not preventing
+  the default, so the cursor says no before the reader lets go. A message after the fact explains a
+  failure the gesture should never have allowed.
+- **The mark is an edge, not a fill.** It has to read over a row that is already selected, striped,
+  pinned or cut, and a wash across data either loses that argument or wins it by covering the data.

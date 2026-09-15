@@ -66,7 +66,7 @@ And the values a queue would take — squash; build concurrency 1; group size 1 
 wait; a 60-minute check timeout; `gate` as the one required check; up-to-date-before-merge off — are
 in this file's history at #488, should the transfer ever happen.
 
-**It has recurred, and it is the live state as of 2026-09-14.** Every `gate` run since **2026-09-03**
+**It has recurred, and it is the live state as of 2026-09-15.** Every `gate` run since **2026-09-03**
 reports `failure`, and the fingerprint in [`operations.md`](conventions/operations.md) under _A job
 that never started is not a job that failed_ matches on every criterion a session can check without
 `gh`: the three jobs that gate the run (`classify`, `format`, `governance`, all `ubuntu-slim`) carry
@@ -102,6 +102,15 @@ trend series (`docs/register-history.json`) advances only when the per-merge ass
 it sat frozen from 2026-08-17. The two defects that would have kept it frozen even with a working
 runner are fixed, and the workflow now names the trunk explicitly — so the first assembly run after
 this block clears brings the series current by itself, with no direct push and no step for the owner.
+
+**Still red on 2026-09-15, with the fingerprint intact.** Pull request #615 put three runs through
+it. Runs #1210 and #1211 are 40 and 32 seconds end to end; in #1211 `classify`, `format` and
+`governance` all carry `started_at` equal to `created_at` and last 21, 11 and 12 seconds; all eleven
+jobs behind them are `skipped`, several with a `completed_at` EARLIER than their own `started_at`,
+which is not a thing a job that ran can report; and the log endpoint 404s on a job hours old. Run
+#1215 is queued at the time of writing. The branch's own `pnpm check:scoped` is green on that head,
+so the red on #615 is this outage rather than anything in the change — which is exactly the reading
+this entry exists to make available without re-deriving it.
 
 **Do not "fix" this by editing the workflow.** The runner labels in `gate.yml` are correct and were
 verified against GitHub's current runner reference; `ubuntu-slim` is generally available. The outage

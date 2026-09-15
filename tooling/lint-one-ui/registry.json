@@ -150,6 +150,10 @@
     {
       "name": "PhoneNumberField",
       "home": "apps/web/src/lib/directory"
+    },
+    {
+      "name": "ItemDrag",
+      "home": "packages/design-system/src/lib/components/item-drag"
     }
   ],
   "modalShellsComment": [
