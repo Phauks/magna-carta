@@ -200,7 +200,7 @@
 {/snippet}
 
 <div class="flex h-full min-h-0 flex-col gap-16">
-  <ScreenHeader title="File Workbench" back="tools">
+  <ScreenHeader title="File Workbench">
     {#snippet actions()}
       <Button variant="secondary" size="sm" onclick={() => picker?.click()}>
         <Upload class="size-16" aria-hidden="true" />

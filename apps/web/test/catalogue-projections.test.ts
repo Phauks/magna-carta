@@ -5,7 +5,7 @@
  * when and only when there is something behind it.
  */
 import { describe, expect, it } from "vitest";
-import { CATALOG } from "@magna-carta/tools/catalog";
+import { CATALOG, toolRoute } from "@magna-carta/tools/catalog";
 import { hasSurface } from "@magna-carta/design-system/maturity";
 import { countCatalogueEntries } from "../src/lib/catalogue/catalogue.ts";
 import { toolCatalogueSections } from "../src/lib/tools/tool-catalogue.ts";
@@ -17,9 +17,18 @@ describe("the Tools catalogue", () => {
   const entries = sections.flatMap((section) => section.entries);
 
   it("surfaces every permitted tool exactly once", () => {
+    // Every tool the area still addresses. A tool that declares its own route has become a
+    // destination elsewhere and is not one of this listing's rows any more.
     expect(entries.map((entry) => entry.id).toSorted()).toEqual(
-      CATALOG.map((tool) => tool.id).toSorted(),
+      CATALOG.filter((tool) => tool.route === undefined)
+        .map((tool) => tool.id)
+        .toSorted(),
     );
+  });
+
+  it("leaves out a tool promoted to its own destination", () => {
+    expect(entries.some((entry) => entry.id === "file-workbench")).toBe(false);
+    expect(CATALOG.some((tool) => tool.id === "file-workbench")).toBe(true);
   });
 
   it("gives every section a heading and something under it", () => {
@@ -30,8 +39,12 @@ describe("the Tools catalogue", () => {
   });
 
   it("links a tool that has a surface at its own route, and nowhere otherwise", () => {
+    // The listing still carries a tool promoted to its own destination — a page about the Tools
+    // area should show the host its file utilities are run from — but links it where the manifest
+    // says it lives, not at a /tools address that no longer resolves.
     for (const entry of entries) {
-      expect(entry.href).toBe(hasSurface(entry.stage) ? `/tools/${entry.id}` : null);
+      const tool = CATALOG.find((candidate) => candidate.id === entry.id)!;
+      expect(entry.href).toBe(hasSurface(entry.stage) ? toolRoute(tool) : null);
     }
   });
 

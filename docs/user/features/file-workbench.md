@@ -38,7 +38,7 @@ That is deliberate. A file you are unsure about is the whole reason to bring it 
 
 **Check that a file is what it claims to be**
 
-1. Open **Tools**, then **File Workbench**.
+1. Open **File Workbench** in the sidebar, under **Firm**.
 2. Drop the file anywhere on the list at the left, or use **Add Files** at the top right.
 3. Open the **Type** tab. It says what the bytes read as, what the name claims, and whether the two agree.
 

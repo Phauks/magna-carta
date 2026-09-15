@@ -5,8 +5,10 @@ import {
   applyOrderViolations,
   journalStructureViolations,
   rebuildViolations,
+  schemaAgreementViolations,
   snapshotLineageViolations,
   LINEAGES,
+  UNDECLARED_BY_DESIGN,
 } from "./checks.mts";
 
 // The same checks the pre-push hook and the gate run as a plain script, driven here under the test
@@ -153,5 +155,68 @@ describe("migration-integrity validators reject known-bad inputs", () => {
     expect(rebuildViolations({ "0099_x": "ALTER TABLE `foo` ADD `bar` text;" }, new Set())).toEqual(
       [],
     );
+  });
+});
+
+describe("the chain against the schema", () => {
+  const columns = (...names: string[]) => new Set(names);
+
+  it("passes when the chain builds exactly what the schema declares", () => {
+    const shape = new Map([["matter", columns("id", "title")]]);
+    expect(schemaAgreementViolations(shape, shape)).toEqual([]);
+  });
+
+  it("catches a column the schema declares and no migration creates", () => {
+    const declared = new Map([["matter", columns("id", "title", "closed_at")]]);
+    const live = new Map([["matter", columns("id", "title")]]);
+    expect(schemaAgreementViolations(declared, live)).toEqual([
+      'the schema declares "matter"."closed_at" and the chain never creates it',
+    ]);
+  });
+
+  it("catches a column a migration creates and the schema does not declare", () => {
+    const declared = new Map([["matter", columns("id")]]);
+    const live = new Map([["matter", columns("id", "stray")]]);
+    expect(schemaAgreementViolations(declared, live)).toEqual([
+      'the chain creates "matter"."stray" and the schema does not declare it',
+    ]);
+  });
+
+  it("catches a whole table the chain never creates", () => {
+    const declared = new Map([["matter", columns("id")]]);
+    expect(schemaAgreementViolations(declared, new Map())).toEqual([
+      'the schema declares table "matter" and the chain never creates it',
+    ]);
+  });
+
+  it("catches an undeclared table, and names the remedy rather than only the fault", () => {
+    const live = new Map([
+      ["matter", columns("id")],
+      ["surprise", columns("id")],
+    ]);
+    const violations = schemaAgreementViolations(new Map([["matter", columns("id")]]), live);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toContain('the chain creates table "surprise"');
+    expect(violations[0]).toContain("UNDECLARED_BY_DESIGN");
+  });
+
+  it("allows the tables drizzle cannot model, and the runner's own bookkeeping", () => {
+    const live = new Map<string, Set<string>>([["matter", columns("id")]]);
+    for (const table of UNDECLARED_BY_DESIGN) live.set(table, columns("x"));
+    live.set("_migrations", columns("tag", "applied_at"));
+    live.set("_migration_restore_point", columns("id", "bookmark"));
+    expect(schemaAgreementViolations(new Map([["matter", columns("id")]]), live)).toEqual([]);
+  });
+
+  it("names the FTS5 virtual table and its shadows as the only ones drizzle cannot model", () => {
+    // Pinned so the allowance stays an enumeration somebody decided on rather than a prefix rule
+    // that quietly swallows the next undeclared table.
+    expect([...UNDECLARED_BY_DESIGN].toSorted()).toEqual([
+      "directory_name_fts",
+      "directory_name_fts_config",
+      "directory_name_fts_data",
+      "directory_name_fts_docsize",
+      "directory_name_fts_idx",
+    ]);
   });
 });

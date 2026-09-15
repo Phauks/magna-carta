@@ -41,8 +41,8 @@ More formats (7-Zip, older Office formats, RAR) are planned but not yet supporte
 
 **Unlock a file you have the password for**
 
-1. Open the Tools sidebar and select **File Unlock & Password Recovery** under **Documents**.
-2. Upload the encrypted file.
+1. Open **File Workbench** in the sidebar, under **Firm**, and open the **Unlock** tab.
+2. Drop in the encrypted file, or use **Add Files**.
 3. Confirm you are authorized to open it.
 4. Enter the password and choose **Unlock**.
 5. Download the unprotected copy. Your original file is unchanged.
@@ -67,9 +67,9 @@ Starting a recovery search opens its own screen, addressed by that search rather
 - **Recovery can take time.** The search runs in the background; you can check its progress and cancel it at any time.
 - **"Needs more powerful hardware" is not a failure.** It means the file is protected by strong modern encryption that this tool cannot attack on ordinary computers yet. Nothing is wrong with your file.
 - **The file size limit applies.** Very large files are refused with a clear message.
-- **The tool never opens a file you have not attested you may access**, and it needs the decryption permission — if you do not see it in the Tools sidebar, ask your firm administrator.
+- **The tool never opens a file you have not attested you may access**, and it needs the decryption permission — if you do not see the **Unlock** tab, ask your firm administrator.
 
 ## Related features
 
 - **Metadata Inspector & Scrubber** — after unlocking a document, check and remove hidden information before sharing it.
-- **Tools** — File Unlock & Password Recovery is in the **Documents** group, accessible from the Tools sidebar.
+- **File Workbench** — unlocking is the **Unlock** tab there, alongside every other thing the firm can do to a file.

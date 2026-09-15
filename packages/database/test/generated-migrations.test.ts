@@ -255,12 +255,25 @@ describe("seed permission values stay inside the registry (fitness function)", (
 
 describe("migration ids stay monotonic and collision-free (fitness function)", () => {
   // Guards the timestamp-id scheme against a future hand-authored migration: every tag must be a
-  // YYYYMMDDThhmmss_slug id, tags must be unique within a lineage, and lexical (tag) order must
-  // agree with the dense drizzle idx order — which is what the loader and worker bundles rely on to
-  // apply migrations in authored order. `scripts/timestamp-latest-migration.mjs` keeps generated
-  // migrations conformant; this catches a stamp edited or added by hand.
+  // YYYYMMDDThhmmss_slug id, tags must be unique within a lineage, and the journal's dense idx must
+  // stay a gapless 0..n-1 range. `scripts/timestamp-latest-migration.mjs` keeps generated migrations
+  // conformant; this catches a stamp edited or added by hand.
+  //
+  // IT DOES NOT ASSERT THAT TAG ORDER MATCHES IDX ORDER — not because the two may disagree, but
+  // because tooling/migration-integrity asserts it (applyOrderViolations) and the gate runs that on
+  // EVERY pull request, while this file's battery runs only under the `run-tests` label. That is the
+  // whole reason the check moved: two inversions merged in September 2026 with nothing failing,
+  // because the only assertion was here. Do not re-add it alongside; a guard in two places is one
+  // that can disagree with itself.
+  //
+  // The remedy there is to RE-STAMP the incoming migration above the lineage head, which is free
+  // while no database has applied it. It stops being free the moment one has: the applied ledger is
+  // keyed by tag, and a tag a database holds but this code no longer knows is a hard refusal on wake
+  // (src/migration-runner.ts, "deploy mismatch"). An inversion discovered after that point is
+  // reported at apply time instead (runPendingMigrations, outOfOrderTags) and repaired with a new
+  // migration, never by moving the tag.
   for (const lineage of ["control-plane", "per-firm"] as const) {
-    it(`${lineage}: tags are unique, timestamp-formatted, and monotonic with idx`, async () => {
+    it(`${lineage}: tags are unique, timestamp-formatted, and the idx range is dense`, async () => {
       const journal = JSON.parse(
         await readFile(join(DRIZZLE, lineage, "meta", "_journal.json"), "utf8"),
       ) as MigrationJournal;
@@ -273,9 +286,18 @@ describe("migration ids stay monotonic and collision-free (fitness function)", (
         expect(tag, `${lineage} migration ${tag} is not a timestamp id`).toMatch(TIMESTAMP_TAG);
       }
 
-      const byIdx = [...entries].toSorted((a, b) => a.idx - b.idx).map((entry) => entry.tag);
+      // The journal's own integrity: a dense, gapless, duplicate-free 0..n-1 range, which is what
+      // makes "the highest idx is the one just generated" true for the authoring scripts.
+      const indexes = [...entries].map((entry) => entry.idx).toSorted((a, b) => a - b);
+      expect(
+        indexes,
+        `${lineage} idx values are not the dense range 0..${entries.length - 1}`,
+      ).toEqual(entries.map((_, position) => position));
+
+      // Apply order is tag order, so it must be total: no tag may be a duplicate (asserted above)
+      // and sorting must be deterministic. Pinned as the property the runtime actually reads.
       const byTag = [...tags].toSorted((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-      expect(byTag, `${lineage} lexical tag order disagrees with idx order`).toEqual(byIdx);
+      expect(new Set(byTag).size, `${lineage} tag order is not total`).toBe(entries.length);
     });
   }
 });

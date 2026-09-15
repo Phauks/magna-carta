@@ -10,8 +10,9 @@ rebuild the screen from scratch: edit it.
 Status values: `settled` (built and confirmed) · `regressed` (was settled, a later round undid it) ·
 `open` (asked for, not yet built) · `superseded` (a later ruling replaced it, with the pointer).
 
-The surface: `apps/web/src/lib/tools/file-workbench/`, rendered at the file-workbench route under
-Tools. Its local rules are in the `CLAUDE.md` beside the code; this file is the review record.
+The surface: `apps/web/src/lib/tools/file-workbench/`, rendered at `/file-workbench` — a sidebar
+destination in the Firm group, not a screen inside the Tools area. Its local rules are in the
+`CLAUDE.md` beside the code; this file is the review record.
 
 ## R1 — first round: the shape of the surface
 

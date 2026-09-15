@@ -38,6 +38,44 @@ describe("tool catalog", () => {
       "whois-lookup",
       "safe-website-viewer",
       "file-workbench",
+    ]);
+  });
+
+  it("registers the workbench as a matter-free, library-backed file tool", () => {
+    const tool = CATALOG.find((entry) => entry.id === "file-workbench");
+    expect(tool).toBeDefined();
+    expect(tool?.subjectGroup).toBe("files");
+    expect(tool?.backing).toEqual({ kind: "library" });
+    expect(tool?.matterContext).toBe("none");
+    // It acts on a file, so it must be reachable from a file context (toolsFor("file")); it also
+    // stands alone in the general listing.
+    expect(tool?.contextTags).toEqual(["file", "none"]);
+  });
+
+  it("keeps the files group to the workbench alone", () => {
+    // Ten sibling manifests used to sit beside it — convert, scrub metadata, hash, unlock, verify a
+    // type, detect AI text, repair, recognize text, read an email, scan for malware — and every one
+    // was a File Workbench capability tab under another name, so the catalog listed eleven doors
+    // into one room. They were retired into the tabs they always were. A new row here means
+    // somebody is re-opening a door the workbench already has.
+    expect(CATALOG.filter((tool) => tool.subjectGroup === "files").map((tool) => tool.id)).toEqual([
+      "file-workbench",
+    ]);
+  });
+
+  it("tags every file-accepting tool in the files group as accepting a file", () => {
+    // Every tool in the `files` group acts on file bytes, so each must carry the "file" context tag
+    // or it silently vanishes from any surface filtering by file context (toolsFor("file")) —
+    // exactly the defect a file workbench would hit.
+    const fileTools = CATALOG.filter((tool) => tool.subjectGroup === "files");
+    expect(fileTools.length).toBeGreaterThan(0);
+    for (const tool of fileTools) {
+      expect(tool.contextTags, tool.id).toContain("file");
+    }
+  });
+
+  it("has no manifest left declaring a retired file utility", () => {
+    const retired = [
       "file-converter",
       "metadata-scrubber",
       "file-hash-integrity",
@@ -48,43 +86,12 @@ describe("tool catalog", () => {
       "ocr",
       "email-inspector",
       "malware-scan",
-    ]);
-  });
-
-  it("registers a matter-free, library-backed file converter", () => {
-    const tool = CATALOG.find((entry) => entry.id === "file-converter");
-    expect(tool).toBeDefined();
-    expect(tool?.subjectGroup).toBe("files");
-    expect(tool?.backing).toEqual({ kind: "library" });
-    expect(tool?.matterContext).toBe("none");
-    // A file converter acts on a file, so it must be reachable from a file context (toolsFor("file"));
-    // it also stands alone in the general listing.
-    expect(tool?.contextTags).toEqual(["file", "none"]);
-  });
-
-  it("tags every file-accepting tool in the files group as accepting a file", () => {
-    // The `files` subject group holds the file utilities. Every one that acts on file bytes must carry
-    // the "file" context tag, or it silently vanishes from any surface filtering by file context
-    // (toolsFor("file")) — exactly the defect a file workbench would hit.
-    //
-    // The one exception is AI-Text Detection: its worker route (/api/v1/ai-detection/detect) accepts a
-    // pasted `text` field, not a file, so it is correctly general-only ("none"). If it ever gains a
-    // file-upload path, add "file" here and drop it from this exclusion.
-    const textOnly = new Set(["ai-text-detection"]);
-    const fileTools = CATALOG.filter(
-      (tool) => tool.subjectGroup === "files" && !textOnly.has(tool.id),
-    );
-    expect(fileTools.length).toBeGreaterThan(0);
-    for (const tool of fileTools) {
-      expect(tool.contextTags, tool.id).toContain("file");
+    ];
+    for (const id of retired) {
+      expect(
+        CATALOG.some((tool) => tool.id === id),
+        `${id} is a File Workbench capability tab, not a tool beside it`,
+      ).toBe(false);
     }
-  });
-
-  it("includes the AI-text detection tool backed by the ai-detection integration", () => {
-    const tool = CATALOG.find((entry) => entry.id === "ai-text-detection");
-    expect(tool).toBeDefined();
-    expect(tool?.subjectGroup).toBe("files");
-    expect(tool?.backing).toEqual({ kind: "integration", category: "ai-detection" });
-    expect(tool?.matterContext).toBe("optional");
   });
 });

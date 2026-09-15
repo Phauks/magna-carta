@@ -4,8 +4,25 @@ Pure presentation/IA layer for the Tools area — the single catalog feeding bot
 and contextual entry points. No D1, no Hono, no `env`, no Svelte, no network. Depends only on
 `@magna-carta/access-control` (the `Permission` type + validation).
 
-- A `ToolManifest` is `{ id, name, icon, subjectGroup, permission, contextTags, backing, matterContext }`.
-  Adding a tool is one row in `src/catalog.ts` (and, for the UI, one id->component mapping in the shell).
+- A `ToolManifest` is `{ id, name, icon, subjectGroup, permission, contextTags, backing, matterContext }`,
+  plus an optional `route`. Adding a tool is one row in `src/catalog.ts` (and, for the UI, one
+  id->component mapping in the shell).
+- **`route` is for a tool that has outgrown this area.** A tool is normally addressed at `/tools/<id>`;
+  one that has earned a sidebar destination of its own says where it lives instead, and keeps its
+  manifest row for one reason: the contextual surfacing path still has a tool to offer for its
+  context tag. Declaring a route is also what removes it from the Tools listing, the Tools
+  navigation column and the command palette's tool provider — it is no longer one of the things
+  those surfaces enumerate.
+  `toolRoute(tool)` is the single derivation — no consumer builds `/tools/<id>` by hand. `file-workbench`
+  is the only such row today (`/file-workbench`), and the only row in the `files` group: the ten file
+  utilities that used to sit beside it were its own capability tabs under another name and were
+  retired into them. **A new `files` row means somebody is re-opening a door the workbench already
+  has** — `test/catalog.test.ts` fails on one.
+- **Retiring a manifest does not retire its permission.** The nine `tools:*` keys those rows declared
+  are still what gates the workbench's capability tabs, so the access-control registry entries and
+  their `role_permission` seeds stay. What changed is who grants them: `grantedPermissions()` built
+  its set from `CATALOG`, so the deletion would have emptied the tab strip silently. The web app's
+  `tool-permissions.ts` names them explicitly now, held to the capability registry by a test.
 - `backing: "library"` = self-contained (a link generator OR an interactive widget) — no connection.
   `backing: { kind: "integration", category }` stores only the category string; the shell reflects that
   integration's connection state. This layer never touches the integration framework or credentials.

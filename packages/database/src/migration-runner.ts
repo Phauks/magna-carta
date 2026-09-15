@@ -24,6 +24,53 @@ export interface MigrationRunReport {
   // Set when the applied ledger was a retired pre-baseline chain and was rewritten to the baseline
   // tag before applying; null on every ordinary run.
   readonly reconciledToBaseline: string | null;
+  // Pending migrations whose tag sorts BEFORE a tag this database has already applied — see
+  // outOfOrderArrivals. Empty on every ordinary run.
+  readonly outOfOrderTags: string[];
+  // The ledger's head by tag before this run, or null on a database that had applied nothing. The
+  // other half of an out-of-order report: it names what the arrival came in behind.
+  readonly ledgerHead: string | null;
+}
+
+/** The ledger's head by TAG, which is what apply order is measured in. Null on an empty ledger. */
+export function ledgerHeadTag(appliedTags: ReadonlySet<string>): string | null {
+  let head: string | null = null;
+  for (const tag of appliedTags) {
+    if (head === null || tag > head) head = tag;
+  }
+  return head;
+}
+
+/**
+ * Pending migrations that arrived out of order: their tag sorts before the newest tag this database
+ * has already applied.
+ *
+ * Apply order is tag order, so a database at head applies the whole chain in one sequence. But the
+ * chain GROWS from parallel branches, and two branches merging can seat a migration behind one that
+ * already shipped — a later-tagged migration lands first, and the earlier-tagged one arrives after
+ * a database has already moved past where it sorts. The runner still applies it (it is pending, and
+ * this database needs it), so the effect is only on ORDER: this database applies the pair in the
+ * order it met them, and a database provisioned afterwards applies them in tag order.
+ *
+ * For independent migrations those two orders reach the same schema and nothing is wrong. For
+ * dependent ones they do not, and the damage is silent: one set of firms carries a schema the
+ * other does not, with no failure to point at it. That is what this names.
+ *
+ * It is a REPORT rather than a refusal on purpose. The migration is genuinely pending and genuinely
+ * needed; refusing would strand the database over a condition that is usually harmless. What is
+ * wanted is that somebody knows it happened, while the two orders can still be compared.
+ */
+export function outOfOrderArrivals(
+  appliedTags: ReadonlySet<string>,
+  migrations: readonly Migration[],
+): string[] {
+  // Measured against the head by TAG, not by applied_at: an out-of-order arrival is applied LATER in
+  // time and would hide behind its own timestamp.
+  const head = ledgerHeadTag(appliedTags);
+  if (head === null) return [];
+  return migrations
+    .filter((migration) => !appliedTags.has(migration.tag) && migration.tag < head)
+    .map((migration) => migration.tag);
 }
 
 // Apply every pending migration, in journal order. Fails loud (and stops) on the first failure —
@@ -71,10 +118,17 @@ export async function runPendingMigrations(
       `database has applied migration "${tag}" which this code does not know — deploy mismatch (code older than schema)`,
     );
   }
+  // Measured against the ledger as it stands BEFORE anything is applied: once the batch lands, every
+  // tag is in the ledger and which of them arrived late is no longer visible anywhere.
+  const outOfOrderTags = outOfOrderArrivals(applied, migrations);
+  const ledgerHead = ledgerHeadTag(applied);
+
   const report: MigrationRunReport = {
     appliedTags: [],
     skippedTags: [],
     reconciledToBaseline,
+    outOfOrderTags,
+    ledgerHead,
   };
   for (const migration of migrations) {
     if (applied.has(migration.tag)) {

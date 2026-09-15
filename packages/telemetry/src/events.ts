@@ -37,6 +37,19 @@ export const outboxSwept = defineEvent("outbox.swept", [
 // The builder ships ahead of that wiring so the producer needs no catalog change. Not yet emitted.
 export const migrationApplied = defineEvent("migration.applied", ["database", "tag"] as const);
 
+// migration.arrivedOutOfOrder — a migration applied to a database that had already applied a
+// LATER-tagged one ({ database, tag, ledgerHead }). Apply order is tag order, so this database met
+// the pair in a different order than one provisioned afterwards will. Not a failure: the migration
+// is applied and the schema is at head. It is emitted because this is the only moment the fact
+// exists — the ledger it lands in is a set of tags, with nothing recording which arrived late — and
+// because for two migrations that touch the same objects it is the only thing that would say which
+// firms carry a different schema. One event per tag: fields are flat, so a list has no slot.
+export const migrationArrivedOutOfOrder = defineEvent("migration.arrivedOutOfOrder", [
+  "database",
+  "tag",
+  "ledgerHead",
+] as const);
+
 // email.sent — a transactional email send outcome (never the body).
 export const emailSent = defineEvent("email.sent", ["messageClass", "outcome"] as const);
 
@@ -193,6 +206,7 @@ export const EVENT_NAMES = [
   errorCaptured,
   outboxSwept,
   migrationApplied,
+  migrationArrivedOutOfOrder,
   emailSent,
   incidentCreated,
   operationFailed,
