@@ -161,9 +161,20 @@
     color: var(--mc-text-default);
     font-family: var(--mc-font-sans);
   }
+  /*
+   * ONE SELECTED TREATMENT DOWN THE WHOLE RAIL, whatever the row names. A chosen folder and a
+   * chosen view are the same fact — where the reader is standing — so they cannot look like two
+   * different states. These are the tree row's own selected declarations, repeated here because the
+   * view row is a `<button>` rather than a treeitem and `[aria-selected]` never reaches it.
+   *
+   * The fill is the accent tint rather than `surface-selected`, and that is the half that was
+   * wrong: this rail is SUNKEN, so `surface-selected` is very nearly the rail's own colour and the
+   * open view read as barely marked beside a folder that was plainly lit.
+   */
   .mc-folder-tree-view[aria-current="page"] {
-    background-color: var(--mc-surface-selected);
+    background-color: var(--mc-accent-subtle);
     border-inline-start-color: var(--mc-accent-default);
+    color: var(--mc-text-default);
   }
   .mc-folder-tree-view:focus-visible {
     outline-color: var(--mc-focus-ring);

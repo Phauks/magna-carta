@@ -54,6 +54,7 @@
     "./history-stack": "./src/lib/components/history/history-stack.svelte.ts",
     "./history-shortcuts": "./src/lib/components/history/history-shortcuts.ts",
     "./input": "./src/lib/components/input/index.ts",
+    "./item-drag": "./src/lib/components/item-drag/index.ts",
     "./keyboard": "./src/lib/components/keyboard/index.ts",
     "./labelled-field": "./src/lib/components/labelled-field/index.ts",
     "./loading-region": "./src/lib/components/loading-region/index.ts",

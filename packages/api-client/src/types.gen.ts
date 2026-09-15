@@ -2025,7 +2025,15 @@ export type MatterRescanResult = {
 
 export type FileScanHistory = {
     currentEngineVersion: string | null;
+    scanSettings: FileScanSettings;
     data: Array<FileScanEvent>;
+};
+
+export type FileScanSettings = {
+    tier: 'core' | 'extended' | 'full';
+    suspiciousScoreFloor: number;
+    flaggedTreatment: 'block' | 'informed-access' | 'allow-and-flag';
+    stepUpReauthOnFlagged: boolean;
 };
 
 export type FileScanEvent = {
@@ -2039,6 +2047,7 @@ export type FileScanEvent = {
     scanVerdict: 'unscanned' | 'clean' | 'flagged' | null;
     scanEngineVersion: string | null;
     scanDetail: string | null;
+    queued: boolean | null;
 };
 
 export type FileRescanResult = {

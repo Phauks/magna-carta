@@ -12,8 +12,24 @@
  */
 import { flushSync, mount, unmount } from "svelte";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createItemDrag } from "@magna-carta/design-system/item-drag";
 import { FileManagerState } from "$lib/file-manager/file-manager-state.svelte.ts";
 import FileManagerToolbar from "$lib/file-manager/file-manager-toolbar.svelte";
+
+/*
+ * The crumbs take part in the surface's one drag — a folder dropped on an ancestor is how something
+ * comes back OUT of a folder — so the toolbar needs one to render at all. These tests are about the
+ * path, so it is a drag that accepts nothing and is never started.
+ */
+const standingDrag = () =>
+  createItemDrag({
+    keysFor: () => [],
+    describe: () => "",
+    accepts: () => false,
+    onDrop: () => undefined,
+  });
+
+const dropKeyOf = (folderId: string | null) => folderId ?? "matter-root";
 
 const trailOfDepth = (depth: number) =>
   Array.from({ length: depth }, (_, step) => ({
@@ -27,7 +43,7 @@ let instance: Record<string, unknown> | undefined;
 function drawToolbar(trail: readonly { id: string; label: string }[]): HTMLElement {
   instance = mount(FileManagerToolbar, {
     target,
-    props: { manager: new FileManagerState(), trail },
+    props: { manager: new FileManagerState(), trail, drag: standingDrag(), dropKeyOf },
   });
   flushSync();
   return target;
@@ -91,7 +107,13 @@ describe("the file manager's folder path", () => {
   it("titles the path with a view that is not a folder, and folds nothing", () => {
     instance = mount(FileManagerToolbar, {
       target,
-      props: { manager: new FileManagerState(), trail: [], viewTitle: "Deleted Files" },
+      props: {
+        manager: new FileManagerState(),
+        trail: [],
+        viewTitle: "Deleted Files",
+        drag: standingDrag(),
+        dropKeyOf,
+      },
     });
     flushSync();
 

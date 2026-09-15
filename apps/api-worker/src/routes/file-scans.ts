@@ -7,6 +7,11 @@ import {
   listVersionScanEvents,
   VERSION_SCAN_EVENTS,
 } from "@magna-carta/file-manager/queries";
+import {
+  readFirmScanPolicy,
+  readFlaggedTreatment,
+  readStepUpReauthOnFlagged,
+} from "@magna-carta/file-manager/scan-policy-settings";
 import { readScanEngineVersion } from "@magna-carta/file-manager/upload-policy";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FileId, FileVersionId } from "@magna-carta/identifiers/types";
@@ -37,16 +42,37 @@ const ScanEvent = z
     actorName: z.string().nullable(),
     // What the scan found, as the event recorded it; null where the event carried no such fact.
     scanVerdict: z.enum(["unscanned", "clean", "flagged"]).nullable(),
+    // The engine the check ran under; on a request, the engine recorded for the firm at the moment
+    // somebody asked. Null where the row carried neither.
     scanEngineVersion: z.string().nullable(),
     scanDetail: z.string().nullable(),
+    // Whether a request reached the scan queue. Only a request row records it, so it is null on
+    // every other kind. A request that was never queued is a fact the history owes its reader:
+    // without it the line says somebody asked and nothing says no check was ever going to run.
+    queued: z.boolean().nullable(),
   })
   .openapi("FileScanEvent");
+
+// What the firm's checks run under AS IT STANDS TODAY. The settings in force when an earlier check
+// ran are recorded nowhere — only the engine is, on the event itself — so these describe the firm
+// now and never one line of the history, and the panel that shows them says exactly that.
+// Readable by any member who can read the file: what the firm checks its own documents against is
+// part of reading a verdict, where CHANGING it stays behind firm:manageScanPolicy.
+const ScanSettings = z
+  .object({
+    tier: z.enum(["core", "extended", "full"]),
+    suspiciousScoreFloor: z.number().int(),
+    flaggedTreatment: z.enum(["block", "informed-access", "allow-and-flag"]),
+    stepUpReauthOnFlagged: z.boolean(),
+  })
+  .openapi("FileScanSettings");
 
 const FileScanHistory = z
   .object({
     // The engine the firm scans with today, or null while none is recorded — the reader can tell
     // a verdict reached under an older engine from one reached under this one.
     currentEngineVersion: z.string().nullable(),
+    scanSettings: ScanSettings,
     data: z.array(ScanEvent),
   })
   .openapi("FileScanHistory");
@@ -84,7 +110,8 @@ const listFileScansRoute = defineOpenAPIRoute(listFileScansMeta, {
   description:
     "A file's safety history: every intake scan, re-scan, quarantine and re-scan request recorded " +
     "against any of its versions, newest first, each with the verdict, engine and detail as " +
-    "recorded when it happened.",
+    "recorded when it happened, and whether a request reached the scan queue. Carries the firm's " +
+    "current scan settings alongside, which describe the firm today rather than any one check.",
   request: { params: fileParam },
   responses: {
     200: {
@@ -187,13 +214,23 @@ export function registerFileScanRoutes(app: FileScanApp, chokepoint: Chokepoint)
           detail: "No such file in this firm.",
         });
       }
-      const [currentEngineVersion, events] = await Promise.all([
-        readScanEngineVersion(firm.firmDatabase),
-        listVersionScanEvents(firm.firmDatabase, id),
-      ]);
+      const [currentEngineVersion, policy, flaggedTreatment, stepUpReauthOnFlagged, events] =
+        await Promise.all([
+          readScanEngineVersion(firm.firmDatabase),
+          readFirmScanPolicy(firm.firmDatabase),
+          readFlaggedTreatment(firm.firmDatabase),
+          readStepUpReauthOnFlagged(firm.firmDatabase),
+          listVersionScanEvents(firm.firmDatabase, id),
+        ]);
       return c.json(
         {
           currentEngineVersion,
+          scanSettings: {
+            tier: policy.tier,
+            suspiciousScoreFloor: policy.suspiciousScoreFloor,
+            flaggedTreatment,
+            stepUpReauthOnFlagged,
+          },
           data: events.map((event) => ({
             id: event.id,
             at: event.at,
@@ -205,6 +242,7 @@ export function registerFileScanRoutes(app: FileScanApp, chokepoint: Chokepoint)
             scanVerdict: event.scanVerdict,
             scanEngineVersion: event.scanEngineVersion,
             scanDetail: event.scanDetail,
+            queued: event.queued,
           })),
         },
         200,

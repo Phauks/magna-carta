@@ -171,6 +171,16 @@ export class DataTableGridState<TRow> {
     return this.options.rowMark?.(row);
   }
 
+  /**
+   * Whether this table marks rows at all. A table that CAN mark one keeps the mark's space in every
+   * first cell, so marking a row lights a glyph and moves nothing; without that, the first pin
+   * shifts the row's text by the glyph and its gap, and the reader sees the list twitch at the
+   * moment they act on it. A table that never marks anything reserves nothing and is unchanged.
+   */
+  get marksRows(): boolean {
+    return this.options.rowMark !== undefined;
+  }
+
   rowKeysInView = $derived.by((): readonly string[] =>
     this.rowsInView.map((row) => this.options.rowKey(row)),
   );

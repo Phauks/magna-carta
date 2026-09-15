@@ -1,11 +1,13 @@
 /*
- * The status window's model, pinned. What is worth a test here is everything a person reads
- * immediately before a matter's status changes:
+ * The lifecycle model behind the status window and the panel that changes the status, pinned. What
+ * is worth a test here is everything a person reads immediately before a matter's status changes:
  *
  *   - every status offers one step, and it is the step the contract actually serves;
- *   - what closing requires, answered by the rules rather than by the reader, with "nobody could
- *     ask" kept distinct from "a rule said no" — only one of those is something a person can act on;
- *   - a refused close reads in the shape the requirements are already in, so the window never grows
+ *   - every step says what it would do to the record, because the panel states that beside it;
+ *   - where each step STANDS: what it requires, answered by the rules rather than by the reader,
+ *     with "nobody could ask" kept distinct from "a rule said no" — only one of those is something
+ *     a person can act on;
+ *   - a refused close reads in the shape the requirements are already in, so the panel never grows
  *     a second account of the same fact;
  *   - the physical-file rows say what they wait on and invent nothing, least of all a date somebody
  *     would destroy a client's file on.
@@ -18,6 +20,7 @@ import {
   matterCloseRequirements,
   matterOpenRefusals,
   matterOpenRequirements,
+  matterStepStanding,
   OPEN_REFUSED_PROBLEM_TYPE,
   matterLifecycleBlock,
   matterLifecycleStep,
@@ -26,8 +29,18 @@ import {
   matterLifecycleSteps,
   MATTER_LIFECYCLE_STEPS,
   MATTER_PHYSICAL_FILE_FACTS,
+  NO_LIFECYCLE_READINESS,
 } from "../src/lib/matters/matter-lifecycle.ts";
 import { MATTER_STATUSES } from "../src/lib/matters/matter-status.ts";
+
+type Status = (typeof MATTER_STATUSES)[number];
+
+/** The one step a status offers under this name, or a failure naming what was missing. */
+function stepFor(status: Status, action: string) {
+  const step = matterLifecycleSteps(status).find((one) => one.action === action);
+  if (step === undefined) throw new Error(`no ${action} step on ${status}`);
+  return step;
+}
 
 describe("matterLifecycleStep", () => {
   it("leads with the step the lifecycle runs toward, for every status", () => {
@@ -64,27 +77,21 @@ describe("matterLifecycleStep", () => {
     expect(hold?.doneSentence).not.toContain("active");
   });
 
-  it("says how each step is taken from the seal: a question, or the window", () => {
-    // A step that needs input (the hold's reason) or has requirements to read first opens the
-    // window at the step; one that needs nothing runs from its own confirmation, and carries it.
+  it("says what every step would do to the record, before it is taken", () => {
+    // The status-change panel states this beside the chosen step. The three steps no rule gates —
+    // the pause, its release and the reopen — have nothing else to read, so a missing sentence
+    // there is a reader asked to press a verb with nothing said about what it does.
     for (const status of MATTER_STATUSES) {
       for (const step of matterLifecycleSteps(status)) {
-        if (step.takenFrom === "confirmation") {
-          expect(step.confirmation).not.toBeNull();
-          expect(step.confirmation?.heading).toMatch(/\?$/);
-        } else {
-          expect(step.confirmation).toBeNull();
-        }
+        expect(step.consequence.length).toBeGreaterThan(0);
+        expect(step.consequence).toMatch(/\.$/);
       }
     }
-    const taken = (status: (typeof MATTER_STATUSES)[number], action: string) =>
-      matterLifecycleSteps(status).find((step) => step.action === action)?.takenFrom;
-    expect(taken("open", "hold")).toBe("window");
-    expect(taken("open", "close")).toBe("window");
-    expect(taken("consultation", "open")).toBe("window");
-    expect(taken("intake", "graduate")).toBe("window");
-    expect(taken("hold", "release")).toBe("confirmation");
-    expect(taken("closed", "reopen")).toBe("confirmation");
+    // Each one names the number, because the number is what a reader is most often wrong about.
+    expect(stepFor("consultation", "open").consequence).toContain("matter number");
+    expect(stepFor("consultation", "close").consequence).toContain("no matter number");
+    expect(stepFor("intake", "graduate").consequence).toContain("consultation number");
+    expect(stepFor("closed", "reopen").consequence).toContain("number is unchanged");
   });
 
   it("covers every status the contract stores", () => {
@@ -225,6 +232,94 @@ describe("matterCloseRefusals", () => {
     // (lib/api/problem.ts) drops it, so this surface is not a second place that decides what a
     // half-written problem document means.
     expect(matterCloseRefusals({ status: 409, type: CLOSE_REFUSED_PROBLEM_TYPE })).toEqual([]);
+  });
+});
+
+describe("matterStepStanding", () => {
+  it("has nothing to check for a step no rule gates", () => {
+    // The release, the reopen and the pause are gated by the permission alone, which is a different
+    // sentence and a different function. Rows here would be a list with nothing in it.
+    for (const step of [
+      stepFor("hold", "release"),
+      stepFor("closed", "reopen"),
+      stepFor("open", "hold"),
+    ]) {
+      const standing = matterStepStanding(step, NO_LIFECYCLE_READINESS);
+      expect(standing.requirements).toEqual([]);
+      expect(standing.refused).toBe(false);
+      expect(standing.summary).toBe("Nothing stands in the way.");
+    }
+  });
+
+  it("is checking, never refused, until the rules have answered", () => {
+    // A step shut on the strength of an unanswered question refuses somebody nothing is wrong with.
+    const standing = matterStepStanding(stepFor("open", "close"), NO_LIFECYCLE_READINESS);
+    expect(standing.refused).toBe(false);
+    expect(standing.summary).toBe("Checking what this requires.");
+    expect(standing.requirements.every((row) => row.state === "checking")).toBe(true);
+  });
+
+  it("counts what is not met, and carries the rule's own words", () => {
+    const standing = matterStepStanding(stepFor("open", "close"), {
+      ...NO_LIFECYCLE_READINESS,
+      close: {
+        matterId: "matter_1",
+        status: "open",
+        closable: false,
+        blockers: [
+          {
+            code: "trust-balance-not-zero",
+            message: "this matter still holds $1,250.00 on the IOLTA trust ledger.",
+          },
+        ],
+      },
+    });
+    expect(standing.refused).toBe(true);
+    expect(standing.summary).toBe("One requirement is not met.");
+    const trust = standing.requirements.find((row) => row.key === "trust");
+    expect(trust?.detail).toBe("This matter still holds $1,250.00 on the IOLTA trust ledger.");
+  });
+
+  it("states one met row for a step the firm's own procedure gates, so the panel always has a list", () => {
+    // The open and the intake's completion have no roster to state as met — what they must clear is
+    // the firm's to write and may be nothing at all. A single row saying so is what keeps the panel
+    // rendering a structure rather than a sentence standing where the structure would be.
+    const standing = matterStepStanding(stepFor("consultation", "open"), {
+      ...NO_LIFECYCLE_READINESS,
+      open: { matterId: "matter_1", status: "consultation", openable: true, blockers: [] },
+    });
+    expect(standing.requirements).toHaveLength(1);
+    expect(standing.requirements[0]?.state).toBe("met");
+    expect(standing.refused).toBe(false);
+    expect(standing.summary).toBe("Nothing stands in the way.");
+  });
+
+  it("keeps a question nobody could ask apart from a rule that said no", () => {
+    const standing = matterStepStanding(stepFor("intake", "graduate"), {
+      ...NO_LIFECYCLE_READINESS,
+      graduateFailed: true,
+    });
+    expect(standing.unanswered).toBe(true);
+    expect(standing.refused).toBe(false);
+    expect(standing.requirements.every((row) => row.state === "unknown")).toBe(true);
+    expect(standing.summary).toBe("This could not be checked. Taking the step will check it.");
+  });
+
+  it("counts past one in figures", () => {
+    const standing = matterStepStanding(stepFor("intake", "graduate"), {
+      ...NO_LIFECYCLE_READINESS,
+      graduate: {
+        matterId: "matter_1",
+        status: "intake",
+        graduable: false,
+        blockers: [
+          { code: "intake-step-outstanding", message: 'the step "Conflicts check" is outstanding' },
+          { code: "intake-step-outstanding", message: 'the step "Verify identity" is outstanding' },
+        ],
+      },
+    });
+    expect(standing.summary).toBe("2 requirements are not met.");
+    expect(standing.requirements).toHaveLength(2);
   });
 });
 

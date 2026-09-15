@@ -73,12 +73,14 @@ including the ones later set aside.
 
 ## Completing the Intake, and Opening the Matter
 
-Press the status seal on an intake. **Requirements To Complete Intake** lists each required step
-that is outstanding, in the words of whoever should answer it, and **Complete Intake** is available
-once the list is empty; the same control stands on the Intake desk. Pressing it while something is
-outstanding answers with the same list. Completing the intake draws the consultation number.
+Press the status badge on an intake, then **Change Status**, and choose **Complete Intake**.
+**Requirements To Complete Intake** lists each required step that is outstanding, in the words of
+whoever should answer it, with a way through to the Intake section where they are answered; the
+commit is available once the list is empty, and the same control stands on the Intake desk.
+Pressing it while something is outstanding answers with the same list. Completing the intake draws
+the consultation number.
 
-A consultation opens from the same seal with **Open Matter**, on the firm's decision to act; the
+A consultation opens the same way, with **Open Matter**, on the firm's decision to act; the
 procedure does not gate it again. An intake of a kind no procedure binds has nothing standing
 between it and the consultation.
 

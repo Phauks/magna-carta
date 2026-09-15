@@ -25,6 +25,13 @@
    * the move and the surface that owns the undo stack records it. What is refused is refused before
    * the drop, by the pointer never being told a drop is allowed there.
    *
+   * THE GESTURE ITSELF IS NOT THE RAIL'S. It is `ItemDrag`, the product's one drag, so the payload,
+   * the mark, the refusal and the clearing are the same here as in a file list and on a breadcrumb.
+   * A surface that has more than one place to drop something — the file manager has four — hands
+   * this rail ITS drag through `drag`, and a folder dragged out of the list can then land on a
+   * folder row here. Given none, the rail makes its own over `onMoveFolder`, which is what a picker
+   * or a story standing on its own gets.
+   *
    * WHAT THIS DOES NOT OWN: the rail's width. Both of the screen's side panels resize the same way,
    * from one component, so the screen puts this inside a Resizable pane rather than each panel
    * growing its own grip.
@@ -43,6 +50,7 @@
   import type { TreeItemContext, TreeNode } from "../tree/types.ts";
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import type { WithElementRef } from "../../internal/types.ts";
+  import { createItemDrag, type ItemDrag, type ItemDragAnchor } from "../item-drag/index.ts";
   import { FOLDER_COLORS } from "./colors.ts";
   import { FOLDER_ICONS, FOLDER_TREE_HOME_ICON, folderGlyph } from "./palette.ts";
   import { canMoveFolder } from "./move.ts";
@@ -79,6 +87,8 @@
     onMoveFolder,
     onChangeColor,
     onChangeIcon,
+    drag = undefined,
+    dragKeyOf = undefined,
     menuItems,
     ref = $bindable(null),
     class: className,
@@ -126,6 +136,18 @@
     onChangeColor?: (change: { folderId: string; color: FolderColorName }) => void;
     /** Called when a folder is given a mark. */
     onChangeIcon?: (change: { folderId: string; icon: FolderIconName }) => void;
+    /**
+     * The surface's own drag, where this rail is one of several places a thing can be dropped. The
+     * rail then reports nothing itself: the drop is the surface's, through that object's `onDrop`,
+     * which is the only way a FILE dragged out of a list can land on a folder row here.
+     */
+    drag?: ItemDrag;
+    /**
+     * What the surface calls one of this rail's rows — `null` being the root row. Required with a
+     * shared `drag`, whose keys are the surface's vocabulary rather than a folder id. Without one,
+     * a folder's key is its own id and the root's is this component's sentinel.
+     */
+    dragKeyOf?: (folderId: string | null) => string;
     /** The caller's own right-click items, above the colour and mark flyouts. */
     menuItems?: Snippet<[FolderTreeMenuTarget]>;
   } = $props();
@@ -252,60 +274,65 @@
 
   // --- dragging a folder somewhere else ------------------------------------------------------
 
-  let draggedFolderId = $state<string | undefined>(undefined);
-  let dragOverId = $state<string | undefined>(undefined);
-
-  const markedId = $derived(dragOverId ?? contextTargetId);
+  /*
+   * The mark on a row under the pointer is the DRAG's, drawn on the row through the attribute
+   * ItemDrag sets; what is left here is the menu's own mark, which is a different fact about the
+   * same row and outlives the gesture that opened it.
+   */
+  const markedId = $derived(contextTargetId);
 
   function destinationOf(id: string): string | null {
     return id === HOME_IDENTIFIER ? null : id;
   }
 
-  function handleDragStart(event: DragEvent) {
-    const id = identifierAt(event.target);
-    // The root row is not a folder: nothing can move it, so the drag never starts.
-    if (id === null || id === HOME_IDENTIFIER) {
-      event.preventDefault();
-      return;
-    }
-    draggedFolderId = id;
-    event.dataTransfer?.setData("text/plain", id);
-    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+  /** The caller's name for a row, or the row's own identity where the caller gave none. */
+  function keyOfIdentifier(id: string): string {
+    const folderId = destinationOf(id);
+    return dragKeyOf === undefined ? id : dragKeyOf(folderId);
   }
 
-  function handleDragOver(event: DragEvent) {
-    const moving = draggedFolderId;
-    if (moving === undefined) return;
-    const over = identifierAt(event.target);
-    if (over === null || !canMoveFolder(folders, moving, destinationOf(over))) {
-      dragOverId = undefined;
-      return;
-    }
-    // Not preventing the default is what refuses the drop, so a folder is never told it may land
-    // somewhere it cannot go.
-    event.preventDefault();
-    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
-    dragOverId = over;
+  function itemElementAt(element: HTMLElement): HTMLElement | null {
+    return element.closest<HTMLElement>("[data-tree-item-id]");
   }
 
-  function handleDragLeave(event: DragEvent) {
-    if (identifierAt(event.target) === dragOverId) dragOverId = undefined;
-  }
+  /*
+   * A row is picked up as the whole treeitem — the element the tree marks `draggable` — and it
+   * ACCEPTS on its row, the one line of it that is not its nested children. Marking the treeitem
+   * instead would paint the mark down the whole open branch beneath it.
+   */
+  const dragRegion = {
+    sourceAt: (element: HTMLElement): ItemDragAnchor | null => {
+      const item = itemElementAt(element);
+      const id = item?.getAttribute("data-tree-item-id") ?? null;
+      return item === null || id === null ? null : { key: keyOfIdentifier(id), element: item };
+    },
+    targetAt: (element: HTMLElement): ItemDragAnchor | null => {
+      const item = itemElementAt(element);
+      const id = item?.getAttribute("data-tree-item-id") ?? null;
+      const row = item?.querySelector<HTMLElement>(":scope > .mc-tree-item-row") ?? null;
+      if (item === null || id === null || row === null) return null;
+      return { key: keyOfIdentifier(id), element: row };
+    },
+  };
 
-  function handleDrop(event: DragEvent) {
-    event.preventDefault();
-    const moving = draggedFolderId;
-    const over = dragOverId;
-    draggedFolderId = undefined;
-    dragOverId = undefined;
-    if (moving === undefined || over === undefined) return;
-    onMoveFolder?.({ folderId: moving, destinationFolderId: destinationOf(over) });
-  }
+  /*
+   * The rail standing on its own: a folder is its own key, the root row cannot be picked up, and
+   * the three refusals are `canMoveFolder`'s. A surface that passes its own `drag` never builds
+   * this — a folder tree that is one of several drop targets has one gesture, not two.
+   */
+  const ownDrag = createItemDrag({
+    keysFor: (key) => (key === HOME_IDENTIFIER ? [] : [key]),
+    describe: (keys) => `${keys.length} folders`,
+    accepts: (keys, targetKey) =>
+      keys.every((key) => canMoveFolder(folders, key, destinationOf(targetKey))),
+    onDrop: (keys, targetKey) => {
+      for (const key of keys) {
+        onMoveFolder?.({ folderId: key, destinationFolderId: destinationOf(targetKey) });
+      }
+    },
+  });
 
-  function handleDragEnd() {
-    draggedFolderId = undefined;
-    dragOverId = undefined;
-  }
+  const activeDrag = $derived(drag ?? ownDrag);
 
   function handleMenuOpenChange(open: boolean) {
     if (!open) contextTargetId = undefined;
@@ -339,11 +366,7 @@
             {trailing}
             onSelect={handleSelect}
             oncontextmenu={rememberMenuTarget}
-            ondragstart={handleDragStart}
-            ondragover={handleDragOver}
-            ondragleave={handleDragLeave}
-            ondrop={handleDrop}
-            ondragend={handleDragEnd}
+            {...activeDrag.handlers(dragRegion)}
           />
         </ContextMenu.Trigger>
         <ContextMenu.Content class="mc-folder-tree-menu">

@@ -38,6 +38,7 @@
   import {
     historyAnnouncement,
     historyShortcuts,
+    irreversibleAnnouncement,
     type HistoryOutcome,
   } from "@magna-carta/design-system/history";
   import { statusEntry } from "@magna-carta/design-system/status-register";
@@ -127,9 +128,27 @@
     displayName,
     renameConflictMessage,
     renameFieldValue,
+    renameSelectionEnd,
     splitName,
   } from "./file-names.ts";
   import { countPhrase } from "./file-manager-vocabulary.ts";
+  import {
+    destinationFolderIdOf,
+    dragDescription,
+    dropKeyOfFolder,
+    landableKeys,
+  } from "./file-drag.ts";
+  import {
+    deleteLabel,
+    deleteStep,
+    moveLabel,
+    moveStep,
+    pinLabel,
+    pinStep,
+    renameLabel,
+    renameStep,
+    type DeletedFileRecord,
+  } from "./file-manager-history.ts";
   import {
     allIssues,
     issueKey,
@@ -149,6 +168,11 @@
   import RestoreFileDialog from "./restore-file-dialog.svelte";
   import UploadDialog from "./upload-dialog.svelte";
   import { entriesFromDataTransfer, type DroppedEntry } from "@magna-carta/design-system/dropzone";
+  import {
+    carriesExternalFiles,
+    createItemDrag,
+    type ItemDragAnchor,
+  } from "@magna-carta/design-system/item-drag";
   import SafetyMark from "./safety-mark.svelte";
   import DocumentTypeMenu from "./document-type-menu.svelte";
 
@@ -215,6 +239,13 @@
   let documentTypes = $state<readonly DocumentTypeSummary[]>([]);
   let loadFailure = $state<string | null>(null);
   let actionFailure = $state<string | null>(null);
+  /*
+   * A statement about an act that DID go through, which is a different band from a refusal. It
+   * carries one thing today: that an act the reader might reach for Ctrl+Z after cannot be walked
+   * back, and where the repair for it lives. Saying that under "That Did Not Go Through" would tell
+   * them the opposite of what happened.
+   */
+  let actionNotice = $state<string | null>(null);
   let reloadToken = $state(0);
 
   const loading = $derived(files === null);
@@ -545,6 +576,8 @@
 
   let renameDraft = $state("");
   let renameConflict = $state<string | null>(null);
+  /** The open field. One row renames at a time, so one reference is the whole of it. */
+  let renameField = $state<HTMLInputElement | null>(null);
   /** A folder just made, waiting for the re-read that will let its name be typed. */
   let renameAfterReload = $state<string | null>(null);
 
@@ -568,6 +601,19 @@
       row.kind === "folder"
         ? row.folder.name
         : renameFieldValue(row.file.name, manager.hideExtensions);
+    // The field mounts on the next frame, and a field nobody is typing in is not a rename: a new
+    // folder arrives under a stand-in name and the cursor has to be in it, or the reader has to
+    // find and click the field before they can name the thing they just made. The selection stops
+    // at the stem so typing keeps an extension they can see but did not ask to change.
+    queueMicrotask(() => {
+      renameField?.focus();
+      renameField?.setSelectionRange(
+        0,
+        row.kind === "folder"
+          ? renameDraft.length
+          : renameSelectionEnd(renameDraft, manager.hideExtensions),
+      );
+    });
   }
 
   function siblingsOf(row: FileManagerRow): { key: string; name: string }[] {
@@ -595,14 +641,72 @@
       renameConflict = renameConflictMessage(collision);
       return;
     }
-    const result =
-      row.kind === "folder"
-        ? await patchFolder(fetch, row.folder.id, { name: wanted }, writeKey())
-        : await patchFile(fetch, row.file.id, { name: wanted }, writeKey());
+    const refusal = await renameTo(row, wanted);
+    if (refusal !== null) {
+      actionFailure = refusal;
+      return;
+    }
     manager.renamingKey = null;
     renameConflict = null;
-    if (result.kind === "ok") reload();
-    else actionFailure = "That name could not be saved.";
+  }
+
+  /*
+   * One rename path, whichever field asked for it: the list's own in-place field, the context menu,
+   * and the details panel, which hosts a field of its own and commits through it. Two paths would
+   * mean two answers about collisions, about what an undo puts back, and about what a refusal says.
+   *
+   * It answers with the sentence that refuses, or null when the name was written. WHERE that
+   * sentence goes is the caller's, because the two fields are in different places: the list shows
+   * it in the screen's failure band, the details panel beneath the field the name was typed in.
+   */
+  async function renameTo(row: FileManagerRow, wanted: string): Promise<string | null> {
+    const before = row.kind === "folder" ? row.folder.name : row.file.name;
+    if (wanted === before) return null;
+    const write = async (name: string): Promise<void> => {
+      const outcome =
+        row.kind === "folder"
+          ? await patchFolder(fetch, row.folder.id, { name }, writeKey())
+          : await patchFile(fetch, row.file.id, { name }, writeKey());
+      if (outcome.kind !== "ok") throw new Error("the name was refused");
+    };
+    try {
+      await write(wanted);
+    } catch {
+      return "That name could not be saved.";
+    }
+    // Recorded only now, because the act has actually happened: a step whose write refused would
+    // offer to put back a name that was never written.
+    manager.history.push(
+      renameStep({
+        label: renameLabel(before, wanted),
+        before,
+        after: wanted,
+        rename: write,
+        settled: reload,
+      }),
+    );
+    reload();
+    return null;
+  }
+
+  /**
+   * The details panel's rename, committed from the field it hosts. It runs the list's own path —
+   * the same collision check, the same write, the same undo step — so a name typed on the right
+   * behaves exactly like a name typed on a row. What differs is where a refusal is said: the panel
+   * keeps its field open holding what was typed and puts the reason beneath it, so the name is
+   * fixed where it was written rather than in a band at the top of a screen the reader is not
+   * looking at.
+   */
+  async function renameInspectedTo(name: string): Promise<string | null> {
+    const row = inspectedRow;
+    if (row === null) return null;
+    const stored = row.kind === "folder" ? "" : splitName(row.file.name).extension;
+    const wanted =
+      row.kind === "folder" ? name.trim() : committedRename(name, stored, manager.hideExtensions);
+    if (wanted === "") return null;
+    const collision = collidingSibling(wanted, siblingsOf(row), row.key);
+    if (collision !== null) return renameConflictMessage(collision);
+    return await renameTo(row, wanted);
   }
 
   // --- moving --------------------------------------------------------------------------------------
@@ -612,11 +716,15 @@
     destinationFolderId: string | null,
     description: string,
   ): Promise<void> {
+    // WHAT ACTUALLY MOVED, and nothing else. An origin recorded before the write meant a refused
+    // move still landed on the stack, and undo then offered to put back something that had never
+    // left — the one thing an undo control must never do.
     const origins = new Map<string, string | null>();
-    const results: boolean[] = [];
+    let refused = false;
     for (const key of keys) {
       const row = rows.find((candidate) => candidate.key === key) ?? findRowAnywhere(key);
       if (row === null) continue;
+      const origin = row.kind === "folder" ? row.folder.parentFolderId : row.file.folderId;
       if (row.kind === "folder") {
         // A folder never drops into itself or anything inside it: that would detach the branch
         // from the matter and nothing downstream would notice.
@@ -627,47 +735,39 @@
         ) {
           continue;
         }
-        origins.set(key, row.folder.parentFolderId);
-        const outcome = await patchFolder(
-          fetch,
-          row.folder.id,
-          { parentFolderId: destinationFolderId },
-          writeKey(),
-        );
-        results.push(outcome.kind === "ok");
-      } else {
-        origins.set(key, row.file.folderId);
-        const outcome = await patchFile(fetch, row.file.id, { folderId: destinationFolderId }, writeKey());
-        results.push(outcome.kind === "ok");
       }
+      try {
+        await moveRow(row, destinationFolderId);
+      } catch {
+        refused = true;
+        continue;
+      }
+      origins.set(key, origin);
     }
-    if (results.some((ok) => !ok)) {
+    if (refused) {
       actionFailure = "Some of those could not be moved. Nothing else changed.";
     }
     if (origins.size > 0) {
-      manager.history.push({
-        label: description,
-        undo: () => moveEachBack(origins),
-        redo: () => moveEachTo([...origins.keys()], destinationFolderId),
-      });
+      manager.history.push(
+        moveStep({
+          label: description,
+          origins,
+          destinationFolderId,
+          move: moveOne,
+          settled: reload,
+        }),
+      );
     }
     reload();
   }
 
-  /*
-   * The two inverses of a recorded move, and the whole reason the stack holds commands rather than a
-   * snapshot: each key goes back to where IT came from, which a snapshot of the surface could not
-   * say. A write that refuses THROWS rather than returning, so the stack keeps the step and the
-   * reader gets another attempt at the same move instead of the one beneath it.
-   */
-  async function moveEachBack(origins: ReadonlyMap<string, string | null>): Promise<void> {
-    for (const [key, origin] of origins) await moveOne(key, origin);
-    reload();
-  }
-
-  async function moveEachTo(keys: readonly string[], folderId: string | null): Promise<void> {
-    for (const key of keys) await moveOne(key, folderId);
-    reload();
+  /** One row into one folder. It THROWS when the write refuses, which is what the step reads. */
+  async function moveRow(row: FileManagerRow, folderId: string | null): Promise<void> {
+    const outcome =
+      row.kind === "folder"
+        ? await patchFolder(fetch, row.folder.id, { parentFolderId: folderId }, writeKey())
+        : await patchFile(fetch, row.file.id, { folderId }, writeKey());
+    if (outcome.kind !== "ok") throw new Error("the move was refused");
   }
 
   async function moveOne(key: string, folderId: string | null): Promise<void> {
@@ -675,11 +775,7 @@
     // A row the surface can no longer see is not a failure: it was deleted, or it is in a part of
     // the tree this view has not read. The rest of the step still goes back.
     if (row === null) return;
-    const outcome =
-      row.kind === "folder"
-        ? await patchFolder(fetch, row.folder.id, { parentFolderId: folderId }, writeKey())
-        : await patchFile(fetch, row.file.id, { folderId }, writeKey());
-    if (outcome.kind !== "ok") throw new Error("the move was refused");
+    await moveRow(row, folderId);
   }
 
   function findRowAnywhere(key: string): FileManagerRow | null {
@@ -719,6 +815,7 @@
         // that do not exist.
         const outcome = await deleteFolderRequest(fetch, only.folder.id, writeKey());
         if (outcome.kind !== "ok") actionFailure = "That folder could not be deleted.";
+        else announceFolderDeleted(false);
         reload();
         return;
       }
@@ -728,17 +825,62 @@
       return;
     }
 
-    // A soft delete: the row leaves the list, the bytes and every version stay.
-    const outcomes = await Promise.all(
-      fileRows.map((row) => (row.kind === "file" ? deleteFile(fetch, row.file.id, writeKey()) : null)),
-    );
-    if (outcomes.some((outcome) => outcome !== null && outcome.kind !== "ok")) {
+    // A soft delete: the row leaves the list, the bytes and every version stay. Which is exactly
+    // what makes it steppable — the inverse is the restore route, told the folder each file came
+    // out of rather than left to fall back on the matter root.
+    const removed: DeletedFileRecord[] = [];
+    let trouble = false;
+    for (const row of fileRows) {
+      if (row.kind !== "file") continue;
+      const outcome = await deleteFile(fetch, row.file.id, writeKey());
+      if (outcome.kind !== "ok") {
+        trouble = true;
+        continue;
+      }
+      removed.push({ fileId: row.file.id, folderId: row.file.folderId });
+    }
+    if (trouble) {
       actionFailure =
         fileRows.length === 1
           ? "That file could not be deleted."
           : "Some of those files could not be deleted.";
     }
+    if (removed.length > 0) {
+      manager.history.push(
+        deleteStep({
+          label: deleteLabel(removed.length),
+          removed,
+          remove: removeOne,
+          restore: restoreOne,
+          settled: reload,
+        }),
+      );
+    }
     reload();
+  }
+
+  async function removeOne(fileId: string): Promise<void> {
+    const outcome = await deleteFile(fetch, fileId, writeKey());
+    if (outcome.kind !== "ok") throw new Error("the delete was refused");
+  }
+
+  async function restoreOne(fileId: string, folderId: string | null): Promise<void> {
+    const outcome = await restoreFile(fetch, fileId, { folderId }, writeKey());
+    if (outcome.kind !== "ok") throw new Error("the restore was refused");
+  }
+
+  /*
+   * A FOLDER'S DELETE IS NOT STEPPABLE, and the reader is told so rather than left to press Undo
+   * and watch it do nothing. There is no route that brings a folder back: the files it held are
+   * recoverable one by one from Deleted Files, and that is the repair worth naming.
+   */
+  function announceFolderDeleted(contentsKept: boolean): void {
+    actionNotice = irreversibleAnnouncement({
+      what: contentsKept
+        ? "The folder was deleted and what it held moved up."
+        : "The folder was deleted.",
+      repair: contentsKept ? undefined : "its files can be brought back from Deleted Files.",
+    });
   }
 
   async function confirmFolderDelete(choice: {
@@ -799,6 +941,7 @@
     }
     // The panel closes itself on a committed act; the folder it named stays until the next open,
     // so the heading does not blank while the panel is still leaving.
+    announceFolderDeleted(choice.keepContents);
     reload();
     return "committed";
   }
@@ -1100,6 +1243,7 @@
     const targets = menuIsBackground ? [] : menuTargets;
     const only = targets[0];
     actionFailure = null;
+    actionNotice = null;
     switch (command) {
       case "open":
         if (only !== undefined) activate(only);
@@ -1111,16 +1255,10 @@
         await requestRescanOn(targets);
         return;
       case "pin":
-        manager.setPinned(
-          targets.map((row) => row.key),
-          true,
-        );
+        setPinnedWithStep(targets.map((row) => row.key), true);
         return;
       case "unpin":
-        manager.setPinned(
-          targets.map((row) => row.key),
-          false,
-        );
+        setPinnedWithStep(targets.map((row) => row.key), false);
         return;
       case "rename":
         if (only !== undefined) beginRename(only);
@@ -1137,7 +1275,7 @@
         await moveRows(
           clipboard.keys,
           manager.currentFolderId,
-          `moving ${countPhrase(clipboard.keys.length, "item")} to ${index.pathText(manager.currentFolderId)}`,
+          moveLabel(clipboard.keys.length, index.pathText(manager.currentFolderId)),
         );
         manager.clearClipboard();
         return;
@@ -1187,6 +1325,27 @@
       default:
         return;
     }
+  }
+
+  /*
+   * Pinning writes nothing to the record — it is the reader's own arrangement of the list — but it
+   * is applied to several rows at a time from a menu that stays open for the purpose, which makes
+   * it exactly the kind of act a pointer performs one row too many times. Only the keys the act
+   * actually CHANGED go on the step, so undoing a pin over a selection that was already half
+   * pinned does not unpin what the reader had pinned earlier.
+   */
+  function setPinnedWithStep(keys: readonly string[], pinned: boolean): void {
+    const changing = keys.filter((key) => manager.isPinned(key) !== pinned);
+    if (changing.length === 0) return;
+    manager.setPinned(changing, pinned);
+    manager.history.push(
+      pinStep({
+        label: pinLabel(changing.length, pinned),
+        keys: changing,
+        pinned,
+        setPinned: (target, next) => manager.setPinned(target, next),
+      }),
+    );
   }
 
   /** Set when the picker was opened to add a version rather than a new file. */
@@ -1323,9 +1482,13 @@
   let dragDepth = $state(0);
   const dragOver = $derived(dragDepth > 0);
 
-  /** Only a drag that carries FILES is an upload; a row or folder being moved must not open it. */
+  /*
+   * Only a drag that carries files from OUTSIDE the page is an upload. A row being dragged into a
+   * folder is the SAME event on the SAME square inch, and the two are told apart by the payload:
+   * `carriesExternalFiles` answers false for our own drag by design. See the drag primitive.
+   */
   function carriesFiles(event: DragEvent): boolean {
-    return [...(event.dataTransfer?.types ?? [])].includes("Files");
+    return carriesExternalFiles(event.dataTransfer);
   }
 
   // --- the side panes -------------------------------------------------------------------------------
@@ -1658,10 +1821,78 @@
     await moveRows(
       clipboard.keys,
       folderId,
-      `moving ${countPhrase(clipboard.keys.length, "item")} to ${index.pathText(folderId)}`,
+      moveLabel(clipboard.keys.length, index.pathText(folderId)),
     );
     manager.clearClipboard();
   }
+
+  // --- dragging something into a folder ------------------------------------------------------------
+
+  /*
+   * ONE gesture across four surfaces. A file or a folder can be picked up in the list, in the icon
+   * grid or in the rail, and put down on a folder row in the rail, a folder row in the list, a
+   * folder tile, or a crumb — and a crumb is how something comes back OUT of a folder, since every
+   * ancestor of where the reader is standing is on the strip in front of them.
+   *
+   * The keys are this surface's own row keys, so the rail, the table and the crumbs all name a
+   * folder the same way and a drag begun in one is understood by the others. The matter root is not
+   * a row, so it carries a key of its own.
+   *
+   * WHAT A DROP DOES is `moveRows`, the same path the clipboard's paste and the rail's own move
+   * already take: the same write, the same refusal, and the same step on the undo stack. A move
+   * made by pointer is the same change as a move made by menu, and undo must not be able to tell
+   * them apart.
+   *
+   * KEYBOARD PARITY. Nothing here is the only way to move a file. Cut (Ctrl X) and Paste (Ctrl V)
+   * are on every right-click menu with their shortcuts and are answered by this window's own key
+   * handler, and the rail's menu pastes into a folder — so every move a drag makes can be made
+   * without a pointer. A drag is the fast way, never the only way, and a separate "move to folder"
+   * picker would be a third answer to a question the surface has already settled twice.
+   */
+  function movableKeys(keys: readonly string[], targetKey: string): readonly string[] {
+    return landableKeys(index, keys, targetKey, findRowAnywhere);
+  }
+
+  const itemDrag = createItemDrag({
+    // Dragging one row of a selection carries the whole selection; dragging a row outside it
+    // carries that row alone, and leaves the selection where the reader put it.
+    keysFor: (key) => {
+      // A row this surface cannot place — a deleted file, a changelog entry, a row inside an
+      // archive — is not a thing that moves, so the gesture never starts on one.
+      if (findRowAnywhere(key) === null) return [];
+      return manager.selectedKeys.includes(key) ? [...manager.selectedKeys] : [key];
+    },
+    describe: dragDescription,
+    // At least one of them has somewhere to go. Refusing the whole gesture because ONE row of a
+    // selection already sits in the destination would make a mixed selection undraggable.
+    accepts: (keys, targetKey) => movableKeys(keys, targetKey).length > 0,
+    onDrop: (keys, targetKey) => {
+      const destination = destinationFolderIdOf(targetKey);
+      const moving = movableKeys(keys, targetKey);
+      if (destination === undefined || moving.length === 0) return;
+      void moveRows(moving, destination, moveLabel(moving.length, index.pathText(destination)));
+    },
+  });
+
+  /*
+   * The list's rows are the shared table's, which stamps `data-grid-row` on each and puts no
+   * `draggable` there — so the drag reads its rows through that attribute and lifts the row under
+   * the press for the duration of it. The icon grid's tiles carry the same attribute because they
+   * stand for the same rows: one resolver then serves both layouts, and switching between them
+   * changes how a row is drawn rather than whether it can be dragged.
+   */
+  const gridDragRegion = {
+    sourceAt: (element: HTMLElement): ItemDragAnchor | null => {
+      const row = element.closest<HTMLElement>("[data-grid-row]");
+      const key = row?.getAttribute("data-grid-row") ?? null;
+      return row === null || key === null ? null : { key, element: row };
+    },
+    targetAt: (element: HTMLElement): ItemDragAnchor | null => {
+      const row = element.closest<HTMLElement>("[data-grid-row]");
+      const key = row?.getAttribute("data-grid-row") ?? null;
+      return row === null || key === null ? null : { key, element: row };
+    },
+  };
 
   // --- the footer's tally ---------------------------------------------------------------------------
 
@@ -1717,6 +1948,15 @@
       </div>
     {/if}
 
+    {#if actionNotice !== null}
+      <div class="px-16 pt-12">
+        <Alert.Root variant="info">
+          <Alert.Title>Undo Does Not Reach That</Alert.Title>
+          <Alert.Description>{actionNotice}</Alert.Description>
+        </Alert.Root>
+      </div>
+    {/if}
+
     <!-- The pane group GROWS rather than asking for 100%: every height above it comes from
          flex-grow over a min-height container, which percentage resolution treats as indefinite. -->
     <div class="flex min-h-0 flex-1 flex-col">
@@ -1756,12 +1996,8 @@
                 : "This view has no current folder to make one in."}
               onNewFolder={() => void makeFolder()}
               onSelectView={(viewId) => manager.openView(viewId as FileManagerView)}
-              onMoveFolder={(move) =>
-                void moveRows(
-                  [folderKey(move.folderId)],
-                  move.destinationFolderId,
-                  `moving a folder to ${index.pathText(move.destinationFolderId)}`,
-                )}
+              drag={itemDrag}
+              dragKeyOf={dropKeyOfFolder}
               onChangeColor={({ folderId, color }) => {
                 folderAppearance = { ...folderAppearance, [folderId]: { ...folderAppearance[folderId], color } };
               }}
@@ -1802,7 +2038,13 @@
               });
             }}
           >
-            <FileManagerToolbar {manager} {trail} viewTitle={VIEW_TITLES[manager.view]} />
+            <FileManagerToolbar
+              {manager}
+              {trail}
+              viewTitle={VIEW_TITLES[manager.view]}
+              drag={itemDrag}
+              dropKeyOf={dropKeyOfFolder}
+            />
 
             {#if archiveBrowse !== null}
               <!-- Inside a zip, the archive stands in for the LIST and only the list: the toolbar
@@ -1941,6 +2183,7 @@
                   }
                   retarget(event, row);
                 }}
+                {...itemDrag.handlers(gridDragRegion)}
               >
                 {#if manager.view === "deleted"}
                   <div class="flex min-h-0 flex-1 flex-col">
@@ -2070,9 +2313,7 @@
               folderAggregateOf={(folderId) => folderAggregate(index, folderId, safetyKeyOf)}
               bind:tab={manager.inspectorTab}
               onClose={togglePanel}
-              onRename={() => {
-                if (inspectedRow !== null) beginRename(inspectedRow);
-              }}
+              onRenameCommit={renameInspectedTo}
               onPickDocumentType={(documentTypeId) => {
                 if (inspectedRow !== null) void applyDocumentTypeTo([inspectedRow], documentTypeId);
               }}
@@ -2329,7 +2570,7 @@
     <ContextMenu.Item onSelect={() => manager.openFolder(row.folder.id)}>Open</ContextMenu.Item>
     <ContextMenu.Item onSelect={() => download([row])}>Download</ContextMenu.Item>
     <ContextMenu.Separator />
-    <ContextMenu.Item onSelect={() => manager.setPinned([row.key], !manager.isPinned(row.key))}>
+    <ContextMenu.Item onSelect={() => setPinnedWithStep([row.key], !manager.isPinned(row.key))}>
       {manager.isPinned(row.key) ? "Unpin" : "Pin to Top"}
     </ContextMenu.Item>
     <ContextMenu.Item onSelect={() => renameFromRail(row)}>Rename</ContextMenu.Item>
@@ -2401,9 +2642,17 @@
       {#if manager.renamingKey === row.key}
         <!-- The extension is never selected, and never shown while extensions are hidden: the
              field simply does not contain what must not be edited by accident. -->
-        <span class="flex min-w-0 flex-col gap-4">
+        <!-- The field fits the row it opens in: a grid cell is exactly one control tall and spends
+             four pixels of that on block padding each side, so a control asking for the FULL
+             control height cannot fit inside one and pushes the row taller. `min-h-0` gives up the
+             control's own minimum and `grow` takes the cell's content box instead, so opening a
+             rename moves nothing. A refusal is the one case that legitimately grows the row: the
+             reason has to be readable, and it sits beneath the field. -->
+        <span class="flex h-full min-w-0 flex-col gap-4">
           <Input
+            bind:ref={renameField}
             size="sm"
+            class="min-h-0 grow"
             bind:value={renameDraft}
             aria-label="New name"
             aria-invalid={renameConflict !== null}
