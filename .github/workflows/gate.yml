@@ -338,6 +338,12 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+        with:
+          # The whole history, for `lint:migration-immutability` alone: it asks what has DEPLOYED,
+          # which here means what is on `main`, and a shallow checkout has no `origin/main` to read.
+          # That check fails rather than skips when CI is set, so the fetch is not optional — a gate
+          # that quietly passes because it could not find its own input is worse than no gate.
+          fetch-depth: 0
       - uses: ./.github/actions/setup
       - name: Dependency audit (high+)
         # osv-scanner audits BOTH supply chains — the npm lockfile and every Rust Cargo.lock — against the

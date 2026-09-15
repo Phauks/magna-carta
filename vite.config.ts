@@ -163,6 +163,7 @@ export default defineConfig({
       "tooling/lint-test-collection/vitest.config.ts",
       "tooling/migration-bundles/vitest.config.ts",
       "tooling/migration-integrity/vitest.config.ts",
+      "tooling/migration-immutability/vitest.config.ts",
       "tooling/resolve-journal/vitest.config.ts",
       "tooling/retire-note/vitest.config.ts",
       "tooling/worktrees/vitest.config.ts",
