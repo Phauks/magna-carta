@@ -74,7 +74,20 @@
   import { record } from "$lib/diagnostics/breadcrumbs.ts";
   import type { Snippet } from "svelte";
 
-  let { children }: { children: Snippet } = $props();
+  let {
+    children,
+    navigation = true,
+  }: {
+    children: Snippet;
+    /**
+     * Whether the destination rail is part of this shell. A signed-in SURFACE is a place in the
+     * firm's work and carries it; a document opened in its own tab is not — it is one document, for
+     * as long as it is open, and a rail of somewhere-else beside it offers to navigate away from
+     * the only thing the tab is for. The top bar stays either way: search, the trays and the
+     * profile are about the session rather than about where you are.
+     */
+    navigation?: boolean;
+  } = $props();
 
   // The work canvas — the shell's only scroll region. SvelteKit resets scroll by moving the
   // WINDOW, which never scrolls here, so without this the canvas keeps the previous page's offset.
@@ -222,239 +235,241 @@
 <svelte:window onkeydown={onKeydown} />
 
 <div class="flex h-screen overflow-hidden bg-surface-default">
-  <Sidebar.Root
-    bind:collapsed
-    bind:peeking
-    editing={customizing}
-    expandOnHover={hoverExpand}
-    aria-label="Primary"
-  >
-    <Sidebar.Header>
-      <!-- The universal convention: the mark goes home. Chrome identity, not a menu row, so
-           the treatment stays quiet — the pointer cursor and focus ring say "link", nothing
-           louder. The collapsed rail keeps the mark alone clickable (the wordmark hides by
-           color inside BrandMark; the anchor's box remains). -->
-      <a href="/home" aria-label="Magna Carta — Home" class="rounded-md">
-        <BrandMark />
-      </a>
-    </Sidebar.Header>
-    <Sidebar.Content>
-      {#if customizing}
-        {#each editingGroups as group (group.id)}
-          <Sidebar.Group>
-            <Sidebar.GroupLabel>{group.label}</Sidebar.GroupLabel>
-            <Sidebar.Menu>
-              <!-- Tier one: what is in your sidebar now — draggable to reorder, with a live
-                   reflow preview (the other rows shift to open the gap at the projected drop).
-                   Pinned rows show a lock; the rest a filled gold star that removes them. -->
-              {#each group.starred as destination (destination.id)}
-                {@const Icon = destination.icon}
-                {@const dragging = drag.draggingId === destination.id}
-                {@const shift = dragging ? drag.offsetY : drag.rowShift(destination.id)}
-                <Sidebar.MenuItem>
-                  <div
-                    class="mc-sidebar-edit-row flex items-center gap-8 rounded-md {dragging
-                      ? 'relative z-sticky bg-chrome-surface shadow-elevation-2'
-                      : 'transition-transform duration-fast ease-standard motion-reduce:transition-none'}"
-                    style="transform: translateY({shift}px)"
-                  >
-                    <Sidebar.MenuButton
-                      class="touch-none select-none {destination.id === 'home'
-                        ? 'cursor-not-allowed'
-                        : 'cursor-grab'}"
-                      aria-roledescription="Reorderable sidebar destination"
-                      aria-label="{destination.label} — Alt plus Arrow Up or Arrow Down moves it"
-                      aria-disabled={destination.id === "home" ? "true" : undefined}
-                      data-arrived={isNewArrival(destination.id) ? "true" : undefined}
-                      onpointerdown={(event) => beginDrag(event, group, destination)}
-                      onkeydown={(event) => onEditKeydown(event, group, destination)}
+  {#if navigation}
+    <Sidebar.Root
+      bind:collapsed
+      bind:peeking
+      editing={customizing}
+      expandOnHover={hoverExpand}
+      aria-label="Primary"
+    >
+      <Sidebar.Header>
+        <!-- The universal convention: the mark goes home. Chrome identity, not a menu row, so
+             the treatment stays quiet — the pointer cursor and focus ring say "link", nothing
+             louder. The collapsed rail keeps the mark alone clickable (the wordmark hides by
+             color inside BrandMark; the anchor's box remains). -->
+        <a href="/home" aria-label="Magna Carta — Home" class="rounded-md">
+          <BrandMark />
+        </a>
+      </Sidebar.Header>
+      <Sidebar.Content>
+        {#if customizing}
+          {#each editingGroups as group (group.id)}
+            <Sidebar.Group>
+              <Sidebar.GroupLabel>{group.label}</Sidebar.GroupLabel>
+              <Sidebar.Menu>
+                <!-- Tier one: what is in your sidebar now — draggable to reorder, with a live
+                     reflow preview (the other rows shift to open the gap at the projected drop).
+                     Pinned rows show a lock; the rest a filled gold star that removes them. -->
+                {#each group.starred as destination (destination.id)}
+                  {@const Icon = destination.icon}
+                  {@const dragging = drag.draggingId === destination.id}
+                  {@const shift = dragging ? drag.offsetY : drag.rowShift(destination.id)}
+                  <Sidebar.MenuItem>
+                    <div
+                      class="mc-sidebar-edit-row flex items-center gap-8 rounded-md {dragging
+                        ? 'relative z-sticky bg-chrome-surface shadow-elevation-2'
+                        : 'transition-transform duration-fast ease-standard motion-reduce:transition-none'}"
+                      style="transform: translateY({shift}px)"
                     >
-                      {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
-                      {destination.label}
-                      <MaturityBadge stage={destinationStage(destination)} class="ms-8" />
-                    </Sidebar.MenuButton>
-                    {#if destination.pinned === true}
-                      <span
-                        class="mc-sidebar-row-control"
-                        data-locked="true"
-                        title="Always in your sidebar"
+                      <Sidebar.MenuButton
+                        class="touch-none select-none {destination.id === 'home'
+                          ? 'cursor-not-allowed'
+                          : 'cursor-grab'}"
+                        aria-roledescription="Reorderable sidebar destination"
+                        aria-label="{destination.label} — Alt plus Arrow Up or Arrow Down moves it"
+                        aria-disabled={destination.id === "home" ? "true" : undefined}
+                        data-arrived={isNewArrival(destination.id) ? "true" : undefined}
+                        onpointerdown={(event) => beginDrag(event, group, destination)}
+                        onkeydown={(event) => onEditKeydown(event, group, destination)}
                       >
-                        <Lock class="size-16" aria-hidden="true" />
-                        <span class="sr-only">{destination.label} is always in your sidebar</span>
-                      </span>
-                    {:else}
+                        {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
+                        {destination.label}
+                        <MaturityBadge stage={destinationStage(destination)} class="ms-8" />
+                      </Sidebar.MenuButton>
+                      {#if destination.pinned === true}
+                        <span
+                          class="mc-sidebar-row-control"
+                          data-locked="true"
+                          title="Always in your sidebar"
+                        >
+                          <Lock class="size-16" aria-hidden="true" />
+                          <span class="sr-only">{destination.label} is always in your sidebar</span>
+                        </span>
+                      {:else}
+                        <button
+                          type="button"
+                          class="mc-sidebar-row-control"
+                          data-starred="true"
+                          aria-pressed="true"
+                          aria-label="Remove {destination.label} from your sidebar"
+                          onclick={() => setStarred(destination.id, false)}
+                        >
+                          <Star class="size-16 fill-current" aria-hidden="true" />
+                        </button>
+                      {/if}
+                    </div>
+                  </Sidebar.MenuItem>
+                {/each}
+                {#if group.starred.length > 0 && group.unstarred.length > 0}
+                  <li class="mc-sidebar-edit-divider" role="presentation"></li>
+                {/if}
+                <!-- Tier two: hidden destinations — a click (row or hollow star) adds them back,
+                     where they rise to the starred tier at their canonical position. -->
+                {#each group.unstarred as destination (destination.id)}
+                  {@const Icon = destination.icon}
+                  <Sidebar.MenuItem>
+                    <div class="mc-sidebar-edit-row flex items-center gap-8 rounded-md">
+                      <Sidebar.MenuButton
+                        class="cursor-pointer"
+                        aria-label="Add {destination.label} to your sidebar"
+                        onclick={() => setStarred(destination.id, true)}
+                      >
+                        {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
+                        {destination.label}
+                        <MaturityBadge stage={destinationStage(destination)} class="ms-8" />
+                      </Sidebar.MenuButton>
                       <button
                         type="button"
                         class="mc-sidebar-row-control"
-                        data-starred="true"
-                        aria-pressed="true"
-                        aria-label="Remove {destination.label} from your sidebar"
-                        onclick={() => setStarred(destination.id, false)}
+                        data-starred="false"
+                        aria-pressed="false"
+                        aria-label="Add {destination.label} to your sidebar"
+                        onclick={() => setStarred(destination.id, true)}
                       >
-                        <Star class="size-16 fill-current" aria-hidden="true" />
+                        <Star class="size-16" aria-hidden="true" />
                       </button>
-                    {/if}
-                  </div>
-                </Sidebar.MenuItem>
-              {/each}
-              {#if group.starred.length > 0 && group.unstarred.length > 0}
-                <li class="mc-sidebar-edit-divider" role="presentation"></li>
-              {/if}
-              <!-- Tier two: hidden destinations — a click (row or hollow star) adds them back,
-                   where they rise to the starred tier at their canonical position. -->
-              {#each group.unstarred as destination (destination.id)}
-                {@const Icon = destination.icon}
-                <Sidebar.MenuItem>
-                  <div class="mc-sidebar-edit-row flex items-center gap-8 rounded-md">
-                    <Sidebar.MenuButton
-                      class="cursor-pointer"
-                      aria-label="Add {destination.label} to your sidebar"
-                      onclick={() => setStarred(destination.id, true)}
-                    >
-                      {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
-                      {destination.label}
-                      <MaturityBadge stage={destinationStage(destination)} class="ms-8" />
-                    </Sidebar.MenuButton>
-                    <button
-                      type="button"
-                      class="mc-sidebar-row-control"
-                      data-starred="false"
-                      aria-pressed="false"
-                      aria-label="Add {destination.label} to your sidebar"
-                      onclick={() => setStarred(destination.id, true)}
-                    >
-                      <Star class="size-16" aria-hidden="true" />
-                    </button>
-                  </div>
-                </Sidebar.MenuItem>
-              {/each}
-            </Sidebar.Menu>
-          </Sidebar.Group>
-        {/each}
-      {:else}
-        {#each groups as group (group.id)}
-          <Sidebar.Group>
-            <Sidebar.GroupLabel>{group.label}</Sidebar.GroupLabel>
-            <Sidebar.Menu>
-              {#each group.destinations as destination (destination.id)}
-                {@const Icon = destination.icon}
-                {@const current = isCurrentDestination(destination, page.url.pathname)}
-                <Sidebar.MenuItem>
-                  {#if destination.shipped}
-                    <Sidebar.MenuButton
-                      href={destination.href}
-                      tooltip={destination.label}
-                      isActive={current}
-                      class="relative"
-                      aria-current={current ? "page" : undefined}
-                      data-arrived={isNewArrival(destination.id) ? "true" : undefined}
-                    >
-                      {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
-                      {destination.label}
-                      <!-- Expanded: the labelled badge. Collapsed icon rail: the badge's label is
-                           hidden, so a dot of the same colour carries the stage over the icon. -->
-                      <MaturityBadge stage={destinationStage(destination)} class="ms-8" />
-                      {#if collapsed && !peeking}
-                        <MaturityDot
-                          stage={destinationStage(destination)}
-                          class="absolute end-4 top-4"
-                        />
-                      {/if}
-                    </Sidebar.MenuButton>
-                  {:else}
-                    <!-- An announced Soon row: no destination yet, so no href and disabled —
-                         honest about not existing. The badge rides the label (both hide in the
-                         collapsed rail, where the tooltip carries the truth instead and the
-                         un-navigable muted icon is the Soon treatment). -->
-                    <Sidebar.MenuButton
-                      disabled
-                      tooltip="{destination.label} — coming soon"
-                      class="relative cursor-default"
-                      data-arrived={isNewArrival(destination.id) ? "true" : undefined}
-                    >
-                      {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
-                      {destination.label}
-                      <MaturityBadge stage={destinationStage(destination)} class="ms-8" />
-                      {#if collapsed && !peeking}
-                        <MaturityDot
-                          stage={destinationStage(destination)}
-                          class="absolute end-4 top-4"
-                        />
-                      {/if}
-                    </Sidebar.MenuButton>
-                  {/if}
-                </Sidebar.MenuItem>
-              {/each}
-            </Sidebar.Menu>
-          </Sidebar.Group>
-        {/each}
-      {/if}
-    </Sidebar.Content>
-    <Sidebar.Footer>
-      <!-- Keyboard reorders narrate here (polite: never steals focus from the row). -->
-      <span class="sr-only" role="status">{moveAnnouncement}</span>
-      <!-- The utility tray, in two ends (owner-directed). The rail's own controls lead:
-           Settings first — a real link, so it stays the one visible icon when the rail
-           collapses — then Customize. The two transfer registers lean to the far end, away
-           from the controls, because they are the things in this row you navigate to. -->
-      <div class="mc-sidebar-controls">
-        <a
-          href={footerLeading.href}
-          class="mc-sidebar-control-button relative"
-          title={footerLeading.label}
-          aria-label={footerLeading.label}
-          aria-current={isCurrentDestination(footerLeading, page.url.pathname) ? "page" : undefined}
-          data-active={isCurrentDestination(footerLeading, page.url.pathname) ? "true" : undefined}
-        >
-          <LeadingIcon class="mc-sidebar-icon" aria-hidden="true" />
-          <MaturityDot stage={destinationStage(footerLeading)} class="absolute end-4 top-4" />
-        </a>
-        <Tooltip.Root>
-          <Tooltip.Trigger
-            class="mc-sidebar-control-button relative"
-            aria-pressed={customizing}
-            aria-label={customizing ? "Done customizing sidebar" : "Customize sidebar"}
-            onclick={toggleCustomize}
-          >
-            {#if customizing}
-              <Check class="mc-sidebar-icon" aria-hidden="true" />
-            {:else}
-              <SlidersHorizontal class="mc-sidebar-icon" aria-hidden="true" />
-            {/if}
-            <!-- The adjustment cluster is itself still maturing; a dot marks it where a label
-                 won't fit. -->
-            <MaturityDot stage="alpha" class="absolute end-4 top-4" />
-          </Tooltip.Trigger>
-          <Tooltip.Content side="top">{customizing ? "Done" : "Customize"}</Tooltip.Content>
-        </Tooltip.Root>
-        <!-- One element, so the collapsed rail's "everything past the first icon goes" rule
-             takes the pair away and brings it back whole. -->
-        <div class="mc-sidebar-controls-trailing">
-          {#each footerTrailing as destination (destination.id)}
-            {@const Icon = destination.icon}
-            {@const active = isCurrentDestination(destination, page.url.pathname)}
-            <a
-              href={destination.href}
-              class="mc-sidebar-control-button relative"
-              title={destination.label}
-              aria-label={destination.label}
-              aria-current={active ? "page" : undefined}
-              data-active={active ? "true" : undefined}
-            >
-              <Icon class="mc-sidebar-icon" aria-hidden="true" />
-              <MaturityDot stage={destinationStage(destination)} class="absolute end-4 top-4" />
-            </a>
+                    </div>
+                  </Sidebar.MenuItem>
+                {/each}
+              </Sidebar.Menu>
+            </Sidebar.Group>
           {/each}
+        {:else}
+          {#each groups as group (group.id)}
+            <Sidebar.Group>
+              <Sidebar.GroupLabel>{group.label}</Sidebar.GroupLabel>
+              <Sidebar.Menu>
+                {#each group.destinations as destination (destination.id)}
+                  {@const Icon = destination.icon}
+                  {@const current = isCurrentDestination(destination, page.url.pathname)}
+                  <Sidebar.MenuItem>
+                    {#if destination.shipped}
+                      <Sidebar.MenuButton
+                        href={destination.href}
+                        tooltip={destination.label}
+                        isActive={current}
+                        class="relative"
+                        aria-current={current ? "page" : undefined}
+                        data-arrived={isNewArrival(destination.id) ? "true" : undefined}
+                      >
+                        {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
+                        {destination.label}
+                        <!-- Expanded: the labelled badge. Collapsed icon rail: the badge's label is
+                             hidden, so a dot of the same colour carries the stage over the icon. -->
+                        <MaturityBadge stage={destinationStage(destination)} class="ms-8" />
+                        {#if collapsed && !peeking}
+                          <MaturityDot
+                            stage={destinationStage(destination)}
+                            class="absolute end-4 top-4"
+                          />
+                        {/if}
+                      </Sidebar.MenuButton>
+                    {:else}
+                      <!-- An announced Soon row: no destination yet, so no href and disabled —
+                           honest about not existing. The badge rides the label (both hide in the
+                           collapsed rail, where the tooltip carries the truth instead and the
+                           un-navigable muted icon is the Soon treatment). -->
+                      <Sidebar.MenuButton
+                        disabled
+                        tooltip="{destination.label} — coming soon"
+                        class="relative cursor-default"
+                        data-arrived={isNewArrival(destination.id) ? "true" : undefined}
+                      >
+                        {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
+                        {destination.label}
+                        <MaturityBadge stage={destinationStage(destination)} class="ms-8" />
+                        {#if collapsed && !peeking}
+                          <MaturityDot
+                            stage={destinationStage(destination)}
+                            class="absolute end-4 top-4"
+                          />
+                        {/if}
+                      </Sidebar.MenuButton>
+                    {/if}
+                  </Sidebar.MenuItem>
+                {/each}
+              </Sidebar.Menu>
+            </Sidebar.Group>
+          {/each}
+        {/if}
+      </Sidebar.Content>
+      <Sidebar.Footer>
+        <!-- Keyboard reorders narrate here (polite: never steals focus from the row). -->
+        <span class="sr-only" role="status">{moveAnnouncement}</span>
+        <!-- The utility tray, in two ends (owner-directed). The rail's own controls lead:
+             Settings first — a real link, so it stays the one visible icon when the rail
+             collapses — then Customize. The two transfer registers lean to the far end, away
+             from the controls, because they are the things in this row you navigate to. -->
+        <div class="mc-sidebar-controls">
+          <a
+            href={footerLeading.href}
+            class="mc-sidebar-control-button relative"
+            title={footerLeading.label}
+            aria-label={footerLeading.label}
+            aria-current={isCurrentDestination(footerLeading, page.url.pathname) ? "page" : undefined}
+            data-active={isCurrentDestination(footerLeading, page.url.pathname) ? "true" : undefined}
+          >
+            <LeadingIcon class="mc-sidebar-icon" aria-hidden="true" />
+            <MaturityDot stage={destinationStage(footerLeading)} class="absolute end-4 top-4" />
+          </a>
+          <Tooltip.Root>
+            <Tooltip.Trigger
+              class="mc-sidebar-control-button relative"
+              aria-pressed={customizing}
+              aria-label={customizing ? "Done customizing sidebar" : "Customize sidebar"}
+              onclick={toggleCustomize}
+            >
+              {#if customizing}
+                <Check class="mc-sidebar-icon" aria-hidden="true" />
+              {:else}
+                <SlidersHorizontal class="mc-sidebar-icon" aria-hidden="true" />
+              {/if}
+              <!-- The adjustment cluster is itself still maturing; a dot marks it where a label
+                   won't fit. -->
+              <MaturityDot stage="alpha" class="absolute end-4 top-4" />
+            </Tooltip.Trigger>
+            <Tooltip.Content side="top">{customizing ? "Done" : "Customize"}</Tooltip.Content>
+          </Tooltip.Root>
+          <!-- One element, so the collapsed rail's "everything past the first icon goes" rule
+               takes the pair away and brings it back whole. -->
+          <div class="mc-sidebar-controls-trailing">
+            {#each footerTrailing as destination (destination.id)}
+              {@const Icon = destination.icon}
+              {@const active = isCurrentDestination(destination, page.url.pathname)}
+              <a
+                href={destination.href}
+                class="mc-sidebar-control-button relative"
+                title={destination.label}
+                aria-label={destination.label}
+                aria-current={active ? "page" : undefined}
+                data-active={active ? "true" : undefined}
+              >
+                <Icon class="mc-sidebar-icon" aria-hidden="true" />
+                <MaturityDot stage={destinationStage(destination)} class="absolute end-4 top-4" />
+              </a>
+            {/each}
+          </div>
         </div>
-      </div>
-      <!-- Collapse is a primary behaviour, so it keeps a large, full-width labelled control at
-           the foot of the rail. When "expand on hover" governs the rail it is redundant (hover
-           opens, leaving collapses) and hides. -->
-      {#if !hoverExpand}
-        <Sidebar.Trigger />
-      {/if}
-    </Sidebar.Footer>
-  </Sidebar.Root>
+        <!-- Collapse is a primary behaviour, so it keeps a large, full-width labelled control at
+             the foot of the rail. When "expand on hover" governs the rail it is redundant (hover
+             opens, leaving collapses) and hides. -->
+        {#if !hoverExpand}
+          <Sidebar.Trigger />
+        {/if}
+      </Sidebar.Footer>
+    </Sidebar.Root>
+  {/if}
 
   <!-- Named so the work canvas resizes as its own view-transition group when the rail
        collapses. It paints the CHROME surface, continuous with the top bar above it and the

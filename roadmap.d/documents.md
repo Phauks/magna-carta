@@ -276,7 +276,7 @@
   scope: In-app surface that opens a document in the Collabora frame, and the in-app plain-text editor beside it.
   status: partial
   surface: screen
-  evidence: apps/web/src/routes/(app)/documents/[id]/edit + apps/web/src/lib/documents/office-document-editor.svelte (the WOPI token form-posted into the frame) and text-document-editor.svelte; the file manager's Open opens it in a new tab.
+  evidence: apps/web/src/routes/(document)/documents/[id]/edit + apps/web/src/lib/documents/office-document-editor.svelte (the WOPI token form-posted into the frame) and text-document-editor.svelte; the file manager's Open opens it in a new tab.
   notes: The office frame fills only where magna-carta-edit is deployed; the text editor saves a new version everywhere. Spreadsheets and presentations still open their preview.
 
 - id: documents.editing.native-editor
@@ -551,7 +551,7 @@
   slices: pdf-render-engine
   adrs: ADR-0127
   spec: docs/specs/2026-06-21-pdf-slice-1-core-render-design.md
-  evidence: pdf-render-engine fragment lists render built; crates/pdf-eval evaluation harness in the workspace. Reached by a person as of the document reader at apps/web/src/routes/(app)/documents/[id]/view, which draws every page through this renderer.
+  evidence: pdf-render-engine fragment lists render built; crates/pdf-eval evaluation harness in the workspace. Reached by a person as of the document reader at apps/web/src/routes/(document)/documents/[id]/view, which draws every page through this renderer.
 
 - id: documents.pdf.redaction
   name: True redaction (rasterize route)

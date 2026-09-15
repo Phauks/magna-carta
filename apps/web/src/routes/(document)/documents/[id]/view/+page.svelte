@@ -1,8 +1,8 @@
 <script lang="ts">
   /*
-   * One document, open for reading. A working surface like the file manager: the header names the
-   * document and the way back to the matter's files, and the reader takes the rest of the viewport
-   * and keeps it.
+   * One document, open for reading — the shell every opened file wears
+   * ($lib/documents/document-shell.svelte), with the page reader as its interior. The shell names
+   * the document and carries the way back to the matter's files; everything here is the reader.
    *
    * NOTHING HERE CHANGES THE DOCUMENT. The pages are pixels drawn by the firm's own engine off the
    * main thread ($lib/documents/pdf-pages.ts explains why the file is never handed to the browser
@@ -16,7 +16,6 @@
    * before a single page has been rasterized.
    */
   import { onMount } from "svelte";
-  import { invalidateAll } from "$app/navigation";
   import ZoomIn from "@lucide/svelte/icons/zoom-in";
   import ZoomOut from "@lucide/svelte/icons/zoom-out";
   import KeyRound from "@lucide/svelte/icons/key-round";
@@ -24,18 +23,14 @@
   import type { AlertVariant } from "@magna-carta/design-system/alert";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
+  import DocumentShell from "$lib/documents/document-shell.svelte";
   import Label from "@magna-carta/design-system/label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import PasswordInput from "@magna-carta/design-system/password-input";
-  import * as Masthead from "@magna-carta/design-system/masthead";
-  import FullHeightSection from "$lib/components/full-height-section.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { readDocumentBytes } from "$lib/documents/document-bytes.ts";
-  import {
-    formatDocumentSize,
-    formatDocumentTimestamp,
-  } from "$lib/documents/document-presentation.ts";
+  import { formatDocumentSize } from "$lib/documents/document-presentation.ts";
   import {
     PDF_VIEWER_MAX_BYTES,
     PdfDocumentSource,
@@ -48,16 +43,11 @@
   } from "$lib/documents/pdf-pages.ts";
   import { fileDownloadUrl } from "$lib/file-manager/matter-file-api.ts";
   import { opensBeside } from "$lib/navigation/open-beside.ts";
-  import ScreenHeader from "$lib/screen/screen-header.svelte";
-  import { matterFilesBack } from "$lib/screen/screen-header.ts";
   import type { DocumentViewPageData } from "./+page.ts";
 
   let { data }: { data: DocumentViewPageData } = $props();
 
   const file = $derived(data.file ?? null);
-  const filesBack = $derived(
-    file === null ? null : matterFilesBack(file.matterId, data.matter?.title ?? "Files", file.id),
-  );
 
   /** The sizes a reader steps through. Fixed stops, so the two controls are the whole vocabulary. */
   const ZOOM_FACTORS: readonly number[] = [0.5, 0.75, 1, 1.25, 1.5, 2, 3];
@@ -443,10 +433,6 @@
   }
 </script>
 
-<svelte:head>
-  <title>{file === null ? "Document" : file.name} · Magna Carta</title>
-</svelte:head>
-
 {#snippet downloadAction(fileId: string)}
   <Button
     variant="secondary"
@@ -459,199 +445,184 @@
   </Button>
 {/snippet}
 
-{#if data.failure !== undefined}
-  <ScreenHeader title="Document" class="mb-24" />
-  <FailureNotice
-    failure={data.failure}
-    subject="The document"
-    fallback="The document could not be read."
-    whenSilent="Nothing answered when the document was read."
-    onRetry={() => void invalidateAll()}
-  />
-{:else if file !== null && filesBack !== null}
-  <!-- The matter chrome's own arrangement: a full-height flex column, so the reader below can take
-       exactly the remaining viewport height. The header is flex-none so it never gives way. -->
-  <div class="flex min-h-full flex-col">
-    <ScreenHeader title={file.name} back={filesBack} class="mb-24 flex-none">
-      {#snippet meta()}
-        <span>Version {file.versionNumber}</span>
-        <Masthead.MetaSeparator />
-        <span>{formatDocumentSize(file.sizeBytes)}</span>
-        <Masthead.MetaSeparator />
-        <span>{formatDocumentTimestamp(file.updatedAt)}</span>
-      {/snippet}
-    </ScreenHeader>
+<DocumentShell {file} matter={data.matter} failure={data.failure}>
+  {#if file === null}
+    <!-- Unreachable in practice: the load either resolves the file, returns a failure the shell
+         states, or throws 404. Stated rather than left blank, because "the shell always draws" is
+         only true if every branch through it draws something. -->
+    <div class="p-24">
+      <Alert.Root variant="info">
+        <Alert.Title>This Document Is Not Available</Alert.Title>
+        <Alert.Description>Nothing was returned for this address.</Alert.Description>
+      </Alert.Root>
+    </div>
+  {:else}
+  {#if refusal !== null}
+    <div class="p-24">
+      <Alert.Root variant={refusal.variant}>
+        <Alert.Title>{refusal.title}</Alert.Title>
+        <Alert.Description>{refusal.description}</Alert.Description>
+        {@render downloadAction(file.id)}
+      </Alert.Root>
+    </div>
+  {:else if locked !== null}
+    <div class="flex max-w-md flex-col gap-16 p-24">
+      <Alert.Root variant={locked.wrongPassword ? "danger" : "info"}>
+        <Alert.Title>
+          {locked.wrongPassword ? "Wrong Password" : "This Document Is Password Protected"}
+        </Alert.Title>
+        <Alert.Description>
+          {locked.wrongPassword
+            ? "That password did not open the document. Try again."
+            : "Enter the password to read it. The password is checked in this browser and never leaves it."}
+        </Alert.Description>
+      </Alert.Root>
+      <div class="flex flex-col gap-4">
+        <Label for="document-unlock-password">Password</Label>
+        <PasswordInput
+          id="document-unlock-password"
+          bind:value={unlockPassword}
+          autocomplete="off"
+          disabled={unlocking}
+          onkeydown={(event) => {
+            if (event.key === "Enter") void handleUnlock();
+          }}
+        />
+      </div>
+      <div class="flex items-center gap-8">
+        <Button
+          variant="primary"
+          size="sm"
+          disabled={unlockPassword === "" || unlocking}
+          onclick={handleUnlock}
+        >
+          <KeyRound class="size-16" aria-hidden="true" />
+          {unlocking ? "Unlocking" : "Unlock"}
+        </Button>
+        {@render downloadAction(file.id)}
+      </div>
+      <p class="text-sm text-text-muted">
+        Don't have the password? <a
+          class="underline"
+          href="/tools/file-workbench?capability=unlock"
+          {...opensBeside("session")}>Try Password Recovery</a
+        > in a new tab — download the document there first, since the recovery tool works on its
+        own copy of a file.
+      </p>
+    </div>
+  {:else}
+    <!-- The strip sits flush under the header, one row: where the reader is at its inline
+         start, the size and the download at its inline end. -->
+    <div class="flex flex-none items-center gap-12 border-b border-border-default px-8 py-4">
+      <span class="text-sm text-text-muted">{position}</span>
+      <span class="ms-auto flex items-center gap-4">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          disabled={atSmallest || nothingToSize}
+          title={smallerTitle}
+          aria-label="Show the pages smaller"
+          onclick={() => stepZoom(-1)}
+        >
+          <ZoomOut class="size-16" aria-hidden="true" />
+        </Button>
+        <span
+          class="w-48 text-center text-xs tabular-nums text-text-muted"
+          role="status"
+          aria-live="polite"
+        >
+          {Math.round(zoom * 100)}%
+        </span>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          disabled={atLargest || nothingToSize}
+          title={largerTitle}
+          aria-label="Show the pages larger"
+          onclick={() => stepZoom(1)}
+        >
+          <ZoomIn class="size-16" aria-hidden="true" />
+        </Button>
+      </span>
+      <Button
+        variant="secondary"
+        size="sm"
+        href={fileDownloadUrl(file.id)}
+        {...opensBeside("file")}
+      >
+        Download
+      </Button>
+    </div>
 
-    <!-- Edge to edge: the horizontal margins cancel the work canvas's padding, so the reader runs
-         to the canvas's edges like the file manager's list does. -->
-    <FullHeightSection class="-mx-24">
-      {#if refusal !== null}
-        <div class="p-24">
-          <Alert.Root variant={refusal.variant}>
-            <Alert.Title>{refusal.title}</Alert.Title>
-            <Alert.Description>{refusal.description}</Alert.Description>
-            {@render downloadAction(file.id)}
-          </Alert.Root>
-        </div>
-      {:else if locked !== null}
-        <div class="flex max-w-md flex-col gap-16 p-24">
-          <Alert.Root variant={locked.wrongPassword ? "danger" : "info"}>
-            <Alert.Title>
-              {locked.wrongPassword ? "Wrong Password" : "This Document Is Password Protected"}
-            </Alert.Title>
-            <Alert.Description>
-              {locked.wrongPassword
-                ? "That password did not open the document. Try again."
-                : "Enter the password to read it. The password is checked in this browser and never leaves it."}
-            </Alert.Description>
-          </Alert.Root>
-          <div class="flex flex-col gap-4">
-            <Label for="document-unlock-password">Password</Label>
-            <PasswordInput
-              id="document-unlock-password"
-              bind:value={unlockPassword}
-              autocomplete="off"
-              disabled={unlocking}
-              onkeydown={(event) => {
-                if (event.key === "Enter") void handleUnlock();
-              }}
+    <LoadingRegion
+      loading={opening}
+      failed={readFailure !== null}
+      empty={!opening && pages.length === 0}
+      label="Reading the document"
+      onRetry={open}
+      class="flex min-h-0 flex-1 flex-col"
+    >
+      {#snippet failure()}
+        {#if readFailure !== null}
+          <div class="p-24">
+            <FailureNotice
+              failure={readFailure.failure}
+              subject="The document"
+              fallback={readFailure.fallback}
+              whenSilent={readFailure.whenSilent}
+              onRetry={open}
             />
           </div>
-          <div class="flex items-center gap-8">
-            <Button
-              variant="primary"
-              size="sm"
-              disabled={unlockPassword === "" || unlocking}
-              onclick={handleUnlock}
-            >
-              <KeyRound class="size-16" aria-hidden="true" />
-              {unlocking ? "Unlocking" : "Unlock"}
-            </Button>
-            {@render downloadAction(file.id)}
-          </div>
-          <p class="text-sm text-text-muted">
-            Don't have the password? <a
-              class="underline"
-              href="/tools/file-workbench?capability=unlock"
-              {...opensBeside("session")}>Try Password Recovery</a
-            > in a new tab — download the document there first, since the recovery tool works on its
-            own copy of a file.
-          </p>
+        {/if}
+      {/snippet}
+
+      {#snippet emptyState()}
+        <div class="flex min-h-0 flex-1 flex-col justify-center p-24">
+          <EmptyState title="This Document Has No Pages">
+            {#snippet actions()}
+              {@render downloadAction(file.id)}
+            {/snippet}
+          </EmptyState>
         </div>
-      {:else}
-        <!-- The strip sits flush under the header, one row: where the reader is at its inline
-             start, the size and the download at its inline end. -->
-        <div class="flex flex-none items-center gap-12 border-b border-border-default px-8 py-4">
-          <span class="text-sm text-text-muted">{position}</span>
-          <span class="ms-auto flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              disabled={atSmallest || nothingToSize}
-              title={smallerTitle}
-              aria-label="Show the pages smaller"
-              onclick={() => stepZoom(-1)}
-            >
-              <ZoomOut class="size-16" aria-hidden="true" />
-            </Button>
-            <span
-              class="w-48 text-center text-xs tabular-nums text-text-muted"
-              role="status"
-              aria-live="polite"
-            >
-              {Math.round(zoom * 100)}%
-            </span>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              disabled={atLargest || nothingToSize}
-              title={largerTitle}
-              aria-label="Show the pages larger"
-              onclick={() => stepZoom(1)}
-            >
-              <ZoomIn class="size-16" aria-hidden="true" />
-            </Button>
-          </span>
-          <Button
-            variant="secondary"
-            size="sm"
-            href={fileDownloadUrl(file.id)}
-            {...opensBeside("file")}
-          >
-            Download
-          </Button>
-        </div>
+      {/snippet}
 
-        <LoadingRegion
-          loading={opening}
-          failed={readFailure !== null}
-          empty={!opening && pages.length === 0}
-          label="Reading the document"
-          onRetry={open}
-          class="flex min-h-0 flex-1 flex-col"
-        >
-          {#snippet failure()}
-            {#if readFailure !== null}
-              <div class="p-24">
-                <FailureNotice
-                  failure={readFailure.failure}
-                  subject="The document"
-                  fallback={readFailure.fallback}
-                  whenSilent={readFailure.whenSilent}
-                  onRetry={open}
-                />
-              </div>
-            {/if}
-          {/snippet}
-
-          {#snippet emptyState()}
-            <div class="flex min-h-0 flex-1 flex-col justify-center p-24">
-              <EmptyState title="This Document Has No Pages">
-                {#snippet actions()}
-                  {@render downloadAction(file.id)}
-                {/snippet}
-              </EmptyState>
-            </div>
-          {/snippet}
-
-          {#snippet fixture()}
-            <div class="flex min-h-0 flex-1 flex-col items-center gap-16 overflow-hidden p-16">
-              <div
-                class="flex flex-none items-center justify-center border border-border-default bg-surface-raised"
-                style={frameStyle(LETTER_PAGE, 1)}
-              >
-                <canvas class="block h-full w-full"></canvas>
-              </div>
-            </div>
-          {/snippet}
-
+      {#snippet fixture()}
+        <div class="flex min-h-0 flex-1 flex-col items-center gap-16 overflow-hidden p-16">
           <div
-            bind:this={scrollRoot}
-            class="mc-scrollbar flex min-h-0 flex-1 flex-col items-center gap-16 overflow-auto bg-surface-sunken p-16"
+            class="flex flex-none items-center justify-center border border-border-default bg-surface-raised"
+            style={frameStyle(LETTER_PAGE, 1)}
           >
-            {#each pages as size, index (index)}
-              <div
-                bind:this={frames[index]}
-                data-page-index={index}
-                class="flex flex-none items-center justify-center border border-border-default bg-surface-raised"
-                style={frameStyle(size, zoom)}
-              >
-                {#if pageStates[index] === "failed"}
-                  <p class="p-16 text-center text-sm text-text-muted">
-                    This page could not be drawn.
-                  </p>
-                {:else}
-                  <canvas
-                    bind:this={canvases[index]}
-                    class="block h-full w-full"
-                    aria-label="Page {index + 1}"
-                  ></canvas>
-                {/if}
-              </div>
-            {/each}
+            <canvas class="block h-full w-full"></canvas>
           </div>
-        </LoadingRegion>
-      {/if}
-    </FullHeightSection>
-  </div>
-{/if}
+        </div>
+      {/snippet}
+
+      <div
+        bind:this={scrollRoot}
+        class="mc-scrollbar flex min-h-0 flex-1 flex-col items-center gap-16 overflow-auto bg-surface-sunken p-16"
+      >
+        {#each pages as size, index (index)}
+          <div
+            bind:this={frames[index]}
+            data-page-index={index}
+            class="flex flex-none items-center justify-center border border-border-default bg-surface-raised"
+            style={frameStyle(size, zoom)}
+          >
+            {#if pageStates[index] === "failed"}
+              <p class="p-16 text-center text-sm text-text-muted">
+                This page could not be drawn.
+              </p>
+            {:else}
+              <canvas
+                bind:this={canvases[index]}
+                class="block h-full w-full"
+                aria-label="Page {index + 1}"
+              ></canvas>
+            {/if}
+          </div>
+        {/each}
+      </div>
+    </LoadingRegion>
+  {/if}
+  {/if}
+</DocumentShell>

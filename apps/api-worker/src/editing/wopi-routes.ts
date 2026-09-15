@@ -117,6 +117,12 @@ export interface CheckFileInfoBody {
   readonly UserId: string;
   readonly UserCanWrite: boolean;
   readonly LastModifiedTime: string | null;
+  // The origin the editor addresses its postMessage events to — the application document that opened
+  // it. WOPI's name for it, and the editor stays MUTE without it: it is what lets the editor say it
+  // has loaded, which is the only way the screen can tell a frame that is still starting from one
+  // that will never start. Absent when the token carries no origin (an older token still in its hour,
+  // a test); the editor then simply says nothing, as it did before.
+  readonly PostMessageOrigin?: string;
 }
 
 export async function checkFileInfo(
@@ -149,6 +155,7 @@ export async function checkFileInfo(
     UserId: claims.memberId,
     UserCanWrite: claims.capability === "edit",
     LastModifiedTime: liveWorkingCopy?.wopiTimestamp ?? null,
+    ...(claims.appOrigin === undefined ? {} : { PostMessageOrigin: claims.appOrigin }),
   };
 }
 

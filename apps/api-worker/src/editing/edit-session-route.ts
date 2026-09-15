@@ -127,6 +127,14 @@ async function buildLaunch(
       capability: input.capability,
       sessionId: input.sessionId,
       exp,
+      // Taken from the launching request, which the browser made from the application document
+      // itself, so it names whichever of the app's several origins this member is actually on. It
+      // rides the token because the editor's callbacks arrive server-to-server, with no browser
+      // request left to read an origin from. CheckFileInfo hands it back as PostMessageOrigin, and
+      // that is what lets the editor tell the screen it has loaded — without it the frame can only
+      // be watched from the outside, and a frame that never paints is indistinguishable from one
+      // still starting.
+      appOrigin: new URL(c.req.url).origin,
     },
     c.env,
   );

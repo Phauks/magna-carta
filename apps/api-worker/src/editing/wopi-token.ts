@@ -22,6 +22,16 @@ export interface MintEditTokenInput {
   capability: EditCapability;
   sessionId: string;
   exp: number;
+  // The origin of the application document that launched this session, carried so CheckFileInfo can
+  // hand the editor a PostMessageOrigin and the two can talk. It is derived from the launching
+  // request rather than configured, because the application answers on several origins (the apex, the
+  // per-firm subdomains, the workers.dev host) and only the browser knows which one it is on.
+  //
+  // It authorizes NOTHING. It is a hint the editor uses to address its own messages, and every
+  // callback is still gated by the firm scope and capability above — so a token minted from an
+  // unexpected origin gets its holder no reach it would not otherwise have. Optional: a token without
+  // it simply gets no PostMessageOrigin, and the editor stays silent rather than the mint failing.
+  appOrigin?: string;
 }
 
 // The verified claim set handed to a WOPI callback handler.
