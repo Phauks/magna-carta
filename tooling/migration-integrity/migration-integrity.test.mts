@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { MigrationJournal } from "../../packages/database/src/migration.ts";
 import { checkCommittedLineages } from "./index.mts";
 import {
+  applyOrderViolations,
   journalStructureViolations,
   rebuildViolations,
   snapshotLineageViolations,
@@ -58,6 +59,44 @@ describe("migration-integrity validators reject known-bad inputs", () => {
       snapshotIdx: [],
     });
     expect(violations.join(" ")).toContain("not contiguous");
+  });
+
+  it("flags a migration whose tag sorts before the one it was authored after", () => {
+    // The real shape, from 2026-09-14: a branch cut at 09:00 merged after one cut at 12:00, so
+    // drizzle gave it the later idx while its tag still sorted earlier. Apply order is by tag, so a
+    // fresh firm would have run it FIRST — building its schema in an order no existing firm used.
+    const violations = applyOrderViolations(
+      journalOf([
+        { idx: 0, tag: "20260914T120000_task-rungs-and-archive" },
+        { idx: 1, tag: "20260914T090000_event-conference-link" },
+      ]),
+    );
+    expect(violations.join(" ")).toContain("is APPLIED before the migration it was authored after");
+    expect(violations.join(" ")).toContain("20260914T090000_event-conference-link");
+  });
+
+  it("passes a lineage whose tags climb with idx", () => {
+    expect(
+      applyOrderViolations(
+        journalOf([
+          { idx: 0, tag: "20260914T120000_task-rungs-and-archive" },
+          { idx: 1, tag: "20260914T120001_event-conference-link" },
+        ]),
+      ),
+    ).toEqual([]);
+  });
+
+  it("flags two migrations that claim the same tag", () => {
+    // Equal tags are not "in order": the loader sorts by tag, so which of the two applies first is
+    // whatever the sort happens to do with a tie.
+    expect(
+      applyOrderViolations(
+        journalOf([
+          { idx: 0, tag: "20260914T120000_a" },
+          { idx: 1, tag: "20260914T120000_a" },
+        ]),
+      ),
+    ).toHaveLength(1);
   });
 
   it("flags an orphan .sql not in the journal", () => {

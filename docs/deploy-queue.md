@@ -695,6 +695,36 @@ Order does not matter; both are needed. The page corrects itself within one
 cron cycle (10 minutes) of the app worker deploying, plus the 30-second edge
 cache window.
 
+## Two per-firm migrations were re-stamped — any database that already applied the old ids must be recreated (2026-09-15)
+
+Two migrations carried timestamp ids that sorted BELOW the migration they were merged after, so a
+freshly provisioned firm would have applied them in an order no already-migrated firm ever used. They
+were re-stamped to restore one apply order:
+
+| Was                                                                | Is now                                                             |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| `20260911T000000_office-email-address-lines-and-firm-brand-images` | `20260911T120001_office-email-address-lines-and-firm-brand-images` |
+| `20260914T090000_event-conference-link`                            | `20260914T120001_event-conference-link`                            |
+
+**A migration id is immutable once a database has applied it**, which is the rule
+`packages/database/src/legacy-baselines.ts` states about its own list. The runner refuses a database
+holding an applied tag it does not recognise — `database has applied migration "…" which this code
+does not know` — so **any per-firm database that applied either old id now refuses to wake and has to
+be recreated from the lineage.** That is why the rename was taken rather than left: no firm is
+onboarded (per `operations.md`), the `DB_FIRM_POOL_*` databases are empty pre-provisioning pools per
+ADR-0135, and the cost of the rename falls to zero while that holds. It will not hold after the first
+alpha firm.
+
+**What to check before assuming this is free:** any per-firm database seeded for development
+(`tooling/seed-dev-firm.mjs`) or standing in a preview environment applied these ids between
+2026-09-14 and 2026-09-15 and needs recreating. There is no data to preserve in either.
+
+**After the first firm is onboarded this remedy is gone.** From that point an inversion caught after
+it has deployed cannot be renamed away, and the answer is either a reconciling ledger rewrite (the
+machinery `supersedeAppliedMigrations` already provides) or living with the inversion and recording
+why it is harmless. `tooling/migration-integrity` now refuses one on every pull request, which is the
+window where a rename is still free.
+
 ## Order-sensitive deploy hazards
 
 1. **Retired — `magna-carta-sign` exists.** API-confirmed 2026-08-24: the sign worker is on the

@@ -11,6 +11,7 @@ import {
   REVIEWED_REBUILDS,
 } from "../../packages/database/src/reviewed-rebuilds.ts";
 import {
+  applyOrderViolations,
   journalStructureViolations,
   parentRebuildViolations,
   rebuildViolations,
@@ -140,6 +141,7 @@ export function checkLineage(lineage: Lineage): LineageReport {
   const migrations = loadMigrationsFromDisk(lineage);
   const violations = [
     ...journalStructureViolations(loadArtifacts(lineage)),
+    ...applyOrderViolations(loadArtifacts(lineage).journal),
     ...chainApplyViolations(lineage),
     ...rebuildViolations(sqlByTagFor(lineage), REVIEWED_REBUILDS),
     ...parentRebuildViolations(
