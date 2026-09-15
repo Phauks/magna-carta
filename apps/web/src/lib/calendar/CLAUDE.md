@@ -190,9 +190,13 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   that reads as the whole month when it is not would be a silent cap, which the design refuses.
 - **Every write carries an idempotency key minted per attempt** (`crypto.randomUUID()`), reused on
   a retry of the same attempt and never across two.
-- **A correction never re-sends participants** (`entry-updates.ts`): the entry window's Edit sends
-  the fields its pane edits and nothing else, so a window that did not touch who is at a setting
-  cannot change it.
+- **A correction sends participants only where it edited them** (`entry-updates.ts`): the entry
+  window's Edit sends the fields its pane edits and nothing else, so a window that did not touch who
+  is at a setting cannot change it. The window SAYS whether it touched them (`participantsEdited`)
+  rather than the projection comparing lists — a draft's participants carry local keys and display
+  names the server never sent, so a comparison would report a change on every open. An edited list
+  is sent WHOLE, empty included: taking the last person off a setting is a real correction, and a
+  projection that dropped an empty list would make it the one edit that silently does nothing.
 - **Two modal shells and never a third**: the entry window is `RecordWindow`, every form and every
   question is `ActionDialog`.
 

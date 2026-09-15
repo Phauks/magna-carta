@@ -106,6 +106,8 @@ hand: the record makes that link itself.
 
 **Who is at an event.** When recording, pick a person from the firm, from the directory, or type a
 name once for somebody who is neither, such as a judge or a court reporter; each can carry a role.
+**You can change it afterwards**: open the event, press Edit, and the Participants tab becomes the
+same picker. What you change there is saved with the rest of the record, when you press Save.
 
 ## Recording an event
 
