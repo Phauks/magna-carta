@@ -43,10 +43,10 @@ migrations_ section of [`docs/conventions/operations.md`](../../docs/conventions
   Wednesday keeps Monday's timestamp while drizzle renumbers its `idx` to the end — and since apply
   order is by tag, a fresh database then runs it before the migrations it was written on top of,
   building its schema in an order no already-migrated firm ever used. The script is idempotent (a
-  migration already above the head is left alone) and prints the old and new tags, because the
-  worker bundle that imports the `.sql` by name is a hand-kept map. `tooling/migration-integrity`
-  refuses the lineage on **every pull request** if the re-stamp is skipped — it used to be a Vitest
-  fitness function only, which the gate runs solely under the `run-tests` label.
+  migration already above the head is left alone) and prints the old and new tags, so the rename is
+  visible in the commit that makes it. `tooling/migration-integrity` refuses the lineage on **every
+  pull request** if the re-stamp is skipped — it used to be a Vitest fitness function only, which
+  the gate runs solely under the `run-tests` label.
 - **Never renumber `idx` to fix an ordering complaint.** The snapshots are named for it and describe
   the schema at that point; reordering `idx` makes each one describe a state its name denies. Move
   the TAG.
@@ -76,10 +76,14 @@ migrations_ section of [`docs/conventions/operations.md`](../../docs/conventions
   `test/task-rungs-migration.test.ts` is the shape — seed at the pre-migration schema, apply the rest
   of the lineage, assert what each row became. `test/rebuilds-over-populated-data.test.ts` does the
   same for rebuilds.
-- **A new migration file is registered in the WORKER too.** Workers have no filesystem, so the SQL is
-  imported as raw text: add the import and its journal-keyed entry to
-  `apps/api-worker/src/per-firm-migrations.ts` (or its control-plane sibling) in the same commit, or
-  every firm database fails to wake with "is in the journal but its SQL was not provided".
+- **A new migration file is registered in the WORKER too — by the generator, not by hand.** Workers
+  have no filesystem, so the SQL is imported as raw text. `apps/api-worker/src/per-firm-migrations.ts`
+  and its control-plane sibling carry that import list, and both are **generated from the journal**:
+  run `pnpm run migration-bundles` and commit what it writes. Hand-editing them is how the list used
+  to lose an entry — a merge resolved the journal cleanly, because its entries are adjacent lines,
+  and dropped one branch's import in the same conflict, after which every firm database failed to
+  wake with "is in the journal but its SQL was not provided". `pnpm run lint:migration-bundles` runs
+  on every pull request and fails when a module and its journal disagree.
 - **The lineages never merge.** A per-firm change goes only into `drizzle/per-firm`, a platform
   change only into `drizzle/control-plane`; auth tables exist solely in the control plane.
 

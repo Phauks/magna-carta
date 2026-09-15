@@ -161,6 +161,7 @@ export default defineConfig({
       "tooling/lint-unwired-writes/vitest.config.ts",
       "tooling/lint-workspace-search/vitest.config.ts",
       "tooling/lint-test-collection/vitest.config.ts",
+      "tooling/migration-bundles/vitest.config.ts",
       "tooling/migration-integrity/vitest.config.ts",
       "tooling/retire-note/vitest.config.ts",
       "tooling/worktrees/vitest.config.ts",
