@@ -444,6 +444,11 @@
         new DragEvent(kind, { bubbles: true, cancelable: true, dataTransfer: transfer }),
       );
 
+    // The mark lands on the ROW, not on the treeitem: a treeitem holds its open children, and a
+    // mark painted on it would run down the whole branch beneath the destination.
+    const rowOf = (item: HTMLElement) =>
+      item.querySelector<HTMLElement>(":scope > .mc-tree-item-row") as HTMLElement;
+
     await step("Every folder row is a drag source", async () => {
       await expect(photographs).toHaveAttribute("draggable", "true");
     });
@@ -451,14 +456,16 @@
     await step("A folder is never told it may land inside itself", async () => {
       drag("dragstart", photographs);
       drag("dragover", inside);
-      await waitFor(() => expect(inside).not.toHaveAttribute("data-tree-marked"));
+      await waitFor(() => expect(rowOf(inside)).not.toHaveAttribute("data-item-drop-marked"));
       drag("dragover", photographs);
-      await waitFor(() => expect(photographs).not.toHaveAttribute("data-tree-marked"));
+      await waitFor(() => expect(rowOf(photographs)).not.toHaveAttribute("data-item-drop-marked"));
     });
 
     await step("A folder it can go into is marked, and dropping reports the move", async () => {
       drag("dragover", correspondence);
-      await waitFor(() => expect(correspondence).toHaveAttribute("data-tree-marked", "true"));
+      await waitFor(() =>
+        expect(rowOf(correspondence)).toHaveAttribute("data-item-drop-marked", "true"),
+      );
       drag("drop", correspondence);
       await waitFor(() =>
         expect(args.onMoveFolder).toHaveBeenCalledWith({
@@ -472,7 +479,7 @@
       const home = canvas.getByRole("treeitem", { name: "Home" });
       drag("dragstart", photographs);
       drag("dragover", home);
-      await waitFor(() => expect(home).toHaveAttribute("data-tree-marked", "true"));
+      await waitFor(() => expect(rowOf(home)).toHaveAttribute("data-item-drop-marked", "true"));
       drag("drop", home);
       await waitFor(() =>
         expect(args.onMoveFolder).toHaveBeenCalledWith({

@@ -171,7 +171,14 @@ describe("a file's scan history", () => {
       "2026-01-01T00:00:00.000Z",
       JSON.stringify({ scanVerdict: "clean", scanEngineVersion: "clamav/1.0", scanDetail: null }),
     );
-    await insert("a2", "file.rescan_requested", "2026-01-02T00:00:00.000Z", null);
+    // The request's own metadata, as the route writes it: whether it reached the queue, and the
+    // engine that stood for the firm when it was asked.
+    await insert(
+      "a2",
+      "file.rescan_requested",
+      "2026-01-02T00:00:00.000Z",
+      JSON.stringify({ enqueued: false, currentEngineVersion: "clamav/1.5" }),
+    );
     await insert(
       "a3",
       "file.version_rescanned",
@@ -191,11 +198,17 @@ describe("a file's scan history", () => {
       history.map((event) => [event.id, event.event, event.scanVerdict, event.scanEngineVersion]),
     ).toEqual([
       ["a3", "file.version_rescanned", "flagged", "clamav/2.0"],
-      ["a2", "file.rescan_requested", null, null],
+      // A request records the engine under its own key, and it reads back in the same field: the
+      // engine on this line is what decided whether a check could be queued at all.
+      ["a2", "file.rescan_requested", null, "clamav/1.5"],
       ["a1", "file.version_committed", "clean", "clamav/1.0"],
     ]);
     expect(history[0]).toMatchObject({ versionNumber: 1, scanDetail: "Eicar-Test-Signature" });
-    // The request names who asked, resolved off the member row.
-    expect(history[1]).toMatchObject({ actorUserId: "user_a", actorName: "A" });
+    // The request names who asked, resolved off the member row, and says it never reached the
+    // queue — without which the line reads as a check on its way that was never going to run.
+    expect(history[1]).toMatchObject({ actorUserId: "user_a", actorName: "A", queued: false });
+    // A scan row records nothing about queuing, and must never be read as a failure to queue.
+    expect(history[0]?.queued).toBeNull();
+    expect(history[2]?.queued).toBeNull();
   });
 });

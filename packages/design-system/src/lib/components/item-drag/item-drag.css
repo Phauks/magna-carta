@@ -1,0 +1,35 @@
+@layer components {
+  /*
+   * The two things a drag of our own items draws.
+   *
+   * THE MARK IS AN EDGE, NOT A FILL. A destination under the pointer is a transient state that has
+   * to read over whatever the row already is — selected, striped, pinned, marked as cut — so it
+   * takes the one channel none of those use. A fill would have to win a specificity argument with
+   * every row state on every surface, and would land as a wash of accent across the work surface,
+   * which the design language keeps for the edges. One row, one edge, gone the moment the pointer
+   * leaves. Surfaces whose rows have a calmer vocabulary of their own (the folder rail) add their
+   * own wash on top of this in their own recipe.
+   *
+   * THE COUNT rides the drag image over a selection of more than one, so a reader carrying eight
+   * files sees eight rather than the one row they happened to press on. It is never in the page's
+   * own flow — the gesture parks it off-screen and snapshots it — so it owes nothing to layout.
+   */
+  [data-item-drop-marked="true"] {
+    outline-color: var(--mc-accent-strong);
+    outline-offset: var(--mc-space-0);
+    outline-style: solid;
+    outline-width: var(--mc-focus-ring-width);
+  }
+
+  .mc-item-drag-count {
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-8);
+    border-radius: var(--mc-radius-sm);
+    background-color: var(--mc-accent-strong);
+    color: var(--mc-accent-strong-foreground);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-normal);
+    white-space: nowrap;
+  }
+}

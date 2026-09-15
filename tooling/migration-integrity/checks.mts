@@ -25,8 +25,14 @@ export interface SnapshotHeader {
   readonly prevId: string;
 }
 
-// Structural violations of the journal <-> files relationship. (Snapshot timestamps are NOT checked:
-// merge-renumbering legitimately leaves `when` non-monotonic, and apply order is by idx.)
+// Structural violations of the journal <-> files relationship. (Snapshot `when` timestamps are NOT
+// checked: merge-renumbering legitimately leaves them non-monotonic, and nothing reads them.)
+//
+// APPLY ORDER IS BY TAG, NOT BY IDX, and this file used to say the opposite. `migrationsFromJournal`
+// sorts the journal's entries lexically by tag, so the tag is what every database — fresh or
+// already provisioned — actually applies in; `idx` is drizzle's own dense counter, and it names the
+// snapshot a generate diffs against. The two are the same fact only while they agree, which is what
+// applyOrderViolations below is for.
 export function journalStructureViolations(artifacts: Artifacts): string[] {
   const violations: string[] = [];
   const entries = [...artifacts.journal.entries].sort((left, right) => left.idx - right.idx);
@@ -62,6 +68,44 @@ export function journalStructureViolations(artifacts: Artifacts): string[] {
     if (!journalIdx.has(snapshotIdx)) {
       violations.push(`orphan snapshot for idx ${snapshotIdx} (no such journal entry)`);
     }
+  }
+  return violations;
+}
+
+/**
+ * A lineage whose apply order and authored order disagree.
+ *
+ * `idx` is the order the migrations were INTEGRATED in — drizzle hands out the next number when a
+ * migration is generated, and a merge renumbers an incoming one above whatever landed first. The
+ * TAG is the order they are APPLIED in, on every database there is. While the two agree, a
+ * migration is applied against the same schema state it was authored against. When they disagree,
+ * a branch cut earlier but merged later is applied BEFORE the migration it was actually written on
+ * top of — so a fresh firm builds its schema in an order no existing firm ever used, and the two
+ * fleets diverge the first time one of those migrations depends on the other.
+ *
+ * WHY THIS LIVES HERE RATHER THAN ONLY IN A TEST. It was only in a test — the Vitest fitness
+ * function in packages/database — and the gate runs its test battery only under the `run-tests`
+ * label, so two inversions merged on 2026-09-11 and 2026-09-14 without anything failing. This
+ * module runs on EVERY pull request, which is where a tag still costs nothing to change: a
+ * migration nobody has applied can be renamed, and one that has reached a database cannot.
+ *
+ * The remedy is always to re-stamp the incoming migration ABOVE the new head, never to renumber
+ * `idx` — `idx` names snapshot files that describe the schema at that point, and reordering it
+ * would make each snapshot describe a state its name denies.
+ */
+export function applyOrderViolations(journal: MigrationJournal): string[] {
+  const byIdx = [...journal.entries].sort((left, right) => left.idx - right.idx);
+  const violations: string[] = [];
+  for (let position = 1; position < byIdx.length; position += 1) {
+    const previous = byIdx[position - 1];
+    const current = byIdx[position];
+    if (previous === undefined || current === undefined) continue;
+    if (current.tag > previous.tag) continue;
+    violations.push(
+      `${current.tag} (idx ${current.idx}) sorts before ${previous.tag} (idx ${previous.idx}), so it ` +
+        "is APPLIED before the migration it was authored after. Re-stamp it above the lineage head " +
+        "with a later timestamp id — never renumber idx, which names the snapshots.",
+    );
   }
   return violations;
 }

@@ -12,6 +12,7 @@ import {
 } from "../../packages/database/src/reviewed-rebuilds.ts";
 import { declaredTables } from "../../packages/database/src/declared-tables.ts";
 import {
+  applyOrderViolations,
   journalStructureViolations,
   parentRebuildViolations,
   rebuildViolations,
@@ -173,6 +174,7 @@ export function checkLineage(lineage: Lineage): LineageReport {
   const chainViolations = chainApplyViolations(lineage);
   const violations = [
     ...journalStructureViolations(loadArtifacts(lineage)),
+    ...applyOrderViolations(loadArtifacts(lineage).journal),
     ...chainViolations,
     ...schemaViolations(lineage, chainViolations.length === 0),
     ...rebuildViolations(sqlByTagFor(lineage), REVIEWED_REBUILDS),

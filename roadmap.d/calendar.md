@@ -134,7 +134,7 @@
   slices: 6-1-case-calendar, 6-2-calendar-firm-events-resources
   spec: docs/specs/2026-09-02-calendar-interface-design.md
   notes: The matter is not required — no matter is a choice whose row says what it writes, and the form records a firm event instead, which is the table an event belonging to no case already had. Double-clicking an empty day or hour opens the event form on it, as an accelerator beside the create control every screen carries.
-  evidence: apps/web/src/lib/calendar/record-event-dialog.svelte, record-deadline-dialog.svelte, record-firm-event-dialog.svelte, location-picker.svelte, day-schedule.svelte, record-timing-fields.svelte and participant-picker.svelte over the pure draft models asserted in apps/web/test/calendar-drafts.test.ts; conference_url on matter_event and firm_event (20260914T090000_event-conference-link).
+  evidence: apps/web/src/lib/calendar/record-event-dialog.svelte, record-deadline-dialog.svelte, record-firm-event-dialog.svelte, location-picker.svelte, day-schedule.svelte, record-timing-fields.svelte and participant-picker.svelte over the pure draft models asserted in apps/web/test/calendar-drafts.test.ts; conference_url on matter_event and firm_event (20260914T120001_event-conference-link).
 
 - id: calendar.surface.firm-settings
   name: Firm calendar settings

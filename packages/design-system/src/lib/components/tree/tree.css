@@ -75,11 +75,17 @@
     border-inline-start-color: var(--mc-accent-default);
     color: var(--mc-text-default);
   }
-  /* The object of a gesture in progress: the row a drag is over, or the row a menu was opened on.
-     The neutral wash keeps it distinct from a chosen row; its stronger edge says it is transient. */
+  /* The object of a gesture in progress: the row a menu was opened on. The neutral wash keeps it
+     distinct from a chosen row; its stronger edge says it is transient. */
   .mc-tree-item[data-tree-marked="true"] > .mc-tree-item-row {
     background-color: var(--mc-action-secondary-hover);
     border-inline-start-color: var(--mc-accent-strong);
+  }
+  /* The row a drag would land on. The ring is the shared drag's own, drawn on every surface that
+     takes part in the gesture; the wash is this rail's vocabulary for a row under a gesture, so a
+     destination here reads the same as a row a menu was opened on and not like a second idea. */
+  .mc-tree-item-row[data-item-drop-marked="true"] {
+    background-color: var(--mc-action-secondary-hover);
   }
   /* The house flush focus ring, on the focused treeitem's row. */
   .mc-tree-item:focus-visible > .mc-tree-item-row {

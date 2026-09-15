@@ -10,10 +10,10 @@ import communicationReferenceNumberAndEndSql from "@magna-carta/database/drizzle
 import seedAiSettingsPermissionSql from "@magna-carta/database/drizzle/per-firm/20260909T000000_seed-ai-settings-permission.sql";
 import magnusConversationAttachmentSql from "@magna-carta/database/drizzle/per-firm/20260911T000000_magnus-conversation-attachment.sql";
 import conflictsCheckNumbersAndRunsSql from "@magna-carta/database/drizzle/per-firm/20260911T120000_conflicts-check-numbers-and-runs.sql";
-import officeEmailAddressLinesAndFirmBrandImagesSql from "@magna-carta/database/drizzle/per-firm/20260911T000000_office-email-address-lines-and-firm-brand-images.sql";
-import matterPhysicalFileOfficeSql from "@magna-carta/database/drizzle/per-firm/20260914T191051_matter-physical-file-office.sql";
+import officeEmailAddressLinesAndFirmBrandImagesSql from "@magna-carta/database/drizzle/per-firm/20260911T120001_office-email-address-lines-and-firm-brand-images.sql";
 import taskRungsAndArchiveSql from "@magna-carta/database/drizzle/per-firm/20260914T120000_task-rungs-and-archive.sql";
-import eventConferenceLinkSql from "@magna-carta/database/drizzle/per-firm/20260914T090000_event-conference-link.sql";
+import eventConferenceLinkSql from "@magna-carta/database/drizzle/per-firm/20260914T120001_event-conference-link.sql";
+import matterPhysicalFileOfficeSql from "@magna-carta/database/drizzle/per-firm/20260914T191051_matter-physical-file-office.sql";
 import intakeNumberSql from "@magna-carta/database/drizzle/per-firm/20260914T191528_intake-number.sql";
 
 // migrationsFromJournal fails loud when the journal gains a migration this map does not carry:
@@ -31,11 +31,11 @@ export function perFirmMigrations(): Migration[] {
     "20260909T000000_seed-ai-settings-permission": seedAiSettingsPermissionSql,
     "20260911T000000_magnus-conversation-attachment": magnusConversationAttachmentSql,
     "20260911T120000_conflicts-check-numbers-and-runs": conflictsCheckNumbersAndRunsSql,
-    "20260911T000000_office-email-address-lines-and-firm-brand-images":
+    "20260911T120001_office-email-address-lines-and-firm-brand-images":
       officeEmailAddressLinesAndFirmBrandImagesSql,
-    "20260914T191051_matter-physical-file-office": matterPhysicalFileOfficeSql,
     "20260914T120000_task-rungs-and-archive": taskRungsAndArchiveSql,
-    "20260914T090000_event-conference-link": eventConferenceLinkSql,
+    "20260914T120001_event-conference-link": eventConferenceLinkSql,
+    "20260914T191051_matter-physical-file-office": matterPhysicalFileOfficeSql,
     "20260914T191528_intake-number": intakeNumberSql,
   });
 }

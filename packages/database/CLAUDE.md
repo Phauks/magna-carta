@@ -32,10 +32,30 @@ migrations_ section of [`docs/conventions/operations.md`](../../docs/conventions
 
 ## Local conventions
 
-- **Migration ids are UTC timestamps, snapshots keep their idx.** `generate-*-migrations` runs
-  drizzle-kit and then rewrites the new `NNNN_slug` migration to `YYYYMMDDThhmmss_slug`, so two
-  branches never collide on a number. The journal keeps a dense `idx` (apply order); the `meta/`
-  snapshots stay on their `NNNN_` names because that is what drizzle diffs by.
+- **Migration ids are UTC timestamps, and the TAG is the apply order — not `idx`.**
+  `generate-*-migrations` runs drizzle-kit and then rewrites the new `NNNN_slug` migration to
+  `YYYYMMDDThhmmss_slug`, so two branches never collide on a number. `migrationsFromJournal` sorts
+  the journal lexically **by tag**, so that is the order every database applies in. `idx` is
+  drizzle's dense counter — the order migrations were INTEGRATED in — and it names the `meta/`
+  snapshots, which stay on their `NNNN_` names because that is what drizzle diffs by. Three modules
+  in this repo used to say `idx` was the apply order; all three were wrong, and that belief is what
+  let two inversions merge in September 2026.
+- **After merging `main` into a branch that adds a migration, RE-STAMP it:**
+  `node scripts/timestamp-latest-migration.mjs <lineage>`. A branch cut on Monday and merged on
+  Wednesday keeps Monday's timestamp while drizzle renumbers its `idx` to the end — and since apply
+  order is by tag, a fresh database then runs it before the migrations it was written on top of,
+  building its schema in an order no already-migrated firm ever used. The script is idempotent (a
+  migration already above the head is left alone) and prints the old and new tags, because the
+  worker bundle that imports the `.sql` by name is a hand-kept map. `tooling/migration-integrity`
+  refuses the lineage on **every pull request** if the re-stamp is skipped — it used to be a Vitest
+  fitness function only, which the gate runs solely under the `run-tests` label.
+- **Never renumber `idx` to fix an ordering complaint.** The snapshots are named for it and describe
+  the schema at that point; reordering `idx` makes each one describe a state its name denies. Move
+  the TAG.
+- **A tag is immutable once any database has applied it.** Re-stamping is free only before the
+  migration deploys — the runner refuses a database holding an applied tag it does not recognise. See
+  `src/legacy-baselines.ts` for what that costs after the fact, and `docs/deploy-queue.md` for the
+  2026-09-15 rename and the window that made it safe.
 - **Hand-written migrations are normal here.** Partial indexes with a `WHERE`, FTS5 virtual tables
   and their triggers, seed `INSERT`s, and column adds that must land in a specific order are written
   by hand and appended to the journal — drizzle-kit cannot express them, or expresses them as a
@@ -114,13 +134,6 @@ a review step.
   `apps/api-worker/test/durable-object-pragma-context.test.ts`. `tooling/migration-integrity` refuses
   the shape outright, so widening a CHECK or dropping a column on a parent table needs a different
   answer — not a cleverer rebuild.
-- **Apply order is TAG order, and `idx` is not it.** `src/migration.ts` sorts the journal by tag, so
-  two branches merge without a shared counter and nothing is ever renumbered; `idx` is drizzle's
-  dense append counter, read only by the authoring scripts to find the entry just generated. Do not
-  reintroduce an assertion that the two orders agree — a merge can legitimately seat a migration
-  behind one that already shipped, and satisfying such an assertion by RENAMING is the one repair
-  that must never be made (see the immutability invariant below). What a merge like that does leave
-  is a real hazard, and `runPendingMigrations` reports it: see _Out-of-order arrivals_ below.
 - **The journal's structure is checked.** `idx` is dense from 0, every entry has its `.sql`, and
   every snapshot maps to a journal idx — asserted by `tooling/migration-integrity/`, which also
   applies the whole chain to a fresh SQLite and rejects any unreviewed destructive table rebuild. It lives outside
@@ -135,16 +148,18 @@ a review step.
 
 ## Out-of-order arrivals
 
-Apply order is tag order, but the chain GROWS from parallel branches, and two of them merging can
-seat a migration behind one that already shipped. A database that woke in between has already moved
-past where the newcomer sorts, so it applies the pair in the order it met them while a database
-provisioned afterwards applies them in tag order.
+**The pull-request gate is the answer to this; what follows is the backstop behind it.** An
+inversion is caught by `applyOrderViolations` while the tag still costs nothing to change, and the
+remedy is the re-stamp above. This section is about one that got past that — as two did before the
+gate existed — and therefore reached a database, where the tag can no longer be moved.
 
-For independent migrations both orders reach the same schema and nothing is wrong, which is the
-usual case and why this is **reported rather than refused** — the migration is genuinely pending and
-genuinely needed, and stranding a database over it would be worse than the condition. For migrations
-that touch the same objects the two orders do not agree, and the damage is silent: one set of firms
-carries a schema the other does not, with no failure anywhere to point at it.
+A database that woke between the two merges has already moved past where the newcomer sorts, so it
+applies the pair in the order it met them while a database provisioned afterwards applies them in
+tag order. For independent migrations both orders reach the same schema and nothing is wrong, which
+is the usual case and why this is **reported rather than refused**: the migration is genuinely
+pending and genuinely needed, and stranding a database over it would be worse than the condition.
+For migrations that touch the same objects the two orders do not agree, and the damage is silent:
+one set of firms carries a schema the other does not, with no failure anywhere to point at it.
 
 `runPendingMigrations` names it on the report (`outOfOrderTags`, with `ledgerHead`), measured against
 the ledger BEFORE the batch lands — afterwards every tag is in the ledger and which of them arrived
@@ -154,8 +169,10 @@ late is not recoverable from it. A firm database holds it for its diagnostic rea
 
 **What to do when one is reported:** compare the two migrations. If they touch different objects,
 nothing is wrong and the report is noise. If they touch the same ones, the firms that took them in
-each order now differ, and the repair is a new migration that converges them — never a rename, which
-is a hard refusal on wake for every database that applied the old tag.
+each order now differ, and the repair is a new migration that converges them. Not a re-stamp: that
+is the remedy on a pull request, before anything has applied the tag, and by the time this report
+exists a database has. Moving it then is a hard refusal on wake for every database holding the old
+one.
 
 ## Dependencies & contracts
 

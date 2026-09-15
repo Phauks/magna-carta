@@ -624,9 +624,15 @@
                   data-pinned-end-edge={pinned["data-pinned-end-edge"]}
                   style={pinned.style}
                 >
-                  {#if columnIndex === 0 && mark?.pinned === true}
-                    <!-- One pin glyph everywhere the pin state shows; fill is the only difference. -->
-                    <Pin class="mc-table-grid-row-pin" fill="currentColor" aria-hidden="true" />
+                  {#if columnIndex === 0 && grid.marksRows}
+                    {#if mark?.pinned === true}
+                      <!-- One pin glyph everywhere the pin state shows; fill is the only difference. -->
+                      <Pin class="mc-table-grid-row-pin" fill="currentColor" aria-hidden="true" />
+                    {:else}
+                      <!-- The glyph's space, kept empty, so pinning lights a pin instead of
+                           shifting the row's text. -->
+                      <span class="mc-table-grid-row-pin-slot" aria-hidden="true"></span>
+                    {/if}
                   {/if}
                   {#if cell}
                     {@render cell({ row, column, text })}

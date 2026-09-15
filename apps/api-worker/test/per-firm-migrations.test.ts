@@ -32,13 +32,15 @@ describe("perFirmMigrations bundle", () => {
   });
 
   it("reports the last-applied tag as the head", () => {
-    // `perFirmHeadSchemaVersion` picks the greatest TAG while the runner applies in journal ORDER, so
-    // the two agree only while a migration's timestamp id sorts after every id already in the
-    // lineage. A merge breaks that silently: a branch cut before another one lands keeps its earlier
-    // timestamp and is renumbered to a later idx, after which the head tag names a migration that is
-    // no longer last. Provisioning stamps `schema_version` from the head, so a firm would record
-    // itself at a version it had passed. Renumber the merged-in migration above the new head rather
-    // than relaxing this.
+    // `perFirmHeadSchemaVersion` picks the greatest TAG, and the runner applies in TAG order too
+    // (`migrationsFromJournal` sorts by tag) — so the head always names the last-applied migration.
+    // What this pins is that the head also names the last AUTHORED one, which is the same migration
+    // only while tag order and idx order agree. A merge breaks that silently: a branch cut before
+    // another one lands keeps its earlier timestamp and is renumbered to a later idx, after which a
+    // fresh firm applies it before the migration it was written on top of. Provisioning stamps
+    // `schema_version` from the head, so a firm would also record itself at a version it had passed.
+    // Re-stamp the merged-in migration above the new head rather than relaxing this —
+    // tooling/migration-integrity now refuses it on every pull request, not only under `run-tests`.
     const migrations = perFirmMigrations();
     expect(migrations.at(-1)?.tag).toBe(perFirmHeadSchemaVersion());
     expect(perFirmHeadSchemaVersion()).toMatch(/^\d{8}T\d{6}_/);

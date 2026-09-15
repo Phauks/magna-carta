@@ -660,12 +660,19 @@
     border-block-end: var(--mc-focus-ring-width) solid var(--mc-border-strong);
   }
   /* The pin rides the row's first cell, the one elegant gold touch a work surface earns. */
-  .mc-table-grid-row-pin {
+  /*
+   * The pin and the space it would occupy are one box with one set of metrics, so a row that is not
+   * pinned is laid out exactly like a row that is. Keeping them apart is how the gutter drifts.
+   */
+  .mc-table-grid-row-pin,
+  .mc-table-grid-row-pin-slot {
     display: inline-block;
     vertical-align: text-bottom;
     margin-inline-end: var(--mc-space-4);
     inline-size: var(--mc-space-12);
     block-size: var(--mc-space-12);
+  }
+  .mc-table-grid-row-pin {
     color: var(--mc-accent-default);
   }
   /*

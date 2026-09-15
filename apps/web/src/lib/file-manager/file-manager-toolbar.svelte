@@ -32,7 +32,15 @@
    * New Folder in the rail and the folder-level context menu are gestures on a place, not a second
    * button, and stay.
    *
-   * THE DISPLAY SETTINGS SIT BEFORE THE VIEW SWAPPER, not after it. The settings control belongs to
+   * A CRUMB IS A DESTINATION, WHICH IS HOW SOMETHING COMES BACK OUT OF A FOLDER. Every ancestor of
+ * where the reader is standing is already on this strip, so dropping a file on one moves it up to
+ * that folder — and the home crumb moves it out to the matter root. The gesture is the surface's
+ * one shared drag, not a second one built here; this strip only names which folder each crumb
+ * stands for. The folded middle is deliberately not a destination: those folders are behind a menu
+ * that is shut during a drag, and the reader can open the menu, go there, and drag from where they
+ * can see what they are doing.
+ *
+ * THE DISPLAY SETTINGS SIT BEFORE THE VIEW SWAPPER, not after it. The settings control belongs to
    * the icon view alone, so it comes and goes; the swapper does not. Ending the row with the one
    * that comes and goes moved the swapper sideways every time a reader changed view — the same
    * defect the create control's fixed width was fixed for. The anchor holds the end of the row.
@@ -51,6 +59,10 @@
   import { collapseBreadcrumb } from "@magna-carta/design-system/breadcrumb";
   import { FOLDER_TREE_HOME_ICON } from "@magna-carta/design-system/folder-tree";
   import ScrollEdgeHint from "@magna-carta/design-system/scroll-edge-hint";
+  import {
+    ITEM_DROP_KEY_ATTRIBUTE,
+    type ItemDrag,
+  } from "@magna-carta/design-system/item-drag";
   import type { FileManagerState } from "./file-manager-state.svelte.ts";
 
   let {
@@ -58,9 +70,15 @@
     /** Home first, then each ancestor, ending here. Empty past Home means the reader is at the root. */
     trail,
     viewTitle = null,
+    drag,
+    dropKeyOf,
   }: {
     manager: FileManagerState;
     trail: readonly { id: string; label: string }[];
+    /** The surface's one drag. The crumbs take part in it; they never start one of their own. */
+    drag: ItemDrag;
+    /** What the surface calls a folder as a destination — `null` being the matter root. */
+    dropKeyOf: (folderId: string | null) => string;
     /**
      * A view that is not a place in the folder tree TITLES the breadcrumb rather than adding a
      * heading beneath it — one name for where you are, in the place the name already lives.
@@ -129,7 +147,7 @@
     <ArrowUp class="size-16" aria-hidden="true" />
   </Button>
 
-  <nav class="flex min-w-0 items-center gap-4" aria-label="Folder path">
+  <nav class="flex min-w-0 items-center gap-4" aria-label="Folder path" {...drag.handlers()}>
     <Button
       variant="ghost"
       size="icon"
@@ -138,6 +156,7 @@
       aria-label="Home"
       aria-current={viewTitle === null && trail.length === 0 ? "page" : undefined}
       onclick={() => manager.openFolder(null)}
+      {...{ [ITEM_DROP_KEY_ATTRIBUTE]: dropKeyOf(null) }}
     >
       <HomeIcon class="size-16" aria-hidden="true" />
     </Button>
@@ -181,6 +200,7 @@
                 class="whitespace-nowrap"
                 aria-current={segment.index === trail.length - 1 ? "page" : undefined}
                 onclick={() => manager.openFolder(segment.entry.id)}
+                {...{ [ITEM_DROP_KEY_ATTRIBUTE]: dropKeyOf(segment.entry.id) }}
               >
                 {segment.entry.label}
               </Button>

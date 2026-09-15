@@ -44,11 +44,10 @@
    * Status never gates or varies the screen flow — it changes only what this header showcases: the
    * seal and the number-or-Consultation line.
    *
-   * THE SEAL IS THE CONTROL. Pressing the status seal opens a menu of the steps the lifecycle
-   * allows from where the matter stands — open, hold, close, release, reopen, never a list of
-   * statuses — and the way into the status window, where the number, the engagement and the
-   * paper file live (matter-status-dialog.svelte; owner ruling, 2026-09-11). An action that
-   * belongs to a fact belongs on it.
+   * THE SEAL IS A PILLBOX. It states the status and nothing more; pressing it opens the status
+   * window, where the number, the engagement and the paper file live and where one control changes
+   * the status (matter-status-dialog.svelte; owner ruling, 2026-09-14). No menu hangs off it and it
+   * wears no chevron: a control whose job is to say one word does not also hold a list of verbs.
    *
    * THE WAY BACK LEADS THE BAND, SHOWING THE DOCKET IN MINIATURE. It was an unlabelled arrow inside
    * the citation line until 2026-09-03, which cost no height but said only "back": a reader had to
@@ -123,7 +122,7 @@
     >
       {ledgerLine}
     </FieldLabel>
-    <!-- The seal is where the matter's status is read, and also where it is changed. -->
+    <!-- The seal states the status; the window behind it is where the status is changed. -->
     <span class="flex-none"><MatterStatusDialog {matter} /></span>
     <Masthead.MetaSeparator />
     <span class="truncate" title={citation}>{citation}</span>

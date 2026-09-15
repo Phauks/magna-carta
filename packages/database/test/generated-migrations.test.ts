@@ -259,17 +259,21 @@ describe("migration ids stay monotonic and collision-free (fitness function)", (
   // stay a gapless 0..n-1 range. `scripts/timestamp-latest-migration.mjs` keeps generated migrations
   // conformant; this catches a stamp edited or added by hand.
   //
-  // IT DOES NOT REQUIRE LEXICAL TAG ORDER TO MATCH IDX ORDER, and must not: apply order IS tag
-  // order (src/migration.ts sorts the journal by tag, never by idx), chosen precisely so migrations
-  // authored on parallel branches merge without a shared counter and never need renumbering. idx is
-  // drizzle's append counter, read only by the authoring scripts to find the entry just generated —
-  // which is the highest idx whatever the tags say, and which they then stamp with the current time.
-  // So two branches merging out of lexical order is the scheme working, not a defect, and asserting
-  // otherwise failed on a pair already applied in production. Renaming one to satisfy it would be
-  // the real damage: the applied ledger is keyed by TAG, and a tag a database has applied but this
-  // code no longer knows is a hard refusal on wake (src/migration-runner.ts, "deploy mismatch").
+  // IT DOES NOT ASSERT THAT TAG ORDER MATCHES IDX ORDER — not because the two may disagree, but
+  // because tooling/migration-integrity asserts it (applyOrderViolations) and the gate runs that on
+  // EVERY pull request, while this file's battery runs only under the `run-tests` label. That is the
+  // whole reason the check moved: two inversions merged in September 2026 with nothing failing,
+  // because the only assertion was here. Do not re-add it alongside; a guard in two places is one
+  // that can disagree with itself.
+  //
+  // The remedy there is to RE-STAMP the incoming migration above the lineage head, which is free
+  // while no database has applied it. It stops being free the moment one has: the applied ledger is
+  // keyed by tag, and a tag a database holds but this code no longer knows is a hard refusal on wake
+  // (src/migration-runner.ts, "deploy mismatch"). An inversion discovered after that point is
+  // reported at apply time instead (runPendingMigrations, outOfOrderTags) and repaired with a new
+  // migration, never by moving the tag.
   for (const lineage of ["control-plane", "per-firm"] as const) {
-    it(`${lineage}: tags are unique, timestamp-formatted, and monotonic with idx`, async () => {
+    it(`${lineage}: tags are unique, timestamp-formatted, and the idx range is dense`, async () => {
       const journal = JSON.parse(
         await readFile(join(DRIZZLE, lineage, "meta", "_journal.json"), "utf8"),
       ) as MigrationJournal;
