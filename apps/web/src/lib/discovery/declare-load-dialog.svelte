@@ -159,7 +159,6 @@
 <ActionDialog
   bind:open
   heading="New Load"
-  subtitle="What is about to arrive, said before it arrives — which is what makes the manifest's reconciliation possible."
   commitLabel="Declare Load"
   commitBusyLabel="Declaring"
   commitRefusal={refusal}

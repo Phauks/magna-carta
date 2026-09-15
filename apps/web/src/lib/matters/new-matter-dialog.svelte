@@ -54,6 +54,7 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
+  import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import * as Select from "@magna-carta/design-system/select";
   import * as Tabs from "@magna-carta/design-system/tabs";
   import Badge from "@magna-carta/design-system/badge";
@@ -312,6 +313,33 @@
   );
   const heading = $derived(purpose === "intake" ? "New Intake" : "New Matter");
 
+  /*
+   * The number this file will be called by, stated before it exists.
+   *
+   * WHICH NUMBER DEPENDS ON WHAT IS BEING STARTED, and the three answers are genuinely different
+   * files, each with a run of its own: an intake draws an intake number, a consultation draws its
+   * TENTATIVE number, an open matter draws the matter number. Each survives every later rung rather
+   * than being replaced, so a note filed under any of them still resolves — which is why the panel
+   * names the one THIS act will draw rather than the one the file will end up wearing.
+   *
+   * None is previewed with a value yet: nothing serves the next number on any of the three runs, and
+   * a panel that invented one would be making a promise about a counter it has not asked. What the
+   * reader is told is the honest half — that a number is drawn by the save, and which kind of number
+   * it will be — which is what the shell renders for a preview with nothing in it. When a read
+   * exists, this is the one line that changes (@magna-carta/design-system/record-reference).
+   */
+  const subtitle = $derived<RecordSubject>({
+    reference: {
+      // The rung's own word, from the status register rather than typed here — the register is
+      // where a status word is given its label, and a second copy of one drifts the moment either
+      // is corrected. An open matter is the exception: what it draws is called a MATTER number, and
+      // the register calls that rung "Active", which is its status and not the name of its number.
+      kind: startingStatus === "open" ? "Matter" : matterStatusLabel(startingStatus),
+      number: null,
+      standing: "preview",
+    },
+  });
+
   /**
    * Why the commit is refused, or undefined when it is not. The shell renders this beside the
    * control it refuses and puts it on the control's accessible name, so it reaches a screen reader
@@ -448,6 +476,7 @@
 <ActionDialog
   bind:open
   {heading}
+  {subtitle}
   {commitLabel}
   commitBusyLabel={purpose === "intake" ? "Starting" : "Opening"}
   commitRefusal={refusal}

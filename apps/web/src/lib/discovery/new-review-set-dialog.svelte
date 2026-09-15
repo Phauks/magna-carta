@@ -133,7 +133,6 @@
 <ActionDialog
   bind:open
   heading="New Review Set"
-  subtitle="A corpus of its own — its own documents, its own search index, its own access list, and its own lifecycle."
   commitLabel="Create Review Set"
   commitBusyLabel="Creating"
   commitRefusal={refusal}

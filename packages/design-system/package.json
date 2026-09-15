@@ -74,6 +74,7 @@
     "./print-sheet/projection": "./src/lib/components/print-sheet/projection.ts",
     "./progress": "./src/lib/components/progress/index.ts",
     "./progress-steps": "./src/lib/components/progress-steps/index.ts",
+    "./record-reference": "./src/lib/components/record-reference/index.ts",
     "./radio-group": "./src/lib/components/radio-group/index.ts",
     "./record-attachments": "./src/lib/components/record-attachments/index.ts",
     "./record-parties": "./src/lib/components/record-parties/index.ts",

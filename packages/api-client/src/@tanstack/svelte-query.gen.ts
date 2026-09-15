@@ -2549,7 +2549,7 @@ export const locationsAssignMemberMutation = (options?: Partial<Options<Location
 export const numberingGetQueryKey = (options?: Options<NumberingGetData>) => createQueryKey('numberingGet', options);
 
 /**
- * Returns the firm's active numbering scheme for one purpose (the ordered segment template): 'matter' for matter numbers, 'consultation' for the tentative numbers consultations carry. Returns null segments when none is configured and no default applies; usingDefault marks the built-in consultation sequence that renders until the firm sets its own.
+ * Returns the firm's active numbering scheme for one purpose (the ordered segment template): 'matter' for matter numbers, 'consultation' for the tentative numbers consultations carry, 'intake' for the numbers enquiries wear from the moment they are written down. Returns null segments when none is configured and no default applies; usingDefault marks a built-in sequence that renders until the firm sets its own.
  */
 export const numberingGetOptions = (options?: Options<NumberingGetData>) => queryOptions<NumberingGetResponse, NumberingGetError, NumberingGetResponse, ReturnType<typeof numberingGetQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {

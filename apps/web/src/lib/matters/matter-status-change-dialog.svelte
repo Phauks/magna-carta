@@ -38,6 +38,7 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
+  import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import Badge from "@magna-carta/design-system/badge";
   import ChoiceRow from "@magna-carta/design-system/choice-row";
   import FieldLabel from "@magna-carta/design-system/field-label";
@@ -89,13 +90,17 @@
   let {
     matter,
     open = $bindable(false),
-    reference,
+    subtitle,
   }: {
     matter: MatterRecord;
     /** Whether the panel is showing. Bound by the window that offers the one control opening it. */
     open?: boolean;
-    /** What is being acted on, named by the window that opened this: "Matter 2026-0031". */
-    reference: string;
+    /**
+     * The record this acts on, named once by the window that opened it, so the panel that READS the
+     * status and the panel that CHANGES it name the same matter the same way — by the newest number
+     * it has drawn, not by a sentence each panel assembles for itself.
+     */
+    subtitle: RecordSubject;
   } = $props();
 
   const seal = $derived(matterStatusPresentation(matter.status));
@@ -329,7 +334,7 @@
   kind="form"
   bind:open
   heading="Change Status"
-  subtitle="{reference} · {matter.title}"
+  {subtitle}
   width="wide"
   commitLabel={chosen?.label ?? "Change Status"}
   commitBusyLabel={chosen?.busyLabel}

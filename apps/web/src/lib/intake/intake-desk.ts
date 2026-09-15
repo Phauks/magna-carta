@@ -45,6 +45,8 @@ export interface IntakeDeskRow {
   status: IntakeDeskStatus;
   title: string;
   consultationNumber: string | null;
+  /** The number the enquiry was written down under; on an intake it is the only number there is. */
+  intakeNumber: string | null;
   matterTypeId: string | null;
   matterTypeName: string | null;
   responsibleMemberId: string;
@@ -81,8 +83,26 @@ export function intakeResumeHref(row: Pick<IntakeDeskRow, "matterId">): string {
   return `/matters/${encodeURIComponent(row.matterId)}/intake`;
 }
 
-/** The word the desk prints for a matter with no number yet: every intake, by construction. */
+/**
+ * The word the desk prints for a row with no number at all.
+ *
+ * It used to be every intake by construction; since 2026-09-14 an intake draws its own number the
+ * moment it is written down, so the only rows that reach this are ones recorded before that sequence
+ * existed. Kept, and kept muted, because a blank in a column of numbers reads as a column that
+ * failed to fill rather than as a record that has none.
+ */
 export const UNNUMBERED_INTAKE = "Unnumbered";
+
+/**
+ * The number this row is quoted by: the newest one it has drawn.
+ *
+ * A consultation wears its tentative number; an intake wears the one it was written down under. The
+ * desk shows whichever the row has reached rather than a column per rung, because a receptionist
+ * reading a caller a number does not care which rung minted it.
+ */
+export function deskNumberOf(row: IntakeDeskRow): string | null {
+  return row.consultationNumber ?? row.intakeNumber;
+}
 
 /**
  * How far an intake is, as the one line its row carries. Counts of the firm's own steps, and the
@@ -203,10 +223,13 @@ export const EMPTY_INTAKE_DESK_VOCABULARY: IntakeDeskVocabulary = {
 export function intakeDeskColumns(vocabulary: IntakeDeskVocabulary): GridColumn<IntakeDeskRow>[] {
   return [
     {
+      // The id stays `consultationNumber` though the column now shows either number: it is the key
+      // a reader's saved column layout is stored under, and renaming it would silently reset the
+      // arrangement of everybody who had already set one.
       id: "consultationNumber",
       label: "Number",
       anchored: true,
-      value: (row) => row.consultationNumber ?? UNNUMBERED_INTAKE,
+      value: (row) => deskNumberOf(row) ?? UNNUMBERED_INTAKE,
     },
     {
       id: "status",

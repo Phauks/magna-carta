@@ -39,6 +39,7 @@ function matter(overrides: Partial<MatterSummary> = {}): MatterSummary {
     clientEntityId: null,
     matterNumber: "2026-0147",
     consultationNumber: null,
+    intakeNumber: null,
     createdAt: "2026-03-14T09:00:00.000Z",
     ...overrides,
   };

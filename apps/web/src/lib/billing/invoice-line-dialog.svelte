@@ -14,6 +14,7 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
@@ -25,17 +26,24 @@
   let {
     open = $bindable(false),
     invoiceId,
+    invoiceNumber,
     line,
     onSaved,
   }: {
     open?: boolean;
     invoiceId: string | null;
+    /** That invoice's own number — which bill this line is on, said once in the panel's own line. */
+    invoiceNumber: string | null;
     /** The line being edited. Null closes the dialog's subject with it. */
     line: InvoiceLine | null;
     onSaved: () => void;
   } = $props();
 
   const fieldPrefix = $props.id();
+
+  const subtitle = $derived<RecordSubject>({
+    reference: { kind: "Invoice", number: invoiceNumber },
+  });
 
   let description = $state("");
   let amountText = $state("");
@@ -80,7 +88,7 @@
 <ActionDialog
   bind:open
   heading="Edit Line"
-  subtitle="Bill review edits what the client is told: the underlying entry stays the timekeeper’s own record."
+  {subtitle}
   commitLabel="Save Line"
   commitBusyLabel="Saving"
   commitRefusal={refusal}
@@ -116,8 +124,9 @@
       <p class="flex items-start gap-8 text-sm text-text-muted">
         <Info class="mt-4 size-16 shrink-0" aria-hidden="true" />
         <span>
-          A negative line is a first-class shape on a draft: a discount is a named reduction on the
-          bill, never a silent edit of a fee line.
+          Bill review edits what the client is told: the underlying entry stays the timekeeper’s own
+          record. A negative line is a first-class shape on a draft: a discount is a named reduction
+          on the bill, never a silent edit of a fee line.
         </span>
       </p>
     </div>

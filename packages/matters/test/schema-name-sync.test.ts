@@ -98,6 +98,7 @@ describe("schema name sync (matters SQL pinned to @magna-carta/database)", () =>
           status: "open",
           matterNumber: "n",
           consultationNumber: null,
+          intakeNumber: null,
           numberedAt: "t",
           openedAt: "t",
           createdAt: "t",

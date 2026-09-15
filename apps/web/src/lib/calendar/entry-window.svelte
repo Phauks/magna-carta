@@ -1481,15 +1481,15 @@
 <ActionDialog
   bind:open={continuedOpen}
   kind="confirm"
-  heading="Deadlines Linked to the Vacated Setting"
+  heading="Review the Linked Deadlines"
   commitLabel="Understood"
   unsavedChanges={false}
   onCommit={acknowledgeContinued}
 >
-  {#snippet subtitle()}
-    No deadline was moved. Review each one against the new setting.
-  {/snippet}
   {#snippet fields()}
+    <p class="text-sm text-text-muted">
+      No deadline was moved. Each one still stands where it was against the vacated setting.
+    </p>
     <ul class="flex flex-col gap-8 text-sm">
       {#each continuedDeadlines as linked (linked.id)}
         <li class="flex items-baseline justify-between gap-16">

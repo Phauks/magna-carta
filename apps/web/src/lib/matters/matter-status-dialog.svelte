@@ -50,6 +50,7 @@
    */
   import { invalidateAll } from "$app/navigation";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import ArrowRightLeft from "@lucide/svelte/icons/arrow-right-left";
@@ -84,7 +85,7 @@
   import { renumberMatter, RENUMBER_MATTER_PERMISSION } from "./numbering-api.ts";
   import { matterNumberRefusal } from "./numbering-scheme.ts";
   import type { MatterRecord } from "./matter-record.ts";
-  import { matterStatusPresentation } from "./matter-status.ts";
+  import { matterStatusLabel, matterStatusPresentation } from "./matter-status.ts";
   import {
     MATTER_LIFECYCLE_TRANSPORT_FAILURE,
     MATTER_PHYSICAL_FILE_FACTS,
@@ -312,13 +313,26 @@
   }
 
   /** The record, named once, for every panel this control opens. */
-  const reference = $derived(
-    matter.matterNumber !== null
-      ? `Matter ${matter.matterNumber}`
-      : matter.consultationNumber !== null
-        ? `Consultation ${matter.consultationNumber}`
-        : seal.label,
-  );
+  /*
+   * The matter by the newest number it has drawn: its matter number, else the tentative one it wears
+   * as a consultation, else the one its intake was written down under. Every rung has one, so the
+   * status word is reached only by a matter recorded before its rung was numbered.
+   */
+  const subtitle = $derived<RecordSubject>({
+    reference:
+      matter.matterNumber !== null
+        ? { kind: "Matter", number: matter.matterNumber }
+        : matter.consultationNumber !== null
+          ? {
+              kind: matterStatusLabel("consultation"),
+              number: matter.consultationNumber,
+              standing: "tentative",
+            }
+          : matter.intakeNumber !== null
+            ? { kind: matterStatusLabel("intake"), number: matter.intakeNumber }
+            : { kind: seal.label, number: null },
+    facts: [matter.title],
+  });
 </script>
 
 <!-- The seal is a PILLBOX: it states the status, and pressing it opens the window. It is a real
@@ -353,14 +367,11 @@
   kind="reading"
   bind:open
   heading="Matter Status"
+  {subtitle}
   width="record"
   context={physicalFile}
   onOpen={reset}
 >
-  {#snippet subtitle()}
-    {reference} · {matter.title}
-  {/snippet}
-
   {#snippet fields()}
     <div class="flex flex-col gap-16">
     <dl class="flex flex-col gap-8 text-sm">
@@ -646,7 +657,7 @@
 <!-- The one panel the status is changed in, opened over this window by the one control that
      changes it. It is where the steps available from here are listed and what each requires is
      answered; nothing about the change is decided twice. -->
-<MatterStatusChangeDialog {matter} bind:open={changeOpen} {reference} />
+<MatterStatusChangeDialog {matter} bind:open={changeOpen} {subtitle} />
 
 <!-- Amending is its own act, asked in its own panel over this one; the answer comes back here. -->
 <AmendAgreementDialog

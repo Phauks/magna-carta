@@ -27,6 +27,7 @@ function row(overrides: Partial<IntakeDeskRow> = {}): IntakeDeskRow {
     status: "intake",
     title: "Chase estate consultation",
     consultationNumber: null,
+    intakeNumber: null,
     matterTypeId: "matterType_1",
     matterTypeName: "Estate planning",
     responsibleMemberId: "user_1",

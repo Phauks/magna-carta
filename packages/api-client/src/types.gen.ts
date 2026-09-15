@@ -1135,6 +1135,7 @@ export type CreateMatterResponse = {
     matterId: string;
     matterNumber: string | null;
     consultationNumber: string | null;
+    intakeNumber: string | null;
 };
 
 export type CreateMatterRequest = {
@@ -1168,6 +1169,7 @@ export type MatterSummary = {
     clientDisplayName: string | null;
     matterNumber: string | null;
     consultationNumber: string | null;
+    intakeNumber: string | null;
     createdAt: string;
 };
 
@@ -1199,6 +1201,7 @@ export type MatterDetail = {
     clientEntityId: string | null;
     matterNumber: string | null;
     consultationNumber: string | null;
+    intakeNumber: string | null;
     eBilling: boolean;
     openedAt: string | null;
     heldAt: string | null;
@@ -1717,7 +1720,7 @@ export type NumberSegment = {
 
 export type NumberingScheme = {
     segments: Array<NumberSegment>;
-    purpose?: 'matter' | 'consultation';
+    purpose?: 'matter' | 'consultation' | 'intake';
 };
 
 export type NumberingPreviewResponse = {
@@ -3597,6 +3600,7 @@ export type CommunicationDetail = {
     matterStatus: string | null;
     matterNumber: string | null;
     consultationNumber: string | null;
+    intakeNumber: string | null;
     disposition: 'spam' | 'firmBusiness' | 'noAction' | null;
     counterpartyNumber: string;
     counterpartyEntityId: string | null;
@@ -4003,6 +4007,7 @@ export type IntakeDeskRow = {
     title: string;
     status: 'intake' | 'consultation';
     consultationNumber: string | null;
+    intakeNumber: string | null;
     matterTypeId: string | null;
     matterTypeName: string | null;
     responsibleMemberId: string;
@@ -14403,7 +14408,7 @@ export type NumberingGetData = {
     body?: never;
     path?: never;
     query?: {
-        purpose?: 'matter' | 'consultation';
+        purpose?: 'matter' | 'consultation' | 'intake';
     };
     url: '/api/v1/numbering-scheme';
 };

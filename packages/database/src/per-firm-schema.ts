@@ -619,12 +619,15 @@ export const numberingScheme = sqliteTable(
   {
     id: text("id").primaryKey().$type<NumberingSchemeId>(), // numberingScheme_ handle
     segments: text("segments").notNull(), // JSON; shape validated by numberingSchemeSchema
-    // Which sequence this template renders. A firm numbers two different things and must be able to
-    // shape them independently: the permanent matter number, and the tentative number a consultation
-    // carries before anyone knows whether it will become a matter. One active scheme per purpose; a
-    // firm that has configured no consultation scheme falls back to the built-in default, so a
-    // consultation is never unnumbered while somebody gets round to the settings screen.
-    purpose: text("purpose", { enum: ["matter", "consultation"] })
+    // Which sequence this template renders. A firm numbers three different things and must be able
+    // to shape them independently: the permanent matter number, the tentative number a consultation
+    // carries before anyone knows whether it will become a matter, and the number an intake wears
+    // from the moment the enquiry is written down. One active scheme per purpose; a firm that has
+    // configured no consultation or intake scheme falls back to the built-in default, so neither is
+    // ever unnumbered while somebody gets round to the settings screen. Only the matter purpose
+    // refuses to default, because a matter number is the firm's own file spine and there is no
+    // defensible shape to invent for one.
+    purpose: text("purpose", { enum: ["matter", "consultation", "intake"] })
       .notNull()
       .default("matter"),
     active: integer("active").notNull().default(1),
@@ -632,7 +635,7 @@ export const numberingScheme = sqliteTable(
     updatedAt: text("updated_at").notNull(),
   },
   // No CHECK on purpose: adding one to a table that already exists costs SQLite a full table
-  // rebuild, which is destructive DDL for a two-value column the write path is the only producer of.
+  // rebuild, which is destructive DDL for a small enum column the write path is the only producer of.
   // The enum on the column carries the constraint where it is actually enforced.
   () => [],
 );
@@ -704,6 +707,20 @@ export const matter = sqliteTable(
     // were a consultation) and on consultations created before the sequence existed. The draw instant
     // is created_at by construction — the number is allocated in the insert's own batch.
     consultationNumber: text("consultation_number"),
+    // The number an INTAKE wears from the moment the enquiry is written down, drawn from the firm's
+    // intake sequence (owner ruling, 2026-09-14: "everything should have a number, intake would have
+    // a number as well"). An intake is already work — somebody took the call, a conflicts check may
+    // have run, steps are being cleared — and until this existed its only name was its handle, which
+    // is what the platform joins on and what nobody can read back down a telephone.
+    //
+    // A THIRD RUN, not an early draw on the consultation one, for the reason the consultation number
+    // is not an early draw on the matter number: most enquiries never become consultations, and a
+    // consultation run pitted with declined enquiries cannot be told apart from one with records
+    // missing. Drawn once and frozen; graduation adds consultation_number beside it and opening adds
+    // matter_number beside that, so a note filed under this number still resolves. Null on matters
+    // created straight to consultation or to open, and on intakes created before the sequence
+    // existed. The draw instant is created_at by construction — allocated in the insert's own batch.
+    intakeNumber: text("intake_number"),
     // Names a platform-owned matter that exists to satisfy a structural requirement rather than to
     // hold a client engagement — today only the custody holding matter, which is where a scan of an
     // original held for someone with no matter is filed. Null on every real matter. Marked rather
@@ -734,6 +751,13 @@ export const matter = sqliteTable(
     uniqueIndex("matter_consultation_number_unique_index")
       .on(table.consultationNumber)
       .where(sql`${table.consultationNumber} IS NOT NULL`),
+    // And the same again for the intake run. Three partial unique indexes rather than one shared
+    // column, because the three numbers coexist on a matter that came the whole way: a file's intake
+    // number, its consultation number and its matter number are different names it answers to, and
+    // each has to be unique against its own run rather than against the other two.
+    uniqueIndex("matter_intake_number_unique_index")
+      .on(table.intakeNumber)
+      .where(sql`${table.intakeNumber} IS NOT NULL`),
     // At most one matter per firm per system key — the find-or-insert guard that collapses two
     // concurrent first-use creations onto one row.
     uniqueIndex("matter_system_key_unique_index")

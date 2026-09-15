@@ -88,15 +88,27 @@ describe("the window's header", () => {
   });
 
   it("states the kind, then only the pronouns a person stated", () => {
-    expect(entityWindowSubtitle(person())).toBe("Person");
-    expect(entityWindowSubtitle(person({ pronouns: SHE }))).toBe("Person · she/her");
+    // The separator is the design system's now, so what is asserted here is the PARTS. A record
+    // found by name carries no number, which is what the null reference says.
+    expect(entityWindowSubtitle(person())).toEqual({
+      reference: { kind: "Person", number: null },
+      facts: [],
+    });
+    expect(entityWindowSubtitle(person({ pronouns: SHE }))).toEqual({
+      reference: { kind: "Person", number: null },
+      facts: ["she/her"],
+    });
   });
 
   it("states an organization's legal name only where it differs from what the firm calls it", () => {
-    expect(entityWindowSubtitle(organization())).toBe("Organization");
-    expect(entityWindowSubtitle(organization({ displayName: "Pemberton" }))).toBe(
-      "Organization · Pemberton Holdings, Incorporated",
-    );
+    expect(entityWindowSubtitle(organization())).toEqual({
+      reference: { kind: "Organization", number: null },
+      facts: [],
+    });
+    expect(entityWindowSubtitle(organization({ displayName: "Pemberton" }))).toEqual({
+      reference: { kind: "Organization", number: null },
+      facts: ["Pemberton Holdings, Incorporated"],
+    });
   });
 });
 

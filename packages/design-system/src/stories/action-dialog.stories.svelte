@@ -40,7 +40,10 @@
     component: ActionDialog,
     args: {
       heading: "Write Off a Balance",
-      subtitle: "Invoice 2026-0147 · this matter still owes $4,120.00",
+      subtitle: {
+        reference: { kind: "Invoice", number: "2026-0147" },
+        facts: ["this matter still owes $4,120.00"],
+      },
       commitLabel: "Write It Off",
     },
     parameters: {
@@ -48,7 +51,9 @@
       // actually change this showcase. Snippets, the bindable `open` and the handlers are not
       // controls — `kind` is the variant axis, so it is one story each rather than a dropdown.
       controls: {
-        include: ["heading", "subtitle", "commitLabel", "commitRefusal", "width", "unsavedChanges"],
+        // `subtitle` is not among them: it is a RecordSubject, and a structured value edited as
+        // text in a panel is a control that teaches a reader the wrong shape for the prop.
+        include: ["heading", "commitLabel", "commitRefusal", "width", "unsavedChanges"],
       },
     },
   });
@@ -77,6 +82,7 @@
     soon: false,
     keyboard: false,
     stays: false,
+    previewed: false,
   });
 
   let amount = $state("");
@@ -91,6 +97,7 @@
     showing.destructive = false;
     showing.refused = false;
     showing.turnedDown = false;
+    showing.previewed = false;
     showing.guarded = false;
     showing.withContext = false;
     showing.long = false;
@@ -193,7 +200,7 @@
   </button>
   <ActionDialog
     {...acting(args)}
-    heading="Discard This Draft Bill?"
+    heading="Discard This Draft Bill"
     commitLabel="Discard the Draft"
     bind:open={showing.confirm}
     kind="confirm"
@@ -213,7 +220,7 @@
   </button>
   <ActionDialog
     {...acting(args)}
-    heading="Void This Cost?"
+    heading="Void This Cost"
     commitLabel="Void the Cost"
     bind:open={showing.destructive}
     kind="destructive"
@@ -367,6 +374,31 @@
   />
 {/snippet}
 
+{#snippet previewedTemplate(args: ActionDialogProps)}
+  <button
+    type="button"
+    class="mc-button mc-button-secondary mc-button-md"
+    onclick={() => (showing.previewed = true)}
+  >
+    Record a call
+  </button>
+  <!-- A record quoted out loud is identified BEFORE it is saved. The number is what the NEXT record
+       would draw, not one held for this panel, and the shell says which it is in one place. -->
+  <ActionDialog
+    {...acting(args)}
+    heading="Record a Call"
+    subtitle={{
+      reference: { kind: "Call", number: "2026-09-08-0042", standing: "preview" },
+    }}
+    commitLabel="Record It"
+    bind:open={showing.previewed}
+    kind="form"
+    unsavedChanges={false}
+    {fields}
+    onCommit={succeed}
+  />
+{/snippet}
+
 {#snippet soonTemplate(args: ActionDialogProps)}
   <button
     type="button"
@@ -378,7 +410,10 @@
   <ActionDialog
     {...acting(args)}
     heading="Apply Trust Funds"
-    subtitle="Trust held for this matter: $2,500.00"
+    subtitle={{
+      reference: { kind: "Matter", number: "2026-0147" },
+      facts: ["trust held: $2,500.00"],
+    }}
     commitLabel="Apply the Funds"
     bind:open={showing.soon}
     kind="form"
@@ -437,7 +472,7 @@
   <ActionDialog
     {...acting(args)}
     heading="Send a Report"
-    subtitle="Support reads these in the order they arrive"
+    subtitle={{ facts: ["Support reads these in the order they arrive"] }}
     commitLabel="Send the Report"
     commitBusyLabel="Sending"
     bind:open={showing.stays}
@@ -953,5 +988,33 @@
 
     closeEveryPanel();
     actionDialogExpansion.expanded = false;
+  }}
+/>
+
+<Story
+  name="NumberedBeforeItIsSaved"
+  template={previewedTemplate}
+  play={async ({ canvas, step }) => {
+    const body = within(document.body);
+    const trigger = canvas.getByRole("button", { name: "Record a call" });
+    await waitFor(() => expect(trigger).not.toHaveStyle({ pointerEvents: "none" }));
+    await userEvent.click(trigger);
+    const panel = await body.findByRole("dialog");
+    await waitFor(() => expect(panel).toBeVisible());
+
+    await step("The panel states the number the record would take", () => {
+      expect(within(panel).getByText("2026-09-08-0042")).toBeVisible();
+    });
+
+    await step("And says it is drawn by the save rather than held for this panel", () => {
+      expect(within(panel).getByText("drawn when this is saved")).toBeVisible();
+    });
+
+    await step("The figures are tabular, so two references stack digit under digit", () => {
+      const number = within(panel).getByText("2026-09-08-0042");
+      expect(getComputedStyle(number).fontVariantNumeric).toContain("tabular-nums");
+    });
+
+    closeEveryPanel();
   }}
 />

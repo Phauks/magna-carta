@@ -59,8 +59,8 @@
 <ActionDialog
   bind:open
   kind="confirm"
-  heading={`Restore ${file?.name ?? "this file"}?`}
-  subtitle="Nothing is overwritten: the file returns with every version and its whole history intact."
+  heading={`Restore ${file?.name ?? "this file"}`}
+  subtitle={{ facts: ["returns with every version and its whole history intact"] }}
   commitLabel="Restore"
   commitBusyLabel="Restoring"
   commitRefusal={file === null ? "No file is chosen." : undefined}

@@ -345,7 +345,7 @@
 <ActionDialog
   bind:open
   kind="form"
-  heading="Assign A Category"
+  heading="Assign a Category"
   commitLabel="Assign"
   commitBusyLabel="Assigning"
   commitRefusal={refusal}

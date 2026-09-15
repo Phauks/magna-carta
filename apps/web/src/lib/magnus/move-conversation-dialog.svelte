@@ -16,6 +16,7 @@
    * its reason rather than hidden from the list.
    */
   import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import Label from "@magna-carta/design-system/label";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -47,7 +48,9 @@
   let chosen = $state<string | null>(null);
   let failure = $state<StatedFailure | null>(null);
 
-  const identity = $derived(conversation === null ? "" : conversationDisplayName(conversation));
+  const subtitle = $derived<RecordSubject>(
+    conversation === null ? {} : { facts: [conversationDisplayName(conversation)] },
+  );
   const unchanged = $derived(conversation !== null && chosen === conversation.matterId);
   const refusal = $derived(
     unchanged ? "This is where the conversation is already kept." : undefined,
@@ -78,8 +81,8 @@
 
 <ActionDialog
   bind:open
-  heading="Keep On a Matter"
-  subtitle={identity}
+  heading="Keep on a Matter"
+  {subtitle}
   commitLabel="Keep It Here"
   commitBusyLabel="Moving"
   commitRefusal={refusal}

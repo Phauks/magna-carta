@@ -14,6 +14,7 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
@@ -60,6 +61,17 @@
 
   const reading = $derived(readBoundedAmountMinor(amountText, ceiling, money(ceiling)));
 
+  /*
+   * The bill being acted on, by its own number. The facts beside it are facts about THAT BILL — what
+   * it still owes, what it is worth — never a description of the act, which the heading has already
+   * given. Both were in one interpolated string before, which is how a number and a sentence came to
+   * share a line behind three different separators across these panels.
+   */
+  const subtitle = $derived<RecordSubject>({
+    reference: { kind: "Invoice", number: row?.summary.invoiceNumber ?? null },
+    facts: [`this matter still owes ${money(ceiling)}`],
+  });
+
   const refusal = $derived.by((): string | undefined => {
     if (row === null) return "No bill is open.";
     if (reading.kind === "empty") return "Say how much the firm is giving up.";
@@ -89,7 +101,7 @@
 <ActionDialog
   bind:open
   heading="Write Off a Balance"
-  subtitle={`${row?.summary.invoiceNumber ?? "This bill"} · this matter still owes ${money(ceiling)}`}
+  {subtitle}
   commitLabel="Write Off"
   commitBusyLabel="Writing Off"
   commitRefusal={refusal}

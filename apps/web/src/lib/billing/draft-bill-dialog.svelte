@@ -23,6 +23,7 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import { DatePicker } from "@magna-carta/design-system/date-picker";
   import Label from "@magna-carta/design-system/label";
@@ -118,6 +119,22 @@
   const effectiveMatterNumber = $derived(
     picksItsMatter ? (chosenMatter?.matterNumber ?? null) : matterNumber,
   );
+  /*
+   * The bill being opened, by the matter it is on. The separator and the "Matter" word were written
+   * out here before; both belong to the design system now, so this states the parts and nothing
+   * about how they are joined.
+   */
+  const subtitle = $derived<RecordSubject>(
+    effectiveClientName === null
+      ? picksItsMatter
+        ? { facts: ["On the matter you choose"] }
+        : {}
+      : {
+          reference: { kind: "Matter", number: effectiveMatterNumber },
+          facts: [effectiveClientName],
+        },
+  );
+
   const draftAlreadyOpen = $derived(
     clientEntityId !== null
       ? aDraftIsOpen
@@ -173,6 +190,7 @@
 <ActionDialog
   bind:open
   heading="Draft a Bill"
+  {subtitle}
   commitLabel="Open Draft"
   commitBusyLabel="Opening"
   {commitRefusal}
@@ -180,15 +198,7 @@
   onOpen={reset}
   onCommit={openDraft}
 >
-  {#snippet subtitle()}
-    {#if effectiveClientName !== null}
-      {effectiveClientName}{effectiveMatterNumber === null
-        ? ""
-        : ` · Matter ${effectiveMatterNumber}`}
-    {:else if picksItsMatter}
-      On the matter you choose
-    {/if}
-  {/snippet}
+
 
   {#snippet notice()}
     {#if failure !== null}

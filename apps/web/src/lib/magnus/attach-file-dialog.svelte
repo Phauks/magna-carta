@@ -14,6 +14,7 @@
    * everywhere.
    */
   import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import Label from "@magna-carta/design-system/label";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -41,7 +42,9 @@
   let chosen = $state<string | null>(null);
   let failure = $state<StatedFailure | null>(null);
 
-  const identity = $derived(conversation === null ? "" : conversationDisplayName(conversation));
+  const subtitle = $derived<RecordSubject>(
+    conversation === null ? {} : { facts: [conversationDisplayName(conversation)] },
+  );
   const refusal = $derived(chosen === null ? "Choose a file to attach." : undefined);
 
   function reset(): void {
@@ -69,7 +72,7 @@
 <ActionDialog
   bind:open
   heading="Attach a File"
-  subtitle={identity}
+  {subtitle}
   commitLabel="Attach It"
   commitBusyLabel="Attaching"
   commitRefusal={refusal}

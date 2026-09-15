@@ -4548,12 +4548,19 @@
               "string",
               "null"
             ]
+          },
+          "intakeNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
           "matterId",
           "matterNumber",
-          "consultationNumber"
+          "consultationNumber",
+          "intakeNumber"
         ]
       },
       "CreateMatterRequest": {
@@ -4701,6 +4708,12 @@
               "null"
             ]
           },
+          "intakeNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "createdAt": {
             "type": "string"
           }
@@ -4716,6 +4729,7 @@
           "clientDisplayName",
           "matterNumber",
           "consultationNumber",
+          "intakeNumber",
           "createdAt"
         ]
       },
@@ -4853,6 +4867,12 @@
               "null"
             ]
           },
+          "intakeNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "eBilling": {
             "type": "boolean"
           },
@@ -4922,6 +4942,7 @@
           "clientEntityId",
           "matterNumber",
           "consultationNumber",
+          "intakeNumber",
           "eBilling",
           "openedAt",
           "heldAt",
@@ -6965,7 +6986,8 @@
             "type": "string",
             "enum": [
               "matter",
-              "consultation"
+              "consultation",
+              "intake"
             ],
             "default": "matter"
           }
@@ -14907,6 +14929,12 @@
               "null"
             ]
           },
+          "intakeNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "disposition": {
             "type": [
               "string",
@@ -14991,6 +15019,7 @@
           "matterStatus",
           "matterNumber",
           "consultationNumber",
+          "intakeNumber",
           "disposition",
           "counterpartyNumber",
           "counterpartyEntityId",
@@ -16843,6 +16872,12 @@
               "null"
             ]
           },
+          "intakeNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "matterTypeId": {
             "type": [
               "string",
@@ -16894,6 +16929,7 @@
           "title",
           "status",
           "consultationNumber",
+          "intakeNumber",
           "matterTypeId",
           "matterTypeName",
           "responsibleMemberId",
@@ -50279,7 +50315,7 @@
     },
     "/api/v1/numbering-scheme": {
       "get": {
-        "description": "Returns the firm's active numbering scheme for one purpose (the ordered segment template): 'matter' for matter numbers, 'consultation' for the tentative numbers consultations carry. Returns null segments when none is configured and no default applies; usingDefault marks the built-in consultation sequence that renders until the firm sets its own.",
+        "description": "Returns the firm's active numbering scheme for one purpose (the ordered segment template): 'matter' for matter numbers, 'consultation' for the tentative numbers consultations carry, 'intake' for the numbers enquiries wear from the moment they are written down. Returns null segments when none is configured and no default applies; usingDefault marks a built-in sequence that renders until the firm sets its own.",
         "operationId": "numbering.get",
         "tags": [
           "numbering"
@@ -50303,7 +50339,8 @@
               "type": "string",
               "enum": [
                 "matter",
-                "consultation"
+                "consultation",
+                "intake"
               ],
               "default": "matter"
             },
