@@ -201,7 +201,7 @@
   async function holdTheRoom(event: { kind: "matterEvent" | "firmEvent"; id: string }): Promise<
     boolean
   > {
-    const room = roomForLocation(draft.locationText, resources);
+    const room = roomForLocation(draft.locationText, resources, locations);
     if (room === null) return true;
     const outcome = await createBooking(
       fetch,

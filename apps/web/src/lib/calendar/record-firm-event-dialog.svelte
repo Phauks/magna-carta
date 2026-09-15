@@ -139,7 +139,7 @@
    * a room somebody believes is held.
    */
   async function holdTheRoom(firmEventId: string): Promise<boolean> {
-    const room = roomForLocation(draft.locationText, resources);
+    const room = roomForLocation(draft.locationText, resources, locations);
     if (room === null) return true;
     const outcome = await createBooking(
       fetch,

@@ -38,7 +38,8 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   checkbox per folder, and the palette behind the colour pip. It is the CONTENT of the design
   system's navigation column and draws no column of its own
 - `location-picker.svelte` — WHERE a setting is held, as the product's dropdown-with-add over the
-  firm's own offices and rooms, keeping a courthouse nobody has a record of
+  firm's own offices and their rooms, grouped by office, keeping a courthouse nobody has a record of;
+  `room-location.ts` — which room a written location names, and the name to write for one
 - `day-schedule.svelte` — the day being booked, in a record form's context pane. `CalendarView` with
   a day view and no toolbar; never a second calendar
 - `calendar-entries.ts` — the projection to `CalendarGridEntry`, and the day order
@@ -144,6 +145,11 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   the toolbar only where there is an hour axis to be concurrent on. Widening the federated read to
   carry an end would make those entries stretch too, and is the one thing standing between a firm's
   week and a complete picture of it.
+- **A room is offered under the office it is in, and named by it where the firm has more than one.**
+  `room-location.ts` is the one home for both halves — the grouping the picker draws and the written
+  name it stores — because the module that WRITES a location is the module that reads it back to
+  book the room, and two answers would drift within a round. A bare name two offices both answer to
+  matches neither: booking one of two rooms nobody chose between is worse than booking none.
 - **A setting held in one of the firm's own rooms HOLDS that room.** Location stores TEXT (a
   courthouse, a department number, opposing counsel's office are none of them records this product
   holds), and a room's calendar reads BOOKINGS — so choosing a room from the location picker used to

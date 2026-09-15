@@ -20,10 +20,18 @@
    * letterhead, remit-to and matter numbering; choosing an office fills the field with that office's
    * NAME. So there is nothing here that can dangle when a room is renamed, and nothing that has to
    * decide what a location means.
+   *
+   * A ROOM IS OFFERED UNDER THE OFFICE IT IS IN, and named by it where the firm has more than one
+   * (owner, 2026-09-14: "A location may be Office 1, Room 1; Office 2, Room 2. Where offices are
+   * distinct addresses, but rooms are not."). One office and a room is just a room; three offices
+   * and a bare "Conference Room 1" names none of them. The grouping and the written name are
+   * room-location.ts's answers, which is also what reads them back to book the room — so what this
+   * field writes and what the booking finds cannot drift apart.
    */
   import * as Combobox from "@magna-carta/design-system/combobox";
   import type { LocationSummary } from "$lib/matters/matters-api.ts";
   import type { FirmResource } from "./calendar-api.ts";
+  import { roomsByOffice } from "./room-location.ts";
 
   let {
     value = $bindable(""),
@@ -45,7 +53,7 @@
     disabled?: boolean;
   } = $props();
 
-  /** The two groups, named, so a reader can tell an office from a room in the same list. */
+  /** The offices' own group, and the heading rooms belonging to no office fall under. */
   const OFFICES_HEADING = "The firm's offices";
   const ROOMS_HEADING = "Rooms";
 
@@ -55,21 +63,41 @@
   let searching = $state(false);
 
   const offices = $derived(locations.map((location) => location.name));
-  const rooms = $derived(
-    resources.filter((resource) => resource.active && resource.kind === "room").map((r) => r.name),
-  );
+  /** Every room the firm could hold a setting in, under its office, each with the name written. */
+  const roomGroups = $derived(roomsByOffice(resources, locations, ROOMS_HEADING));
 
   const needle = $derived(searching ? query.trim().toLowerCase() : "");
-  const matchingOffices = $derived(
-    offices.filter((name) => name.toLowerCase().includes(needle)),
+  const matchingOffices = $derived(offices.filter((name) => name.toLowerCase().includes(needle)));
+  /*
+   * A room matches on the name a reader would type — its own — or on the one the field will write,
+   * so typing "north" finds North Office's rooms and typing "boardroom" finds it in whichever
+   * office it is in. An office with nothing matching is left out rather than drawn empty.
+   */
+  const matchingRoomGroups = $derived(
+    roomGroups
+      .map((group) => ({
+        heading: group.heading,
+        rooms: group.rooms.filter(
+          (held) =>
+            held.room.name.toLowerCase().includes(needle) ||
+            held.written.toLowerCase().includes(needle),
+        ),
+      }))
+      .filter((group) => group.rooms.length > 0),
   );
-  const matchingRooms = $derived(rooms.filter((name) => name.toLowerCase().includes(needle)));
-  const offered = $derived([...matchingOffices, ...matchingRooms]);
+  const offered = $derived([
+    ...matchingOffices,
+    ...matchingRoomGroups.flatMap((group) => group.rooms.map((held) => held.written)),
+  ]);
 
   /** Whether what is typed is already one of the offered places, so the add row would repeat it. */
+  const everyPlace = $derived([
+    ...offices,
+    ...roomGroups.flatMap((group) => group.rooms.map((held) => held.written)),
+  ]);
   const typedIsOffered = $derived(
     query.trim() === "" ||
-      [...offices, ...rooms].some((name) => name.toLowerCase() === query.trim().toLowerCase()),
+      everyPlace.some((name) => name.toLowerCase() === query.trim().toLowerCase()),
   );
 
   function settle(next: string): void {
@@ -120,14 +148,15 @@
         {/each}
       </Combobox.Group>
     {/if}
-    {#if matchingRooms.length > 0}
+    <!-- A group per office, so two offices' worth of "Conference Room 1" read as two rooms. -->
+    {#each matchingRoomGroups as group (group.heading)}
       <Combobox.Group>
-        <Combobox.GroupHeading>{ROOMS_HEADING}</Combobox.GroupHeading>
-        {#each matchingRooms as name (name)}
-          <Combobox.Item value={name} label={name} />
+        <Combobox.GroupHeading>{group.heading}</Combobox.GroupHeading>
+        {#each group.rooms as held (held.room.id)}
+          <Combobox.Item value={held.written} label={held.written} />
         {/each}
       </Combobox.Group>
-    {/if}
+    {/each}
     {#if !typedIsOffered}
       <Combobox.AddOption fieldName={label} {query} />
     {/if}
