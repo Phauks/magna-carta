@@ -364,11 +364,10 @@ export default defineConfig({
       clean: {
         command: "node tooling/clean/index.mjs",
       },
-      // The whole-repo quality gate, run locally: every check the change can reach, from one command.
-      // `pnpm gate` is the same thing; see tooling/gate/index.mjs for the dimensions and the flags.
-      gate: {
-        command: "node tooling/gate/index.mjs",
-      },
+      // The whole-repo quality gate is `pnpm gate` (tooling/gate/index.mjs), a package.json script and
+      // deliberately NOT a task here: vp refuses to load a task graph in which a task and a root script
+      // share a name, and that refusal takes every `vp run` down with it — including the ones the gate
+      // itself spawns (`vp run typecheck`, `vp run rust-check`, `vp run bootstrap`).
       // Point git at the tracked hooks directory (pre-push quality gate + post-merge auto-clean).
       // Runs automatically from `postinstall`, because a fresh clone leaves core.hooksPath unset and
       // a cloud session is a fresh clone every time — left manual, those sessions push with the gate
