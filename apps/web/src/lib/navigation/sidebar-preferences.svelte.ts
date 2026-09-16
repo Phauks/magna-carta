@@ -22,6 +22,11 @@
  *   so the eye catches where it landed, then acknowledges it into `known`.
  * - `expandOnHover` is a per-browser interaction preference (default off): when the rail rests
  *   collapsed, hovering it floats the rail open as an overlay over the canvas.
+ * - `collapsedGroups` names the groups this member has FOLDED AWAY. Departures again, not state:
+ *   every group is open until somebody folds it, so a group added to the registry later arrives
+ *   open rather than inheriting a fold nobody asked for. Folding hides rows the way a star does,
+ *   and carries the same invariant — the palette still reaches every destination in a folded
+ *   group, because hiding must never remove capability.
  */
 
 import { jsonPreference } from "$lib/preferences/persisted-preference.ts";
@@ -33,6 +38,7 @@ import {
   type DestinationGroup,
 } from "./destinations.ts";
 import { FIXED_LEADING_ID, mergeGroupOrder } from "./sidebar-order.ts";
+import { toolSidebarDestinations } from "./tool-sidebar.ts";
 
 const STORAGE_KEY = "mc-sidebar-preferences";
 
@@ -41,6 +47,7 @@ interface SidebarPreferencesValue {
   order: Partial<Record<DestinationGroup, string[]>>;
   known: string[];
   expandOnHover: boolean;
+  collapsedGroups: DestinationGroup[];
 }
 
 const REGISTRY_IDS = new Set(DESTINATIONS.map((destination) => destination.id));
@@ -55,7 +62,13 @@ function defaultVisibleIds(): string[] {
 function emptyValue(): SidebarPreferencesValue {
   // `known` seeds to the default-visible set: a fresh sidebar is not a wall of arrivals — the gilt
   // highlight is for rows that land LATER (a star elsewhere, a new registry addition).
-  return { starredOverrides: {}, order: {}, known: defaultVisibleIds(), expandOnHover: false };
+  return {
+    starredOverrides: {},
+    order: {},
+    known: defaultVisibleIds(),
+    expandOnHover: false,
+    collapsedGroups: [],
+  };
 }
 
 /** Read-time validator: unknown ids (retired registry rows, hand edits) drop; the shape rebuilds. */
@@ -88,6 +101,12 @@ function normalize(parsed: unknown): SidebarPreferencesValue {
   }
   if (typeof record.expandOnHover === "boolean") {
     value.expandOnHover = record.expandOnHover;
+  }
+  if (Array.isArray(record.collapsedGroups)) {
+    const groupIds = new Set<string>(DESTINATION_GROUPS.map((group) => group.id));
+    value.collapsedGroups = record.collapsedGroups.filter(
+      (id): id is DestinationGroup => typeof id === "string" && groupIds.has(id),
+    );
   }
   return value;
 }
@@ -127,12 +146,18 @@ export function sidebarGroups(): readonly SidebarGroupView[] {
         isStarred(destination),
     ).map((destination) => destination.id);
     const orderedIds = mergeGroupOrder(visibleCanonical, preference.current.order[group.id] ?? []);
+    const registryRows = orderedIds
+      .map((id) => destinationById(id))
+      .filter((destination): destination is Destination => destination !== undefined);
     return {
       id: group.id,
       label: group.label,
-      destinations: orderedIds
-        .map((id) => destinationById(id))
-        .filter((destination): destination is Destination => destination !== undefined),
+      // The Tools group is the registry's index row followed by the tool catalog itself, which
+      // this registry deliberately does not hold (navigation/tool-sidebar.ts). Appended rather
+      // than merged into the order above because the catalog's own subject order is the order —
+      // there is no member arrangement over it to reconcile with.
+      destinations:
+        group.id === "tools" ? [...registryRows, ...toolSidebarDestinations()] : registryRows,
     };
   }).filter((group) => group.destinations.length > 0);
 }
@@ -151,27 +176,34 @@ export interface SidebarEditingGroupView {
  * shows — the ones in the sidebar now (starred, member order) and the ones a click would add
  * (unstarred, canonical order). Footer-pinned rows (Settings, Downloads, Uploads) are excluded —
  * the footer's utility tray owns them, so they are never hideable or reorderable.
+ *
+ * THE TOOLS GROUP IS EXCLUDED WHOLE. What a member sees there is what they are permitted to run,
+ * and access control has already answered that; a star beside a tool would be a second answer to
+ * the same question, and an inert one. The group folds away like any other if the rail is too
+ * long, which is the control that actually belongs to the reader.
  * This is the editor's superset of sidebarGroups(), which shows only the starred tier.
  */
 export function sidebarEditingGroups(): readonly SidebarEditingGroupView[] {
-  return DESTINATION_GROUPS.map((group) => {
-    const members = DESTINATIONS.filter(
-      (destination) => destination.group === group.id && destination.footerPinned !== true,
-    );
-    const starredCanonical = members
-      .filter((destination) => isStarred(destination))
-      .map((destination) => destination.id);
-    const orderedStarredIds = mergeGroupOrder(
-      starredCanonical,
-      preference.current.order[group.id] ?? [],
-    );
-    const starred = orderedStarredIds
-      .map((id) => destinationById(id))
-      .filter((destination): destination is Destination => destination !== undefined);
-    // Canonical order for the add-back tier — the members array is already canonical.
-    const unstarred = members.filter((destination) => !isStarred(destination));
-    return { id: group.id, label: group.label, starred, unstarred };
-  }).filter((group) => group.starred.length + group.unstarred.length > 0);
+  return DESTINATION_GROUPS.filter((group) => group.id !== "tools")
+    .map((group) => {
+      const members = DESTINATIONS.filter(
+        (destination) => destination.group === group.id && destination.footerPinned !== true,
+      );
+      const starredCanonical = members
+        .filter((destination) => isStarred(destination))
+        .map((destination) => destination.id);
+      const orderedStarredIds = mergeGroupOrder(
+        starredCanonical,
+        preference.current.order[group.id] ?? [],
+      );
+      const starred = orderedStarredIds
+        .map((id) => destinationById(id))
+        .filter((destination): destination is Destination => destination !== undefined);
+      // Canonical order for the add-back tier — the members array is already canonical.
+      const unstarred = members.filter((destination) => !isStarred(destination));
+      return { id: group.id, label: group.label, starred, unstarred };
+    })
+    .filter((group) => group.starred.length + group.unstarred.length > 0);
 }
 
 /** A visible id the member's sidebar has never carried before — highlight once, then acknowledge. */
@@ -223,6 +255,29 @@ export function moveDestination(group: DestinationGroup, id: string, toIndex: nu
   ids.splice(fromIndex, 1);
   ids.splice(boundedIndex, 0, id);
   preference.set({ ...preference.current, order: { ...preference.current.order, [group]: ids } });
+}
+
+/**
+ * Whether a group is folded away in this member's rail. Read reactively.
+ *
+ * The COLLAPSED ICON RAIL is not this: a rail with no visible headings has nothing to fold by, so
+ * the shell shows every group's icons there whatever this says, and the fold is waiting when the
+ * rail is opened again.
+ */
+export function isGroupCollapsed(group: DestinationGroup): boolean {
+  return preference.current.collapsedGroups.includes(group);
+}
+
+export function setGroupCollapsed(group: DestinationGroup, next: boolean): void {
+  if (isGroupCollapsed(group) === next) return;
+  const collapsedGroups = next
+    ? [...preference.current.collapsedGroups, group]
+    : preference.current.collapsedGroups.filter((id) => id !== group);
+  preference.set({ ...preference.current, collapsedGroups });
+}
+
+export function toggleGroupCollapsed(group: DestinationGroup): void {
+  setGroupCollapsed(group, !isGroupCollapsed(group));
 }
 
 /** The hover-to-expand preference — read reactively; default off. */

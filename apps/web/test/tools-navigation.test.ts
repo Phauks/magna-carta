@@ -1,67 +1,57 @@
 // @vitest-environment happy-dom
 /*
- * Tools is a two-sided screen: the tools column on the left, the tool on the right, on the design
- * system's NavigationLayout. Pinned here, mounted, because the shape is the whole ruling:
+ * How a member reaches a tool, since the owner's direction of 2026-09-16: from the GLOBAL RAIL, not
+ * from a navigation column inside a Tools sub-page. Pinned here because the whole ruling is the
+ * shape:
  *
- *   - the column is a navigation landmark named Tools, and it lists every permitted tool exactly
- *     once under its subject heading — the same projection the landing index renders, so the two
- *     cannot disagree;
- *   - a tool with a surface is a link to its own route; one without stands in its group unlinked
- *     and wearing the Soon mark, never omitted and never dressed as a broken control;
- *   - the row for the tool the reader is on is marked current, including from a screen beneath it;
- *   - the content column scrolls unless the page claims the scrolling, which the full-height tool
- *     does through its route data.
+ *   - every permitted tool is a row in the rail's own Tools group, exactly once, in the catalog's
+ *     canonical subject order — derived from the catalog, never hand-listed, so a tool added there
+ *     appears in the rail with no edit to the destination registry;
+ *   - a tool with a surface routes to its own address; one without is an announced Soon row, never
+ *     omitted and never a link to a page that is not there;
+ *   - the Tools layout is a passthrough, so a tool opens onto the whole canvas — the navigation
+ *     column that used to sit beside it is gone, and with it the width it was taking;
+ *   - the index at /tools survives as the index, and lights as current only on its own address,
+ *     because everything beneath it is now a row of its own.
  *
- * The File Workbench is deliberately NOT here any more. It became a sidebar destination of its own
- * (navigation/destinations.ts) and declares a `route` outside this area, which is what takes it out
- * of the column: every row here loads BESIDE the column, and a row that replaced the whole screen
- * would be the one control that does not. Its manifest stays for contextual surfacing, so
- * CATALOG.length is no longer the column's count.
+ * The File Workbench is deliberately absent. It declares a `route` outside this area, which is what
+ * takes it out of every projection of the catalog; its manifest stays for contextual surfacing, so
+ * CATALOG.length is not the count of anything here.
  */
 import { createRawSnippet, flushSync, mount, unmount } from "svelte";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { page } from "./stubs/app-state.ts";
-import { CATALOG } from "@magna-carta/tools/catalog";
+import { CATALOG, toolRoute } from "@magna-carta/tools/catalog";
 import { hasSurface } from "@magna-carta/design-system/maturity";
 import ToolsLayout from "../src/routes/(app)/tools/+layout.svelte";
-import { load as safeWebsiteViewerLoad } from "../src/routes/(app)/tools/safe-website-viewer/+page.ts";
+import {
+  DESTINATION_GROUPS,
+  DESTINATIONS,
+  isCurrentDestination,
+  type Destination,
+} from "../src/lib/navigation/destinations.ts";
+import { toolSidebarDestinations } from "../src/lib/navigation/tool-sidebar.ts";
 import {
   currentCatalogueEntry,
   isCurrentCatalogueEntry,
 } from "../src/lib/catalogue/catalogue-navigation.ts";
-import { PAGE_OWNS_SCROLLER, contentColumnScrolls } from "../src/lib/tools/content-column.ts";
 import { toolCatalogueSections } from "../src/lib/tools/tool-catalogue.ts";
-import { SUBJECT_GROUP_LABELS } from "../src/lib/tools/tool-presentation.ts";
 
 let target: HTMLElement;
 let instance: Record<string, unknown> | undefined;
 
-/** What a route's load hands the layout, read without SvelteKit's load event. */
-const routeData = (load: unknown): Record<string, unknown> =>
-  (load as () => Record<string, unknown>)();
-
 /** A minimal page, the way SvelteKit would hand one to the layout. */
 const content = createRawSnippet(() => ({ render: () => "<p>the tool</p>" }));
 
-function drawTools(pathname: string, data: Record<string, unknown> = {}): HTMLElement {
+function drawTools(pathname: string): HTMLElement {
   page.url = new URL(`https://magna-carta.test${pathname}`);
-  page.data = data;
+  page.data = {};
   instance = mount(ToolsLayout, { target, props: { children: content } });
   flushSync();
   return target;
 }
 
-function navigation(rendered: HTMLElement): HTMLElement {
-  const found = rendered.querySelector<HTMLElement>('nav[aria-label="Tools"]');
-  if (found === null) throw new Error("the tools column did not render as a named landmark");
-  return found;
-}
-
-function contentColumn(rendered: HTMLElement): HTMLElement {
-  const found = rendered.querySelector<HTMLElement>('[data-navigation-layout="content"]');
-  if (found === null) throw new Error("the content column did not render");
-  return found;
-}
+const indexRow = DESTINATIONS.find((destination) => destination.id === "tools") as Destination;
 
 beforeEach(() => {
   target = document.createElement("div");
@@ -76,132 +66,88 @@ afterEach(() => {
   page.data = {};
 });
 
-describe("the tools column", () => {
-  it("lists every permitted tool exactly once, under its subject heading, as the landing index does", () => {
-    const column = navigation(drawTools("/tools"));
-    const rows = [...column.querySelectorAll("li")].map((row) => row.textContent?.trim() ?? "");
+describe("the tools in the rail", () => {
+  const rows = toolSidebarDestinations();
+
+  it("is every permitted tool exactly once, in the catalog's own order", () => {
     const expected = toolCatalogueSections().flatMap((section) =>
       section.entries.map((entry) => entry.name),
     );
-    expect(rows.map((row) => row.replace(/Soon$/u, "").trim())).toEqual(expected);
-    // Every catalog tool the area still addresses, which is all of them but the promoted ones.
-    expect(new Set(expected).size).toBe(CATALOG.filter((tool) => tool.route === undefined).length);
-
-    const headings = [...column.querySelectorAll("p.mc-field-label")].map(
-      (heading) => heading.textContent?.trim() ?? "",
-    );
-    expect(headings).toEqual(toolCatalogueSections().map((section) => section.label));
-    for (const heading of headings) expect(Object.values(SUBJECT_GROUP_LABELS)).toContain(heading);
+    expect(rows.map((row) => row.label)).toEqual(expected);
+    expect(new Set(rows.map((row) => row.id)).size).toBe(rows.length);
+    expect(rows.length).toBe(CATALOG.filter((tool) => tool.route === undefined).length);
   });
 
-  it("links a tool with a surface to its route, and leaves one without unlinked and marked Soon", () => {
-    const column = navigation(drawTools("/tools"));
-    for (const section of toolCatalogueSections()) {
-      for (const entry of section.entries) {
-        const link = column.querySelector(`a[href="/tools/${entry.id}"]`);
-        if (hasSurface(entry.stage)) {
-          expect(link, `${entry.name} should be a link`).not.toBeNull();
-          expect(link?.textContent).not.toContain("Soon");
-        } else {
-          expect(link, `${entry.name} has no surface and must not link`).toBeNull();
-          const row = [...column.querySelectorAll("li")].find((candidate) =>
-            candidate.textContent?.includes(entry.name),
-          );
-          expect(row?.textContent).toContain("Soon");
-          expect(row?.querySelector('[aria-disabled="true"]')).not.toBeNull();
-        }
-      }
+  it("addresses each tool where the catalog says, and never invents an id", () => {
+    for (const tool of CATALOG.filter((candidate) => candidate.route === undefined)) {
+      const row = rows.find((candidate) => candidate.id === `tool-${tool.id}`);
+      expect(row, `${tool.name} should have a rail row`).toBeDefined();
+      expect(row?.href).toBe(toolRoute(tool));
     }
   });
 
-  it("lights the row of the tool the reader is on, including from a screen beneath it", () => {
-    const onWhois = navigation(drawTools("/tools/whois-lookup"));
-    expect(onWhois.querySelector('[aria-current="page"]')?.getAttribute("href")).toBe(
-      "/tools/whois-lookup",
-    );
-    expect(onWhois.querySelectorAll('[aria-current="page"]')).toHaveLength(1);
-    if (instance !== undefined) void unmount(instance);
-    instance = undefined;
-    target.replaceChildren();
-
-    const onBeneath = navigation(drawTools("/tools/whois-lookup/some-record"));
-    expect(onBeneath.querySelector('[aria-current="page"]')?.getAttribute("href")).toBe(
-      "/tools/whois-lookup",
-    );
-    if (instance !== undefined) void unmount(instance);
-    instance = undefined;
-    target.replaceChildren();
-
-    const onLanding = navigation(drawTools("/tools"));
-    expect(onLanding.querySelector('[aria-current="page"]')).toBeNull();
-  });
-
-  it("leaves out a tool promoted to its own destination, and the group it emptied", () => {
-    const column = navigation(drawTools("/tools"));
-    expect(column.textContent).not.toContain("File Workbench");
-    expect(column.querySelector('a[href="/file-workbench"]')).toBeNull();
-    expect(
-      toolCatalogueSections().some((section) => section.id === "files"),
-      "the files group has no tool left to show",
-    ).toBe(false);
-  });
-
-  it("renders the page beside the column", () => {
-    const rendered = drawTools("/tools/whois-lookup");
-    expect(contentColumn(rendered).textContent).toContain("the tool");
-  });
-
-  it("draws every row as the design system's navigation row, with no treatment of its own", () => {
-    const column = navigation(drawTools("/tools/whois-lookup"));
-    const rows = [...column.querySelectorAll("li > *")];
-    expect(rows.length).toBeGreaterThan(0);
+  it("ships a tool with a surface and announces one without", () => {
     for (const row of rows) {
-      // The height, the hover tint and the lit row's fill and gilt bar are the part's, so a class
-      // list or an inline style written here again is exactly the drift the part ended.
-      expect(row.classList.contains("mc-navigation-layout-row")).toBe(true);
-      expect(row.getAttribute("style")).toBeNull();
+      expect(row.shipped).toBe(hasSurface(row.stage ?? "soon"));
+      if (!row.shipped) expect(row.announced).toBe(true);
     }
   });
-});
 
-describe("who scrolls the content column", () => {
-  it("is the column itself unless the page claims it", () => {
-    const scrolling = contentColumn(drawTools("/tools/whois-lookup"));
-    expect(scrolling.classList.contains("mc-navigation-layout-content-scrolling")).toBe(true);
-    if (instance !== undefined) void unmount(instance);
-    instance = undefined;
-    target.replaceChildren();
-
-    const owned = contentColumn(drawTools("/tools/safe-website-viewer", { ...PAGE_OWNS_SCROLLER }));
-    expect(owned.classList.contains("mc-navigation-layout-content-scrolling")).toBe(false);
+  it("leaves out a tool promoted to its own destination", () => {
+    expect(rows.some((row) => row.href === "/file-workbench")).toBe(false);
+    expect(rows.some((row) => row.label === "File Workbench")).toBe(false);
   });
 
-  it("is claimed by the full-height tool through its route data, and by nothing else", () => {
-    // One tool claims it now. The workbench was the other, and it stages its own height against
-    // the App Shell rather than against this column since it stopped being a tool.
-    expect(contentColumnScrolls({})).toBe(true);
-    expect(contentColumnScrolls({ contentScrolls: true })).toBe(true);
-    expect(contentColumnScrolls({ ...PAGE_OWNS_SCROLLER })).toBe(false);
-    expect(contentColumnScrolls(routeData(safeWebsiteViewerLoad))).toBe(false);
+  it("belongs to a Tools group the registry heads with its index", () => {
+    expect(DESTINATION_GROUPS.some((group) => group.id === "tools")).toBe(true);
+    for (const row of rows) expect(row.group).toBe("tools");
+    expect(indexRow.group).toBe("tools");
+    expect(indexRow.href).toBe("/tools");
+  });
+
+  it("is governed by permissions rather than by stars, so every row is pinned", () => {
+    // A star beside a tool would be a second answer to a question access control has settled, and
+    // an inert one — Customize mode leaves the group out for the same reason.
+    for (const row of rows) expect(row.pinned).toBe(true);
   });
 });
 
-describe("which row is current", () => {
+describe("which row lights", () => {
+  const rows = toolSidebarDestinations();
+  const whoisRow = rows.find((row) => row.href === "/tools/whois-lookup") as Destination;
+
+  it("is the tool's own row while its address is open, and never the index with it", () => {
+    expect(isCurrentDestination(whoisRow, "/tools/whois-lookup")).toBe(true);
+    expect(isCurrentDestination(whoisRow, "/tools/whois-lookup/some-record")).toBe(true);
+    // The index is exact: everything under /tools is a row of its own now, so a prefix match here
+    // would light two rows at once.
+    expect(isCurrentDestination(indexRow, "/tools/whois-lookup")).toBe(false);
+    expect(isCurrentDestination(indexRow, "/tools")).toBe(true);
+  });
+});
+
+describe("the tools layout", () => {
+  it("renders the page and nothing else — no navigation column beside it", () => {
+    const rendered = drawTools("/tools/whois-lookup");
+    expect(rendered.textContent).toContain("the tool");
+    expect(rendered.querySelector('nav[aria-label="Tools"]')).toBeNull();
+    expect(rendered.querySelector("[data-navigation-layout]")).toBeNull();
+  });
+});
+
+describe("the index's own catalogue", () => {
   const sections = toolCatalogueSections();
   const whois = sections
     .flatMap((section) => section.entries)
     .find((entry) => entry.id === "whois-lookup");
   if (whois === undefined) throw new Error("the WHOIS lookup is not in the catalogue");
 
-  it("is the entry whose route the address is on or beneath, on the path boundary", () => {
+  it("still resolves the entry an address is on, for the index that lists them", () => {
     expect(isCurrentCatalogueEntry(whois, "/tools/whois-lookup")).toBe(true);
     expect(isCurrentCatalogueEntry(whois, "/tools/whois-lookup/some-record")).toBe(true);
     expect(isCurrentCatalogueEntry(whois, "/tools/whois-lookup-else")).toBe(false);
     expect(isCurrentCatalogueEntry(whois, "/tools")).toBe(false);
     expect(isCurrentCatalogueEntry({ ...whois, href: null }, "/tools/whois-lookup")).toBe(false);
-  });
-
-  it("is nothing on the landing screen", () => {
     expect(currentCatalogueEntry(sections, "/tools")).toBeNull();
     expect(currentCatalogueEntry(sections, "/tools/whois-lookup")?.id).toBe("whois-lookup");
   });

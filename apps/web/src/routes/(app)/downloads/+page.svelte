@@ -45,6 +45,7 @@
   } from "$lib/export/bulk-download.ts";
   import { exportFilename, saveExport } from "$lib/export/tabular-export.ts";
   import { formatInstant, placeholderOf } from "@magna-carta/design-system/formatters";
+  import { NO_DOWNLOADS } from "$lib/transfers/transfers.ts";
 
   let items = $state<ShelfItem[] | null>(null);
   let failure = $state<StatedFailure | null>(null);
@@ -324,11 +325,7 @@
   onRetry={() => void load()}
 >
   {#snippet emptyState()}
-    <EmptyState title="Nothing here yet">
-      Reports and files the platform makes for you gather here for a week. Export something from any
-      screen and it appears here, ready to download whenever you want it — on its own, or together
-      with everything else you have gathered.
-    </EmptyState>
+    <EmptyState title={NO_DOWNLOADS} />
   {/snippet}
   {#snippet fixture()}
     <DataTable.Root>

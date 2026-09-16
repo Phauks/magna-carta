@@ -53,7 +53,7 @@ import Sparkles from "@lucide/svelte/icons/sparkles";
 import ListChecks from "@lucide/svelte/icons/list-checks";
 import HandCoins from "@lucide/svelte/icons/hand-coins";
 
-export type DestinationGroup = "top" | "money" | "firm";
+export type DestinationGroup = "top" | "money" | "firm" | "tools";
 
 export interface Destination {
   readonly id: string;
@@ -96,6 +96,13 @@ export interface Destination {
    */
   readonly footerPinned?: true;
   /**
+   * Lights as current only on its OWN address, never on what sits beneath it. The default is the
+   * opposite — a destination owns everything under its path, which is what puts the gilt bar on
+   * Matters while a matter is open. An index whose children are destinations in their own right
+   * needs this, or two rows read as current at once.
+   */
+  readonly exact?: true;
+  /**
    * Where this destination's surface is on the build ladder (maturity.ts), shown as a badge on
    * its sidebar row (or a dot on an icon-only control). Optional: when omitted it derives from
    * `shipped` — an unshipped destination reads "soon", a shipped one reads "ready" (no mark).
@@ -112,12 +119,19 @@ export function destinationStage(destination: Destination): MaturityStage {
 /*
  * Group headings in canonical order. Every group carries a heading now (owner-directed — a
  * headless top group read as unbalanced against the labelled ones): "Workspace" is the
- * matter/document daily surfaces, "Money" the ledger, "Firm" the firm-wide tools.
+ * matter/document daily surfaces, "Money" the ledger, "Firm" the firm-wide surfaces, "Tools" the
+ * standalone utilities.
+ *
+ * TOOLS IS THE ONE GROUP THIS FILE DOES NOT HOLD THE ROWS FOR. The tool catalog
+ * (@magna-carta/tools) is already the one home of what a tool is, and its rows reach the rail
+ * through navigation/tool-sidebar.ts. Copying nine tools in here would be the same fact in two
+ * registries, free to disagree the first time one is added.
  */
 export const DESTINATION_GROUPS: ReadonlyArray<{ id: DestinationGroup; label: string }> = [
   { id: "top", label: "Workspace" },
   { id: "money", label: "Money" },
   { id: "firm", label: "Firm" },
+  { id: "tools", label: "Tools" },
 ];
 
 /*
@@ -499,14 +513,26 @@ const DESTINATION_LIST = [
     stage: "alpha",
     defaultStarred: true,
   },
+  /*
+   * The tools index — the one row in the Tools group this registry holds. Every OTHER row in that
+   * group is the tool catalog itself (navigation/tool-sidebar.ts), which is where a member now
+   * reaches a tool from: the owner's direction of 2026-09-16 is that the tools are too unlike each
+   * other to share one sub-page, and that the navigation column that sub-page carried was taking
+   * the screen space the tool itself wants — a shipping label and a postage rate most of all.
+   *
+   * So this row is no longer the way IN to the tools; it is the index where a reader finds out
+   * what each one does, with the descriptions and the search. It lights as current only on its own
+   * address (`exact`), because everything beneath it is now a row of its own in the same group.
+   */
   {
     id: "tools",
-    label: "Tools",
+    label: "All Tools",
     href: "/tools",
     icon: Wrench,
-    description: "Standalone utilities for property, entities, licenses, domains, and diagnostics.",
-    group: "firm",
+    description: "Every standalone utility, with what each one does.",
+    group: "tools",
     shipped: true,
+    exact: true,
     stage: "alpha",
     defaultStarred: true,
   },
@@ -568,5 +594,6 @@ export function visibleDestinations(): readonly Destination[] {
 
 /** True when `pathname` lives under the destination (drives aria-current / the gilt bar). */
 export function isCurrentDestination(destination: Destination, pathname: string): boolean {
+  if (destination.exact === true) return pathname === destination.href;
   return pathname === destination.href || pathname.startsWith(`${destination.href}/`);
 }

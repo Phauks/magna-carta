@@ -108,6 +108,17 @@ const DESIGN_SYSTEM_SOURCE = "packages/design-system/src";
 /** The one place a mark is drawn by hand, because it is a mark and not an icon. */
 const BRAND_MARK_HOME = "packages/design-system/src/lib/components/brand-mark";
 
+/*
+ * The other place, for the same reason pointed outward: a third party's OWN published mark, shown
+ * only to identify the service a control links to. It is not iconography — the nearest Lucide shape
+ * for GitHub is a git-branch glyph, which names a concept rather than the service, and a link out of
+ * the application has to say where it goes. These marks are compliance artefacts, not design
+ * decisions: every one of them carries a row in docs/conventions/third-party-trademarks.md saying
+ * whose it is, where it came from and on what terms, and adding one without that row is the thing to
+ * catch — which that register's own review catches, not a source scan.
+ */
+const SERVICE_MARKS_HOME = "packages/design-system/src/lib/components/service-marks";
+
 /** The status register's own home, which is allowed to be the status register. */
 const STATUS_REGISTER_HOME = "packages/design-system/src/lib/status-register";
 
@@ -391,10 +402,12 @@ mustHaveRead(
   BOTH_SIDES,
 );
 
-// Rule: no hand-drawn glyphs, except the brand mark, which is a mark rather than an icon.
+// Rule: no hand-drawn glyphs, except the two homes of MARKS — ours, and the outside services'.
 mustHaveRead(
   sweep(BOTH_SIDES, (path, source) =>
-    path.startsWith(`${BRAND_MARK_HOME}/`) ? [] : findHandDrawnGlyphs(path, source),
+    path.startsWith(`${BRAND_MARK_HOME}/`) || path.startsWith(`${SERVICE_MARKS_HOME}/`)
+      ? []
+      : findHandDrawnGlyphs(path, source),
   ),
   "hand-drawn glyph",
   BOTH_SIDES,

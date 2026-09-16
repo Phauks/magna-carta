@@ -900,6 +900,33 @@ is usually the fastest way to understand the rule.
   every view, so the swapper keeps the end. Same property the create control's fixed width protects
   in the matter header. _(the file manager, 2026-09-06)_
 
+- **A pair of surfaces that are one idea pointed two ways is ONE frame rendered twice.** Uploads and
+  Downloads had been built separately and had drifted the way separate things do: one named itself on
+  hover and the other did not, so the single control in that band that STARTS a transfer was the one a
+  reader could not identify, and each had grown its own empty wording with its own paragraph under it
+  explaining the mechanism. The frame is shared (the trigger, the dot, the titled panel, the way to
+  the full surface) and what differs is passed in. What is NOT shared is as deliberate: where the two
+  hold different kinds of record — a stored document any format can be taken from, against a file on a
+  matter — their tables stay their own, because one table over both means a column that is blank for
+  half the rows. The test is whether the FRAME is the same thing, not whether the contents rhyme.
+  _(the transfer registers, 2026-09-16)_
+- **A live register that forgets is answering the wrong question.** Where a surface holds work that
+  genuinely cannot survive the tab, separate the TRANSFER from the RECORD of it and keep the record.
+  An upload's file handles die with the tab; the names, the matter, the folder and the file each one
+  became do not, and those are what somebody is asking for the next morning. Keep the record where
+  the transient thing lived, bounded, with nothing privileged in it, and make every landed item
+  reachable again from there — a register that answers "nothing uploading" to "where is the thing I
+  sent yesterday" is truthful and useless. _(the Uploads screen, 2026-09-16)_
+- **A control that opens an outside service wears that service's own mark, not the nearest glyph we
+  have.** The icon rule is absolute for iconography — every glyph is Lucide, none is drawn — and a
+  brand mark is not iconography: it is the identity of one specific service, and the nearest Lucide
+  shape for it states a concept instead. The build panel's repository link wore a git-branch glyph,
+  which says "a branch" about a link that goes to GitHub. A service's mark is a compliance artefact
+  rather than a design choice, so it ships self-hosted and unaltered, in its own quarantined home
+  (`@magna-carta/design-system/service-marks`), with a row in
+  [`third-party-trademarks.md`](third-party-trademarks.md) recording whose it is and on what terms.
+  Nothing else earns an exception to the icon rule. _(the build panel, 2026-09-16)_
+
 ### List screens
 
 - **A list screen is ONE table at the full width, and a rail down its side has to earn the
@@ -1233,6 +1260,31 @@ name, which is every screen outside a matter.
   the same fact in the one window a stylesheet cannot reach. _(reported as a white flash between
   screens, 2026-09-07)_
 
+- **A capability a member OPENS is a row in the rail, not a row in a column inside a sub-page.**
+  Where a set of surfaces is reached through a screen whose left side lists them all, ask what that
+  column is worth to the reader who has already chosen. If the members of the set have nothing to do
+  with each other — the tool catalog is the case that settled it: a postage rate, a WHOIS record, a
+  county recorder's site and a bandwidth measurement — the column is a standing list of the things
+  you are not doing, and it charges the surface you ARE doing the width of itself on every visit.
+  The two-sided shape earns its column where the column is a finding aid over ONE subject the reader
+  moves around inside (settings, a matter's sections, the reports register); it does not where the
+  rows are unrelated destinations. Elevating them costs nothing that matters: the addresses do not
+  move, the index survives as the place to read what each one does, and the rail was already the
+  product's answer to "where do I go". _(the tools, 2026-09-16)_
+- **A sidebar group folds, and the heading is the control.** Not a chevron beside a label, not a
+  control in a row of its own: the heading itself takes the chevron and the full width as its hit
+  target, keeps the letterspaced-caps voice unchanged, and the fold is remembered per browser. Two
+  things it is not allowed to be. It is not available in the collapsed icon rail — a rail with no
+  visible heading has nothing to fold BY, and folding there would leave a column of icons with
+  nothing saying why the rest are missing. And it never reaches the command palette: folding hides
+  rows the way a star does, and the invariant is the star layer's — hiding must never remove
+  capability. _(the sidebar, 2026-09-16)_
+- **An index whose children are destinations in their own right lights as current only on its own
+  address.** The default is the opposite and is right nearly everywhere — a destination owns
+  everything beneath its path, which is what keeps the gilt bar on Matters while a matter is open.
+  Where the things beneath it are rows of the same rail, prefix-matching lights two rows at once and
+  the reader has to work out which one is the answer. _(All Tools, 2026-09-16)_
+
 ### Spacing and rhythm
 
 - **The App Shell draws the page inset, once, for everybody.** A screen rendered into the shell's
@@ -1265,6 +1317,39 @@ name, which is every screen outside a matter.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-16 — the transfer registers, the rail, and two glyphs
+
+The owner, in one pass over the upload and download surfaces, the sidebar and the build panel. What
+was said, and what each part generalizes to:
+
+- **"Hovering over upload button in header should say upload."** The download tray beside it already
+  did. Generalized above: a pair of surfaces that are one idea pointed two ways is one frame rendered
+  twice — the fix is not a tooltip added to one control, it is the two controls ceasing to be two
+  implementations.
+- **"History of uploads and downloads should be retained between sessions."** Downloads already were
+  (a shelf on the member's record, held a week). Uploads were not, and could not be as transfers —
+  so the record was separated from the transfer and kept per browser. Generalized above.
+- **The two empty states become "No Uploads" and "No Downloads."** Not a new rule: the empty-state
+  ruling of 2026-09-14 (two words, title case, no description) reaching two screens that predated it
+  and each carried a paragraph about the mechanism instead.
+- **"Uploads and downloads are so similar, make sure they are built modularly."** The frame is one
+  component; the words neither is allowed its own copy of are one module. The ruling states the line
+  the modularity stops at, which is the part a later round would otherwise get wrong.
+- **"Items should be redownloadable from the upload or downloads areas."** Every landed file carries
+  a download straight to its own route on the matter — the same route the file list uses, so what
+  comes back is the file and not a copy of it.
+- **"In build info, replace copy button and github button with better icons."** Copy was a clipboard
+  with an arrow, which is the picture of paste. The repository link was a git-branch glyph, which
+  names a git concept rather than the service. Generalized above, including the one exception to the
+  icon rule and the compliance track that carries it.
+- **"Workspace, money, and firm should all be collapsible menus."** Generalized above, with the two
+  places folding is not allowed to reach.
+- **"Instead of tools being a sub-page, maybe we should elevate those tools to the left sidebar,
+  since they are all so different, and we lose screen space without it. Especially relating to high
+  usage like mailing and postage, this may be a long-term benefit."** The reasoning is the ruling and
+  is generalized above: an unrelated set does not earn a navigation column, and the surfaces that
+  will be used most are the ones least able to pay for one.
 
 ### 2026-09-14 — everything has a number, intake included
 

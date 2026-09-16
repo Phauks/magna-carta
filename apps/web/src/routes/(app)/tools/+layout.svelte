@@ -1,46 +1,31 @@
 <script lang="ts">
   /*
-   * The Tools shell — a two-sided screen on the design system's NavigationLayout: every tool the
-   * member may open in the navigation column, grouped by subject, with the one they are on lit;
-   * the tool itself in the content column beside it. The owner's ruling of 2026-09-11 is that a
-   * screen with a navigational menu on the left and content on the right is ONE component, and
-   * that it reaches Tools and Reports as much as Settings and Magnus — which for Tools is a
-   * redesign rather than a swap of frame, because until now a tool was reached through a landing
-   * page and left through its header's way back, with nothing beside it.
+   * The Tools shell — a passthrough, deliberately.
    *
-   * THE COLUMN READS THE SAME PROJECTION AS THE LANDING SCREEN (tool-catalogue.ts), so the
-   * registry stays the one source: a tool added to the catalog appears in the column, on the
-   * landing index and in the command palette with no edit here. The landing route keeps its
-   * index in the content column — the descriptive line, the search and the two views live there,
-   * where a reader goes to find out what a tool does — so the column is never beside nothing.
+   * IT USED TO BE A TWO-SIDED SCREEN: every tool the member may open in a navigation column on the
+   * left, the tool itself beside it. The owner's direction of 2026-09-16 ended that. Two reasons,
+   * and the second is the one that decided it:
    *
-   * WHO SCROLLS IS THE PAGE'S CALL. The content column is the page's scroll region by default. A
-   * tool that stages its own full-height frame (the File Workbench, the Safe Website Viewer)
-   * declares so in its route's page data (content-column.ts) and the column becomes a bare
-   * full-height stack that the page fills; otherwise its middle would draw a second scrollbar
-   * inside a column that had already reserved a gutter for one.
+   *   - The tools are not a family. A postage rate, a WHOIS record, a county recorder's site and a
+   *     bandwidth measurement share a sentence in the catalog and nothing else, so a column listing
+   *     the other eight beside the one you opened is a column of things you are not doing.
+   *   - It cost every tool the width of that column, permanently. The surfaces that will carry the
+   *     most use — mailing and postage first, where a label, a rate table and an address want to sit
+   *     side by side — are exactly the ones that can least afford to give it up.
    *
-   * THE WAY BACK STAYS ON EACH TOOL'S HEADER. A route inside a two-sided screen is still a screen
-   * under a screen, and `back="tools"` on its ScreenHeader is what the back-navigation gate reads;
-   * the column is a finding aid beside it, not a replacement for it.
+   * So the tools were elevated into the global rail instead (navigation/tool-sidebar.ts): a tool is
+   * one reach from wherever the reader is, and it opens onto the whole canvas. This layout stays as
+   * the route's own node rather than being deleted, because /tools/<id> is still where a tool is
+   * addressed — that address is the catalog's (toolRoute), and moving nine routes to shorten a URL
+   * would break every link anybody has kept.
+   *
+   * THE WAY BACK STAYS ON EACH TOOL'S HEADER. `back="tools"` on a tool's ScreenHeader still reads
+   * to the index at /tools, which is now what that screen is for: the descriptions and the search,
+   * where a reader finds out what a tool does rather than where they go to open one.
    */
   import type { Snippet } from "svelte";
-  import NavigationLayout from "@magna-carta/design-system/navigation-layout";
-  import { page } from "$app/state";
-  import CatalogueNavigation from "$lib/catalogue/catalogue-navigation.svelte";
-  import { contentColumnScrolls } from "$lib/tools/content-column.ts";
-  import { toolCatalogueSections } from "$lib/tools/tool-catalogue.ts";
 
   let { children }: { children: Snippet } = $props();
-
-  const sections = toolCatalogueSections();
-  const contentScrolls = $derived(contentColumnScrolls(page.data));
 </script>
 
-<NavigationLayout navigationLabel="Tools" navigationWidth="standard" {contentScrolls}>
-  {#snippet navigation()}
-    <CatalogueNavigation {sections} pathname={page.url.pathname} noun="tools" />
-  {/snippet}
-
-  {@render children()}
-</NavigationLayout>
+{@render children()}
