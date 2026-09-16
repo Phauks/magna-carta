@@ -270,7 +270,11 @@
           />
         </div>
       {:else if rule.end.kind === "on"}
-        <DatePicker label="Last day" value={endsOnValue} onValueChange={setEndDate} {disabled} />
+        <!-- Wrapped, because a labelled DatePicker is TWO siblings and this is a grid: unwrapped,
+             its label and its field take a track each. -->
+        <div class="flex flex-col gap-4">
+          <DatePicker label="Last day" value={endsOnValue} onValueChange={setEndDate} {disabled} />
+        </div>
       {/if}
     </FieldRow>
 

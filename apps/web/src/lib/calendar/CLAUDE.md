@@ -74,8 +74,9 @@ and a firm event. The backend it consumes is `packages/calendar` behind
     Relate dialog and its failures
   - `entry-rooms-tab.svelte` — the Rooms tab, owning its bookings read, its Book a Room dialog and
     its failures
-- `record-event-dialog.svelte`, `record-deadline-dialog.svelte`, `record-firm-event-dialog.svelte`,
+- `record-event-dialog.svelte` (the ONE event form, matter or firm), `record-deadline-dialog.svelte`,
   `participant-picker.svelte`, `record-timing-fields.svelte`, `event-type-select.svelte`,
+  `recurrence-field.svelte`,
   `time-zone-picker.svelte` — the `ActionDialog` forms and the field groups they share with the
   entry window, over the pure draft models `event-draft.ts`, `deadline-draft.ts`,
   `firm-event-draft.ts`, `continue-draft.ts`, `draft-text.ts` (the readings of typed text every
@@ -162,6 +163,19 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   one-off carries — so the surface that saw the stored line tells the control (`unreadable`), and it
   states that the rule was recorded elsewhere. Rendering it as "does not repeat" is the one wrong
   answer: saving would then make that true.
+- **ONE record form for an event, and its first question is who the event belongs to.** There were
+  two — `record-event-dialog.svelte` and a firm-event form beside it — until 2026-09-16, which meant
+  a reader had to know before opening anything whether the thing they were recording was firm
+  business, and had to close one panel and open the other on finding out they had guessed wrong.
+  They asked nearly the same questions in nearly the same order and drifted anyway (owner: "firm
+  events and events should be the exact same"). **Two choices and no third** (owner ruling): Matter
+  writes a `matter_event`, Firm writes a `firm_event`, and there is no None because there is no
+  third table for one to land in — a personal appointment is a firm event with only the one person
+  on it, which is what the `participants` audience already means. What the choice reveals is only
+  what genuinely differs: Matter reveals the matter picker beside it; Firm reveals the audience and
+  the office (a real foreign key there, because it is what says which rooms are nearby) and hides
+  the court reference, which a firm meeting has no court for. The Record menu offers two kinds, not
+  three: a third item would be a second way to open one panel.
 - **One field group, rendered once.** The timing every event shares is `record-timing-fields.svelte`
   and the type question is `event-type-select.svelte`, in the record forms and in the entry window
   alike; a pane that draws its own copy of either drifts from the form within a round.

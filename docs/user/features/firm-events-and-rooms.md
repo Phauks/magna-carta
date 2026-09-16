@@ -34,7 +34,9 @@ not belong here; personal appointments are their own thing when they are built.
 
 ## Recording a firm event
 
-On the firm calendar, **Record** then **Firm Event**. Give it a title, a date, and a time zone. The event usually happens at one of your offices, so you
+On the firm calendar, **Record** then **New Event**, and set the first line to **the firm** — there
+is one event form now, and that line is what decides whether you are recording a case setting or a
+firm one. Give it a title, a date, and a time zone. The event usually happens at one of your offices, so you
 can pick the office — which also tells the calendar which rooms are nearby — or type a venue for an
 offsite. Classify it from the same type list case events use; the shipped list includes **Firm
 meeting**, **Training**, **Office closure**, **Firm holiday**, and **Reservation**.

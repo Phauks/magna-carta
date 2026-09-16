@@ -37,7 +37,6 @@
   import CreateControl from "@magna-carta/design-system/create-control";
   import { MINUTES_IN_HOUR } from "@magna-carta/design-system/calendar-grid";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
-  import Building2 from "@lucide/svelte/icons/building-2";
   import CalendarClock from "@lucide/svelte/icons/calendar-clock";
   import CalendarDays from "@lucide/svelte/icons/calendar-days";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
@@ -50,7 +49,6 @@
   import { todayCivil, type CalendarView as CalendarViewKind } from "./calendar-window.ts";
   import RecordDeadlineDialog from "./record-deadline-dialog.svelte";
   import RecordEventDialog from "./record-event-dialog.svelte";
-  import RecordFirmEventDialog from "./record-firm-event-dialog.svelte";
   import { calendarManageRefusal } from "./calendar-permission.ts";
 
   let {
@@ -107,7 +105,6 @@
 
   let eventOpen = $state(false);
   let deadlineOpen = $state(false);
-  let firmEventOpen = $state(false);
   /**
    * The day and hour a double-click landed on, which the form opens with. Null until one does, and
    * left as it was afterwards: reopening the form from the menu on the same day is the same answer.
@@ -124,8 +121,8 @@
 
   /**
    * A double-click on an empty day or hour. It opens the EVENT form, which is the record a person
-   * pointing at a Tuesday afternoon means; the other two kinds stay on the menu, where choosing
-   * between them is a decision somebody is already making.
+   * pointing at a Tuesday afternoon means; the deadline stays on the menu, where choosing it is a
+   * decision somebody is already making.
    */
   function startOnDay(date: string, minuteOfDay?: number): void {
     if (recordRefusal !== undefined) return;
@@ -138,12 +135,11 @@
    * The menu's own path in. It clears the day a double-click left behind: choosing New Event from
    * the header means the window on screen, not the Tuesday somebody pointed at ten minutes ago.
    */
-  function openFrom(kind: "event" | "deadline" | "firmEvent"): void {
+  function openFrom(kind: "event" | "deadline"): void {
     startOn = null;
     startAt = null;
     eventOpen = kind === "event";
     deadlineOpen = kind === "deadline";
-    firmEventOpen = kind === "firmEvent";
   }
 
   /** A minute past midnight as the `HH:MM` a time field holds. */
@@ -194,13 +190,16 @@
         />
         <!-- The glyphs are the ones each kind already wears wherever it is named
              (calendar-activity-contribution.ts): one kind, one glyph, across the product. -->
+        <!-- Two kinds, not three. A firm event is not a different FORM any more — the event form
+             asks who the event belongs to as its first question (owner, 2026-09-16) — so a third
+             menu item would be a second way to open the same panel, and the reader would still have
+             to decide before they opened anything. -->
         <CreateControl
-          title="Record an event, a deadline or a firm event."
+          title="Record an event or a deadline."
           refusal={recordRefusal}
           choices={[
             { label: "New Event", icon: CalendarDays, onselect: () => openFrom("event") },
             { label: "New Deadline", icon: CalendarClock, onselect: () => openFrom("deadline") },
-            { label: "New Firm Event", icon: Building2, onselect: () => openFrom("firmEvent") },
           ]}
         />
       {/snippet}
@@ -242,14 +241,4 @@
   onRecorded={recorded}
 />
 
-<RecordFirmEventDialog
-  bind:open={firmEventOpen}
-  eventTypes={context.eventTypes}
-  members={context.members}
-  locations={context.locations}
-  resources={context.resources}
-  {preferredTimeZones}
-  initialDate={formDate}
-  initialTime={startAt}
-  onRecorded={recorded}
-/>
+

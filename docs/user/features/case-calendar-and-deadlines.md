@@ -125,10 +125,22 @@ same picker. What you change there is saved with the rest of the record, when yo
 
 ## Recording an event
 
-An event is anything that happened or will happen in the case. Give it a title, a date, and the time
-zone it happens in. Everything else is optional — **including the matter**. Leave the matter blank
-(the field's first row says so) and what you record is a **firm event** instead: a meeting, a
-training, a reservation, anything that belongs to the firm rather than to a case.
+An event is anything that happened or will happen. There is **one form** for all of them, and its
+first line asks who the event belongs to: **a matter**, or **the firm**.
+
+- Choose **a matter** and the matter picker appears beside it. What you record is a setting on that
+  case — a hearing, a deposition, a closing.
+- Choose **the firm** and what you record is a firm event: a meeting, a training, an office closure,
+  a reservation. You are then asked the two things only a firm event needs — **who sees it**
+  (everyone at the firm, or just the people you list) and **which office** it is at, which is what
+  tells the form which conference rooms are nearby. The court reference field disappears, because a
+  firm meeting has no court.
+- There is no third option, and a personal appointment is not a special case: record it as a firm
+  event with only yourself on it.
+
+On a matter's own calendar there is nothing to choose — the matter is the one you are standing in.
+
+Give the event a title, a date, and the time zone it happens in. Everything else is optional.
 
 - **A time is optional, and that is deliberate.** Leave it off and the event is an all-day one, which
   is what a filing is. Put it on and the event sits at that time.

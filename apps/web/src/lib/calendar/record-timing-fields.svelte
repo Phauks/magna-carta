@@ -12,6 +12,17 @@
    * left to right. Stacking them made four questions out of two and doubled the height of a form
    * that has to fit beside a calendar.
    *
+   * EACH DATE FIELD IS WRAPPED, AND THE WRAPPER IS LOAD-BEARING. A labelled DatePicker renders TWO
+   * SIBLINGS — the primitive's Root is a context provider with no DOM of its own, so the label and
+   * the segmented field come out side by side with nothing around them. In a flex column they
+   * stack; in a GRID they take two tracks, which is exactly what FieldRow is. Unwrapped, "Starts"
+   * took the first column, the date field took the second, and Time wrapped onto a line of its own
+   * — so the row this file exists to keep straight was three cells in two columns (owner,
+   * 2026-09-16: "start time and end time fields look wierd"). The design system documents the trap
+   * and names the thirteen consumers that wrap for it. The gap is 4 rather than 8 because the date
+   * label carries its own 4 of margin, and 4 + 4 is the 8 the Time group beside it uses — the two
+   * labels sit the same distance above their controls, which is the whole point of the row.
+   *
    * THE TWO LINES ARE THE SAME LINE TWICE, which is why they are built on the design system's
    * FieldRow rather than out of flex parts. A row of FITTED controls is a row whose widths move with
    * what is in them: an empty time field and a filled one are different widths in every browser, so
@@ -86,7 +97,9 @@
 <div class="flex flex-col gap-16">
   <!-- Starts: the day and the hour, on equal tracks so the line below can be the same line. -->
   <FieldRow columns={2}>
-    <DatePicker label="Starts" value={startsOnValue} onValueChange={recordStartsOn} {disabled} />
+    <div class="flex flex-col gap-4">
+      <DatePicker label="Starts" value={startsOnValue} onValueChange={recordStartsOn} {disabled} />
+    </div>
     <div class="flex flex-col gap-8">
       <Label for="{idPrefix}-starts-at-time">Time</Label>
       <Input
@@ -101,7 +114,9 @@
 
   <!-- Ends: the same two tracks, so answering a start never shifts the fields under it. -->
   <FieldRow columns={2}>
-    <DatePicker label="Ends" value={endsOnValue} onValueChange={recordEndsOn} {disabled} />
+    <div class="flex flex-col gap-4">
+      <DatePicker label="Ends" value={endsOnValue} onValueChange={recordEndsOn} {disabled} />
+    </div>
     <div class="flex flex-col gap-8">
       <Label for="{idPrefix}-ends-at-time">Time</Label>
       <Input

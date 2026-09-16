@@ -8,15 +8,25 @@
    * only where the optional parts contradict each other. Those rules live in event-draft.ts, so the
    * refusal shown beside the commit is asserted without a browser; this file renders it.
    *
-   * A MATTER IS NOT ONE OF THEM (owner ruling, 2026-09-14: "matter is not needed"). The form used
-   * to stand refused, under "A matter is needed.", until a matter was picked — which made every
-   * firm meeting somebody started from the calendar a dead end. NO MATTER IS A CHOICE, NOT AN
-   * ABSENCE: the picker's own no-matter row says what the record becomes, and the form writes a
-   * FIRM EVENT instead. That is not a fudge, it is the shape the data already has — `matter_event`
-   * requires its matter by design, because every read of that table is "what happened on this
-   * case"; an event that belongs to no case is what `firm_event` is, audience and all. So one
-   * question ("which case, if any") decides which record is written, rather than a reader having to
-   * know which of two menu items to have started from.
+   * THIS IS THE ONLY RECORD FORM FOR AN EVENT, and the first question it asks is who the event
+   * BELONGS TO. There were two forms until 2026-09-16 — this one and a firm-event form beside it —
+   * which meant a reader had to know, before opening anything, whether the thing they were about to
+   * record was firm business, and had to close one panel and open the other on finding out they had
+   * guessed wrong. They asked for nearly the same answers in nearly the same order and drifted
+   * anyway (owner: "firm events and events should be the exact same"). One form now, and the
+   * question that used to be answered by which menu item you picked is a control at the top of it.
+   *
+   * TWO CHOICES AND NO THIRD (owner ruling, 2026-09-16). Matter writes a `matter_event`; Firm writes
+   * a `firm_event`. There is no None, because there is no third table for one to land in and
+   * inventing a third word for the same row would put two records on the calendar that nothing
+   * could tell apart afterwards. A personal appointment is a firm event with only the one person on
+   * it, which is what the `participants` audience already means.
+   *
+   * WHAT THE CHOICE REVEALS IS THE PART THAT GENUINELY DIFFERS. Matter reveals the matter picker
+   * beside it; Firm reveals the audience — everyone at the firm, or the people listed — and the
+   * office, which is a real foreign key on a firm event because it is what says which rooms are
+   * nearby. Everything else is the same question in the same order for both, which is what the two
+   * forms were failing to be.
    *
    * THE MATTER IS FIXED WHERE THE FORM WAS OPENED FROM ONE. On a matter's own calendar there is
    * nothing to choose, and nothing to fall back to.
@@ -36,6 +46,9 @@
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import Textarea from "@magna-carta/design-system/textarea";
+  import * as RadioGroup from "@magna-carta/design-system/radio-group";
+  import * as Select from "@magna-carta/design-system/select";
+  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import type { FirmMemberSummary } from "$lib/members/members-api.ts";
@@ -47,6 +60,7 @@
     createMatterEvent,
     type CreateFirmEventRequest,
     type EventType,
+    type FirmEventAudience,
     type FirmResource,
   } from "./calendar-api.ts";
   import {
@@ -118,11 +132,43 @@
   /** The draft as it was when the panel opened, so "anything entered" is a comparison, not a flag. */
   let since = $state<EventDraft>(emptyEventDraft("", null));
   let chosenMatterId = $state<string | null>(null);
+  /**
+   * Who the event belongs to. Two arms and no third, because there are two tables and a third word
+   * for the same row would be a distinction nothing could read back.
+   */
+  let belongsTo = $state<"matter" | "firm">("matter");
+  /** Only a firm event has these: who sees it, and which office it is at. */
+  let audience = $state<FirmEventAudience>("participants");
+  let officeId = $state<string | null>(null);
   let failure = $state<StatedFailure | null>(null);
   /** The idempotency key of the attempt in flight or left unanswered; null between attempts. */
   let attemptKey: string | null = null;
 
-  const targetMatterId = $derived(matterId ?? chosenMatterId);
+  /*
+   * The matter this will be recorded on, or null for a firm event. Opened FROM a matter there is
+   * nothing to choose and nothing to fall back to, so the switch is not drawn at all; otherwise it
+   * is the picked matter, and choosing Firm discards it rather than carrying a matter on a record
+   * that has no column for one.
+   */
+  const targetMatterId = $derived(
+    matterId ?? (belongsTo === "matter" ? chosenMatterId : null),
+  );
+  const recordingForFirm = $derived(matterId === null && belongsTo === "firm");
+
+  const BELONGS_TO = [
+    { value: "matter", label: "A matter" },
+    { value: "firm", label: "The firm" },
+  ] as const;
+
+  const AUDIENCES: readonly { value: FirmEventAudience; label: string }[] = [
+    { value: "all_members", label: "Everyone at the firm" },
+    { value: "participants", label: "The people listed" },
+  ];
+
+  /** The firm's offices, as the Office field offers them. A firm with none offers none. */
+  const officeItems = $derived(
+    locations.map((location) => ({ value: location.id, label: location.name })),
+  );
 
   const typeItems = $derived(
     eventTypes
@@ -142,12 +188,15 @@
    * What the commit will write. A matter makes it a setting on that case; no matter makes it the
    * firm's own event, which is the table an event belonging to no case has always lived in.
    */
-  const commitLabel = $derived(targetMatterId === null ? "Record Firm Event" : "Record Event");
-  const commitBusyLabel = $derived(
-    targetMatterId === null ? "Recording Firm Event" : "Recording Event",
-  );
+  const commitLabel = $derived(recordingForFirm ? "Record Firm Event" : "Record Event");
+  const commitBusyLabel = $derived(recordingForFirm ? "Recording Firm Event" : "Recording Event");
 
-  const started = $derived(eventDraftStarted(draft, since) || chosenMatterId !== null);
+  const started = $derived(
+    eventDraftStarted(draft, since) ||
+      chosenMatterId !== null ||
+      belongsTo !== "matter" ||
+      officeId !== null,
+  );
 
   function reset(): void {
     const timeZone = preferredTimeZones[0] ?? "";
@@ -162,14 +211,17 @@
     draft = seeded();
     since = seeded();
     chosenMatterId = null;
+    belongsTo = "matter";
+    audience = "participants";
+    officeId = null;
     failure = null;
     attemptKey = null;
   }
 
   /**
-   * The same answers as a firm event, where no matter was chosen. Every field the two records share
-   * is carried straight across; the audience is `participants`, because an event somebody recorded
-   * for particular people is not a firm-wide holiday, and the participants they named ride with it.
+   * The same answers as a firm event, where the firm is who it belongs to. Every field the two
+   * records share is carried straight across; the audience and the office are the two the reader
+   * answered on the firm arm of the form, and nowhere else.
    */
   function asFirmEvent(): CreateFirmEventRequest {
     const asFirm: FirmEventDraft = {
@@ -181,8 +233,8 @@
       endsOn: draft.endsOn,
       endsAtTime: draft.endsAtTime,
       timeZone: draft.timeZone,
-      audience: "participants",
-      locationId: null,
+      audience,
+      locationId: officeId,
       locationText: draft.locationText,
       conferenceUrl: draft.conferenceUrl,
       recurrence: draft.recurrence,
@@ -283,19 +335,44 @@
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
       {#if matterId === null}
-        <div class="flex flex-col gap-8">
-          <Label for="{idPrefix}-matter">Matter</Label>
-          <!-- No matter is a CHOICE and the row says what choosing it writes, so nobody has to
-               discover that an event with no case is the firm's own. -->
-          <MatterPicker
-            inputId="{idPrefix}-matter"
-            {matters}
-            capped={mattersCapped}
-            value={chosenMatterId}
-            noMatterLabel="No matter — record it as a firm event"
-            disabled={busy}
-            onpick={(picked) => (chosenMatterId = picked)}
-          />
+        <!-- The first question, and the one that decides which record is written. The matter picker
+             sits beside it on the same line rather than under it, because "a matter" and WHICH
+             matter are one answer given in two presses (owner, 2026-09-16). -->
+        <div class="grid gap-16 sm:grid-cols-2">
+          <div class="flex flex-col gap-8">
+            <Label id="{idPrefix}-belongs-to-label">Belongs to</Label>
+            <RadioGroup.Root
+              aria-labelledby="{idPrefix}-belongs-to-label"
+              class="flex flex-row flex-wrap gap-16"
+              disabled={busy}
+              bind:value={
+                () => belongsTo,
+                (next) => {
+                  if (next === "matter" || next === "firm") belongsTo = next;
+                }
+              }
+            >
+              {#each BELONGS_TO as choice (choice.value)}
+                <div class="flex items-center gap-8">
+                  <RadioGroup.Item value={choice.value} id="{idPrefix}-belongs-{choice.value}" />
+                  <Label for="{idPrefix}-belongs-{choice.value}">{choice.label}</Label>
+                </div>
+              {/each}
+            </RadioGroup.Root>
+          </div>
+          {#if belongsTo === "matter"}
+            <div class="flex flex-col gap-8">
+              <Label for="{idPrefix}-matter">Matter</Label>
+              <MatterPicker
+                inputId="{idPrefix}-matter"
+                {matters}
+                capped={mattersCapped}
+                value={chosenMatterId}
+                disabled={busy}
+                onpick={(picked) => (chosenMatterId = picked)}
+              />
+            </div>
+          {/if}
         </div>
       {/if}
 
@@ -327,7 +404,57 @@
         disabled={busy}
       />
 
+      {#if recordingForFirm}
+        <!-- The two questions only a firm event answers. Audience decides whether the participants
+             list below means anything at all: an all-members event is on every calendar by
+             construction and carries no list to decay when somebody joins or leaves. -->
+        <div class="flex flex-col gap-8">
+          <Label id="{idPrefix}-audience-label">Audience</Label>
+          <RadioGroup.Root
+            aria-labelledby="{idPrefix}-audience-label"
+            class="flex flex-row flex-wrap gap-16"
+            disabled={busy}
+            bind:value={
+              () => audience,
+              (next) => {
+                if (next === "all_members" || next === "participants") audience = next;
+              }
+            }
+          >
+            {#each AUDIENCES as choice (choice.value)}
+              <div class="flex items-center gap-8">
+                <RadioGroup.Item value={choice.value} id="{idPrefix}-audience-{choice.value}" />
+                <Label for="{idPrefix}-audience-{choice.value}">{choice.label}</Label>
+              </div>
+            {/each}
+          </RadioGroup.Root>
+        </div>
+      {/if}
+
       <div class="grid gap-16 sm:grid-cols-2">
+        {#if recordingForFirm}
+          <!-- The office is a real foreign key on a firm event — it is what says which rooms are
+               nearby — where the location beside it is the free text a venue is. -->
+          <div class="flex flex-col gap-8">
+            <Label id="{idPrefix}-office-label">Office</Label>
+            <Select.Root
+              type="single"
+              items={officeItems}
+              value={officeId ?? ""}
+              onValueChange={(value) => (officeId = value === "" ? null : value)}
+              disabled={busy || officeItems.length === 0}
+            >
+              <Select.Trigger aria-labelledby="{idPrefix}-office-label">
+                <Select.Value placeholder={placeholderOf("Office")} />
+              </Select.Trigger>
+              <Select.Content>
+                {#each officeItems as item (item.value)}
+                  <Select.Item value={item.value} label={item.label} />
+                {/each}
+              </Select.Content>
+            </Select.Root>
+          </div>
+        {/if}
         <div class="flex flex-col gap-8">
           <Label for="{idPrefix}-location">Location</Label>
           <LocationPicker
@@ -338,14 +465,18 @@
             bind:value={draft.locationText}
           />
         </div>
-        <div class="flex flex-col gap-8">
-          <Label for="{idPrefix}-court-reference">Court reference</Label>
-          <Input
-            id="{idPrefix}-court-reference"
-            disabled={busy}
-            bind:value={draft.courtReference}
-          />
-        </div>
+        {#if !recordingForFirm}
+          <!-- The court's own number for the case. A firm meeting has no court, so the field is
+               absent rather than shown empty and ignored. -->
+          <div class="flex flex-col gap-8">
+            <Label for="{idPrefix}-court-reference">Court reference</Label>
+            <Input
+              id="{idPrefix}-court-reference"
+              disabled={busy}
+              bind:value={draft.courtReference}
+            />
+          </div>
+        {/if}
       </div>
 
       <!-- Where it is JOINED, where it is online. Its own field, because a deposition can be in a
@@ -374,15 +505,19 @@
         />
       </div>
 
-      <div class="flex flex-col gap-8">
-        <Label for="{idPrefix}-participants">Participants</Label>
-        <ParticipantPicker
-          inputId="{idPrefix}-participants"
-          {members}
-          disabled={busy}
-          bind:participants={draft.participants}
-        />
-      </div>
+      <!-- An all-members firm event lists nobody: it is on every calendar by construction, so a
+           list here would be a list the record ignores. -->
+      {#if !recordingForFirm || audience === "participants"}
+        <div class="flex flex-col gap-8">
+          <Label for="{idPrefix}-participants">Participants</Label>
+          <ParticipantPicker
+            inputId="{idPrefix}-participants"
+            {members}
+            disabled={busy}
+            bind:participants={draft.participants}
+          />
+        </div>
+      {/if}
     </div>
   {/snippet}
 </ActionDialog>
