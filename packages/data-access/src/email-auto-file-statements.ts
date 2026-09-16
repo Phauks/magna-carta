@@ -1,4 +1,5 @@
 import type { RandomSource } from "@magna-carta/identifiers/random";
+import { guarded, type EffectStatement } from "./effect-batch.ts";
 import type {
   EmailAutoFileDecisionId,
   EmailAutoFileRuleId,
@@ -50,7 +51,7 @@ export interface AutoFileRuleAuditOptions {
 // pair rather than executed here: the caller owns the batch, and an audit row the same commit cannot
 // carry means the mutation must not succeed.
 export interface AutoFileRuleWrite {
-  readonly statements: readonly SqlStatement[];
+  readonly statements: readonly EffectStatement[];
 }
 
 function audit(
@@ -130,13 +131,16 @@ export function updateEmailAutoFileRulePromotion(
   const now = options.clock.now();
   return {
     statements: [
-      database
-        .prepare(
-          `UPDATE ${EMAIL_AUTO_FILE_RULE_TABLE}
-           SET promotion = ?1, updated_at = ?2
-           WHERE id = ?3 AND state = 'active'`,
-        )
-        .bind(input.promotion, now, input.id),
+      guarded(
+        database
+          .prepare(
+            `UPDATE ${EMAIL_AUTO_FILE_RULE_TABLE}
+             SET promotion = ?1, updated_at = ?2
+             WHERE id = ?3 AND state = 'active'`,
+          )
+          .bind(input.promotion, now, input.id),
+        "email-auto-file-rule.promotion",
+      ),
       audit(database, options, "emails.autoFileRule.updated", input.id, {
         promotion: input.promotion,
       }),
@@ -148,6 +152,7 @@ export function updateEmailAutoFileRulePromotion(
 // its history explains what had been filing, and a deleted one leaves the firm unable to say. Guarded
 // on `active` so a repeat suspension (a retry, two captures tripping the same breaker) does not
 // rewrite the original reason.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function suspendEmailAutoFileRule(
   database: SqlDatabase,
   input: { id: EmailAutoFileRuleId; reason: AutoFileRuleSuspendedReason },
@@ -181,13 +186,16 @@ export function resumeEmailAutoFileRule(
   const now = options.clock.now();
   return {
     statements: [
-      database
-        .prepare(
-          `UPDATE ${EMAIL_AUTO_FILE_RULE_TABLE}
-           SET state = 'active', suspended_reason = NULL, updated_at = ?1
-           WHERE id = ?2 AND state = 'suspended'`,
-        )
-        .bind(now, input.id),
+      guarded(
+        database
+          .prepare(
+            `UPDATE ${EMAIL_AUTO_FILE_RULE_TABLE}
+             SET state = 'active', suspended_reason = NULL, updated_at = ?1
+             WHERE id = ?2 AND state = 'suspended'`,
+          )
+          .bind(now, input.id),
+        "email-auto-file-rule.resume",
+      ),
       audit(database, options, "emails.autoFileRule.resumed", input.id, null),
     ],
   };
@@ -195,6 +203,7 @@ export function resumeEmailAutoFileRule(
 
 // Retire a rule for good. Still not a delete: the ledger rows naming it stay explicable, which is the
 // whole reason the decision table carries a rule reference at all.
+// fitness:unguarded-write — retiring a rule already retired is the state the caller asked for
 export function revokeEmailAutoFileRule(
   database: SqlDatabase,
   input: { id: EmailAutoFileRuleId },

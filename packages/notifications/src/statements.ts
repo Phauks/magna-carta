@@ -72,6 +72,7 @@ export function insertNotificationStatements(
 // nothing and the route can answer identically both times — which is what "idempotent" means for a
 // route with no idempotency key. Also guarded on the recipient's own user id: a member can never
 // settle another member's row by handing over its handle.
+// fitness:unguarded-write — the caller runs this on its own and branches on the affected-row count, so a refusal is already surfaced there
 export function markNotificationReadStatement(
   database: SqlDatabase,
   options: {
@@ -89,6 +90,7 @@ export function markNotificationReadStatement(
 
 // Dismissing is reachable from any state, unlike reading: a member may dismiss something they have
 // already read, and "I have dealt with this" is a different statement from "I have seen it".
+// fitness:unguarded-write — the caller runs this on its own and branches on the affected-row count, so a refusal is already surfaced there
 export function dismissNotificationStatement(
   database: SqlDatabase,
   options: {
@@ -113,6 +115,7 @@ export function dismissNotificationStatement(
 //
 // The bound is the same (created_at, id) keyset the feed page walks, so "everything at or before
 // where I had read to" is expressed in exactly the terms the page already speaks.
+// fitness:unguarded-write — matches a set rather than one row, so zero is an empty set rather than a refusal
 export function markNotificationsReadThroughStatement(
   database: SqlDatabase,
   options: {

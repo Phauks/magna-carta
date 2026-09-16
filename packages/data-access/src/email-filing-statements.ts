@@ -232,6 +232,7 @@ export function insertEmailMatterLinkStatement(
 // Promote a staged link to filed. Guarded on state = 'staged' so accepting is idempotent and never
 // resurrects an unlinked pair; the filing-time conflict/ethical-wall hook is called by the caller
 // before this runs.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function acceptStagedLinkStatement(
   database: SqlDatabase,
   input: { emailMessageId: EmailMessageId; matterId: MatterId; linkedBy: UserId | null },
@@ -248,6 +249,7 @@ export function acceptStagedLinkStatement(
 
 // Unlink a message from a matter (state → unlinked). Never deletes the message: the last link removed
 // orphans it, retained per policy and legal hold.
+// fitness:unguarded-write — matches a set rather than one row, so zero is an empty set rather than a refusal
 export function unlinkEmailFromMatterStatement(
   database: SqlDatabase,
   input: { emailMessageId: EmailMessageId; matterId: MatterId },
@@ -292,6 +294,7 @@ export function insertEmailCaptureAddressStatement(
 // a zero-change no-op rather than a rewrite of the original retirement instant. `rotated_at` records
 // WHEN this address stopped being the live one — it is set by both a plain revoke and the revoke half
 // of a rotate, because from the address's own point of view those are the same event.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function revokeEmailCaptureAddressStatement(
   database: SqlDatabase,
   emailCaptureAddressId: EmailCaptureAddressId,

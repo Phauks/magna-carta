@@ -1,4 +1,5 @@
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
+import { guarded } from "@magna-carta/data-access/effect-batch";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -104,7 +105,10 @@ export async function endMatterAssetInterest(
   return {
     effect: {
       statements: [
-        endMatterAssetInterestStatement(database, interestId, effectiveTo, now),
+        guarded(
+          endMatterAssetInterestStatement(database, interestId, effectiveTo, now),
+          "matter-asset-interest.end",
+        ),
         domainAuditStatement(database, {
           event: "matterAsset.interest.ended",
           subjectId: interestId,

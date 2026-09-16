@@ -17,6 +17,7 @@ export interface OutboxMessage {
 // it only ever revives a genuinely dead-lettered row, never disturbs a pending/dispatched one
 // (meta.changes is 0 when the id isn't a failed row). The documented manual seam until an admin
 // surface exists (security.md).
+// fitness:unguarded-write — the caller runs this on its own and branches on the affected-row count, so a refusal is already surfaced there
 export function requeueDeadLetteredMessageStatement(
   database: SqlDatabase,
   options: { id: string },

@@ -1,3 +1,4 @@
+import { guarded } from "@magna-carta/data-access/effect-batch";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -90,11 +91,14 @@ export function renameConversation(
 ): EffectWrite {
   return {
     statements: [
-      renameConversationStatement(database, {
-        id: input.conversationId,
-        title: input.title,
-        now: context.clock.now(),
-      }),
+      guarded(
+        renameConversationStatement(database, {
+          id: input.conversationId,
+          title: input.title,
+          now: context.clock.now(),
+        }),
+        "conversation.rename",
+      ),
       conversationRenamedAudit(database, context, {
         conversationId: input.conversationId,
         cleared: input.title === null,
@@ -120,11 +124,14 @@ export function moveConversation(
 ): EffectWrite {
   return {
     statements: [
-      moveConversationStatement(database, {
-        id: input.conversationId,
-        matterId: input.toMatterId,
-        now: context.clock.now(),
-      }),
+      guarded(
+        moveConversationStatement(database, {
+          id: input.conversationId,
+          matterId: input.toMatterId,
+          now: context.clock.now(),
+        }),
+        "conversation.move",
+      ),
       deleteConversationAttachmentsStatement(database, input.conversationId),
       conversationMovedAudit(database, context, {
         conversationId: input.conversationId,
@@ -178,10 +185,13 @@ export function archiveConversation(
 ): EffectWrite {
   return {
     statements: [
-      archiveConversationStatement(database, {
-        id: input.conversationId,
-        now: context.clock.now(),
-      }),
+      guarded(
+        archiveConversationStatement(database, {
+          id: input.conversationId,
+          now: context.clock.now(),
+        }),
+        "conversation.archive",
+      ),
     ],
     outboxMessages: [],
   };

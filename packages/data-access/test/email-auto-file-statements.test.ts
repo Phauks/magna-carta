@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { commitEffectBatch, GuardedWriteRefusedError } from "../src/effect-batch.ts";
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import type {
   EmailAutoFileDecisionId,
@@ -83,7 +84,13 @@ function seedMessage(id: string): EmailMessageId {
 }
 
 async function run(statements: readonly unknown[]): Promise<void> {
-  await database.batch(statements as never);
+  // Through the chokepoint, not database.batch: a guarded statement carries its guard by POSITION in
+  // the composed batch, so a test that assembles its own loses it and asserts a write nothing guards.
+  await commitEffectBatch(
+    database,
+    { statements: statements as never, outboxMessages: [] },
+    { now: () => "2026-06-30T12:00:00.000Z" },
+  );
 }
 
 function auditRows(): { event: string; subject_id: string | null; metadata: string | null }[] {
@@ -197,10 +204,15 @@ describe("the rule mutations", () => {
       suspendEmailAutoFileRule(database, { id: RULE, reason: "matterClosed" }, auditOptions)
         .statements,
     );
-    await run(
-      updateEmailAutoFileRulePromotion(database, { id: RULE, promotion: "file" }, auditOptions)
-        .statements,
-    );
+    // The edit is REFUSED rather than silently doing nothing. The rule is protected either way; what
+    // changed is that whoever made the edit is told, instead of being shown a success and finding the
+    // promotion unmoved the next time they look.
+    await expect(
+      run(
+        updateEmailAutoFileRulePromotion(database, { id: RULE, promotion: "file" }, auditOptions)
+          .statements,
+      ),
+    ).rejects.toBeInstanceOf(GuardedWriteRefusedError);
     const promotion = raw
       .prepare("SELECT promotion, state FROM email_auto_file_rule WHERE id = ?")
       .get(RULE) as { promotion: string; state: string };
@@ -495,7 +507,7 @@ describe("the reads the management surface is built on", () => {
     expect((await readAutoFileRulesByIds(database, [RULE])).map((rule) => rule.id)).toEqual([RULE]);
     expect(await readAutoFileRulesByIds(database, [])).toEqual([]);
     expect((await readAutoFileRulesByIds(database, [RULE, second])).map((rule) => rule.id)).toEqual(
-      [RULE, second].sort((left, right) => left.localeCompare(right)),
+      [RULE, second].toSorted((left, right) => left.localeCompare(right)),
     );
   });
 });

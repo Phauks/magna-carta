@@ -1,4 +1,5 @@
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
+import { guarded } from "@magna-carta/data-access/effect-batch";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -154,7 +155,10 @@ export async function transitionLoad(
   return {
     effect: {
       statements: [
-        transitionDiscoveryLoadStatement(database, loadId, existing.state, to, now),
+        guarded(
+          transitionDiscoveryLoadStatement(database, loadId, existing.state, to, now),
+          "discovery-load.transition",
+        ),
         domainAuditStatement(database, {
           clock: options.clock,
           actorUserId: options.actorUserId,
@@ -197,11 +201,14 @@ export async function completeLoad(
     exceptionReportR2Key,
     effect: {
       statements: [
-        completeDiscoveryLoadStatement(
-          database,
-          loadId,
-          { manifestR2Key, exceptionReportR2Key },
-          now,
+        guarded(
+          completeDiscoveryLoadStatement(
+            database,
+            loadId,
+            { manifestR2Key, exceptionReportR2Key },
+            now,
+          ),
+          "discovery-load.complete",
         ),
         domainAuditStatement(database, {
           clock: options.clock,

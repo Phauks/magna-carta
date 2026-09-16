@@ -59,6 +59,7 @@ export function insertCustodyHoldStatement(
 
 // Releasing carries its own precondition (released_at IS NULL) so a concurrent release makes this a
 // no-op the caller detects, rather than silently overwriting the first releaser's identity.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function releaseCustodyHoldStatement(
   database: SqlDatabase,
   id: CustodyHoldId,

@@ -6,7 +6,7 @@ import {
   findInconsistentGuards,
   findLocalInterleaveHelpers,
   findUncheckedInterleaves,
-  findUnwrappedGuardShaped,
+  findUndecidedGuardShaped,
   readStatementBuilders,
 } from "./rules.mjs";
 
@@ -202,18 +202,84 @@ function raceBeforeFirstCommit(database, before) {
   });
 });
 
-describe("the backlog census", () => {
-  it("counts a guard-shaped builder nothing wraps, and not one that is wrapped", () => {
-    const builders = [
-      { name: "wrapped", guardShaped: true },
-      { name: "bare", guardShaped: true },
-      { name: "notGuardShaped", guardShaped: false },
-    ];
-    const sites = new Map([
-      ["wrapped", [{ file: "a.ts", line: 1, guarded: true }]],
-      ["bare", [{ file: "a.ts", line: 2, guarded: false }]],
-      ["notGuardShaped", [{ file: "a.ts", line: 3, guarded: false }]],
-    ]);
-    expect(findUnwrappedGuardShaped(builders, sites).map((one) => one.name)).toEqual(["bare"]);
+describe("rule 5 — every guard-shaped builder has been decided about", () => {
+  const sites = new Map([["bare", [{ file: "a.ts", line: 2, guarded: false }]]]);
+
+  it("fails a guard-shaped builder that is neither guarded nor exempted", () => {
+    const problems = findUndecidedGuardShaped(
+      [{ name: "bare", file: "a.ts", line: 1, guardShaped: true }],
+      sites,
+    );
+    expect(problems).toHaveLength(1);
+    expect(problems[0]?.rule).toBe("undecided-guarded-write");
+  });
+
+  it("passes one carrying a reasoned exemption", () => {
+    expect(
+      findUndecidedGuardShaped(
+        [{ name: "bare", file: "a.ts", line: 1, guardShaped: true, exempt: true }],
+        sites,
+      ),
+    ).toEqual([]);
+  });
+
+  it("passes one guarded at a call site", () => {
+    expect(
+      findUndecidedGuardShaped(
+        [{ name: "bare", file: "a.ts", line: 1, guardShaped: true }],
+        new Map([["bare", [{ file: "a.ts", line: 2, guarded: true }]]]),
+      ),
+    ).toEqual([]);
+  });
+
+  it("passes a write builder that applies the guard inside its own body", () => {
+    // There is no statement at the call site to wrap — the builder returns {statements: [...]} — so
+    // the guard goes on the inner statement and the builder counts as decided.
+    expect(
+      findUndecidedGuardShaped(
+        [{ name: "bare", file: "a.ts", line: 1, guardShaped: true, selfGuarded: true }],
+        sites,
+      ),
+    ).toEqual([]);
+  });
+
+  it("says nothing about a builder that is not guard-shaped", () => {
+    expect(
+      findUndecidedGuardShaped(
+        [{ name: "plain", file: "a.ts", line: 1, guardShaped: false }],
+        sites,
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("reading a decision off the builder", () => {
+  it("sees an exemption marker written above the declaration", () => {
+    const [builder] = readStatementBuilders(`
+// fitness:unguarded-write — a repeat is the state the caller asked for
+export function retireStatement(database, id) {
+  return database.prepare(\`UPDATE rule SET state = 'revoked' WHERE id = ?1 AND state != 'revoked'\`).bind(id);
+}
+`);
+    expect(builder).toMatchObject({ guardShaped: true, exempt: true });
+  });
+
+  it("sees a guard applied inside a write builder", () => {
+    const [builder] = readStatementBuilders(`
+export function suspendWrite(database, id) {
+  return { statements: [guarded(database.prepare(\`UPDATE rule SET state = 'x' WHERE id = ?1 AND state = 'active'\`).bind(id), "rule.suspend")] };
+}
+`);
+    expect(builder).toMatchObject({ guardShaped: true, selfGuarded: true });
+  });
+
+  it("does not mistake an ordinary builder for a decided one", () => {
+    const [builder] = readStatementBuilders(`
+export function plainStatement(database, id) {
+  return database.prepare(\`UPDATE rule SET state = 'x' WHERE id = ?1 AND state = 'active'\`).bind(id);
+}
+`);
+    expect(builder.exempt).toBe(false);
+    expect(builder.selfGuarded).toBe(false);
   });
 });

@@ -349,7 +349,7 @@ export async function deleteDraftFee(
   return {
     effect: {
       statements: [
-        deleteDraftFeeStatement(database, id),
+        guarded(deleteDraftFeeStatement(database, id), "fee-entry.draft-delete"),
         audit(database, options, "fee_entry.draft_deleted", id),
       ],
       outboxMessages: [],

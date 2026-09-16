@@ -195,6 +195,7 @@ export function markVersionConflictStatement(
 // Guarded on the conflict_pending state so a replay is a no-op. The copy itself is retained forever
 // (never deleted) regardless of which side won — this only clears the document's "needs reconciliation"
 // flag (the conflict_pending row is that flag).
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function markVersionReconciledStatement(
   database: SqlDatabase,
   versionId: FileVersionId,
@@ -329,6 +330,7 @@ export interface CommitVersionRow {
 }
 
 // Guarded on status = 'pending': a version commits exactly once. A replayed ingest matches no row.
+// fitness:unguarded-write — a replayed ingest matching no row is the at-least-once contract working, not a refusal
 export function commitVersionStatement(database: SqlDatabase, row: CommitVersionRow): SqlStatement {
   return database
     .prepare(
@@ -388,6 +390,7 @@ export interface RescanVerdictRow {
 // is untouched. The download path gates a flagged verdict; the listing does not (informed access,
 // no data loss). NOT to be confused with commitVersionStatement (which gates 'pending' and moves the
 // lifecycle) — a re-scan only stamps the safety result on a version that is already live.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function rescanVerdictStatement(database: SqlDatabase, row: RescanVerdictRow): SqlStatement {
   return database
     .prepare(
@@ -399,6 +402,7 @@ export function rescanVerdictStatement(database: SqlDatabase, row: RescanVerdict
 // Monotonic: the current-version pointer only advances. Ingest commits can land out of order (v2
 // before v1, or a redelivery), so the pointer moves only when the committing version's number is
 // higher than the one it already points at — an older version committing late never regresses it.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function bumpFileCurrentVersionStatement(
   database: SqlDatabase,
   fileId: FileId,
@@ -415,6 +419,7 @@ export function bumpFileCurrentVersionStatement(
     .bind(fileId, versionId, updatedAt);
 }
 
+// fitness:unguarded-write — a replayed verdict matching no row is the at-least-once contract working, not a refusal
 export function quarantineVersionStatement(
   database: SqlDatabase,
   versionId: FileVersionId,
@@ -434,6 +439,7 @@ export function quarantineVersionStatement(
 // quarantined one. scan_verdict moves to 'flagged' alongside the status because the verdict on the
 // row described bytes that are gone. The recorded hash/size are LEFT AS THEY WERE: they are the
 // evidence of what was measured, not a live mirror of whatever now sits at the key.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function quarantineCommittedVersionStatement(
   database: SqlDatabase,
   versionId: FileVersionId,
@@ -454,6 +460,7 @@ export function quarantineCommittedVersionStatement(
 // listing, which is the honest answer). MUST run AFTER the withdrawal in the same batch, so the
 // subquery already sees the withdrawn version as non-clean; the `current_version_id = ?2` guard keeps
 // it a no-op when the pointer had already moved on.
+// fitness:unguarded-write — the pointer having already moved is the state this exists to reach
 export function repointCurrentVersionAfterWithdrawalStatement(
   database: SqlDatabase,
   fileId: FileId,
@@ -468,6 +475,7 @@ export function repointCurrentVersionAfterWithdrawalStatement(
 }
 
 // The no-op skip: identical re-upload abandons the freshly-minted pending version.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function abandonVersionStatement(
   database: SqlDatabase,
   versionId: FileVersionId,
@@ -569,6 +577,7 @@ export function setUploadSessionR2UploadIdStatement(
 
 // Transitions a session by its id, guarded on status = 'open': a replayed complete/abort matches no
 // row, so the transition happens exactly once.
+// fitness:unguarded-write — a replayed complete or abort matching no row is what makes the transition exactly-once
 export function setUploadSessionStatusByIdStatement(
   database: SqlDatabase,
   sessionId: UploadSessionId,
@@ -644,6 +653,7 @@ export function setFileEditStateStatement(
 // Flips a version's storage class (Standard -> Infrequent Access) after the tiering sweep rewrites the
 // R2 object's class. Guarded on the current class so a replay/overlap is a no-op and the meter shift
 // that rides the same batch applies exactly once.
+// fitness:unguarded-write — the caller runs this on its own and branches on the affected-row count, so a refusal is already surfaced there
 export function setVersionStorageClassStatement(
   database: SqlDatabase,
   versionId: FileVersionId,

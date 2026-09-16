@@ -160,6 +160,7 @@ export function transitionCostStatusStatement(
 // The NOT IN ('billed','void') clause is a defense-in-depth freeze guard: it excludes frozen rows;
 // the service pre-checks frozen status before composing this statement, but a stale-read race would
 // otherwise silently succeed on a frozen row.
+// fitness:unguarded-write — rides the same batch as the guarded status transition, which refuses for both
 export function setCostKickBackReasonStatement(
   database: SqlDatabase,
   id: CostEntryId,

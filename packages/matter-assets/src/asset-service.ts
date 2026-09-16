@@ -1,4 +1,6 @@
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
+import { guarded } from "@magna-carta/data-access/effect-batch";
+import type { EffectStatement } from "@magna-carta/data-access/effect-batch";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -281,8 +283,8 @@ function attributeStatements(
   assetId: MatterAssetId,
   assetClass: MatterAssetClass,
   input: MatterAssetAttributesInput,
-): SqlStatement[] {
-  const statements: SqlStatement[] = [];
+): EffectStatement[] {
+  const statements: EffectStatement[] = [];
   for (const key of ATTRIBUTE_CLASSES) {
     const attributes = input[key];
     if (attributes === undefined) continue;
@@ -306,7 +308,7 @@ async function composeAssetStatements(
   database: SqlDatabase,
   input: CreateMatterAssetInput,
   options: MatterAssetServiceOptions,
-): Promise<{ assetId: MatterAssetId; statements: SqlStatement[] }> {
+): Promise<{ assetId: MatterAssetId; statements: EffectStatement[] }> {
   const assetClass = assertAvailableClass(input.assetClass);
   assertNonEmptyDescription(input.description);
   assertOptionalCivilDate(input.acquiredOn, "acquiredOn");
@@ -316,7 +318,7 @@ async function composeAssetStatements(
 
   const now = options.clock.now();
   const assetId = newIdentifier("matterAsset", options.randomSource);
-  const statements: SqlStatement[] = [
+  const statements: EffectStatement[] = [
     insertMatterAssetStatement(database, {
       id: assetId,
       matterId: input.matterId,
@@ -394,7 +396,7 @@ export async function createMatterAssetBatch(
 ): Promise<{ assetIds: MatterAssetId[]; effect: EffectWrite }> {
   assertBatchSize(rows.length);
   const assetIds: MatterAssetId[] = [];
-  const statements: SqlStatement[] = [];
+  const statements: EffectStatement[] = [];
   for (const row of rows) {
     const composed = await composeAssetStatements(database, { ...row, matterId }, options);
     assetIds.push(composed.assetId);
@@ -468,8 +470,8 @@ export async function updateMatterAsset(
   }
 
   const now = options.clock.now();
-  const statements: SqlStatement[] = [
-    updateMatterAssetStatement(database, assetId, merged, now),
+  const statements: EffectStatement[] = [
+    guarded(updateMatterAssetStatement(database, assetId, merged, now), "matter-asset.update"),
     ...attributeStatements(database, assetId, existing.class, patch),
     domainAuditStatement(database, {
       event: "matterAsset.updated",

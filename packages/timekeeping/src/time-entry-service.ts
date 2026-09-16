@@ -1,4 +1,5 @@
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
+import { guarded } from "@magna-carta/data-access/effect-batch";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -237,7 +238,10 @@ export async function updateDraftTimeEntry(
     timeEntryId,
     effect: {
       statements: [
-        updateDraftStatement(database, timeEntryId, patch, updatedAt),
+        guarded(
+          updateDraftStatement(database, timeEntryId, patch, updatedAt),
+          "time-entry.draft-edit",
+        ),
         // metadata names WHICH fields the patch touched — names only, never a value, so an edited
         // memo or narrative is audited as the fact of an edit without the text ever reaching the
         // shared audit log.
@@ -326,7 +330,7 @@ export async function refileTimeEntry(
     timeEntryId,
     effect: {
       statements: [
-        refileStatement(database, timeEntryId, input, updatedAt),
+        guarded(refileStatement(database, timeEntryId, input, updatedAt), "time-entry.refile"),
         // Both matters by name, because the question a reader asks of this event is "where did it
         // come from". No business text rides here: the audit records the move, never the entry.
         domainAuditStatement(database, {

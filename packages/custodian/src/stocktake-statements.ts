@@ -85,6 +85,7 @@ export interface CloseCustodyStocktakeCounts {
 // An abandoned count freezes no counts, so `counts` is null for one: the reconciliation of a
 // half-finished walk is a safe full of originals nobody reached, and recording that as a finding
 // would be the most alarming and most wrong thing this subsystem could tell a firm.
+// fitness:unguarded-write — the service reads the row back and tells the caller which close won, so the refusal is already surfaced
 export function closeCustodyStocktakeStatement(
   database: SqlDatabase,
   id: CustodyStocktakeId,

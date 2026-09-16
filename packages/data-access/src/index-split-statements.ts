@@ -172,6 +172,7 @@ export async function listSplitsForDocument(
 // the bytes it names in the firm's bucket with nothing able to recognize them as garbage. It also cannot
 // collide with the insert: the one-live-split-per-document-version unique index is partial on
 // `superseded_at IS NULL`, so a superseded row of the same version is simply outside it.
+// fitness:unguarded-write — matches a set rather than one row, so zero is an empty set rather than a refusal
 export function deleteSplitsForDocumentStatement(
   database: SqlDatabase,
   documentId: IndexedDocumentId,
@@ -198,6 +199,7 @@ export function replaceDocumentSplitStatements(
 // Mark a split superseded by compaction, dropping it from the live set. The row is kept (not deleted)
 // until its R2 object is garbage-collected, so a query mid-flight against the old split still resolves;
 // `deleteIndexSplitStatement` removes the row after the object is gone.
+// fitness:unguarded-write — a concurrent compaction pass claiming the split first is ordinary — passes overlap by design
 export function markSplitSupersededStatement(
   database: SqlDatabase,
   id: IndexSplitId,
@@ -343,6 +345,7 @@ export function insertIndexSplitMemberStatement(
 // Deliberately not scoped to a version: every version of this document that a merged split still carries
 // is superseded by the one being published, and naming them individually would need a read the write path
 // does not otherwise make.
+// fitness:unguarded-write — matches a set rather than one row, so zero is an empty set rather than a refusal
 export function markMembersStaleForDocumentStatement(
   database: SqlDatabase,
   documentId: IndexedDocumentId,

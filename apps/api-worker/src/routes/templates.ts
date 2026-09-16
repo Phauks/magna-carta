@@ -1,5 +1,5 @@
 import { type OpenAPIHono, z } from "@hono/zod-openapi";
-import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import { commitEffectBatch, guarded } from "@magna-carta/data-access/effect-batch";
 import {
   type IdempotentEffectResult,
   runIdempotentEffect,
@@ -1465,11 +1465,14 @@ async function scanAndGateStatements(
   if (verdict.verdict === "flagged") {
     return {
       statements: [
-        markTemplateVersionQuarantinedStatement(
-          database,
-          versionId,
-          verdict.reason,
-          raw.engineVersion,
+        guarded(
+          markTemplateVersionQuarantinedStatement(
+            database,
+            versionId,
+            verdict.reason,
+            raw.engineVersion,
+          ),
+          "template-version.verdict",
         ),
       ],
       activated: false,
@@ -1477,17 +1480,23 @@ async function scanAndGateStatements(
   }
   return {
     statements: [
-      markTemplateVersionCleanStatement(
-        database,
-        versionId,
-        verdict.verdict,
-        raw.engineVersion,
-        // The same badge a file version carries, from the same function, so the two paths cannot
-        // disagree again about what a clean verdict over executable bytes is worth recording.
-        scanDetailFor(verdict),
-        now,
+      guarded(
+        markTemplateVersionCleanStatement(
+          database,
+          versionId,
+          verdict.verdict,
+          raw.engineVersion,
+          // The same badge a file version carries, from the same function, so the two paths cannot
+          // disagree again about what a clean verdict over executable bytes is worth recording.
+          scanDetailFor(verdict),
+          now,
+        ),
+        "template-version.verdict",
       ),
-      setCurrentTemplateVersionStatement(database, templateId, versionId, now),
+      guarded(
+        setCurrentTemplateVersionStatement(database, templateId, versionId, now),
+        "document-template.current-version",
+      ),
     ],
     activated: true,
   };

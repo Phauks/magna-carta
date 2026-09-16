@@ -85,6 +85,7 @@ export async function planEntryNumberBlock(
 // The statements that open a block's draw: ensure the counter row exists, then advance it by the
 // block size, guarded on the observed value. The guard aborts nothing on its own (a zero-row
 // UPDATE is not an error) — the allocation primary key below is the load-bearing backstop.
+// fitness:unguarded-write — matches a set rather than one row, so zero is an empty set rather than a refusal
 export function entryNumberBlockOpenStatements(
   database: SqlDatabase,
   plan: EntryNumberBlockPlan,

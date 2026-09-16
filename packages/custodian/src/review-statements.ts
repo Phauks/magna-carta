@@ -10,6 +10,7 @@ import { CUSTODY_ITEM_TABLE, CUSTODY_PACKET_TABLE } from "./packet-statements.ts
 // Advances a packet's review date, guarded on the date the caller read. A zero-row result means
 // somebody else already rolled it; the caller's movement row still lands, which is correct — two
 // people really did look at the envelope — but the cycle does not skip a period.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function rollCustodyPacketReviewStatement(
   database: SqlDatabase,
   id: CustodyPacketId,

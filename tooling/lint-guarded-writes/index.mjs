@@ -7,7 +7,7 @@ import {
   findInconsistentGuards,
   findLocalInterleaveHelpers,
   findUncheckedInterleaves,
-  findUnwrappedGuardShaped,
+  findUndecidedGuardShaped,
   readStatementBuilders,
 } from "./rules.mjs";
 
@@ -21,10 +21,10 @@ import {
 // the marking is applied consistently, and that the tests written to prove a guard works are shaped
 // so they could fail.
 //
-// It does NOT require every guard-shaped statement to be marked. Seventy-odd exist and the set has
-// never been triaged; failing on all of them would make the gate something to switch off rather than
-// something to satisfy. The count is printed on a passing run so the backlog stays visible, and each
-// one becomes a hard failure the moment anybody marks it anywhere — which is rule 1.
+// Every guard-shaped statement must have been DECIDED about: guarded() where a zero means the act was
+// refused, or `fitness:unguarded-write — <reason>` where a zero is an outcome somebody wanted. The
+// backlog this started with was 134 statements and is now empty, which is what lets this be a hard
+// gate rather than a counter — the expensive part was the reading, and it does not have to happen twice.
 //
 // Escape hatch: `fitness:unguarded-write — <reason>` above a call site. A bare marker fails (rule 2).
 //
@@ -106,6 +106,7 @@ function main() {
     ...findBareExemptions(allFiles),
     ...findUncheckedInterleaves(testFiles),
     ...findLocalInterleaveHelpers(testFiles),
+    ...findUndecidedGuardShaped(builders, callSitesByName),
   ];
 
   if (problems.length > 0) {
@@ -124,16 +125,15 @@ function main() {
     process.exit(1);
   }
 
-  const wrapped = builders.filter((builder) =>
-    (callSitesByName.get(builder.name) ?? []).some((site) => site.guarded),
+  const wrapped = builders.filter(
+    (builder) =>
+      builder.selfGuarded || (callSitesByName.get(builder.name) ?? []).some((site) => site.guarded),
   );
-  const backlog = findUnwrappedGuardShaped(builders, callSitesByName);
+  const exempt = builders.filter((builder) => builder.guardShaped && builder.exempt);
   console.log(
-    `Guarded writes consistent (${String(wrapped.length)} builder(s) marked guarded(), every call site of each one wrapped;` +
-      ` no test reaches for interleaveAt without checking it fired, and none re-implements the harness).`,
-  );
-  console.log(
-    `Backlog: ${String(backlog.length)} guard-shaped builder(s) not yet marked — each becomes a hard failure the moment one call site is.`,
+    `Guarded writes decided (${String(wrapped.length)} builder(s) guarded() with every call site wrapped,` +
+      ` ${String(exempt.length)} exempted with a stated reason; no test reaches for interleaveAt without checking it` +
+      ` fired, and none re-implements the harness).`,
   );
 }
 

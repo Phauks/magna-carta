@@ -22,10 +22,17 @@ export function readStatementBuilders(source) {
     const [, name, body] = match;
     const sql = [...body.matchAll(/`([\s\S]*?)`/g)].map((one) => one[1]).join(" ");
     if (sql === "") continue;
+    const preceding = source.slice(0, match.index).split("\n").slice(-4).join("\n");
     builders.push({
       name,
       sql,
       guardShaped: GUARD_SHAPED.test(sql),
+      // The decision may sit on the builder (this statement's zero is an outcome, always) or at a
+      // call site (this one caller is special). Both are read; neither is assumed.
+      exempt: exemptionReason(preceding) !== null,
+      // A write builder — one returning {statements: [...]} rather than a bare statement — applies the
+      // guard to its own inner statement, because there is no call site holding a statement to wrap.
+      selfGuarded: /(?<![\w.])guarded\s*\(/.test(body),
       line: source.slice(0, match.index).split("\n").length,
     });
   }
@@ -173,9 +180,27 @@ export function findLocalInterleaveHelpers(files) {
   return problems;
 }
 
-/** Guard-shaped builders nothing wraps — the triage backlog, reported rather than failed. */
-export function findUnwrappedGuardShaped(builders, callSitesByName) {
+/**
+ * RULE 5 — every guard-shaped builder has been decided about.
+ *
+ * A statement whose WHERE carries more than the row's identity is making a claim: that matching no
+ * row means something. Either it means the act was refused, and the statement is `guarded()` so the
+ * batch rolls back and the caller hears about it — or it means the state was already reached, or the
+ * set was empty, or another writer legitimately won, and then it carries `fitness:unguarded-write`
+ * saying which. What it may not do is neither, because then the next person to read it has to
+ * re-derive the answer from the schema and the callers, which is the work this triage did once.
+ */
+export function findUndecidedGuardShaped(builders, callSitesByName) {
   return builders
-    .filter((builder) => builder.guardShaped)
-    .filter((builder) => !(callSitesByName.get(builder.name) ?? []).some((site) => site.guarded));
+    .filter((builder) => builder.guardShaped && !builder.exempt && !builder.selfGuarded)
+    .filter((builder) => !(callSitesByName.get(builder.name) ?? []).some((site) => site.guarded))
+    .map((builder) => ({
+      rule: "undecided-guarded-write",
+      file: builder.file,
+      line: builder.line,
+      detail:
+        `\`${builder.name}\` composes an UPDATE or DELETE whose WHERE carries a precondition, and nothing says what ` +
+        `matching no row means. Wrap it in guarded() where the effect is composed if a zero means the act was refused, ` +
+        `or write \`// fitness:unguarded-write — <reason>\` above it if a zero is an outcome the caller wanted.`,
+    }));
 }

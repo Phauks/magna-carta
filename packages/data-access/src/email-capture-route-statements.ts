@@ -38,6 +38,7 @@ export function insertEmailCaptureRouteStatement(
 // Stop a token routing. Scoped to the owning firm so one firm can never revoke another's token even
 // if it learns the value, and guarded on active = 1 so a repeat revoke reports zero changes instead
 // of overwriting the original revocation instant.
+// fitness:unguarded-write — the caller runs this on its own and branches on the affected-row count, so a refusal is already surfaced there
 export function revokeEmailCaptureRouteStatement(
   database: SqlDatabase,
   input: { token: string; firmId: FirmId },
