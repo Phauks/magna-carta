@@ -10,7 +10,6 @@
  * projection rules below are the ones the next catalogue will be held to.
  */
 import { describe, expect, it } from "vitest";
-import { hasSurface } from "@magna-carta/design-system/maturity";
 import { countCatalogueEntries } from "../src/lib/catalogue/catalogue.ts";
 import { reportCatalogueSections } from "../src/lib/reports/report-catalogue.ts";
 import { REPORTS, isBuiltReport, reportHref } from "../src/lib/reports/report-registry.ts";

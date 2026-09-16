@@ -24,7 +24,10 @@ import { setShown, sidebarGroups } from "../src/lib/navigation/sidebar-preferenc
 import { destinationById } from "../src/lib/navigation/destinations.ts";
 
 function clear(): void {
-  for (const favorite of [...favorites()]) removeFavorite(favorite.path);
+  // The paths are read out first: removing one replaces the stored array, and iterating a list
+  // while the thing behind it is being rebuilt is the kind of test helper that fails on a Tuesday.
+  const paths = favorites().map((favorite) => favorite.path);
+  for (const path of paths) removeFavorite(path);
 }
 
 beforeEach(clear);

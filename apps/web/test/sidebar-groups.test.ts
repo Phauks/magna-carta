@@ -34,6 +34,11 @@ afterEach(() => {
   setClusterCollapsed("records", false);
 });
 
+const groupOf = (id: string) => DESTINATIONS.find((destination) => destination.id === id)?.group;
+
+const toolRowCount = () =>
+  sidebarGroups().find((group) => group.id === "tools")?.destinations.length;
+
 describe("the groups the rail draws", () => {
   it("declares the five platform groups in their canonical order, favorites first", () => {
     expect(DESTINATION_GROUPS.map((group) => group.id)).toEqual([
@@ -47,8 +52,6 @@ describe("the groups the rail draws", () => {
   });
 
   it("puts the member's own surfaces on the desk and the firm's work in the workspace", () => {
-    const groupOf = (id: string) =>
-      DESTINATIONS.find((destination) => destination.id === id)?.group;
     for (const id of ["home", "notifications", "tasks", "calendar", "magnus"]) {
       expect(groupOf(id), id).toBe("desk");
     }
@@ -136,9 +139,8 @@ describe("folding a cluster", () => {
   });
 
   it("leaves the cluster's rows in the tree, the same invariant a group's fold keeps", () => {
-    const rowsIn = () => sidebarGroups().find((group) => group.id === "tools")?.destinations.length;
-    const before = rowsIn();
+    const before = toolRowCount();
     setClusterCollapsed("records", true);
-    expect(rowsIn()).toBe(before);
+    expect(toolRowCount()).toBe(before);
   });
 });
