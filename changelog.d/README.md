@@ -27,6 +27,22 @@ research note the first time somebody forgets, and that cannot be unpublished. A
 means the public changelog quietly stops being written and nobody notices, which is worse because
 nothing announces it. So a fragment that has not decided fails the gate.
 
+## When a change genuinely has no entry
+
+`pnpm run lint:changelog-coverage` asks for a fragment whenever a change touches first-party source,
+which is the floor golden rule 5 always implied and nothing held. When a change truly warrants no
+entry, say so in the change itself: `changelog.d/exemptions/<slug>.md`, carrying one `reason:` key in
+words.
+
+Three properties make that the right shape. It is **in the diff**, so a reviewer reads the claim
+beside the change it excuses — a flag in a workflow file is invisible exactly when it matters and
+excuses every change after it. The reason is **written out**, which is the whole of the review this
+gate forces: not the entry, the decision about whether there is one. And it counts only as part of
+**this** change, so one left behind grants nothing to anybody else.
+
+The directory is one level down on purpose: the assembler reads `.md` files directly inside
+`changelog.d/`, so an exemption can never be folded into the changelog as though it were an entry.
+
 ## An internal fragment
 
 ```markdown
