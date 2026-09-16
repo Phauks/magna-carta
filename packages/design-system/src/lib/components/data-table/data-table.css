@@ -723,7 +723,17 @@
    *
    * The header reserves the same width, so a column's label stands over its own values.
    */
-  .mc-table-grid[data-row-marks="on"] .mc-table-body .mc-table-grid-cell:first-child,
+  /*
+   * A PLACEHOLDER IS NOT A ROW AND TAKES NONE OF A ROW'S TREATMENT — the rule the empty and loading
+   * cells are already written under, and the mark's gutter is a row's treatment. Its cell drops the
+   * cell padding precisely so the empty state centres in the frame; leaving the gutter on would put
+   * it half a gutter off centre, on every table that CAN mark a row whether or not anything is
+   * marked. Measured at 24px out, which is the gutter exactly: the sticky frame inside the cell
+   * takes a fixed width, so it is displaced by the whole of it rather than half.
+   */
+  .mc-table-grid[data-row-marks="on"]
+    .mc-table-body
+    .mc-table-grid-cell:first-child:not(.mc-table-grid-placeholder),
   .mc-table-grid[data-row-marks="on"] .mc-table-grid-head:first-child .mc-table-grid-head-inner {
     padding-inline-start: var(--mc-space-24);
   }

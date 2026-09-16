@@ -877,6 +877,46 @@
 
 
 <!--
+  AND IT IS STILL CENTRED ON A TABLE THAT CAN MARK ITS ROWS.
+
+  A table that marks rows reserves the mark's gutter on every first cell, so that marking one lights
+  a glyph and shifts nothing. A placeholder's cell is not a row's, and it drops the cell's own inset
+  precisely so the empty state can centre in the frame — so the gutter has to come off it too. Left
+  on, it displaced the state by the whole gutter rather than half, because the frame inside the cell
+  takes a fixed width rather than filling it: 24px out, on every table in the product that declares
+  a rowMark at all, marked or not. The story above cannot see this — its grid declares no marks —
+  and the file manager's list declares them on every view it has.
+-->
+<Story
+  name="Empty in a table wider than its frame, with row marks"
+  args={{}}
+  play={async ({ canvas, step }) => {
+    const frame = canvas.getByRole("group", { name: "Time entries" });
+
+    await step("The table reserves the mark's gutter", async () => {
+      await expect(canvas.getByRole("table")).toHaveAttribute("data-row-marks", "on");
+    });
+
+    await step("And the empty state is still centred in the frame", async () => {
+      const heading = canvas.getByText("No Results");
+      await waitFor(() => {
+        const frameBox = box(frame);
+        const headingBox = box(heading);
+        expect(Math.abs(headingBox.centre - frameBox.centre)).toBeLessThanOrEqual(1);
+      });
+    });
+  }}
+>
+  {#snippet template()}
+    <LitigationGrid
+      rows={[]}
+      columnWidths={OVERWIDE_COLUMN_WIDTHS}
+      rowMark={() => ({ pinned: false })}
+    />
+  {/snippet}
+</Story>
+
+<!--
   The totals strip is held at the BOTTOM of the frame, not left wherever the last row ended.
 
   A ledger fills the height it is given, so the ordinary case is a table with room beneath it. The
