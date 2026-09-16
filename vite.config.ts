@@ -338,7 +338,11 @@ export default defineConfig({
       // active-work note, re-render STATUS.md + STATUS.json, delete the note, and remove the worktree
       // and branch. Done by hand the pointer is routinely left behind and `pnpm run lint:status` fails
       // afterwards, which is why the parts are not separable here. Takes the branch name, plus
-      // --dry-run / --force / --keep-workspace: node tooling/retire-note/index.mjs <branch> --dry-run
+      // --with-merge / --dry-run / --force / --keep-workspace.
+      // ROUTINE USE IS --with-merge, run ON the branch, in the pull request that lands the work: a
+      // merge to main deploys, so retiring afterwards means a second production deploy to delete one
+      // file. It does the paperwork only and leaves the worktree and branch for a later local pass,
+      // which is the half that cannot run from inside the branch anyway.
       "retire-note": {
         command: "node tooling/retire-note/index.mjs",
       },
