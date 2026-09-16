@@ -72,12 +72,22 @@ migrations_ section of [`docs/conventions/operations.md`](../../docs/conventions
   it, and a rename leaves them holding a tag this code cannot recognise — which the runner refuses,
   blocking every later migration for the life of that database. Neither is fixed by deploying
   again. `pnpm run lint:migration-immutability` refuses both on every pull request, measured from
-  where the branch left `main`. The deliberate exceptions are recorded in
-  `tooling/migration-immutability/allowed-changes.mts`, each with the reason no database could have
-  applied it; a baseline collapse is **not** one of them, because `src/legacy-baselines.ts`
-  reconciles those at runtime and the gate reads that list directly. See `src/legacy-baselines.ts`
-  for what recovering from a mistake here costs, and `docs/deploy-queue.md` for the 2026-09-15
-  rename and the window that made it safe.
+  where the branch left `main`. Two things are **not** exceptions and need no entry anywhere,
+  because the runtime reconciles them and the gate reads its lists directly: a baseline collapse
+  (`src/legacy-baselines.ts`) and a re-stamp (`src/re-stamped-migrations.ts`). Everything else that
+  is deliberate goes in `tooling/migration-immutability/allowed-changes.mts` with the reason no
+  database could have applied it.
+- **If you do re-stamp a deployed tag, record it in `src/re-stamped-migrations.ts` in the same
+  commit.** That is what turns the refusal into a one-time ledger rewrite on the next wake, instead
+  of a database that has to be recreated. A rename moves the id and not the SQL, so the schema a
+  database already has is the schema the new id names and the rewrite asserts nothing new — which is
+  also why the registry is **only** for a pure rename: a tag whose SQL also changed is not a
+  re-stamp, and an entry for one would claim a schema the database does not have. Append a new
+  migration instead. Do not reach for "the affected databases can just be recreated": that is a
+  claim about the whole fleet, and the 2026-09-15 rename was taken on it and was wrong — a firm
+  database had applied one of the two retired ids and refused to wake from the moment the rename
+  deployed.
+  `docs/deploy-queue.md` records that rename and what it actually cost.
 - **Hand-written migrations are normal here.** Partial indexes with a `WHERE`, FTS5 virtual tables
   and their triggers, seed `INSERT`s, and column adds that must land in a specific order are written
   by hand and appended to the journal — drizzle-kit cannot express them, or expresses them as a

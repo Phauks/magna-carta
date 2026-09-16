@@ -1,5 +1,6 @@
 import { findLegacyBaseline, LEGACY_BASELINES } from "./legacy-baselines.ts";
 import type { Migration } from "./migration.ts";
+import { conflictingReStamps, findReStampOf, pendingReStamps } from "./re-stamped-migrations.ts";
 
 // The seam between "which migrations are pending" (pure, this file) and "how SQL reaches a database"
 // (an adapter — see d1-migration-target.ts). applyMigration MUST be atomic: the migration's statements
@@ -24,6 +25,10 @@ export interface MigrationRunReport {
   // Set when the applied ledger was a retired pre-baseline chain and was rewritten to the baseline
   // tag before applying; null on every ordinary run.
   readonly reconciledToBaseline: string | null;
+  // Tags rewritten from a retired id to the id the same migration carries now, because it was
+  // re-stamped after this database had applied it (see re-stamped-migrations.ts). Each entry is the
+  // REPLACEMENT tag — the id the ledger holds after the run. Empty on every ordinary run.
+  readonly reStampedTags: string[];
   // Pending migrations whose tag sorts BEFORE a tag this database has already applied — see
   // outOfOrderArrivals. Empty on every ordinary run.
   readonly outOfOrderTags: string[];
@@ -101,6 +106,29 @@ export async function runPendingMigrations(
   }
   const reconciledToBaseline = legacyBaseline?.baselineTag ?? null;
 
+  // A migration that was RENAMED after this database applied it leaves the ledger naming an id this
+  // lineage no longer contains. The rename moved the id and not the SQL, so the schema this database
+  // has is already the schema the new id names, and rewriting the row asserts nothing new — see
+  // re-stamped-migrations.ts for why that is the whole justification and where it stops holding.
+  //
+  // Refused before anything is rewritten: a ledger holding BOTH ids of one re-stamp. The rewrite
+  // cannot express it (the ledger keys on the tag), and it is not a state to guess at.
+  const conflicting = conflictingReStamps(applied);
+  if (conflicting.length > 0) {
+    const pairs = conflicting
+      .map((entry) => `"${entry.supersededTag}" and "${entry.replacementTag}"`)
+      .join(", ");
+    throw new Error(
+      `database has applied both ids of a re-stamped migration (${pairs}) — one migration recorded twice under two names. The ledger cannot be rewritten automatically without choosing which row is the real one, so this needs a human.`,
+    );
+  }
+  const reStampedTags: string[] = [];
+  for (const entry of pendingReStamps(applied, known)) {
+    await target.supersedeAppliedMigrations([entry.supersededTag], entry.replacementTag);
+    reStampedTags.push(entry.replacementTag);
+  }
+  if (reStampedTags.length > 0) applied = new Set(await target.appliedMigrationTags());
+
   for (const tag of applied) {
     if (known.has(tag)) continue;
     // Two different faults answer with two different sentences, because the remedies are opposite.
@@ -112,6 +140,16 @@ export async function runPendingMigrations(
     if (retiredInto !== undefined) {
       throw new Error(
         `database has applied migration "${tag}", which was retired into baseline "${retiredInto.baselineTag}" — but the ledger is not that complete chain, so this database's schema stops part way through a history this code no longer carries. It cannot be migrated forward automatically and needs a human.`,
+      );
+    }
+    // A re-stamped tag that is still here got past the rewrite for one reason: this code does not
+    // carry the replacement, which is what a deployment older than the rename looks like. Naming the
+    // rename is the difference between "roll this deployment forward" and a hunt for a schema change
+    // that was never made — the SQL is identical on both sides of it.
+    const reStamp = findReStampOf(tag);
+    if (reStamp !== undefined) {
+      throw new Error(
+        `database has applied migration "${tag}", which was re-stamped to "${reStamp.replacementTag}" on ${reStamp.recorded} — and this code carries neither id, so it is older than the rename. Deploy a build that contains "${reStamp.replacementTag}" and this database reconciles itself on the next wake.`,
       );
     }
     throw new Error(
@@ -127,6 +165,7 @@ export async function runPendingMigrations(
     appliedTags: [],
     skippedTags: [],
     reconciledToBaseline,
+    reStampedTags,
     outOfOrderTags,
     ledgerHead,
   };

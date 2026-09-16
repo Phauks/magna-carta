@@ -25,6 +25,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { LEGACY_BASELINES } from "../../packages/database/src/legacy-baselines.ts";
 import type { MigrationJournal } from "../../packages/database/src/migration.ts";
+import { RE_STAMPED_MIGRATIONS } from "../../packages/database/src/re-stamped-migrations.ts";
 import { ALLOWED_CHANGES } from "./allowed-changes.mts";
 import { immutabilityViolations } from "./immutability.mts";
 
@@ -96,13 +97,21 @@ function currentState(lineage: Lineage): ReadonlyMap<string, string> {
   return sql;
 }
 
-/** Tags the runtime already reconciles to a later baseline, so their absence is expected. */
+/**
+ * Tags the runtime already reconciles to a later id, so their absence from this lineage is expected:
+ * a chain retired behind a baseline, and a tag retired by a re-stamp. Both lists are read from the
+ * runtime rather than restated here, so the gate and the runner cannot drift into disagreeing about
+ * which tags a database may still be holding.
+ */
 function reconciledByRuntime(lineage: Lineage): ReadonlySet<string> {
-  return new Set(
-    LEGACY_BASELINES.filter((baseline) => baseline.lineage === lineage).flatMap(
+  return new Set([
+    ...LEGACY_BASELINES.filter((baseline) => baseline.lineage === lineage).flatMap(
       (baseline) => baseline.legacyTags,
     ),
-  );
+    ...RE_STAMPED_MIGRATIONS.filter((entry) => entry.lineage === lineage).map(
+      (entry) => entry.supersededTag,
+    ),
+  ]);
 }
 
 const argv = process.argv.slice(2);
