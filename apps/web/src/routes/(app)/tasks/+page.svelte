@@ -13,7 +13,8 @@
    * THE SCREEN OWNS ITS HEADER AND THE LIST OWNS ITS CONTROLS. The list hands its search, its
    * create control and its clear back here to be seated in the masthead's action row, which is
    * where every other main screen keeps that pair, rather than drawing a second row of its own
-   * under the title.
+   * under the title. The list itself is the platform's one table, with the Matter column visible
+   * because this is the one screen where a task's matter is not already the page.
    */
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import TaskList from "$lib/matters/task-list.svelte";
@@ -32,8 +33,7 @@
     matterId={null}
     matterTitle={null}
     showMatter
-    emptyTitle="Nothing on your plate"
-    emptyDescription="No task is open for you. Tasks assigned to you across every matter you can see, and your own work on no matter, land here."
+    caption="Every task you can reach, across the matters you can see and the firm's own work"
   >
     {#snippet screenHeader(controls)}
       <ScreenHeader title="Tasks">

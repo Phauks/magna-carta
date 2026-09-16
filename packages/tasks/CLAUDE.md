@@ -1,8 +1,9 @@
 # @magna-carta/tasks — CLAUDE.md
 
-**Purpose.** The task: one piece of work with somebody's name on it and a state that says whether the
-firm still owes it. One row per task, edited in place, carrying what to do, whose it is, when it is
-due, whether it is done, the one task it waits on, and the matter's files it points at. Validates in
+**Purpose.** The task: one piece of work with people's names on it and a state that says whether the
+firm still owes it. One row per task, edited in place, carrying its title and description, when it is
+due, whether it is done, the one task it waits on, and the matter's files it points at; beside it the
+people on it, one row per person in one of four roles, and the flat checklist inside it. Validates in
 memory and composes statements into `@magna-carta/data-access`'s `composeEffectBatch`; holds no
 binding, reads no clock, and never calls an external service.
 
@@ -11,19 +12,21 @@ _Notifications_ and _Tenancy and data isolation_ as the surrounding context —
 [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Carta-White-Paper.md).
 **Spec:** [`docs/specs/2026-08-15-tasks-and-matter-plans-design.md`](../../docs/specs/2026-08-15-tasks-and-matter-plans-design.md),
 scoped against a wider brief in
-[`docs/specs/2026-09-01-tasks-scope-study.md`](../../docs/specs/2026-09-01-tasks-scope-study.md).
+[`docs/specs/2026-09-01-tasks-scope-study.md`](../../docs/specs/2026-09-01-tasks-scope-study.md);
+the people in roles, the checklist and the table are
+[`docs/specs/2026-09-16-tasks-table-people-and-checklist-design.md`](../../docs/specs/2026-09-16-tasks-table-people-and-checklist-design.md).
 
 ## Key files / entry points
 
-- `src/types.ts` — the closed vocabularies (priority, state), the ceilings, the page caps, the
-  blocking-chain depth, and the due-date shape
+- `src/types.ts` — the closed vocabularies (priority, state, rung, participant role), the ceilings,
+  the page caps, the blocking-chain depth, and the due-date shape
 - `src/validation.ts` — every refusal as a code the route maps to a problem type, the title and body
   normalization, and the three-way due-date coherence check
 - `src/task-statements.ts` — the SQL: **`taskVisibilityFragment`** (the whole population of "may this
-  member see this task"), the ordering, the keyset cursor and its two halves, the reads, and the
-  blocking-chain walk
-- `src/task-service.ts` — create, edit, reassign, complete, reopen, cancel, delete, attach, detach,
-  each one batch with its audit row
+  member see this task"), the ordering, the keyset cursor and its two halves, the reads (the page's
+  people, checklist and matter labels in one bounded read each), and the blocking-chain walk
+- `src/task-service.ts` — create, edit, the people as a replaced set, move along the rungs, archive,
+  delete, attach, detach, and the three checklist writes, each one batch with its audit row
 - `src/notifications.ts` — the four topics and the two comparison-shaped points declared and wired to
   nothing
 - `src/close-advisory.ts` — the count that rides a successful matter close and can never block one
@@ -37,7 +40,7 @@ scoped against a wider brief in
 
 ## The three things that decide this package's shape
 
-**A task is not a calendar event and not a deadline.** It has an assignee and a completion state,
+**A task is not a calendar event and not a deadline.** It has people and a completion state,
 which neither has, and no external reality: nobody continues a task, nothing vacates one, and no
 court knows one exists. Modelling one as an event would import the continuance discipline, under
 which a hearing moved from the 3rd to the 17th is two rows because both settings really happened — a
@@ -98,13 +101,28 @@ holiday calendar, no service-method offset, no jurisdiction, no clock.
 
 - **The visibility branch lives in ONE function.** `taskVisibilityFragment` is the entire population
   of the two rules — a task on a matter is visible to whoever can see that matter, a task on none is
-  private to its assignee and whoever created it — and every read composes it. A branch copied into
-  nine reads is a branch that will be wrong in one of them, which is the concern `firm_event` avoided
-  by splitting tables and this package answers by confinement.
-- **An assignee is not an access grant and not a screen.** A task on a matter is firm-visible within
-  it: a colleague covering the file needs to see what is outstanding on it. Assigning to a member who
-  cannot see the matter is refused AT THE WRITE, because the alternative is a task list with holes in
-  it that nobody can explain.
+  private to the people on it (in any role) and whoever created it — and every read composes it. A
+  branch copied into nine reads is a branch that will be wrong in one of them, which is the concern
+  `firm_event` avoided by splitting tables and this package answers by confinement.
+- **THE PEOPLE ARE ROLES, AND A ROLE IS NOT A PERMISSION.** `matter_task_participant` holds one row
+  per person per task in one of four roles — responsible, assigned, reviewer, watcher — held by a
+  CHECK and a unique index. A role decides who is told and whose list the task is on, never who may
+  move or finish it. `matter_task.assignee_user_id` is RETIRED: always null, never read, never
+  written; the migration moved every value across as `assigned`.
+- **The assign permission is applied to the DIFFERENCE.** `setMatterTaskParticipants` takes the
+  route's answer as `canAssignOthers` and refuses only the part of a change that names another
+  member in a work role (responsible, assigned, reviewer) or takes them out of one. Taking a task
+  oneself and adding or removing watchers needs only the write permission, and re-sending the
+  current set is never a refusal — nor a write.
+- **Being on a task is not an access grant and not a screen.** A task on a matter is firm-visible
+  within it: a colleague covering the file needs to see what is outstanding on it. Putting a member
+  who cannot see the matter on its task is refused AT THE WRITE, whatever the role, because the
+  alternative is a task list with holes in it that nobody can explain.
+- **A checklist line is not a task.** `matter_task_checklist_item` carries a title, a position and
+  a tick, and nothing else: no people, no date, no priority, no documents, no time. Ticking every
+  line completes nothing. A line that grew an assignee would be a subtask, and subtasks are the tree
+  the design refuses. Every checklist and participant write touches the task's `updated_at`, so the
+  change feed reports it.
 - **THERE IS NO OVERDUE COLUMN and no place to put one.** Overdue is a comparison against now, made
   where the reader is, through `packages/calendar/src/overdue.ts`. `test/no-arithmetic.test.ts` scans
   the schema for one. A stored flag would need a nightly per-firm sweep over the most numerous table
@@ -144,6 +162,10 @@ the write IS the emission, so there is no `notify()` call anywhere here.
 split exactly. The registry enforces that a matter-anchored type resolves a matter and an unanchored
 one does not, so one type could not honestly be both; the producer knows which it is holding and
 raises the right topic at the write. `assignmentTopicFor` is the one place that choice is made.
+
+**Every person named is told, in the role they were named in**, once per person, never the actor,
+and never on a removal. The payload's `assigneeUserId` kept its name when a task grew several people
+because it is the key the `named-recipient` audience reads; `role` rides beside it.
 
 **The assignee needed a new audience.** `designated` is the firm's trust-compliance designation and
 resolves to nobody when unconfigured, so a task assignment declared that way would have delivered to
@@ -244,7 +266,7 @@ delegate.
 - **An undated task is absent from the timeline, and so is a matterless one.** Both fall out
   structurally rather than by a filter: a timeline is a walk over dates, and a task with no matter
   has none to anchor its visibility to.
-- **`memberCanBeAssigned` takes the ASSIGNEE'S visibility predicate.** Today it is the same object as
+- **`memberCanBeAssigned` takes the visibility predicate of the PERSON BEING PUT ON THE TASK.** Today it is the same object as
   the actor's — the predicate carries no per-member narrowing — so passing the actor's reads
   correctly. The day an information-barrier overlay lands, this parameter is where the difference has
   to arrive, and it is named for whose it is so that day is a call-site change somebody can find.

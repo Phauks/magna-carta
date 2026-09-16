@@ -30,8 +30,8 @@ import type { LoadedSnapshot } from "./snapshot.ts";
 //      the timings, because a number is the better witness for that failure.
 //
 // Beside those: the matterless branch of the visibility fragment (the firm's own work, reachable to
-// its assignee and its creator and to nobody else), which only the firm-wide read reaches; the state
-// and assignee filters that make the default list selective; and the search read, which the
+// the people on it and its creator and to nobody else), which only the firm-wide read reaches; the state
+// and participant filters that make the default list selective; and the search read, which the
 // statements module is explicit is a LIKE scan bounded by a narrowing rather than by an index — so
 // it is measured with that narrowing in place, which is the only shape the product offers.
 
@@ -125,7 +125,7 @@ export const taskMeasurements: readonly Measurement<TaskMeasurementHandle, unkno
         includeClosedMatters: false,
         filters: {
           rungs: ["to_do", "in_progress", "on_hold"],
-          assigneeUserId: handle.snapshot.manifest.taskProbes.memberUserId,
+          participantUserId: handle.snapshot.manifest.taskProbes.memberUserId,
         },
       }).all<TaskListRow>();
     },
@@ -188,10 +188,11 @@ export const taskMeasurements: readonly Measurement<TaskMeasurementHandle, unkno
 //
 // THE MATTER-SCOPED LIST IS GATED AND CLEAN: it seeks `matter_task_matter_due_on_id_index`, which is
 // what a matter's task list is supposed to look like. So is the NARROWED firm-wide read — name a
-// state and an assignee and it seeks `matter_task_assignee_state_due_on_index`.
+// state and a participant and it seeks the participant table's (user_id, task_id) index before
+// joining back to matter_task by primary key.
 //
 // The UNNARROWED firm-wide read is the one that scans, and it is structural rather than a planner
-// accident: "everything on my plate" names no matter and no assignee, so there is nothing to seek
+// accident: "everything on my plate" names no matter and no participant, so there is nothing to seek
 // on, and its visibility fragment is an OR spanning `matter_id IS NULL` and `matter_id IS NOT NULL`
 // — a disjunction over the presence of the very column any useful index would be led by. An index
 // cannot answer both arms at once. That the branch is one composable fragment rather than two
@@ -238,7 +239,7 @@ export function taskHotPathPlans(handle: TaskMeasurementHandle): LabeledPlan[] {
           includeClosedMatters: false,
           filters: {
             rungs: ["to_do", "in_progress", "on_hold"],
-            assigneeUserId: probes.memberUserId,
+            participantUserId: probes.memberUserId,
           },
         }),
       ),

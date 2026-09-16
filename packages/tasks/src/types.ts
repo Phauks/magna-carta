@@ -22,6 +22,50 @@ export const MAX_ARCHIVE_REASON_LENGTH = 1_000;
 export const MAX_TASK_PAGE_SIZE = 50;
 export const MAX_TASK_DOCUMENT_COUNT = 50;
 
+// THE PEOPLE ON A TASK, each in one role. Four, in the order a list reads them: who answers for
+// the work, who does it, who reviews it before it counts, and who only wants to hear about it. A
+// role is a fact about who is told and who a list is "mine" for — it is never a permission and never
+// a gate, so nothing here decides who may move or finish the task.
+//
+// The vocabulary is closed and held by a CHECK on the per-firm schema, so a fifth role is a
+// reviewed migration rather than a string somebody types.
+export const TASK_PARTICIPANT_ROLES = Object.freeze([
+  "responsible",
+  "assigned",
+  "reviewer",
+  "watcher",
+] as const);
+export type TaskParticipantRole = (typeof TASK_PARTICIPANT_ROLES)[number];
+
+// The roles that PUT WORK IN SOMEBODY'S NAME. Naming another member in one of these is what the
+// assign permission governs; a watcher is a subscription rather than an obligation, and adding one
+// needs only the ordinary write permission. Stated once here so the service and the route agree.
+export const TASK_WORK_ROLES = Object.freeze(["responsible", "assigned", "reviewer"] as const);
+export type TaskWorkRole = (typeof TASK_WORK_ROLES)[number];
+
+export function isWorkRole(role: TaskParticipantRole): role is TaskWorkRole {
+  return (TASK_WORK_ROLES as readonly string[]).includes(role);
+}
+
+// The rank each role reads at, so a task's people list in the same order on every surface.
+export const TASK_PARTICIPANT_ROLE_RANK: Readonly<Record<TaskParticipantRole, number>> =
+  Object.freeze({
+    responsible: 0,
+    assigned: 1,
+    reviewer: 2,
+    watcher: 3,
+  });
+
+// The most people one task may carry. Far past any honest task and short of the range where one
+// batch of participant writes stops being one batch.
+export const MAX_TASK_PARTICIPANTS = 50;
+
+// THE CHECKLIST INSIDE A TASK: flat lines somebody ticks. A line's ceiling is a sentence, because a
+// line that wants to be a paragraph is the task's description; the count ceiling bounds one task's
+// read and is not a number anybody meets by hand.
+export const MAX_CHECKLIST_ITEM_TITLE_LENGTH = 300;
+export const MAX_TASK_CHECKLIST_ITEMS = 100;
+
 // How far the blocking chain is walked before a write gives up. A cycle is refused at the write, and
 // the walk that finds one has to stop somewhere: a chain longer than this is not a sequence anybody
 // is managing by hand, and refusing it costs a firm nothing while an unbounded walk on a corrupted

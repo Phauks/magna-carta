@@ -8,14 +8,19 @@ import {
   deleteMatterTask,
   detachFileFromMatterTask,
   editMatterTask,
-  reassignMatterTask,
+  setMatterTaskParticipants,
   unarchiveMatterTask,
+  addMatterTaskChecklistItem,
+  editMatterTaskChecklistItem,
+  deleteMatterTaskChecklistItem,
 } from "../src/task-service.ts";
 import {
   countMatterTaskDocuments,
   countOpenMatterTasks,
   readMatterTask,
+  readMatterTaskChecklists,
   readMatterTaskDocuments,
+  readMatterTaskParticipants,
 } from "../src/task-statements.ts";
 import { TaskValidationError } from "../src/validation.ts";
 import { MAX_TASK_TITLE_LENGTH } from "../src/types.ts";
@@ -86,7 +91,7 @@ describe("creating a task", () => {
     seedFirm(raw);
     const created = await createMatterTask(
       database,
-      { matterId: MATTER, title: TITLE, assigneeUserId: ACTOR },
+      { matterId: MATTER, title: TITLE, participants: [{ userId: ACTOR, role: "assigned" }] },
       options,
     );
     // Telling somebody they gave themselves a task is noise that teaches people to ignore the bell.
@@ -98,13 +103,17 @@ describe("creating a task", () => {
     seedFirm(raw);
     const onMatter = await createMatterTask(
       database,
-      { matterId: MATTER, title: TITLE, assigneeUserId: COLLEAGUE },
+      { matterId: MATTER, title: TITLE, participants: [{ userId: COLLEAGUE, role: "assigned" }] },
       options,
     );
     expect(onMatter.effect.outboxMessages[0]?.topic).toBe("tasks.task.assigned");
     const offMatter = await createMatterTask(
       database,
-      { matterId: null, title: "Renew the malpractice policy", assigneeUserId: COLLEAGUE },
+      {
+        matterId: null,
+        title: "Renew the malpractice policy",
+        participants: [{ userId: COLLEAGUE, role: "assigned" }],
+      },
       options,
     );
     // Two topics rather than one with a null field: a notification's visibility is a join on its
@@ -117,7 +126,7 @@ describe("creating a task", () => {
     seedFirm(raw);
     const created = await createMatterTask(
       database,
-      { matterId: MATTER, title: TITLE, assigneeUserId: COLLEAGUE },
+      { matterId: MATTER, title: TITLE, participants: [{ userId: COLLEAGUE, role: "assigned" }] },
       options,
     );
     const payload = JSON.stringify(created.effect.outboxMessages[0]?.payload ?? {});
@@ -142,7 +151,7 @@ describe("assignment", () => {
     await expect(
       createMatterTask(
         database,
-        { matterId: MATTER, title: TITLE, assigneeUserId: DEPARTED },
+        { matterId: MATTER, title: TITLE, participants: [{ userId: DEPARTED, role: "assigned" }] },
         options,
       ),
     ).rejects.toMatchObject({ code: "task-unknown-assignee" });
@@ -159,32 +168,145 @@ describe("assignment", () => {
         {
           matterId: "matter_taskHolding00000000000000000" as typeof MATTER,
           title: TITLE,
-          assigneeUserId: COLLEAGUE,
+          participants: [{ userId: COLLEAGUE, role: "assigned" }],
         },
         options,
       ),
     ).rejects.toMatchObject({ code: "task-assignee-cannot-see-matter" });
   });
 
-  it("moves a task out of everybody's name without raising a topic", async () => {
-    const { database, taskId } = await writeTask({ assigneeUserId: COLLEAGUE });
-    const { effect } = await reassignMatterTask(database, taskId, null, options);
+  it("takes everybody off a task without raising a topic", async () => {
+    const { database, taskId } = await writeTask({
+      participants: [{ userId: COLLEAGUE, role: "assigned" }],
+    });
+    const { effect } = await setMatterTaskParticipants(database, taskId, [], options);
     await commit(database, effect);
-    const task = await readMatterTask(database, taskId, visibility, ACTOR);
-    expect(task?.assignee_user_id).toBeNull();
+    expect(await readMatterTaskParticipants(database, [taskId])).toEqual([]);
     // There is nobody to tell.
     expect(effect.outboxMessages).toHaveLength(0);
   });
 
-  it("raises nothing when the assignee does not change", async () => {
-    const { database, taskId } = await writeTask({ assigneeUserId: COLLEAGUE });
-    const { effect } = await reassignMatterTask(database, taskId, COLLEAGUE, options);
+  it("writes nothing and raises nothing when the people do not change", async () => {
+    const { database, taskId } = await writeTask({
+      participants: [{ userId: COLLEAGUE, role: "assigned" }],
+    });
+    const { effect } = await setMatterTaskParticipants(
+      database,
+      taskId,
+      [{ userId: COLLEAGUE, role: "assigned" }],
+      options,
+    );
+    expect(effect.statements).toHaveLength(0);
     expect(effect.outboxMessages).toHaveLength(0);
+  });
+
+  it("tells whoever joins, in the role they joined in, and whoever's role moved", async () => {
+    const { database, taskId } = await writeTask({
+      participants: [{ userId: COLLEAGUE, role: "assigned" }],
+    });
+    const { effect } = await setMatterTaskParticipants(
+      database,
+      taskId,
+      [
+        { userId: COLLEAGUE, role: "responsible" },
+        { userId: ACTOR, role: "watcher" },
+      ],
+      options,
+    );
+    await commit(database, effect);
+    // The actor is never told about themselves; the colleague hears their role moved.
+    expect(effect.outboxMessages).toHaveLength(1);
+    expect(effect.outboxMessages[0]?.topic).toBe("tasks.task.reassigned");
+    expect(effect.outboxMessages[0]?.payload).toMatchObject({
+      assigneeUserId: COLLEAGUE,
+      role: "responsible",
+    });
+    const people = await readMatterTaskParticipants(database, [taskId]);
+    expect(people.map((row) => [row.user_id, row.role])).toEqual([
+      [COLLEAGUE, "responsible"],
+      [ACTOR, "watcher"],
+    ]);
+  });
+
+  it("refuses the same person twice and a role outside the four", async () => {
+    const { database, taskId } = await writeTask();
+    await expect(
+      setMatterTaskParticipants(
+        database,
+        taskId,
+        [
+          { userId: COLLEAGUE, role: "assigned" },
+          { userId: COLLEAGUE, role: "watcher" },
+        ],
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "task-duplicate-participant" });
+    await expect(
+      setMatterTaskParticipants(database, taskId, [{ userId: COLLEAGUE, role: "owner" }], options),
+    ).rejects.toMatchObject({ code: "task-unknown-role" });
+  });
+
+  it("lets a member without the assign permission take the task and add watchers, and nothing else", async () => {
+    const { database, taskId } = await writeTask({
+      participants: [{ userId: COLLEAGUE, role: "assigned" }],
+    });
+    const unprivileged = { ...options, canAssignOthers: false };
+    // Themselves in a work role, beside the colleague left exactly as they stand: fine.
+    const took = await setMatterTaskParticipants(
+      database,
+      taskId,
+      [
+        { userId: COLLEAGUE, role: "assigned" },
+        { userId: ACTOR, role: "reviewer" },
+      ],
+      unprivileged,
+    );
+    expect(took.effect.statements.length).toBeGreaterThan(0);
+    await commit(database, took.effect);
+    // Putting the colleague in another work role, or taking them out of theirs, is the act the
+    // permission governs.
+    await expect(
+      setMatterTaskParticipants(
+        database,
+        taskId,
+        [
+          { userId: COLLEAGUE, role: "responsible" },
+          { userId: ACTOR, role: "reviewer" },
+        ],
+        unprivileged,
+      ),
+    ).rejects.toMatchObject({ code: "task-assignment-needs-permission" });
+    await expect(
+      setMatterTaskParticipants(
+        database,
+        taskId,
+        [{ userId: ACTOR, role: "reviewer" }],
+        unprivileged,
+      ),
+    ).rejects.toMatchObject({ code: "task-assignment-needs-permission" });
+    // A watcher is a subscription rather than an obligation: adding and removing one needs nothing.
+    const fresh = await createMatterTask(database, { matterId: MATTER, title: "Watched" }, options);
+    await commit(database, fresh.effect);
+    const watched = await setMatterTaskParticipants(
+      database,
+      fresh.taskId,
+      [{ userId: COLLEAGUE, role: "watcher" }],
+      unprivileged,
+    );
+    await commit(database, watched.effect);
+    expect(
+      (await readMatterTaskParticipants(database, [fresh.taskId])).map((row) => row.role),
+    ).toEqual(["watcher"]);
+    await commit(
+      database,
+      (await setMatterTaskParticipants(database, fresh.taskId, [], unprivileged)).effect,
+    );
+    expect(await readMatterTaskParticipants(database, [fresh.taskId])).toEqual([]);
   });
 });
 
 describe("the visibility branch", () => {
-  it("keeps a task on no matter private to its assignee and whoever created it", async () => {
+  it("keeps a task on no matter private to the people on it and whoever created it", async () => {
     const { database, taskId } = await writeTask({
       matterId: null,
       title: "Review the associate's performance",
@@ -195,19 +317,21 @@ describe("the visibility branch", () => {
     expect(await readMatterTask(database, taskId, visibility, COLLEAGUE)).toBeUndefined();
   });
 
-  it("lets the assignee of a matterless task reach it", async () => {
+  it("lets anybody on a matterless task reach it, a watcher included", async () => {
     const { database, taskId } = await writeTask({
       matterId: null,
       title: "Renew the malpractice policy",
-      assigneeUserId: COLLEAGUE,
+      participants: [{ userId: COLLEAGUE, role: "watcher" }],
     });
     expect(await readMatterTask(database, taskId, visibility, COLLEAGUE)).toBeDefined();
   });
 
-  it("makes a task on a matter reachable by a colleague who is not the assignee", async () => {
-    // An assignee is not an access grant and not a screen: a colleague covering the file needs to
+  it("makes a task on a matter reachable by a colleague who is not on it", async () => {
+    // Being on a task is not an access grant and not a screen: a colleague covering the file needs to
     // see what is outstanding on it.
-    const { database, taskId } = await writeTask({ assigneeUserId: ACTOR });
+    const { database, taskId } = await writeTask({
+      participants: [{ userId: ACTOR, role: "assigned" }],
+    });
     expect(await readMatterTask(database, taskId, visibility, COLLEAGUE)).toBeDefined();
   });
 });
@@ -498,9 +622,95 @@ describe("refusals that never say which", () => {
   });
 });
 
+describe("the checklist", () => {
+  it("writes the lines a task starts with, in order, and ticks one with an actor and an instant", async () => {
+    const { database, taskId } = await writeTask({ checklist: ["Pull the file", "Draft", "Send"] });
+    const lines = await readMatterTaskChecklists(database, [taskId]);
+    expect(lines.map((line) => [line.title, line.position, line.done_at])).toEqual([
+      ["Pull the file", 0, null],
+      ["Draft", 1, null],
+      ["Send", 2, null],
+    ]);
+    const first = lines[0];
+    if (first === undefined) throw new Error("no line");
+    await commit(
+      database,
+      (await editMatterTaskChecklistItem(database, first.id, { done: true }, colleagueOptions))
+        .effect,
+    );
+    const ticked = (await readMatterTaskChecklists(database, [taskId]))[0];
+    expect(ticked?.done_by).toBe(COLLEAGUE);
+    expect(ticked?.done_at).toBe("2026-09-01T12:00:00.000Z");
+    // Ticking every line completes nothing: the rung is a fact somebody moves.
+    expect((await readMatterTask(database, taskId, visibility, ACTOR))?.state).toBe("open");
+  });
+
+  it("appends a line after the last, renames one, removes one, and refuses a blank one", async () => {
+    const { database, taskId } = await writeTask({ checklist: ["First"] });
+    const added = await addMatterTaskChecklistItem(database, taskId, "  Second  ", options);
+    await commit(database, added.effect);
+    await commit(
+      database,
+      (
+        await editMatterTaskChecklistItem(
+          database,
+          added.itemId,
+          { title: "Second, renamed" },
+          options,
+        )
+      ).effect,
+    );
+    expect(
+      (await readMatterTaskChecklists(database, [taskId])).map((line) => [
+        line.title,
+        line.position,
+      ]),
+    ).toEqual([
+      ["First", 0],
+      ["Second, renamed", 1],
+    ]);
+    await commit(
+      database,
+      (await deleteMatterTaskChecklistItem(database, added.itemId, options)).effect,
+    );
+    expect((await readMatterTaskChecklists(database, [taskId])).map((line) => line.title)).toEqual([
+      "First",
+    ]);
+    await expect(
+      addMatterTaskChecklistItem(database, taskId, "   ", options),
+    ).rejects.toMatchObject({
+      code: "checklist-empty-title",
+    });
+  });
+
+  it("stamps the task as changed, so the change feed sees a ticked line", async () => {
+    const { database, taskId } = await writeTask({ checklist: ["Only"] });
+    const line = (await readMatterTaskChecklists(database, [taskId]))[0];
+    if (line === undefined) throw new Error("no line");
+    await commit(
+      database,
+      (await editMatterTaskChecklistItem(database, line.id, { done: true }, colleagueOptions))
+        .effect,
+    );
+    expect((await readMatterTask(database, taskId, visibility, ACTOR))?.updated_by).toBe(COLLEAGUE);
+  });
+
+  it("goes with the task when the task is deleted", async () => {
+    const { database, taskId } = await writeTask({
+      checklist: ["Gone"],
+      participants: [{ userId: COLLEAGUE, role: "watcher" }],
+    });
+    await commit(database, (await deleteMatterTask(database, taskId, options)).effect);
+    expect(await readMatterTaskChecklists(database, [taskId])).toEqual([]);
+    expect(await readMatterTaskParticipants(database, [taskId])).toEqual([]);
+  });
+});
+
 describe("who the actor is", () => {
-  it("records the acting member on a completion, not the assignee", async () => {
-    const { database, taskId } = await writeTask({ assigneeUserId: COLLEAGUE });
+  it("records the acting member on a completion, not whoever is assigned", async () => {
+    const { database, taskId } = await writeTask({
+      participants: [{ userId: COLLEAGUE, role: "assigned" }],
+    });
     await commit(
       database,
       (await moveMatterTaskToRung(database, taskId, "done", colleagueOptions)).effect,

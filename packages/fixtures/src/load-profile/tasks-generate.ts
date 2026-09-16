@@ -58,7 +58,7 @@ const PRIORITIES = ["urgent", "high", "normal", "low"] as const;
 export interface TaskProbes {
   // The matter whose task list is deepest — the page-1-versus-page-20 target.
   readonly deepTaskMatterId: MatterId;
-  // The member the assignee-filtered reads resolve through, and whose own matterless work is
+  // The member the participant-filtered reads resolve through, and whose own matterless work is
   // reachable only to them.
   readonly memberUserId: UserId;
   // One task with time logged against it, for the single-task spelling of the grouped read.
@@ -86,7 +86,7 @@ export interface TaskAttachPoints {
   // The matter the other generators already made busiest — the deep-list probe.
   readonly deepTaskMatterId: MatterId;
   readonly memberUserId: UserId;
-  // A second member, so "assigned to somebody else" is a real shape the assignee filter skips past.
+  // A second member, so "somebody else's task" is a real shape the participant filter skips past.
   readonly otherMemberUserId: UserId;
 }
 
@@ -160,6 +160,17 @@ export async function generateTaskVolume(
         )
       : null;
     const assigned = faker.number.float({ min: 0, max: 1 }) < volume.assignedFraction;
+    const participantsFor = (named: boolean) => {
+      if (!named) return [];
+      const doer = faker.helpers.arrayElement([attach.memberUserId, attach.otherMemberUserId]);
+      const watcher = doer === attach.memberUserId ? attach.otherMemberUserId : attach.memberUserId;
+      return faker.number.float({ min: 0, max: 1 }) < 0.3
+        ? [
+            { userId: doer, role: "assigned" as const },
+            { userId: watcher, role: "watcher" as const },
+          ]
+        : [{ userId: doer, role: "assigned" as const }];
+    };
     const blockedBy =
       matterId !== null && faker.number.float({ min: 0, max: 1 }) < volume.blockedFraction
         ? (previousOnMatter.get(matterId) ?? null)
@@ -172,13 +183,12 @@ export async function generateTaskVolume(
         title: faker.helpers.arrayElement(matterId === null ? FIRM_WORK_TITLES : TASK_TITLES),
         body: null,
         priority: faker.helpers.arrayElement(PRIORITIES),
-        // A matterless task is private to its assignee and whoever created it, so the firm's own
-        // work is always in a member's name — an unassigned one would be reachable to its creator
-        // alone and would measure a narrower read than the branch is for.
-        assigneeUserId:
-          matterId === null || assigned
-            ? faker.helpers.arrayElement([attach.memberUserId, attach.otherMemberUserId])
-            : null,
+        // A matterless task is private to the people on it and whoever created it, so the firm's
+        // own work always names somebody — one nobody is on would be reachable to its creator alone
+        // and would measure a narrower read than the branch is for. Some tasks also carry a
+        // watcher, so the participant table holds more than one role and the "mine" filter has a
+        // non-work role to include.
+        participants: participantsFor(matterId === null || assigned),
         dueOn,
         // The zone travels with the date or not at all: "Friday" falls at two moments in Reno and
         // Boston, and a date with no zone is a date nothing can resolve.

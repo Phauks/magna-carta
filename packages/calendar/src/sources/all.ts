@@ -574,15 +574,26 @@ const communicationSource: TimelineSource = {
   ],
 };
 
+// The one person a task's calendar entry names as its actor: the responsible member first, then
+// the assigned, then whoever was named earliest. A correlated subquery over the participant table
+// rather than a join, so the bounded select's row count stays one per task.
+const TASK_DOER_EXPRESSION =
+  "(SELECT matter_task_participant.user_id FROM matter_task_participant " +
+  "WHERE matter_task_participant.task_id = matter_task.id " +
+  "AND matter_task_participant.role IN ('responsible', 'assigned') " +
+  "ORDER BY CASE matter_task_participant.role WHEN 'responsible' THEN 0 ELSE 1 END, " +
+  "matter_task_participant.added_at, matter_task_participant.id LIMIT 1)";
+
 const matterTaskSource: TimelineSource = {
   key: "matterTask",
   kinds: ["matterTask"],
   visibilityAnchor: "matter",
   timeColumnShape: "civilDate",
   declaresLabel: true,
-  // "What is on my calendar" includes the tasks assigned to me. Resolved in SQL on the assignee
-  // rather than after the rows come back, for the reason the registry insists on: a post-filter
-  // under-fills the page and turns the page size into an existence oracle for the rows it removed.
+  // "What is on my calendar" includes the tasks I am on, in any role. Resolved in SQL on the
+  // participant table rather than after the rows come back, for the reason the registry insists
+  // on: a post-filter under-fills the page and turns the page size into an existence oracle for
+  // the rows it removed.
   supportsMemberFilter: true,
   // A task's title and body are the words a member writing the matter's work chooses; the
   // description sits behind the tasks read like the section it opens into.
@@ -604,7 +615,10 @@ const matterTaskSource: TimelineSource = {
       bindings.push(request.scope.matterId);
     }
     if (request.scope.memberUserId !== undefined) {
-      conditions.push("matter_task.assignee_user_id = ?");
+      conditions.push(
+        "EXISTS (SELECT 1 FROM matter_task_participant WHERE matter_task_participant.task_id = " +
+          "matter_task.id AND matter_task_participant.user_id = ?)",
+      );
       bindings.push(request.scope.memberUserId);
     }
     return [
@@ -615,9 +629,11 @@ const matterTaskSource: TimelineSource = {
         idColumn: "matter_task.id",
         matterExpression: "matter_task.matter_id",
         kindExpression: "'matterTask'",
-        // Whose work it is, which is what a member filter narrows on and what a reader wants to see
-        // beside the entry. Null on a task nobody has picked up.
-        actorExpression: "matter_task.assignee_user_id",
+        // Whose work it is, which is what a reader wants to see beside the entry: the first person
+        // doing it — responsible before assigned, then whoever was named first. One name, because
+        // an entry has one actor slot; the task's whole list is on the task. Null on a task nobody
+        // has picked up.
+        actorExpression: TASK_DOER_EXPRESSION,
         labelExpression: "matter_task.state",
         conditions,
         bindings,
@@ -638,7 +654,7 @@ const matterTaskSource: TimelineSource = {
       factsExpression:
         "json_object('state', matter_task.state, 'dueOn', matter_task.due_on, " +
         "'dueAtTime', matter_task.due_at_time, 'priority', matter_task.priority, " +
-        "'assigneeUserId', matter_task.assignee_user_id)",
+        `'assigneeUserId', ${TASK_DOER_EXPRESSION})`,
     }),
   ],
 };

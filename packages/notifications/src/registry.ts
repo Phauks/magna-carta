@@ -28,7 +28,7 @@ import {
   TASK_ASSIGNED_TOPIC,
   TASK_REASSIGNED_TOPIC,
 } from "@magna-carta/tasks/notifications";
-import { TASK_PRIORITIES } from "@magna-carta/tasks/types";
+import { TASK_PARTICIPANT_ROLES, TASK_PRIORITIES } from "@magna-carta/tasks/types";
 import {
   CUSTODY_CHECKOUT_OVERDUE_EMISSION_POINT,
   CUSTODY_OVERDUE_BUCKETS,
@@ -171,6 +171,37 @@ function custodyReminderFacts(payload: Readonly<Record<string, unknown>>): Facts
       typeof bucket === "string" && (CUSTODY_OVERDUE_BUCKETS as readonly string[]).includes(bucket)
         ? bucket
         : CUSTODY_OVERDUE_BUCKETS[0],
+  };
+}
+
+// The three facts a task naming carries: the priority, whether there is a date, and the ROLE the
+// member was named in — responsible, assigned, reviewer or watcher — so the card can say which.
+// NOT the title: a task title on a matter is routinely the client and the instruction ("Call Mrs.
+// Herrera re the settlement offer"), and this row outlives the access check that justified writing
+// it. NOT the date itself either, on the calendar's own reasoning about `rescheduled`: a due date
+// moves, and a card stating one the record no longer agrees with is worse than a card stating
+// none. Whether there IS a date does not go stale in the same way and is what tells a member to
+// open it now. One schema and one builder for all four task types, so they cannot disagree.
+const TASK_NAMING_FACTS = {
+  priority: { kind: "enum", labels: TASK_PRIORITIES },
+  dated: { kind: "boolean" },
+  role: { kind: "enum", labels: TASK_PARTICIPANT_ROLES },
+} as const satisfies FactsSchema;
+
+function taskNamingFacts(payload: Readonly<Record<string, unknown>>): Facts {
+  const priority = payload["priority"];
+  const role = payload["role"];
+  return {
+    priority:
+      typeof priority === "string" && (TASK_PRIORITIES as readonly string[]).includes(priority)
+        ? priority
+        : "normal",
+    dated: typeof payload["dueOn"] === "string",
+    // A payload written before roles existed named one assignee, so that is the role it meant.
+    role:
+      typeof role === "string" && (TASK_PARTICIPANT_ROLES as readonly string[]).includes(role)
+        ? role
+        : "assigned",
   };
 }
 
@@ -622,17 +653,8 @@ const OUTBOX_SUBSCRIBED_DECLARATIONS: readonly NotificationTypeDeclaration[] = [
     // itself either, on the calendar's own reasoning about `rescheduled`: a due date moves, and a
     // card stating one the record no longer agrees with is worse than a card stating none. Whether
     // there IS a date does not go stale in the same way and is what tells a member to open it now.
-    facts: { priority: { kind: "enum", labels: TASK_PRIORITIES }, dated: { kind: "boolean" } },
-    buildFacts: (payload) => {
-      const priority = payload["priority"];
-      return {
-        priority:
-          typeof priority === "string" && (TASK_PRIORITIES as readonly string[]).includes(priority)
-            ? priority
-            : "normal",
-        dated: typeof payload["dueOn"] === "string",
-      };
-    },
+    facts: TASK_NAMING_FACTS,
+    buildFacts: taskNamingFacts,
     escalation: "digest",
     channels: ["in_app", "email"],
     emailContent: "category-count",
@@ -651,17 +673,8 @@ const OUTBOX_SUBSCRIBED_DECLARATIONS: readonly NotificationTypeDeclaration[] = [
     subjectPayloadKey: "taskId",
     matterAnchored: true,
     matterResolution: { kind: "payload", payloadKey: "matterId" },
-    facts: { priority: { kind: "enum", labels: TASK_PRIORITIES }, dated: { kind: "boolean" } },
-    buildFacts: (payload) => {
-      const priority = payload["priority"];
-      return {
-        priority:
-          typeof priority === "string" && (TASK_PRIORITIES as readonly string[]).includes(priority)
-            ? priority
-            : "normal",
-        dated: typeof payload["dueOn"] === "string",
-      };
-    },
+    facts: TASK_NAMING_FACTS,
+    buildFacts: taskNamingFacts,
     escalation: "digest",
     channels: ["in_app", "email"],
     emailContent: "category-count",
@@ -685,17 +698,8 @@ const OUTBOX_SUBSCRIBED_DECLARATIONS: readonly NotificationTypeDeclaration[] = [
     // containment here is the audience: exactly the one member the task names.
     matterAnchored: false,
     matterResolution: { kind: "none" },
-    facts: { priority: { kind: "enum", labels: TASK_PRIORITIES }, dated: { kind: "boolean" } },
-    buildFacts: (payload) => {
-      const priority = payload["priority"];
-      return {
-        priority:
-          typeof priority === "string" && (TASK_PRIORITIES as readonly string[]).includes(priority)
-            ? priority
-            : "normal",
-        dated: typeof payload["dueOn"] === "string",
-      };
-    },
+    facts: TASK_NAMING_FACTS,
+    buildFacts: taskNamingFacts,
     escalation: "digest",
     channels: ["in_app", "email"],
     emailContent: "category-count",
@@ -714,17 +718,8 @@ const OUTBOX_SUBSCRIBED_DECLARATIONS: readonly NotificationTypeDeclaration[] = [
     subjectPayloadKey: "taskId",
     matterAnchored: false,
     matterResolution: { kind: "none" },
-    facts: { priority: { kind: "enum", labels: TASK_PRIORITIES }, dated: { kind: "boolean" } },
-    buildFacts: (payload) => {
-      const priority = payload["priority"];
-      return {
-        priority:
-          typeof priority === "string" && (TASK_PRIORITIES as readonly string[]).includes(priority)
-            ? priority
-            : "normal",
-        dated: typeof payload["dueOn"] === "string",
-      };
-    },
+    facts: TASK_NAMING_FACTS,
+    buildFacts: taskNamingFacts,
     escalation: "digest",
     channels: ["in_app", "email"],
     emailContent: "category-count",

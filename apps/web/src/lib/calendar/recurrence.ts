@@ -291,7 +291,10 @@ function* walk(rule: RecurrenceRule, startsOn: string): Generator<string> {
 function* weeklyDays(rule: RecurrenceRule, startsOn: string): Generator<string> {
   const wanted = rule.weekdays.length > 0 ? rule.weekdays : [weekdayOf(startsOn)];
   // The week the series starts in, from its own first day, so an interval counts whole weeks.
-  const weekStart = addCalendarDays(startsOn as CivilDate, -WEEKDAY_CODES.indexOf(weekdayOf(startsOn)));
+  const weekStart = addCalendarDays(
+    startsOn as CivilDate,
+    -WEEKDAY_CODES.indexOf(weekdayOf(startsOn)),
+  );
   for (let week = 0; ; week += 1) {
     const base = addCalendarDays(weekStart, week * rule.interval * 7);
     for (const code of wanted) {

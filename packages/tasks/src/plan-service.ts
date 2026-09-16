@@ -31,7 +31,10 @@ import {
   type MatterPlanTaskTemplateRow,
   type MatterPlanTemplateRow,
 } from "./plan-statements.ts";
-import { insertMatterTaskStatement } from "./task-statements.ts";
+import {
+  insertMatterTaskParticipantStatement,
+  insertMatterTaskStatement,
+} from "./task-statements.ts";
 import {
   DEFAULT_TASK_PRIORITY,
   MAX_PLAN_TASK_TEMPLATES,
@@ -532,14 +535,14 @@ export async function acceptMatterPlan(
     const dueAtTime = line.dueAtTime ?? null;
     const timeZone = dueOn === null ? null : (line.timeZone ?? proposed.timeZone ?? "UTC");
     const predecessor = proposed.blockedByTemplateTaskId;
+    const assigneeUserId =
+      line.assigneeUserId === undefined ? proposed.assigneeUserId : line.assigneeUserId;
     statements.push(
       insertMatterTaskStatement(database, {
         id: taskId,
         matterId: input.matterId,
         title: normalizeTaskTitle(line.title ?? proposed.title),
         body: normalizeTaskBody(line.body === undefined ? proposed.body : line.body),
-        assigneeUserId:
-          line.assigneeUserId === undefined ? proposed.assigneeUserId : line.assigneeUserId,
         createdBy: options.actorUserId,
         priority: normalizeTaskPriority(line.priority) ?? proposed.priority,
         due: { dueOn, dueAtTime, timeZone },
@@ -554,6 +557,21 @@ export async function acceptMatterPlan(
         now,
       }),
     );
+    // The role a plan step resolves is the one who DOES the work — a template names a role such as
+    // `assigned_paralegal`, and that is what `assigned` means. Responsibility, review and watching
+    // are decisions a person makes on the task afterwards, not facts a template can know.
+    if (assigneeUserId !== null) {
+      statements.push(
+        insertMatterTaskParticipantStatement(database, {
+          id: newIdentifier("matterTaskParticipant", options.randomSource),
+          taskId,
+          userId: assigneeUserId,
+          role: "assigned",
+          addedBy: options.actorUserId,
+          now,
+        }),
+      );
+    }
   }
 
   statements.push(

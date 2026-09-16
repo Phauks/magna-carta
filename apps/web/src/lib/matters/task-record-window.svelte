@@ -13,16 +13,32 @@
    * two-surface defect wearing a different name — the call log was corrected for exactly that.
    *
    * EVERY FIELD THE TASK WILL CARRY IS ON SCREEN WHILE IT IS BEING WRITTEN, generated ones included:
-   * the matter it lands on, whose name goes on it, and the instant it will be stamped with. Nothing
-   * is stored that the writer was not shown.
+   * the matter it lands on, whose name goes on it as its author, and the instant it will be
+   * stamped with. Nothing is stored that the writer was not shown.
+   *
+   * THE TITLE AND THE DESCRIPTION ARE CALLED THAT, by the owner's ruling of 2026-09-16: "what to
+   * do" and "detail" were two invented names for the two fields every task product calls Title and
+   * Description, and a name a reader has to translate is a name that costs them something on every
+   * task.
+   *
+   * A DUE TIME CARRIES ITS ZONE, on screen. The record always required one — "Friday at 2" falls at
+   * two moments in Reno and Boston — and the window used to fill in the reader's own silently, which
+   * is how a task due at 2 in Boston came to be stored as 2 in Reno by whoever happened to type it.
+   * The zone is now a field beside the time, defaulted to the reader's own and changeable, and it is
+   * stated beside the time wherever the time is read.
+   *
+   * THE PEOPLE ARE FOUR SEATS, and their write is separate from the content's on the wire because
+   * it is separate in permission: a member who may write a task but may not put it in somebody
+   * else's name gets the seats they may fill and a sentence about the rest.
+   *
+   * THE CHECKLIST IS LIVE in both modes. Ticking a line is a write the moment it happens, because a
+   * checklist that had to be Saved is a checklist nobody ticks. On a task that does not exist yet
+   * the lines are held here and written with the task, so the draft reads exactly as the record
+   * will.
    *
    * WHAT IS STATED AND NEVER EDITED is the part the task did not get by being typed: the time logged
    * against it, the systems it is mirrored into, the task it waits on, and what became of it. A
    * field that looked editable and silently was not would be worse than a stated fact.
-   *
-   * ASSIGNMENT IS ITS OWN WRITE, because it is its own permission. Content and assignee change
-   * together in the fields and separately on the wire, and a member who may write a task but may not
-   * put it in somebody else's name gets the field stated rather than offered.
    *
    * ATTACHING WORKS BEFORE THE TASK EXISTS. The picker offers the matter's files while the task is
    * still a draft, the choices are held here, and they are written the moment the task itself is.
@@ -60,6 +76,10 @@
   import { civilDateTextOrEmpty, civilDateValue } from "$lib/dates";
   import { printSheetDates } from "$lib/print-sheet";
   import { opensBeside } from "$lib/navigation/open-beside.ts";
+  import TimeZonePicker from "$lib/calendar/time-zone-picker.svelte";
+  import { timeZoneShortCode } from "$lib/calendar/time-zone-options.ts";
+  import TaskChecklist, { type ChecklistLine } from "$lib/matters/task-checklist.svelte";
+  import TaskPeopleFields from "$lib/matters/task-people-fields.svelte";
   import type { ApiOutcome } from "$lib/api/request.ts";
   import type { MatterFile } from "$lib/file-manager/matter-file-api.ts";
   import type { FirmMemberSummary } from "$lib/members/members-api.ts";
@@ -74,21 +94,24 @@
     RUNG_LABELS,
     TASK_PRIORITIES,
     TASK_RUNGS,
-    archiveTask,
+    addChecklistItem,
     attachTaskDocument,
     createTask,
+    deleteChecklistItem,
     deleteTask,
     describeTimeLogged,
     detachTaskDocument,
+    editChecklistItem,
     editTask,
     externalSystemLabel,
     isOverdue,
     moveTaskToRung,
     newWriteKey,
-    reassignTask,
+    setTaskParticipants,
     unarchiveTask,
     viewerTimeZone,
     type MatterTask,
+    type TaskParticipantInput,
     type TaskPriority,
     type TaskRung,
   } from "./tasks-api.ts";
@@ -100,6 +123,7 @@
     matterId,
     matterTitle,
     authorName,
+    selfUserId,
     nameOf,
     assignableMembers = [],
     attachableFolders = [],
@@ -125,6 +149,8 @@
     matterTitle: string | null;
     /** Whose name goes on a task written here. Stated, never chosen: the writer is the author. */
     authorName: string;
+    /** Who is reading, so the one seat they may always take is offered without the permission. */
+    selfUserId: string | null;
     /** How an account identifier reads as a person. */
     nameOf: (userId: string | null) => string;
     /** Who the task may be put in the name of — the firm's members who are still here. */
@@ -159,6 +185,7 @@
     onArchive: (subject: MatterTask) => void;
   } = $props();
 
+  const identity = $props.id();
   const creating = $derived(task === null);
 
   let titleText = $state("");
@@ -166,12 +193,15 @@
   let priority = $state<TaskPriority>("normal");
   let dueOnText = $state("");
   let dueAtTimeText = $state("");
-  let assignee = $state("");
+  let timeZone = $state("");
+  let participants = $state<TaskParticipantInput[]>([]);
   /**
-   * The documents a task being written will point at, by file identity. Held here because there is
-   * no task yet to hang them on; written immediately after the task is.
+   * The documents a task being written will point at, by file identity, and the checklist lines
+   * it will start with. Held here because there is no task yet to hang them on; written the
+   * moment the task is.
    */
   let pendingFileIds = $state<string[]>([]);
+  let pendingLines = $state<{ id: string; title: string; done: boolean }[]>([]);
   let saving = $state(false);
   let saveFailure = $state<StatedFailure | null>(null);
   let printOpen = $state(false);
@@ -201,9 +231,14 @@
     priority: "normal" as TaskPriority,
     dueOn: "",
     dueAtTime: "",
-    assignee: "",
+    timeZone: "",
+    participants: "",
     fileIds: "",
   });
+
+  function participantsKey(list: readonly TaskParticipantInput[]): string {
+    return list.map((participant) => `${participant.userId}:${participant.role}`).join(",");
+  }
 
   function rememberWhatIsInTheFields(): void {
     seeded.title = titleText;
@@ -211,7 +246,8 @@
     seeded.priority = priority;
     seeded.dueOn = dueOnText;
     seeded.dueAtTime = dueAtTimeText;
-    seeded.assignee = assignee;
+    seeded.timeZone = timeZone;
+    seeded.participants = participantsKey(participants);
     seeded.fileIds = pendingFileIds.join(",");
   }
 
@@ -221,13 +257,13 @@
    */
   let seededFor = $state<string | null>(null);
   $effect(() => {
-    const identity = task === null ? "new" : task.id;
+    const identityOfTask = task === null ? "new" : task.id;
     if (!open) {
       seededFor = null;
       return;
     }
-    if (seededFor === identity) return;
-    seededFor = identity;
+    if (seededFor === identityOfTask) return;
+    seededFor = identityOfTask;
     saveFailure = null;
     createdPreview = new Date().toISOString();
     titleText = task?.title ?? "";
@@ -235,9 +271,33 @@
     priority = task?.priority ?? "normal";
     dueOnText = task?.dueOn ?? "";
     dueAtTimeText = task?.dueAtTime ?? "";
-    assignee = task?.assigneeUserId ?? "";
+    // The zone the record holds, or the reader's own for a task that has none yet: the honest
+    // default, and shown rather than assumed.
+    timeZone = task?.timeZone ?? viewerTimeZone();
+    participants = (task?.participants ?? []).map((participant) => ({
+      userId: participant.userId,
+      role: participant.role,
+    }));
     pendingFileIds = [];
+    pendingLines = [];
     rememberWhatIsInTheFields();
+  });
+
+  /*
+   * The people the WINDOW shows may be edited in place after the task exists. When the surface
+   * re-points the window at a re-read task (after a checklist tick, say), the seats are refreshed
+   * from the record only while the fields are closed, so an edit in progress is never overwritten.
+   */
+  $effect(() => {
+    if (task === null || editing) return;
+    const fresh = task.participants.map((participant) => ({
+      userId: participant.userId,
+      role: participant.role,
+    }));
+    if (participantsKey(fresh) !== participantsKey(participants)) {
+      participants = fresh;
+      seeded.participants = participantsKey(fresh);
+    }
   });
 
   const unsavedChanges = $derived(
@@ -246,8 +306,10 @@
       priority !== seeded.priority ||
       dueOnText !== seeded.dueOn ||
       dueAtTimeText !== seeded.dueAtTime ||
-      assignee !== seeded.assignee ||
-      pendingFileIds.join(",") !== seeded.fileIds,
+      timeZone !== seeded.timeZone ||
+      participantsKey(participants) !== seeded.participants ||
+      pendingFileIds.join(",") !== seeded.fileIds ||
+      pendingLines.length > 0,
   );
 
   function forgetChanges(): void {
@@ -256,7 +318,8 @@
     priority = seeded.priority;
     dueOnText = seeded.dueOn;
     dueAtTimeText = seeded.dueAtTime;
-    assignee = seeded.assignee;
+    timeZone = seeded.timeZone;
+    participants = seeded.participants === "" ? [] : participantsFromKey(seeded.participants);
     pendingFileIds = seeded.fileIds === "" ? [] : seeded.fileIds.split(",");
     saveFailure = null;
     // A task being written from nothing has no earlier state to fall back to, so leaving its fields
@@ -264,8 +327,17 @@
     if (task === null) open = false;
   }
 
+  function participantsFromKey(key: string): TaskParticipantInput[] {
+    return key.split(",").map((pair) => {
+      const [userId, role] = pair.split(":");
+      return { userId: userId ?? "", role: (role ?? "assigned") as TaskParticipantInput["role"] };
+    });
+  }
+
   const heading = $derived(creating ? "New Task" : editing ? "Edit Task" : "Task");
-  const subtitleText = $derived(matterTitle ?? "The firm's own work, on no matter");
+  const subtitleText = $derived(
+    matterTitle ?? task?.matterTitle ?? "The firm's own work, on no matter",
+  );
 
   const attachments = $derived<readonly RecordAttachment[]>(
     task === null
@@ -289,16 +361,30 @@
   // standing in for a fact nobody recorded, so the absence renders as nothing.
   const timeLogged = $derived(task === null ? null : describeTimeLogged(task.timeLogged));
   const overdue = $derived(task !== null && isOverdue(task));
-  const assigneeName = $derived(nameOf(task === null ? null : task.assigneeUserId));
+
+  // The zones offered first: the reader's own, and the one the task already holds where it differs.
+  const preferredZones = $derived.by((): readonly string[] => {
+    const own = viewerTimeZone();
+    const held = task?.timeZone ?? null;
+    return held === null || held === own ? [own] : [own, held];
+  });
+
+  // The day the zone's shortcode is worked out for: the task's own due date where there is one,
+  // because the same zone is PST in January and PDT in July.
+  const zoneDay = $derived(
+    dueOnText.trim() === "" ? undefined : new Date(`${dueOnText}T12:00:00Z`),
+  );
 
   const canWrite = $derived(writeRefusal === undefined);
   const saveRefusal = $derived(
     writeRefusal ??
       (titleText.trim() === ""
-        ? "A task says what is to be done. Write that first."
-        : saving
-          ? "Saving."
-          : undefined),
+        ? "A task has a title. Write that first."
+        : dueOnText.trim() !== "" && timeZone.trim() === ""
+          ? "A due date is read in a time zone. Choose the zone."
+          : saving
+            ? "Saving."
+            : undefined),
   );
 
   const sheet = $derived(
@@ -306,7 +392,7 @@
       ? null
       : taskSheet(task, {
           matterTitle: subtitleText,
-          assigneeName,
+          nameOf,
           authorName: nameOf(task.createdBy),
           completedByName: task.completedBy === null ? null : nameOf(task.completedBy),
           archivedByName: task.archivedBy === null ? null : nameOf(task.archivedBy),
@@ -326,7 +412,7 @@
     return {
       dueOn: dueOnText,
       dueAtTime: dueAtTimeText.trim() === "" ? null : dueAtTimeText,
-      timeZone: viewerTimeZone(),
+      timeZone,
     };
   }
 
@@ -361,22 +447,18 @@
         saveFailure = stated(changed.failure, "The task was not changed.");
         return;
       }
-      // Assignment is a different endpoint and a different permission, so it is a second write and
-      // only where it actually changed: re-sending the same name would be a write nobody asked for.
-      if (canAssign && assignee !== (task.assigneeUserId ?? "")) {
-        const reassigned = await reassignTask(
-          fetch,
-          task.id,
-          assignee === "" ? null : assignee,
-          newWriteKey(),
-        );
-        if (reassigned.kind !== "ok") {
+      // The people are a different endpoint and a different permission, so they are a second write
+      // and only where they actually changed: re-sending the same seats would be a write nobody
+      // asked for.
+      if (participantsKey(participants) !== seeded.participants) {
+        const reseated = await setTaskParticipants(fetch, task.id, participants, newWriteKey());
+        if (reseated.kind !== "ok") {
           saving = false;
           // The words say exactly what landed and what did not: a reader told only "not saved"
           // would type the title again and wonder why it was already there.
           saveFailure = stated(
-            reassigned.failure,
-            "The task was changed, but it was not reassigned.",
+            reseated.failure,
+            "The task was changed, but the people on it were not.",
           );
           onSaved(task.id);
           return;
@@ -396,7 +478,8 @@
         title: titleText.trim(),
         body: bodyText.trim() === "" ? null : bodyText.trim(),
         priority,
-        assigneeUserId: assignee === "" ? null : assignee,
+        participants,
+        checklist: pendingLines.map((line) => line.title),
         ...dueOf(),
       },
       newWriteKey(),
@@ -419,6 +502,7 @@
     }
     saving = false;
     pendingFileIds = [];
+    pendingLines = [];
     rememberWhatIsInTheFields();
     editing = false;
     open = false;
@@ -476,6 +560,67 @@
       () => detachTaskDocument(fetch, attachment.identifier, newWriteKey()),
       "The document was not detached.",
     );
+  }
+
+  // ---- the checklist: live on a task that exists, held on one that does not ----
+
+  const checklistLines = $derived<readonly ChecklistLine[]>(
+    task === null
+      ? pendingLines.map((line) => ({ ...line, doneByName: null }))
+      : task.checklist.map((item) => ({
+          id: item.id,
+          title: item.title,
+          done: item.doneAt !== null,
+          doneByName: item.doneBy === null ? null : nameOf(item.doneBy),
+        })),
+  );
+  // An archived task's checklist does not change: it is put away, and the server refuses anyway.
+  const checklistRefusal = $derived(
+    writeRefusal ??
+      (task?.archivedAt !== null && task !== null
+        ? "This task is archived. Put it back on the list to change its checklist."
+        : undefined),
+  );
+
+  function addLine(title: string): void {
+    if (task === null) {
+      pendingLines = [...pendingLines, { id: `pending-${newWriteKey()}`, title, done: false }];
+      return;
+    }
+    void act(
+      (subject) => addChecklistItem(fetch, subject.id, title, newWriteKey()),
+      "The line was not added.",
+    );
+  }
+
+  function tickLine(line: ChecklistLine, done: boolean): void {
+    if (task === null) {
+      pendingLines = pendingLines.map((held) => (held.id === line.id ? { ...held, done } : held));
+      return;
+    }
+    void act(
+      () => editChecklistItem(fetch, line.id, { done }, newWriteKey()),
+      done ? "The line was not ticked." : "The line was not unticked.",
+    );
+  }
+
+  function renameLine(line: ChecklistLine, title: string): void {
+    if (task === null) {
+      pendingLines = pendingLines.map((held) => (held.id === line.id ? { ...held, title } : held));
+      return;
+    }
+    void act(
+      () => editChecklistItem(fetch, line.id, { title }, newWriteKey()),
+      "The line was not changed.",
+    );
+  }
+
+  function removeLine(line: ChecklistLine): void {
+    if (task === null) {
+      pendingLines = pendingLines.filter((held) => held.id !== line.id);
+      return;
+    }
+    void act(() => deleteChecklistItem(fetch, line.id, newWriteKey()), "The line was not removed.");
   }
 </script>
 
@@ -542,18 +687,24 @@
     {/if}
 
     <div class="flex flex-col gap-4">
-      <Label for="task-title">What to do</Label>
-      <Input id="task-title" disabled={!fieldsOpen || saving} bind:value={titleText} />
+      <Label for="{identity}-title">Title</Label>
+      <Input id="{identity}-title" disabled={!fieldsOpen || saving} bind:value={titleText} />
     </div>
 
     <div class="flex flex-col gap-4">
-      <Label for="task-body">Detail</Label>
-      <Textarea id="task-body" rows={5} disabled={!fieldsOpen || saving} bind:value={bodyText} />
+      <Label for="{identity}-description">Description</Label>
+      <Textarea
+        id="{identity}-description"
+        rows={4}
+        disabled={!fieldsOpen || saving}
+        bind:value={bodyText}
+      />
     </div>
 
     <!--
-      Date and time are ONE fact about ONE moment, so they sit on one line. The time is refused until
-      there is a date to hang it on, which is the same rule the record itself enforces.
+      Date, time and zone are ONE fact about ONE moment, so they sit on one line. The time is
+      refused until there is a date to hang it on, and the zone is the one the date is read in —
+      required by the record whenever there is a date, and shown rather than assumed.
     -->
     {#if fieldsOpen}
       <div class="grid grid-cols-2 gap-12 @md:grid-cols-4">
@@ -566,18 +717,29 @@
           />
         </div>
         <div class="flex flex-col gap-4">
-          <Label for="task-due-time">Time</Label>
+          <Label for="{identity}-due-time">Time</Label>
           <Input
-            id="task-due-time"
+            id="{identity}-due-time"
             type="time"
             disabled={saving || dueOnText.trim() === ""}
             bind:value={dueAtTimeText}
           />
         </div>
         <div class="flex flex-col gap-4">
-          <Label for="task-priority">Priority</Label>
+          <Label for="{identity}-time-zone">Time Zone</Label>
+          <TimeZonePicker
+            inputId="{identity}-time-zone"
+            label="Time Zone"
+            preferred={preferredZones}
+            on={zoneDay}
+            disabled={saving || dueOnText.trim() === ""}
+            bind:value={timeZone}
+          />
+        </div>
+        <div class="flex flex-col gap-4">
+          <Label for="{identity}-priority">Priority</Label>
           <Select.Root type="single" bind:value={priority} disabled={saving}>
-            <Select.Trigger id="task-priority">{PRIORITY_LABELS[priority]}</Select.Trigger>
+            <Select.Trigger id="{identity}-priority">{PRIORITY_LABELS[priority]}</Select.Trigger>
             <Select.Content>
               {#each TASK_PRIORITIES as candidate (candidate)}
                 <Select.Item value={candidate} label={PRIORITY_LABELS[candidate]} />
@@ -585,43 +747,52 @@
             </Select.Content>
           </Select.Root>
         </div>
-        <div class="flex flex-col gap-4">
-          <Label for="task-assignee">Assigned to</Label>
-          {#if canAssign}
-            <Select.Root type="single" bind:value={assignee} disabled={saving}>
-              <Select.Trigger id="task-assignee">
-                {assignee === "" ? "Nobody yet" : nameOf(assignee)}
-              </Select.Trigger>
-              <Select.Content>
-                <Select.Item value="" label="Nobody yet" />
-                {#each assignableMembers as member (member.userId)}
-                  <Select.Item value={member.userId} label={member.displayName} />
-                {/each}
-              </Select.Content>
-            </Select.Root>
-          {:else}
-            <!-- Putting a task in somebody else's name is its own permission. Without it the fact
-                 is stated rather than offered, so the window never shows a control that refuses. -->
-            <p id="task-assignee" class="text-sm">{assigneeName}</p>
-          {/if}
-        </div>
       </div>
     {:else}
-      <dl class="grid gap-x-24 gap-y-8 @md:grid-cols-4">
+      <dl class="grid gap-x-24 gap-y-8 @md:grid-cols-3">
         <div class="flex flex-col gap-4">
           <dt class="text-xs text-text-muted">Due</dt>
-          <dd class="text-sm">{due ?? "Not scheduled"}</dd>
+          <dd class="text-sm">
+            {due ?? "Not scheduled"}
+            {#if task !== null && task.dueOn !== null && task.dueAtTime !== null && task.timeZone !== null}
+              <!-- The zone as a shortcode beside the time, worked out on the task's own day. -->
+              <span class="text-text-muted" title={task.timeZone}>
+                {timeZoneShortCode(task.timeZone, new Date(`${task.dueOn}T12:00:00Z`))}
+              </span>
+            {/if}
+          </dd>
         </div>
         <div class="flex flex-col gap-4">
           <dt class="text-xs text-text-muted">Priority</dt>
           <dd class="text-sm">{PRIORITY_LABELS[task?.priority ?? "normal"]}</dd>
         </div>
-        <div class="flex flex-col gap-4">
-          <dt class="text-xs text-text-muted">Assigned to</dt>
-          <dd class="text-sm">{assigneeName}</dd>
-        </div>
       </dl>
     {/if}
+
+    <!-- THE PEOPLE: four seats, in both modes. -->
+    <TaskPeopleFields
+      bind:participants
+      editing={fieldsOpen}
+      members={assignableMembers}
+      {nameOf}
+      {canAssign}
+      {selfUserId}
+      disabled={saving}
+      idPrefix="{identity}-seat"
+    />
+
+    <!-- THE CHECKLIST, live in both modes. -->
+    <TaskChecklist
+      lines={checklistLines}
+      canWrite={canWrite && (task === null || task.archivedAt === null)}
+      disabled={saving}
+      refusal={checklistRefusal}
+      idPrefix="{identity}-checklist"
+      onAdd={addLine}
+      onTick={tickLine}
+      onRename={renameLine}
+      onRemove={removeLine}
+    />
 
     {#if task !== null}
       <!--

@@ -212,6 +212,16 @@ is usually the fastest way to understand the rule.
   what keeps it short enough to say. _(the call log, 2026-09-08: "all calls and logs should have a
   number, which we can identify in the log ... should incorporate date")_ Enforced by
   `pnpm run lint:modal-headers`, which asks it of every panel handed a record's number.
+- **A control that widens a list lives in the table's footer, beside the count it changes.** "Show
+  done" and "Show archived" on the tasks table are two switches in the counts strip, not two buttons
+  floating under the table and not boxes in the row above it. The strip already says how much of the
+  record is on screen, so the switch that changes what the count is of belongs next to the count.
+  Neither is a filter, so neither draws the clear control. _(tasks, 2026-09-16; refining the
+  2026-09-08 ruling that moved them off the row above)_
+- **The act a list is for happens in the row.** Where a register exists so a reader can move a
+  record along — a task's rung, a review's disposition — the cell is a control and the record does
+  not have to be opened. Everything else the record can do to itself stays in its window. _(tasks,
+  2026-09-16)_
 - **A control that undoes a state exists only while that state is in play.** The clear-filters
   control appears when something is narrowing the view and is absent otherwise, so its absence is
   itself the answer to "is anything hidden". _(matters docket, 2026-08-30)_
@@ -1317,6 +1327,49 @@ name, which is every screen outside a matter.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-16 — the tasks surface: a table, people in roles, a checklist, and the attach picker
+
+The owner, on the deployed tasks surface, in one pass. What was said, and what each part generalizes
+to:
+
+- **"what to do becomes Title. detail becomes description."** Two invented names for the two fields
+  every task product calls Title and Description. Generalizes: **a field is called what the reader
+  already calls it.** A name a reader has to translate costs them something on every record, and
+  the product gains nothing from the translation. Where the industry has a word, the field wears it.
+- **"need to include time zone for time."** The record always required a zone with a date; the
+  window filled in the reader's own silently. Generalizes to a rule already in _Data entry_: a fact
+  the record stores is a fact the writer is shown. The zone is a field beside the time, defaulted and
+  changeable, and it reads beside the time as a shortcode on the task's own day wherever the time is
+  read.
+- **"task can be assigned to multiple parties. some parties may be responsible, some people may be
+  assigned, some people may just want to watch it and get status updates."** The one-name column is
+  gone; a task carries its people in four seats, and the fourth the owner did not name — Reviewer
+  — is the one a firm's work has. Generalizes: **a person on a record is there in a role, and the
+  roles are the domain's, not a flat list.** Home for the reasoning:
+  `docs/specs/2026-09-16-tasks-table-people-and-checklist-design.md`.
+- **"allow functionality to make to do lists, see Clickup functionality."** A flat checklist inside
+  the task, live in both of the window's modes. Generalizes: **a sub-list inside a record is lines,
+  never records.** A line that grew a person or a date would be a second record wearing a checkbox.
+- **"attaching items from the matter should be on the top of the right side, i can only see one item
+  at a time in current format."** The one attachments component put its sources under the list and
+  capped the picker at 64 pixels. Both fixed once, for every record window. Generalizes: **the act a
+  tab exists for leads the tab**, and a picker shows a screen of choices, never one.
+- **"once task is made, there is no way to edit the task, change the status, update the information,
+  change assignees. terrible design."** The window has carried Edit since 2026-09-14 and the deployed
+  site had not caught up; what this round adds is the status changing from the ROW, the people from
+  the window's seats, and the checklist without Save. Generalizes: **the act a list is for happens in
+  the row.** Moving a task along is that act, so the Status cell is a control.
+- **"show done and show archived should be better design, i dislike how this is currently made."**
+  Two ghost buttons floating under the list become two switches in the table's own counts strip,
+  beside the number they change. Generalizes and refines the 2026-09-08 ruling: **a control that
+  widens a list lives in the table's footer**, with the count it widens, never as furniture under the
+  table.
+- **"tasks should be a table. should be able to sort by matter, date, and all information."** Every
+  fact a task can answer is a column, on the one table. Not a new rule: the _Lists and tables_ rules
+  reaching a surface that had been a card list.
+- **"we have verbose table functionality we should attempt to use."** The standing one-table ruling,
+  restated by the owner. A register that is not `DataTable.Grid` is a defect.
 
 ### 2026-09-16 — the transfer registers, the rail, and two glyphs
 

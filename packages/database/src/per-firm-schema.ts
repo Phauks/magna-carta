@@ -116,8 +116,10 @@ import type {
   IntakeProcedureStepId,
   MatterIntakeStepRecordId,
   MatterRecoveryId,
+  MatterTaskChecklistItemId,
   MatterTaskDocumentId,
   MatterTaskDeletionId,
+  MatterTaskParticipantId,
   MatterTaskExternalLinkId,
   MatterTaskId,
   MatterTypeId,
@@ -6933,9 +6935,12 @@ export const matterTask = sqliteTable(
       .references(() => matter.id),
     title: text("title").notNull(),
     body: text("body"),
-    // Nullable, and an unassigned task is a real state rather than a defect: a backlog item nobody
-    // has picked up, or a plan template whose role resolved to nobody. An unresolved assignment is
-    // shown as unassigned and never silently given to the responsible attorney.
+    // RETIRED. A task carries its people in `matter_task_participant` below — several of them, each
+    // in a role — and the one-name column that preceded that table is never read and never written
+    // again. The migration that created the participant table moved every value here into a row
+    // there (as `assigned`) and emptied this column, so every row is NULL. It stays because
+    // dropping a column from a parent table is the rebuild a durable object refuses, the same
+    // reason the cancellation columns below stay.
     assigneeUserId: text("assignee_user_id").$type<UserId>(),
     // Who put the task there. Never nulls and never repoints — it is half of what makes a matterless
     // task reachable, and an unattributed obligation is worth a fraction of an attributed one.
@@ -7072,9 +7077,9 @@ export const matterTask = sqliteTable(
     // boundary either skip one or repeat it. The id breaks the tie and the pair is what a caller
     // carries.
     index("matter_task_updated_at_id_index").on(table.updatedAt, table.id),
-    // "What is on my plate", which is the read a member makes most often and the one that decides
-    // whether this subsystem gets used. Leads with the assignee and the state so the open ones come
-    // off the index without a scan.
+    // Built for the retired one-name column and kept because an index is dropped with a rebuild.
+    // "What is on my plate" now resolves through matter_task_participant's own (user_id, task_id)
+    // index and joins back to this table by primary key.
     index("matter_task_assignee_state_due_on_index").on(
       table.assigneeUserId,
       table.state,
@@ -7171,6 +7176,94 @@ export const matterTaskDocument = sqliteTable(
     // One document rides one task once. A second identical link is a row a person reads as the same
     // file twice, and detaching one would leave the other behind.
     uniqueIndex("matter_task_document_task_file_unique_index").on(table.taskId, table.fileId),
+  ],
+);
+
+// THE PEOPLE ON A TASK, each in a role. A task used to carry one name; it now carries a list,
+// because the question "who is this task's" has more than one honest answer on a real piece of
+// work: the partner who is RESPONSIBLE for it getting done, the associate and the paralegal who are
+// ASSIGNED to do it, the attorney who REVIEWS the work product before it counts as done, and the
+// colleagues who only want to WATCH it and hear when it moves. Four roles, held by a CHECK so a
+// fifth is a reviewed migration, and each person holds ONE role on one task: a person who both does
+// the work and reviews it is a person doing the work, and two rows would put them on the list twice.
+//
+// This table replaces `matter_task.assignee_user_id`, which stays on the parent as a retired column
+// (see its comment). Every read that asked "whose is this" now asks this table; the visibility rule
+// for a task on no matter — private to the people on it and whoever created it — reads it too, so
+// adding somebody as a watcher on the firm's own work is what lets them see it.
+//
+// A ROLE IS NOT A PERMISSION AND NOT A GATE. Nothing here decides who may move a task or complete
+// it; that stays with the task permissions. What a role decides is who is TOLD: every person added
+// hears they were added, and every participant hears when the task moves, through the same outbox
+// rows the one-name assignment already raised.
+export const matterTaskParticipant = sqliteTable(
+  "matter_task_participant",
+  {
+    id: text("id").primaryKey().$type<MatterTaskParticipantId>(), // matterTaskParticipant_ handle
+    taskId: text("task_id")
+      .notNull()
+      .$type<MatterTaskId>()
+      .references(() => matterTask.id),
+    userId: text("user_id").notNull().$type<UserId>(),
+    role: text("role", { enum: ["responsible", "assigned", "reviewer", "watcher"] }).notNull(),
+    // Who put them on the task. Null only on a row the migration wrote from the retired column,
+    // where the fact was never recorded.
+    addedBy: text("added_by").$type<UserId>(),
+    addedAt: text("added_at").notNull(),
+  },
+  (table) => [
+    // One person, one role, one task. The service replaces a person's role rather than adding a
+    // second row, and this is what makes that a rule rather than a habit.
+    uniqueIndex("matter_task_participant_task_user_unique_index").on(table.taskId, table.userId),
+    // "What is on my plate": every task this member is on, whatever the role, seeking here and
+    // joining back to matter_task by its primary key.
+    index("matter_task_participant_user_task_index").on(table.userId, table.taskId),
+    check(
+      "matter_task_participant_role_check",
+      sql`${table.role} IN ('responsible', 'assigned', 'reviewer', 'watcher')`,
+    ),
+  ],
+);
+
+// THE FLAT CHECKLIST INSIDE A TASK. One line per step, ticked or not, in the order somebody wrote
+// them. It is a list of lines and NOT a tree of tasks: a line has no assignee, no due date, no
+// priority, no documents and no time, and nothing rolls up from it to the task it sits in — a task
+// with every line ticked is still open until somebody moves it to Done, because "the steps are all
+// done" and "the work is finished" are two facts a person checks separately. That is the whole
+// distinction between this and the sub-task tree the tasks design refuses: a tree needs rollup
+// semantics, depth limits and a recursive read, and a checklist needs none of them.
+export const matterTaskChecklistItem = sqliteTable(
+  "matter_task_checklist_item",
+  {
+    id: text("id").primaryKey().$type<MatterTaskChecklistItemId>(), // matterTaskChecklistItem_ handle
+    taskId: text("task_id")
+      .notNull()
+      .$type<MatterTaskId>()
+      .references(() => matterTask.id),
+    title: text("title").notNull(),
+    // Where the line sits in its list. Not unique: reordering a list whose positions had to stay
+    // distinct would rewrite every row after the one that moved, and the handle is the tiebreak
+    // that makes a tie harmless — the same call the plan template's steps make.
+    position: integer("position").notNull(),
+    // Ticked: an actor and an instant together or neither, held by CHECK so a line cannot be done
+    // by nobody.
+    doneAt: text("done_at"), // UTC instant
+    doneBy: text("done_by").$type<UserId>(),
+    createdBy: text("created_by").notNull().$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("matter_task_checklist_item_task_position_index").on(
+      table.taskId,
+      table.position,
+      table.id,
+    ),
+    check("matter_task_checklist_item_title_check", sql`length(${table.title}) > 0`),
+    check(
+      "matter_task_checklist_item_done_shape_check",
+      sql`(${table.doneAt} IS NULL) = (${table.doneBy} IS NULL)`,
+    ),
   ],
 );
 

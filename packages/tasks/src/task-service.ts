@@ -1,6 +1,7 @@
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
-import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import type { OutboxMessage } from "@magna-carta/data-access/outbox-statements";
+import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { VisibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
@@ -9,6 +10,7 @@ import type {
   MatterDeadlineId,
   MatterEventId,
   MatterId,
+  MatterTaskChecklistItemId,
   MatterTaskDocumentId,
   MatterTaskId,
   UserId,
@@ -18,28 +20,43 @@ import {
   archiveMatterTaskStatement,
   clearBlockedByStatement,
   moveMatterTaskToRungStatement,
+  countMatterTaskChecklistItems,
   countMatterTaskDocuments,
+  deleteMatterTaskChecklistItemStatement,
+  deleteMatterTaskChecklistItemsStatement,
   deleteMatterTaskDocumentStatement,
   deleteMatterTaskDocumentsStatement,
+  deleteMatterTaskParticipantStatement,
+  deleteMatterTaskParticipantsStatement,
   deleteMatterTaskStatement,
   fileIsOnMatter,
+  insertMatterTaskChecklistItemStatement,
   insertMatterTaskDocumentStatement,
+  insertMatterTaskParticipantStatement,
   insertMatterTaskStatement,
   memberCanBeAssigned,
   readMatterTask,
+  readMatterTaskChecklistItem,
   readMatterTaskDocument,
-  reassignMatterTaskStatement,
+  readMatterTaskParticipants,
+  touchMatterTaskStatement,
   unarchiveMatterTaskStatement,
+  updateMatterTaskChecklistItemStatement,
+  updateMatterTaskParticipantRoleStatement,
   updateMatterTaskStatement,
+  type MatterTaskParticipantRow,
   type MatterTaskRow,
 } from "./task-statements.ts";
-import { assignmentTopicFor } from "./notifications.ts";
+import { assignmentTopicFor, type TaskAssignmentTopicPayload } from "./notifications.ts";
 import {
   DEFAULT_TASK_PRIORITY,
   MAX_BLOCKING_CHAIN_DEPTH,
+  MAX_TASK_CHECKLIST_ITEMS,
   MAX_TASK_DOCUMENT_COUNT,
   NO_TASK_DUE,
+  isWorkRole,
   rungOf,
+  type TaskParticipantRole,
   type TaskPriority,
   type TaskRung,
 } from "./types.ts";
@@ -55,18 +72,21 @@ const TASK_RUNG_WORDS: Readonly<Record<TaskRung, string>> = Object.freeze({
 import {
   TaskValidationError,
   normalizeArchiveReason,
+  normalizeChecklistTitle,
+  normalizeParticipants,
   normalizeTaskBody,
   normalizeTaskDue,
   normalizeTaskPriority,
   normalizeTaskTitle,
+  type TaskParticipantInput,
 } from "./validation.ts";
 import {
   deleteExternalLinksForTaskStatement,
   insertTaskDeletionStatement,
 } from "./sync-statements.ts";
 
-// The task's write paths: create, edit, reassign, move along the rungs, archive, delete, and the two that
-// attach and detach a file.
+// The task's write paths: create, edit, the people on it, move along the rungs, archive, delete,
+// the two that attach and detach a file, and the three that keep its checklist.
 //
 // Nothing here reads a clock, holds a database binding, or calls anything external: the clock, the
 // actor and the random source arrive as options, which is what lets a fixture mint a byte-identical
@@ -86,6 +106,15 @@ export interface TaskServiceOptions {
   // The same predicate the federated timeline composes. Every read on the way to a write goes
   // through it, so an id-addressed write path cannot reach a task a list read could not.
   readonly visibility: VisibleMatterPredicate;
+  /*
+   * Whether the actor may put work in ANOTHER member's name — the route's answer to the assign
+   * permission, handed in rather than read here because permissions are the route's to resolve.
+   * Naming somebody else in a work role (responsible, assigned, reviewer), or taking them out of
+   * one, is refused without it; naming oneself, and adding or removing a watcher, is not, because
+   * watching is a subscription rather than an obligation. Defaults to allowed so a caller that
+   * has already checked (a fixture, a plan acceptance the route gated) need not say so twice.
+   */
+  readonly canAssignOthers?: boolean;
 }
 
 export interface TaskDueInput {
@@ -100,24 +129,27 @@ export interface CreateMatterTaskInput extends TaskDueInput {
   readonly matterId: MatterId | null;
   readonly title: string;
   readonly body?: string | null;
-  readonly assigneeUserId?: UserId | null;
+  /** The people the task starts with, each in a role. A task with nobody on it is a backlog line. */
+  readonly participants?: readonly TaskParticipantInput[];
+  /** The checklist lines the task starts with, in order. Written in the same batch as the task. */
+  readonly checklist?: readonly string[];
   readonly priority?: string | null;
   readonly blockedByTaskId?: MatterTaskId | null;
   readonly triggerEventId?: MatterEventId | null;
   readonly deadlineId?: MatterDeadlineId | null;
 }
 
-// Assigning to somebody, checked before anything is written. Returns nothing and throws on refusal,
-// which is the shape every precondition in this file takes.
+// Putting somebody on a task, checked before anything is written. Returns nothing and throws on
+// refusal, which is the shape every precondition in this file takes.
 async function assertAssignable(
   database: SqlDatabase,
-  assigneeUserId: UserId,
+  userId: UserId,
   matterId: MatterId | null,
   options: TaskServiceOptions,
 ): Promise<void> {
   const { memberExists, canSeeMatter } = await memberCanBeAssigned(
     database,
-    assigneeUserId,
+    userId,
     matterId,
     options.visibility,
   );
@@ -131,6 +163,21 @@ async function assertAssignable(
     throw new TaskValidationError(
       "task-assignee-cannot-see-matter",
       "that member cannot see this matter, and a task they cannot open is a hole in their list",
+    );
+  }
+}
+
+// Naming ANOTHER member in a work role is the act the assign permission governs. A member without
+// it may still write the task, take it themselves, and add or remove watchers.
+function assertMayName(
+  userId: UserId,
+  role: TaskParticipantRole,
+  options: TaskServiceOptions,
+): void {
+  if (options.canAssignOthers === false && userId !== options.actorUserId && isWorkRole(role)) {
+    throw new TaskValidationError(
+      "task-assignment-needs-permission",
+      "putting a task in another member's name needs the assign permission",
     );
   }
 }
@@ -180,6 +227,34 @@ async function assertPredecessor(
   }
 }
 
+// The one outbox row an addition raises: the person named, in the role they were named in. Never
+// for the actor — telling somebody they put themselves on a task is noise that teaches people to
+// ignore the bell.
+function namedMessage(
+  task: {
+    readonly id: MatterTaskId;
+    readonly matterId: MatterId | null;
+    readonly priority: TaskPriority;
+    readonly dueOn: string | null;
+  },
+  userId: UserId,
+  role: TaskParticipantRole,
+  reassignment: boolean,
+  options: TaskServiceOptions,
+): OutboxMessage | null {
+  if (userId === options.actorUserId) return null;
+  const payload: TaskAssignmentTopicPayload = {
+    taskId: task.id,
+    matterId: task.matterId,
+    assigneeUserId: userId,
+    role,
+    assignedByUserId: options.actorUserId,
+    priority: task.priority,
+    dueOn: task.dueOn,
+  };
+  return { topic: assignmentTopicFor(task.matterId, reassignment), payload };
+}
+
 export async function createMatterTask(
   database: SqlDatabase,
   input: CreateMatterTaskInput,
@@ -189,11 +264,19 @@ export async function createMatterTask(
   const body = normalizeTaskBody(input.body);
   const due = normalizeTaskDue(input);
   const priority: TaskPriority = normalizeTaskPriority(input.priority) ?? DEFAULT_TASK_PRIORITY;
-  const assigneeUserId = input.assigneeUserId ?? null;
+  const participants = normalizeParticipants(input.participants ?? []);
+  const checklist = (input.checklist ?? []).map(normalizeChecklistTitle);
+  if (checklist.length > MAX_TASK_CHECKLIST_ITEMS) {
+    throw new TaskValidationError(
+      "checklist-too-many-items",
+      `a task's checklist holds at most ${String(MAX_TASK_CHECKLIST_ITEMS)} lines`,
+    );
+  }
   const blockedByTaskId = input.blockedByTaskId ?? null;
 
-  if (assigneeUserId !== null) {
-    await assertAssignable(database, assigneeUserId, input.matterId, options);
+  for (const participant of participants) {
+    assertMayName(participant.userId, participant.role, options);
+    await assertAssignable(database, participant.userId, input.matterId, options);
   }
   if (blockedByTaskId !== null) {
     await assertPredecessor(database, blockedByTaskId, input.matterId, null, options);
@@ -201,61 +284,85 @@ export async function createMatterTask(
 
   const now = options.clock.now();
   const taskId = newIdentifier("matterTask", options.randomSource);
+  const messages: OutboxMessage[] = [];
+  const statements: SqlStatement[] = [
+    insertMatterTaskStatement(database, {
+      id: taskId,
+      matterId: input.matterId,
+      title,
+      body,
+      createdBy: options.actorUserId,
+      priority,
+      due,
+      blockedByTaskId,
+      triggerEventId: input.triggerEventId ?? null,
+      deadlineId: input.deadlineId ?? null,
+      now,
+    }),
+  ];
+  for (const participant of participants) {
+    statements.push(
+      insertMatterTaskParticipantStatement(database, {
+        id: newIdentifier("matterTaskParticipant", options.randomSource),
+        taskId,
+        userId: participant.userId,
+        role: participant.role,
+        addedBy: options.actorUserId,
+        now,
+      }),
+    );
+    const message = namedMessage(
+      { id: taskId, matterId: input.matterId, priority, dueOn: due.dueOn },
+      participant.userId,
+      participant.role,
+      false,
+      options,
+    );
+    if (message !== null) messages.push(message);
+  }
+  for (const [position, line] of checklist.entries()) {
+    statements.push(
+      insertMatterTaskChecklistItemStatement(database, {
+        id: newIdentifier("matterTaskChecklistItem", options.randomSource),
+        taskId,
+        title: line,
+        position,
+        createdBy: options.actorUserId,
+        now,
+      }),
+    );
+  }
+  statements.push(
+    domainAuditStatement(database, {
+      event: "tasks.task.created",
+      subjectId: taskId,
+      actorUserId: options.actorUserId,
+      clock: options.clock,
+      randomSource: options.randomSource,
+      // Identifiers, the roles, the priority and the due date only. Not the title and not the body:
+      // a task title is free text on a matter ("Call Mrs. Herrera re the settlement offer") and the
+      // audit log is a compliance record with its own retention and its own readers. A date and a
+      // four-value enum disclose nothing on their own.
+      metadata: {
+        matterId: input.matterId,
+        participants: participants.map((participant) => ({
+          userId: participant.userId,
+          role: participant.role,
+        })),
+        priority,
+        dueOn: due.dueOn,
+        checklistCount: checklist.length,
+      },
+    }),
+  );
   return {
     taskId,
     effect: {
-      statements: [
-        insertMatterTaskStatement(database, {
-          id: taskId,
-          matterId: input.matterId,
-          title,
-          body,
-          assigneeUserId,
-          createdBy: options.actorUserId,
-          priority,
-          due,
-          blockedByTaskId,
-          triggerEventId: input.triggerEventId ?? null,
-          deadlineId: input.deadlineId ?? null,
-          now,
-        }),
-        domainAuditStatement(database, {
-          event: "tasks.task.created",
-          subjectId: taskId,
-          actorUserId: options.actorUserId,
-          clock: options.clock,
-          randomSource: options.randomSource,
-          // Identifiers, the priority and the due date only. Not the title and not the body: a task
-          // title is free text on a matter ("Call Mrs. Herrera re the settlement offer") and the
-          // audit log is a compliance record with its own retention and its own readers. A date and
-          // a four-value enum disclose nothing on their own.
-          metadata: {
-            matterId: input.matterId,
-            assigneeUserId,
-            priority,
-            dueOn: due.dueOn,
-          },
-        }),
-      ],
+      statements,
       // The outbox row IS the emission. The notification registry's rule is that a type SUBSCRIBES
       // and never produces, so there is no notify() call in this path — the durable row committed in
       // the same atomic batch as the task is what a subscriber reads.
-      outboxMessages:
-        assigneeUserId === null || assigneeUserId === options.actorUserId
-          ? []
-          : [
-              {
-                topic: assignmentTopicFor(input.matterId, false),
-                payload: {
-                  taskId,
-                  matterId: input.matterId,
-                  assigneeUserId,
-                  assignedByUserId: options.actorUserId,
-                  priority,
-                  dueOn: due.dueOn,
-                },
-              },
-            ],
+      outboxMessages: messages,
     },
   };
 }
@@ -273,8 +380,9 @@ export interface EditMatterTaskInput extends TaskDueInput {
 // rather than appending — the same call the calendar made for firm events, in its own words: "a firm
 // made to record a compensating row to fix a typo stops recording."
 //
-// Assignment is deliberately NOT editable here. It is its own path with its own permission and its
-// own topic, because putting work in somebody else's name is a different act from fixing a due date.
+// The people are deliberately NOT editable here. They are their own path with their own permission
+// and their own topics, because putting work in somebody else's name is a different act from
+// fixing a due date.
 export async function editMatterTask(
   database: SqlDatabase,
   taskId: MatterTaskId,
@@ -327,63 +435,111 @@ export async function editMatterTask(
   };
 }
 
-// Reassignment, including to nobody. Moving a task OUT of somebody's name is the same act as moving
-// it into another's and takes the same path, so a task cannot be quietly orphaned by an edit.
-export async function reassignMatterTask(
+/*
+ * THE PEOPLE ON A TASK, replaced as a set.
+ *
+ * The caller says who is on the task now, and this works out what changed: who joined and in what
+ * role, who left, and whose role moved. One call rather than add/remove/change endpoints, because
+ * the surface edits the list as a whole and three writes for one Save would be three chances to
+ * land halfway. Everybody who joins, and everybody whose role moves, is told; nobody is told they
+ * left, and nobody is told about a change that left them where they were.
+ *
+ * The permission check is on the DIFFERENCE, not on the list: a member without the assign
+ * permission may add themselves, add and remove watchers, and leave every other row exactly as it
+ * stands — re-sending the current set is never a refusal.
+ */
+export async function setMatterTaskParticipants(
   database: SqlDatabase,
   taskId: MatterTaskId,
-  assigneeUserId: UserId | null,
+  participants: readonly TaskParticipantInput[],
   options: TaskServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
+  const wanted = normalizeParticipants(participants);
   const task = await requireTask(database, taskId, options);
-  if (assigneeUserId !== null) {
-    await assertAssignable(database, assigneeUserId, task.matter_id, options);
+  const current = await readMatterTaskParticipants(database, [taskId]);
+  const currentByUser = new Map<UserId, MatterTaskParticipantRow>(
+    current.map((row) => [row.user_id, row]),
+  );
+  const wantedByUser = new Map(wanted.map((participant) => [participant.userId, participant]));
+
+  const added: { userId: UserId; role: TaskParticipantRole }[] = [];
+  const changed: { userId: UserId; from: TaskParticipantRole; to: TaskParticipantRole }[] = [];
+  const removed: { userId: UserId; role: TaskParticipantRole }[] = [];
+  for (const participant of wanted) {
+    const existing = currentByUser.get(participant.userId);
+    if (existing === undefined) {
+      added.push(participant);
+    } else if (existing.role !== participant.role) {
+      changed.push({ userId: participant.userId, from: existing.role, to: participant.role });
+    }
   }
+  for (const row of current) {
+    if (!wantedByUser.has(row.user_id)) removed.push({ userId: row.user_id, role: row.role });
+  }
+
+  // Refusals before any statement is composed. Adding checks the member and the matter; a role
+  // change and a removal check only the permission, because the member was already on the task.
+  for (const participant of added) {
+    assertMayName(participant.userId, participant.role, options);
+    await assertAssignable(database, participant.userId, task.matter_id, options);
+  }
+  for (const change of changed) {
+    assertMayName(change.userId, change.from, options);
+    assertMayName(change.userId, change.to, options);
+  }
+  for (const participant of removed) assertMayName(participant.userId, participant.role, options);
+
   const now = options.clock.now();
-  return {
-    effect: {
-      statements: [
-        reassignMatterTaskStatement(database, {
-          id: taskId,
-          assigneeUserId,
-          now,
-          actor: options.actorUserId,
-        }),
-        domainAuditStatement(database, {
-          event: "tasks.task.reassigned",
-          subjectId: taskId,
-          actorUserId: options.actorUserId,
-          clock: options.clock,
-          randomSource: options.randomSource,
-          metadata: {
-            matterId: task.matter_id,
-            fromAssigneeUserId: task.assignee_user_id,
-            toAssigneeUserId: assigneeUserId,
-          },
-        }),
-      ],
-      // Nobody is told they were assigned their own task, and nobody is told twice about a
-      // reassignment that changed nothing.
-      outboxMessages:
-        assigneeUserId === null ||
-        assigneeUserId === options.actorUserId ||
-        assigneeUserId === task.assignee_user_id
-          ? []
-          : [
-              {
-                topic: assignmentTopicFor(task.matter_id, true),
-                payload: {
-                  taskId,
-                  matterId: task.matter_id,
-                  assigneeUserId,
-                  assignedByUserId: options.actorUserId,
-                  priority: task.priority,
-                  dueOn: task.due_on,
-                },
-              },
-            ],
-    },
+  const statements: SqlStatement[] = [];
+  const messages: OutboxMessage[] = [];
+  const subject = {
+    id: taskId,
+    matterId: task.matter_id,
+    priority: task.priority,
+    dueOn: task.due_on,
   };
+  for (const participant of added) {
+    statements.push(
+      insertMatterTaskParticipantStatement(database, {
+        id: newIdentifier("matterTaskParticipant", options.randomSource),
+        taskId,
+        userId: participant.userId,
+        role: participant.role,
+        addedBy: options.actorUserId,
+        now,
+      }),
+    );
+    const message = namedMessage(subject, participant.userId, participant.role, true, options);
+    if (message !== null) messages.push(message);
+  }
+  for (const change of changed) {
+    const row = currentByUser.get(change.userId);
+    if (row === undefined) continue;
+    statements.push(
+      updateMatterTaskParticipantRoleStatement(database, { id: row.id, role: change.to }),
+    );
+    const message = namedMessage(subject, change.userId, change.to, true, options);
+    if (message !== null) messages.push(message);
+  }
+  for (const participant of removed) {
+    const row = currentByUser.get(participant.userId);
+    if (row !== undefined) statements.push(deleteMatterTaskParticipantStatement(database, row.id));
+  }
+  // Nothing moved: no statement, no audit row, no touch. A Save that changed nobody is not a change.
+  if (statements.length === 0) return { effect: { statements: [], outboxMessages: [] } };
+
+  statements.push(
+    touchMatterTaskStatement(database, { id: taskId, now, actor: options.actorUserId }),
+    domainAuditStatement(database, {
+      event: "tasks.task.participantsChanged",
+      subjectId: taskId,
+      actorUserId: options.actorUserId,
+      clock: options.clock,
+      randomSource: options.randomSource,
+      metadata: { matterId: task.matter_id, added, changed, removed },
+    }),
+  );
+  return { effect: { statements, outboxMessages: messages } };
 }
 
 /*
@@ -443,7 +599,6 @@ export async function moveMatterTaskToRung(
           randomSource: options.randomSource,
           metadata: {
             matterId: task.matter_id,
-            assigneeUserId: task.assignee_user_id,
             dueOn: task.due_on,
             fromRung: was,
             toRung: rung,
@@ -497,7 +652,6 @@ export async function archiveMatterTask(
           // text a member typed about a matter.
           metadata: {
             matterId: task.matter_id,
-            assigneeUserId: task.assignee_user_id,
             fromRung: rungOf({ state: task.state, progress: task.progress }),
           },
         }),
@@ -556,13 +710,15 @@ export async function deleteMatterTask(
   return {
     effect: {
       statements: [
-        // Order matters and each statement is here for its own reason. The links go first because
-        // they reference the row; they are the association and never the document, so every attached
-        // file stays exactly where it lives in the matter's file record. Then any successor stops
-        // waiting on a task that is about to stop existing — nothing in SQLite enforces the
-        // self-reference, so a pointer left behind would dangle and render as blocked by a task
-        // nobody can open.
+        // Order matters and each statement is here for its own reason. The links, the people and
+        // the checklist go first because they reference the row; the links are the association and
+        // never the document, so every attached file stays exactly where it lives in the matter's
+        // file record. Then any successor stops waiting on a task that is about to stop existing —
+        // nothing in SQLite enforces the self-reference, so a pointer left behind would dangle and
+        // render as blocked by a task nobody can open.
         deleteMatterTaskDocumentsStatement(database, taskId),
+        deleteMatterTaskParticipantsStatement(database, taskId),
+        deleteMatterTaskChecklistItemsStatement(database, taskId),
         clearBlockedByStatement(database, { taskId, now, actor: options.actorUserId }),
         // The tombstone, in the SAME BATCH as the delete and never after it. A row that is gone
         // cannot be enumerated afterwards, so anything mirroring this task learns of the deletion
@@ -591,7 +747,6 @@ export async function deleteMatterTask(
           randomSource: options.randomSource,
           metadata: {
             matterId: task.matter_id,
-            assigneeUserId: task.assignee_user_id,
             state: task.state,
             createdAt: task.created_at,
           },
@@ -696,6 +851,171 @@ export async function detachFileFromMatterTask(
       outboxMessages: [],
     },
   };
+}
+
+// ---- the checklist ----
+//
+// Three writes, each one batch: a line is added at the end, a line is changed (its words, whether
+// it is ticked), a line is removed. A line is never a task — it has no people, no date, no priority
+// — and ticking every line completes nothing: the task's rung is a separate fact somebody moves.
+//
+// Each write touches the task, so the change feed reports it and "who touched it last" stays true.
+// An ARCHIVED task's checklist does not change, on the rung move's reasoning: it is put away.
+
+export async function addMatterTaskChecklistItem(
+  database: SqlDatabase,
+  taskId: MatterTaskId,
+  title: string,
+  options: TaskServiceOptions,
+): Promise<{ itemId: MatterTaskChecklistItemId; effect: EffectWrite }> {
+  const normalized = normalizeChecklistTitle(title);
+  const task = await requireTask(database, taskId, options);
+  assertNotArchived(task);
+  const { count, nextPosition } = await countMatterTaskChecklistItems(database, taskId);
+  if (count >= MAX_TASK_CHECKLIST_ITEMS) {
+    throw new TaskValidationError(
+      "checklist-too-many-items",
+      `a task's checklist holds at most ${String(MAX_TASK_CHECKLIST_ITEMS)} lines`,
+    );
+  }
+  const now = options.clock.now();
+  const itemId = newIdentifier("matterTaskChecklistItem", options.randomSource);
+  return {
+    itemId,
+    effect: {
+      statements: [
+        insertMatterTaskChecklistItemStatement(database, {
+          id: itemId,
+          taskId,
+          title: normalized,
+          position: nextPosition,
+          createdBy: options.actorUserId,
+          now,
+        }),
+        touchMatterTaskStatement(database, { id: taskId, now, actor: options.actorUserId }),
+        domainAuditStatement(database, {
+          event: "tasks.task.checklistItemAdded",
+          subjectId: taskId,
+          actorUserId: options.actorUserId,
+          clock: options.clock,
+          randomSource: options.randomSource,
+          // The line's handle and its position; never its words, on the title's own rule.
+          metadata: { matterId: task.matter_id, itemId, position: nextPosition },
+        }),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+export interface EditChecklistItemInput {
+  /** New words for the line. Omitted, the words stay. */
+  readonly title?: string;
+  /** Ticked or not. Omitted, the mark stays. Ticking a ticked line is not a change. */
+  readonly done?: boolean;
+  /** Where the line sits. Omitted, it stays where it is. */
+  readonly position?: number;
+}
+
+export async function editMatterTaskChecklistItem(
+  database: SqlDatabase,
+  itemId: MatterTaskChecklistItemId,
+  input: EditChecklistItemInput,
+  options: TaskServiceOptions,
+): Promise<{ effect: EffectWrite }> {
+  const item = await requireChecklistItem(database, itemId, options);
+  const task = await requireTask(database, item.task_id, options);
+  assertNotArchived(task);
+  const title = input.title === undefined ? item.title : normalizeChecklistTitle(input.title);
+  const position = input.position === undefined ? item.position : Math.trunc(input.position);
+  const wasDone = item.done_at !== null;
+  const done = input.done ?? wasDone;
+  const now = options.clock.now();
+  // Ticking keeps the actor and instant it was ticked with; ticking again does not re-stamp it.
+  const doneAt = done ? (wasDone ? item.done_at : now) : null;
+  const doneBy = done ? (wasDone ? item.done_by : options.actorUserId) : null;
+  return {
+    effect: {
+      statements: [
+        updateMatterTaskChecklistItemStatement(database, {
+          id: itemId,
+          title,
+          position,
+          doneAt,
+          doneBy,
+          now,
+        }),
+        touchMatterTaskStatement(database, { id: task.id, now, actor: options.actorUserId }),
+        domainAuditStatement(database, {
+          event:
+            done !== wasDone ? "tasks.task.checklistItemTicked" : "tasks.task.checklistItemEdited",
+          subjectId: task.id,
+          actorUserId: options.actorUserId,
+          clock: options.clock,
+          randomSource: options.randomSource,
+          metadata: { matterId: task.matter_id, itemId, done, position },
+        }),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+export async function deleteMatterTaskChecklistItem(
+  database: SqlDatabase,
+  itemId: MatterTaskChecklistItemId,
+  options: TaskServiceOptions,
+): Promise<{ effect: EffectWrite }> {
+  const item = await requireChecklistItem(database, itemId, options);
+  const task = await requireTask(database, item.task_id, options);
+  assertNotArchived(task);
+  const now = options.clock.now();
+  return {
+    effect: {
+      statements: [
+        deleteMatterTaskChecklistItemStatement(database, itemId),
+        touchMatterTaskStatement(database, { id: task.id, now, actor: options.actorUserId }),
+        domainAuditStatement(database, {
+          event: "tasks.task.checklistItemRemoved",
+          subjectId: task.id,
+          actorUserId: options.actorUserId,
+          clock: options.clock,
+          randomSource: options.randomSource,
+          metadata: { matterId: task.matter_id, itemId },
+        }),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+function assertNotArchived(task: MatterTaskRow): void {
+  if (task.archived_at !== null) {
+    throw new TaskValidationError(
+      "task-already-archived",
+      "that task is archived; put it back on the list before changing it",
+    );
+  }
+}
+
+async function requireChecklistItem(
+  database: SqlDatabase,
+  itemId: MatterTaskChecklistItemId,
+  options: TaskServiceOptions,
+) {
+  const item = await readMatterTaskChecklistItem(
+    database,
+    itemId,
+    options.visibility,
+    options.actorUserId,
+  );
+  if (item === undefined) {
+    throw new TaskValidationError(
+      "checklist-unknown-item",
+      "that line is not on a task in this firm",
+    );
+  }
+  return item;
 }
 
 // Every write path's first read, and the one place "that task is not a task in this firm" is

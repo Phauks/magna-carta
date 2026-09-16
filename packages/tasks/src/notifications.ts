@@ -10,12 +10,13 @@
 
 // ---- topic-shaped: a write happened, so there is a batch to ride ----
 
-// A task was created with somebody else's name on it. Never raised when a member assigns themselves:
-// telling somebody they gave themselves a task is noise that teaches people to ignore the bell.
+// A task was created with somebody else's name on it, in whatever role. Raised once per person
+// named, and never for the actor: telling somebody they put themselves on a task is noise that
+// teaches people to ignore the bell.
 export const TASK_ASSIGNED_TOPIC = "tasks.task.assigned";
 
-// A task moved into somebody else's name. Never raised for a move to nobody (there is nobody to
-// tell), to the actor themselves, or to the member who already held it.
+// Somebody joined an existing task, or their role on it moved. Never raised for a removal (there
+// is nobody to tell), for the actor themselves, or for a person whose role did not change.
 export const TASK_REASSIGNED_TOPIC = "tasks.task.reassigned";
 
 // THE SAME TWO ACTS ON A TASK THAT IS ON NO MATTER, and they are separate topics rather than the
@@ -43,7 +44,12 @@ export const FIRM_TASK_REASSIGNED_TOPIC = "tasks.firmTask.reassigned";
 export interface TaskAssignmentTopicPayload {
   readonly taskId: string;
   readonly matterId: string | null;
+  // The member named. The key kept its name when a task grew several people, because it is the
+  // key the registry's `named-recipient` audience reads, and the person to tell is still exactly
+  // the one member this row names.
   readonly assigneeUserId: string;
+  // The role they were named in, so the card can say "as a watcher" rather than "assigned".
+  readonly role: string;
   readonly assignedByUserId: string;
   readonly priority: string;
   readonly dueOn: string | null;

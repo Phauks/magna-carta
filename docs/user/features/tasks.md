@@ -1,8 +1,8 @@
 # Tasks
 
-A task is one piece of work with somebody's name on it. Find them two ways: on a matter under
+A task is one piece of work with people's names on it. Find them two ways: on a matter under
 **Tasks**, which shows that matter's alone, and under **Tasks** in the sidebar, which gathers every
-one you can reach.
+one you can reach. Both are the same table.
 
 ## What a Task Is, and What It Is Not
 
@@ -14,13 +14,31 @@ apart is deliberate: if the deadline list filled up with reminders, people would
 A task is also not a calendar entry. Nothing about it is scheduled with anybody else, and moving its
 due date is just you changing your mind rather than a hearing being reset.
 
+## The Table
+
+Tasks are rows in the same table every other list in Magna Carta uses, so it works the way you
+already know. Click a column heading to sort by it, and click again to sort the other way. Right-click
+a heading for that column's filter, and for the list of every column the table can show: the
+reviewers and watchers, the checklist's progress, the attachments, the time logged, who created the
+task and when, when it was done or archived, and on the firm-wide list the matter. Drag a heading to
+move a column, drag its edge to widen it, and pin one so it stays put while you scroll sideways.
+
+What starts on screen is the title, where the task stands, when it is due, its priority, and who is
+responsible for it and assigned to it. A task's description reads as a second line under its row.
+
+The table opens sorted by due date, soonest first, with the tasks nobody has scheduled at the end.
+
+**Where a task stands is a control in the row.** Press the Status cell and pick To Do, In Progress,
+On Hold or Done. You do not have to open the task to move it.
+
 ## Opening a Task
 
-Press a task's own words to open it. It opens in a window — the same window a note, a time entry and
-a cost open in — showing everything the task carries. Press **Edit** in that window's corner to turn
-what you are reading into fields, change what you need, and press **Save**. There is no separate
-screen for changing a task: you change it where you were already reading it, and what you are
-looking at is what you are editing.
+Double-click a row, or press Enter on it, to open the task. It opens in a window — the same window a
+note, a time entry and a cost open in — showing everything the task carries. Press **Edit** in that
+window's corner to turn what you are reading into fields, change what you need, and press **Save**.
+There is no separate screen for changing a task: you change it where you were already reading it,
+and what you are looking at is what you are editing. Everything about a task can be changed after
+it exists: its title and description, when it is due, its priority, and the people on it.
 
 The list underneath stays exactly where it was. Closing the window with something unsaved asks
 first.
@@ -28,24 +46,42 @@ first.
 ## Creating a Task
 
 Press **New Task**. The same window opens with nothing in it yet and its fields already open — a
-task has nothing to read before it exists. Say what to do, and add detail underneath if the title is
-not enough on its own.
+task has nothing to read before it exists. Give it a **Title**, and a **Description** underneath if
+the title is not enough on its own.
 
-**Due** and **Time** are both optional, and plenty of tasks have neither. If you give a date, the
-task is due at the end of that day in your own time zone — so a task due Friday is not treated as
-late on Friday morning. Add a time only where a specific hour matters.
+**Due**, **Time** and **Time Zone** go together, and plenty of tasks have none of them. If you give a
+date, the task is due at the end of that day in the zone you choose — so a task due Friday is not
+treated as late on Friday morning. Add a time only where a specific hour matters. The zone starts as
+your own and you can change it: a task due at two o'clock for a colleague in another office is due
+at two o'clock there, and the zone is shown beside the time wherever the time is shown.
 
 **Priority** is one of four: Urgent, High, Normal, Low. Normal is the default and means nothing in
 particular, which is why there is no separate "none".
 
-**Assigned to** puts the task in somebody's name. You can leave it as _Nobody yet_ and pick somebody
-later by opening the task and pressing Edit. If the field reads back a name instead of offering a
-list, your role does not include assigning work to other people; you can still create tasks and take
-them yourself.
+**The people** are four seats, and each can hold as many people as the work needs:
 
-You cannot assign a task on a matter to somebody who cannot open that matter. A task nobody can look
-at is a gap in their list that nothing explains, so it is refused when you try rather than appearing
-and then not working.
+- **Responsible** answers for the work getting done.
+- **Assigned to** does the work.
+- **Reviewers** check the work before it counts as done.
+- **Watchers** hear when the task moves, and owe nothing.
+
+A person holds one seat on a task. Pick people from the roster under each seat; everybody you add is
+told, in the seat you put them in. You can leave every seat empty and fill them later by opening the
+task and pressing Edit.
+
+If your role does not include assigning work to other people, the work seats offer only you: you can
+still create tasks, take them yourself, and add anyone as a watcher. A colleague already in a work
+seat shows as a fact rather than as something you can remove.
+
+You cannot put somebody on a task on a matter they cannot open. A task nobody can look at is a gap
+in their list that nothing explains, so it is refused when you try rather than appearing and then
+not working.
+
+**The checklist** is the to-do list inside the task. Type a line and press Enter to add it; tick it
+when it is done; rename or remove it from its row. On a task you are still writing, the lines are
+saved with the task. On a task that exists, every tick and every line is saved the moment you make
+it, without pressing Save, and the table can show how far the checklist has come. Ticking every line
+does not finish the task: that is still yours to say by moving it to Done.
 
 The window names the matter the task will land on, who it will be recorded as coming from, and the
 moment it will be stamped with, so nothing is stored that you were not shown. Closing it before you
@@ -57,9 +93,9 @@ Not everything a firm does belongs to a client file. Renewing the malpractice po
 candidate, getting the research contract reviewed — create those from **Tasks** in the sidebar and
 they will carry no matter.
 
-**A task with no matter is private to you and whoever you assign it to.** Nobody else in the firm
-sees it, including people who can see every matter. If work should be visible to the team, put it on
-the matter it belongs to.
+**A task with no matter is private to you and the people on it**, in any seat. Nobody else in the
+firm sees it, including people who can see every matter. If work should be visible to the team, put
+it on the matter it belongs to; if one colleague should see it, add them as a watcher.
 
 ## Where a Task Stands
 
@@ -79,9 +115,8 @@ Moving a task **off** Done puts it back where it was, not back to the start: a t
 and ticked by mistake returns to On Hold. That it was finished and reopened stays in the firm's audit
 record either way.
 
-**Done is also on the list itself**, beside each row, because ticking finished work off a list is
-what a list is for. The other three rungs are in the task's window with the rest of what you can do
-to it.
+**The rung is also the Status cell in the table**, so any of the four is one press away from the
+row.
 
 ## Archiving and Deleting
 
@@ -117,9 +152,10 @@ there to say what the intended order is, not to enforce it.
 
 ## Documents
 
-Open the task and go to its **Attachments** tab to point it at one of the matter's documents. The
-list names what a task already carries; attaching and detaching happen in the window, with the rest
-of what you can do to a task. Nothing is uploaded and nothing is copied — the document stays in the
+Open the task and go to its **Attachments** tab. The way to add one is at the top: **From the
+Matter** opens a list of the matter's documents to pick from, and what the task already carries
+reads beneath it. Attaching and detaching happen in the window, with the rest of what you can do to
+a task. Nothing is uploaded and nothing is copied — the document stays in the
 matter's files with its versions and everything else that follows from being there, and detaching it
 later leaves it exactly where it is.
 
@@ -131,21 +167,22 @@ belongs to a matter.
 
 ## Finding Things
 
-The search box matches what a task says — its title and its detail — on the list you are looking at.
-It sits at the top of the screen with **New Task**, in the same place as the search on every other
-screen. Whenever the search is narrowing the list, a **Show Everything** control appears beside it;
-when it is not there, nothing is hidden.
+The search box matches what a task says — its title and its description — on the list you are
+looking at. It sits at the top of the screen with **New Task**, in the same place as the search on
+every other screen. Whenever the search or a column filter is narrowing the list, a clear control
+appears beside it; when it is not there, nothing is hidden.
 
-By default a list shows what is still owed — everything on To Do, In Progress and On Hold. Below the
-list, past all of that, **Show Done** and **Show Archived** add the rest to it; each then reads
-**Hide Done** or **Hide Archived**, so what is showing is always the control that puts it away
-again.
+By default a list shows what is still owed — everything on To Do, In Progress and On Hold. The strip
+under the table, beside the count of what is on screen, has two switches: **Show done** and **Show
+archived**. Each adds that work to the table, and switching it off puts it away again. Neither is a
+filter, so neither makes the clear control appear.
 
 ## Tasks in the Sidebar
 
 **Tasks** in the sidebar is every task you can reach, in one place: across every matter you can
-see, plus your own work on no matter. Filter it by yourself to get just your list. A matter's own
-**Tasks** section is the same list narrowed to that one matter.
+see, plus your own work on no matter. It shows a **Matter** column, and you can sort and filter by
+it. Filter the Assigned or Responsible column by your own name to get just your list. A matter's
+own **Tasks** section is the same table narrowed to that one matter.
 
 Tasks on closed matters are left out. Closing a matter changes nothing about its tasks — they are
 not archived or completed — they simply stop cluttering the day-to-day list. Reopen the matter and
@@ -153,8 +190,8 @@ they come straight back.
 
 ## Being Told About a Task
 
-When somebody puts a task in your name you get a notification. You will not be notified about tasks
-you assign to yourself, or about a change that leaves the task with whoever already had it.
+When somebody puts you on a task, in any seat, you get a notification saying which seat. You will
+not be notified about tasks you put yourself on, or about a change that leaves you where you were.
 
 Reminders about tasks that are due or overdue are not built yet. They will arrive with the same
 change that brings deadline reminders, so that both use one idea of what "due" means.
@@ -175,7 +212,7 @@ nothing, which is all declining is.
 
 Give the plan a name, then add its steps. Each step has:
 
-- **What to do**, and detail underneath if the title is not enough.
+- **A title**, and a description underneath if the title is not enough.
 - **Due**, either "no date" or a number of days after the matter opens. **These are plain days.**
   Nothing skips weekends and nothing knows about court holidays, so a step set to 14 days can land on
   a Sunday — which is one of the reasons somebody reviews a plan before it becomes tasks.
@@ -251,9 +288,9 @@ a side door to matters that person has no access to.
 
 ## What Is Not Built Yet
 
-There is no board view, no recurring task, and no comment thread on a task. Sub-checklists inside a
-task are not built either; use a second task and the waiting-on link. A timer cannot yet be started
-from a task.
+There is no board view, no recurring task, and no comment thread on a task. A checklist line cannot
+be given to somebody or dated; for that, use a second task and the waiting-on link. A timer cannot
+yet be started from a task, and the firm's own work does not yet appear on the firm calendar.
 
 A plan cannot yet be set to apply itself without review, and its dates can only count from the day
 the matter opened.

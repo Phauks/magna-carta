@@ -573,7 +573,45 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     table: "matter_task",
     subjectKey: "assignee_user_id",
     action: "pseudonymize-keep",
-    note: "whose work it is; the reference is replaced at the member tombstone, never dropped",
+    note: "retired and always null since the participant table took over; registered so a stray value is still replaced at the member tombstone rather than left standing",
+  },
+  // The people on a task, by role. Two member references and no free text: the role is a closed
+  // vocabulary and the row says nothing else about anybody. Both references are pseudonymize-keep
+  // on the task's own reasoning — an obligation with nobody's name on it is worth a fraction of one
+  // with a name — and `user_id` is also half of what makes a task on no matter reachable, so
+  // dropping the row would strand the work.
+  {
+    table: "matter_task_participant",
+    subjectKey: "user_id",
+    action: "pseudonymize-keep",
+    note: "who is on the task and in what role; the reference is replaced at the member tombstone, never dropped",
+  },
+  {
+    table: "matter_task_participant",
+    subjectKey: "added_by",
+    action: "pseudonymize-keep",
+    note: "who put them on the task; firm-member provenance",
+  },
+  // A checklist line. Its title is free text on the task's own line — a step is written to be read
+  // and may name the person it concerns ("call Mrs. Herrera") — so it is report-manual like the
+  // task title, and its two member references are pseudonymize-keep for the reasons above.
+  {
+    table: "matter_task_checklist_item",
+    subjectKey: "title",
+    action: "report-manual",
+    note: "one step of the task's checklist, free text that may name the person it concerns; no structured subject column",
+  },
+  {
+    table: "matter_task_checklist_item",
+    subjectKey: "done_by",
+    action: "pseudonymize-keep",
+    note: "who ticked the line; replaced at the member tombstone",
+  },
+  {
+    table: "matter_task_checklist_item",
+    subjectKey: "created_by",
+    action: "pseudonymize-keep",
+    note: "who wrote the line; firm-member provenance",
   },
   {
     table: "matter_task",

@@ -172,10 +172,21 @@ const RECOVERY_OUTCOME_LABEL: Readonly<Record<string, string>> = Object.freeze({
   cancelled: "Cancelled",
 });
 
-/** What a task's two facts say together: how urgent it is, and whether it carries a date. */
+// The role a member was named in, as the card reads it out. A watcher was not handed work, and a
+// card that said "assigned" to them would be wrong in the one word that matters.
+const TASK_ROLE_LABEL: Readonly<Record<string, string>> = Object.freeze({
+  responsible: "You are responsible for it",
+  assigned: "Assigned to you",
+  reviewer: "You review it",
+  watcher: "You are watching it",
+});
+
+/** What a task's facts say together: the role, how urgent it is, and whether it carries a date. */
 function taskDetail(facts: Facts): string | null {
   const priority = text(facts, "priority");
+  const role = text(facts, "role");
   const parts: string[] = [];
+  if (role !== null) parts.push(TASK_ROLE_LABEL[role] ?? role);
   if (priority !== null) parts.push(TASK_PRIORITY_LABEL[priority] ?? priority);
   if (boolean(facts, "dated") === true) parts.push("has a due date");
   return parts.length === 0 ? null : parts.join(" · ");
@@ -228,10 +239,12 @@ const KIND_PRESENTATION: Readonly<Record<string, KindPresentation>> = Object.fre
   "calendar.event.scheduled": { title: "Event scheduled" },
   "calendar.event.rescheduled": { title: "Event moved" },
   "calendar.event.cancelled": { title: "Event cancelled" },
-  "tasks.task.assigned": { title: "Task assigned to you", detail: taskDetail },
-  "tasks.task.reassigned": { title: "Task passed to you", detail: taskDetail },
-  "tasks.firmTask.assigned": { title: "Firm task assigned to you", detail: taskDetail },
-  "tasks.firmTask.reassigned": { title: "Firm task passed to you", detail: taskDetail },
+  // "Named" rather than "assigned", because the detail line says which role: a task can name
+  // somebody as responsible, assigned, a reviewer or a watcher, and only one of those is "assigned".
+  "tasks.task.assigned": { title: "You were named on a task", detail: taskDetail },
+  "tasks.task.reassigned": { title: "You were added to a task", detail: taskDetail },
+  "tasks.firmTask.assigned": { title: "You were named on a firm task", detail: taskDetail },
+  "tasks.firmTask.reassigned": { title: "You were added to a firm task", detail: taskDetail },
   "deadlines.deadline.due": { title: "Deadline due" },
   "deadlines.deadline.overdue": { title: "Deadline overdue", detail: overdueBy },
   "custody.review.due": { title: "Custody review due", detail: overdueBy },

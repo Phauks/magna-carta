@@ -18,6 +18,14 @@
    * POINTS AT it rather than making a second copy of it. Upload is the second source, for the file
    * that is not in the matter yet. A document this record already carries is not offered again.
    *
+   * THE SOURCES SIT ABOVE THE LIST, at the top of the pane. They used to sit under it, which put
+   * the one control a reader opens the tab for beneath however many files the record already
+   * carries, and the picker's list was capped at a height that showed one document at a time —
+   * the owner's correction of 2026-09-16 ("attaching items from the matter should be on the top
+   * of the right side, i can only see one item at a time"). The picker now takes the height the
+   * floating surface has room for, on the combobox viewport's own rule, and the act comes first;
+   * what is already attached reads beneath it.
+   *
    * The tab is DOMAIN-BLIND. It is the same tab on every kind of record, so nothing here names one:
    * a record hands over its attachments and its verbs, and this presents them.
    */
@@ -171,6 +179,113 @@
   class={mergeClasses("mc-record-attachments", className)}
   {...restProps}
 >
+  {#if listIsReadable}
+    <div class="mc-record-attachments-sources">
+      <!--
+        The matter's own documents are offered FIRST, because most of the time the file is already
+        filed and picking it points at it rather than making a second copy.
+      -->
+      <Popover.Root bind:open={searchingDocuments}>
+        <Popover.Trigger
+          disabled={!canSearchDocuments}
+          title={canSearchDocuments
+            ? undefined
+            : (documentSourceDisabledReason ?? attachDisabledReason)}
+          class={mergeClasses(
+            buttonClasses({ variant: "secondary", size: "default" }),
+            "mc-record-attachments-source w-full",
+          )}
+        >
+          <FolderSearch class="mc-record-attachments-source-icon" aria-hidden="true" />
+          From the Matter…
+        </Popover.Trigger>
+        <Popover.Content class="w-sm p-0">
+          {#if offeredCount === 0}
+            <!--
+              Two ways to have nothing on offer, and they call for different sentences: a matter
+              with no documents in it at all, and a matter whose documents are all on this record
+              already. Telling a reader "no results" for the second one would read as a defect.
+            -->
+            <p class="mc-record-attachments-picker-note">
+              {documentSource.length === 0
+                ? "This matter holds no documents yet. Upload one to attach it."
+                : "Every document in this matter is already attached to this record."}
+            </p>
+          {:else}
+            <!-- The palette's own border and ground go: the popover surface already carries both. -->
+            <Command.Root label="Search this matter's documents" class="border-0 bg-transparent">
+              <!--
+                The ghost text is the FIELD'S NAME, never an instruction: it disappears the moment
+                someone types, which is exactly when an instruction would be needed. The leading
+                search glyph is what says the field searches.
+              -->
+              <Command.Input placeholder="Documents" aria-label="Documents" />
+              <!-- As tall as the floating surface has room for, up to a screen of documents — the
+                   combobox viewport's own rule. A spacing utility capped this at 64 pixels, which
+                   is one row. -->
+              <Command.List
+                style="max-height: min(var(--bits-floating-available-height, 18rem), 18rem)"
+              >
+                <Command.Viewport>
+                  <Command.Empty>No document matches that search.</Command.Empty>
+                  {#each offeredFolders as folder (folder.identifier)}
+                    <Command.Group>
+                      <Command.GroupHeading>{folder.name}</Command.GroupHeading>
+                      <Command.GroupItems>
+                        {#each folder.documents as offered (offered.identifier)}
+                          <Command.Item
+                            value={offered.identifier}
+                            keywords={attachableDocumentKeywords(offered, folder)}
+                            onSelect={() => chooseDocument(offered)}
+                            class="mc-record-attachments-picker-item"
+                          >
+                            <FileIcon
+                              contentType={offered.contentType}
+                              fileName={offered.name}
+                              class="mc-record-attachments-picker-item-icon"
+                            />
+                            <span class="mc-record-attachments-picker-item-name">
+                              {offered.name}
+                            </span>
+                          </Command.Item>
+                        {/each}
+                      </Command.GroupItems>
+                    </Command.Group>
+                  {/each}
+                </Command.Viewport>
+              </Command.List>
+            </Command.Root>
+          {/if}
+        </Popover.Content>
+      </Popover.Root>
+
+      <!--
+        The second source, offered only by a record kind that can actually take an upload. It is the
+        shared upload surface rather than a bare button so a file can be dragged onto it as well as
+        chosen, and so the control that opens the picker is a real, named input a keyboard reaches.
+
+        A record whose only source is the matter's own files gets no dropzone at all. Rendering one
+        that silently swallows the file is worse than not offering it: the person watches their
+        document go in, sees nothing attached, and has no way to tell that from a failure.
+      -->
+      {#if onAttachUpload}
+        <Dropzone
+          multiple
+          disabled={!canEdit}
+          label="Upload a file from this computer"
+          prompt="Upload…"
+          onFiles={(files) => onAttachUpload(files)}
+        />
+      {/if}
+
+      {#if !canEdit && attachDisabledReason !== undefined}
+        <p class="mc-record-attachments-refusal">{attachDisabledReason}</p>
+      {:else if !canSearchDocuments && documentSourceDisabledReason !== undefined}
+        <p class="mc-record-attachments-refusal">{documentSourceDisabledReason}</p>
+      {/if}
+    </div>
+  {/if}
+
   {#if errorMessage !== undefined}
     <Alert.Root variant="danger">
       <Alert.Title>The Attachments Could Not Be Loaded</Alert.Title>
@@ -268,107 +383,6 @@
     <div class="mc-record-attachments-preview">{@render preview()}</div>
   {/if}
 
-  {#if listIsReadable}
-    <div class="mc-record-attachments-sources">
-      <!--
-        The matter's own documents are offered FIRST, because most of the time the file is already
-        filed and picking it points at it rather than making a second copy.
-      -->
-      <Popover.Root bind:open={searchingDocuments}>
-        <Popover.Trigger
-          disabled={!canSearchDocuments}
-          title={canSearchDocuments
-            ? undefined
-            : (documentSourceDisabledReason ?? attachDisabledReason)}
-          class={mergeClasses(
-            buttonClasses({ variant: "secondary", size: "default" }),
-            "mc-record-attachments-source w-full",
-          )}
-        >
-          <FolderSearch class="mc-record-attachments-source-icon" aria-hidden="true" />
-          From the Matter…
-        </Popover.Trigger>
-        <Popover.Content class="w-80 p-0">
-          {#if offeredCount === 0}
-            <!--
-              Two ways to have nothing on offer, and they call for different sentences: a matter
-              with no documents in it at all, and a matter whose documents are all on this record
-              already. Telling a reader "no results" for the second one would read as a defect.
-            -->
-            <p class="mc-record-attachments-picker-note">
-              {documentSource.length === 0
-                ? "This matter holds no documents yet. Upload one to attach it."
-                : "Every document in this matter is already attached to this record."}
-            </p>
-          {:else}
-            <!-- The palette's own border and ground go: the popover surface already carries both. -->
-            <Command.Root label="Search this matter's documents" class="border-0 bg-transparent">
-              <!--
-                The ghost text is the FIELD'S NAME, never an instruction: it disappears the moment
-                someone types, which is exactly when an instruction would be needed. The leading
-                search glyph is what says the field searches.
-              -->
-              <Command.Input placeholder="Documents" aria-label="Documents" />
-              <Command.List class="max-h-64">
-                <Command.Viewport>
-                  <Command.Empty>No document matches that search.</Command.Empty>
-                  {#each offeredFolders as folder (folder.identifier)}
-                    <Command.Group>
-                      <Command.GroupHeading>{folder.name}</Command.GroupHeading>
-                      <Command.GroupItems>
-                        {#each folder.documents as offered (offered.identifier)}
-                          <Command.Item
-                            value={offered.identifier}
-                            keywords={attachableDocumentKeywords(offered, folder)}
-                            onSelect={() => chooseDocument(offered)}
-                            class="mc-record-attachments-picker-item"
-                          >
-                            <FileIcon
-                              contentType={offered.contentType}
-                              fileName={offered.name}
-                              class="mc-record-attachments-picker-item-icon"
-                            />
-                            <span class="mc-record-attachments-picker-item-name">
-                              {offered.name}
-                            </span>
-                          </Command.Item>
-                        {/each}
-                      </Command.GroupItems>
-                    </Command.Group>
-                  {/each}
-                </Command.Viewport>
-              </Command.List>
-            </Command.Root>
-          {/if}
-        </Popover.Content>
-      </Popover.Root>
-
-      <!--
-        The second source, offered only by a record kind that can actually take an upload. It is the
-        shared upload surface rather than a bare button so a file can be dragged onto it as well as
-        chosen, and so the control that opens the picker is a real, named input a keyboard reaches.
-
-        A record whose only source is the matter's own files gets no dropzone at all. Rendering one
-        that silently swallows the file is worse than not offering it: the person watches their
-        document go in, sees nothing attached, and has no way to tell that from a failure.
-      -->
-      {#if onAttachUpload}
-        <Dropzone
-          multiple
-          disabled={!canEdit}
-          label="Upload a file from this computer"
-          prompt="Upload…"
-          onFiles={(files) => onAttachUpload(files)}
-        />
-      {/if}
-
-      {#if !canEdit && attachDisabledReason !== undefined}
-        <p class="mc-record-attachments-refusal">{attachDisabledReason}</p>
-      {:else if !canSearchDocuments && documentSourceDisabledReason !== undefined}
-        <p class="mc-record-attachments-refusal">{documentSourceDisabledReason}</p>
-      {/if}
-    </div>
-  {/if}
 </div>
 
 <!--

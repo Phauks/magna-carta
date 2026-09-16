@@ -1,9 +1,14 @@
 import { CIVIL_DATE_PATTERN, isCivilDate } from "@magna-carta/civil-time/civil-date";
 import { isResolvableTimeZone } from "@magna-carta/civil-time/time-zone";
 import { isWallClockTime } from "@magna-carta/civil-time/wall-clock";
+import type { UserId } from "@magna-carta/identifiers/types";
 import {
   DEFAULT_PLAN_DUE_ANCHOR,
   MAX_ARCHIVE_REASON_LENGTH,
+  MAX_CHECKLIST_ITEM_TITLE_LENGTH,
+  MAX_TASK_PARTICIPANTS,
+  TASK_PARTICIPANT_ROLES,
+  type TaskParticipantRole,
   MAX_PLAN_DESCRIPTION_LENGTH,
   MAX_PLAN_NAME_LENGTH,
   MAX_PLAN_OFFSET_DAYS,
@@ -41,6 +46,18 @@ export type TaskValidationCode =
   // that nobody can explain is worse than a refusal somebody can act on.
   | "task-unknown-assignee"
   | "task-assignee-cannot-see-matter"
+  // The people on a task. A role outside the four, the same person named twice, more people than a
+  // task carries, and naming somebody else in a work role without the permission that governs it.
+  | "task-unknown-role"
+  | "task-duplicate-participant"
+  | "task-too-many-participants"
+  | "task-assignment-needs-permission"
+  // The checklist. A blank line, a line over the ceiling, more lines than a task carries, and a
+  // line this reader cannot reach.
+  | "checklist-empty-title"
+  | "checklist-title-too-long"
+  | "checklist-too-many-items"
+  | "checklist-unknown-item"
   // Moves that do not apply where the task stands.
   | "task-not-open"
   | "task-not-done"
@@ -148,6 +165,66 @@ export function normalizeArchiveReason(reason: string | null | undefined): strin
     refuse(
       "task-archive-reason-too-long",
       `an archive reason is at most ${String(MAX_ARCHIVE_REASON_LENGTH)} characters; a longer explanation belongs in the task body`,
+    );
+  }
+  return normalized;
+}
+
+/** The role a caller named, refused by name rather than by silently landing on a default. */
+export function normalizeParticipantRole(role: string): TaskParticipantRole {
+  if (!(TASK_PARTICIPANT_ROLES as readonly string[]).includes(role)) {
+    refuse(
+      "task-unknown-role",
+      `${role} is not a role on a task; the four are ${TASK_PARTICIPANT_ROLES.join(", ")}`,
+    );
+  }
+  return role as TaskParticipantRole;
+}
+
+/** One person on a task, as a caller names them. */
+export interface TaskParticipantInput {
+  readonly userId: string;
+  readonly role: string;
+}
+
+/**
+ * The people a task will carry, as the service takes them: each role checked, each person named
+ * once, and no more of them than a task holds. A person named twice — even in the same role — is
+ * refused rather than folded, because the second naming is almost always a different role and
+ * silently keeping one of the two would put somebody on the task in a role nobody chose.
+ */
+export function normalizeParticipants(
+  participants: readonly TaskParticipantInput[],
+): readonly { readonly userId: UserId; readonly role: TaskParticipantRole }[] {
+  if (participants.length > MAX_TASK_PARTICIPANTS) {
+    refuse(
+      "task-too-many-participants",
+      `a task carries at most ${String(MAX_TASK_PARTICIPANTS)} people`,
+    );
+  }
+  const seen = new Set<string>();
+  return participants.map((participant) => {
+    const userId = participant.userId.trim();
+    if (seen.has(userId)) {
+      refuse(
+        "task-duplicate-participant",
+        "a person holds one role on a task; name them once, in the role they hold",
+      );
+    }
+    seen.add(userId);
+    return { userId: userId as UserId, role: normalizeParticipantRole(participant.role) };
+  });
+}
+
+// A checklist line as it will be stored. Trimmed at the edges; a blank line is refused rather than
+// stored, because a list with an empty line in it is a list with a gap nobody can tick.
+export function normalizeChecklistTitle(title: string): string {
+  const normalized = title.trim();
+  if (normalized.length === 0) refuse("checklist-empty-title", "a checklist line says what to do");
+  if (normalized.length > MAX_CHECKLIST_ITEM_TITLE_LENGTH) {
+    refuse(
+      "checklist-title-too-long",
+      `a checklist line is at most ${String(MAX_CHECKLIST_ITEM_TITLE_LENGTH)} characters; a longer step belongs in the task's description`,
     );
   }
   return normalized;

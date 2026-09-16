@@ -5,7 +5,7 @@ import {
   createMatterTask,
   deleteMatterTask,
   editMatterTask,
-  reassignMatterTask,
+  setMatterTaskParticipants,
 } from "../src/task-service.ts";
 import {
   findTaskByExternalId,
@@ -61,7 +61,7 @@ async function makeTask(
 ): Promise<MatterTaskId> {
   const created = await createMatterTask(
     database,
-    { matterId: MATTER, title, assigneeUserId: ACTOR },
+    { matterId: MATTER, title, participants: [{ userId: ACTOR, role: "assigned" }] },
     serviceOptions,
   );
   await commit(database, created.effect);
@@ -278,7 +278,11 @@ describe("a task's identity in a system that is not this one", () => {
     const database = setup();
     const created = await createMatterTask(
       database,
-      { matterId: null, title: "Renew the policy", assigneeUserId: ACTOR },
+      {
+        matterId: null,
+        title: "Renew the policy",
+        participants: [{ userId: ACTOR, role: "assigned" }],
+      },
       options,
     );
     await commit(database, created.effect);
@@ -297,7 +301,7 @@ describe("a task's identity in a system that is not this one", () => {
       viewerUserId: ACTOR,
     });
     expect(mine?.taskId).toBe(created.taskId);
-    // A task on no matter is private to its assignee and its creator; the colleague is neither.
+    // A task on no matter is private to the people on it and its creator; the colleague is neither.
     const theirs = await findTaskByExternalId(database, "clickup", "firmwork", {
       visibility,
       viewerUserId: COLLEAGUE,
@@ -309,7 +313,11 @@ describe("a task's identity in a system that is not this one", () => {
     const database = setup();
     const created = await createMatterTask(
       database,
-      { matterId: null, title: "Renew the policy", assigneeUserId: ACTOR },
+      {
+        matterId: null,
+        title: "Renew the policy",
+        participants: [{ userId: ACTOR, role: "assigned" }],
+      },
       options,
     );
     await commit(database, created.effect);
@@ -334,9 +342,15 @@ describe("who touched it last", () => {
     await commit(
       database,
       (
-        await reassignMatterTask(database, taskId, COLLEAGUE, {
-          ...colleagueOptions,
-        })
+        await setMatterTaskParticipants(
+          database,
+          taskId,
+          [
+            { userId: ACTOR, role: "assigned" },
+            { userId: COLLEAGUE, role: "watcher" },
+          ],
+          { ...colleagueOptions },
+        )
       ).effect,
     );
     const second = await readTaskChanges(database, { limit: 50, visibility, viewerUserId: ACTOR });
@@ -451,7 +465,11 @@ describe("what moved since I last looked", () => {
     const database = setup();
     const created = await createMatterTask(
       database,
-      { matterId: null, title: "Renew the policy", assigneeUserId: ACTOR },
+      {
+        matterId: null,
+        title: "Renew the policy",
+        participants: [{ userId: ACTOR, role: "assigned" }],
+      },
       options,
     );
     await commit(database, created.effect);
@@ -480,7 +498,11 @@ describe("what moved since I last looked", () => {
     const database = setup();
     const created = await createMatterTask(
       database,
-      { matterId: OTHER_MATTER, title: "Elsewhere", assigneeUserId: ACTOR },
+      {
+        matterId: OTHER_MATTER,
+        title: "Elsewhere",
+        participants: [{ userId: ACTOR, role: "assigned" }],
+      },
       options,
     );
     await commit(database, created.effect);

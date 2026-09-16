@@ -40,14 +40,57 @@ export type TaskRung = (typeof TASK_RUNGS)[number];
 /** The three rungs that mean the work is still owed. */
 export const OPEN_RUNGS = ["to_do", "in_progress", "on_hold"] as const;
 
+/*
+ * THE PEOPLE ON A TASK, each in one role, in the order a list reads them: who answers for the
+ * work, who does it, who reviews it before it counts, and who only wants to hear about it. A role
+ * is who is told and whose list the task is on; it is never a permission and never a gate.
+ */
+export const TASK_PARTICIPANT_ROLES = ["responsible", "assigned", "reviewer", "watcher"] as const;
+export type TaskParticipantRole = (typeof TASK_PARTICIPANT_ROLES)[number];
+
+/** The roles that put work in somebody's name; naming another member in one needs tasks:assign. */
+export const TASK_WORK_ROLES = ["responsible", "assigned", "reviewer"] as const;
+
+export interface TaskParticipant {
+  /** The row's own identity. */
+  id: string;
+  userId: string;
+  role: TaskParticipantRole;
+  addedBy: string | null;
+  addedAt: string;
+}
+
+/** One person as a write names them: who, and in what role. */
+export interface TaskParticipantInput {
+  userId: string;
+  role: TaskParticipantRole;
+}
+
+/** One line of the flat checklist inside a task. Not a task: no people, no date, no priority. */
+export interface TaskChecklistItem {
+  id: string;
+  title: string;
+  position: number;
+  /** Ticked: who and when, or neither. */
+  doneAt: string | null;
+  doneBy: string | null;
+  createdBy: string;
+  createdAt: string;
+}
+
 export interface MatterTask {
   id: string;
   /** Null on a task that belongs to no client file. */
   matterId: string | null;
+  /** The matter as a reader names it. Both null on a task with no matter. */
+  matterTitle: string | null;
+  matterNumber: string | null;
   title: string;
   body: string | null;
-  /** Null on a task nobody has picked up, which is a real state rather than a defect. */
-  assigneeUserId: string | null;
+  /** Everybody on the task, in reading order. Empty on a task nobody has picked up. */
+  participants: TaskParticipant[];
+  /** The checklist, in order. */
+  checklist: TaskChecklistItem[];
   createdBy: string;
   priority: TaskPriority;
   /** A civil date. Null on a task nobody has scheduled, which is the ordinary case. */
@@ -166,7 +209,8 @@ export interface TaskListFilters {
   rungs?: readonly TaskRung[];
   includeArchived?: boolean;
   priorities?: readonly TaskPriority[];
-  assigneeUserId?: string;
+  /** Only the tasks this member is on, in any role. */
+  participantUserId?: string;
   dueFrom?: string;
   dueTo?: string;
   search?: string;
@@ -183,7 +227,9 @@ function filterQuery(filters: TaskListFilters, cursor?: string): string {
   if (filters.priorities !== undefined && filters.priorities.length > 0) {
     query.set("priority", filters.priorities.join(","));
   }
-  if (filters.assigneeUserId !== undefined) query.set("assigneeUserId", filters.assigneeUserId);
+  if (filters.participantUserId !== undefined) {
+    query.set("participantUserId", filters.participantUserId);
+  }
   if (filters.dueFrom !== undefined) query.set("dueFrom", filters.dueFrom);
   if (filters.dueTo !== undefined) query.set("dueTo", filters.dueTo);
   const search = filters.search?.trim();
@@ -220,9 +266,19 @@ export function listMyTasks(
   return requestJson(fetchImpl, `/api/v1/tasks${filterQuery(filters, cursor)}`);
 }
 
+/** One task by its handle, for a deep link that names it. Read the way the lists read it. */
+export function readTask(fetchImpl: typeof fetch, taskId: string): Promise<ApiOutcome<MatterTask>> {
+  return requestJson(fetchImpl, `/api/v1/tasks/${encodeURIComponent(taskId)}`);
+}
+
 export function createTask(
   fetchImpl: typeof fetch,
-  task: TaskContentInput & { matterId: string | null; assigneeUserId?: string | null },
+  task: TaskContentInput & {
+    matterId: string | null;
+    participants?: readonly TaskParticipantInput[];
+    /** The lines the task starts with, written in the same batch as the task. */
+    checklist?: readonly string[];
+  },
   idempotencyKey: string,
 ): Promise<ApiOutcome<{ id: string }>> {
   return requestJson(fetchImpl, "/api/v1/tasks", {
@@ -246,16 +302,59 @@ export function editTask(
   });
 }
 
-/** Puts the task in a member's name, or takes it out of everybody's with null. */
-export function reassignTask(
+/**
+ * Replaces the people on the task, as one set. Whoever joins is told in the role they joined in;
+ * naming somebody else in a work role needs the assign permission, adding a watcher does not.
+ */
+export function setTaskParticipants(
   fetchImpl: typeof fetch,
   taskId: string,
-  assigneeUserId: string | null,
+  participants: readonly TaskParticipantInput[],
   idempotencyKey: string,
 ): Promise<ApiOutcome<{ ok: true }>> {
-  return requestJson(fetchImpl, `/api/v1/tasks/${encodeURIComponent(taskId)}/assignee`, {
+  return requestJson(fetchImpl, `/api/v1/tasks/${encodeURIComponent(taskId)}/participants`, {
     method: "PUT",
-    body: { assigneeUserId },
+    body: { participants },
+    idempotencyKey,
+  });
+}
+
+/** Adds a line to the end of the task's checklist. */
+export function addChecklistItem(
+  fetchImpl: typeof fetch,
+  taskId: string,
+  title: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ id: string }>> {
+  return requestJson(fetchImpl, `/api/v1/tasks/${encodeURIComponent(taskId)}/checklist`, {
+    method: "POST",
+    body: { title },
+    idempotencyKey,
+  });
+}
+
+/** Changes a line: its words, whether it is ticked, or where it sits. An omitted field stays. */
+export function editChecklistItem(
+  fetchImpl: typeof fetch,
+  itemId: string,
+  change: { title?: string; done?: boolean; position?: number },
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ ok: true }>> {
+  return requestJson(fetchImpl, `/api/v1/task-checklist-items/${encodeURIComponent(itemId)}`, {
+    method: "PATCH",
+    body: change,
+    idempotencyKey,
+  });
+}
+
+/** Removes a line. The task is untouched. */
+export function deleteChecklistItem(
+  fetchImpl: typeof fetch,
+  itemId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ ok: true }>> {
+  return requestJson(fetchImpl, `/api/v1/task-checklist-items/${encodeURIComponent(itemId)}`, {
+    method: "DELETE",
     idempotencyKey,
   });
 }
@@ -392,3 +491,35 @@ export const RUNG_LABELS: Readonly<Record<TaskRung, string>> = Object.freeze({
   on_hold: "On Hold",
   done: "Done",
 });
+
+/** The reader-facing name of each role, singular, as a field is labelled and a chip is captioned. */
+export const ROLE_LABELS: Readonly<Record<TaskParticipantRole, string>> = Object.freeze({
+  responsible: "Responsible",
+  assigned: "Assigned",
+  reviewer: "Reviewer",
+  watcher: "Watcher",
+});
+
+/** What each role means, in the words a field's hover uses. */
+export const ROLE_DESCRIPTIONS: Readonly<Record<TaskParticipantRole, string>> = Object.freeze({
+  responsible: "Answers for the work getting done.",
+  assigned: "Does the work.",
+  reviewer: "Checks the work before it counts as done.",
+  watcher: "Hears when the task moves, and owes nothing.",
+});
+
+/** The people on a task in one role, by account identifier. */
+export function participantsInRole(task: MatterTask, role: TaskParticipantRole): string[] {
+  return task.participants
+    .filter((participant) => participant.role === role)
+    .map((participant) => participant.userId);
+}
+
+/** How far a task's checklist has come: ticked and total, or null where there is no checklist. */
+export function checklistProgress(task: MatterTask): { done: number; total: number } | null {
+  if (task.checklist.length === 0) return null;
+  return {
+    done: task.checklist.filter((item) => item.doneAt !== null).length,
+    total: task.checklist.length,
+  };
+}

@@ -15469,6 +15469,18 @@
               "null"
             ]
           },
+          "matterTitle": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "title": {
             "type": "string"
           },
@@ -15478,11 +15490,17 @@
               "null"
             ]
           },
-          "assigneeUserId": {
-            "type": [
-              "string",
-              "null"
-            ]
+          "participants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterTaskParticipant"
+            }
+          },
+          "checklist": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterTaskChecklistItem"
+            }
           },
           "createdBy": {
             "type": "string"
@@ -15602,9 +15620,12 @@
         "required": [
           "id",
           "matterId",
+          "matterTitle",
+          "matterNumber",
           "title",
           "body",
-          "assigneeUserId",
+          "participants",
+          "checklist",
           "createdBy",
           "priority",
           "dueOn",
@@ -15625,6 +15646,83 @@
           "timeLogged",
           "createdAt",
           "updatedAt"
+        ]
+      },
+      "MatterTaskParticipant": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "responsible",
+              "assigned",
+              "reviewer",
+              "watcher"
+            ]
+          },
+          "addedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "addedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "role",
+          "addedBy",
+          "addedAt"
+        ]
+      },
+      "MatterTaskChecklistItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "position": {
+            "type": "integer"
+          },
+          "doneAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "doneBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdBy": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "position",
+          "doneAt",
+          "doneBy",
+          "createdBy",
+          "createdAt"
         ]
       },
       "MatterTaskDocument": {
@@ -15915,12 +16013,21 @@
             ],
             "pattern": "^matter_[A-Za-z0-9_-]{21}$"
           },
-          "assigneeUserId": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "pattern": "^user_[A-Za-z0-9_-]{21}$"
+          "participants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterTaskParticipantInput"
+            },
+            "maxItems": 50
+          },
+          "checklist": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "maxItems": 100
           },
           "title": {
             "type": "string",
@@ -15994,6 +16101,29 @@
         "required": [
           "matterId",
           "title"
+        ]
+      },
+      "MatterTaskParticipantInput": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "pattern": "^user_[A-Za-z0-9_-]{21}$"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "responsible",
+              "assigned",
+              "reviewer",
+              "watcher"
+            ],
+            "description": "responsible answers for the work; assigned does it; reviewer checks it before it counts; watcher only hears when it moves. One role per person per task."
+          }
+        },
+        "required": [
+          "userId",
+          "role"
         ]
       },
       "EditMatterTaskRequest": {
@@ -16072,20 +16202,50 @@
           "title"
         ]
       },
-      "ReassignMatterTaskRequest": {
+      "SetMatterTaskParticipantsRequest": {
         "type": "object",
         "properties": {
-          "assigneeUserId": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "pattern": "^user_[A-Za-z0-9_-]{21}$"
+          "participants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterTaskParticipantInput"
+            },
+            "maxItems": 50
           }
         },
         "required": [
-          "assigneeUserId"
+          "participants"
         ]
+      },
+      "AddMatterTaskChecklistItemRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "title"
+        ]
+      },
+      "EditMatterTaskChecklistItemRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "done": {
+            "type": "boolean"
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
       },
       "MoveMatterTaskRequest": {
         "type": "object",
@@ -66384,10 +66544,12 @@
           },
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "description": "Only the tasks this member is on, in any role — the reader's own list on a screen that spans the firm. A watcher's tasks count as theirs."
             },
             "required": false,
-            "name": "assigneeUserId",
+            "description": "Only the tasks this member is on, in any role — the reader's own list on a screen that spans the firm. A watcher's tasks count as theirs.",
+            "name": "participantUserId",
             "in": "query"
           },
           {
@@ -66475,7 +66637,7 @@
     },
     "/api/v1/tasks": {
       "get": {
-        "description": "Every task this member can reach, across the matters they can see and their own work on no matter. Filter by assignee to get one person's list. Tasks on closed matters are left out unless asked for: closing a matter changes no task, so this is a filter and reopening the matter brings them back.",
+        "description": "Every task this member can reach, across the matters they can see and their own work on no matter. Filter by participant to get one person's list. Tasks on closed matters are left out unless asked for: closing a matter changes no task, so this is a filter and reopening the matter brings them back.",
         "operationId": "tasks.listMyTasks",
         "tags": [
           "tasks"
@@ -66538,10 +66700,12 @@
           },
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "description": "Only the tasks this member is on, in any role — the reader's own list on a screen that spans the firm. A watcher's tasks count as theirs."
             },
             "required": false,
-            "name": "assigneeUserId",
+            "description": "Only the tasks this member is on, in any role — the reader's own list on a screen that spans the firm. A watcher's tasks count as theirs.",
+            "name": "participantUserId",
             "in": "query"
           },
           {
@@ -67481,6 +67645,89 @@
           }
         }
       },
+      "get": {
+        "description": "One task, as the lists carry it, for a deep link that names it. The same visibility as any other task read: a task the caller cannot see answers not-found, the same as one that does not exist.",
+        "operationId": "tasks.readTask",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.readTask",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterTask_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "taskId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The task",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterTaskDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
       "delete": {
         "description": "Deletes a task outright, for one that should not exist: a typo, a duplicate, a line somebody abandoned. Anything waiting on it stops waiting. Documents it pointed at are untouched and stay in the matter's files. Where the work is simply not happening, archive the task instead: archiving keeps it and everything it carries, and deleting does not.",
         "operationId": "tasks.deleteTask",
@@ -67608,17 +67855,17 @@
         }
       }
     },
-    "/api/v1/tasks/{taskId}/assignee": {
+    "/api/v1/tasks/{taskId}/participants": {
       "put": {
-        "description": "Puts the task in a member's name, or takes it out of everybody's with null. The member must be able to see the task's matter: a task somebody cannot open is a hole in their list. Moving a task does not move its due date, even across offices in different time zones.",
-        "operationId": "tasks.reassignTask",
+        "description": "Replaces the people on the task: who is responsible for it, who is assigned to do it, who reviews it, and who watches it. Send the whole list as it should stand; whoever joins is told, in the role they joined in, and whoever's role moved is told too. Every member named must be able to see the task's matter. Naming somebody other than yourself in a work role (responsible, assigned, reviewer), or taking them out of one, needs the assign permission; taking a task yourself and adding or removing watchers does not. Moving a task does not move its due date, even across offices in different time zones.",
+        "operationId": "tasks.setTaskParticipants",
         "tags": [
           "tasks"
         ],
-        "x-mc-operationId": "tasks.reassignTask",
+        "x-mc-operationId": "tasks.setTaskParticipants",
         "x-mc-surface": "app",
         "x-mc-authenticated": true,
-        "x-mc-permission": "tasks:assign",
+        "x-mc-permission": "tasks:write",
         "x-mc-resource": "firm",
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
@@ -67653,14 +67900,408 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReassignMatterTaskRequest"
+                "$ref": "#/components/schemas/SetMatterTaskParticipantsRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "The task was reassigned",
+            "description": "The task's people were replaced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterTaskAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{taskId}/checklist": {
+      "post": {
+        "description": "Adds a line to the end of the task's checklist. A line is a step somebody ticks, never a task of its own: it has no people, no date and no priority, and ticking every line completes nothing — the task's rung is moved separately.",
+        "operationId": "tasks.addTaskChecklistItem",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.addTaskChecklistItem",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:write",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterTask_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "taskId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddMatterTaskChecklistItemRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The line",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedMatterTask"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/task-checklist-items/{itemId}": {
+      "patch": {
+        "description": "Changes a checklist line: its words, whether it is ticked, or where it sits. An omitted field stays as it is. Ticking records who ticked it and when; ticking an already ticked line keeps the first tick.",
+        "operationId": "tasks.editTaskChecklistItem",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.editTaskChecklistItem",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:write",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterTaskChecklistItem_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "itemId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditMatterTaskChecklistItemRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The line was changed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterTaskAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Removes a checklist line. The task itself is untouched.",
+        "operationId": "tasks.deleteTaskChecklistItem",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.deleteTaskChecklistItem",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:write",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "tasks.addTaskChecklistItem"
+        },
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterTaskChecklistItem_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "itemId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The line was removed",
             "content": {
               "application/json": {
                 "schema": {

@@ -11,9 +11,12 @@ function task(over: Partial<MatterTask> = {}): MatterTask {
   return {
     id: "task_aaaaaaaaaaaaaaaaaaaaa",
     matterId: "matter_aaaaaaaaaaaaaaaaaaaaa",
+    matterTitle: "Kowalski v. Reno Transit",
+    matterNumber: null,
     title: "Draft the responses to the first set of interrogatories",
     body: null,
-    assigneeUserId: null,
+    participants: [],
+    checklist: [],
     createdBy: "user_aaaaaaaaaaaaaaaaaaaaa",
     priority: "normal",
     dueOn: null,
@@ -40,7 +43,7 @@ function task(over: Partial<MatterTask> = {}): MatterTask {
 
 const CONTEXT = {
   matterTitle: "Kowalski v. Reno Transit",
-  assigneeName: "Dana Whitfield",
+  nameOf: (userId: string | null) => (userId === null ? "Nobody" : "Dana Whitfield"),
   authorName: "Trevor Goldsmith",
   completedByName: null,
   archivedByName: null,
@@ -149,14 +152,14 @@ describe("taskSheet", () => {
     expect(valueOf(withTime, "Time Logged")).toBe("1h 30m");
   });
 
-  it("carries no detail section for a task with no detail on it", () => {
+  it("carries no description section for a task with no description on it", () => {
     expect(taskSheet(task(), CONTEXT).sections.map((section) => section.id)).toEqual([
       "standing",
       "documents",
     ]);
     expect(
       taskSheet(task({ body: "Cover both sets." }), CONTEXT).sections.map((section) => section.id),
-    ).toEqual(["standing", "detail", "documents"]);
+    ).toEqual(["standing", "description", "documents"]);
   });
 
   it("says None rather than an empty list where the task points at nothing", () => {

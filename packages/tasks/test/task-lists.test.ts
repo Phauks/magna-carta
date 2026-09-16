@@ -131,14 +131,26 @@ describe("the keyset walk", () => {
 });
 
 describe("the filters", () => {
-  it("narrows by state, priority, assignee and due window", async () => {
+  it("narrows by state, priority, participant and due window", async () => {
     const { database } = await seedTasks([
-      { title: "Mine", assigneeUserId: ACTOR, dueOn: "2026-09-15", timeZone: "UTC" },
-      { title: "Theirs", assigneeUserId: COLLEAGUE, dueOn: "2026-09-20", timeZone: "UTC" },
+      {
+        title: "Mine",
+        participants: [{ userId: ACTOR, role: "assigned" }],
+        dueOn: "2026-09-15",
+        timeZone: "UTC",
+      },
+      {
+        title: "Theirs",
+        participants: [{ userId: COLLEAGUE, role: "assigned" }],
+        dueOn: "2026-09-20",
+        timeZone: "UTC",
+      },
       { title: "Urgent", priority: "urgent", dueOn: "2026-10-01", timeZone: "UTC" },
     ]);
     expect(
-      (await listMatter(database, { filters: { assigneeUserId: ACTOR } })).map((row) => row.title),
+      (await listMatter(database, { filters: { participantUserId: ACTOR } })).map(
+        (row) => row.title,
+      ),
     ).toEqual(["Mine"]);
     expect(
       (await listMatter(database, { filters: { priorities: ["urgent"] } })).map((row) => row.title),

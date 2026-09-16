@@ -282,6 +282,12 @@ export const ENTITY_PREFIXES = {
   // leaves the document where it lives.
   matterTask: "matterTask",
   matterTaskDocument: "matterTaskDocument",
+  // The people on a task, each in a ROLE: responsible for it, assigned to do it, reviewing it, or
+  // watching it. One row per person per task, so "who is on this task and how" is a list rather
+  // than four nullable columns. A `matterTaskChecklistItem` is one line of the flat to-do list
+  // inside a task — a step somebody ticks, never a task of its own.
+  matterTaskParticipant: "matterTaskParticipant",
+  matterTaskChecklistItem: "matterTaskChecklistItem",
   // A task's identity in a system that is not this one. The platform ships no such system and never
   // will — this is the seam an ADDON writes through, so the `system` it names is open text rather
   // than an enum and adding a second one is not a migration. A `matterTaskDeletion` is the tombstone

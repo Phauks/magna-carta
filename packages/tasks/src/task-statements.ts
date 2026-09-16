@@ -7,14 +7,18 @@ import type {
   MatterId,
   MatterPlanTaskTemplateId,
   MatterPlanTemplateId,
+  MatterTaskChecklistItemId,
   MatterTaskDocumentId,
   MatterTaskId,
+  MatterTaskParticipantId,
   UserId,
 } from "@magna-carta/identifiers/types";
 import {
+  TASK_PARTICIPANT_ROLE_RANK,
   TASK_PRIORITY_RANK,
   columnsForRung,
   type TaskDue,
+  type TaskParticipantRole,
   type TaskPriority,
   type TaskProgress,
   type TaskRung,
@@ -25,6 +29,16 @@ import {
 // fitness test.
 export const MATTER_TASK_TABLE = "matter_task";
 export const MATTER_TASK_DOCUMENT_TABLE = "matter_task_document";
+export const MATTER_TASK_PARTICIPANT_TABLE = "matter_task_participant";
+export const MATTER_TASK_CHECKLIST_ITEM_TABLE = "matter_task_checklist_item";
+
+// "This member is on this task", as a fragment over the participant table. Composed by the
+// visibility branch below and by the list filter, so the two cannot disagree about what being on a
+// task means. Correlated on the outer matter_task row; the placeholder is the member.
+const ON_TASK_FRAGMENT =
+  `EXISTS (SELECT 1 FROM ${MATTER_TASK_PARTICIPANT_TABLE} ` +
+  `WHERE ${MATTER_TASK_PARTICIPANT_TABLE}.task_id = ${MATTER_TASK_TABLE}.id ` +
+  `AND ${MATTER_TASK_PARTICIPANT_TABLE}.user_id = ?)`;
 
 // ---- THE visibility branch, and the only place it exists ----
 
@@ -44,9 +58,10 @@ export const MATTER_TASK_DOCUMENT_TABLE = "matter_task_document";
 //   - A task ON A MATTER is firm-visible within that matter, screened by the same visible-matter
 //     predicate every calendar source composes. Not narrowed to the assignee: a colleague covering a
 //     file needs to see what is outstanding on it, and an assignee is not an access grant.
-//   - A task with NO MATTER is private to its assignee and whoever created it. There is no matter to
-//     screen it by, and a firm-wide default would put "review the associate's performance" in front
-//     of the associate.
+//   - A task with NO MATTER is private to the people on it and whoever created it. There is no
+//     matter to screen it by, and a firm-wide default would put "review the associate's
+//     performance" in front of the associate. "The people on it" is every role, watcher included:
+//     being added to the firm's own work in any role is what lets a member see it.
 export const MATTERLESS_TASK_MARKER = `${MATTER_TASK_TABLE}.matter_id IS NULL`;
 
 export interface TaskVisibility {
@@ -60,8 +75,8 @@ export function taskVisibilityFragment(
 ): TaskVisibility {
   return {
     condition:
-      `((${MATTERLESS_TASK_MARKER} AND (${MATTER_TASK_TABLE}.assignee_user_id = ? ` +
-      `OR ${MATTER_TASK_TABLE}.created_by = ?)) OR (${MATTER_TASK_TABLE}.matter_id IS NOT NULL AND ` +
+      `((${MATTERLESS_TASK_MARKER} AND (${MATTER_TASK_TABLE}.created_by = ? ` +
+      `OR ${ON_TASK_FRAGMENT})) OR (${MATTER_TASK_TABLE}.matter_id IS NOT NULL AND ` +
       `${visibility.fragmentFor(`${MATTER_TASK_TABLE}.matter_id`)}))`,
     bindings: [viewerUserId, viewerUserId, ...visibility.bindings],
   };
@@ -74,7 +89,8 @@ export interface MatterTaskRow {
   readonly matter_id: MatterId | null;
   readonly title: string;
   readonly body: string | null;
-  readonly assignee_user_id: UserId | null;
+  // The people are in matter_task_participant and are read beside the page (readTaskParticipants),
+  // never off this row. The retired one-name column is not projected: nothing reads it.
   readonly created_by: UserId;
   readonly priority: TaskPriority;
   readonly due_on: string | null;
@@ -122,6 +138,27 @@ export interface MatterTaskDocumentRow {
   readonly content_type: string | null;
 }
 
+export interface MatterTaskParticipantRow {
+  readonly id: MatterTaskParticipantId;
+  readonly task_id: MatterTaskId;
+  readonly user_id: UserId;
+  readonly role: TaskParticipantRole;
+  readonly added_by: UserId | null;
+  readonly added_at: string;
+}
+
+export interface MatterTaskChecklistItemRow {
+  readonly id: MatterTaskChecklistItemId;
+  readonly task_id: MatterTaskId;
+  readonly title: string;
+  readonly position: number;
+  readonly done_at: string | null;
+  readonly done_by: UserId | null;
+  readonly created_by: UserId;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
 // Exported so the change feed projects exactly what every other task read projects — a sync that
 // saw a different shape from the screen would be a second definition of what a task is.
 export const TASK_COLUMNS = [
@@ -129,7 +166,6 @@ export const TASK_COLUMNS = [
   "matter_id",
   "title",
   "body",
-  "assignee_user_id",
   "created_by",
   "priority",
   "due_on",
@@ -181,7 +217,6 @@ export interface InsertMatterTaskInput {
   readonly matterId: MatterId | null;
   readonly title: string;
   readonly body: string | null;
-  readonly assigneeUserId: UserId | null;
   readonly createdBy: UserId;
   readonly priority: TaskPriority;
   readonly due: TaskDue;
@@ -201,7 +236,9 @@ export function insertMatterTaskStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${MATTER_TASK_TABLE} (id, matter_id, title, body, assignee_user_id, created_by, ` +
+      // The retired one-name column is not in the list: it stays NULL on every row ever written
+      // from here on, and the people go into matter_task_participant in the same batch.
+      `INSERT INTO ${MATTER_TASK_TABLE} (id, matter_id, title, body, created_by, ` +
         `priority, due_on, due_at_time, time_zone, state, completed_at, completed_by, cancelled_at, ` +
         `cancelled_by, cancellation_reason, progress, archived_at, archived_by, archive_reason, ` +
         `blocked_by_task_id, trigger_event_id, deadline_id, ` +
@@ -212,16 +249,15 @@ export function insertMatterTaskStatement(
         // A fresh task is on the first rung, unarchived, and open. None of the three is a caller's
         // to set at creation: a task nobody has started is To Do, and one archived at birth is one
         // nobody should have written.
-        `VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 'open', NULL, NULL, NULL, NULL, NULL, ` +
+        `VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'open', NULL, NULL, NULL, NULL, NULL, ` +
         `'to_do', NULL, NULL, NULL, ` +
-        `?11, ?12, ?13, ?14, ?15, ?16, ?16, ?6)`,
+        `?10, ?11, ?12, ?13, ?14, ?15, ?15, ?5)`,
     )
     .bind(
       input.id,
       input.matterId,
       input.title,
       input.body,
-      input.assigneeUserId,
       input.createdBy,
       input.priority,
       input.due.dueOn,
@@ -282,24 +318,228 @@ export function updateMatterTaskStatement(
     );
 }
 
-// Reassignment is its own statement, and it moves the zone with the assignee only when the caller
-// supplies one. A task reassigned across offices keeps its due date and its zone otherwise, because
-// silently moving a due date by three hours on a reassignment is worse than a mismatch a person can
-// see and fix.
-export function reassignMatterTaskStatement(
+// The task CHANGED, though none of its own columns did: somebody joined or left it, or a checklist
+// line moved. Stamped so the change feed reports it — a mirror that missed a new watcher or a
+// ticked line would go on showing the task as it was — and so "who touched it last" stays true.
+export function touchMatterTaskStatement(
+  database: SqlDatabase,
+  input: { readonly id: MatterTaskId; readonly now: string; readonly actor: UserId },
+): SqlStatement {
+  return database
+    .prepare(`UPDATE ${MATTER_TASK_TABLE} SET updated_at = ?1, updated_by = ?2 WHERE id = ?3`)
+    .bind(input.now, input.actor, input.id);
+}
+
+// ---- the people on a task ----
+
+export function insertMatterTaskParticipantStatement(
   database: SqlDatabase,
   input: {
-    readonly id: MatterTaskId;
-    readonly assigneeUserId: UserId | null;
+    readonly id: MatterTaskParticipantId;
+    readonly taskId: MatterTaskId;
+    readonly userId: UserId;
+    readonly role: TaskParticipantRole;
+    readonly addedBy: UserId;
     readonly now: string;
-    readonly actor: UserId | null;
   },
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${MATTER_TASK_TABLE} SET assignee_user_id = ?1, updated_at = ?2, updated_by = ?3 WHERE id = ?4`,
+      `INSERT INTO ${MATTER_TASK_PARTICIPANT_TABLE} (id, task_id, user_id, role, added_by, added_at) ` +
+        `VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
     )
-    .bind(input.assigneeUserId, input.now, input.actor, input.id);
+    .bind(input.id, input.taskId, input.userId, input.role, input.addedBy, input.now);
+}
+
+// A person's role changes IN PLACE rather than by delete-and-insert, so the row keeps who first put
+// them on the task and when. Who changed the role is on the audit row in the same batch.
+export function updateMatterTaskParticipantRoleStatement(
+  database: SqlDatabase,
+  input: { readonly id: MatterTaskParticipantId; readonly role: TaskParticipantRole },
+): SqlStatement {
+  return database
+    .prepare(`UPDATE ${MATTER_TASK_PARTICIPANT_TABLE} SET role = ?1 WHERE id = ?2`)
+    .bind(input.role, input.id);
+}
+
+export function deleteMatterTaskParticipantStatement(
+  database: SqlDatabase,
+  id: MatterTaskParticipantId,
+): SqlStatement {
+  return database.prepare(`DELETE FROM ${MATTER_TASK_PARTICIPANT_TABLE} WHERE id = ?1`).bind(id);
+}
+
+export function deleteMatterTaskParticipantsStatement(
+  database: SqlDatabase,
+  taskId: MatterTaskId,
+): SqlStatement {
+  return database
+    .prepare(`DELETE FROM ${MATTER_TASK_PARTICIPANT_TABLE} WHERE task_id = ?1`)
+    .bind(taskId);
+}
+
+// The role ranked for the ORDER BY, from the one home the ranks live in, so a task's people read in
+// the same order on every surface: who answers for it, who does it, who reviews it, who watches.
+const ROLE_RANK_EXPRESSION = `CASE ${MATTER_TASK_PARTICIPANT_TABLE}.role ${Object.entries(
+  TASK_PARTICIPANT_ROLE_RANK,
+)
+  .map(([role, rank]) => `WHEN '${role}' THEN ${String(rank)}`)
+  .join(" ")} ELSE ${String(Object.keys(TASK_PARTICIPANT_ROLE_RANK).length)} END`;
+
+// The people on a set of tasks, in ONE read keyed by the page, never one per row. No visibility
+// predicate of its own: the task ids arrive from a read that already composed it, and a
+// participant row says nothing about a task the reader could not already see.
+export async function readMatterTaskParticipants(
+  database: SqlDatabase,
+  taskIds: readonly MatterTaskId[],
+): Promise<readonly MatterTaskParticipantRow[]> {
+  if (taskIds.length === 0) return [];
+  const placeholders = taskIds.map(() => "?").join(", ");
+  const { results } = await database
+    .prepare(
+      `SELECT id, task_id, user_id, role, added_by, added_at FROM ${MATTER_TASK_PARTICIPANT_TABLE} ` +
+        `WHERE task_id IN (${placeholders}) ` +
+        `ORDER BY ${ROLE_RANK_EXPRESSION} ASC, added_at ASC, id ASC`,
+    )
+    .bind(...taskIds)
+    .all<MatterTaskParticipantRow>();
+  return results;
+}
+
+// ---- the checklist inside a task ----
+
+export function insertMatterTaskChecklistItemStatement(
+  database: SqlDatabase,
+  input: {
+    readonly id: MatterTaskChecklistItemId;
+    readonly taskId: MatterTaskId;
+    readonly title: string;
+    readonly position: number;
+    readonly createdBy: UserId;
+    readonly now: string;
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${MATTER_TASK_CHECKLIST_ITEM_TABLE} ` +
+        `(id, task_id, title, position, done_at, done_by, created_by, created_at, updated_at) ` +
+        `VALUES (?1, ?2, ?3, ?4, NULL, NULL, ?5, ?6, ?6)`,
+    )
+    .bind(input.id, input.taskId, input.title, input.position, input.createdBy, input.now);
+}
+
+export function updateMatterTaskChecklistItemStatement(
+  database: SqlDatabase,
+  input: {
+    readonly id: MatterTaskChecklistItemId;
+    readonly title: string;
+    readonly position: number;
+    readonly doneAt: string | null;
+    readonly doneBy: UserId | null;
+    readonly now: string;
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MATTER_TASK_CHECKLIST_ITEM_TABLE} SET title = ?1, position = ?2, done_at = ?3, ` +
+        `done_by = ?4, updated_at = ?5 WHERE id = ?6`,
+    )
+    .bind(input.title, input.position, input.doneAt, input.doneBy, input.now, input.id);
+}
+
+export function deleteMatterTaskChecklistItemStatement(
+  database: SqlDatabase,
+  id: MatterTaskChecklistItemId,
+): SqlStatement {
+  return database.prepare(`DELETE FROM ${MATTER_TASK_CHECKLIST_ITEM_TABLE} WHERE id = ?1`).bind(id);
+}
+
+export function deleteMatterTaskChecklistItemsStatement(
+  database: SqlDatabase,
+  taskId: MatterTaskId,
+): SqlStatement {
+  return database
+    .prepare(`DELETE FROM ${MATTER_TASK_CHECKLIST_ITEM_TABLE} WHERE task_id = ?1`)
+    .bind(taskId);
+}
+
+// The checklist lines on a set of tasks, in one read keyed by the page, in the order they were
+// written. No predicate of its own, on the participants read's reasoning.
+export async function readMatterTaskChecklists(
+  database: SqlDatabase,
+  taskIds: readonly MatterTaskId[],
+): Promise<readonly MatterTaskChecklistItemRow[]> {
+  if (taskIds.length === 0) return [];
+  const placeholders = taskIds.map(() => "?").join(", ");
+  const { results } = await database
+    .prepare(
+      `SELECT id, task_id, title, position, done_at, done_by, created_by, created_at, updated_at ` +
+        `FROM ${MATTER_TASK_CHECKLIST_ITEM_TABLE} WHERE task_id IN (${placeholders}) ` +
+        `ORDER BY task_id ASC, position ASC, id ASC`,
+    )
+    .bind(...taskIds)
+    .all<MatterTaskChecklistItemRow>();
+  return results;
+}
+
+// One line, addressed by its own id, for the write paths' precondition read. Composes the task's
+// visibility so an id-addressed write cannot reach a line on a task a list read could not.
+export async function readMatterTaskChecklistItem(
+  database: SqlDatabase,
+  id: MatterTaskChecklistItemId,
+  visibility: VisibleMatterPredicate,
+  viewerUserId: UserId,
+): Promise<MatterTaskChecklistItemRow | undefined> {
+  const reach = taskVisibilityFragment(visibility, viewerUserId);
+  const item = MATTER_TASK_CHECKLIST_ITEM_TABLE;
+  const { results } = await database
+    .prepare(
+      `SELECT ${item}.id, ${item}.task_id, ${item}.title, ${item}.position, ${item}.done_at, ` +
+        `${item}.done_by, ${item}.created_by, ${item}.created_at, ${item}.updated_at ` +
+        `FROM ${item} JOIN ${MATTER_TASK_TABLE} ON ${MATTER_TASK_TABLE}.id = ${item}.task_id ` +
+        `WHERE ${item}.id = ? AND ${reach.condition}`,
+    )
+    .bind(id, ...reach.bindings)
+    .all<MatterTaskChecklistItemRow>();
+  return results[0];
+}
+
+export async function countMatterTaskChecklistItems(
+  database: SqlDatabase,
+  taskId: MatterTaskId,
+): Promise<{ count: number; nextPosition: number }> {
+  const { results } = await database
+    .prepare(
+      `SELECT COUNT(*) AS count, COALESCE(MAX(position), -1) + 1 AS next_position ` +
+        `FROM ${MATTER_TASK_CHECKLIST_ITEM_TABLE} WHERE task_id = ?`,
+    )
+    .bind(taskId)
+    .all<{ count: number; next_position: number }>();
+  return { count: results[0]?.count ?? 0, nextPosition: results[0]?.next_position ?? 0 };
+}
+
+// ---- the matter a task is on, as a reader names it ----
+
+export interface MatterLabelRow {
+  readonly id: MatterId;
+  readonly title: string;
+  readonly matter_number: string | null;
+}
+
+// The titles and numbers of the matters a page of tasks sits on, in one read keyed by the page. A
+// list that spans matters sorts and filters by the matter's NAME, and a row printing `matter_01J…`
+// at a person is not an answer. No predicate: every id here came off a task read that composed it.
+export async function readMatterLabels(
+  database: SqlDatabase,
+  matterIds: readonly MatterId[],
+): Promise<readonly MatterLabelRow[]> {
+  if (matterIds.length === 0) return [];
+  const placeholders = matterIds.map(() => "?").join(", ");
+  const { results } = await database
+    .prepare(`SELECT id, title, matter_number FROM matter WHERE id IN (${placeholders})`)
+    .bind(...matterIds)
+    .all<MatterLabelRow>();
+  return results;
 }
 
 /*
@@ -482,7 +722,12 @@ export interface TaskListFilters {
    * filter of all four plus this.
    */
   readonly includeArchived?: boolean;
-  readonly assigneeUserId?: UserId;
+  /**
+   * Only the tasks this member is ON, in any role — "mine" on a list that spans the firm. Any role
+   * rather than the work roles alone, because a watcher asked to see their tasks means the ones
+   * they are watching too; a list that dropped those would be one they had to keep elsewhere.
+   */
+  readonly participantUserId?: UserId;
   readonly priorities?: readonly TaskPriority[];
   readonly search?: string;
   // Both civil dates, inclusive, and compared against `due_on` as text — which is why the column is
@@ -520,9 +765,9 @@ function filterConditions(filters: TaskListFilters): TaskListConditions {
   if (filters.includeArchived !== true) {
     conditions.push(`${MATTER_TASK_TABLE}.archived_at IS NULL`);
   }
-  if (filters.assigneeUserId !== undefined) {
-    conditions.push(`${MATTER_TASK_TABLE}.assignee_user_id = ?`);
-    bindings.push(filters.assigneeUserId);
+  if (filters.participantUserId !== undefined) {
+    conditions.push(ON_TASK_FRAGMENT);
+    bindings.push(filters.participantUserId);
   }
   if (filters.priorities !== undefined && filters.priorities.length > 0) {
     conditions.push(
@@ -700,12 +945,12 @@ export async function countOpenMatterTasks(
 
 // ---- preconditions ----
 
-// Is this member somebody this firm can assign work to, and can they see the matter the task is on?
+// Is this member somebody this firm can put on a task, and can they see the matter the task is on?
 //
 // Both halves in one read, because both refusals are about the same act and neither should be
-// reachable separately. Assigning to a member who cannot see the matter is refused at the write: the
-// alternative is a task list with holes in it that nobody can explain, and an assignee is not an
-// access grant.
+// reachable separately. Putting a member who cannot see the matter on its task is refused at the
+// write, whatever the role: the alternative is a task list with holes in it that nobody can explain,
+// and being on a task is not an access grant.
 //
 // `assigneeVisibility` MUST be the predicate resolved for the ASSIGNEE, not for whoever is doing the
 // assigning. Today those are the same object — the visible-matter predicate carries no per-member

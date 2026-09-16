@@ -11,14 +11,22 @@
  */
 import type { PrintSheetDates } from "$lib/print-sheet";
 import type { PrintSheetDocument } from "@magna-carta/design-system/print-sheet/projection";
-import { PRIORITY_LABELS, RUNG_LABELS, describeTimeLogged, type MatterTask } from "./tasks-api.ts";
+import {
+  PRIORITY_LABELS,
+  ROLE_LABELS,
+  RUNG_LABELS,
+  TASK_PARTICIPANT_ROLES,
+  describeTimeLogged,
+  participantsInRole,
+  type MatterTask,
+} from "./tasks-api.ts";
 
 /** Everything the sheet needs that is not the task itself. */
 export interface TaskSheetContext extends PrintSheetDates {
   /** The matter the task belongs to, or what to call the firm's own work where it has none. */
   readonly matterTitle: string;
-  /** Who it is with, as a name. Never an account identifier. */
-  readonly assigneeName: string;
+  /** How an account identifier reads as a person. Never printed as a handle. */
+  readonly nameOf: (userId: string | null) => string;
   /** Who wrote it, as a name. */
   readonly authorName: string;
   /** Who finished it, where anybody has. */
@@ -43,6 +51,24 @@ export function dueLine(task: MatterTask, date: (isoDate: string) => string): st
   if (task.dueOn === null) return null;
   if (task.dueAtTime === null) return date(task.dueOn);
   return `${date(task.dueOn)}, ${task.dueAtTime}${task.timeZone === null ? "" : ` (${task.timeZone})`}`;
+}
+
+/**
+ * The people on the task, one field per role that anybody holds. Assigned is always stated, because
+ * an empty seat there is the fact "nobody has picked this up"; the other three appear only where
+ * somebody holds them, so a sheet does not print three lines of "None".
+ */
+function peopleFields(task: MatterTask, context: TaskSheetContext) {
+  return TASK_PARTICIPANT_ROLES.flatMap((role) => {
+    const names = participantsInRole(task, role).map(context.nameOf);
+    if (names.length === 0 && role !== "assigned") return [];
+    return [
+      {
+        label: role === "assigned" ? "Assigned To" : ROLE_LABELS[role],
+        value: names.length === 0 ? "Nobody yet" : names.join(", "),
+      },
+    ];
+  });
 }
 
 /**
@@ -88,7 +114,7 @@ export function taskSheet(task: MatterTask, context: TaskSheetContext): PrintShe
         kind: "fields",
         fields: [
           { label: "State", value: RUNG_LABELS[task.rung] },
-          { label: "Assigned To", value: context.assigneeName },
+          ...peopleFields(task, context),
           { label: "Due", value: due ?? "Not scheduled" },
           { label: "Priority", value: PRIORITY_LABELS[task.priority] },
           { label: "Created By", value: context.authorName },
@@ -99,7 +125,22 @@ export function taskSheet(task: MatterTask, context: TaskSheetContext): PrintShe
       },
       ...(task.body === null
         ? []
-        : ([{ id: "detail", kind: "text", title: "Detail", text: task.body }] as const)),
+        : ([{ id: "description", kind: "text", title: "Description", text: task.body }] as const)),
+      // The checklist, ticked lines marked as such: what has been done of the work is as much a
+      // fact about the task as whether the task is done.
+      ...(task.checklist.length === 0
+        ? []
+        : [
+            {
+              id: "checklist",
+              kind: "fields" as const,
+              title: "Checklist",
+              fields: task.checklist.map((item, position) => ({
+                label: `${String(position + 1)}. ${item.doneAt === null ? "Open" : "Done"}`,
+                value: item.title,
+              })),
+            },
+          ]),
       {
         id: "documents",
         kind: "fields",

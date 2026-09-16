@@ -3708,9 +3708,12 @@ export type MatterTaskPage = {
 export type MatterTaskDetail = {
     id: string;
     matterId: string | null;
+    matterTitle: string | null;
+    matterNumber: string | null;
     title: string;
     body: string | null;
-    assigneeUserId: string | null;
+    participants: Array<MatterTaskParticipant>;
+    checklist: Array<MatterTaskChecklistItem>;
     createdBy: string;
     priority: 'low' | 'normal' | 'high' | 'urgent';
     dueOn: string | null;
@@ -3731,6 +3734,24 @@ export type MatterTaskDetail = {
     timeLogged: MatterTaskTimeLogged;
     createdAt: string;
     updatedAt: string;
+};
+
+export type MatterTaskParticipant = {
+    id: string;
+    userId: string;
+    role: 'responsible' | 'assigned' | 'reviewer' | 'watcher';
+    addedBy: string | null;
+    addedAt: string;
+};
+
+export type MatterTaskChecklistItem = {
+    id: string;
+    title: string;
+    position: number;
+    doneAt: string | null;
+    doneBy: string | null;
+    createdBy: string;
+    createdAt: string;
 };
 
 export type MatterTaskDocument = {
@@ -3812,7 +3833,8 @@ export type CreatedMatterTask = {
 
 export type CreateMatterTaskRequest = {
     matterId: string | null;
-    assigneeUserId?: string | null;
+    participants?: Array<MatterTaskParticipantInput>;
+    checklist?: Array<string>;
     title: string;
     body?: string | null;
     priority?: 'low' | 'normal' | 'high' | 'urgent' | null;
@@ -3822,6 +3844,14 @@ export type CreateMatterTaskRequest = {
     dueOn?: string | null;
     dueAtTime?: string | null;
     timeZone?: string | null;
+};
+
+export type MatterTaskParticipantInput = {
+    userId: string;
+    /**
+     * responsible answers for the work; assigned does it; reviewer checks it before it counts; watcher only hears when it moves. One role per person per task.
+     */
+    role: 'responsible' | 'assigned' | 'reviewer' | 'watcher';
 };
 
 export type EditMatterTaskRequest = {
@@ -3836,8 +3866,18 @@ export type EditMatterTaskRequest = {
     timeZone?: string | null;
 };
 
-export type ReassignMatterTaskRequest = {
-    assigneeUserId: string | null;
+export type SetMatterTaskParticipantsRequest = {
+    participants: Array<MatterTaskParticipantInput>;
+};
+
+export type AddMatterTaskChecklistItemRequest = {
+    title: string;
+};
+
+export type EditMatterTaskChecklistItemRequest = {
+    title?: string;
+    done?: boolean;
+    position?: number;
 };
 
 export type MoveMatterTaskRequest = {
@@ -21134,7 +21174,10 @@ export type TasksListMatterTasksData = {
          * Comma-separated priorities to include: low, normal, high, urgent.
          */
         priority?: string;
-        assigneeUserId?: string;
+        /**
+         * Only the tasks this member is on, in any role — the reader's own list on a screen that spans the firm. A watcher's tasks count as theirs.
+         */
+        participantUserId?: string;
         dueFrom?: string;
         dueTo?: string;
         search?: string;
@@ -21189,7 +21232,10 @@ export type TasksListMyTasksData = {
          * Comma-separated priorities to include: low, normal, high, urgent.
          */
         priority?: string;
-        assigneeUserId?: string;
+        /**
+         * Only the tasks this member is on, in any role — the reader's own list on a screen that spans the firm. A watcher's tasks count as theirs.
+         */
+        participantUserId?: string;
         dueFrom?: string;
         dueTo?: string;
         search?: string;
@@ -21579,6 +21625,45 @@ export type TasksDeleteTaskResponses = {
 
 export type TasksDeleteTaskResponse = TasksDeleteTaskResponses[keyof TasksDeleteTaskResponses];
 
+export type TasksReadTaskData = {
+    body?: never;
+    path: {
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/tasks/{taskId}';
+};
+
+export type TasksReadTaskErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksReadTaskError = TasksReadTaskErrors[keyof TasksReadTaskErrors];
+
+export type TasksReadTaskResponses = {
+    /**
+     * The task
+     */
+    200: MatterTaskDetail;
+};
+
+export type TasksReadTaskResponse = TasksReadTaskResponses[keyof TasksReadTaskResponses];
+
 export type TasksEditTaskData = {
     body: EditMatterTaskRequest;
     headers: {
@@ -21633,8 +21718,8 @@ export type TasksEditTaskResponses = {
 
 export type TasksEditTaskResponse = TasksEditTaskResponses[keyof TasksEditTaskResponses];
 
-export type TasksReassignTaskData = {
-    body: ReassignMatterTaskRequest;
+export type TasksSetTaskParticipantsData = {
+    body: SetMatterTaskParticipantsRequest;
     headers: {
         'idempotency-key': string;
     };
@@ -21642,10 +21727,10 @@ export type TasksReassignTaskData = {
         taskId: string;
     };
     query?: never;
-    url: '/api/v1/tasks/{taskId}/assignee';
+    url: '/api/v1/tasks/{taskId}/participants';
 };
 
-export type TasksReassignTaskErrors = {
+export type TasksSetTaskParticipantsErrors = {
     /**
      * Missing Idempotency-Key (this operation requires one)
      */
@@ -21676,16 +21761,178 @@ export type TasksReassignTaskErrors = {
     429: Problem;
 };
 
-export type TasksReassignTaskError = TasksReassignTaskErrors[keyof TasksReassignTaskErrors];
+export type TasksSetTaskParticipantsError = TasksSetTaskParticipantsErrors[keyof TasksSetTaskParticipantsErrors];
 
-export type TasksReassignTaskResponses = {
+export type TasksSetTaskParticipantsResponses = {
     /**
-     * The task was reassigned
+     * The task's people were replaced
      */
     200: MatterTaskAcknowledged;
 };
 
-export type TasksReassignTaskResponse = TasksReassignTaskResponses[keyof TasksReassignTaskResponses];
+export type TasksSetTaskParticipantsResponse = TasksSetTaskParticipantsResponses[keyof TasksSetTaskParticipantsResponses];
+
+export type TasksAddTaskChecklistItemData = {
+    body: AddMatterTaskChecklistItemRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        taskId: string;
+    };
+    query?: never;
+    url: '/api/v1/tasks/{taskId}/checklist';
+};
+
+export type TasksAddTaskChecklistItemErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksAddTaskChecklistItemError = TasksAddTaskChecklistItemErrors[keyof TasksAddTaskChecklistItemErrors];
+
+export type TasksAddTaskChecklistItemResponses = {
+    /**
+     * The line
+     */
+    201: CreatedMatterTask;
+};
+
+export type TasksAddTaskChecklistItemResponse = TasksAddTaskChecklistItemResponses[keyof TasksAddTaskChecklistItemResponses];
+
+export type TasksDeleteTaskChecklistItemData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        itemId: string;
+    };
+    query?: never;
+    url: '/api/v1/task-checklist-items/{itemId}';
+};
+
+export type TasksDeleteTaskChecklistItemErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksDeleteTaskChecklistItemError = TasksDeleteTaskChecklistItemErrors[keyof TasksDeleteTaskChecklistItemErrors];
+
+export type TasksDeleteTaskChecklistItemResponses = {
+    /**
+     * The line was removed
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksDeleteTaskChecklistItemResponse = TasksDeleteTaskChecklistItemResponses[keyof TasksDeleteTaskChecklistItemResponses];
+
+export type TasksEditTaskChecklistItemData = {
+    body: EditMatterTaskChecklistItemRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        itemId: string;
+    };
+    query?: never;
+    url: '/api/v1/task-checklist-items/{itemId}';
+};
+
+export type TasksEditTaskChecklistItemErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the task is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type TasksEditTaskChecklistItemError = TasksEditTaskChecklistItemErrors[keyof TasksEditTaskChecklistItemErrors];
+
+export type TasksEditTaskChecklistItemResponses = {
+    /**
+     * The line was changed
+     */
+    200: MatterTaskAcknowledged;
+};
+
+export type TasksEditTaskChecklistItemResponse = TasksEditTaskChecklistItemResponses[keyof TasksEditTaskChecklistItemResponses];
 
 export type TasksMoveTaskData = {
     body: MoveMatterTaskRequest;

@@ -13,30 +13,40 @@ import type {
   MatterDeadlineId,
   MatterEventId,
   MatterId,
+  MatterTaskChecklistItemId,
   MatterTaskDocumentId,
   MatterTaskExternalLinkId,
   MatterTaskId,
   UserId,
 } from "@magna-carta/identifiers/types";
 import {
+  addMatterTaskChecklistItem,
   attachFileToMatterTask,
   archiveMatterTask,
   moveMatterTaskToRung,
   createMatterTask,
   deleteMatterTask,
+  deleteMatterTaskChecklistItem,
   detachFileFromMatterTask,
   editMatterTask,
-  reassignMatterTask,
+  editMatterTaskChecklistItem,
+  setMatterTaskParticipants,
   unarchiveMatterTask,
 } from "@magna-carta/tasks/task-service";
 import {
   decodeTaskCursor,
   encodeTaskSortKey,
+  readMatterLabels,
   readMatterTask,
+  readMatterTaskChecklists,
   readMatterTaskDocuments,
+  readMatterTaskParticipants,
   selectMatterTasksStatement,
   selectMyTasksStatement,
+  type MatterLabelRow,
+  type MatterTaskChecklistItemRow,
   type MatterTaskDocumentRow,
+  type MatterTaskParticipantRow,
   type MatterTaskRow,
 } from "@magna-carta/tasks/task-statements";
 import { readTaskTimeSummaries, NO_TIME_LOGGED } from "@magna-carta/timekeeping/task-time";
@@ -54,9 +64,13 @@ import {
 } from "@magna-carta/tasks/sync-statements";
 import {
   MAX_ARCHIVE_REASON_LENGTH,
+  MAX_CHECKLIST_ITEM_TITLE_LENGTH,
   MAX_TASK_BODY_LENGTH,
+  MAX_TASK_CHECKLIST_ITEMS,
   MAX_TASK_PAGE_SIZE,
+  MAX_TASK_PARTICIPANTS,
   MAX_TASK_TITLE_LENGTH,
+  TASK_PARTICIPANT_ROLES,
   TASK_PRIORITIES,
   TASK_RUNGS,
   rungOf,
@@ -82,16 +96,19 @@ import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-p
 
 // The task's HTTP surface over @magna-carta/tasks.
 //
-// A task is one piece of work with somebody's name on it. It may sit on a matter or on none — firm
-// work like renewing the malpractice policy belongs to no client file — and the two are one record
-// with one set of routes, because "what is on my plate" spans both and nobody wants two lists.
+// A task is one piece of work with people's names on it, each in a role — responsible, assigned,
+// reviewer, watcher. It may sit on a matter or on none — firm work like renewing the malpractice
+// policy belongs to no client file — and the two are one record with one set of routes, because
+// "what is on my plate" spans both and nobody wants two lists.
 //
 // WHO MAY SEE WHAT is decided in the domain, by one predicate every read composes: a task on a
-// matter is visible to whoever can see that matter, and a task on none is private to its assignee
-// and whoever created it. No route re-states that rule.
+// matter is visible to whoever can see that matter, and a task on none is private to the people on
+// it and whoever created it. No route re-states that rule.
 //
-// Assignment is its own route with its own permission. Putting work in a colleague's name is a
-// different act from fixing a due date, and a firm may reserve it without reserving the rest.
+// The people are their own route. Putting work in a colleague's name is a different act from fixing
+// a due date, and a firm may reserve it without reserving the rest: the route carries the write
+// permission, and the service refuses the part of a change that needs the assign permission when
+// the caller lacks it — naming somebody else in a work role, or taking them out of one.
 
 const READ = "tasks:read" as const;
 // Not this route file's own permission — the task routes are gated on the three above. This one is
@@ -126,21 +143,72 @@ const taskContentFields = {
   ...dueFields,
 };
 
+// One person on a task, in the role they hold there.
+const ParticipantInput = z
+  .object({
+    userId: identifierField("user"),
+    role: z.enum(TASK_PARTICIPANT_ROLES).openapi({
+      description:
+        "responsible answers for the work; assigned does it; reviewer checks it before it counts; " +
+        "watcher only hears when it moves. One role per person per task.",
+    }),
+  })
+  .openapi("MatterTaskParticipantInput");
+
+const participantsField = z.array(ParticipantInput).max(MAX_TASK_PARTICIPANTS);
+const checklistLine = z.string().min(1).max(MAX_CHECKLIST_ITEM_TITLE_LENGTH);
+
 const CreateTaskRequest = z
   .object({
     // Explicitly nullable rather than omitted: a task on no matter is a decision the caller makes,
     // not a field they forgot.
     matterId: identifierField("matter").nullable(),
-    assigneeUserId: identifierField("user").nullable().optional(),
+    participants: participantsField.optional(),
+    // The lines the task starts with, written in the same batch as the task itself.
+    checklist: z.array(checklistLine).max(MAX_TASK_CHECKLIST_ITEMS).optional(),
     ...taskContentFields,
   })
   .openapi("CreateMatterTaskRequest");
 
 const EditTaskRequest = z.object(taskContentFields).openapi("EditMatterTaskRequest");
 
-const ReassignTaskRequest = z
-  .object({ assigneeUserId: identifierField("user").nullable() })
-  .openapi("ReassignMatterTaskRequest");
+const SetParticipantsRequest = z
+  .object({ participants: participantsField })
+  .openapi("SetMatterTaskParticipantsRequest");
+
+const AddChecklistItemRequest = z
+  .object({ title: checklistLine })
+  .openapi("AddMatterTaskChecklistItemRequest");
+
+const EditChecklistItemRequest = z
+  .object({
+    title: checklistLine.optional(),
+    done: z.boolean().optional(),
+    position: z.number().int().min(0).optional(),
+  })
+  .openapi("EditMatterTaskChecklistItemRequest");
+
+const TaskParticipant = z
+  .object({
+    id: z.string(),
+    userId: z.string(),
+    role: z.enum(TASK_PARTICIPANT_ROLES),
+    addedBy: z.string().nullable(),
+    addedAt: z.string(),
+  })
+  .openapi("MatterTaskParticipant");
+
+const TaskChecklistItem = z
+  .object({
+    id: z.string(),
+    title: z.string(),
+    position: z.number().int(),
+    doneAt: z.string().nullable(),
+    doneBy: z.string().nullable(),
+    createdBy: z.string(),
+    createdAt: z.string(),
+  })
+  .openapi("MatterTaskChecklistItem");
 
 const MoveTaskRequest = z.object({ rung: z.enum(TASK_RUNGS) }).openapi("MoveMatterTaskRequest");
 
@@ -171,10 +239,19 @@ const TaskDetail = z
     id: z.string(),
     // Null on a task that belongs to no client file.
     matterId: z.string().nullable(),
+    // The matter as a reader names it, so a list spanning matters sorts and filters by the name
+    // rather than by a handle. Both null on a task with no matter; the number null on a matter
+    // that has not drawn one.
+    matterTitle: z.string().nullable(),
+    matterNumber: z.string().nullable(),
     title: z.string(),
     body: z.string().nullable(),
-    // Null on a task nobody has picked up, which is a real state rather than a defect.
-    assigneeUserId: z.string().nullable(),
+    // The people on the task, each in one role, in reading order: responsible, assigned, reviewer,
+    // watcher. Empty on a task nobody has picked up, which is a real state rather than a defect.
+    participants: z.array(TaskParticipant),
+    // The flat checklist inside the task, in order. Not a task tree: a line has no people, no
+    // date and no priority, and ticking every line completes nothing.
+    checklist: z.array(TaskChecklistItem),
     createdBy: z.string(),
     priority: z.enum(TASK_PRIORITIES),
     dueOn: z.string().nullable(),
@@ -242,6 +319,9 @@ const taskIdParam = z.object({ taskId: identifierPathParam("matterTask", "taskId
 const attachmentIdParam = z.object({
   attachmentId: identifierPathParam("matterTaskDocument", "attachmentId"),
 });
+const checklistItemIdParam = z.object({
+  itemId: identifierPathParam("matterTaskChecklistItem", "itemId"),
+});
 
 // The filters both lists take. Repeated values arrive as a comma-separated list rather than repeated
 // query parameters, so a cursor and its filters round-trip as one stable string.
@@ -261,7 +341,14 @@ const listTasksQuery = cursorQuery.extend({
     .string()
     .optional()
     .openapi({ description: "Comma-separated priorities to include: low, normal, high, urgent." }),
-  assigneeUserId: z.string().optional(),
+  participantUserId: z
+    .string()
+    .optional()
+    .openapi({
+      description:
+        "Only the tasks this member is on, in any role — the reader's own list on a screen that " +
+        "spans the firm. A watcher's tasks count as theirs.",
+    }),
   dueFrom: z.string().regex(CIVIL_DATE).optional(),
   dueTo: z.string().regex(CIVIL_DATE).optional(),
   search: z.string().min(1).max(200).optional(),
@@ -315,11 +402,22 @@ const authErrors = {
 function taskErrorResponse(
   c: Context,
   caught: TaskValidationError,
-): ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> {
+): ProblemResponse<403> | ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> {
   switch (caught.code) {
+    // The one refusal that is a permission: the caller may write the task but not put it in
+    // another member's name. Raised by the service on the DIFFERENCE it was asked to make, so a
+    // change that touches nobody else's work role is never refused this way.
+    case "task-assignment-needs-permission":
+      return problemJson(c, {
+        type: "permission-denied",
+        title: "Forbidden",
+        status: 403,
+        detail: caught.message,
+      });
     case "task-unknown":
     case "task-unknown-file":
     case "task-unknown-predecessor":
+    case "checklist-unknown-item":
     // 404 and not 403: which matter a task or a document belongs to is itself a fact about the
     // firm's work, and a distinguishable refusal would let a caller probe for either.
     case "task-matter-mismatch":
@@ -373,12 +471,12 @@ function readMeta(action: string): RouteMeta {
   };
 }
 
-function writeMeta(action: string, permission: typeof WRITE | typeof ASSIGN = WRITE): RouteMeta {
+function writeMeta(action: string): RouteMeta {
   return {
     operationId: `tasks.${action}`,
     surface: "app",
     authenticated: true,
-    permission,
+    permission: WRITE,
     resource: "firm",
     audited: true,
     // Required. A retried create must not put a second copy of the same task on somebody's list,
@@ -417,7 +515,7 @@ const listMyTasksRoute = defineOpenAPIRoute(readMeta("listMyTasks"), {
   path: "/api/v1/tasks",
   description:
     "Every task this member can reach, across the matters they can see and their own work on no " +
-    "matter. Filter by assignee to get one person's list. Tasks on closed matters are left out " +
+    "matter. Filter by participant to get one person's list. Tasks on closed matters are left out " +
     "unless asked for: closing a matter changes no task, so this is a filter and reopening the " +
     "matter brings them back.",
   request: { query: myTasksQuery },
@@ -687,21 +785,42 @@ const editTaskRoute = defineOpenAPIRoute(writeMeta("editTask"), {
   },
 });
 
-const reassignTaskRoute = defineOpenAPIRoute(writeMeta("reassignTask", ASSIGN), {
-  method: "put",
-  path: "/api/v1/tasks/{taskId}/assignee",
+const readTaskRoute = defineOpenAPIRoute(readMeta("readTask"), {
+  method: "get",
+  path: "/api/v1/tasks/{taskId}",
   description:
-    "Puts the task in a member's name, or takes it out of everybody's with null. The member must " +
-    "be able to see the task's matter: a task somebody cannot open is a hole in their list. Moving " +
-    "a task does not move its due date, even across offices in different time zones.",
+    "One task, as the lists carry it, for a deep link that names it. The same visibility as any " +
+    "other task read: a task the caller cannot see answers not-found, the same as one that does " +
+    "not exist.",
+  request: { params: taskIdParam },
+  responses: {
+    200: { description: "The task", content: { "application/json": { schema: TaskDetail } } },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const setParticipantsRoute = defineOpenAPIRoute(writeMeta("setTaskParticipants"), {
+  method: "put",
+  path: "/api/v1/tasks/{taskId}/participants",
+  description:
+    "Replaces the people on the task: who is responsible for it, who is assigned to do it, who " +
+    "reviews it, and who watches it. Send the whole list as it should stand; whoever joins is " +
+    "told, in the role they joined in, and whoever's role moved is told too. Every member named " +
+    "must be able to see the task's matter. Naming somebody other than yourself in a work role " +
+    "(responsible, assigned, reviewer), or taking them out of one, needs the assign permission; " +
+    "taking a task yourself and adding or removing watchers does not. Moving a task does not " +
+    "move its due date, even across offices in different time zones.",
   request: {
     headers: idempotencyKeyHeader,
     params: taskIdParam,
-    body: { content: { "application/json": { schema: ReassignTaskRequest } }, required: true },
+    body: { content: { "application/json": { schema: SetParticipantsRequest } }, required: true },
   },
   responses: {
     200: {
-      description: "The task was reassigned",
+      description: "The task's people were replaced",
       content: { "application/json": { schema: AcknowledgedResponse } },
     },
     400: authErrors[400],
@@ -713,6 +832,83 @@ const reassignTaskRoute = defineOpenAPIRoute(writeMeta("reassignTask", ASSIGN), 
     429: authErrors[429],
   },
 });
+
+const addChecklistItemRoute = defineOpenAPIRoute(writeMeta("addTaskChecklistItem"), {
+  method: "post",
+  path: "/api/v1/tasks/{taskId}/checklist",
+  description:
+    "Adds a line to the end of the task's checklist. A line is a step somebody ticks, never a " +
+    "task of its own: it has no people, no date and no priority, and ticking every line completes " +
+    "nothing — the task's rung is moved separately.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: taskIdParam,
+    body: { content: { "application/json": { schema: AddChecklistItemRequest } }, required: true },
+  },
+  responses: {
+    201: { description: "The line", content: { "application/json": { schema: CreatedResponse } } },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const editChecklistItemRoute = defineOpenAPIRoute(writeMeta("editTaskChecklistItem"), {
+  method: "patch",
+  path: "/api/v1/task-checklist-items/{itemId}",
+  description:
+    "Changes a checklist line: its words, whether it is ticked, or where it sits. An omitted field " +
+    "stays as it is. Ticking records who ticked it and when; ticking an already ticked line keeps " +
+    "the first tick.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: checklistItemIdParam,
+    body: { content: { "application/json": { schema: EditChecklistItemRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The line was changed",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const deleteChecklistItemRoute = defineOpenAPIRoute(
+  {
+    ...writeMeta("deleteTaskChecklistItem"),
+    reversal: { kind: "inverse", by: "tasks.addTaskChecklistItem" },
+  },
+  {
+    method: "delete",
+    path: "/api/v1/task-checklist-items/{itemId}",
+    description: "Removes a checklist line. The task itself is untouched.",
+    request: { headers: idempotencyKeyHeader, params: checklistItemIdParam },
+    responses: {
+      200: {
+        description: "The line was removed",
+        content: { "application/json": { schema: AcknowledgedResponse } },
+      },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
 
 const moveTaskRoute = defineOpenAPIRoute(writeMeta("moveTask"), {
   method: "put",
@@ -887,27 +1083,62 @@ const detachDocumentRoute = defineOpenAPIRoute(
 
 // ---- shared handler plumbing ----
 
-function serviceOptions(userId: UserId) {
+function serviceOptions(c: Context, userId: UserId) {
   return {
     clock: { now: () => new Date().toISOString() },
     actorUserId: userId,
     randomSource: cryptoRandomSource,
     visibility: visibleMatterPredicate(),
+    // Whether this member may put work in another member's name. Resolved here, where permissions
+    // live, and handed to the service, which refuses on the difference it is asked to make.
+    canAssignOthers: requireChokepointPermissions(c).has(ASSIGN as unknown as Permission),
   };
+}
+
+// Everything a page of tasks carries beside the rows: read once per page, keyed by the page.
+interface TaskPageSides {
+  readonly documents: readonly MatterTaskDocumentRow[];
+  readonly externalLinks: readonly MatterTaskExternalLinkRow[];
+  readonly participants: readonly MatterTaskParticipantRow[];
+  readonly checklist: readonly MatterTaskChecklistItemRow[];
+  readonly matterLabels: readonly MatterLabelRow[];
 }
 
 function taskDetail(
   row: MatterTaskRow,
-  documents: readonly MatterTaskDocumentRow[],
-  externalLinks: readonly MatterTaskExternalLinkRow[],
+  sides: TaskPageSides,
   timeLogged: z.infer<typeof TaskDetail>["timeLogged"],
 ): z.infer<typeof TaskDetail> {
+  const { documents, externalLinks, participants, checklist, matterLabels } = sides;
+  const matterLabel =
+    row.matter_id === null ? undefined : matterLabels.find((label) => label.id === row.matter_id);
   return {
     id: row.id,
     matterId: row.matter_id,
+    matterTitle: matterLabel?.title ?? null,
+    matterNumber: matterLabel?.matter_number ?? null,
     title: row.title,
     body: row.body,
-    assigneeUserId: row.assignee_user_id,
+    participants: participants
+      .filter((participant) => participant.task_id === row.id)
+      .map((participant) => ({
+        id: participant.id,
+        userId: participant.user_id,
+        role: participant.role,
+        addedBy: participant.added_by,
+        addedAt: participant.added_at,
+      })),
+    checklist: checklist
+      .filter((item) => item.task_id === row.id)
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        position: item.position,
+        doneAt: item.done_at,
+        doneBy: item.done_by,
+        createdBy: item.created_by,
+        createdAt: item.created_at,
+      })),
     createdBy: row.created_by,
     priority: row.priority,
     dueOn: row.due_on,
@@ -976,7 +1207,7 @@ function filtersFrom(query: z.infer<typeof listTasksQuery>) {
     rungs: closedList(query.rung, TASK_RUNGS),
     includeArchived: query.includeArchived === "true",
     priorities: closedList(query.priority, TASK_PRIORITIES),
-    assigneeUserId: query.assigneeUserId as UserId | undefined,
+    participantUserId: query.participantUserId as UserId | undefined,
     dueFrom: query.dueFrom,
     dueTo: query.dueTo,
     search: query.search,
@@ -1014,9 +1245,10 @@ async function pageFrom(
   // rows costs nothing, and the alternative is a surface that cannot say a task is mirrored.
   const externalLinks = await readExternalLinksForTasks(database, taskIds);
   const scope = seesFirmTime ? ("firm" as const) : ("own" as const);
+  const sides = await readTaskPageSides(database, rows, documents, externalLinks);
   return {
     data: rows.map((row) =>
-      taskDetail(row, documents, externalLinks, {
+      taskDetail(row, sides, {
         ...(timeByTask.get(row.id) ?? NO_TIME_LOGGED),
         scope,
       }),
@@ -1027,6 +1259,27 @@ async function pageFrom(
   };
 }
 
+// The people, the checklist and the matter names for a page of tasks: three bounded reads keyed by
+// the page, so a row costs nothing on its own. The matter names are read for the DISTINCT matters
+// on the page, which on a matter's own section is one.
+async function readTaskPageSides(
+  database: SqlDatabase,
+  rows: readonly MatterTaskRow[],
+  documents: readonly MatterTaskDocumentRow[],
+  externalLinks: readonly MatterTaskExternalLinkRow[],
+): Promise<TaskPageSides> {
+  const taskIds = rows.map((row) => row.id);
+  const matterIds = [
+    ...new Set(rows.map((row) => row.matter_id).filter((id): id is MatterId => id !== null)),
+  ];
+  const [participants, checklist, matterLabels] = await Promise.all([
+    readMatterTaskParticipants(database, taskIds),
+    readMatterTaskChecklists(database, taskIds),
+    readMatterLabels(database, matterIds),
+  ]);
+  return { documents, externalLinks, participants, checklist, matterLabels };
+}
+
 function cursorFrom(cursor: string | undefined) {
   const decoded = decodeCursor(cursor);
   return decoded === undefined ? undefined : decodeTaskCursor(decoded.createdAt, decoded.id);
@@ -1034,7 +1287,14 @@ function cursorFrom(cursor: string | undefined) {
 
 type TaskEffectOutcome =
   | { ok: true; id: string; replayed: boolean }
-  | { ok: false; problem: ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> };
+  | {
+      ok: false;
+      problem:
+        | ProblemResponse<403>
+        | ProblemResponse<404>
+        | ProblemResponse<409>
+        | ProblemResponse<422>;
+    };
 
 async function commitTaskEffect(
   c: Context,
@@ -1153,10 +1413,16 @@ export function registerTasksRoutes(
         onlyTimekeeperUserId: firmTime ? null : userId,
       });
       const scope = firmTime ? ("firm" as const) : ("own" as const);
+      const sides = await readTaskPageSides(
+        firm.firmDatabase,
+        page.changed,
+        documents,
+        externalLinks,
+      );
       return c.json(
         {
           changed: page.changed.map((row) =>
-            taskDetail(row, documents, externalLinks, {
+            taskDetail(row, sides, {
               ...(timeByTask.get(row.id) ?? NO_TIME_LOGGED),
               scope,
             }),
@@ -1216,7 +1482,7 @@ export function registerTasksRoutes(
         const linked = await linkTaskToExternalSystem(
           firm.firmDatabase,
           { taskId: taskId as MatterTaskId, ...request },
-          serviceOptions(userId),
+          serviceOptions(c, userId),
         );
         return { id: linked.linkId, effect: linked.effect };
       });
@@ -1240,7 +1506,7 @@ export function registerTasksRoutes(
           firm.firmDatabase,
           linkId as MatterTaskExternalLinkId,
           request,
-          serviceOptions(userId),
+          serviceOptions(c, userId),
         );
         return { id: linkId, effect: recorded.effect };
       });
@@ -1262,7 +1528,7 @@ export function registerTasksRoutes(
         const unlinked = await unlinkTaskFromExternalSystem(
           firm.firmDatabase,
           linkId as MatterTaskExternalLinkId,
-          serviceOptions(userId),
+          serviceOptions(c, userId),
         );
         return { id: linkId, effect: unlinked.effect };
       });
@@ -1280,34 +1546,21 @@ export function registerTasksRoutes(
       const userId = requireChokepointUserId(c);
       const idempotency = requireChokepointIdempotency(c);
       const request = c.req.valid("json");
-      // Assigning work to somebody else needs the assign permission, and this route carries the
-      // write one. Checked here rather than by splitting the route, because "create a task" and
-      // "create a task for Sarah" are one act with one shape and two authorizations.
-      const assigneeUserId = (request.assigneeUserId ?? null) as UserId | null;
-      if (
-        assigneeUserId !== null &&
-        assigneeUserId !== userId &&
-        !requireChokepointPermissions(c).has(ASSIGN as unknown as Permission)
-      ) {
-        return problemJson(c, {
-          type: "permission-denied",
-          title: "Forbidden",
-          status: 403,
-          detail: "Putting a task in another member's name needs the assign permission.",
-        });
-      }
+      // Naming somebody else in a work role needs the assign permission, and this route carries the
+      // write one. The service refuses that part on the caller's answer (serviceOptions), because
+      // "create a task" and "create a task for Sarah" are one act with one shape and two
+      // authorizations, and splitting the route would say otherwise.
       const outcome = await commitTaskEffect(c, firm.firmDatabase, idempotency, 201, async () => {
         const created = await createMatterTask(
           firm.firmDatabase,
           {
             ...request,
             matterId: request.matterId as MatterId | null,
-            assigneeUserId,
             blockedByTaskId: (request.blockedByTaskId ?? null) as MatterTaskId | null,
             triggerEventId: (request.triggerEventId ?? null) as MatterEventId | null,
             deadlineId: (request.deadlineId ?? null) as MatterDeadlineId | null,
           },
-          serviceOptions(userId),
+          serviceOptions(c, userId),
         );
         return { id: created.taskId, effect: created.effect };
       });
@@ -1336,7 +1589,7 @@ export function registerTasksRoutes(
             triggerEventId: (request.triggerEventId ?? null) as MatterEventId | null,
             deadlineId: (request.deadlineId ?? null) as MatterDeadlineId | null,
           },
-          serviceOptions(userId),
+          serviceOptions(c, userId),
         );
         return { id: taskId, effect };
       });
@@ -1346,9 +1599,47 @@ export function registerTasksRoutes(
     },
   );
 
-  // PUT /api/v1/tasks/{taskId}/assignee
+  // GET /api/v1/tasks/{taskId}
   app.openapi(
-    { ...reassignTaskRoute, middleware: chokepointMiddleware(chokepoint, reassignTaskRoute) },
+    { ...readTaskRoute, middleware: chokepointMiddleware(chokepoint, readTaskRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const { taskId } = c.req.valid("param");
+      const row = await readMatterTask(
+        firm.firmDatabase,
+        taskId as MatterTaskId,
+        visibleMatterPredicate(),
+        userId,
+      );
+      if (row === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "that task is not a task in this firm",
+        });
+      }
+      // Projected exactly as a page of one projects it, through the same reads.
+      const page = await pageFrom(firm.firmDatabase, userId, seesFirmTime(c), [
+        { ...row, priority_rank: 0 },
+      ]);
+      const detail = page.data[0];
+      if (detail === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "that task is not a task in this firm",
+        });
+      }
+      return c.json(detail, 200);
+    },
+  );
+
+  // PUT /api/v1/tasks/{taskId}/participants
+  app.openapi(
+    { ...setParticipantsRoute, middleware: chokepointMiddleware(chokepoint, setParticipantsRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
@@ -1356,13 +1647,92 @@ export function registerTasksRoutes(
       const { taskId } = c.req.valid("param");
       const request = c.req.valid("json");
       const outcome = await commitTaskEffect(c, firm.firmDatabase, idempotency, 200, async () => {
-        const { effect } = await reassignMatterTask(
+        const { effect } = await setMatterTaskParticipants(
           firm.firmDatabase,
           taskId as MatterTaskId,
-          (request.assigneeUserId ?? null) as UserId | null,
-          serviceOptions(userId),
+          request.participants,
+          serviceOptions(c, userId),
         );
         return { id: taskId, effect };
+      });
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // POST /api/v1/tasks/{taskId}/checklist
+  app.openapi(
+    {
+      ...addChecklistItemRoute,
+      middleware: chokepointMiddleware(chokepoint, addChecklistItemRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { taskId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await commitTaskEffect(c, firm.firmDatabase, idempotency, 201, async () => {
+        const added = await addMatterTaskChecklistItem(
+          firm.firmDatabase,
+          taskId as MatterTaskId,
+          request.title,
+          serviceOptions(c, userId),
+        );
+        return { id: added.itemId, effect: added.effect };
+      });
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ id: outcome.id }, 201);
+    },
+  );
+
+  // PATCH /api/v1/task-checklist-items/{itemId}
+  app.openapi(
+    {
+      ...editChecklistItemRoute,
+      middleware: chokepointMiddleware(chokepoint, editChecklistItemRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { itemId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await commitTaskEffect(c, firm.firmDatabase, idempotency, 200, async () => {
+        const { effect } = await editMatterTaskChecklistItem(
+          firm.firmDatabase,
+          itemId as MatterTaskChecklistItemId,
+          request,
+          serviceOptions(c, userId),
+        );
+        return { id: itemId, effect };
+      });
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // DELETE /api/v1/task-checklist-items/{itemId}
+  app.openapi(
+    {
+      ...deleteChecklistItemRoute,
+      middleware: chokepointMiddleware(chokepoint, deleteChecklistItemRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { itemId } = c.req.valid("param");
+      const outcome = await commitTaskEffect(c, firm.firmDatabase, idempotency, 200, async () => {
+        const { effect } = await deleteMatterTaskChecklistItem(
+          firm.firmDatabase,
+          itemId as MatterTaskChecklistItemId,
+          serviceOptions(c, userId),
+        );
+        return { id: itemId, effect };
       });
       if (!outcome.ok) return outcome.problem;
       if (outcome.replayed) c.header("Idempotency-Replayed", "true");
@@ -1384,7 +1754,7 @@ export function registerTasksRoutes(
           firm.firmDatabase,
           taskId as MatterTaskId,
           request.rung,
-          serviceOptions(userId),
+          serviceOptions(c, userId),
         );
         return { id: taskId, effect };
       });
@@ -1408,7 +1778,7 @@ export function registerTasksRoutes(
           firm.firmDatabase,
           taskId as MatterTaskId,
           request.reason ?? null,
-          serviceOptions(userId),
+          serviceOptions(c, userId),
         );
         return { id: taskId, effect };
       });
@@ -1430,7 +1800,7 @@ export function registerTasksRoutes(
         const { effect } = await unarchiveMatterTask(
           firm.firmDatabase,
           taskId as MatterTaskId,
-          serviceOptions(userId),
+          serviceOptions(c, userId),
         );
         return { id: taskId, effect };
       });
@@ -1452,7 +1822,7 @@ export function registerTasksRoutes(
         const { effect } = await deleteMatterTask(
           firm.firmDatabase,
           taskId as MatterTaskId,
-          serviceOptions(userId),
+          serviceOptions(c, userId),
         );
         return { id: taskId, effect };
       });
@@ -1476,7 +1846,7 @@ export function registerTasksRoutes(
           firm.firmDatabase,
           taskId as MatterTaskId,
           request.fileId as FileId,
-          serviceOptions(userId),
+          serviceOptions(c, userId),
         );
         return { id: attached.linkId, effect: attached.effect };
       });
@@ -1498,7 +1868,7 @@ export function registerTasksRoutes(
         const { effect } = await detachFileFromMatterTask(
           firm.firmDatabase,
           attachmentId as MatterTaskDocumentId,
-          serviceOptions(userId),
+          serviceOptions(c, userId),
         );
         return { id: attachmentId, effect };
       });
