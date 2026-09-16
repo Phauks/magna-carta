@@ -78,14 +78,25 @@ export function withAppFrameAncestors(policy: string, appSources: readonly strin
  * The body is passed through by reference, so this stays a header rewrite and never buffers a document.
  */
 export function allowAppFraming(response: Response, appSources: readonly string[]): Response {
+  // A WebSocket upgrade is handed back untouched, and it is checked FIRST rather than left to the
+  // header guard below. The document's editing session rides this socket, so a proxy that rebuilds
+  // the upgrade response breaks the editor outright: the runtime refuses to construct a Response
+  // with status 101 at all, and even where it did not, the `webSocket` the upgrade carries is the
+  // one thing a reconstruction drops. Checking the policy header first would leave that correctness
+  // resting on coolwsd never setting a security header on its own upgrade — an assumption about
+  // somebody else's server that a version bump is free to falsify, and whose cost is every editing
+  // session in the product rather than a stray header.
+  // `!= null` rather than `!== null`: the Workers runtime leaves `webSocket` null on an ordinary
+  // response, but a standards `Response` has no such property at all, so a strict check against null
+  // would read `undefined` as "this is a socket" and hand every response back unexamined.
+  if (response.webSocket != null || response.status === 101) return response;
+
   const policy = response.headers.get("Content-Security-Policy");
   if (policy === null) return response;
 
   const merged = withAppFrameAncestors(policy, appSources);
   if (merged === policy) return response;
 
-  // A WebSocket upgrade (status 101) has no mutable headers and no policy to rewrite; the guard above
-  // already returned it, so this only ever reconstructs an ordinary HTTP response.
   const headers = new Headers(response.headers);
   headers.set("Content-Security-Policy", merged);
   return new Response(response.body, {
