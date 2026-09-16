@@ -101,15 +101,19 @@ export const BUILD_SCRIPT_GRANTS = new Map([
   [
     "sharp",
     {
-      status: "pending-removal",
+      status: "surfaced",
       language: "C (libvips)",
       reason:
-        "A STALE GRANT. sharp is libvips, a large C image-processing library — and nothing in this " +
-        "repository imports it. No package.json depends on it and no source file references it; " +
-        "raster conversion is done by the pure-Rust `image` crate in the raster container, which " +
-        "was the deliberate choice AGAINST native libvips. So this line grants a C library the " +
-        "right to run a native build for a dependency that is not used. It is the owner's file to " +
-        "change: this register records the finding and prints it on every run",
+        "libvips, a large C image-processing library, and the one C library the npm graph installs " +
+        "on the Linux path. It is NOT first-party: nothing here imports it and raster conversion is " +
+        "the pure-Rust `image` crate in the raster container, which was the deliberate choice " +
+        "against native libvips. It arrives under miniflare, and so under wrangler and the Workers " +
+        "test pool, which every worker package carries as a development dependency (`pnpm -r why " +
+        "sharp` shows the path). The grant is therefore load-bearing — removing it does not remove " +
+        "the library, it only stops the install selecting its prebuilt binary — and the honest " +
+        "reading is that the platform vendor's toolchain decides this one, not us. It runs at " +
+        "install time on a developer machine and in the build, never in a Worker at runtime, and it " +
+        "never sees a firm's bytes",
     },
   ],
 ]);
@@ -249,23 +253,23 @@ export const NATIVE_BINARY_FAMILIES = new Map([
   [
     "@img/sharp",
     {
-      status: "pending-removal",
+      status: "surfaced",
       language: "C (libvips)",
       reason:
-        "The per-platform binaries behind the stale sharp grant. They resolve into the lockfile " +
-        "because the grant is there, not because anything imports them — see the sharp entry in " +
-        "BUILD_SCRIPT_GRANTS for the finding and what it would take to remove",
+        "The per-platform prebuilt binaries sharp selects at install. They are in the lockfile " +
+        "because miniflare depends on sharp — see the sharp entry in BUILD_SCRIPT_GRANTS for the " +
+        "path and why the grant stands",
     },
   ],
   [
     "@img/sharp-libvips",
     {
-      status: "pending-removal",
+      status: "surfaced",
       language: "C (libvips)",
       reason:
-        "The bundled libvips shared libraries themselves — a large C image-processing library " +
-        "shipped precompiled, resolved into the lockfile only because the stale sharp grant is " +
-        "there. See the sharp entry in BUILD_SCRIPT_GRANTS",
+        "The bundled libvips shared libraries themselves, shipped precompiled under sharp. Nothing " +
+        "compiles them here; they arrive with the platform vendor's toolchain. See the sharp entry " +
+        "in BUILD_SCRIPT_GRANTS",
     },
   ],
 ]);
@@ -785,9 +789,9 @@ export const SELF_TEST = [
     expect: ["stale:workerd"],
   },
   {
-    label: "the recommended removal of the stale grant is NOT refused as stale",
-    run: () => grantProblems(["workerd", "esbuild"]).map((one) => one.name),
-    expect: [],
+    label: "a grant that leaves the workspace file while still registered is named, once",
+    run: () => grantProblems(["workerd", "esbuild"]).map((one) => `${one.kind}:${one.name}`),
+    expect: ["stale:sharp"],
   },
   {
     label: "a registered crate passes and an unregistered one does not",

@@ -54,9 +54,13 @@ describe("the register", () => {
     expect(surfaced).not.toContain("lightningcss");
   });
 
-  it("records the stale grant as pending removal rather than quietly permitting it", () => {
-    expect(BUILD_SCRIPT_GRANTS.get("sharp").status).toBe("pending-removal");
+  it("surfaces the one C library the npm graph installs, with the path that brings it", () => {
+    expect(BUILD_SCRIPT_GRANTS.get("sharp").status).toBe("surfaced");
     expect(BUILD_SCRIPT_GRANTS.get("sharp").reason).toContain("libvips");
+    // The grant is load-bearing, not stale: sharp arrives under miniflare, and so under wrangler and
+    // the Workers test pool that every worker package carries. A register that called it unused
+    // would invite somebody to delete a line the install needs.
+    expect(BUILD_SCRIPT_GRANTS.get("sharp").reason).toContain("miniflare");
   });
 });
 
@@ -153,9 +157,9 @@ describe("judgement", () => {
     expect(problems[0].fix).toContain("golden rule 14");
   });
 
-  it("refuses a register entry whose grant has gone, except the one pending removal", () => {
+  it("refuses a register entry whose grant has gone from the workspace file", () => {
     expect(grantProblems(["esbuild", "sharp"]).map((one) => one.name)).toEqual(["workerd"]);
-    expect(grantProblems(["workerd", "esbuild"])).toEqual([]);
+    expect(grantProblems(["workerd", "esbuild"]).map((one) => one.name)).toEqual(["sharp"]);
   });
 
   it("passes a registered arrival and refuses an unregistered one", () => {
