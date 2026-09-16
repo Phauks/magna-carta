@@ -14,3 +14,9 @@ serde_json = "1"
 # Build scratch: an index is built in a temporary on-disk directory (the Container's local scratch in
 # production) and then bundled into a split. Nothing here reads or writes a persistent path.
 tempfile = "3"
+
+# The workspace lint floor (see crates/Cargo.toml): unsafe Rust forbidden, and the abort lints denied so a
+# malformed input returns an error instead of taking the process down. A member that omits this table is
+# not covered by any of it.
+[lints]
+workspace = true

@@ -28,3 +28,9 @@ js-sys = "0.3"
 # dev-only, so it is never part of the shipped artifact.
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen-test = "0.3"
+
+# The workspace lint floor (see crates/Cargo.toml): unsafe Rust forbidden, and the abort lints denied so a
+# malformed input returns an error instead of taking the process down. A member that omits this table is
+# not covered by any of it.
+[lints]
+workspace = true

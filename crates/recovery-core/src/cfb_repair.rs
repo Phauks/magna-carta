@@ -294,6 +294,11 @@ pub fn diagnose_cfb(bytes: &[u8]) -> (Vec<CorruptionKind>, Recoverability) {
 
 /// Test-support: build a minimal valid compound file (one stream). Public for
 /// the diagnose-framework test; not part of the repair API.
+// Fixture scaffolding, and the only reason it is compiled into the library rather than sitting under
+// `#[cfg(test)]` is that an integration test needs to reach it. Nothing untrusted flows in here — the
+// bytes are the two literals below — so a failure is a broken test rather than the abort on a crafted
+// document that the workspace `unwrap_used` rule exists to prevent.
+#[allow(clippy::unwrap_used)]
 #[doc(hidden)]
 pub fn tests_build_minimal_cfb() -> Vec<u8> {
     let mut compound = CompoundFile::create(Cursor::new(Vec::new())).unwrap();

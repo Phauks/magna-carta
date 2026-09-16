@@ -1,7 +1,7 @@
 ---
 worktree: /home/user/magna-carta (remote session)
 area: File manager surface and undo, the inspector's rename and dialogs, and the matter status pillbox
-status: active
+status: building
 touches: apps/web/src/lib/file-manager/, apps/web/src/lib/matters/, packages/design-system/src/lib/, docs/conventions/file-manager-rulings.md, docs/conventions/matter-rulings.md
 ---
 

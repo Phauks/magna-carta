@@ -2,6 +2,12 @@
 //! and then listed back through the ranged reader, so what is exercised is the format rather than a
 //! belief about it.
 
+// The fake readers below are plain `impl` methods rather than `#[test]` functions, so the test exemption
+// in crates/clippy.toml does not reach them even though this whole file is test code. Their panics are
+// how a test double reports that the code under test asked for something a well-formed archive never
+// needs — a failed assertion, not the abort on a crafted archive the workspace panic rules prevent.
+#![allow(clippy::panic, clippy::panic_in_result_fn)]
+
 use std::io::Cursor;
 
 use seven_zip_core::{
