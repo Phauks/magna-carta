@@ -153,6 +153,8 @@ export default defineConfig({
       "tooling/license-policy/vitest.config.ts",
       "tooling/lint-date-handling/vitest.config.ts",
       "tooling/lint-money-arithmetic/vitest.config.ts",
+      "tooling/lint-area-notes/vitest.config.ts",
+      "tooling/lint-catalog-coverage/vitest.config.ts",
       "tooling/lint-ledger-staleness/vitest.config.ts",
       "tooling/lint-list-pagination/vitest.config.ts",
       "tooling/lint-one-ui/vitest.config.ts",
