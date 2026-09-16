@@ -157,12 +157,13 @@ const CommunicationDetail = z
     // The matter as it stands, resolved by the read rather than kept as a second copy that could
     // drift. The STATUS is not decoration: an anchor may be an intake or a consultation, and what
     // may be said to a prospect and to a client are different things, so somebody about to reply
-    // needs to see which. matterNumber is null on exactly those, and the consultation's own
-    // tentative number is what a surface shows in its place.
+    // needs to see which. matterNumber is null on exactly those, and the rung's own number — a
+    // consultation's tentative one, an intake's — is what a surface shows in its place.
     matterTitle: z.string().nullable(),
     matterStatus: z.string().nullable(),
     matterNumber: z.string().nullable(),
     consultationNumber: z.string().nullable(),
+    intakeNumber: z.string().nullable(),
     // Why the row belongs to no matter, where somebody has said so. Null on a filed row and on one
     // nobody has decided about yet — those two are told apart by matterId, not by this.
     disposition: dispositionField.nullable(),
@@ -638,6 +639,7 @@ function communicationDetail(row: CommunicationWithMatterRow): z.infer<typeof Co
     matterStatus: row.matter_status,
     matterNumber: row.matter_number,
     consultationNumber: row.consultation_number,
+    intakeNumber: row.intake_number,
     disposition: row.disposition,
     counterpartyNumber: row.counterparty_number,
     counterpartyEntityId: row.counterparty_entity_id,

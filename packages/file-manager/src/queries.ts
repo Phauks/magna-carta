@@ -831,8 +831,18 @@ export interface VersionScanEventItem {
   readonly actorName: string | null;
   /** What the scan found, as the event recorded it; null where the event carried no such fact. */
   readonly scanVerdict: "unscanned" | "clean" | "flagged" | null;
+  /**
+   * The engine on the line: the composite the scan ran under, or — on a request — the engine that
+   * was recorded for the firm at the moment somebody asked. Null where the row carried neither.
+   */
   readonly scanEngineVersion: string | null;
   readonly scanDetail: string | null;
+  /**
+   * Whether a request actually reached the scan queue. Only a request row records it; null on every
+   * other kind. A request that was recorded and never queued is the fact the history otherwise
+   * withheld — the line said somebody asked and nothing said that nothing was going to happen.
+   */
+  readonly queued: boolean | null;
 }
 
 const VERSION_SCAN_EVENT_LIMIT = 200;
@@ -892,8 +902,14 @@ function scanFactsFromMetadata(metadata: string | null): {
   readonly scanVerdict: "unscanned" | "clean" | "flagged" | null;
   readonly scanEngineVersion: string | null;
   readonly scanDetail: string | null;
+  readonly queued: boolean | null;
 } {
-  const none = { scanVerdict: null, scanEngineVersion: null, scanDetail: null } as const;
+  const none = {
+    scanVerdict: null,
+    scanEngineVersion: null,
+    scanDetail: null,
+    queued: null,
+  } as const;
   if (metadata === null) return none;
   let parsed: unknown;
   try {
@@ -904,13 +920,18 @@ function scanFactsFromMetadata(metadata: string | null): {
   if (typeof parsed !== "object" || parsed === null) return none;
   const record = parsed as Record<string, unknown>;
   const verdict = record["scanVerdict"];
-  const engine = record["scanEngineVersion"];
+  // A scan row records the engine it ran under; a request row records the engine that stood for the
+  // firm when it was asked, under its own key. Both answer "what engine is on this line", and a row
+  // never carries both, so one field reads either without ambiguity.
+  const engine = record["scanEngineVersion"] ?? record["currentEngineVersion"];
   const detail = record["scanDetail"];
+  const queued = record["enqueued"];
   return {
     scanVerdict:
       verdict === "unscanned" || verdict === "clean" || verdict === "flagged" ? verdict : null,
     scanEngineVersion: typeof engine === "string" ? engine : null,
     scanDetail: typeof detail === "string" ? detail : null,
+    queued: typeof queued === "boolean" ? queued : null,
   };
 }
 

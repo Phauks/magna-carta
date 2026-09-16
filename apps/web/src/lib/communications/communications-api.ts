@@ -82,6 +82,7 @@ export interface Communication {
   /** Null on exactly the unnumbered anchors; the consultation's own number stands in its place. */
   matterNumber: string | null;
   consultationNumber: string | null;
+  intakeNumber: string | null;
   /** Why it belongs to no matter, where somebody said so. Null on a filed row and on an undecided one. */
   disposition: CommunicationDisposition | null;
   counterpartyNumber: string;

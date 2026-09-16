@@ -809,7 +809,7 @@
   kind="reading"
   width="record"
   heading="Time Sheet"
-  subtitle={matterTitle ?? "Every matter"}
+  subtitle={{ facts: [matterTitle ?? "Every matter"] }}
 >
   {#snippet fields()}
     <div class="flex flex-wrap items-center gap-8">

@@ -20,6 +20,7 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as Select from "@magna-carta/design-system/select";
   import Input from "@magna-carta/design-system/input";
@@ -85,6 +86,16 @@
   const comesOffBalance = $derived(Math.min(amountMinor, Math.max(unpaid, 0)));
   const becomesClientCredit = $derived(amountMinor - comesOffBalance);
 
+  /*
+   * The bill being acted on, by its own number. The facts beside it are facts about THAT BILL — what
+   * it still owes, what it is worth — never a description of the act, which the heading has already
+   * given. Both were in one interpolated string before, which is how a number and a sentence came to
+   * share a line behind three different separators across these panels.
+   */
+  const subtitle = $derived<RecordSubject>({
+    reference: { kind: "Invoice", number: row?.summary.invoiceNumber ?? null },
+  });
+
   const refusal = $derived.by((): string | undefined => {
     if (reason.trim() === "") return "A reason is required. It is read years later.";
     if (reading.kind === "empty") return "Say how much is being credited.";
@@ -144,7 +155,7 @@
 <ActionDialog
   bind:open
   heading="Issue a Credit Note"
-  subtitle={`Against ${row?.summary.invoiceNumber ?? "this bill"} — a second permanent record standing beside it`}
+  {subtitle}
   commitLabel="Issue Credit Note"
   commitBusyLabel="Issuing"
   commitRefusal={refusal}

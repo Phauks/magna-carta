@@ -25,8 +25,14 @@ export interface SnapshotHeader {
   readonly prevId: string;
 }
 
-// Structural violations of the journal <-> files relationship. (Snapshot timestamps are NOT checked:
-// merge-renumbering legitimately leaves `when` non-monotonic, and apply order is by idx.)
+// Structural violations of the journal <-> files relationship. (Snapshot `when` timestamps are NOT
+// checked: merge-renumbering legitimately leaves them non-monotonic, and nothing reads them.)
+//
+// APPLY ORDER IS BY TAG, NOT BY IDX, and this file used to say the opposite. `migrationsFromJournal`
+// sorts the journal's entries lexically by tag, so the tag is what every database — fresh or
+// already provisioned — actually applies in; `idx` is drizzle's own dense counter, and it names the
+// snapshot a generate diffs against. The two are the same fact only while they agree, which is what
+// applyOrderViolations below is for.
 export function journalStructureViolations(artifacts: Artifacts): string[] {
   const violations: string[] = [];
   const entries = [...artifacts.journal.entries].sort((left, right) => left.idx - right.idx);
@@ -62,6 +68,44 @@ export function journalStructureViolations(artifacts: Artifacts): string[] {
     if (!journalIdx.has(snapshotIdx)) {
       violations.push(`orphan snapshot for idx ${snapshotIdx} (no such journal entry)`);
     }
+  }
+  return violations;
+}
+
+/**
+ * A lineage whose apply order and authored order disagree.
+ *
+ * `idx` is the order the migrations were INTEGRATED in — drizzle hands out the next number when a
+ * migration is generated, and a merge renumbers an incoming one above whatever landed first. The
+ * TAG is the order they are APPLIED in, on every database there is. While the two agree, a
+ * migration is applied against the same schema state it was authored against. When they disagree,
+ * a branch cut earlier but merged later is applied BEFORE the migration it was actually written on
+ * top of — so a fresh firm builds its schema in an order no existing firm ever used, and the two
+ * fleets diverge the first time one of those migrations depends on the other.
+ *
+ * WHY THIS LIVES HERE RATHER THAN ONLY IN A TEST. It was only in a test — the Vitest fitness
+ * function in packages/database — and the gate runs its test battery only under the `run-tests`
+ * label, so two inversions merged on 2026-09-11 and 2026-09-14 without anything failing. This
+ * module runs on EVERY pull request, which is where a tag still costs nothing to change: a
+ * migration nobody has applied can be renamed, and one that has reached a database cannot.
+ *
+ * The remedy is always to re-stamp the incoming migration ABOVE the new head, never to renumber
+ * `idx` — `idx` names snapshot files that describe the schema at that point, and reordering it
+ * would make each snapshot describe a state its name denies.
+ */
+export function applyOrderViolations(journal: MigrationJournal): string[] {
+  const byIdx = [...journal.entries].sort((left, right) => left.idx - right.idx);
+  const violations: string[] = [];
+  for (let position = 1; position < byIdx.length; position += 1) {
+    const previous = byIdx[position - 1];
+    const current = byIdx[position];
+    if (previous === undefined || current === undefined) continue;
+    if (current.tag > previous.tag) continue;
+    violations.push(
+      `${current.tag} (idx ${current.idx}) sorts before ${previous.tag} (idx ${previous.idx}), so it ` +
+        "is APPLIED before the migration it was authored after. Re-stamp it above the lineage head " +
+        "with a later timestamp id — never renumber idx, which names the snapshots.",
+    );
   }
   return violations;
 }
@@ -138,6 +182,86 @@ export function parentRebuildViolations(
         "holds data. Widening a CHECK or dropping a column on a parent table needs a different " +
         "approach; see PARENT_REBUILDS_PREDATING_THE_DURABLE_OBJECT_FINDING for why that list must " +
         "not grow.",
+    );
+  }
+  return violations;
+}
+
+/*
+ * THE CHAIN AGAINST THE SCHEMA.
+ *
+ * The one check the rest of this file cannot make: does the SQL actually build what the TypeScript
+ * says the database is? Everything else here asks whether the artifacts are well-formed and whether
+ * the chain runs. A chain can be well-formed, run cleanly, and still produce a column the schema
+ * does not declare, or miss one it does.
+ *
+ * That gap is wide open here rather than theoretical, and for two reasons that compound. Hand-written
+ * migrations are the NORMAL case in this repository (partial indexes, FTS5, seeds, ordered column
+ * adds — drizzle-kit cannot express them), so most of the lineage is authored beside the schema
+ * rather than derived from it. And the snapshot check that looks like it would catch a divergence
+ * does not: refresh-snapshot re-derives the snapshot FROM the TypeScript, so a migration that drifts
+ * from the schema leaves both of them agreeing with each other and disagreeing with every database.
+ *
+ * The package's own notes already prescribe this comparison — "apply the lineage to node:sqlite and
+ * compare PRAGMA output" — as something to do BY HAND when a divergence is suspected. A check
+ * somebody has to think of running is a check that runs after the damage. This is that comparison,
+ * run every time.
+ */
+
+/** A live database's shape, read back from SQLite: table name -> its column names. */
+export type LiveSchema = ReadonlyMap<string, ReadonlySet<string>>;
+
+/** What the TypeScript declares: table name -> its column names. */
+export type DeclaredSchema = ReadonlyMap<string, ReadonlySet<string>>;
+
+/*
+ * Tables the migrations build that the TypeScript deliberately does not declare, because drizzle
+ * cannot model them. The FTS5 virtual table for directory name search, and the four shadow tables
+ * SQLite creates underneath it. Named exactly rather than matched by prefix: a new undeclared table
+ * is a real finding, and a prefix rule would swallow the next one silently.
+ */
+export const UNDECLARED_BY_DESIGN: readonly string[] = [
+  "directory_name_fts",
+  "directory_name_fts_data",
+  "directory_name_fts_idx",
+  "directory_name_fts_docsize",
+  "directory_name_fts_config",
+];
+
+/**
+ * Where the applied chain and the declared schema disagree. Empty when they build the same thing.
+ *
+ * Runner-managed tables (`_migrations`, `_migration_restore_point`) are skipped: they are the
+ * runtime's own bookkeeping, created outside the lineage, and no schema declares them.
+ */
+export function schemaAgreementViolations(declared: DeclaredSchema, live: LiveSchema): string[] {
+  const violations: string[] = [];
+  for (const [table, declaredColumns] of declared) {
+    const liveColumns = live.get(table);
+    if (liveColumns === undefined) {
+      violations.push(`the schema declares table "${table}" and the chain never creates it`);
+      continue;
+    }
+    for (const column of declaredColumns) {
+      if (!liveColumns.has(column)) {
+        violations.push(
+          `the schema declares "${table}"."${column}" and the chain never creates it`,
+        );
+      }
+    }
+    for (const column of liveColumns) {
+      if (!declaredColumns.has(column)) {
+        violations.push(
+          `the chain creates "${table}"."${column}" and the schema does not declare it`,
+        );
+      }
+    }
+  }
+  const allowed = new Set(UNDECLARED_BY_DESIGN);
+  for (const table of live.keys()) {
+    if (declared.has(table) || allowed.has(table) || table.startsWith("_")) continue;
+    violations.push(
+      `the chain creates table "${table}" and the schema does not declare it — if that is deliberate, add it to UNDECLARED_BY_DESIGN with the reason`,
     );
   }
   return violations;

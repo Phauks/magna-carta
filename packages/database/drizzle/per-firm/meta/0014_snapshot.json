@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "3e29f67b-2f28-40f5-97d9-b8d62530a02c",
-  "prevId": "e636bf36-ece9-4fb4-b6ef-b6f5ca8af03d",
+  "id": "77088594-4eb9-41e0-b8a8-4b6be227a3c1",
+  "prevId": "f3d1a340-d3cf-4ead-9adf-76d7c5126815",
   "tables": {
     "account_balance": {
       "name": "account_balance",
@@ -9501,27 +9501,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "recurrence_rule": {
-          "name": "recurrence_rule",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "recurrence_parent_id": {
-          "name": "recurrence_parent_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "recurrence_occurrence_on": {
-          "name": "recurrence_occurrence_on",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "starts_on": {
           "name": "starts_on",
           "type": "text",
@@ -9690,10 +9669,6 @@
         "firm_event_starts_on_shape_check": {
           "name": "firm_event_starts_on_shape_check",
           "value": "\"firm_event\".\"starts_on\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
-        },
-        "firm_event_recurrence_occurrence_on_shape_check": {
-          "name": "firm_event_recurrence_occurrence_on_shape_check",
-          "value": "\"firm_event\".\"recurrence_occurrence_on\" IS NULL OR \"firm_event\".\"recurrence_occurrence_on\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
         },
         "firm_event_ends_on_shape_check": {
           "name": "firm_event_ends_on_shape_check",
@@ -13299,6 +13274,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "intake_number": {
+          "name": "intake_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "system_key": {
           "name": "system_key",
           "type": "text",
@@ -13365,6 +13347,14 @@
           ],
           "isUnique": true,
           "where": "\"matter\".\"consultation_number\" IS NOT NULL"
+        },
+        "matter_intake_number_unique_index": {
+          "name": "matter_intake_number_unique_index",
+          "columns": [
+            "intake_number"
+          ],
+          "isUnique": true,
+          "where": "\"matter\".\"intake_number\" IS NOT NULL"
         },
         "matter_system_key_unique_index": {
           "name": "matter_system_key_unique_index",
@@ -15885,27 +15875,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "recurrence_rule": {
-          "name": "recurrence_rule",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "recurrence_parent_id": {
-          "name": "recurrence_parent_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "recurrence_occurrence_on": {
-          "name": "recurrence_occurrence_on",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "starts_on": {
           "name": "starts_on",
           "type": "text",
@@ -16071,10 +16040,6 @@
         "matter_event_starts_on_shape_check": {
           "name": "matter_event_starts_on_shape_check",
           "value": "\"matter_event\".\"starts_on\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
-        },
-        "matter_event_recurrence_occurrence_on_shape_check": {
-          "name": "matter_event_recurrence_occurrence_on_shape_check",
-          "value": "\"matter_event\".\"recurrence_occurrence_on\" IS NULL OR \"matter_event\".\"recurrence_occurrence_on\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
         },
         "matter_event_ends_on_shape_check": {
           "name": "matter_event_ends_on_shape_check",

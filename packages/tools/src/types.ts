@@ -38,4 +38,12 @@ export interface ToolManifest {
   readonly contextTags: readonly ContextTag[]; // >=1; what the tool accepts
   readonly backing: ToolBacking;
   readonly matterContext: MatterContext;
+  /**
+   * Where the tool's surface lives, when it is not the usual `/tools/<id>`. Almost every tool is
+   * reached inside the Tools area and derives its address from its id; a tool that has outgrown
+   * that area and earned a sidebar destination of its own is addressed at the top level instead,
+   * and says so here. The manifest row stays either way, because the contextual surfacing path
+   * queries this catalog by context tag and a tool absent from it is a tool nothing can offer.
+   */
+  readonly route?: string;
 }

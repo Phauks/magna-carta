@@ -89,6 +89,11 @@
    * and until now the only way to send it was Copy, close, find the profile menu, paste. Report an
    * Issue opens the same dialog every other surface uses, carrying this panel's whole diagnosis, so
    * the filed report says which builds were live and whether the firm's database was answering.
+   * The dialog is mounted by the shell, not here: inside the chip's popover it was a child of the
+   * surface that dismisses it ($lib/components/issue-report.svelte.ts).
+   *
+   * AND IT SAYS WHERE THE SOURCE IS. Every commit named here links to its own diff; the repository
+   * those diffs live in was the one address a reader had to already know.
    *
    * Honesty rules the panel keeps:
    * - The build line never comes from the network and the deployment lines never come from
@@ -115,13 +120,14 @@
   import { copyText } from "@magna-carta/design-system/failure-details";
   import ClipboardCopy from "@lucide/svelte/icons/clipboard-copy";
   import ExternalLink from "@lucide/svelte/icons/external-link";
+  import GitBranch from "@lucide/svelte/icons/git-branch";
   import MessageSquareWarning from "@lucide/svelte/icons/message-square-warning";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import RotateCw from "@lucide/svelte/icons/rotate-cw";
   import { page, updated } from "$app/state";
   import { buildPanel } from "$lib/versions/build-panel.svelte.ts";
   import { opensBeside } from "$lib/navigation/open-beside.ts";
-  import BugReportDialog from "$lib/components/bug-report-dialog.svelte";
+  import { issueReport } from "$lib/components/issue-report.svelte.ts";
   import { requestJson } from "$lib/api/request.ts";
   import { currentEnvironment } from "$lib/diagnostics/current-trace.ts";
   import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
@@ -156,6 +162,7 @@
   import {
     commitComparisonUrl,
     commitUrl,
+    repositoryUrl,
     workerDashboardUrl,
   } from "$lib/versions/deployment-links.ts";
   import {
@@ -238,8 +245,6 @@
   let readinessFailure = $state<PanelReadFailure | null>(null);
   let readinessLoading = $state(false);
   const mayCheckReadiness = $derived(sessionPermissions.holds(CHECK_UPLOAD_READINESS_PERMISSION));
-
-  let issueReportOpen = $state(false);
 
   // Sample words for the loading fixtures: an invented commit and its two timestamps, so a
   // fixture row's detail line is the width a real one is.
@@ -455,6 +460,12 @@
       ? null
       : commitComparisonUrl(BUILD_IDENTITY.commit, webWorkerRow?.commit ?? null),
   );
+
+  // Where the source lives. Every commit on this panel is a link into this repository already; the
+  // repository itself was the one address a reader had to know by heart. Signed-in only, by the
+  // same rule as the commit and dashboard links: the path is internal furniture, and a sign-in
+  // screen is not the place to publish it.
+  const sourceUrl = $derived(readsAggregate ? repositoryUrl() : null);
 
   /*
    * EVERYTHING THE PANEL IS SHOWING, as one paste — assembled from the same values the rows render
@@ -699,10 +710,16 @@
             class="shrink-0"
             aria-label="Report an issue with this diagnosis attached"
             onclick={() => {
-              // The panel gets out of the way of the dialog it just opened. A no-op on the
-              // Versions page, which is not a popover and has nothing to close.
+              // The panel gets out of the way of the dialog it opens. A no-op on the Versions
+              // page, which is not a popover and has nothing to close.
+              //
+              // THE DIALOG IS THE SHELL'S, not this component's. Mounted here it was a child of
+              // the popover that had just been told to close, so the popover's exit unmounted the
+              // report about a second after it appeared — the report opened and then would not
+              // stay. The shell outlives the panel; the panel hands it the diagnosis and the
+              // gesture ($lib/components/issue-report.svelte.ts).
               buildPanel.close();
-              issueReportOpen = true;
+              issueReport.open(panelReport);
             }}
           >
             <MessageSquareWarning class="size-16" aria-hidden="true" />
@@ -732,6 +749,24 @@
           >
             <RefreshCw class="size-16" aria-hidden="true" />
           </Button>
+          {#if sourceUrl !== null}
+            <!-- The source itself, at the end of the cluster so the three controls beside it keep
+                 the seats they have had. The panel links every commit it names to its diff and had
+                 no way to the repository those diffs belong to — the address a reader ends up at
+                 when the diagnosis says which build is serving and the next question is what that
+                 build actually does. It opens beside, like every other link here: a reader
+                 checking the source is not done with the panel. -->
+            <Button
+              variant="ghost"
+              size="icon"
+              class="shrink-0"
+              href={sourceUrl}
+              {...opensBeside("external")}
+              aria-label="Open the source repository on GitHub"
+            >
+              <GitBranch class="size-16" aria-hidden="true" />
+            </Button>
+          {/if}
         {/if}
       </div>
     </div>
@@ -1059,9 +1094,3 @@
     <p class="text-xs text-text-muted">{SIGNED_OUT_DATABASE_NOTICE}</p>
   {/if}
 </div>
-
-<!-- The issue reporter, carrying what this panel assembled. Mounted here rather than in the shell
-     so the chip stays self-contained, exactly as the command palette mounts its own copy. -->
-{#if readsAggregate}
-  <BugReportDialog bind:open={issueReportOpen} deployment={panelReport} />
-{/if}

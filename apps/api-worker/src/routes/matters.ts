@@ -125,6 +125,10 @@ const MatterSummary = z
     // The tentative number a consultation wears until (and after) it is opened. Carried beside the
     // matter number, never folded into it: which of the two a reader has changes what it means.
     consultationNumber: z.string().nullable(),
+    // And the number the intake wore before either. All three are carried because a file that came
+    // the whole way answers to all three, and a note quoting the number it was filed under at the
+    // time has to keep finding it.
+    intakeNumber: z.string().nullable(),
     createdAt: z.string(),
   })
   .openapi("MatterSummary");
@@ -167,6 +171,7 @@ const MatterDetail = z
     clientEntityId: z.string().nullable(),
     matterNumber: z.string().nullable(),
     consultationNumber: z.string().nullable(),
+    intakeNumber: z.string().nullable(),
     eBilling: z.boolean(),
     openedAt: z.string().nullable(),
     // Set while the matter is on hold: when the pause began, and why, in the firm's own words.
@@ -198,6 +203,9 @@ const CreateMatterResponse = z
     // Filled for a consultation, which is numbered the moment it is created; null for a matter
     // created straight to open, which never was one.
     consultationNumber: z.string().nullable(),
+    // Filled for an intake, which is numbered the moment the enquiry is written down; null for a
+    // matter recorded at any later rung.
+    intakeNumber: z.string().nullable(),
   })
   .openapi("CreateMatterResponse");
 
@@ -1054,6 +1062,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
             matterId: result.matterId,
             matterNumber: result.matterNumber,
             consultationNumber: result.consultationNumber,
+            intakeNumber: result.intakeNumber,
           } as z.infer<typeof CreateMatterResponse>,
           201,
         );
@@ -1146,6 +1155,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
         client_code: string | null;
         matter_number: string | null;
         consultation_number: string | null;
+        intake_number: string | null;
         e_billing: number;
         opened_at: string | null;
         held_at: string | null;
@@ -1181,6 +1191,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
           clientEntityId: await readMatterClientEntityId(firm.firmDatabase, row.id as MatterId),
           matterNumber: row.matter_number,
           consultationNumber: row.consultation_number,
+          intakeNumber: row.intake_number,
           eBilling: row.e_billing !== 0,
           openedAt: row.opened_at,
           heldAt: row.held_at,

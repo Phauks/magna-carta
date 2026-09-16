@@ -58,3 +58,16 @@ export function commitComparisonUrl(from: string | null, to: string | null): str
   if (repository === null || !isRealCommit(from) || !isRealCommit(to) || from === to) return null;
   return `${repository}/compare/${encodeURIComponent(from)}...${encodeURIComponent(to)}`;
 }
+
+/**
+ * The repository itself on GitHub, or null when this build resolved none at build time.
+ *
+ * The panel names a dozen commits and links each of them to a diff; what it could not do was take a
+ * reader to the source those commits belong to. That is the destination for every question the
+ * panel raises but cannot answer — what a Worker in the fleet actually does, what shipped since the
+ * commit on screen, where to file what the diagnosis found — and the address is already in the
+ * build (BUILD_IDENTITY.sourceRepository, from the git remote), so nothing here is a guess.
+ */
+export function repositoryUrl(): string | null {
+  return BUILD_IDENTITY.sourceRepository;
+}

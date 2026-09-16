@@ -13,6 +13,7 @@
    * from the same record, and the log carries both acts.
    */
   import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { RecordReference } from "@magna-carta/design-system/record-reference";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as Select from "@magna-carta/design-system/select";
   import Label from "@magna-carta/design-system/label";
@@ -29,11 +30,14 @@
   let {
     open = $bindable(false),
     communicationId,
+    reference,
     onSetAside,
   }: {
     open?: boolean;
     /** The row being set aside. Null while nothing is chosen, which keeps the dialog closed. */
     communicationId: string | null;
+    /** That row by the number somebody quotes — what is being taken out of the queue, named. */
+    reference: RecordReference | null;
     onSetAside: () => void;
   } = $props();
 
@@ -79,7 +83,7 @@
 <ActionDialog
   bind:open
   heading="Set It Aside"
-  subtitle="Takes it out of the queue without pretending it was a matter. Nothing is deleted, and it can be put back."
+  subtitle={reference === null ? undefined : { reference }}
   commitLabel="Set Aside"
   commitBusyLabel="Setting aside"
   commitRefusal={refusal}

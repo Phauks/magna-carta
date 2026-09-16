@@ -24,12 +24,8 @@
   import { goto } from "$app/navigation";
   import { toast } from "@magna-carta/design-system/toast";
   import { ECOSYSTEM_SITES } from "$lib/navigation/ecosystem-sites.ts";
-  import BugReportDialog from "$lib/components/bug-report-dialog.svelte";
+  import { issueReport } from "$lib/components/issue-report.svelte.ts";
   import { signOut } from "$lib/auth/sign-out.ts";
-
-  // The menu owns the bug-report dialog's open state: selecting the item closes the menu, then
-  // the dialog takes over focus. The dialog renders as a sibling of the menu, never inside it.
-  let bugReportOpen = $state(false);
 
   // Selecting an item closes the menu, so the guard is not about a second click on a disabled
   // control — it is about the keyboard and the pointer both landing on Sign out, which would spend
@@ -123,7 +119,7 @@
          framework (time-boxed, firm-approved access grants — pull, not push) already exists
          for the support session that follows. The live contact flow lands with in-application
          support. -->
-    <DropdownMenu.Item onSelect={() => (bugReportOpen = true)}>
+    <DropdownMenu.Item onSelect={() => issueReport.open()}>
       <Bug class="size-16" aria-hidden="true" />
       Report an Issue
     </DropdownMenu.Item>
@@ -142,5 +138,3 @@
     </DropdownMenu.Item>
   </DropdownMenu.Content>
 </DropdownMenu.Root>
-
-<BugReportDialog bind:open={bugReportOpen} />

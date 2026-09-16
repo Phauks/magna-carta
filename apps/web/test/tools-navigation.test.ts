@@ -8,10 +8,15 @@
  *     cannot disagree;
  *   - a tool with a surface is a link to its own route; one without stands in its group unlinked
  *     and wearing the Soon mark, never omitted and never dressed as a broken control;
- *   - the row for the tool the reader is on is marked current, including from a screen beneath it
- *     (the workbench's password recovery);
- *   - the content column scrolls unless the page claims the scrolling, which the two full-height
- *     tools do through their route data.
+ *   - the row for the tool the reader is on is marked current, including from a screen beneath it;
+ *   - the content column scrolls unless the page claims the scrolling, which the full-height tool
+ *     does through its route data.
+ *
+ * The File Workbench is deliberately NOT here any more. It became a sidebar destination of its own
+ * (navigation/destinations.ts) and declares a `route` outside this area, which is what takes it out
+ * of the column: every row here loads BESIDE the column, and a row that replaced the whole screen
+ * would be the one control that does not. Its manifest stays for contextual surfacing, so
+ * CATALOG.length is no longer the column's count.
  */
 import { createRawSnippet, flushSync, mount, unmount } from "svelte";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -19,7 +24,6 @@ import { page } from "./stubs/app-state.ts";
 import { CATALOG } from "@magna-carta/tools/catalog";
 import { hasSurface } from "@magna-carta/design-system/maturity";
 import ToolsLayout from "../src/routes/(app)/tools/+layout.svelte";
-import { load as fileWorkbenchLoad } from "../src/routes/(app)/tools/file-workbench/+page.ts";
 import { load as safeWebsiteViewerLoad } from "../src/routes/(app)/tools/safe-website-viewer/+page.ts";
 import {
   currentCatalogueEntry,
@@ -80,7 +84,8 @@ describe("the tools column", () => {
       section.entries.map((entry) => entry.name),
     );
     expect(rows.map((row) => row.replace(/Soon$/u, "").trim())).toEqual(expected);
-    expect(new Set(expected).size).toBe(CATALOG.length);
+    // Every catalog tool the area still addresses, which is all of them but the promoted ones.
+    expect(new Set(expected).size).toBe(CATALOG.filter((tool) => tool.route === undefined).length);
 
     const headings = [...column.querySelectorAll("p.mc-field-label")].map(
       (heading) => heading.textContent?.trim() ?? "",
@@ -110,18 +115,18 @@ describe("the tools column", () => {
   });
 
   it("lights the row of the tool the reader is on, including from a screen beneath it", () => {
-    const onWorkbench = navigation(drawTools("/tools/file-workbench"));
-    expect(onWorkbench.querySelector('[aria-current="page"]')?.getAttribute("href")).toBe(
-      "/tools/file-workbench",
+    const onWhois = navigation(drawTools("/tools/whois-lookup"));
+    expect(onWhois.querySelector('[aria-current="page"]')?.getAttribute("href")).toBe(
+      "/tools/whois-lookup",
     );
-    expect(onWorkbench.querySelectorAll('[aria-current="page"]')).toHaveLength(1);
+    expect(onWhois.querySelectorAll('[aria-current="page"]')).toHaveLength(1);
     if (instance !== undefined) void unmount(instance);
     instance = undefined;
     target.replaceChildren();
 
-    const onRecovery = navigation(drawTools("/tools/file-workbench/recovery/job-1"));
-    expect(onRecovery.querySelector('[aria-current="page"]')?.getAttribute("href")).toBe(
-      "/tools/file-workbench",
+    const onBeneath = navigation(drawTools("/tools/whois-lookup/some-record"));
+    expect(onBeneath.querySelector('[aria-current="page"]')?.getAttribute("href")).toBe(
+      "/tools/whois-lookup",
     );
     if (instance !== undefined) void unmount(instance);
     instance = undefined;
@@ -129,6 +134,16 @@ describe("the tools column", () => {
 
     const onLanding = navigation(drawTools("/tools"));
     expect(onLanding.querySelector('[aria-current="page"]')).toBeNull();
+  });
+
+  it("leaves out a tool promoted to its own destination, and the group it emptied", () => {
+    const column = navigation(drawTools("/tools"));
+    expect(column.textContent).not.toContain("File Workbench");
+    expect(column.querySelector('a[href="/file-workbench"]')).toBeNull();
+    expect(
+      toolCatalogueSections().some((section) => section.id === "files"),
+      "the files group has no tool left to show",
+    ).toBe(false);
   });
 
   it("renders the page beside the column", () => {
@@ -157,34 +172,33 @@ describe("who scrolls the content column", () => {
     instance = undefined;
     target.replaceChildren();
 
-    const owned = contentColumn(drawTools("/tools/file-workbench", { ...PAGE_OWNS_SCROLLER }));
+    const owned = contentColumn(drawTools("/tools/safe-website-viewer", { ...PAGE_OWNS_SCROLLER }));
     expect(owned.classList.contains("mc-navigation-layout-content-scrolling")).toBe(false);
   });
 
-  it("is claimed by the two full-height tools through their route data, and by nothing else", () => {
+  it("is claimed by the full-height tool through its route data, and by nothing else", () => {
+    // One tool claims it now. The workbench was the other, and it stages its own height against
+    // the App Shell rather than against this column since it stopped being a tool.
     expect(contentColumnScrolls({})).toBe(true);
     expect(contentColumnScrolls({ contentScrolls: true })).toBe(true);
     expect(contentColumnScrolls({ ...PAGE_OWNS_SCROLLER })).toBe(false);
-    expect(contentColumnScrolls(routeData(fileWorkbenchLoad))).toBe(false);
     expect(contentColumnScrolls(routeData(safeWebsiteViewerLoad))).toBe(false);
   });
 });
 
 describe("which row is current", () => {
   const sections = toolCatalogueSections();
-  const workbench = sections
+  const whois = sections
     .flatMap((section) => section.entries)
-    .find((entry) => entry.id === "file-workbench");
-  if (workbench === undefined) throw new Error("the workbench is not in the catalogue");
+    .find((entry) => entry.id === "whois-lookup");
+  if (whois === undefined) throw new Error("the WHOIS lookup is not in the catalogue");
 
   it("is the entry whose route the address is on or beneath, on the path boundary", () => {
-    expect(isCurrentCatalogueEntry(workbench, "/tools/file-workbench")).toBe(true);
-    expect(isCurrentCatalogueEntry(workbench, "/tools/file-workbench/recovery/job-1")).toBe(true);
-    expect(isCurrentCatalogueEntry(workbench, "/tools/file-workbench-else")).toBe(false);
-    expect(isCurrentCatalogueEntry(workbench, "/tools")).toBe(false);
-    expect(isCurrentCatalogueEntry({ ...workbench, href: null }, "/tools/file-workbench")).toBe(
-      false,
-    );
+    expect(isCurrentCatalogueEntry(whois, "/tools/whois-lookup")).toBe(true);
+    expect(isCurrentCatalogueEntry(whois, "/tools/whois-lookup/some-record")).toBe(true);
+    expect(isCurrentCatalogueEntry(whois, "/tools/whois-lookup-else")).toBe(false);
+    expect(isCurrentCatalogueEntry(whois, "/tools")).toBe(false);
+    expect(isCurrentCatalogueEntry({ ...whois, href: null }, "/tools/whois-lookup")).toBe(false);
   });
 
   it("is nothing on the landing screen", () => {

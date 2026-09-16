@@ -22,9 +22,10 @@
   import FieldLabel from "@magna-carta/design-system/field-label";
   import Progress from "@magna-carta/design-system/progress";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
   import { intakeFolderPaths } from "$lib/file-manager/upload-intake.ts";
   import UploadSourceTable from "$lib/file-manager/upload-source-table.svelte";
-  import { formatTimeOfDay } from "@magna-carta/design-system/formatters";
+  import { formatTimeOfDay, placeholderOf } from "@magna-carta/design-system/formatters";
   import {
     batchCountsText,
     batchPaceText,
@@ -37,8 +38,25 @@
     type UploadBatch,
   } from "$lib/file-manager/upload-queue.svelte.ts";
 
-  const batches = $derived(uploadBatches());
-  const finishedCount = $derived(batches.filter((batch) => !batch.running).length);
+  const everyBatch = $derived(uploadBatches());
+  const finishedCount = $derived(everyBatch.filter((batch) => !batch.running).length);
+
+  /*
+   * Narrowing the register. Every batch is already in this tab — that is the whole nature of this
+   * screen — so the query runs on every keystroke and never leaves the machine. It reads the matter
+   * a batch is going to and the folder it lands in, because "where was I sending that" is the
+   * question somebody watching four uploads at once actually has.
+   */
+  let searchText = $state("");
+  let appliedSearch = $state("");
+  const batchSearch = $derived(appliedSearch.trim().toLowerCase());
+  const batches = $derived(
+    batchSearch === ""
+      ? everyBatch
+      : everyBatch.filter((batch) =>
+          `${batch.matterTitle} ${batch.destinationLabel}`.toLowerCase().includes(batchSearch),
+        ),
+  );
 
   /** Every folder open, per batch, so the whole tree reads at once; the reader folds. */
   let expandedByBatch = $state<Record<string, Set<string>>>({});
@@ -64,6 +82,17 @@
 
 <ScreenHeader title="Uploads" class="mb-24">
   {#snippet actions()}
+    <!-- The search leads the row and grows toward the inline start, so Clear Finished never moves
+         when it opens — the same order as every other Workspace screen. -->
+    <ScreenSearch
+      bind:value={searchText}
+      label="Search your uploads"
+      placeholder={placeholderOf("Search your uploads")}
+      fieldClass="w-2xs sm:w-xs"
+      onsearch={(next) => {
+        appliedSearch = next;
+      }}
+    />
     {#if finishedCount > 0}
       <Button variant="ghost" onclick={dismissFinishedUploads}>
         <Trash2 class="size-16" aria-hidden="true" />
@@ -73,7 +102,13 @@
   {/snippet}
 </ScreenHeader>
 
-{#if batches.length === 0}
+{#if batches.length === 0 && batchSearch !== ""}
+  <!-- Uploads ARE running and the query reaches none of them, so the answer is about the query
+       rather than about the queue. -->
+  <EmptyState title="Nothing Matches That Search">
+    No upload in this tab matches "{appliedSearch.trim()}". Clear the search to see them all again.
+  </EmptyState>
+{:else if batches.length === 0}
   <EmptyState title="Nothing uploading">
     Files you send to a matter show here while they go and until you clear them, with each file's
     standing, the rate, and the time left. Uploads live in this browser tab: closing the tab ends

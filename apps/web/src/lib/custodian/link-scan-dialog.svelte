@@ -18,6 +18,7 @@
    * this form implies otherwise by offering an action that would.
    */
   import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { RecordReference } from "@magna-carta/design-system/record-reference";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as Select from "@magna-carta/design-system/select";
   import Label from "@magna-carta/design-system/label";
@@ -41,6 +42,7 @@
   let {
     open = $bindable(false),
     packetId,
+    reference,
     filingMatterId,
     items,
     onLinked,
@@ -48,6 +50,8 @@
     open?: boolean;
     /** The packet the copy is filed against. Null while no packet is open. */
     packetId: string | null;
+    /** That packet by its custody number — which packet the copy is filed against, said once. */
+    reference: RecordReference | null;
     /** The matter whose file store this packet's copies live in. Null while it is unread. */
     filingMatterId: string | null;
     /** The packet's described contents, so a copy can name the one item it is of. */
@@ -142,8 +146,8 @@
 
 <ActionDialog
   bind:open
-  heading="File A Copy"
-  subtitle="A document the firm already holds, linked to this packet. It is never a substitute for the original."
+  heading="File a Copy"
+  subtitle={reference === null ? undefined : { reference }}
   commitLabel="File Copy"
   commitBusyLabel="Filing"
   commitRefusal={refusal}

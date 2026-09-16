@@ -90,7 +90,6 @@
 <ActionDialog
   bind:open
   heading="New Custodian of Record"
-  subtitle="Whose electronic records these were — the question asked under oath about a production."
   commitLabel="Add"
   commitBusyLabel="Adding"
   commitRefusal={refusal}

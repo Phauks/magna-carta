@@ -348,7 +348,7 @@
 <ActionDialog
   bind:open={retireOpen}
   kind="destructive"
-  heading="Retire This Event Type?"
+  heading="Retire This Event Type"
   commitLabel="Retire the Event Type"
   commitBusyLabel="Retiring"
   unsavedChanges={false}

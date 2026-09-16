@@ -50,7 +50,6 @@ import {
   graduateMatterStatement,
   holdMatterStatement,
   insertMatterStatement,
-  isConsultationNumberConflict,
   isMatterNumberConflict,
   type MatterFields,
   type MatterRow,
@@ -63,10 +62,7 @@ import {
   updateMatterFieldsStatement,
   type NumberingPurpose,
 } from "./matter-statements.ts";
-import {
-  CONSULTATION_SCOPE_PREFIX,
-  DEFAULT_CONSULTATION_SCHEME,
-} from "./numbering/consultation-scheme.ts";
+import { sequenceOf } from "./numbering/sequences.ts";
 import { drawWithBoundedRetry } from "@magna-carta/sequence-numbering/bounded-retry";
 import { insertMatterPartyStatement } from "@magna-carta/directory/statements";
 import { MATTER_PARTY_CLIENT_ROLE } from "./matter-party.ts";
@@ -200,6 +196,7 @@ async function loadMatter(database: SqlDatabase, id: MatterId): Promise<MatterRo
     client_code: string | null;
     matter_number: string | null;
     consultation_number: string | null;
+    intake_number: string | null;
     opened_at: string | null;
     held_at: string | null;
     hold_reason: string | null;
@@ -219,6 +216,7 @@ async function loadMatter(database: SqlDatabase, id: MatterId): Promise<MatterRo
     clientCode: row.client_code,
     matterNumber: row.matter_number,
     consultationNumber: row.consultation_number,
+    intakeNumber: row.intake_number,
     openedAt: row.opened_at,
     heldAt: row.held_at,
     holdReason: row.hold_reason,
@@ -238,18 +236,11 @@ async function loadActiveScheme(
     segments: string;
   }>();
   const row = results[0];
-  // The two purposes differ in what "no scheme configured" means. A matter number is the firm's
-  // own file numbering and there is no defensible default — rendering one would stamp a shape the
-  // firm never chose onto a number that is then frozen — so it refuses. A consultation number is
-  // scaffolding for a file that may never exist, and refusing to take a consultation because
-  // nobody has visited the settings screen is the worse failure, so it renders from the built-in
-  // default until the firm sets its own.
+  // What "no scheme configured" means is the sequence's own answer, held in SEQUENCES above.
   if (row === undefined) {
-    if (purpose === "consultation") {
-      return {
-        segments: DEFAULT_CONSULTATION_SCHEME,
-        startValue: startValueOf(DEFAULT_CONSULTATION_SCHEME),
-      };
+    const fallback = sequenceOf(purpose).fallbackScheme;
+    if (fallback !== null) {
+      return { segments: fallback, startValue: startValueOf(fallback) };
     }
     throw new MatterValidationError("scheme-missing", "no active numbering scheme is configured");
   }
@@ -341,17 +332,17 @@ async function runMatterDraw<T>(
   build: (matterNumber: string, now: string) => BuiltMutation<T>,
   responseCode: number,
 ): Promise<T & ReplayFlag> {
-  const consultation = purpose === "consultation";
+  const sequence = sequenceOf(purpose);
   return await drawWithBoundedRetry(
     database,
     MATTER_NUMBERING_TABLES,
     {
-      sequenceLabel: consultation ? "consultation number" : "matter number",
+      sequenceLabel: sequence.label,
       maxAttempts: options.maxAttempts,
       // Matters' own second collision: the rendered STRING is unique per firm, so a drawn number can
       // land on one a court or a legacy system already assigned by hand. That number drew no
-      // allocation row, so only the matter_number index can see it, and the retry steps past it.
-      alsoRetryable: consultation ? isConsultationNumberConflict : isMatterNumberConflict,
+      // allocation row, so only this run's own partial index can see it, and the retry steps past it.
+      alsoRetryable: sequence.isOwnConflict,
       // Unlike custodian, matters has no named refusal for this: the counter would have to lose five
       // consecutive races, which is not a state a person can be told anything useful about. It stays
       // an unexpected fault, reported and correlated by the standard pipeline. The mapper still has
@@ -368,10 +359,8 @@ async function runMatterDraw<T>(
         effect: async () => {
           const scheme = await loadActiveScheme(database, purpose);
           const context: RenderContext = { openedDate: options.clock.today(), ...numberContext };
-          // Both sequences count in the same tables; the prefix is what keeps them separate runs.
-          const scopeKey =
-            (consultation ? CONSULTATION_SCOPE_PREFIX : "") +
-            deriveScopeKey(scheme.segments, context);
+          // All three sequences count in the same tables; the prefix is what keeps them separate runs.
+          const scopeKey = sequence.scopePrefix + deriveScopeKey(scheme.segments, context);
           const startValue = scheme.startValue;
           const observed = (await readCounterValue(database, scopeKey)) ?? scheme.startValue;
           // Reported before the batch is composed, so a losing attempt can advance THIS scope's
@@ -488,6 +477,8 @@ export interface CreatedMatter {
   readonly matterNumber: string | null;
   // The tentative number a consultation is created with; null on a matter created straight to open.
   readonly consultationNumber: string | null;
+  // The number an intake is created with; null on a matter created at any later rung.
+  readonly intakeNumber: string | null;
 }
 
 export async function createMatter(
@@ -500,13 +491,20 @@ export async function createMatter(
   const fields = fieldsFromInput(input);
 
   if (input.status === "intake") {
-    // An intake in flight. No counter is touched: the consultation number is drawn at graduation,
-    // so an intake that goes nowhere — a caller who never rings back — consumes nothing from either
-    // run. The row exists from the first call so the client is in the conflicts corpus and every
-    // intake step has a matter to be answered on.
-    return runMatterEffect<CreatedMatter>(database, options, 201, () => {
-      const now = options.clock.now();
-      return {
+    // An intake in flight, and it draws its own number now (owner ruling, 2026-09-14: "everything
+    // should have a number, intake would have a number as well"). It touches neither of the other
+    // runs: an enquiry that goes nowhere — a caller who never rings back — consumes no consultation
+    // number and no matter number, which is what keeps each of those runs readable. The row exists
+    // from the first call so the client is in the conflicts corpus and every intake step has a
+    // matter to be answered on; now it also has a name somebody can quote while they are still on
+    // the telephone.
+    return runMatterDraw<CreatedMatter>(
+      database,
+      options,
+      matterId,
+      "intake",
+      input.numberContext ?? {},
+      (intakeNumber, now) => ({
         statements: [
           insertMatterStatement(database, {
             id: matterId,
@@ -514,6 +512,7 @@ export async function createMatter(
             status: "intake",
             matterNumber: null,
             consultationNumber: null,
+            intakeNumber,
             numberedAt: null,
             openedAt: null,
             createdAt: now,
@@ -522,9 +521,10 @@ export async function createMatter(
           ...clientPartyStatements(database, options, matterId, input.clientEntityId, now),
         ],
         outboxMessages: [{ topic: MATTER_CREATED_TOPIC, payload: { matterId } }],
-        value: { matterId, matterNumber: null, consultationNumber: null },
-      };
-    });
+        value: { matterId, matterNumber: null, consultationNumber: null, intakeNumber },
+      }),
+      201,
+    );
   }
 
   if (input.status === "consultation") {
@@ -546,6 +546,9 @@ export async function createMatter(
             status: "consultation",
             matterNumber: null,
             consultationNumber,
+            // Never an intake: this matter was recorded as a consultation outright, so no enquiry
+            // was ever written down to be numbered.
+            intakeNumber: null,
             numberedAt: null,
             openedAt: null,
             createdAt: now,
@@ -554,7 +557,7 @@ export async function createMatter(
           ...clientPartyStatements(database, options, matterId, input.clientEntityId, now),
         ],
         outboxMessages: [{ topic: MATTER_CREATED_TOPIC, payload: { matterId } }],
-        value: { matterId, matterNumber: null, consultationNumber },
+        value: { matterId, matterNumber: null, consultationNumber, intakeNumber: null },
       }),
       201,
     );
@@ -574,9 +577,11 @@ export async function createMatter(
           ...fields,
           status: "open",
           matterNumber: number,
-          // Never a consultation, so there is no tentative number to carry: this matter was opened
-          // outright, and inventing one after the fact would put a number on a stage that never ran.
+          // Never an intake and never a consultation, so there is neither number to carry: this
+          // matter was opened outright, and inventing one after the fact would put a number on a
+          // rung that never ran.
           consultationNumber: null,
+          intakeNumber: null,
           numberedAt: now,
           openedAt: now,
           createdAt: now,
@@ -588,7 +593,7 @@ export async function createMatter(
         { topic: MATTER_CREATED_TOPIC, payload: { matterId } },
         { topic: MATTER_OPENED_TOPIC, payload: { matterId, matterNumber: number } },
       ],
-      value: { matterId, matterNumber: number, consultationNumber: null },
+      value: { matterId, matterNumber: number, consultationNumber: null, intakeNumber: null },
     }),
     201,
   );

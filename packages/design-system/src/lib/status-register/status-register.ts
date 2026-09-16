@@ -265,14 +265,14 @@ export const STATUS_REGISTER: Readonly<Record<StatusKey, StatusEntry>> = {
     label: "Intake",
     tone: "neutral",
     meaning:
-      "An intake in flight: the firm is collecting what its procedure requires before it consults. It carries no number of any kind.",
+      "An intake in flight: the firm is collecting what its procedure requires before it consults. It carries an intake number and no other.",
     presentation: "chip",
   },
   consultation: {
     label: "Consultation",
     tone: "info",
     meaning:
-      "A prospective client's matter the firm has not taken on. It carries a consultation number and no matter number.",
+      "A prospective client's matter the firm has not taken on. It carries a consultation number, the intake number it came in under where it had one, and no matter number.",
     presentation: "chip",
   },
   active: {

@@ -40,6 +40,8 @@
   import Building2 from "@lucide/svelte/icons/building-2";
   import CalendarClock from "@lucide/svelte/icons/calendar-clock";
   import CalendarDays from "@lucide/svelte/icons/calendar-days";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
+  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import type { BackTarget } from "$lib/screen/screen-header.ts";
   import { calendarContext } from "./calendar-context.svelte.ts";
@@ -90,6 +92,18 @@
   const recordRefusal = $derived(calendarManageRefusal("Recording on the calendar", context));
 
   const preferredTimeZones = [context.readerTimeZone];
+
+  /*
+   * What the reader is looking for in the window on screen. It narrows the entries the read plan
+   * already walked into the browser, so it answers as fast as they type and makes no request.
+   *
+   * The window is the scope, deliberately: the three reads behind this screen each cap their
+   * horizon server-side and REFUSE a wider one rather than clamping it, so "search the whole
+   * record" is not a request that can be made today. The view says which window the count belongs
+   * to rather than reporting a bare number, so the control never implies the reach it does not have.
+   */
+  let searchText = $state("");
+  let appliedSearch = $state("");
 
   let eventOpen = $state(false);
   let deadlineOpen = $state(false);
@@ -156,10 +170,23 @@
   onCreate={startOnDay}
   {openEntry}
   {refreshToken}
+  search={appliedSearch}
 >
   {#snippet header(controls)}
     <ScreenHeader {title} {back}>
       {#snippet actions()}
+        <!-- The search leads the row and grows toward the inline start, so nothing after it moves
+             when it opens — the same order as every other Workspace screen. Keystroke, not pause:
+             the window's entries are already here, so there is nothing to wait for. -->
+        <ScreenSearch
+          bind:value={searchText}
+          label="Search this calendar"
+          placeholder={placeholderOf("Search this calendar")}
+          fieldClass="w-2xs sm:w-xs"
+          onsearch={(next) => {
+            appliedSearch = next;
+          }}
+        />
         <!-- The component's own controls — the view switch, the window, Today — seated on the
              masthead's line rather than in a row under it (owner ruling, 2026-09-14). They act on
              the component's controller, so the component owns them; this screen owns only where

@@ -168,6 +168,50 @@ The **status** column is worth reading:
   deliberately, so a document that did not make it is visible rather than quietly missing. A rejected
   document has no readable content and cannot be opened.
 
+The list is the only part of the screen that scrolls. The matter's title and its row of sections,
+the folder path, and the counts strip along the bottom all stay where they are however long the list
+gets, so you can scroll a folder of two thousand documents and still reach everything around it.
+
+### As icons instead of rows
+
+The switch on the right of the strip above the list swaps the rows for tiles. A name too long for a
+tile runs onto a second and a third line and then stops with an ellipsis; the whole name is on the
+tile's hover either way, and no tile ever covers the one beside it.
+
+### Moving something into a folder
+
+Drag a file or a folder onto the folder you want it in. This works wherever the screen shows you a
+folder: a folder in the left sidebar, a folder row or tile in the list itself, and any crumb in the
+path above the list — which is how something comes back **out** of a folder, since every folder
+above where you are standing is already on that strip. Dropping on the home icon moves it to the top
+of the matter.
+
+Select several rows first and dragging any one of them carries the whole selection; what you are
+holding says how many.
+
+The cursor tells you before you let go. It says no over a folder that already holds the thing, over
+a folder you are dragging into itself or into something inside it, and over anything that is not a
+folder. If you have several things selected and only some of them can go where you are pointing,
+those are the ones that move.
+
+Dragging is the fast way, not the only way: **Cut** and **Paste** on the right-click menu (or
+Ctrl+X and Ctrl+V) make the same move without a pointer, and they reach the folders in the left
+sidebar too. Either way, the move goes on the undo stack.
+
+Dropping files in from your computer is a different thing and still starts an upload — the screen
+tells the two apart by what is being carried, not by where you drop it.
+
+### Taking something back
+
+The arrows at the bottom of the screen undo and redo. They cover renaming, moving a file or folder
+between folders, pasting a cut, deleting a file, and pinning — and each says what it will take back,
+so **Undo renaming Motion.pdf to Answer.pdf** is what you read before you press it. The small arrow
+beside each one opens the list of recent changes, so you can walk back several at once.
+
+Two things are outside them. Deleting a **folder** cannot be undone; when you delete one, the screen
+says so and points you at **Deleted Files**, where the documents it held can still be brought back
+one by one. And undo does not survive a reload: it is for the change you just made.
+
 ### Where you are in the folders
 
 The strip above the list is the path to the folder you are in, starting at the home icon. Home is
@@ -235,14 +279,51 @@ against that fingerprint of the version on screen.
 
 The **Safety** tab shows the document's standing verdict, and beneath it every check the document
 has had: when it ran, whether it was the check at intake or a later one, which version it looked
-at, the engine that ran it, what it found, and the engine's own detail. Each line says what was
+at, the engine that ran it, what it found, and the detail behind that. Each line says what was
 recorded at the time, so an older check keeps the engine that ran it even after the firm moves to a
-newer one; the line under the table names the engine the firm checks with today.
+newer one.
+
+The **Detail** column carries the scanner's own words exactly as they were recorded — a rule name, a
+signature name — so that what you read is what the engine wrote. Where the platform itself wrote the
+detail rather than the engine, it is stated plainly instead: that the document holds active content
+(macros or embedded scripts), that it was encrypted and so could not be read, or that no engine was
+reporting and nothing was checked.
 
 **Check Again** asks for a fresh check of the current version. The request appears in the history
 at once, marked as requested, and the verdict lands beneath it a few seconds later without your
 asking. The same request is on a document's right-click menu as **Re-run Safety Check**, where it
-runs on every selected document that has a version to check.
+runs on every selected document that has a version to check. If a request could not be sent to the
+engine, its line says **Not queued** rather than leaving you waiting for a verdict that is not
+coming, and the detail beside it says why.
+
+### What the check ran under
+
+Beneath the history, the tab states what a check on this matter is made of, so a verdict can be
+audited rather than taken on trust:
+
+- **Engine**, **YARA ruleset** and **Malware definitions** — the three parts of the engine the firm
+  checks with today, as the engine reports itself.
+- **Scan Depth**, **Suspicion Threshold**, **Flagged Files** and **Confirm Identity First** — the
+  firm's own file-safety settings. They are the same four settings an administrator sets under
+  Settings; see [File safety and scanning](../admin/file-safety-and-scanning.md).
+
+The last line says which of these is recorded per check and which is not. Only the **engine** is
+recorded against each line of the history. The depth, the threshold and the treatment are the firm's
+as they stand today: if somebody changed one of them after a check ran, nothing records what that
+check actually ran under.
+
+## Renaming a document or a folder
+
+Press the name at the top of the details panel and it becomes a field, in the panel, holding the
+name you were reading. Type, then press **Enter** to keep it, **Escape** to leave it as it was.
+Clicking away keeps it too, because a name you typed and then clicked away from is a name you meant.
+
+If the name cannot be used — because another document or folder here already has it — the field
+stays open with what you typed and the reason beneath it, and the record keeps the name it had until
+you give it one that works.
+
+Renaming a row in the list itself works the same way: press **F2**, or choose **Rename** from the
+row's right-click menu.
 
 ## Archives
 

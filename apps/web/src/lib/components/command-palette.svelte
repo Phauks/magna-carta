@@ -30,7 +30,7 @@
     PRESENCE_SCALE_FADE,
     type PresenceClass,
   } from "@magna-carta/design-system/internal/floating";
-  import BugReportDialog from "$lib/components/bug-report-dialog.svelte";
+  import { issueReport } from "$lib/components/issue-report.svelte.ts";
   import {
     PALETTE_ENTRANCE_PRESENCE,
     readPaletteEntranceVariant,
@@ -142,13 +142,12 @@
   }
 
   // "Report a bug" is reachable from search as well as the profile menu (owner directive:
-  // everything under the profile icon must be findable here). The palette owns its own dialog
-  // instance — the component is self-contained, so no state threads through the shell.
-  let bugReportOpen = $state(false);
-
+  // everything under the profile icon must be findable here). The dialog itself is the shell's,
+  // mounted once for every door into it ($lib/components/issue-report.svelte.ts); the palette
+  // contributes the gesture and nothing else.
   function openBugReport(): void {
     open = false;
-    bugReportOpen = true;
+    issueReport.open();
   }
 
   // The palette closes first, then the action runs: an action that opens a popover anchored to the
@@ -302,5 +301,3 @@
     </Command.Root>
   </Dialog.Content>
 </Dialog.Root>
-
-<BugReportDialog bind:open={bugReportOpen} />

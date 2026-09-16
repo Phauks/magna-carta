@@ -42,6 +42,6 @@
 
 <svelte:head><title>File Workbench · Magna Carta</title></svelte:head>
 
-<div class="flex h-full min-h-0 flex-col p-24">
+<div class="flex h-full min-h-0 flex-col">
   <Workbench {source} {permissions} bind:capabilityId />
 </div>

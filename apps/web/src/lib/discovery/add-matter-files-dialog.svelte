@@ -161,7 +161,6 @@
 <ActionDialog
   bind:open
   heading="Add the Matter's Files"
-  subtitle="Each document becomes a pointer at the version you pick. Nothing is copied, and a later version does not change what is under review."
   commitLabel="Add to Load"
   commitBusyLabel="Adding"
   commitRefusal={refusal}
@@ -184,6 +183,13 @@
 
   {#snippet fields({ busy }: { busy: boolean })}
     <div class="flex flex-col gap-16">
+      <!-- What picking a version actually does, said beside the picking rather than in the line that
+           names the subject. Nothing is copied, so the load is a set of pointers. -->
+      <p class="text-xs text-text-muted">
+        Each document becomes a pointer at the version you pick. Nothing is copied, and a later
+        version does not change what is under review.
+      </p>
+
       <div class="flex flex-col gap-8">
         <Label id="add-files-custodian-label">Custodian of Record</Label>
         <Select.Root

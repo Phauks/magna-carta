@@ -12,7 +12,7 @@
  *     more words narrows; it never widens. "trust report" finds the trust compliance report,
  *     "trust safe" finds nothing.
  *   - A word matches anywhere inside the text, not only at a word's start, so "recon" reaches
- *     "reconciliation" and "scrub" reaches "metadata-scrubber".
+ *     "reconciliation" and "workbench" reaches "File Workbench".
  *   - What a word is matched against is the entry's whole visible sentence — its name, its
  *     description, the dependency it names while unbuilt — plus its section's heading and its
  *     unshown keywords. The heading is in there because a reader searching "trust" means the

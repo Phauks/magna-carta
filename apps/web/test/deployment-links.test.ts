@@ -15,6 +15,7 @@ import { BUILD_IDENTITY } from "../src/lib/build-identity.ts";
 import {
   commitComparisonUrl,
   commitUrl,
+  repositoryUrl,
   workerDashboardUrl,
 } from "../src/lib/versions/deployment-links.ts";
 
@@ -51,5 +52,12 @@ describe("the comparison link", () => {
     expect(commitComparisonUrl("a1b2c3d", "a1b2c3d")).toBeNull();
     expect(commitComparisonUrl("a1b2c3d", null)).toBeNull();
     expect(commitComparisonUrl("dev", "9f9f9f9")).toBeNull();
+  });
+});
+
+describe("the repository link", () => {
+  it("is the repository this build came from, so the panel's commits and their source agree", () => {
+    expect(repositoryUrl()).toBe(BUILD_IDENTITY.sourceRepository);
+    expect(commitUrl("a1b2c3d")?.startsWith(`${repositoryUrl() ?? ""}/`)).toBe(true);
   });
 });

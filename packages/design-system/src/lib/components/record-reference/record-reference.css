@@ -1,0 +1,28 @@
+@layer components {
+  /*
+   * RecordSubject — the subtitle line of a modal: what is being acted on, by its number.
+   *
+   * It sets no size and no colour. The line inherits both from the frame's own
+   * `.mc-modal-frame-subtitle`, which is where the subtitle's treatment is decided; this recipe
+   * governs only the run of items and the number's own figures. Two homes for the same size would
+   * be two homes for the same fact.
+   */
+  .mc-record-subject {
+    display: inline;
+  }
+  /*
+   * The number reads in tabular figures so two references stacked in a list line up digit under
+   * digit, and so a number read back down a telephone is not re-kerned by its own content. The kind
+   * beside it is proportional text, which is why the figures are marked and not the whole line.
+   */
+  .mc-record-subject-number {
+    font-variant-numeric: tabular-nums;
+  }
+  /*
+   * The separator is given room on both sides rather than being padded into the strings around it,
+   * so no call site has to remember the spaces — the mistake the hand-written lines made most.
+   */
+  .mc-record-subject-separator {
+    margin-inline: var(--mc-space-4);
+  }
+}

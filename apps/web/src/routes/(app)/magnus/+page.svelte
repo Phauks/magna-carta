@@ -50,9 +50,14 @@
   emptyTitle="Nothing Asked Yet"
   emptyDescription="You have not asked Magnus anything. Type a question below to start a conversation."
 >
-  {#snippet header()}
+  <!-- The surface owns the search because it owns the read the search narrows; this screen owns
+       where it sits, which is the action row every other Workspace screen keeps its search in. The
+       search leads and the create control follows: the field grows toward the inline start as it
+       opens, so New never moves under the pointer. -->
+  {#snippet header(searchControls)}
     <ScreenHeader title="Magnus">
       {#snippet actions()}
+        {@render searchControls()}
         <CreateControl
           title="Start a conversation with Magnus, on no matter."
           refusal={createRefusal}

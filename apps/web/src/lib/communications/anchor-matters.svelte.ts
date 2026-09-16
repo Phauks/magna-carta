@@ -37,9 +37,10 @@ const MOST_PAGES_READ = 6;
 function anchorOf(matter: MatterSummary): SheetMatter {
   return {
     id: matter.id,
-    // The number a person would quote. An open matter has its own; a consultation has the tentative
-    // one it was created with; an intake has neither and reads by its title alone.
-    matterNumber: matter.matterNumber ?? matter.consultationNumber,
+    // The number a person would quote: the newest one the matter has drawn. An open matter has its
+    // own; a consultation has the tentative one it was created with; an intake has the one it was
+    // written down under. Every rung has one, so this never falls through to the title.
+    matterNumber: matter.matterNumber ?? matter.consultationNumber ?? matter.intakeNumber,
     title: matter.title,
   };
 }

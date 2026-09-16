@@ -1135,6 +1135,7 @@ export type CreateMatterResponse = {
     matterId: string;
     matterNumber: string | null;
     consultationNumber: string | null;
+    intakeNumber: string | null;
 };
 
 export type CreateMatterRequest = {
@@ -1168,6 +1169,7 @@ export type MatterSummary = {
     clientDisplayName: string | null;
     matterNumber: string | null;
     consultationNumber: string | null;
+    intakeNumber: string | null;
     createdAt: string;
 };
 
@@ -1199,6 +1201,7 @@ export type MatterDetail = {
     clientEntityId: string | null;
     matterNumber: string | null;
     consultationNumber: string | null;
+    intakeNumber: string | null;
     eBilling: boolean;
     openedAt: string | null;
     heldAt: string | null;
@@ -1717,7 +1720,7 @@ export type NumberSegment = {
 
 export type NumberingScheme = {
     segments: Array<NumberSegment>;
-    purpose?: 'matter' | 'consultation';
+    purpose?: 'matter' | 'consultation' | 'intake';
 };
 
 export type NumberingPreviewResponse = {
@@ -2022,7 +2025,15 @@ export type MatterRescanResult = {
 
 export type FileScanHistory = {
     currentEngineVersion: string | null;
+    scanSettings: FileScanSettings;
     data: Array<FileScanEvent>;
+};
+
+export type FileScanSettings = {
+    tier: 'core' | 'extended' | 'full';
+    suspiciousScoreFloor: number;
+    flaggedTreatment: 'block' | 'informed-access' | 'allow-and-flag';
+    stepUpReauthOnFlagged: boolean;
 };
 
 export type FileScanEvent = {
@@ -2036,6 +2047,7 @@ export type FileScanEvent = {
     scanVerdict: 'unscanned' | 'clean' | 'flagged' | null;
     scanEngineVersion: string | null;
     scanDetail: string | null;
+    queued: boolean | null;
 };
 
 export type FileRescanResult = {
@@ -3588,6 +3600,7 @@ export type CommunicationDetail = {
     matterStatus: string | null;
     matterNumber: string | null;
     consultationNumber: string | null;
+    intakeNumber: string | null;
     disposition: 'spam' | 'firmBusiness' | 'noAction' | null;
     counterpartyNumber: string;
     counterpartyEntityId: string | null;
@@ -3994,6 +4007,7 @@ export type IntakeDeskRow = {
     title: string;
     status: 'intake' | 'consultation';
     consultationNumber: string | null;
+    intakeNumber: string | null;
     matterTypeId: string | null;
     matterTypeName: string | null;
     responsibleMemberId: string;
@@ -14394,7 +14408,7 @@ export type NumberingGetData = {
     body?: never;
     path?: never;
     query?: {
-        purpose?: 'matter' | 'consultation';
+        purpose?: 'matter' | 'consultation' | 'intake';
     };
     url: '/api/v1/numbering-scheme';
 };
@@ -17731,6 +17745,7 @@ export type ConflictsListChecksData = {
     query?: {
         cursor?: string;
         matterId?: string;
+        search?: string;
     };
     url: '/api/v1/conflicts/checks';
 };
@@ -26015,6 +26030,7 @@ export type MagnusListConversationsData = {
         cursor?: string;
         scope?: 'own' | 'firm';
         matterId?: string;
+        search?: string;
         sort?: 'date' | 'name' | 'matter';
     };
     url: '/api/v1/magnus/conversations';
@@ -35726,6 +35742,9 @@ export type NotificationsListData = {
         cursor?: string;
         category?: 'deadlines' | 'calendar' | 'tasks' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system';
         state?: 'unread' | 'read' | 'dismissed';
+        kinds?: string | Array<string>;
+        searchCategories?: 'deadlines' | 'calendar' | 'tasks' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system' | Array<'deadlines' | 'calendar' | 'tasks' | 'trust' | 'billing' | 'documents' | 'custody' | 'email' | 'conflicts' | 'jobs' | 'security' | 'system'>;
+        search?: string;
         pageSize?: number;
     };
     url: '/api/v1/notifications';

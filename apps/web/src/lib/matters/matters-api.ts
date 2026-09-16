@@ -39,6 +39,13 @@ export interface MatterSummary {
    * still resolves. Null on a matter opened outright, which never was a consultation.
    */
   consultationNumber: string | null;
+  /**
+   * The number the intake was written down under, from the firm's intake sequence. Like the
+   * consultation number it survives every later rung rather than being replaced, so a note quoting
+   * it still resolves. Null on a matter recorded as a consultation or opened outright, which never
+   * was an intake, and on intakes recorded before the sequence existed.
+   */
+  intakeNumber: string | null;
   createdAt: string;
 }
 

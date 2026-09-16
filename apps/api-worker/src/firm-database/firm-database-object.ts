@@ -105,6 +105,17 @@ export class FirmDatabase extends DurableObject<Bindings> {
    */
   private migrationFault: string | null = null;
 
+  /*
+   * Migrations that reached THIS database behind its own ledger head — two branches merged and
+   * seated one behind a migration this firm had already applied, so it met the pair in a different
+   * order than a firm provisioned afterwards will. Held because it is unrecoverable once the batch
+   * lands: the ledger is a set of tags, and which of them arrived late is nowhere in it.
+   *
+   * Not a fault. The database is migrated and serves normally; this is the diagnostic that lets
+   * somebody compare the two orders while the question is still answerable.
+   */
+  private outOfOrderArrivals: string[] = [];
+
   constructor(ctx: DurableObjectState, env: Bindings) {
     super(ctx, env);
     this.ready = ctx.blockConcurrencyWhile(async () => {
@@ -132,7 +143,8 @@ export class FirmDatabase extends DurableObject<Bindings> {
       }
 
       try {
-        await runPendingMigrations(target, migrations);
+        const report = await runPendingMigrations(target, migrations);
+        this.outOfOrderArrivals = report.outOfOrderTags;
         if (bookmark !== null) recordRestorePoint(ctx.storage, bookmark, pending);
       } catch (error) {
         this.migrationFault = error instanceof Error ? error.message : String(error);
@@ -160,6 +172,7 @@ export class FirmDatabase extends DurableObject<Bindings> {
     fault: string | null;
     appliedCount: number;
     appliedHead: string | null;
+    outOfOrderArrivals: string[];
     restorePoint: { bookmark: string; takenAt: string; appliedTags: string[] } | null;
   }> {
     await this.ready;
@@ -179,6 +192,7 @@ export class FirmDatabase extends DurableObject<Bindings> {
       fault: this.migrationFault,
       appliedCount: applied.length,
       appliedHead: applied.at(-1) ?? null,
+      outOfOrderArrivals: this.outOfOrderArrivals,
       restorePoint: readRestorePoint(this.ctx.storage),
     };
   }

@@ -10,14 +10,18 @@ import {
   PARENT_REBUILDS_PREDATING_THE_DURABLE_OBJECT_FINDING,
   REVIEWED_REBUILDS,
 } from "../../packages/database/src/reviewed-rebuilds.ts";
+import { declaredTables } from "../../packages/database/src/declared-tables.ts";
 import {
+  applyOrderViolations,
   journalStructureViolations,
   parentRebuildViolations,
   rebuildViolations,
+  schemaAgreementViolations,
   snapshotLineageViolations,
   LINEAGES,
   type Artifacts,
   type Lineage,
+  type LiveSchema,
   type SnapshotHeader,
 } from "./checks.mts";
 
@@ -130,6 +134,35 @@ function childrenOfRebuiltTableAt(lineage: Lineage) {
   };
 }
 
+// What the chain actually builds, read back from SQLite the way the package's own notes prescribe
+// checking it by hand.
+function liveSchemaFor(lineage: Lineage): LiveSchema {
+  const database = new DatabaseSync(":memory:");
+  try {
+    applyMigrations(database, loadMigrationsFromDisk(lineage));
+    const live = new Map<string, Set<string>>();
+    const tables = database
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+      .all() as { name: string }[];
+    for (const { name } of tables) {
+      // Quoted: a table name is an identifier here, and PRAGMA takes no bindings.
+      const columns = database.prepare(`PRAGMA table_info("${name}")`).all() as { name: string }[];
+      live.set(name, new Set(columns.map((column) => column.name)));
+    }
+    return live;
+  } finally {
+    database.close();
+  }
+}
+
+// The chain against the schema. Skipped when the chain does not apply at all: every table would then
+// read as missing, and a hundred lines of "the schema declares X and the chain never creates it"
+// buries the one line that says the chain is broken.
+function schemaViolations(lineage: Lineage, chainApplies: boolean): string[] {
+  if (!chainApplies) return [];
+  return schemaAgreementViolations(declaredTables(lineage), liveSchemaFor(lineage));
+}
+
 export interface LineageReport {
   readonly lineage: Lineage;
   readonly migrationCount: number;
@@ -138,9 +171,12 @@ export interface LineageReport {
 
 export function checkLineage(lineage: Lineage): LineageReport {
   const migrations = loadMigrationsFromDisk(lineage);
+  const chainViolations = chainApplyViolations(lineage);
   const violations = [
     ...journalStructureViolations(loadArtifacts(lineage)),
-    ...chainApplyViolations(lineage),
+    ...applyOrderViolations(loadArtifacts(lineage).journal),
+    ...chainViolations,
+    ...schemaViolations(lineage, chainViolations.length === 0),
     ...rebuildViolations(sqlByTagFor(lineage), REVIEWED_REBUILDS),
     ...parentRebuildViolations(
       sqlByTagFor(lineage),
@@ -190,7 +226,9 @@ function main(): void {
   const summary = reports
     .map((report) => `${report.lineage} (${report.migrationCount} migrations)`)
     .join(", ");
-  console.log(`migration-integrity: journal, chain, rebuild and snapshot guards pass — ${summary}`);
+  console.log(
+    `migration-integrity: journal, chain, schema, rebuild and snapshot guards pass — ${summary}`,
+  );
 }
 
 const entryPoint = process.argv[1];

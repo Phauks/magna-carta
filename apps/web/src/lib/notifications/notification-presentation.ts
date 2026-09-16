@@ -29,6 +29,7 @@ import type {
   NotificationItem,
   NotificationSeverity,
 } from "./notifications-api.ts";
+import { NOTIFICATION_CATEGORIES, notificationCategoryLabel } from "./category-vocabulary.ts";
 import type { BadgeVariant } from "@magna-carta/design-system/badge";
 import AlarmClock from "@lucide/svelte/icons/alarm-clock";
 import Archive from "@lucide/svelte/icons/archive";
@@ -284,3 +285,46 @@ export function describeNotification(item: NotificationItem): DescribedNotificat
 
 /** The kinds this client has words for — the fitness test's subject, and nothing else reads it. */
 export const PRESENTED_KINDS: readonly string[] = Object.freeze(Object.keys(KIND_PRESENTATION));
+
+/*
+ * SEARCHING A FEED WHOSE WORDS ARE NOT IN THE RECORD.
+ *
+ * Everything above is the reason the two functions below exist. The server holds no sentence to
+ * scan — that is the design, not an omission — so a member typing "overdue" is typing a word that
+ * exists only on this side, in `KIND_PRESENTATION`. Matching it here and sending the SERVER a list
+ * of kinds is what lets the whole record be searched rather than the page that happened to arrive:
+ * the paging stays where the rows are, and the vocabulary stays where the words are.
+ *
+ * The match is a plain case-insensitive substring over the words a member can actually see — the
+ * kind's title, and the category's own noun for rows this client has no entry for. No stemming and
+ * no fuzziness, which is the rule every other search in this product matches by.
+ */
+function matchesTerm(haystack: string, term: string): boolean {
+  return haystack.toLowerCase().includes(term);
+}
+
+/** The registered kinds whose title a term reaches. Empty when it reaches none. */
+export function kindsMatching(query: string): readonly string[] {
+  const term = query.trim().toLowerCase();
+  if (term === "") return [];
+  return Object.entries(KIND_PRESENTATION)
+    .filter(([, presentation]) => matchesTerm(presentation.title, term))
+    .map(([kind]) => kind);
+}
+
+/**
+ * The categories a term reaches, by the name and the noun a member sees.
+ *
+ * This is what keeps a kind the client has never heard of findable: such a row renders as the
+ * category's noun ("Update on a deadline"), so searching "deadline" has to reach it even though no
+ * entry in `KIND_PRESENTATION` named it.
+ */
+export function categoriesMatching(query: string): readonly NotificationCategory[] {
+  const term = query.trim().toLowerCase();
+  if (term === "") return [];
+  return NOTIFICATION_CATEGORIES.filter(
+    (category) =>
+      matchesTerm(CATEGORY_PRESENTATION[category].noun, term) ||
+      matchesTerm(notificationCategoryLabel(category), term),
+  );
+}

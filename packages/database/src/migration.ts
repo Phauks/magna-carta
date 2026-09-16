@@ -40,7 +40,13 @@ export function migrationsFromJournal(
 ): Migration[] {
   // Order by the monotonic migration id (tag), not the dense integer idx: timestamp-prefixed tags
   // sort lexicographically into apply order, so migrations authored on parallel branches merge
-  // without a shared counter and never need renumbering. Zero-padded legacy ids sort the same way.
+  // without a shared counter. Zero-padded legacy ids sort the same way.
+  //
+  // THIS IS THE APPLY ORDER, FOR EVERY DATABASE THERE IS — the line other modules have to agree
+  // with, and two of them once did not. `idx` is drizzle's dense counter and names the snapshot a
+  // generate diffs against; it is the order migrations were INTEGRATED in. The two coincide only
+  // while every new tag sorts above the lineage head, which is not automatic across a merge:
+  // tooling/migration-integrity's applyOrderViolations is what refuses a lineage where they part.
   return [...journal.entries]
     .toSorted((a, b) => (a.tag < b.tag ? -1 : a.tag > b.tag ? 1 : 0))
     .map((entry) => {

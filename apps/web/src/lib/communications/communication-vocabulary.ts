@@ -105,11 +105,12 @@ export const NOT_NUMBERED_TEXT = "No number";
  * A ROW HAS ONE ANCHOR: a matter, a reason it is on none, or nothing while nobody has decided. This
  * falls through all three.
  *
- * THE NUMBER IS NOT ALWAYS THERE, AND THAT IS NORMAL RATHER THAN MISSING. A matter number is drawn
- * when a matter opens; before that a consultation carries its own tentative number and an intake
- * carries none at all. So the matter branch falls through: matter number, then consultation number,
- * then the title alone — and a row with no anchor at all says it is not filed rather than rendering
- * blank, because a blank there reads as a record the platform failed to fill.
+ * THE NUMBER SHOWN IS THE NEWEST ONE THE MATTER HAS DRAWN. A matter number is drawn when a matter
+ * opens; before that a consultation carries its own tentative number, and before that an intake
+ * carries the one it was written down under. So the matter branch falls through: matter number, then
+ * consultation number, then intake number — the title alone is reached only by a matter recorded
+ * before the rung it is on was numbered. A row with no anchor at all says it is not filed rather
+ * than rendering blank, because a blank there reads as a record the platform failed to fill.
  */
 export function anchorText(communication: Communication): string {
   if (communication.matterId === null) {
@@ -117,7 +118,8 @@ export function anchorText(communication: Communication): string {
       ? NOT_FILED_TEXT
       : dispositionEntry(communication.disposition).label;
   }
-  const number = communication.matterNumber ?? communication.consultationNumber;
+  const number =
+    communication.matterNumber ?? communication.consultationNumber ?? communication.intakeNumber;
   const title = communication.matterTitle ?? "";
   if (number === null) return title;
   return title === "" ? number : `${number} · ${title}`;

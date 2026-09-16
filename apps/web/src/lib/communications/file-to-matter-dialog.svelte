@@ -18,7 +18,8 @@
    */
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
-  import Label from "@magna-carta/design-system/label";
+  import type { RecordReference } from "@magna-carta/design-system/record-reference";
+  import LabelledField from "@magna-carta/design-system/labelled-field";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import MatterPicker from "$lib/time/matter-picker.svelte";
@@ -28,6 +29,7 @@
   let {
     open = $bindable(false),
     communicationId,
+    reference,
     matters,
     mattersCapped = false,
     onFiled,
@@ -35,6 +37,12 @@
     open?: boolean;
     /** The row being filed. Null while nothing is chosen, which keeps the dialog closed. */
     communicationId: string | null;
+    /**
+     * That row by the number somebody quotes — the panel's whole answer to what is being filed. A
+     * handle names it to the platform and to nobody else, so a panel that showed only the handle
+     * would be asking a reader to trust it about a record they cannot check.
+     */
+    reference: RecordReference | null;
     /** The anchors a row may be filed onto — caseload, consultations AND intakes. */
     matters: readonly SheetMatter[];
     mattersCapped?: boolean;
@@ -76,8 +84,8 @@
 
 <ActionDialog
   bind:open
-  heading="File It Onto A Matter"
-  subtitle="Takes it out of the queue and puts it on the case's own record. An intake or a consultation counts — a matter does not need a number to hold a conversation."
+  heading="File It onto a Matter"
+  subtitle={reference === null ? undefined : { reference }}
   commitLabel="File It"
   commitBusyLabel="Filing"
   commitRefusal={refusal}
@@ -97,16 +105,21 @@
   {/snippet}
 
   {#snippet fields({ busy })}
-    <div class="flex flex-col gap-8">
-      <Label for="file-communication-matter">Matter</Label>
-      <MatterPicker
-        {matters}
-        capped={mattersCapped}
-        disabled={busy}
-        inputId="file-communication-matter"
-        value={chosen}
-        onpick={(picked) => (chosen = picked)}
-      />
-    </div>
+    <LabelledField
+      label="Matter"
+      id="file-communication-matter"
+      hint="An intake or a consultation counts — a matter does not need a number to hold a conversation."
+    >
+      {#snippet children({ props })}
+        <MatterPicker
+          {matters}
+          capped={mattersCapped}
+          disabled={busy}
+          inputId={props.id}
+          value={chosen}
+          onpick={(picked) => (chosen = picked)}
+        />
+      {/snippet}
+    </LabelledField>
   {/snippet}
 </ActionDialog>

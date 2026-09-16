@@ -100,6 +100,7 @@ function collect(options: {
         fault: null,
         appliedCount: tags.length,
         appliedHead: tags.at(-1)?.tag ?? null,
+        outOfOrderArrivals: [],
         restorePoint: null,
       });
     },

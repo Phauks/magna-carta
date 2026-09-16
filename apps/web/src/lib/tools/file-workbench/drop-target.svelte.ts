@@ -11,7 +11,14 @@
  * every descendant the pointer crosses, so a boolean flickers off the moment the pointer passes
  * over a row; counting entries against leaves is what makes "the pointer is somewhere inside this
  * region" a fact rather than a guess.
+ *
+ * The question "is this drag carrying files?" is the design system's, not this module's: the same
+ * drag event carries an upload from the desktop and an item being moved inside the product, and two
+ * modules answering that question separately is how one surface ends up treating a file being filed
+ * as an upload. `packages/design-system/src/lib/components/item-drag/` owns the answer.
  */
+
+import { carriesExternalFiles } from "@magna-carta/design-system/item-drag";
 
 export class DropTarget {
   #depth = $state(0);
@@ -37,12 +44,12 @@ export class DropTarget {
       ondragenter: (event) => {
         // Only a drag carrying files counts. Dragging selected text across the table is not an
         // upload, and lighting the region up for it would promise something that will not happen.
-        if (!carriesFiles(event)) return;
+        if (!carriesExternalFiles(event.dataTransfer)) return;
         event.preventDefault();
         this.#depth += 1;
       },
       ondragover: (event) => {
-        if (!carriesFiles(event)) return;
+        if (!carriesExternalFiles(event.dataTransfer)) return;
         // Preventing the default on dragover is what marks an element a valid drop target.
         event.preventDefault();
         if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
@@ -58,9 +65,4 @@ export class DropTarget {
       },
     };
   }
-}
-
-/** Whether the drag is carrying files rather than text or a link. */
-function carriesFiles(event: DragEvent): boolean {
-  return event.dataTransfer?.types.includes("Files") ?? false;
 }

@@ -7,10 +7,13 @@
  *
  * A tool stays `soon` until its own page exists; five have one today, all `alpha` — the network
  * speed test, the WHOIS lookup, the safe website viewer, the firm usage report, and the file
- * workbench. The workbench is the odd one: it is the HOST the ten file utilities are run from
- * rather than a tool beside them, so their own entries stay `soon` until each names the workbench
- * capability it opens. As a tool's page is built its entry advances (alpha/beta/ready) and the
- * listing entry becomes launchable; nothing here is faked meanwhile.
+ * workbench. As a tool's page is built its entry advances (alpha/beta/ready) and the listing entry
+ * becomes launchable; nothing here is faked meanwhile.
+ *
+ * The ten file utilities that used to sit beside the workbench were its own capability tabs under
+ * another name, and were retired into them. Their search vocabulary did not retire with them: it
+ * moved onto the workbench's synonyms below, so the words that used to reach "OCR" or "Metadata
+ * Scrubber" still reach the screen that does the work.
  */
 import type { Component } from "svelte";
 import House from "@lucide/svelte/icons/house";
@@ -22,15 +25,6 @@ import Gauge from "@lucide/svelte/icons/gauge";
 import ChartPie from "@lucide/svelte/icons/chart-pie";
 import Globe from "@lucide/svelte/icons/globe";
 import Shield from "@lucide/svelte/icons/shield";
-import FileCog from "@lucide/svelte/icons/file-cog";
-import FileSearch from "@lucide/svelte/icons/file-search";
-import Fingerprint from "@lucide/svelte/icons/fingerprint";
-import LockOpen from "@lucide/svelte/icons/lock-open";
-import FileCheck from "@lucide/svelte/icons/file-check";
-import ScanText from "@lucide/svelte/icons/scan-text";
-import Wrench from "@lucide/svelte/icons/wrench";
-import ShieldCheck from "@lucide/svelte/icons/shield-check";
-import MailSearch from "@lucide/svelte/icons/mail-search";
 import Microscope from "@lucide/svelte/icons/microscope";
 import { CATALOG } from "@magna-carta/tools/catalog";
 import { toolsByGroup, type GroupedTools } from "@magna-carta/tools/select";
@@ -61,8 +55,11 @@ export const TOOL_PRESENTATION: Record<string, ToolPresentation> = {
     stage: "soon",
   },
   "attorney-license-lookup": {
-    description: "Check a lawyer's bar standing and discipline history.",
-    stage: "soon",
+    // Not "check": the screen opens the state's own register and reads nothing back. Saying it
+    // checks standing would promise an answer this platform never sees, and standing is exactly the
+    // fact that changes after you look.
+    description: "Open the official register where a lawyer's standing is verified.",
+    stage: "alpha",
   },
   shipping: { description: "Rate and buy postage for a mailing.", stage: "soon" },
   "network-speed-test": {
@@ -78,43 +75,6 @@ export const TOOL_PRESENTATION: Record<string, ToolPresentation> = {
   "file-workbench": {
     description: "Bring a file that belongs to no matter, and read it every way at once.",
     stage: "alpha",
-  },
-  "file-converter": { description: "Convert a file from one format to another.", stage: "soon" },
-  "metadata-scrubber": {
-    description: "Inspect and strip hidden metadata from a file.",
-    stage: "soon",
-  },
-  "file-hash-integrity": {
-    description: "Compute a file's hash and confirm it hasn't changed.",
-    stage: "soon",
-  },
-  "file-decryption": {
-    description: "Unlock a protected file or recover its password.",
-    stage: "soon",
-  },
-  "file-type-verifier": {
-    description: "Confirm what a file really is, whatever its extension says.",
-    stage: "soon",
-  },
-  "ai-text-detection": {
-    description: "Estimate whether a passage was written by AI.",
-    stage: "soon",
-  },
-  "file-repair": {
-    description: "Repair and salvage a damaged or corrupted file.",
-    stage: "soon",
-  },
-  ocr: {
-    description: "Extract selectable text from a scanned document or image.",
-    stage: "soon",
-  },
-  "email-inspector": {
-    description: "Inspect an email file's headers, routing, and attachments.",
-    stage: "soon",
-  },
-  "malware-scan": {
-    description: "Scan a file for malware and see what it finds.",
-    stage: "soon",
   },
 };
 
@@ -142,15 +102,6 @@ export const TOOL_ICONS: Record<string, Component> = {
   "chart-pie": ChartPie,
   globe: Globe,
   shield: Shield,
-  "file-cog": FileCog,
-  "file-search": FileSearch,
-  fingerprint: Fingerprint,
-  "lock-open": LockOpen,
-  "file-check": FileCheck,
-  "scan-text": ScanText,
-  wrench: Wrench,
-  "shield-check": ShieldCheck,
-  "mail-search": MailSearch,
   microscope: Microscope,
 };
 
@@ -192,6 +143,18 @@ export function toolIcon(tool: ToolManifest): Component {
 const TOOL_SEARCH_SYNONYMS: Record<string, readonly string[]> = {
   "network-speed-test": ["bandwidth", "throughput", "ping", "latency", "internet", "connection"],
   "whois-lookup": ["registrant", "registration", "dns", "nameserver", "domain owner"],
+  "attorney-license-lookup": [
+    "bar",
+    "bar number",
+    "good standing",
+    "admitted",
+    "admission",
+    "disbarred",
+    "suspended",
+    "discipline",
+    "opposing counsel",
+    "state bar",
+  ],
   "safe-website-viewer": [
     "phishing",
     "suspicious link",
@@ -199,6 +162,48 @@ const TOOL_SEARCH_SYNONYMS: Record<string, readonly string[]> = {
     "redirect",
     "url preview",
     "sandbox",
+  ],
+  /*
+   * THE RETIRED TEN. Each of these words used to reach a catalog row of its own, and each of those
+   * rows was a File Workbench capability tab under another name. The rows are gone; the words must
+   * not be, or retiring them would have taken the vocabulary with them and a member searching "ocr"
+   * would find nothing. Keep this list in step with the capability registry
+   * (file-workbench/capabilities.ts) — a capability added there wants its lay words here.
+   */
+  "file-workbench": [
+    "convert",
+    "converter",
+    "metadata",
+    "scrub metadata",
+    "exif",
+    "hash",
+    "checksum",
+    "sha256",
+    "md5",
+    "integrity",
+    "decrypt",
+    "decryption",
+    "unlock",
+    "password",
+    "file type",
+    "verify type",
+    "extension",
+    "magic bytes",
+    "ai text",
+    "ai detection",
+    "repair",
+    "salvage",
+    "corrupt",
+    "ocr",
+    "text recognition",
+    "scanned",
+    "email inspector",
+    "headers",
+    "eml",
+    "msg",
+    "malware",
+    "virus",
+    "scan",
   ],
 };
 

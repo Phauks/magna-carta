@@ -117,33 +117,36 @@ would not be real.
 ## Changing a matter's status
 
 A matter's status is the badge at the top left of its own page, beside the matter number: **Intake**,
-**Consultation**, **Active**, **On Hold** or **Closed**. Press the badge and a menu opens with the
-steps the matter can take from where it stands: an intake completes into a consultation; a
-consultation opens, is put on hold, or is closed; an active matter closes or is put on hold; a
-matter on hold is released or closed; a closed matter reopens. There is no list of statuses to pick
-from, because a matter reaches a status by being opened, held, released, closed or reopened, not by
-being set to one.
+**Consultation**, **Active**, **On Hold** or **Closed**. The badge states the status and does
+nothing else; pressing it opens the matter's status window.
 
-A step that needs something from you opens the status window at that step: **Put On Hold** opens it
-with the reason field ready, and **Close Matter**, **Open Matter** and **Complete Intake** open it
-with the requirements in view, already answered. **Release Hold** and **Reopen Matter** need nothing
-but your say-so, so they ask once and go. The last item on the menu, **Matter Status**, opens the
-window on its own, for when you want to read the number, the engagement or the physical file
-without changing anything.
+The window is short on purpose, and it has two sides. On the left, the matter's status, its number
+and how the matter is engaged. On the right, the firm's own physical file for the matter. The
+bottom of the window offers only **Done**, so a window you opened to read something cannot close a
+matter with a press in the corner your hand goes to by habit.
 
-The window is short on purpose, and it has two sides. On the left, the matter's status, the steps
-the current status allows, and what closing requires. On the right, the firm's own physical file for
-the matter. The steps sit beside the status itself, not at the foot of the window, and the bottom of
-the window offers only **Done**, so a window you opened to read something cannot close a matter with
-a press in the corner your hand goes to by habit.
+Beside the status is one control, **Change Status**. It opens a panel that lists the steps the
+matter can take from where it stands: an intake completes into a consultation; a consultation opens,
+is put on hold, or is closed; an active matter closes or is put on hold; a matter on hold is
+released or closed; a closed matter reopens. There is no list of statuses to pick from, because a
+matter reaches a status by being opened, held, released, closed or reopened, not by being set to
+one.
+
+Each step on that list carries one line saying where it stands: that nothing is in its way, that a
+requirement is not met, or that this account may not take it and why. Choose a step and the panel
+says what it would do to the record and lists everything it requires, each one already answered.
+The button at the foot then reads that step's own verb — **Close Matter**, **Open Matter**,
+**Complete Intake**, **Put On Hold**, **Release Hold**, **Reopen Matter** — so what you are about
+to do is named where you press it. A step you may not take is shown refused with the reason, never
+hidden.
 
 **Putting a matter on hold.** An active matter the firm has stopped working, without ending it, goes
-on hold: a client who has stopped paying, a party who has gone quiet, an instruction to wait. Press
-**Put On Hold**, say why in a sentence, and confirm. The reason is required, because a matter on
+on hold: a client who has stopped paying, a party who has gone quiet, an instruction to wait. Choose
+**Put On Hold**, say why in a sentence, and press it. The reason is required, because a matter on
 hold with nothing said about why is a matter nobody knows how to resume, and it prints on the
-matter's Overview and in this window under **On Hold**, with the date the pause began. The matter
+matter's Overview and in the status window under **On Hold**, with the date the pause began. The matter
 keeps its number; nothing is drawn or surrendered. It stays on the docket wearing **On Hold** so it
-can be found and filtered, and its mail still files to it. Press **Release Hold** to resume; the
+can be found and filtered, and its mail still files to it. Choose **Release Hold** to resume; the
 matter goes back to where the hold found it, the reason clears, and the record keeps that it was
 held. A matter can also be closed from hold, and reopening it later returns it to the hold it was
 in. Both directions need the same permission, `matters:hold`, and a matter cannot be started on
@@ -158,21 +161,21 @@ Reopening it returns it to being a consultation. An intake cannot be put on hold
 toward a consultation, and there is nothing yet to pause.
 
 **Requirements to close** lists what has to be true, each one already answered. Magna Carta runs
-the firm's own rules against the matter when the window opens, so a requirement is marked met or not
+the firm's own rules against the matter as the panel opens, so a requirement is marked met or not
 before you press anything; nothing here is yours to tick. Where one is not met, the rule says in its
 own words what is in the way, and the **Close Matter** button stays disabled: there is nothing to be
-gained from a press whose refusal is already on the screen. Clear what it names, reopen the window,
-and it is asked again.
+gained from a press whose refusal is already on the screen. Clear what it names, open the panel
+again, and it is asked again.
 
 Two requirements stop a close, and both are about money that is not the firm's.
 
 **Money still in the client's trust ledger.** A client ledger has to reach zero before its matter
 closes, and a hold on disputed funds stops a close even where the ledger is otherwise empty. The
-window names the amount, the trust account it sits on, and the ways out: disburse the remaining funds
+panel names the amount, the trust account it sits on, and the ways out: disburse the remaining funds
 to the client, or transfer earned fees to the operating account.
 
 **A client credit the firm has conceded.** This is money a correction left over, which the firm has
-already agreed it owes back. The window names the amount and the date the credit note opened it, and
+already agreed it owes back. The panel names the amount and the date the credit note opened it, and
 the ways out: refund it from the operating account, return it to the client's trust ledger, or set it
 against another of this client's bills.
 
@@ -180,8 +183,8 @@ An unpaid bill does **not** stop a close. An uncollectable receivable is an ordi
 outcome, and writing it off is its lawful exit.
 
 **Completing an intake** draws the consultation number once every required step of your intake
-procedure is answered; the window lists what is outstanding under **Requirements To Complete
-Intake**. **Opening a consultation** draws your firm's next matter number, which then stays with the
+procedure is answered; the panel lists what is outstanding under **Requirements To Complete
+Intake**, with a way through to the Intake section where they are answered. **Opening a consultation** draws your firm's next matter number, which then stays with the
 matter for good, and moves it into the working docket. **Reopening a matter** returns it to the
 status it held before it closed — On Hold if it was on hold, Active if it carries a matter number,
 Consultation if it carries a consultation number, and Intake if it carries neither — and clears the
@@ -195,7 +198,7 @@ replaces stays on the record. It needs the `matters:renumber` permission. An int
 consultation shows that the number is drawn when the matter opens, and cannot be given one by hand.
 
 **Notices are not refusals.** A close can report things worth knowing without stopping: if the firm
-still holds a client's property in the safe-custody register against the matter, the window says so
+still holds a client's property in the safe-custody register against the matter, the panel says so
 after the matter closes. The property stays exactly where it is, listed in the register, until
 somebody moves, releases or destroys it.
 

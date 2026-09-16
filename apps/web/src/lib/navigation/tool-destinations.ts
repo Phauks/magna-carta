@@ -7,7 +7,8 @@
  * renders this registry; it must never hardcode a tool row.
  *
  * Three facts are reused, not re-derived:
- *   - Each tool routes at /tools/<id> — the route directory is named after the catalog id.
+ *   - Each tool is addressed by toolRoute(): /tools/<id> for a tool reached inside the Tools
+ *     area, and its declared route for one addressed at the top level.
  *   - Whether a tool is launchable is hasSurface(stage) from maturity.ts, the exact predicate the
  *     Tools catalogue (tools/tool-catalogue.ts) uses to decide whether an entry is a link. A `soon`
  *     tool has no surface yet; alpha and above do.
@@ -23,7 +24,7 @@
  * runs in vitest's plugin-less node pool (vitest.config.ts), where the SvelteKit $lib alias is not
  * resolved. It is the same constraint that keeps tool-presentation.ts's $lib import type-only.
  */
-import { CATALOG } from "@magna-carta/tools/catalog";
+import { CATALOG, toolRoute } from "@magna-carta/tools/catalog";
 import { hasSurface } from "@magna-carta/design-system/maturity";
 import {
   SUBJECT_GROUP_LABELS,
@@ -32,11 +33,11 @@ import {
 } from "../tools/tool-presentation.ts";
 
 export interface ToolDestination {
-  /** Stable catalog id (kebab-case); also the route segment. */
+  /** Stable catalog id (kebab-case). */
   readonly id: string;
   /** Display name — the primary thing a member searches by. */
   readonly name: string;
-  /** Routes at /tools/<id>. Only followed when `launchable` is true. */
+  /** The tool's own address (toolRoute). Only followed when `launchable` is true. */
   readonly href: string;
   /** One-line descriptor from the presentation layer, shown and folded into the search net. */
   readonly description: string;
@@ -49,14 +50,21 @@ export interface ToolDestination {
 /**
  * Every catalog tool as a searchable palette entry, in the catalog's canonical order. Throws only
  * if the catalog outran the presentation registry (via toolPresentation's guard).
+ *
+ * A tool that declares its own `route` is skipped: declaring one is what a tool does when it has
+ * outgrown the Tools area and earned a destination row of its own, and the palette already renders
+ * the destination registry beside this list. Offering the same surface twice in one flat search is
+ * two rows a reader has to tell apart, and the destination row is the one carrying the description
+ * and the maturity badge. The Tools area's own projection drops it for its own reason
+ * (tools/tool-catalogue.ts): every row in that column loads beside the column.
  */
 export function toolDestinations(): readonly ToolDestination[] {
-  return CATALOG.map((tool) => {
+  return CATALOG.filter((tool) => tool.route === undefined).map((tool) => {
     const presentation = toolPresentation(tool);
     return {
       id: tool.id,
       name: tool.name,
-      href: `/tools/${tool.id}`,
+      href: toolRoute(tool),
       description: presentation.description,
       launchable: hasSurface(presentation.stage),
       keywords: [

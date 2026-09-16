@@ -21,6 +21,7 @@
   import * as Select from "@magna-carta/design-system/select";
   import Badge from "@magna-carta/design-system/badge";
   import Label from "@magna-carta/design-system/label";
+  import Input from "@magna-carta/design-system/input";
   import Textarea from "@magna-carta/design-system/textarea";
   import FileInput from "@magna-carta/design-system/file-input";
   import { sampleInstant } from "@magna-carta/design-system/loading-fixtures";
@@ -49,7 +50,13 @@
   import type { FileManagerRow, FolderAggregate } from "./file-rows.ts";
   import { folderSizeText, formatBytes } from "./file-rows.ts";
   import { fileExtension, safetyKeyOf } from "./file-columns.ts";
-  import { displayName } from "./file-names.ts";
+  import {
+    committedRename,
+    displayName,
+    renameFieldValue,
+    renameSelectionEnd,
+    splitName,
+  } from "./file-names.ts";
   import { countPhrase } from "./file-manager-vocabulary.ts";
   import { waitingReason } from "./file-manager-availability.ts";
   import { sha256OfFile } from "./upload-hash.ts";
@@ -57,10 +64,24 @@
   import {
     requestIsOpen,
     SCAN_EVENT_LABELS,
+    scanEventDetailReading,
     scanEventEngineText,
     scanEventStatusKey,
     scanEventVerdictText,
+    scanRequestWasNotQueued,
   } from "./scan-history-model.ts";
+  import {
+    SCAN_SETTINGS_FIXTURE,
+    SCAN_SETTINGS_PROVENANCE,
+    SCAN_SETTINGS_PROVENANCE_LABEL,
+    scanSettingsLines,
+  } from "./scan-policy-words.ts";
+  import {
+    decomposeScanEngineVersion,
+    SCAN_ENGINE_FIXTURE_PARTS,
+    SCAN_ENGINE_UNREPORTED_DETAIL,
+    scanEngineReadingLines,
+  } from "$lib/versions/scan-engine-version.ts";
   import {
     HASH_ALGORITHMS,
     type DocumentTypeSummary,
@@ -94,7 +115,7 @@
     folderAggregateOf,
     tab = $bindable("details"),
     onClose,
-    onRename,
+    onRenameCommit,
     onPickDocumentType,
     onAddDocumentType,
     onVerifyIntegrity,
@@ -127,7 +148,12 @@
     folderAggregateOf: (folderId: string) => FolderAggregate;
     tab?: InspectorTab;
     onClose: () => void;
-    onRename: () => void;
+    /**
+     * Write a new name for what the panel is showing. Answers null when the record took it, or
+     * the sentence saying why it did not — the panel keeps the field open holding what was typed,
+     * states the sentence beneath it, and the record still holds the name it had.
+     */
+    onRenameCommit: (name: string) => Promise<string | null>;
     onPickDocumentType: (documentTypeId: string | null) => void;
     onAddDocumentType: (name: string) => void;
     /** Compute the digests of one version — null for the current version. */
@@ -148,6 +174,107 @@
   };
 
   const safetyKey = $derived(file === null ? "clean" : safetyKeyOf(file));
+
+  /*
+   * THE NAME IS EDITED WHERE IT IS READ. Pressing the name puts a field in the name's own place, at
+   * the same height, holding the name the panel was showing: Enter commits, Escape cancels, and
+   * leaving the field commits too, because a name somebody typed and then clicked away from is a
+   * name they meant. Nothing else in the header moves while it happens.
+   *
+   * It used to ask the LIST to open the field instead, which put the cursor on a row that may be
+   * scrolled away or in another folder — the reader pressed the name and watched a selection happen
+   * somewhere else.
+   *
+   * A REFUSED NAME KEEPS THE OLD ONE. The field stays open holding what was typed, the sentence the
+   * host answered with stands beneath it, and the record still reads as it did — which is what makes
+   * a collision fixable where it was typed rather than somewhere the reader has to go and find.
+   *
+   * The extension governs display and selection, never editability: with extensions hidden the field
+   * holds no extension and the stored one reattaches on commit; with them shown, what was typed
+   * stands, and only the stem is selected so typing immediately does not eat it.
+   */
+  let renaming = $state(false);
+  let renameDraft = $state("");
+  let renameRefusal = $state<string | null>(null);
+  let renameCommitting = $state(false);
+  let renameField = $state<HTMLInputElement | null>(null);
+
+  const storedName = $derived(file === null ? (folder?.name ?? "") : file.name);
+  const shownName = $derived(
+    file === null ? (folder?.name ?? "") : displayName(file.name, hideExtensions),
+  );
+  /* A folder's whole name is its stem: there is no extension to hide or reattach. */
+  const nameFieldHidesExtension = $derived(file !== null && hideExtensions);
+
+  $effect(() => {
+    // A different file or folder is a different name; a draft must never follow the selection.
+    void row?.key;
+    renaming = false;
+    renameDraft = "";
+    renameRefusal = null;
+  });
+
+  function beginRename(): void {
+    if (row === null || renameCommitting) return;
+    renameDraft = renameFieldValue(storedName, nameFieldHidesExtension);
+    renameRefusal = null;
+    renaming = true;
+    // The field mounts on the next frame; the selection stops at the stem so typing keeps the
+    // extension the reader can see but did not ask to change.
+    queueMicrotask(() => {
+      renameField?.focus();
+      renameField?.setSelectionRange(
+        0,
+        renameSelectionEnd(renameDraft, nameFieldHidesExtension),
+      );
+    });
+  }
+
+  function cancelRename(): void {
+    renaming = false;
+    renameDraft = "";
+    renameRefusal = null;
+  }
+
+  /*
+   * `keepFocus` is true only for a commit the reader ASKED for (Enter). A commit that happened
+   * because they clicked away must not pull them back into the field when it is refused: that is a
+   * focus trap, and the reader can click the field again when they want to fix the name.
+   */
+  async function commitRename(keepFocus: boolean): Promise<void> {
+    if (!renaming || row === null || renameCommitting) return;
+    const storedExtension = file === null ? "" : splitName(file.name).extension;
+    const wanted = committedRename(renameDraft, storedExtension, nameFieldHidesExtension);
+    // An empty field is not a name, and the same name is not a rename: either way the field closes
+    // and nothing is written, so no audit row records a change that did not happen.
+    if (wanted === "" || wanted === storedName) {
+      cancelRename();
+      return;
+    }
+    renameCommitting = true;
+    const refusal = await onRenameCommit(wanted);
+    renameCommitting = false;
+    renameRefusal = refusal;
+    // The field stays open holding what was typed: the name is fixed where it was written.
+    if (refusal !== null) {
+      if (keepFocus) renameField?.focus();
+      return;
+    }
+    renaming = false;
+    renameDraft = "";
+  }
+
+  function renameKeydown(event: KeyboardEvent): void {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      void commitRename(true);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      // The panel sits inside the file manager's own Escape handling; this one is the field's.
+      event.stopPropagation();
+      cancelRename();
+    }
+  }
 
   /*
    * The shapes the Version History and Hashes tabs take while their values are read: the same rows,
@@ -195,6 +322,7 @@
       scanVerdict: null,
       scanEngineVersion: null,
       scanDetail: null,
+      queued: null,
     },
     {
       id: "fixture-scan-1",
@@ -207,6 +335,7 @@
       scanVerdict: null,
       scanEngineVersion: null,
       scanDetail: null,
+      queued: null,
     },
   ];
   const HEX_RUN = "3b7f9d1e";
@@ -405,8 +534,7 @@
         label: "Detail",
         type: "text",
         filter: "none",
-        value: (event) => event.scanDetail,
-        text: (event) => event.scanDetail ?? "",
+        value: (event) => scanEventDetailReading(event).text,
       },
     ],
     rows: () => scansShown,
@@ -496,7 +624,15 @@
 {#snippet scanCell({ row, column, text }: DataTable.GridCellContext<FileScanEvent>)}
   {#if column.id === SCAN_COLUMN.result}
     {#if row.event === "file.rescan_requested"}
-      <Badge variant={scans !== null && requestIsOpen(scans.data, row) ? "info" : "neutral"}>
+      <!-- A request that never reached the engine is not neutral news: nothing ran, and nothing
+           else on the line would have said so. -->
+      <Badge
+        variant={scanRequestWasNotQueued(row)
+          ? "warning"
+          : scans !== null && requestIsOpen(scans.data, row)
+            ? "info"
+            : "neutral"}
+      >
         {text}
       </Badge>
     {:else}
@@ -504,8 +640,13 @@
       <Badge variant={key === null ? "neutral" : statusEntry(key).tone}>{text}</Badge>
     {/if}
   {:else if column.id === SCAN_COLUMN.detail}
-    <!-- The scanner's own words, never our cheerful paraphrase of them. -->
-    <span class="font-mono text-xs break-all">{text}</span>
+    <!-- The scanner's own words stand exactly as recorded; what the PLATFORM wrote is stated in a
+         reader's words instead, because a code of ours says nothing to the person auditing a file. -->
+    {#if scanEventDetailReading(row).verbatim}
+      <span class="font-mono text-xs break-all">{text}</span>
+    {:else}
+      <span class="text-xs">{text}</span>
+    {/if}
   {:else}
     {text}
   {/if}
@@ -524,31 +665,51 @@
       <EmptyState title="Select a file or folder." />
     </div>
   {:else}
-    <header class="flex items-start gap-8 border-b border-border-default p-12">
-      {#if file !== null}
-        <FileIcon
-          contentType={file.sniffedContentType ?? undefined}
-          fileName={file.name}
-          class="mt-4 size-20 shrink-0"
-        />
-      {:else}
-        <FileIcon folder class="mt-4 size-20 shrink-0" />
+    <header class="flex flex-col gap-4 border-b border-border-default p-12">
+      <div class="flex items-start gap-8">
+        {#if file !== null}
+          <FileIcon
+            contentType={file.sniffedContentType ?? undefined}
+            fileName={file.name}
+            class="mt-4 size-20 shrink-0"
+          />
+        {:else}
+          <FileIcon folder class="mt-4 size-20 shrink-0" />
+        {/if}
+        <!-- The name is read and changed in the same place. The field takes the resting control's
+             own height, so opening it moves nothing else in the header. -->
+        {#if renaming}
+          <Input
+            bind:ref={renameField}
+            bind:value={renameDraft}
+            size="sm"
+            class="min-w-0 flex-1"
+            aria-label="New name"
+            aria-invalid={renameRefusal !== null}
+            readonly={renameCommitting}
+            onkeydown={renameKeydown}
+            onblur={() => void commitRename(false)}
+          />
+        {:else}
+          <Button
+            variant="ghost"
+            size="sm"
+            class="min-w-0 flex-1 justify-start text-start"
+            title="Rename"
+            onclick={beginRename}
+          >
+            <span class="truncate">{shownName}</span>
+          </Button>
+        {/if}
+        <Button variant="ghost" size="icon" aria-label="Close details" onclick={onClose}>
+          <X class="size-16" aria-hidden="true" />
+        </Button>
+      </div>
+      {#if renameRefusal !== null}
+        <!-- The refusal stands where the name was typed, in the subtle register a work surface
+             states a refusal in, and the record still holds the name it had. -->
+        <p class="text-xs text-status-danger-subtle-foreground">{renameRefusal}</p>
       {/if}
-      <!-- Clicking the name renames it, so the field a reader reads is the field they can edit. -->
-      <Button
-        variant="ghost"
-        size="sm"
-        class="min-w-0 flex-1 justify-start text-start"
-        title="Rename"
-        onclick={onRename}
-      >
-        <span class="truncate">
-          {file === null ? (folder?.name ?? "") : displayName(file.name, hideExtensions)}
-        </span>
-      </Button>
-      <Button variant="ghost" size="icon" aria-label="Close details" onclick={onClose}>
-        <X class="size-16" aria-hidden="true" />
-      </Button>
     </header>
 
     {#if folder !== null}
@@ -958,11 +1119,54 @@
                 density="compact"
                 caption="This file's checks"
               />
-              {#if scans !== null && scans.currentEngineVersion !== null}
-                <p class="text-xs text-text-subtle">
-                  The firm checks with {scans.currentEngineVersion} today.
-                </p>
-              {/if}
+            </LoadingRegion>
+
+            <Separator />
+
+            <!-- WHAT A CHECK RUNS UNDER. The history says what each check found; this says what it
+                 was looking with — the engine decomposed into the three things it is made of, and
+                 the four settings that decide which matches count and what happens to a file that
+                 has one. Every term stands from the first paint with its value empty, so a reader
+                 meets the shape before the values land. The last row is the honest one: only the
+                 engine is recorded per check, and a reader auditing a verdict has to know which of
+                 these numbers describes their file and which describes the firm today. -->
+            <LoadingRegion
+              loading={scans === null && scansLoading}
+              label="Reading what the firm checks with"
+            >
+              {#snippet fixture()}
+                <DefinitionList.Root class="text-sm">
+                  {#each scanEngineReadingLines(SCAN_ENGINE_FIXTURE_PARTS) as line (line.label)}
+                    <DefinitionList.Row term={line.label}>{line.value}</DefinitionList.Row>
+                  {/each}
+                  {#each scanSettingsLines(SCAN_SETTINGS_FIXTURE) as line (line.label)}
+                    <DefinitionList.Row term={line.label}>{line.value}</DefinitionList.Row>
+                  {/each}
+                </DefinitionList.Root>
+              {/snippet}
+              {@const engineComposite = scans === null ? null : scans.currentEngineVersion}
+              {@const engineParts =
+                engineComposite === null ? null : decomposeScanEngineVersion(engineComposite)}
+              <DefinitionList.Root class="text-sm">
+                {#each scanEngineReadingLines(engineParts ?? SCAN_ENGINE_FIXTURE_PARTS) as line (line.label)}
+                  <DefinitionList.Row term={line.label} empty={engineParts === null}>
+                    <span class="font-mono tabular-nums">{line.value}</span>
+                  </DefinitionList.Row>
+                {/each}
+                {#each scanSettingsLines(scans?.scanSettings ?? SCAN_SETTINGS_FIXTURE) as line (line.label)}
+                  <DefinitionList.Row term={line.label} empty={scans === null}>
+                    {line.value}
+                  </DefinitionList.Row>
+                {/each}
+                <DefinitionList.Row term={SCAN_SETTINGS_PROVENANCE_LABEL}>
+                  {SCAN_SETTINGS_PROVENANCE}
+                </DefinitionList.Row>
+                {#if scans !== null && engineParts === null}
+                  <DefinitionList.Empty term="Scan engine">
+                    {SCAN_ENGINE_UNREPORTED_DETAIL}
+                  </DefinitionList.Empty>
+                {/if}
+              </DefinitionList.Root>
             </LoadingRegion>
           </div>
         </Tabs.Content>

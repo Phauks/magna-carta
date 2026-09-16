@@ -1,6 +1,6 @@
 # File Workbench — CLAUDE.md
 
-**Purpose.** The Tools surface a file that belongs to no matter is brought to, and every file capability is run from. One drop, and Type, Hash, Malware Scan, Metadata, Email, Convert, Repair, Text Recognition, Unlock and AI Text all address the same bytes. The boundary is the file's lifetime: nothing here is filed, versioned, or remembered.
+**Purpose.** The surface a file that belongs to no matter is brought to, and every file capability is run from. A sidebar destination in the Firm group at `/file-workbench`, not a screen inside the Tools area: the ten file utilities in the tool catalog are this screen's own capability tabs, so the host does not belong filed among the things it hosts. One drop, and Type, Hash, Malware Scan, Metadata, Email, Convert, Repair, Text Recognition, Unlock and AI Text all address the same bytes. The boundary is the file's lifetime: nothing here is filed, versioned, or remembered.
 
 **White paper:** _Core domain_ — the Tools area and the file utilities.
 **Decision:** `docs/decisions/pending/a-file-nobody-trusts-is-the-reason-the-workbench-exists.md` (until the register assembles it on `main`).
@@ -45,7 +45,9 @@
 - `@magna-carta/file-type` — the label vocabulary and `claimedExtensionOf`. `identify.ts` produces the same `FileTypeReport` the content service will, so swapping the source is one call.
 - `@magna-carta/conversion` — the format graph. `conversion-targets.ts` bridges the two names for a format and takes the intersection across a selection.
 - `@magna-carta/access-control` — every capability declares the tool permission that gates it. The grant itself is the seam in `$lib/tools/tool-permissions.ts`, shared with the `/tools` listing.
-- `@magna-carta/tools` — the catalog row (`file-workbench`) that puts this on the listing.
+- `@magna-carta/tools` — the catalog row (`file-workbench`), the ONLY row in the `files` group. The ten sibling manifests that used to sit beside it were these capability tabs under another name and were retired into them. The row stays for one reason: so a `file` in hand can still be offered it through `toolsFor()`. It declares `route: "/file-workbench"`, which is also what takes it out of the Tools listing, the Tools navigation column and the palette's tool provider. `toolRoute()` is the one derivation.
+- **`$lib/tools/tool-permissions.ts` names every capability permission by hand.** It has to: the grant set was built from `CATALOG`, and the retired manifests are what used to put these keys in it. Deleting them without this would have emptied the tab strip silently. `file-workbench-capabilities.test.ts` and `file-workbench-destination.test.ts` both hold the hand-written half to this registry.
+- **The lay search words for these capabilities live in `tool-presentation.ts`**, on the workbench's synonyms. A member searching "ocr" used to reach a catalog row; now that word has to reach this screen, and nothing else carries it. Adding a capability wants its words added there.
 
 ## Gotchas
 

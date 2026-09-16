@@ -68,6 +68,8 @@
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import { CloseGuard } from "../../internal/close-guard.svelte.ts";
   import DiscardQuestion from "../../internal/discard-question.svelte";
+  import RecordSubjectLine from "../record-reference/record-subject.svelte";
+  import type { RecordSubject } from "../record-reference/types.ts";
   import RecordWindowContext from "./record-window-context.svelte";
   import { FrameExpansion, recordWindowExpansion } from "../../internal/frame-expansion.svelte.ts";
   import type { RecordWindowTab } from "./types.ts";
@@ -112,8 +114,12 @@
     /**
      * The line beneath the heading. The record's own reference number belongs here and only here —
      * repeating it in the record pane makes a reader check whether the two agree.
+     *
+     * A `RecordSubject` — the reference, and the few facts about the record worth stating beside it
+     * — which the design system renders, so a record window and the panel that CREATED that record
+     * name it the same way. The snippet arm stays for a subject that carries real markup.
      */
-    subtitle: Snippet;
+    subtitle: RecordSubject | Snippet;
     /**
      * The LEFT pane: the record itself, dense and top-aligned. It is handed the mode, so ONE
      * snippet renders the values and the fields. Two snippets would be two layouts, and they would
@@ -313,7 +319,11 @@
       <div class="mc-modal-frame-identity mc-record-window-identity">
         <Dialog.Title class="mc-modal-frame-heading mc-record-window-heading">{heading}</Dialog.Title>
         <Dialog.Description class="mc-modal-frame-subtitle mc-record-window-subtitle">
-          {@render subtitle()}
+          {#if typeof subtitle === "function"}
+            {@render subtitle()}
+          {:else}
+            <RecordSubjectLine subject={subtitle} />
+          {/if}
         </Dialog.Description>
       </div>
       <div class="mc-modal-frame-header-actions mc-record-window-header-actions">

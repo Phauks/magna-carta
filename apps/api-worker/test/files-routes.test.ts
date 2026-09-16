@@ -1627,15 +1627,40 @@ describe("a file's scan history and a member's re-scan request", () => {
     expect(history.status).toBe(200);
     const read = await history.json<{
       currentEngineVersion: string | null;
-      data: { id: string; event: string; versionId: string; actorUserId: string | null }[];
+      scanSettings: {
+        tier: string;
+        suspiciousScoreFloor: number;
+        flaggedTreatment: string;
+        stepUpReauthOnFlagged: boolean;
+      };
+      data: {
+        id: string;
+        event: string;
+        versionId: string;
+        actorUserId: string | null;
+        scanEngineVersion: string | null;
+        queued: boolean | null;
+      }[];
     }>();
     expect(read.currentEngineVersion).toBe("clamav/9.9");
+    // What the firm's checks run under travels with the history, so a member reading a verdict can
+    // read what it was looked for with. The firm has set none of these, so they are the defaults.
+    expect(read.scanSettings).toEqual({
+      tier: "extended",
+      suspiciousScoreFloor: 75,
+      flaggedTreatment: "block",
+      stepUpReauthOnFlagged: false,
+    });
     expect(read.data).toContainEqual(
       expect.objectContaining({
         id: body.requestId,
         event: "file.rescan_requested",
         versionId,
         actorUserId: ownerUserId,
+        // The request's own two recorded facts: whether it reached the queue, and the engine that
+        // stood at the time — which is what decided the first one.
+        queued: body.enqueued,
+        scanEngineVersion: "clamav/9.9",
       }),
     );
   });

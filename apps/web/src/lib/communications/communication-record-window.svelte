@@ -49,6 +49,11 @@
   import FieldLabel from "@magna-carta/design-system/field-label";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import RecordWindow, { type RecordWindowTab } from "@magna-carta/design-system/record-window";
+  import { PreviewedNumber } from "@magna-carta/design-system/record-reference";
+  import type {
+    RecordReference,
+    RecordSubject,
+  } from "@magna-carta/design-system/record-reference";
   import { formatInstant, personName } from "@magna-carta/design-system/formatters";
   import FilePlus2 from "@lucide/svelte/icons/file-plus-2";
   import FolderInput from "@lucide/svelte/icons/folder-input";
@@ -178,7 +183,12 @@
    * Null rather than a guess: a made-up number on a message slip is worse than none, and the line
    * under the heading simply says the number is drawn when it is saved until this arrives.
    */
-  let previewedNumber = $state<string | null>(null);
+  /*
+   * The number this record would draw, held by the shared seam rather than by this file.
+   * "Communication" rather than the chosen channel for the same reason the heading is: a line that
+   * renamed itself under the hand of the person filling it in is a panel arguing with its reader.
+   */
+  const previewed = new PreviewedNumber("Communication");
 
   const nameOf = $derived((userId: string | null): string | null => {
     if (userId === null) return null;
@@ -234,16 +244,52 @@
    * which nothing here reads back, so it cannot re-enter.
    */
   $effect(() => {
-    if (!open || communicationId !== null) return;
+    if (!open || communicationId !== null) {
+      previewed.clear();
+      return;
+    }
     const occurredAt = draftOccurredAt(draft);
-    previewedNumber = null;
-    void (async () => {
+    void previewed.read(async () => {
+      // The seam takes a number or nothing; the app's outcome model stays in the app. A refused or
+      // unreachable read is not an error to raise here — the panel still records the call, and the
+      // line already says a number is drawn by the save.
       const outcome = await readNextCommunicationNumber(fetch, occurredAt);
-      // A preview that lands after the record has been saved is about a record that no longer needs
-      // one; the record's own number is what the subtitle shows from then on.
-      if (outcome.kind === "ok") previewedNumber = outcome.value.referenceNumber;
-    })();
+      return outcome.kind === "ok" ? outcome.value.referenceNumber : null;
+    });
   });
+
+  /*
+   * The line under the heading: this record, by the number somebody quotes.
+   *
+   * WHILE IT IS BEING ENTERED the number is the one the NEXT record would draw, because the person
+   * typing is usually still on the telephone and the save is too late for the sentence they are in
+   * the middle of. Nothing is reserved by asking, and the shell says so in the words it says
+   * everywhere.
+   */
+  const subtitle = $derived<RecordSubject>(
+    creating
+      ? { reference: previewed.reference }
+      : record === null
+        ? {}
+        : {
+            reference: {
+              kind: channelEntry(record.channel).label,
+              number: record.referenceNumber,
+            },
+            facts: [directionEntry(record.direction).label, formatInstant(record.occurredAt)],
+          },
+  );
+
+  /*
+   * The record as the two queue acts name it. Both panels act on THIS row, so both state its own
+   * number rather than describing what filing or setting aside does — the heading already says
+   * that, and a handle is not something a reader can check.
+   */
+  const actingReference = $derived<RecordReference | null>(
+    record === null
+      ? null
+      : { kind: channelEntry(record.channel).label, number: record.referenceNumber },
+  );
 
   /**
    * The Directory record at the other end, by name.
@@ -522,22 +568,6 @@
   );
 </script>
 
-{#snippet subtitle()}
-  {#if creating}
-    <!-- The number this record will carry, said before it exists, because the person entering it is
-         usually still on the telephone. A preview and not a reservation, and it says so. -->
-    {#if previewedNumber === null}
-      A number is drawn when this is saved.
-    {:else}
-      <span class="tabular-nums">{previewedNumber}</span> &middot; drawn when this is saved
-    {/if}
-  {:else if record !== null}
-    {#if record.referenceNumber !== null}
-      <span class="tabular-nums">{record.referenceNumber}</span> &middot;
-    {/if}
-    {directionEntry(record.direction).label} &middot; {formatInstant(record.occurredAt)}
-  {/if}
-{/snippet}
 
 {#snippet fact(label: string, value: string)}
   <div class="flex items-baseline justify-between gap-16">
@@ -740,6 +770,7 @@
 <FileToMatterDialog
   bind:open={filingOpen}
   communicationId={record?.id ?? null}
+  reference={actingReference}
   {matters}
   {mattersCapped}
   onFiled={anchorMoved}
@@ -748,5 +779,6 @@
 <SetAsideDialog
   bind:open={setAsideOpen}
   communicationId={record?.id ?? null}
+  reference={actingReference}
   onSetAside={anchorMoved}
 />
