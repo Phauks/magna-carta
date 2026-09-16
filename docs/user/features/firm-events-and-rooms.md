@@ -34,15 +34,29 @@ not belong here; personal appointments are their own thing when they are built.
 
 ## Recording a firm event
 
-On the firm calendar, **Record** then **Firm Event**. Give it a title, a date, and a time zone. The event usually happens at one of your offices, so you
+On the firm calendar, **Record** then **New Event**, and set the first line to **the firm** — there
+is one event form now, and that line is what decides whether you are recording a case setting or a
+firm one. Give it a title, a date, and a time zone. The event usually happens at one of your offices, so you
 can pick the office — which also tells the calendar which rooms are nearby — or type a venue for an
 offsite. Classify it from the same type list case events use; the shipped list includes **Firm
 meeting**, **Training**, **Office closure**, **Firm holiday**, and **Reservation**.
+
+**Repeats** asks whether the meeting is a series. Most firm meetings are: a weekly stand-up, a
+partners meeting every second Tuesday, a quarterly review. Set the cadence, the days, and where it
+stops, and the form reads the rule back to you in words before you save it. It is one record with a
+rule on it, not one record per date — see
+[Case calendar and deadlines](case-calendar-and-deadlines.md) for the whole of how a repeat works,
+which is the same on both kinds of event.
 
 A moved staff meeting is just an edit: change the date, and the audit trail carries the move.
 Cancelling keeps the record, with an optional note saying why.
 
 ## Booking a room, a car, or anything else
+
+**The room a setting is HELD in is booked by the Location field, not from here.** Choose one of your
+conference rooms as the location and it is held for the event's window; change the location and the
+booking follows. This section is for everything else: a second room, a pool car, a projector — and
+for seeing and releasing what an event already holds, on its **Rooms** tab.
 
 A booking always belongs to an event — the room is busy _because something is happening in it_.
 Book the conference room for a deposition, the pool car for a site visit, the video rig for a

@@ -30,7 +30,10 @@
    * the secondary register and the other half the ghost one, the same pattern as the view switch
    * in $lib/view-shell/view-switch.svelte.
    */
-  import Button from "@magna-carta/design-system/button";
+  import Button, { buttonClasses } from "@magna-carta/design-system/button";
+  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
+  import ListFilter from "@lucide/svelte/icons/list-filter";
+  import { SCHEDULE_KINDS } from "./schedule-narrowing.ts";
   import CalendarDays from "@lucide/svelte/icons/calendar-days";
   import CalendarRange from "@lucide/svelte/icons/calendar-range";
   import Columns3 from "@lucide/svelte/icons/columns-3";
@@ -81,6 +84,47 @@
 </script>
 
 <div class="flex flex-wrap items-center gap-16">
+  <!--
+    WHAT KIND, which is the other half of the question the rail answers. The rail says whose
+    calendar; this says what sort of thing, and a firm's week holds hearings, deadlines, staff
+    meetings and reservations that a reader is almost always reading it for one of (owner,
+    2026-09-16). It narrows what was already read and makes no request — so it reaches exactly as
+    far as the window on screen, which is why it sits beside the window's own navigation rather
+    than beside a search that would imply the whole record.
+  -->
+  <div class="flex items-center gap-4" role="group" aria-label="Kinds shown">
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger
+        class={buttonClasses({ variant: controller.narrowed ? "secondary" : "ghost", size: "sm" })}
+        aria-label="Narrow what is shown"
+        title="Narrow what is shown to the kinds that matter"
+      >
+        <ListFilter class="size-16" aria-hidden="true" />
+        Kinds
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content>
+        <DropdownMenu.Group>
+          <DropdownMenu.GroupHeading>Show</DropdownMenu.GroupHeading>
+          {#each SCHEDULE_KINDS as choice (choice.kind)}
+            <DropdownMenu.CheckboxItem
+              checked={!controller.narrowed || controller.narrowedKinds.has(choice.kind)}
+              onCheckedChange={() => controller.toggleKind(choice.kind)}
+            >
+              {choice.label}
+            </DropdownMenu.CheckboxItem>
+          {/each}
+        </DropdownMenu.Group>
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
+    <!-- A control that undoes a state renders nothing when there is nothing to undo, which is the
+         standing rule; a disabled Clear reads as broken. -->
+    {#if controller.narrowed}
+      <Button variant="ghost" size="sm" onclick={() => controller.clearNarrowing()}>
+        Show Everything
+      </Button>
+    {/if}
+  </div>
+
   {#if controller.view === "agenda"}
     <div class="flex items-center gap-4" role="group" aria-label="What is shown">
       <Button

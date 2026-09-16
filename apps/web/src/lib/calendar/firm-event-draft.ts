@@ -12,11 +12,19 @@ import type {
   FirmEvent,
   FirmEventAudience,
 } from "./calendar-api.ts";
+import {
+  formatRecurrence,
+  parseRecurrence,
+  type RecurrenceRule,
+} from "@magna-carta/civil-time/recurrence";
 import { optionalText } from "./draft-text.ts";
+import { shortfall, type Shortfall } from "./shortfall.ts";
 import {
   conferenceShortfalls,
+  EVENT_FIELDS,
   participantDraftFrom,
   participantInput,
+  recurrenceChanged,
   timingShortfalls,
   type EventTimingDraft,
   type ParticipantDraft,
@@ -31,6 +39,8 @@ export interface FirmEventDraft extends EventTimingDraft {
   locationText: string;
   /** Where it is JOINED, where it is online. A firm meeting is as likely to be a call as a room. */
   conferenceUrl: string;
+  /** The rule this meeting repeats on, or null for a one-off. A staff meeting usually has one. */
+  recurrence: RecurrenceRule | null;
   participants: ParticipantDraft[];
 }
 
@@ -51,14 +61,17 @@ export function emptyFirmEventDraft(
     locationId: null,
     locationText: "",
     conferenceUrl: "",
+    recurrence: null,
     participants: [],
   };
 }
 
 /** Every reason the firm event cannot be recorded yet. Empty means it can. */
-export function firmEventDraftShortfalls(draft: FirmEventDraft): string[] {
-  const shortfalls: string[] = [];
-  if (draft.title.trim() === "") shortfalls.push("A title is needed.");
+export function firmEventDraftShortfalls(draft: FirmEventDraft): Shortfall[] {
+  const shortfalls: Shortfall[] = [];
+  if (draft.title.trim() === "") {
+    shortfalls.push(shortfall(EVENT_FIELDS.title, "A title is needed."));
+  }
   shortfalls.push(...timingShortfalls(draft));
   shortfalls.push(...conferenceShortfalls(draft.conferenceUrl));
   return shortfalls;
@@ -82,6 +95,7 @@ export function firmEventDraftStarted(draft: FirmEventDraft, since: FirmEventDra
     draft.locationId !== since.locationId ||
     draft.locationText !== since.locationText ||
     draft.conferenceUrl !== since.conferenceUrl ||
+    recurrenceChanged(draft.recurrence, since.recurrence) ||
     draft.participants.length !== since.participants.length ||
     draft.participants.some((participant, index) => {
       const before = since.participants[index];
@@ -107,6 +121,7 @@ export function firmEventDraftRequest(draft: FirmEventDraft): CreateFirmEventReq
     locationId: draft.locationId,
     locationText: optionalText(draft.locationText),
     conferenceUrl: optionalText(draft.conferenceUrl),
+    recurrenceRule: draft.recurrence === null ? null : formatRecurrence(draft.recurrence),
     // An all-members event lists nobody: it is on every calendar by construction.
     participants: draft.audience === "all_members" ? [] : draft.participants.map(participantInput),
   };
@@ -131,6 +146,7 @@ export function firmEventDraftFrom(
     locationId: event.locationId,
     locationText: event.locationText ?? "",
     conferenceUrl: event.conferenceUrl ?? "",
+    recurrence: parseRecurrence(event.recurrenceRule),
     participants: participants.map((participant) =>
       participantDraftFrom(participant, displayNames),
     ),

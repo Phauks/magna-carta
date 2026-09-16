@@ -23,6 +23,13 @@
  *
  * NOTHING HERE GENERATES DEADLINES. A recurring event is not a docketing rule; rules-based
  * docketing computes dates from authority and is its own subsystem.
+ *
+ * IT LIVES HERE, NOT IN EITHER CONSUMER, because both sides have to agree about it: the record form
+ * writes a rule and the calendar service has to refuse one it could not have written. The web app
+ * does not depend on `@magna-carta/calendar` (a backend package carrying SQL), so a grammar held in
+ * either one would have to be copied into the other — and two readings of "what is a valid rule"
+ * disagree the first time one of them is corrected. A recurrence rule is a statement about civil
+ * dates and nothing else, which is what this package is for.
  */
 import {
   addCalendarDays,
@@ -31,7 +38,7 @@ import {
   endOfCivilMonth,
   isCivilDate,
   type CivilDate,
-} from "@magna-carta/civil-time/civil-date";
+} from "./civil-date.ts";
 
 /** How often a setting repeats. A closed set: what the form can ask and read back. */
 export type RecurrenceFrequency = "daily" | "weekly" | "monthly" | "yearly";
@@ -212,17 +219,17 @@ function byWeekdayOrder(left: WeekdayCode, right: WeekdayCode): number {
  * `Date` here, so a two-digit year cannot become 1950 on the way past.
  */
 export function weekdayOf(civilDate: string): WeekdayCode {
-  const daysFromKnownSunday = daysBetween(EPOCH_SUNDAY, civilDate as CivilDate);
+  const daysFromKnownSunday = daysBetween(EPOCH_SUNDAY, civilDate);
   return WEEKDAY_CODES[((daysFromKnownSunday % 7) + 7) % 7] ?? "SU";
 }
 
 /** Which occurrence of its weekday in its month a date is: the 3rd Tuesday is 3. */
 export function weekdayPositionOf(civilDate: string): number {
-  return Math.floor((civilDateParts(civilDate as CivilDate).day - 1) / 7) + 1;
+  return Math.floor((civilDateParts(civilDate).day - 1) / 7) + 1;
 }
 
 /** A Sunday, so a weekday is a count of days from a day whose name is known. 2024-01-07 was one. */
-const EPOCH_SUNDAY = "2024-01-07" as CivilDate;
+const EPOCH_SUNDAY = "2024-01-07";
 
 /** Whole days from one civil date to another, counted through the civil-time module's own walk. */
 function daysBetween(from: CivilDate, to: CivilDate): number {
@@ -280,7 +287,7 @@ function* walk(rule: RecurrenceRule, startsOn: string): Generator<string> {
   for (;;) {
     current =
       rule.frequency === "daily"
-        ? addCalendarDays(current as CivilDate, rule.interval)
+        ? addCalendarDays(current, rule.interval)
         : nextMonthlyOrYearly(rule, startsOn, current);
     if (current === "") return;
     yield current;
@@ -291,7 +298,7 @@ function* walk(rule: RecurrenceRule, startsOn: string): Generator<string> {
 function* weeklyDays(rule: RecurrenceRule, startsOn: string): Generator<string> {
   const wanted = rule.weekdays.length > 0 ? rule.weekdays : [weekdayOf(startsOn)];
   // The week the series starts in, from its own first day, so an interval counts whole weeks.
-  const weekStart = addCalendarDays(startsOn as CivilDate, -WEEKDAY_CODES.indexOf(weekdayOf(startsOn)));
+  const weekStart = addCalendarDays(startsOn, -WEEKDAY_CODES.indexOf(weekdayOf(startsOn)));
   for (let week = 0; ; week += 1) {
     const base = addCalendarDays(weekStart, week * rule.interval * 7);
     for (const code of wanted) {
@@ -315,8 +322,8 @@ function* weeklyDays(rule: RecurrenceRule, startsOn: string): Generator<string> 
  */
 function nextMonthlyOrYearly(rule: RecurrenceRule, startsOn: string, current: string): string {
   const step = rule.frequency === "yearly" ? rule.interval * 12 : rule.interval;
-  const origin = civilDateParts(startsOn as CivilDate);
-  const from = civilDateParts(current as CivilDate);
+  const origin = civilDateParts(startsOn);
+  const from = civilDateParts(current);
   // Months are counted from the SERIES' start, so a skipped month never shifts the ones after it.
   const elapsed = (from.year - origin.year) * 12 + (from.month - origin.month);
   for (let ahead = elapsed + step; ahead <= elapsed + step + MAX_OCCURRENCES; ahead += step) {

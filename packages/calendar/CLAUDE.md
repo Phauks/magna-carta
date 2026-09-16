@@ -78,6 +78,16 @@ ADR-0059, ADR-0068, ADR-0051.)
   and every `firm`-anchored source is one of `FIRM_ANCHORED_SOURCE_KEYS` (today: exactly
   `firmEvent`). If screening firm events is ever needed, that is a NEW declared anchor with its own
   predicate — never a loosening of this one.
+- **A repeating setting is ONE ROW carrying a rule, and this package writes no occurrence.**
+  `recurrence_rule` holds an RFC 5545 `RRULE`; the dates it falls on are read back from it, never
+  stored. A row per date would multiply a firm's calendar by the length of its longest series before
+  anybody looked at it and make "move the series" fifty-two writes. **The rule is validated at the
+  WRITE against the grammar the record form itself writes** (`@magna-carta/civil-time/recurrence`,
+  which both sides depend on precisely so there is one reading of what a valid rule is): a rule this
+  platform cannot read back is a series nobody can edit again, so it is refused with
+  `calendar-invalid-recurrence` rather than stored. **A continuance does not inherit the series** —
+  continuing a hearing moves ONE setting to a new date, and carrying the rule across would make the
+  replacement repeat.
 - **The correction/continuance line.** A CORRECTION is an edit: the row misdescribed reality, the
   edit-in-place rule stands, and the audit row carries the fix. A CONTINUANCE is a real-world
   reschedule: the court vacated one setting and made another, both of which happened — so the old
@@ -145,6 +155,16 @@ ADR-0059, ADR-0068, ADR-0051.)
   DECLARES that it has none and the row renders by kind alone — an email's subject line is privileged
   content, and putting one on a read spanning every matter is a disclosure. Absence is a decision,
   never an oversight.
+- **A WINDOW OVER A SPAN IS AN OVERLAP, NOT A START.** `civilDateWindowConditions` compares both
+  bounds against the source's sort column, which for an event is `starts_on` — so a three-day trial
+  was outside every window that did not contain its first day, and a firm reading Tuesday saw an
+  empty column it was spending in court. A source whose rows can span uses
+  `spanningCivilDateWindowConditions` instead: it is in the window when it STARTS before the window
+  closes and ENDS after it opens. `COALESCE(ends_on, starts_on)` is what makes a point-in-time row
+  behave exactly as it always did — its end IS its start — so the predicate collapses to the plain
+  one for almost every row the calendar holds. This does not widen a source past its window; it
+  returns rows the window always should have held. Today: the `matterEvent` and `firmEvent` sources
+  and `selectFirmEventsStatement`. A deadline is a point and keeps the plain window.
 - **A civil date is stored as a civil date.** `starts_on`, `ends_on`, and `due_on` are `YYYY-MM-DD`
   text and a time is separate and optional, because "all day" is a real and common answer. No column
   stores midnight-local-as-UTC: that is the daylight-saving off-by-one that moves a hearing by a day

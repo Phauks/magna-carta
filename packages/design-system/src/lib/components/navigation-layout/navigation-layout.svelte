@@ -38,6 +38,20 @@
    * that would put one before every page's first control; a page of pure prose is the one case
    * that must bring a control, and axe's scrollable-region-focusable rule is what says so.
    *
+   * A screen's TITLE can span both columns (`header`), and the navigation column can PIN something
+   * beneath its scroll region (`navigationFooter`). Both are optional and both exist because the
+   * calendar asked for them, but neither is calendar-specific: a title that sits over the whole
+   * canvas rather than over one column of it is the arrangement any two-sided screen wants once its
+   * title names the screen instead of the chosen thing, and a navigation whose last element must
+   * stay in view while its list scrolls is the shape of every rail with a picker under it. Giving
+   * neither leaves the DOM exactly as it was for the screens that compose this today.
+   *
+   * The header lives INSIDE the cancelled canvas inset, so it puts the gutter back itself; the
+   * columns then take what height is left rather than the full viewport. `navigationFooter` moves
+   * the scroll region and its reserved gutter off the `<nav>` and onto an inner stack, because a
+   * pinned footer cannot sit inside the thing that scrolls past it — the landmark stays the `<nav>`
+   * either way, so what a screen reader announces does not change.
+   *
    * Narrow viewports: nothing in the design language decides a breakpoint, so below the `lg`
    * viewport the navigation stacks ABOVE the content at its natural height and the whole layout
    * scrolls as one — a navigation pinned on top would eat the viewport on a long nav, and a
@@ -59,6 +73,10 @@
     contentScrolls?: boolean;
     /** What the navigation column holds. The layout imposes no structure on it — grouped links, a control over rows, a plain list are all the consumer's to draw. */
     navigation: Snippet;
+    /** A band ABOVE both columns, for a title that names the screen rather than the chosen thing. Omit it and the columns start at the canvas's top edge, as they always have. */
+    header?: Snippet;
+    /** Pinned beneath the navigation column, outside its scroll region — a month picker under a rail of calendars. Omit it and the `<nav>` is the scroll region itself. */
+    navigationFooter?: Snippet;
     /** The content column: the chosen thing. */
     children: Snippet;
   };
@@ -69,6 +87,8 @@
     navigationWidth = "standard",
     contentScrolls = true,
     navigation,
+    header,
+    navigationFooter,
     children,
     class: className,
     ...restProps
@@ -84,29 +104,61 @@
 <div
   bind:this={ref}
   class={mergeClasses(
-    "mc-navigation-layout mc-scrollbar -m-24 flex flex-col max-lg:overflow-y-auto lg:flex-row lg:items-start",
+    "mc-navigation-layout mc-scrollbar -m-24 flex flex-col max-lg:overflow-y-auto",
     className,
   )}
   style="block-size: calc(100dvh - var(--mc-size-top-bar))"
   {...restProps}
 >
-  <nav
-    aria-label={navigationLabel}
-    data-navigation-layout="navigation"
-    class={mergeClasses(
-      "mc-navigation-layout-navigation mc-scrollbar shrink-0 max-lg:overflow-visible lg:h-full",
-      navigationWidth === "narrow" && "mc-navigation-layout-navigation-narrow",
-    )}
-  >
-    {@render navigation()}
-  </nav>
-  <div
-    data-navigation-layout="content"
-    class={mergeClasses(
-      "mc-navigation-layout-content mc-scrollbar flex min-w-0 grow flex-col max-lg:overflow-visible lg:h-full",
-      contentScrolls && "mc-navigation-layout-content-scrolling",
-    )}
-  >
-    {@render children()}
+  {#if header}
+    <!-- The spanning band. It sits inside the cancelled inset, so it puts the canvas gutter back
+         itself and stops short of the bottom, where the columns take over. -->
+    <div data-navigation-layout="header" class="shrink-0 px-24 pt-24">
+      {@render header()}
+    </div>
+  {/if}
+  <!--
+    The two columns. This wrapper is what a header made necessary — the root used to be the row
+    itself — and it is rendered whether or not there is a header so there is one arrangement rather
+    than two that can drift. `min-h-0` is what lets the columns scroll inside a flex parent.
+  -->
+  <div class="flex min-h-0 flex-1 flex-col max-lg:overflow-visible lg:flex-row lg:items-start">
+    <nav
+      aria-label={navigationLabel}
+      data-navigation-layout="navigation"
+      class={mergeClasses(
+        "shrink-0 max-lg:overflow-visible lg:h-full",
+        // With a pinned footer the <nav> is a stack and the INNER div scrolls; without one the
+        // <nav> is the scroll region, exactly as it was.
+        navigationFooter ? "flex flex-col" : "mc-navigation-layout-navigation mc-scrollbar",
+        navigationWidth === "narrow" && !navigationFooter && "mc-navigation-layout-navigation-narrow",
+      )}
+    >
+      {#if navigationFooter}
+        <div
+          class={mergeClasses(
+            "mc-navigation-layout-navigation mc-scrollbar min-h-0 flex-1 max-lg:overflow-visible",
+            navigationWidth === "narrow" && "mc-navigation-layout-navigation-narrow",
+          )}
+        >
+          {@render navigation()}
+        </div>
+        <!-- Pinned: it keeps the column's own gutter but never its scroll. -->
+        <div data-navigation-layout="navigation-footer" class="shrink-0 px-24 pb-24">
+          {@render navigationFooter()}
+        </div>
+      {:else}
+        {@render navigation()}
+      {/if}
+    </nav>
+    <div
+      data-navigation-layout="content"
+      class={mergeClasses(
+        "mc-navigation-layout-content mc-scrollbar flex min-w-0 grow flex-col max-lg:overflow-visible lg:h-full",
+        contentScrolls && "mc-navigation-layout-content-scrolling",
+      )}
+    >
+      {@render children()}
+    </div>
   </div>
 </div>

@@ -7,6 +7,7 @@ import type { FirmResource } from "$lib/calendar/calendar-api.ts";
 import type { LocationSummary } from "$lib/matters/matters-api.ts";
 import {
   locationIsBookableRoom,
+  reconcileRoomBooking,
   roomForLocation,
   roomNotHeldSentence,
   roomsByOffice,
@@ -168,5 +169,80 @@ describe("locationIsBookableRoom over offices", () => {
       locationIsBookableRoom("North Office — Conference Room 1", TWO_OFFICE_ROOMS, TWO_OFFICES),
     ).toBe(true);
     expect(locationIsBookableRoom("Conference Room 1", TWO_OFFICE_ROOMS, TWO_OFFICES)).toBe(false);
+  });
+});
+
+describe("what a correction does to the bookings", () => {
+  const OFFICES: readonly LocationSummary[] = [MAIN];
+  const RESOURCES: readonly FirmResource[] = [
+    resource({ id: "resource_board", name: "Boardroom", locationId: MAIN.id }),
+    resource({ id: "resource_b", name: "Conference Room B", locationId: MAIN.id }),
+    resource({ id: "resource_car", name: "Pool car", locationId: MAIN.id, kind: "vehicle" }),
+  ];
+
+  it("releases the room the location no longer names, and books the one it does", () => {
+    const { release, book } = reconcileRoomBooking(
+      "Conference Room B",
+      [{ id: "booking_1", resourceId: "resource_board" }],
+      RESOURCES,
+      OFFICES,
+    );
+    expect(release).toEqual(["booking_1"]);
+    expect(book?.id).toBe("resource_b");
+  });
+
+  it("does nothing at all where the right room is already held", () => {
+    const { release, book } = reconcileRoomBooking(
+      "Boardroom",
+      [{ id: "booking_1", resourceId: "resource_board" }],
+      RESOURCES,
+      OFFICES,
+    );
+    expect(release).toEqual([]);
+    expect(book).toBeNull();
+  });
+
+  it("releases the room when the location becomes a place the firm has no record of", () => {
+    const { release, book } = reconcileRoomBooking(
+      "Department 12, Regional Justice Center",
+      [{ id: "booking_1", resourceId: "resource_board" }],
+      RESOURCES,
+      OFFICES,
+    );
+    expect(release).toEqual(["booking_1"]);
+    expect(book).toBeNull();
+  });
+
+  it("moves nothing where neither the old nor the new location names a room", () => {
+    const { release, book } = reconcileRoomBooking("Another courthouse", [], RESOURCES, OFFICES);
+    expect(release).toEqual([]);
+    expect(book).toBeNull();
+  });
+
+  it("NEVER releases a booking that is not a room", () => {
+    // The pool car was held by hand from the Rooms tab and the location never named it. An edit to
+    // a field that does not mention it must not sweep it away.
+    const { release, book } = reconcileRoomBooking(
+      "Boardroom",
+      [{ id: "booking_car", resourceId: "resource_car" }],
+      RESOURCES,
+      OFFICES,
+    );
+    expect(release).toEqual([]);
+    expect(book?.id).toBe("resource_board");
+  });
+
+  it("releases every OTHER room, so one location never leaves two rooms held", () => {
+    const { release, book } = reconcileRoomBooking(
+      "Boardroom",
+      [
+        { id: "booking_1", resourceId: "resource_board" },
+        { id: "booking_2", resourceId: "resource_b" },
+      ],
+      RESOURCES,
+      OFFICES,
+    );
+    expect(release).toEqual(["booking_2"]);
+    expect(book).toBeNull();
   });
 });

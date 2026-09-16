@@ -1,21 +1,18 @@
 ---
-worktree: (none — this stream runs in the primary checkout)
-area: The calendar's rail of calendars becomes the design system's NavigationLayout, so the firm calendar is the same two-sided screen Settings, Magnus, Tools and Reports already are
+worktree: C:/dev/magna-carta-worktrees/claude/adoring-lamport-6yrtjt
+area: The calendar's second owner round — repeating settings, then the rail, the record form and the grid
 status: building
-touches: apps/web/src/lib/calendar/calendar-view.svelte, apps/web/src/lib/calendar/calendar-rail.svelte, apps/web/src/lib/calendar/calendar-screen.svelte, apps/web/src/lib/calendar/CLAUDE.md, docs/conventions/design-corrections.md, changelog.d/
+touches: packages/calendar, packages/civil-time, apps/api-worker/src/routes/calendar.ts, apps/web/src/lib/calendar, apps/web/src/routes/(app)/calendar, packages/design-system/src/lib/components/calendar-grid, roadmap.d/calendar.md, docs/user/features
 ---
 
-The firm calendar had drawn its own left column — a `<nav>` at `w-3xs` with its own scroll region
-and its own gutter — beside the grid, which is the fifth hand-rolled copy of the shape the owner
-ruled on 2026-09-11 is one component. This stream puts it on `NavigationLayout`: the rail moves into
-the navigation column at the standard measure, and the screen header, the toolbar and the grid move
-into the content column, following the Magnus precedent (the layout takes the full height under the
-top bar, so a screen's own header belongs inside it rather than above it).
+The calendar round that follows #620. Shipping in slices: repeating settings first (the rule stored,
+returned, shown and edited; the read-time expansion onto the grid is the slice after), then the
+owner's second batch — collapsible folders and a pinned month picker in the rail, the screen title
+and date navigation swapping places, one record form asking Matter / Firm / None instead of two
+dialogs, multi-day events spanning their days, an all-day band, a participant's role as a choice, and
+consolidating Book a Room with the location field.
 
-`CalendarView` gains a `header` snippet for that reason, and renders the layout only where the rail
-stands (`rail` and a firm-side scope). Every other host of the component — the matter section, the
-rooms grid, Home's card, the record forms' day schedule — has one calendar, no rail, and keeps the
-plain frame it has now; nothing about the reads, the window arithmetic or the projection changes.
-
-Touches `design-corrections.md` (the 2026-09-11 ruling's consumer list) — coordinate before editing
-that file.
+It owns the whole of `apps/web/src/lib/calendar` and the calendar grid components; a concurrent
+stream touching either will conflict. `packages/civil-time` gains `recurrence.ts` (moved out of the
+web app so the form and the calendar service share one grammar), which is a new export path on a
+package almost everything depends on.
