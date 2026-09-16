@@ -36,10 +36,14 @@ export interface DatabaseHealthValue {
     fault: string | null;
   };
   schema: {
-    state: "current" | "behind" | "unknown";
+    state: "current" | "behind" | "refused" | "unknown";
     appliedCount: number;
     appliedHead: string | null;
     expectedHead: string;
+    /** Migrations this database applied behind its own ledger head. Empty on an ordinary firm. */
+    outOfOrderArrivals: string[];
+    /** The point the object can be restored to, taken before its last batch of migrations. */
+    restorePoint: { takenAt: string; precedes: string[] } | null;
   };
   membership: {
     state: "active" | "missing" | "inactive" | "unknown";
@@ -126,9 +130,32 @@ function firmDatabaseRow(value: DatabaseHealthValue): HealthRow {
  * a fault: a firm's database migrates itself when it next wakes, so a firm nobody has touched since
  * the deploy is legitimately a version back and will catch up on its own. It is worth saying
  * because it explains a screen whose table does not exist yet.
+ *
+ * "Refused" is, and it is the state this row used to get wrong. The runner rejects a ledger holding
+ * a tag it cannot place BEFORE it applies anything, so the tags already there are untouched and the
+ * ledger can sit exactly at head — which the head comparison read as "Up to date", printed beside a
+ * firm database row saying it was answering nothing. Of the two rows describing one subsystem, the
+ * reassuring one was the wrong one. The count and head are still worth printing here, because they
+ * are what the database has; what changes is that they no longer masquerade as health.
+ *
+ * The refusal's own sentence is NOT repeated here. It belongs to the firm database row above, which
+ * already carries it in the database's own words; this row points there instead of keeping a second
+ * copy free to disagree with it.
  */
 function schemaRow(value: DatabaseHealthValue): HealthRow {
   switch (value.schema.state) {
+    case "refused":
+      return {
+        id: "schema",
+        name: "Schema",
+        reading: "fault",
+        status: "Not applied",
+        detail:
+          `The lineage did not run: ${String(value.schema.appliedCount)} migrations were already ` +
+          `applied${value.schema.appliedHead === null ? "" : `, at ${value.schema.appliedHead}`}, ` +
+          "and the runner refused the ledger rather than adding to it. The reason is on the firm " +
+          "database row above.",
+      };
     case "current":
       return {
         id: "schema",
@@ -356,6 +383,51 @@ export function databaseHealthRows(value: DatabaseHealthValue): HealthRow[] {
     controlPlaneRow(value),
     fileStorageRow(value),
   ];
+}
+
+/**
+ * What the migration lineage adds beyond its own row, said only when it has something to add. Same
+ * shape and the same reason as the provisioning backlog below: neither is a row, because a row that
+ * is blank on every healthy firm teaches a reader to skip it.
+ *
+ * Two facts, and the firm database has always computed and sent both — they were read off the wire
+ * and dropped on the floor here, which is the same as never having measured them.
+ *
+ * OUT-OF-ORDER ARRIVALS name migrations this database applied behind its own ledger head, because
+ * two branches merged and seated one behind a migration that had already shipped. Everything is
+ * applied, so it is not a fault — but this database ran the pair in an order a freshly provisioned
+ * one will not, and for dependent migrations those two orders do not reach the same schema. The
+ * damage, if there is any, is silent and has no other symptom, which is exactly why it is said out
+ * loud here.
+ *
+ * A RESTORE POINT is the answer to the question a broken database raises next. A migration that
+ * failed needs none — the whole context rolls back — so one exists only where a migration succeeded
+ * and may have been wrong, which the lineage cannot undo by running forwards.
+ */
+export function describeSchemaLineage(value: DatabaseHealthValue): {
+  reading: HealthReading;
+  sentence: string;
+}[] {
+  const notes: { reading: HealthReading; sentence: string }[] = [];
+  const { outOfOrderArrivals, restorePoint } = value.schema;
+  if (outOfOrderArrivals.length > 0) {
+    notes.push({
+      reading: "attention",
+      sentence:
+        `${outOfOrderArrivals.length === 1 ? "One migration" : `${String(outOfOrderArrivals.length)} migrations`} ` +
+        `reached this database behind its own ledger head (${outOfOrderArrivals.join(", ")}), so it ` +
+        "ran them in an order a newly provisioned firm will not. Applied either way.",
+    });
+  }
+  if (restorePoint !== null) {
+    notes.push({
+      reading: "healthy",
+      sentence:
+        `A restore point was taken at ${restorePoint.takenAt}, immediately before ` +
+        `${restorePoint.precedes.length === 1 ? "" : "the "}${restorePoint.precedes.join(", ")}.`,
+    });
+  }
+  return notes;
 }
 
 /**

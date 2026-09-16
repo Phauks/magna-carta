@@ -1,7 +1,7 @@
 # Network Speed Test
 
 The Network Speed Test measures the connection you are working on right now. Find it under
-**Tools → Network Speed Test**. Nothing you do here is saved, and it is not attached to any matter.
+**Network Speed Test**, in the Tools group of the sidebar. Nothing you do here is saved, and it is not attached to any matter.
 
 ## Running a test
 

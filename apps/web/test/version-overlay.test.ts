@@ -258,9 +258,9 @@ describe("the deployed unit a row names", () => {
       .filter((config): config is string => config !== null)
       .map((config) => /"name":\s*"(?<name>[\w-]+)"/.exec(config)?.groups?.name ?? "")
       .filter((name) => name !== "" && name !== API_WORKER_UNIT_NAME)
-      .sort();
+      .toSorted();
     expect(fleet.length).toBeGreaterThan(0);
-    expect(rosterEntries.map((entry) => entry.service).sort()).toEqual(fleet);
+    expect(rosterEntries.map((entry) => entry.service).toSorted()).toEqual(fleet);
   });
 
   it("names each bound service exactly as its service binding targets it", () => {
@@ -501,9 +501,17 @@ describe("the chip's row identities and refresh", () => {
     // it was pressed, and the width change read as the identifier itself changing; the control
     // takes the selected fill for a moment instead, which moves nothing. The aria-label keeps
     // stating the action for a screen reader.
-    expect(chip).not.toContain("icons/copy");
+    // Read off the ROW's control rather than the whole file. The panel-wide Copy at the top is an
+    // icon-only button and always has been — it has nothing but a glyph — so a file-wide ban on the
+    // copy glyph was only ever true by accident of which Lucide name that control happened to
+    // import, and it fired the day that control took the conventional two-sheets glyph.
+    const rowCopyControl =
+      /<Button[^>]*aria-label="Copy the \{part\.name\} version"[\s\S]*?<\/Button>/.exec(
+        chip,
+      )?.[0] ?? "";
+    expect(rowCopyControl, "the row's copy control should be one Button").not.toBe("");
+    expect(rowCopyControl).not.toMatch(/<(?:Copy|ClipboardCopy|Check)\b/);
     expect(chip).not.toContain("icons/check");
-    expect(chip).toContain('aria-label="Copy the {part.name} version"');
     // A step beyond ghost's own hover fill: whoever just clicked the control is hovering it, so a
     // confirmation painted in the hover colour would be invisible exactly when it is needed.
     expect(chip).toMatch(/copiedNow\(part\.rowKey\)[\s\S]*bg-action-secondary-hover/);

@@ -42,6 +42,7 @@ import type { UploadReadinessReport } from "$lib/file-manager/upload-readiness-a
 import {
   databaseHealthRows,
   describeProvisioningBacklog,
+  describeSchemaLineage,
   DATABASE_SECTION_LABEL,
   DEPLOYMENT_SECTION_LABEL,
   type DatabaseHealthValue,
@@ -216,6 +217,10 @@ function databaseSection(state: PanelReportState): ReportSection | null {
   if (failure !== null) rows.push(...failureEntries(failure));
   if (value !== null) {
     rows.push(...databaseHealthRows(value).map(healthEntry));
+    // The lineage notes travel with the report, not just the panel. A pasted report is how a
+    // diagnosis reaches anyone who can act on it, and an out-of-order arrival or a restore point is
+    // exactly the kind of fact that is invisible by the time somebody thinks to ask for it.
+    for (const note of describeSchemaLineage(value)) rows.push(entry("lineage", note.sentence));
     const backlog = describeProvisioningBacklog(value);
     if (backlog !== null) rows.push(entry("provisioning", backlog.sentence));
     rows.push(entry("observed", value.observedAt));

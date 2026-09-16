@@ -39,7 +39,14 @@ function serviceRow(overrides: Partial<ServiceVersionRow> = {}): ServiceVersionR
 const HEALTH: DatabaseHealthValue = {
   controlPlane: { state: "reachable", bucketProvisioned: true },
   firmDatabase: { state: "unreachable", roundTripMilliseconds: null, fault: "no such table" },
-  schema: { state: "current", appliedCount: 42, appliedHead: "0042", expectedHead: "0042" },
+  schema: {
+    state: "current",
+    appliedCount: 42,
+    appliedHead: "0042",
+    expectedHead: "0042",
+    outOfOrderArrivals: [],
+    restorePoint: null,
+  },
   membership: { state: "active", roles: ["partner"], permissionCount: 120 },
   provisioning: { state: "read", pending: 0, deadLettered: 0 },
   fileStorage: {
@@ -211,5 +218,63 @@ describe("a paste from the Build Information panel", () => {
     for (const contribute of PANEL_REPORT_SECTIONS) {
       expect(contribute.length).toBe(1);
     }
+  });
+});
+
+/*
+ * The report is how a diagnosis leaves the browser — it is pasted to whoever can act on it. Two
+ * facts the firm database sends about its lineage have no other symptom, so if they are not in the
+ * text nobody finds out they were ever measured.
+ */
+describe("the report carries the lineage notes", () => {
+  it("says nothing about an ordinary lineage", () => {
+    const report = buildPanelReport(state());
+    expect(lineFor(report, "lineage")).toBeUndefined();
+  });
+
+  it("carries an out-of-order arrival", () => {
+    const report = buildPanelReport(
+      state({
+        database: {
+          value: { ...HEALTH, schema: { ...HEALTH.schema, outOfOrderArrivals: ["0041_late"] } },
+          failure: null,
+        },
+      }),
+    );
+    expect(lineFor(report, "lineage")).toContain("0041_late");
+  });
+
+  it("carries a restore point, and never a bookmark", () => {
+    const report = buildPanelReport(
+      state({
+        database: {
+          value: {
+            ...HEALTH,
+            schema: {
+              ...HEALTH.schema,
+              restorePoint: { takenAt: "2026-09-15T18:00:00.000Z", precedes: ["0042"] },
+            },
+          },
+          failure: null,
+        },
+      }),
+    );
+    expect(lineFor(report, "lineage")).toContain("2026-09-15T18:00:00.000Z");
+  });
+
+  it("names a refused lineage as not applied, rather than up to date", () => {
+    const report = buildPanelReport(
+      state({
+        database: {
+          value: { ...HEALTH, schema: { ...HEALTH.schema, state: "refused" } },
+          failure: null,
+        },
+      }),
+    );
+    // A fault row prints its detail as well as its status, so the paste carries the explanation and
+    // not just the two words.
+    const line = lineFor(report, "Schema");
+    expect(line).toContain("Not applied");
+    expect(line).toContain("refused the ledger");
   });
 });

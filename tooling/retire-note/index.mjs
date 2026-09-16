@@ -11,13 +11,22 @@
 // pointers, re-render STATUS, delete the note, and only then touch the workspace. The pointer cannot
 // outlive the note because the same command removes both.
 //
-// The workspace half is guarded by the landing check (tooling/branch-landing) rather than by a prompt:
-// retiring a stream whose work has not reached the trunk is a different act from tidying up after one
-// that has, and only the second is safe to do without being asked. `--force` says you meant it,
+// Retiring a stream whose work has not reached the trunk is a different act from tidying up after one
+// that has, and only the second is safe to do without being asked, so a landing check
+// (tooling/branch-landing) guards it rather than a prompt. `--force` says you meant it,
 // `--keep-workspace` retires the paperwork and leaves the worktree and branch alone, `--dry-run` prints
 // the plan and writes nothing.
 //
-// Usage: node tooling/retire-note/index.mjs <branch> [--dry-run] [--force] [--keep-workspace]
+// `--with-merge` is the everyday case: retire the note IN the pull request that lands the work,
+// rather than in a second merge afterwards whose only content is the deletion. On this repository a
+// merge to `main` deploys, so that second merge is a production deploy to delete one file. The
+// deletion is a commit on the branch, so it reaches `main` exactly when the work does and `main`
+// keeps the note for as long as the pull request is open — which is why the landing check is not the
+// right guard there, and being on the branch is. ./dependents.mjs holds that reasoning in full. It
+// does the paperwork only: removing a worktree and deleting a branch cannot happen from inside that
+// branch, so the workspace half stays a later, local step and keeps its landing check.
+//
+// Usage: node tooling/retire-note/index.mjs <branch> [--with-merge] [--dry-run] [--force] [--keep-workspace]
 
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
@@ -25,7 +34,7 @@ import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { landedBranchesIn, listWorktrees } from "../branch-landing/index.mjs";
 import { build } from "../doc-fragments/build-status.mjs";
-import { planRetirement } from "./dependents.mjs";
+import { planRetirement, retirementRefusal } from "./dependents.mjs";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const ACTIVE_DIR = join(ROOT, "docs/active-work");
@@ -37,13 +46,16 @@ const flags = new Set(argv.filter((argument) => argument.startsWith("--")));
 const branch = argv.find((argument) => !argument.startsWith("--"));
 const dryRun = flags.has("--dry-run");
 const force = flags.has("--force");
-const keepWorkspace = flags.has("--keep-workspace");
+const withMerge = flags.has("--with-merge");
+// --with-merge cannot touch the workspace: it runs ON the branch, and a branch cannot delete itself.
+const keepWorkspace = flags.has("--keep-workspace") || withMerge;
 
 if (branch === undefined) {
   console.error(
     "retire-note: name the branch whose stream is finished, e.g.\n" +
-      "  vp run retire-note claude/some-branch\n" +
-      "  flags: --dry-run (print the plan), --force (branch has not landed), --keep-workspace",
+      "  vp run retire-note claude/some-branch --with-merge   # in the pull request that lands it\n" +
+      "  vp run retire-note claude/some-branch                # after it landed, to clear the workspace\n" +
+      "  flags: --with-merge, --dry-run, --force (branch has not landed), --keep-workspace",
   );
   process.exit(1);
 }
@@ -65,17 +77,10 @@ const fragments = readdirSync(FRAGMENT_DIR, { recursive: true })
 const { dependents } = planRetirement({ notePath, fragments });
 const noteExists = existsSync(noteAbsolute);
 
-if (!noteExists && dependents.length === 0) {
-  console.error(
-    `retire-note: ${notePath} does not exist and no status fragment points at it — nothing to retire.\n` +
-      "  Check the branch name: a note's path mirrors its branch exactly, slashes included.",
-  );
-  process.exit(1);
-}
-
-// Which streams still have a workspace here, and has this one's work reached the trunk? Asked once,
-// before anything is written, so a refusal costs nothing.
+// Which streams still have a workspace here, which branch HEAD is on, and has this one's work
+// reached the trunk? Asked once, before anything is written, so a refusal costs nothing.
 const worktreeHere = listWorktrees(ROOT).find((worktree) => worktree.branch === branch);
+const headBranch = git(["rev-parse", "--abbrev-ref", "HEAD"], { capture: true })?.trim() ?? null;
 const { landed, unresolved } = landedBranchesIn({ branches: [branch], cwd: ROOT });
 const hasLanded = landed.has(branch);
 const branchUnknown = unresolved.includes(branch);
@@ -93,17 +98,32 @@ console.log(
   }`,
 );
 console.log(`  workspace:   ${worktreeHere ? worktreeHere.path : "not checked out here"}`);
+console.log(
+  `  mode:        ${
+    withMerge
+      ? `paperwork only, carried by this branch's own merge (HEAD: ${headBranch ?? "detached"})`
+      : keepWorkspace
+        ? "paperwork only"
+        : "paperwork + workspace"
+  }`,
+);
 
 // Deleting the note of a stream still in flight erases the one warning other worktrees get about it,
 // and it is not undone by re-creating the file — the point of the note is that it was there while the
-// work was. So an unlanded branch has to say so out loud.
-if (!hasLanded && !force) {
-  console.error(
-    `\nretire-note: refusing — ${branch} has not landed${branchUnknown ? " (and resolves to no ref)" : ""}.\n` +
-      "  Retiring a live stream removes the only collision warning other worktrees get.\n" +
-      "  If the stream really is finished (abandoned, superseded, landed under another name),\n" +
-      "  re-run with --force.",
-  );
+// work was. The rules, and why --with-merge is judged differently, are in ./dependents.mjs.
+const refusal = retirementRefusal({
+  branch,
+  withMerge,
+  force,
+  hasLanded,
+  branchUnknown,
+  headBranch,
+  noteExists,
+  dependentCount: dependents.length,
+  hasWorkspace: worktreeHere !== undefined,
+});
+if (refusal !== null) {
+  console.error(`\nretire-note: refusing — ${refusal}`);
   process.exit(1);
 }
 
@@ -159,9 +179,26 @@ if (lint.status !== 0) {
   process.exit(1);
 }
 console.log(
-  `\nretire-note: ${branch} retired. Commit the deletion, any cleared fragment, and STATUS.md/STATUS.json together.`,
+  withMerge
+    ? `\nretire-note: ${branch}'s paperwork retired. Commit the deletion, any cleared fragment, and ` +
+        "STATUS.md/STATUS.json with the work this pull request lands — the note stays on main until " +
+        `it merges.\n  Afterwards, \`vp run retire-note ${branch}\` clears the worktree and branch.`
+    : `\nretire-note: ${branch} retired. Commit the deletion, any cleared fragment, and STATUS.md/STATUS.json together.`,
 );
 
-function git(args) {
-  return execFileSync("git", args, { cwd: ROOT, stdio: ["ignore", "inherit", "inherit"] });
+function git(args, { capture = false } = {}) {
+  if (!capture) {
+    return execFileSync("git", args, { cwd: ROOT, stdio: ["ignore", "inherit", "inherit"] });
+  }
+  // Reading HEAD must never be the thing that fails a retirement: a detached HEAD, or a repository
+  // git cannot answer for, reads as "no branch", which the guard then refuses on its own terms.
+  try {
+    return execFileSync("git", args, {
+      cwd: ROOT,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch {
+    return null;
+  }
 }
