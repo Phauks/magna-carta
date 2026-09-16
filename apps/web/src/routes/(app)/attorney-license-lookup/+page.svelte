@@ -11,102 +11,85 @@
    * changes after you look, so a stale copy is worse than none. Nothing is fetched, nothing is
    * stored, and the reader reads the register rather than this screen's account of it.
    *
-   * The choice is the run control and sits at the content's reading edge below the masthead, with
-   * no info prose around it (docs/conventions/design-corrections.md, "No info lines"). The register
-   * card is furniture: its frame renders from page load holding its rows empty, so choosing a state
-   * fills a shape already on the screen instead of making one appear. There is no loading state
-   * because there is no request: the registry is in the bundle and the answer is synchronous.
+   * THE WHOLE REGISTER IS THE SCREEN. It used to be a state picker with one revealed card beneath
+   * it, which hid fifty hyperlinks to save the reader from reading fifty-one rows — and hid with
+   * them the two facts a list gives away for nothing: whether a state is covered at all, and which
+   * registers are not encrypted. So the screen is the platform's one table, which brings sorting,
+   * per-column narrowing from the headers, the register's address as a column to turn on, and a
+   * count in the footer, none of which a picker could offer. There is no loading state because there
+   * is no request: the registry is in the bundle and every row is in hand at first paint.
+   *
+   * TWO WAYS INTO A REGISTER, which is the table's own convention: the row's gesture opens it
+   * (double-click, or Enter on the focused row), and the state's name is a link — the addition that
+   * buys the browser's own gestures, a new tab and a copied address among them.
    */
-  import Button from "@magna-carta/design-system/button";
-  import * as Card from "@magna-carta/design-system/card";
-  import FieldLabel from "@magna-carta/design-system/field-label";
-  import LabelledField from "@magna-carta/design-system/labelled-field";
-  import ExternalLink from "@lucide/svelte/icons/external-link";
+  import * as DataTable from "@magna-carta/design-system/data-table";
+  import Badge from "@magna-carta/design-system/badge";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
-  import ChoicePicker from "$lib/components/choice-picker.svelte";
-  import { opensBeside } from "$lib/navigation/open-beside.ts";
-  import * as Alert from "@magna-carta/design-system/alert";
+  import { openBeside, opensBeside } from "$lib/navigation/open-beside.ts";
   import {
-    licensingStateChoices,
-    registerForState,
-    registerIsSecure,
+    ADDRESS_COLUMN_ID,
+    ATTORNEY_LICENSE_INITIAL_SORT,
+    CONNECTION_COLUMN_ID,
+    STATE_COLUMN_ID,
+    attorneyLicenseColumns,
+    attorneyLicenseRows,
+    connectionEntry,
+    type AttorneyLicenseRow,
   } from "$lib/tools/attorney-license/attorney-license.ts";
 
-  const states = licensingStateChoices();
+  const registers = attorneyLicenseRows();
 
-  let stateFips = $state("");
-  const register = $derived(registerForState(stateFips));
-  const chosen = $derived(states.find((option) => option.value === stateFips) ?? null);
-  // Two registers are served over plain HTTP. Said before the link rather than after it: on such a
-  // page the lawyer being asked about, and the answer, are readable by anything on the path.
-  const insecure = $derived(register !== null && !registerIsSecure(register));
+  const grid = DataTable.createDataTableGrid<AttorneyLicenseRow>({
+    columns: () => attorneyLicenseColumns(),
+    rows: () => registers,
+    rowKey: (row) => row.stateFips,
+    initialSort: ATTORNEY_LICENSE_INITIAL_SORT,
+    itemNoun: { singular: "register", plural: "registers" },
+    onActivate: (row) => {
+      openBeside(row.searchUrl, "external");
+    },
+  });
 </script>
 
 <svelte:head><title>Attorney License Lookup · Magna Carta</title></svelte:head>
 
-<ScreenHeader title="Attorney License Lookup" class="mb-24" />
+{#snippet registerCell({ row, column, text }: DataTable.GridCellContext<AttorneyLicenseRow>)}
+  {#if column.id === STATE_COLUMN_ID}
+    <a
+      class="text-text-link underline underline-offset-2"
+      href={row.searchUrl}
+      {...opensBeside("external")}
+    >
+      {row.state}
+    </a>
+  {:else if column.id === CONNECTION_COLUMN_ID}
+    <!-- Loud only where it is unusual: forty-nine registers on TLS are the ordinary case and read
+         as quiet text, and the two that are not carry the warning chip with what it means. -->
+    {@const connection = connectionEntry(row)}
+    {#if row.secure}
+      <span class="text-text-muted">{connection.label}</span>
+    {:else}
+      <Badge variant="warning" title={connection.meaning}>{connection.label}</Badge>
+    {/if}
+  {:else if column.id === ADDRESS_COLUMN_ID}
+    <span class="text-text-muted">{text}</span>
+  {:else}
+    {text}
+  {/if}
+{/snippet}
 
-<div class="mb-16 w-3xs">
-  <LabelledField label="State" id="attorney-license-state">
-    {#snippet children({ props })}
-      <ChoicePicker
-        inputId={props.id}
-        label="State"
-        options={states}
-        bind:value={stateFips}
-      />
-    {/snippet}
-  </LabelledField>
+<div class="flex h-full flex-col gap-16">
+  <ScreenHeader title="Attorney License Lookup" />
+
+  <div class="flex min-h-0 min-w-0 flex-1 flex-col gap-16">
+    <DataTable.Grid
+      {grid}
+      class="min-h-0 flex-1"
+      caption="Every state's official attorney-license register"
+      cell={registerCell}
+    />
+
+    <DataTable.GridFooter {grid} />
+  </div>
 </div>
-
-<section>
-  <FieldLabel as="h2" class="mb-16 border-b border-border-strong pb-8">Register</FieldLabel>
-
-  <Card.Root>
-    <Card.Content>
-      <div class="flex flex-col gap-16">
-        <div class="flex flex-col gap-4">
-          <FieldLabel>Authority</FieldLabel>
-          <p class="text-body">
-            {#if register === null}
-              <span class="text-muted-foreground">Choose a state.</span>
-            {:else}
-              {register.name}
-            {/if}
-          </p>
-        </div>
-
-        <div class="flex flex-col gap-4">
-          <FieldLabel>Jurisdiction</FieldLabel>
-          <p class="text-body">
-            {#if chosen === null}
-              <span class="text-muted-foreground">Choose a state.</span>
-            {:else}
-              {chosen.label} ({chosen.aside})
-            {/if}
-          </p>
-        </div>
-
-        {#if insecure}
-          <Alert.Root variant="warning">
-            <Alert.Title>This Register Is Not Encrypted</Alert.Title>
-            <Alert.Description>
-              This state publishes its register over plain HTTP. Anything you search for there, and
-              what it returns, can be read by others on the network. The register is still the
-              authority on a lawyer's standing.
-            </Alert.Description>
-          </Alert.Root>
-        {/if}
-
-        {#if register !== null}
-          <div>
-            <Button variant="primary" href={register.searchUrl} {...opensBeside("external")}>
-              <ExternalLink aria-hidden="true" />
-              Open the Register
-            </Button>
-          </div>
-        {/if}
-      </div>
-    </Card.Content>
-  </Card.Root>
-</section>

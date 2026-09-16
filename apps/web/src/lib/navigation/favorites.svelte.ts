@@ -191,21 +191,24 @@ export function favoriteIcon(path: string): Component {
 export function favoriteDestinations(): readonly Destination[] {
   return favorites().map((favorite): Destination => {
     const area = areaFor(favorite.path);
-    const exact = area !== null && area.href === favorite.path;
-    return Object.assign(
-      {
-        id: favoriteRowId(favorite.path),
-        label: favorite.label,
-        href: favorite.path,
-        icon: favoriteIcon(favorite.path),
-        description: area?.description ?? "A page you saved.",
-        group: "favorites",
-        shipped: true,
-        pinned: true,
-        defaultShown: true,
-        exact: true,
-      },
-      exact && area.stage !== undefined ? { stage: area.stage } : {},
-    );
+    const row: Destination = {
+      id: favoriteRowId(favorite.path),
+      label: favorite.label,
+      href: favorite.path,
+      icon: favoriteIcon(favorite.path),
+      description: area?.description ?? "A page you saved.",
+      group: "favorites",
+      shipped: true,
+      pinned: true,
+      defaultShown: true,
+      // Only its own address, never what sits beneath it: two favourites in one area — a matter
+      // and one of its sections — must not both light while the reader stands on the deeper one.
+      exact: true,
+    };
+    // The stage is added to a row ALREADY TYPED as a Destination rather than merged into the
+    // literal. Merging a conditional object widens every field beside it — `group` inferred as
+    // `string`, and the whole thing stopped being a Destination.
+    if (area === null || area.href !== favorite.path || area.stage === undefined) return row;
+    return { ...row, stage: area.stage };
   });
 }
