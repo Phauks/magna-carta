@@ -1,4 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
+import type { EffectStatement } from "@magna-carta/data-access/effect-batch";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { OutboxMessage } from "@magna-carta/data-access/outbox-statements";
@@ -186,7 +187,7 @@ export class DocumentSession extends DurableObject<Bindings> {
       if (database !== null) {
         const fileId = state.fileId as FileId;
         const now = () => new Date().toISOString();
-        const statements: SqlStatement[] = [];
+        const statements: EffectStatement[] = [];
         const outboxMessages: OutboxMessage[] = [];
 
         // Preserve the working copy as a version if a session participant produced one. The author is a

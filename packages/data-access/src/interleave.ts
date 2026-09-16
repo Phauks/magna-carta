@@ -1,3 +1,4 @@
+import type { BatchOptions } from "@magna-carta/database/guarded-write";
 import type { SqlStatement } from "./idempotency-statements.ts";
 import type { BatchDatabase } from "./effect-batch.ts";
 
@@ -119,10 +120,17 @@ export function interleaveAt(
     get interleaved() {
       return interleaved;
     },
+    // Mirrored from the wrapped database: a harness that reported a capability it then dropped on the
+    // way through would turn every guarded write committed in a race test into an unguarded one — in
+    // precisely the tests written to prove the guard works.
+    enforcesGuardedWrites: database.enforcesGuardedWrites,
     prepare: (sql: string) => wrapStatement(database.prepare(sql)),
-    batch: async (statements: SqlStatement[]) => {
+    batch: async (statements: SqlStatement[], options?: BatchOptions) => {
       if (point.kind === "before-commit") await fireIfDue();
-      return database.batch(statements.map((one) => realStatements.get(one) ?? one));
+      return database.batch(
+        statements.map((one) => realStatements.get(one) ?? one),
+        options,
+      );
     },
   };
 }

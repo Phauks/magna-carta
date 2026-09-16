@@ -1,5 +1,10 @@
 import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
+import {
+  commitEffectBatch,
+  guarded,
+  GuardedWriteRefusedError,
+} from "@magna-carta/data-access/effect-batch";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { firmDatabaseFor } from "../../src/firm-database/firm-database-proxy.ts";
 
@@ -37,7 +42,7 @@ describe("per-firm DO concurrency", () => {
 
     // Fire both before awaiting either: both reach commitBatch against the SAME DO.
     const [a, b] = await Promise.all([run(), run()]);
-    const kinds = [a.kind, b.kind].sort();
+    const kinds = [a.kind, b.kind].toSorted();
     // One winner executes, one loser replays the winner's stored response.
     expect(kinds).toEqual(["executed", "replayed"]);
 
@@ -79,5 +84,87 @@ describe("per-firm DO concurrency", () => {
     const [ra, rb] = await Promise.all([mk(firmA), mk(firmB)]);
     expect(ra.kind).toBe("executed");
     expect(rb.kind).toBe("executed");
+  });
+});
+
+// A guarded write is enforced INSIDE the object's transaction, which is the only place it can be:
+// the refusal has to take the audit row and the outbox message riding the same batch down with it.
+// These drive the real RPC path — proxy marshals the guard, the object checks the row count, the
+// typed outcome comes back and the proxy rethrows it — because every layer of that can drop a guard
+// silently and the package-level tests run against a local SQLite adapter instead.
+describe("guarded writes across the Durable Object RPC", () => {
+  async function seedSetting(database: ReturnType<typeof proxyFor>, key: string, value: string) {
+    await database
+      .prepare("INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3)")
+      .bind(key, value, "2026-09-16T00:00:00.000Z")
+      .run();
+  }
+
+  it("rolls the whole batch back when a guarded statement matches no row", async () => {
+    const database = proxyFor("guarded_rollback");
+    await seedSetting(database, "theme", "light");
+
+    const stale = database
+      .prepare("UPDATE setting SET value = 'sepia' WHERE key = ?1 AND value = ?2")
+      .bind("theme", "a value it does not have");
+    const audit = database
+      .prepare("INSERT INTO outbox (id, topic, payload, created_at) VALUES (?1, ?2, ?3, ?4)")
+      .bind("outbox_guarded_1", "guard.test", "{}", "2026-09-16T00:00:00.000Z");
+
+    await expect(
+      commitEffectBatch(
+        database,
+        { statements: [guarded(stale, "setting.value"), audit], outboxMessages: [] },
+        { now: () => "2026-09-16T00:00:00.000Z" },
+      ),
+    ).rejects.toBeInstanceOf(GuardedWriteRefusedError);
+
+    // Neither half landed: not the refused change, and not the record that would have described it.
+    const { results } = await database
+      .prepare("SELECT value FROM setting WHERE key = ?1")
+      .bind("theme")
+      .all<{ value: string }>();
+    expect(results[0]?.value).toBe("light");
+    const { results: outbox } = await database
+      .prepare("SELECT count(*) AS c FROM outbox WHERE topic = ?1")
+      .bind("guard.test")
+      .all<{ c: number }>();
+    expect(Number(outbox[0]?.c)).toBe(0);
+  });
+
+  it("commits normally when the guarded statement does match, so the guard costs nothing", async () => {
+    const database = proxyFor("guarded_pass");
+    await seedSetting(database, "theme", "light");
+
+    const live = database
+      .prepare("UPDATE setting SET value = 'sepia' WHERE key = ?1 AND value = ?2")
+      .bind("theme", "light");
+    await commitEffectBatch(
+      database,
+      { statements: [guarded(live, "setting.value")], outboxMessages: [] },
+      { now: () => "2026-09-16T00:00:00.000Z" },
+    );
+
+    const { results } = await database
+      .prepare("SELECT value FROM setting WHERE key = ?1")
+      .bind("theme")
+      .all<{ value: string }>();
+    expect(results[0]?.value).toBe("sepia");
+  });
+
+  it("carries the guard's label back, so the caller knows which precondition failed", async () => {
+    const database = proxyFor("guarded_label");
+    await seedSetting(database, "theme", "light");
+    const stale = database
+      .prepare("UPDATE setting SET value = 'sepia' WHERE key = ?1 AND value = ?2")
+      .bind("theme", "not-this");
+
+    const caught = await commitEffectBatch(
+      database,
+      { statements: [guarded(stale, "a-label-the-caller-branches-on")], outboxMessages: [] },
+      { now: () => "2026-09-16T00:00:00.000Z" },
+    ).catch((error: unknown) => error);
+
+    expect((caught as GuardedWriteRefusedError).guard).toBe("a-label-the-caller-branches-on");
   });
 });

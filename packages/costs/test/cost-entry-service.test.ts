@@ -1,6 +1,7 @@
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import { GuardedWriteRefusedError } from "@magna-carta/data-access/effect-batch";
 import { runInterleaved } from "@magna-carta/data-access/interleave";
 import type { CostEntryId, MatterId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
@@ -472,14 +473,21 @@ describe("the billing lock under a race", () => {
     await seedMatter(database, "matter_1");
     const id = await captureDraft(database);
 
-    await runInterleaved({
-      database,
-      concurrentWriter: () => billEntry(database, id),
-      operation: async (racing) => {
-        const { effect } = await attachReceipt(racing, id as CostEntryId, "file_receipt", options);
-        await commitEffectBatch(racing, effect, { now: clock.now });
-      },
-    });
+    await expect(
+      runInterleaved({
+        database,
+        concurrentWriter: () => billEntry(database, id),
+        operation: async (racing) => {
+          const { effect } = await attachReceipt(
+            racing,
+            id as CostEntryId,
+            "file_receipt",
+            options,
+          );
+          await commitEffectBatch(racing, effect, { now: clock.now });
+        },
+      }),
+    ).rejects.toBeInstanceOf(GuardedWriteRefusedError);
 
     // The entry was billed with no receipt and stays that way — the statement matched no row.
     expect(await receiptOf(database, id)).toBeNull();
@@ -492,25 +500,26 @@ describe("the billing lock under a race", () => {
     const { effect } = await attachReceipt(database, id as CostEntryId, "file_receipt", options);
     await commitEffectBatch(database, effect, { now: clock.now });
 
-    await runInterleaved({
-      database,
-      concurrentWriter: () => billEntry(database, id),
-      operation: async (racing) => {
-        const { effect: detach } = await detachReceipt(racing, id as CostEntryId, options);
-        await commitEffectBatch(racing, detach, { now: clock.now });
-      },
-    });
+    await expect(
+      runInterleaved({
+        database,
+        concurrentWriter: () => billEntry(database, id),
+        operation: async (racing) => {
+          const { effect: detach } = await detachReceipt(racing, id as CostEntryId, options);
+          await commitEffectBatch(racing, detach, { now: clock.now });
+        },
+      }),
+    ).rejects.toBeInstanceOf(GuardedWriteRefusedError);
 
     // The receipt backing an invoiced expense cannot be detached after the fact.
     expect(await receiptOf(database, id)).toBe("file_receipt");
   });
 
-  it("writes an audit row for the attach that the freeze then refused", async () => {
-    // Recorded because the audit statement rides the SAME batch as the guarded write but carries no
-    // guard of its own, so a refused edit still leaves `cost_entry.receipt_attached` behind. The
-    // ledger is protected; the trail says something happened that did not. Pinned rather than fixed:
-    // making the audit row conditional on the guarded write is a change to what the audit trail
-    // means, which is the owner's call and not a detail to settle inside a test.
+  it("leaves no audit row behind for the attach the freeze refused", async () => {
+    // The audit statement rides the same batch as the guarded write and carries no guard of its own,
+    // so this used to record a receipt_attached for an attach that never landed — the ledger honest,
+    // the trail not. The guard aborts the transaction rather than reporting after it commits, which
+    // is what takes the audit row with it.
     const database = freshDatabase();
     await seedMatter(database, "matter_1");
     const id = await captureDraft(database);
@@ -522,9 +531,9 @@ describe("the billing lock under a race", () => {
         const { effect } = await attachReceipt(racing, id as CostEntryId, "file_receipt", options);
         await commitEffectBatch(racing, effect, { now: clock.now });
       },
-    });
+    }).catch(() => undefined);
 
     expect(await receiptOf(database, id)).toBeNull();
-    expect(await auditCount(database, "cost_entry.receipt_attached")).toBe(1);
+    expect(await auditCount(database, "cost_entry.receipt_attached")).toBe(0);
   });
 });

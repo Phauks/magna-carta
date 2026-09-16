@@ -1,6 +1,7 @@
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import { GuardedWriteRefusedError } from "@magna-carta/data-access/effect-batch";
 import { runInterleaved } from "@magna-carta/data-access/interleave";
 import type { FeeEntryId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
@@ -94,15 +95,17 @@ describe("a draft edit racing the invoice run", () => {
     await seedMatter(database);
     const id = await captured(database);
 
-    await runInterleaved({
-      database,
-      concurrentWriter: () => billOutsideTheService(database, id),
-      operation: (racing) =>
-        commit(racing, updateDraftFee(racing, id, { amountMinor: 999_999 }, options)),
-    });
+    await expect(
+      runInterleaved({
+        database,
+        concurrentWriter: () => billOutsideTheService(database, id),
+        operation: (racing) =>
+          commit(racing, updateDraftFee(racing, id, { amountMinor: 999_999 }, options)),
+      }),
+    ).rejects.toBeInstanceOf(GuardedWriteRefusedError);
 
-    // The read said draft, so the service composed the edit and the batch committed without error.
-    // What protected the invoice is the statement's own `AND status = 'draft'`: it matched no row.
+    // The read said draft, so the service composed the edit; by the time it committed the row had
+    // moved and the statement's own `AND status = 'draft'` matched nothing. That refuses the batch.
     expect(await rowOf(database, id)).toMatchObject({
       status: "billed",
       amount_minor: 125_000,
@@ -114,20 +117,22 @@ describe("a draft edit racing the invoice run", () => {
     await seedMatter(database);
     const id = await captured(database);
 
-    await runInterleaved({
-      database,
-      concurrentWriter: () => billOutsideTheService(database, id),
-      operation: (racing) =>
-        commit(
-          racing,
-          updateDraftFee(
+    await expect(
+      runInterleaved({
+        database,
+        concurrentWriter: () => billOutsideTheService(database, id),
+        operation: (racing) =>
+          commit(
             racing,
-            id,
-            { amountMinor: 1, description: "rewritten after billing", billable: 0 },
-            options,
+            updateDraftFee(
+              racing,
+              id,
+              { amountMinor: 1, description: "rewritten after billing", billable: 0 },
+              options,
+            ),
           ),
-        ),
-    });
+      }),
+    ).rejects.toBeInstanceOf(GuardedWriteRefusedError);
 
     expect(await rowOf(database, id)).toMatchObject({
       status: "billed",
@@ -145,11 +150,13 @@ describe("two status transitions racing each other", () => {
     await commit(database, submitFee(database, id, true, options));
 
     // The approver read `submitted`; the void lands before the approval commits.
-    await runInterleaved({
-      database,
-      concurrentWriter: () => commit(database, voidFee(database, id, true, options)),
-      operation: (racing) => commit(racing, approveFee(racing, id, true, options)),
-    });
+    await expect(
+      runInterleaved({
+        database,
+        concurrentWriter: () => commit(database, voidFee(database, id, true, options)),
+        operation: (racing) => commit(racing, approveFee(racing, id, true, options)),
+      }),
+    ).rejects.toBeInstanceOf(GuardedWriteRefusedError);
 
     // `AND status = 'submitted'` no longer matches, so the withdrawal stands. A void that an
     // approval could silently undo would be a charge nobody agreed to re-make.
@@ -161,41 +168,59 @@ describe("two status transitions racing each other", () => {
     await seedMatter(database);
     const id = await captured(database);
 
-    await runInterleaved({
-      database,
-      concurrentWriter: () => commit(database, submitFee(database, id, true, options)),
-      operation: (racing) => commit(racing, submitFee(racing, id, true, options)),
-    });
+    await expect(
+      runInterleaved({
+        database,
+        concurrentWriter: () => commit(database, submitFee(database, id, true, options)),
+        operation: (racing) => commit(racing, submitFee(racing, id, true, options)),
+      }),
+    ).rejects.toBeInstanceOf(GuardedWriteRefusedError);
 
     expect((await rowOf(database, id))?.status).toBe("submitted");
   });
 });
 
 describe("what the loser of the race is told", () => {
-  // Recorded because it is the part the guard does NOT cover, and the distinction matters: the
-  // freeze protects the INVOICE (asserted above — the row never moves), but it does not protect the
-  // person, who is told their edit landed. The statement's WHERE clause is inside a batch, and
-  // `batch()` reports no per-statement row count to anyone who could branch on it — `commitEffectBatch`
-  // returns void and the route answers 200. So a member who loses this race sees a success for an
-  // edit that changed nothing, and finds out by reloading.
-  //
-  // This test pins today's behavior rather than endorsing it. Changing it means surfacing the
-  // affected-row count out of the batch seam and mapping a zero to a conflict — an API contract
-  // change, so it is the owner's to make, not a fix to slip in beside a test.
-  it("reports success, because the affected-row count never leaves the batch", async () => {
+  // This used to be the gap the guard did not cover: the statement's WHERE protected the invoice, the
+  // affected-row count never left the batch seam, and the member was told a 200 for an edit that
+  // changed nothing. A guarded statement now aborts its transaction instead, so the refusal is total
+  // and the caller hears about it.
+  it("refuses, rather than reporting a success for an edit that changed nothing", async () => {
     const database = freshDatabase();
     await seedMatter(database);
     const id = await captured(database);
 
-    await expect(
-      runInterleaved({
-        database,
-        concurrentWriter: () => billOutsideTheService(database, id),
-        operation: (racing) =>
-          commit(racing, updateDraftFee(racing, id, { amountMinor: 999_999 }, options)),
-      }),
-    ).resolves.toBeUndefined();
+    const caught = await runInterleaved({
+      database,
+      concurrentWriter: () => billOutsideTheService(database, id),
+      operation: (racing) =>
+        commit(racing, updateDraftFee(racing, id, { amountMinor: 999_999 }, options)),
+    }).catch((error: unknown) => error);
 
+    expect(caught).toBeInstanceOf(GuardedWriteRefusedError);
+    expect((caught as GuardedWriteRefusedError).guard).toBe("fee-entry.draft-edit");
     expect(await rowOf(database, id)).toMatchObject({ status: "billed", amount_minor: 125_000 });
+  });
+
+  it("takes the audit row down with it, so nothing records an edit that never landed", async () => {
+    // The audit statement rides the same batch and carries no guard of its own. What keeps it honest
+    // is that the guard aborts the TRANSACTION rather than reporting afterwards — checking the row
+    // count after the commit would leave this row behind every time.
+    const database = freshDatabase();
+    await seedMatter(database);
+    const id = await captured(database);
+
+    await runInterleaved({
+      database,
+      concurrentWriter: () => billOutsideTheService(database, id),
+      operation: (racing) =>
+        commit(racing, updateDraftFee(racing, id, { amountMinor: 999_999 }, options)),
+    }).catch(() => undefined);
+
+    const { results } = await database
+      .prepare("SELECT COUNT(*) AS n FROM audit_log WHERE event = ?1")
+      .bind("fee_entry.updated")
+      .all<{ n: number }>();
+    expect(results[0]?.n).toBe(0);
   });
 });

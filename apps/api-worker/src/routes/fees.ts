@@ -2,6 +2,7 @@ import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
+import { GuardedWriteRefusedError } from "@magna-carta/data-access/effect-batch";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
 import {
@@ -657,6 +658,22 @@ async function commitFeeEffect(
   } catch (caught) {
     if (caught instanceof FeeValidationError)
       return { ok: false, problem: feeErrorResponse(c, caught) };
+    // A guarded statement matched no row: the entry moved between this request's precondition read
+    // and its commit, and the batch rolled back whole. The member is in exactly the position they
+    // would be in had the read seen the winning state, so they get exactly that answer — the same
+    // 409 the sequential refusal returns, rather than a second vocabulary for the same fact.
+    if (caught instanceof GuardedWriteRefusedError) {
+      return {
+        ok: false,
+        problem: feeErrorResponse(
+          c,
+          new FeeValidationError(
+            "frozen-entry",
+            "the entry changed while this request was in flight, so the change was not applied — reload and try again",
+          ),
+        ),
+      };
+    }
     throw caught;
   }
   if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")

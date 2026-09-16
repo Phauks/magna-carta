@@ -1,5 +1,6 @@
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
+import { guarded } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
@@ -154,6 +155,13 @@ export async function captureFee(
   };
 }
 
+// What a refused guard is called when it comes back from the commit. The route turns each into the
+// same refusal the pre-commit read would have produced had it seen the state that actually won, so a
+// caller cannot tell a lost race from a plainly illegal request — which is right: both mean the entry
+// is not in the state the request assumed.
+export const FEE_DRAFT_EDIT_GUARD = "fee-entry.draft-edit";
+export const FEE_STATUS_TRANSITION_GUARD = "fee-entry.status-transition";
+
 // Rewrites the editable draft fields. Refuses a frozen row (billed/void), a non-draft row
 // (draft-only), and an empty patch (empty-patch).
 export async function updateDraftFee(
@@ -190,7 +198,10 @@ export async function updateDraftFee(
   return {
     effect: {
       statements: [
-        updateDraftFeeStatement(database, id, patch, updatedAt),
+        // Guarded: the status read above is stale by the time this runs, so a row billed in between
+        // matches nothing — and that has to refuse the whole batch, or the audit row below records an
+        // edit that never landed and the member is told it did.
+        guarded(updateDraftFeeStatement(database, id, patch, updatedAt), FEE_DRAFT_EDIT_GUARD),
         audit(database, options, "fee_entry.updated", id),
       ],
       outboxMessages: [],
@@ -215,7 +226,10 @@ export async function submitFee(
   return {
     effect: {
       statements: [
-        transitionFeeStatusStatement(database, id, from, "submitted", updatedAt),
+        guarded(
+          transitionFeeStatusStatement(database, id, from, "submitted", updatedAt),
+          FEE_STATUS_TRANSITION_GUARD,
+        ),
         setFeeKickBackReasonStatement(database, id, null, updatedAt),
         audit(database, options, "fee_entry.submitted", id),
       ],
@@ -239,7 +253,10 @@ export async function approveFee(
   return {
     effect: {
       statements: [
-        transitionFeeStatusStatement(database, id, from, "approved", updatedAt),
+        guarded(
+          transitionFeeStatusStatement(database, id, from, "approved", updatedAt),
+          FEE_STATUS_TRANSITION_GUARD,
+        ),
         audit(database, options, "fee_entry.approved", id),
       ],
       outboxMessages: [],
@@ -266,7 +283,10 @@ export async function kickBackFee(
   return {
     effect: {
       statements: [
-        transitionFeeStatusStatement(database, id, from, "draft", updatedAt),
+        guarded(
+          transitionFeeStatusStatement(database, id, from, "draft", updatedAt),
+          FEE_STATUS_TRANSITION_GUARD,
+        ),
         setFeeKickBackReasonStatement(database, id, reason, updatedAt),
         audit(database, options, "fee_entry.kicked_back", id),
       ],
@@ -293,7 +313,10 @@ export async function voidFee(
   return {
     effect: {
       statements: [
-        transitionFeeStatusStatement(database, id, from, "void", updatedAt),
+        guarded(
+          transitionFeeStatusStatement(database, id, from, "void", updatedAt),
+          FEE_STATUS_TRANSITION_GUARD,
+        ),
         audit(database, options, "fee_entry.voided", id),
       ],
       outboxMessages: [],

@@ -1,6 +1,12 @@
 export interface RpcStatement {
   readonly sql: string;
   readonly bindings: readonly unknown[];
+  /**
+   * Present when this statement's WHERE carries a precondition its caller read earlier, in which
+   * case matching no row means the precondition no longer holds and the whole batch is refused.
+   * The label travels rather than an index so the outcome names what was refused, not where it sat.
+   */
+  readonly guard?: string;
 }
 
 // commitBatch returns a typed outcome rather than throwing across the RPC boundary, so conflict
@@ -11,7 +17,11 @@ export interface RpcStatement {
 // data-access detector matches generically — no detector depends on which column conflicted.
 export type CommitOutcome =
   | { readonly ok: true }
-  | { readonly ok: false; readonly uniqueConstraint: string };
+  | { readonly ok: false; readonly uniqueConstraint: string }
+  // A guarded statement matched no row. Typed alongside the unique-constraint outcome and for the
+  // same reason: the refusal is a domain fact the caller branches on, and it must not depend on an
+  // error message surviving serialization across the RPC boundary.
+  | { readonly ok: false; readonly unaffectedGuard: string };
 
 // Parses the qualified column list out of a SQLite UNIQUE constraint violation, or null if the error
 // is not one. Runs DO-side, where the SQLite message text is reliable — never across RPC, where it

@@ -1,4 +1,5 @@
 import type { DurableObjectStorage, SqlStorageValue } from "@cloudflare/workers-types";
+import { assertGuardAffectedRows, type BatchOptions } from "./guarded-write.ts";
 
 export interface DoSqlStatement {
   readonly sql: string;
@@ -9,7 +10,9 @@ export interface DoSqlStatement {
 }
 export interface DoBatchDatabase {
   prepare(sql: string): DoSqlStatement;
-  batch(statements: DoSqlStatement[]): Promise<{ success: boolean }[]>;
+  batch(statements: DoSqlStatement[], options?: BatchOptions): Promise<{ success: boolean }[]>;
+  /** This adapter aborts the transaction when a guarded statement affects no rows. */
+  readonly enforcesGuardedWrites: true;
 }
 
 export function doSqliteBatchDatabase(storage: DurableObjectStorage): DoBatchDatabase {
@@ -36,13 +39,23 @@ export function doSqliteBatchDatabase(storage: DurableObjectStorage): DoBatchDat
   }
   return {
     prepare: (text: string) => makeStatement(text, []),
-    batch: (statements: DoSqlStatement[]) => {
+    enforcesGuardedWrites: true,
+    batch: (statements: DoSqlStatement[], options?: BatchOptions) => {
       // transactionSync = all-or-nothing; a throwing statement (e.g. a UNIQUE violation) rolls the
       // whole sequence back, matching D1 batch() semantics. The throw propagates to the caller.
+      // A guarded statement that matched no row throws from here for the same reason and with the
+      // same effect: the refusal takes the audit row and the outbox message down with it.
       try {
         storage.transactionSync(() => {
-          for (const statement of statements) {
+          for (const [index, statement] of statements.entries()) {
             sql.exec(statement.sql, ...(statement.bindings as SqlStorageValue[]));
+            if (options?.guards?.has(index) !== true) continue;
+            // changes() reflects the last INSERT/UPDATE/DELETE and is not reset by a SELECT, so this
+            // reads the statement just executed.
+            const changes = Number(
+              (sql.exec("SELECT changes() AS c").one() as { c: number | bigint }).c,
+            );
+            assertGuardAffectedRows(options, index, changes);
           }
         });
       } catch (error) {

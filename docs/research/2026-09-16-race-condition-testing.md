@@ -2,7 +2,11 @@
 
 **Status:** Research, partly acted on. A survey of where races can exist in this system, what already pins them, and which techniques are worth adopting.
 
-Technique 1 (the shared interleaving harness) has since been built as `@magna-carta/data-access/interleave` and is now the standard for the review's concurrency angle — its home is [`docs/conventions/testing.md`](../conventions/testing.md), _Concurrency: choose the interleaving, and prove it happened_, and the reasoning is in the decision record `a-race-is-tested-by-choosing-the-interleaving-not-by-racing-promises`. Techniques 2 through 8 below are still proposals. The findings and the ranking are kept as written, because what a survey concluded before anything was built is worth reading against what building it turned up.
+Techniques 1 and 2 have since been built. The shared interleaving harness is `@magna-carta/data-access/interleave`, and the fitness function is `pnpm run lint:guarded-writes`; both are documented in [`docs/conventions/testing.md`](../conventions/testing.md), _Concurrency: choose the interleaving, and prove it happened_, and the reasoning is in the decision records `a-race-is-tested-by-choosing-the-interleaving-not-by-racing-promises` and `a-guarded-write-refuses-its-batch-rather-than-reporting-afterwards`.
+
+Two things that survey did not anticipate are worth recording against it. First, the harness earned its keep immediately: the verifiers written with it found that a guarded write protected its row and still answered `200`, and that the audit statement riding the same batch recorded an edit that had been refused — neither visible from reading the code, both fixed by making a guarded statement abort its transaction. Second, the census below said 75 bare `UPDATE`s against 83 guarded ones; the fitness function, reading composed SQL rather than grepping, counts about 130 guard-shaped builders. The grep undercounted, and the larger number is the real backlog.
+
+Techniques 3 through 8 are still proposals. The findings and the ranking are kept as written, because what a survey concluded before anything was built is worth reading against what building it turned up.
 
 **Date:** 2026-09-16
 
