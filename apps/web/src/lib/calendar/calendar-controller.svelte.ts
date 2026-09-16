@@ -44,6 +44,7 @@ import type {
 } from "@magna-carta/design-system/calendar-grid";
 import {
   colored,
+  numbered,
   perLane,
   type CalendarEntry,
   type CalendarEntryKind,
@@ -485,7 +486,11 @@ export class CalendarController {
     // The colour of the first calendar in the rail's order that this entry is on. The day grid
     // overrides it per lane, because there the column already says which calendar it is.
     const order = this.selectedSources.map((source) => source.key);
-    return matching.map((entry) => colored(entry, this.colors, order));
+    // The matter numbers are filled in HERE rather than at the projection, because they arrive
+    // later than the rows do and the grid no longer waits for them. This derived re-runs when they
+    // land, so the chips take their numbers with no second read.
+    const numbers = this.#host.context().matterNumbers;
+    return matching.map((entry) => colored(numbered(entry, numbers), this.colors, order));
   });
 
   /**

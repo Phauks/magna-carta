@@ -101,6 +101,17 @@ export class CalendarContext {
     return this.firmMatters.matters ?? [];
   }
 
+  /**
+   * Whether the firm's matters are still being read.
+   *
+   * The grid no longer waits for them, so a record form can open before they land — and an empty
+   * picker saying "No matters were read" then states something false. This is the difference
+   * between the two, and the picker words itself from it.
+   */
+  get mattersReading(): boolean {
+    return this.firmMatters.matters === null;
+  }
+
   /** Whether the matters list is a page of the record rather than all of it. */
   get mattersCapped(): boolean {
     return this.firmMatters.capped;
@@ -112,12 +123,25 @@ export class CalendarContext {
   }
 
   /**
-   * Whether the grid can paint honestly: the catalog, the matters and the week start have answered
-   * (or failed), so a chip's type name and matter number will not change under the reader a moment
-   * after it paints, and the week's columns will not shift once the firm's answer lands.
+   * Whether the grid can paint honestly: the catalog and the week start have answered (or failed),
+   * so a chip's type name will not change under the reader a moment after it paints and the week's
+   * columns will not shift once the firm's answer lands.
+   *
+   * THE FIRM'S MATTERS ARE DELIBERATELY NOT PART OF THIS, and taking them out is the whole of why
+   * the calendar opens quickly. They used to be: the read plan refuses to issue anything until this
+   * is true, so the grid stayed blank until every page of the firm's matter listing had come back —
+   * a walk of up to ten pages, each of them two requests, run one after another. That made the time
+   * to first paint scale with how many matters the firm has ever opened, which is the wrong thing
+   * for it to scale with and gets worse every year a firm uses the product.
+   *
+   * What the walk contributes to the grid is a matter NUMBER on a chip, which is the one thing on a
+   * chip that does not come back with its own row. So it is filled in afterwards instead
+   * (`numbered` in calendar-entries.ts), and the two facts a chip CANNOT be painted without — what
+   * kind of thing it is, and which seven days the week holds — are what this still waits for. Those
+   * are two parallel reads of fixed size, not a walk.
    */
   get ready(): boolean {
-    return this.#settled.eventTypes && this.#settled.settings && this.firmMatters.matters !== null;
+    return this.#settled.eventTypes && this.#settled.settings;
   }
 
   /**

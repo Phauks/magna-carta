@@ -126,6 +126,23 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   widened to and the word each kind paints as. A layer is also a ROW IN THE RAIL now, under Dates;
   the word `layers` survives in the controller and the address because the address has carried it
   since the toolbar had them, and a link somebody was handed is a promise about what they will see.
+- **THE GRID NEVER WAITS FOR THE FIRM'S MATTERS.** It used to: `context.ready` included
+  `firmMatters`, and the read plan refuses to issue anything until that is true — so the calendar
+  stayed blank until a walk of up to ten pages, two requests each, run one after another, had come
+  back. Time to first paint scaled with how many matters the firm had ever opened, which is the
+  wrong thing for it to scale with and gets worse every year a firm uses the product. What the walk
+  contributes to the grid is a matter NUMBER on a chip, and that is the one thing on a chip that
+  does not arrive with its own row. So `ready` now waits only for what a chip cannot be painted
+  WITHOUT — the type catalog and the week start, two parallel reads of fixed size — and `numbered`
+  (calendar-entries.ts) fills the number in from the controller's own derived when the matters land.
+  Nothing is read a second time. `detailIsMatterNumber` is what makes that safe: it marks the chips
+  whose detail wanted a number, so a later pass cannot overwrite a detail that was already complete
+  — a matter's OWN calendar says "Hearing · Department 12", because every row there shares the
+  matter and the number is the one fact worth saying nowhere.
+- **An empty picker means two things, and it must not say the wrong one.** A form can now open
+  before the matters land, so `MatterPicker` takes `reading`: "Reading the firm's matters" while the
+  walk is in flight, "No matters were read" only once it has come back empty. The caller holds the
+  read, so the caller says which — `context.mattersReading`.
 - **A calendar that is ON is a read; a calendar that is OFF is no read at all.** That is what keeps
   the request count the reader's own choice rather than the roster's size, and it is why the read
   plan is a plan PER CALENDAR (`readOneCalendar`) rather than one read narrowed afterwards. A
