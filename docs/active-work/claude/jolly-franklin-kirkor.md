@@ -2,7 +2,7 @@
 worktree: /home/user/magna-carta
 area: In-app document editing — the editor frame's embedding policy, the open-a-document waiting state, and the header that screen would carry
 status: review
-touches: apps/edit-worker, apps/api-worker/src/editing, apps/web/src/lib/documents, apps/web/src/routes/developer-console/document-editor-headers, apps/web/src/lib/developer/dev-fixtures.ts, packages/telemetry/src/scrub.ts, changelog.d
+touches: apps/edit-worker, containers/collabora, apps/api-worker/src/editing, apps/web/src/lib/documents, apps/web/src/routes/developer-console/document-editor-headers, apps/web/src/lib/developer/dev-fixtures.ts, packages/telemetry/src/scrub.ts, changelog.d
 ---
 
 Two defects, reported from a real open of a `.docx`, and one design question that arrived with them.
@@ -29,3 +29,8 @@ with an Error ID and one redacted event; a WebSocket the container declines is r
 status the browser cannot see), and the telemetry scrubber learns the bearer-token shapes the editor
 puts in every URL. `packages/telemetry/src/scrub.ts` is the one cross-cutting file this stream
 touches; `vp run worktrees` shows no other stream on it.
+
+Fourth round: with the socket connected, coolwsd refused the WOPI host. The allow-list moves from the
+image's `aliasgroup1` environment variable to `--o:` overrides in `extra_params` — the channel every
+other setting in the Dockerfile already uses and the one this deployment proves works — with the mode
+key spelled the way coolwsd's parser reads it. The edit worker gains its area note.
