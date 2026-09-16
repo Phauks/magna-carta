@@ -2,7 +2,7 @@
 
 Every state publishes its own register of who is licensed to practise law there, and that register
 is the authority on whether a lawyer is in good standing. Attorney License Lookup takes you to the
-right one. Find it under **Tools → Attorney License Lookup**.
+right one. Find it in the sidebar under **Tools → Records → Attorney License Lookup**.
 
 It covers all fifty states and the District of Columbia, and shows them all at once.
 

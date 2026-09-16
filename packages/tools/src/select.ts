@@ -16,17 +16,26 @@ function permitted(tool: ToolManifest, permissions: ReadonlySet<Permission>): bo
   return permissions.has(tool.permission);
 }
 
-// The general (sidebar) surface: permitted tools grouped by subject, groups in the fixed order,
-// empty groups omitted, tools in catalog order within a group.
+// The general (rail) surface: permitted tools grouped by subject, clusters in the fixed order,
+// empty clusters omitted, tools ALPHABETICAL by name within a cluster.
+//
+// Alphabetical rather than catalog order, and it is the default rather than a setting: a member who
+// comes to the rail for a tool comes with its name in mind, so the order that answers fastest is the
+// one their eye can binary-search. Catalog order is the order rows were written, which is a fact
+// about this repository and not about the firm. Comparison is locale-aware and case-insensitive
+// (`undefined` locale = the runtime's), so "eDiscovery" sorts beside "Email" rather than ahead of
+// every capital.
 export function toolsByGroup(
   catalog: readonly ToolManifest[],
   permissions: ReadonlySet<Permission>,
 ): GroupedTools[] {
   const grouped: GroupedTools[] = [];
   for (const group of SUBJECT_GROUP_ORDER) {
-    const tools = catalog.filter(
-      (tool) => tool.subjectGroup === group && permitted(tool, permissions),
-    );
+    const tools = catalog
+      .filter((tool) => tool.subjectGroup === group && permitted(tool, permissions))
+      .toSorted((left, right) =>
+        left.name.localeCompare(right.name, undefined, { sensitivity: "base" }),
+      );
     if (tools.length > 0) grouped.push({ group, tools });
   }
   return grouped;

@@ -1,14 +1,19 @@
 /*
- * The Tools listing's presentation layer. The domain catalog (@magna-carta/tools) owns tool
- * identity; this module owns how a tool READS on the page — its one-line descriptor, how
- * finished its UI surface is (the maturity stage), the icon component its catalog icon-name
- * resolves to, and the human label for each subject group. A covering test asserts this layer
- * stays complete against the catalog, so a tool added to the catalog cannot render blank.
+ * The tools' presentation layer. The domain catalog (@magna-carta/tools) owns tool identity; this
+ * module owns how a tool READS — its one-line descriptor, how finished its UI surface is (the
+ * maturity stage), and the icon component its catalog icon-name resolves to. A covering test
+ * asserts this layer stays complete against the catalog, so a tool added to the catalog cannot
+ * render blank.
  *
- * A tool stays `soon` until its own page exists; five have one today, all `alpha` — the network
- * speed test, the WHOIS lookup, the safe website viewer, the firm usage report, and the file
- * workbench. As a tool's page is built its entry advances (alpha/beta/ready) and the listing entry
- * becomes launchable; nothing here is faked meanwhile.
+ * The human label for each subject cluster is NOT here any more: a cluster is a thing the rail
+ * draws, with a glyph and a fold of its own, so it lives with the rail's other clusters
+ * (navigation/clusters.ts) rather than in a table only the retired /tools index ever read.
+ *
+ * A tool stays `soon` until its own page exists; four have one today, all `alpha` — the network
+ * speed test, the WHOIS lookup, the safe website viewer and the file workbench. As a tool's page is
+ * built its entry advances (alpha/beta/ready) and its rail row becomes a link; nothing here is
+ * faked meanwhile. (The firm usage report had one too, and is no longer a tool: it reads the firm's
+ * own records rather than running anything, so it is a Firm destination now.)
  *
  * The ten file utilities that used to sit beside the workbench were its own capability tabs under
  * another name, and were retired into them. Their search vocabulary did not retire with them: it
@@ -22,13 +27,12 @@ import Building2 from "@lucide/svelte/icons/building-2";
 import BadgeCheck from "@lucide/svelte/icons/badge-check";
 import Package from "@lucide/svelte/icons/package";
 import Gauge from "@lucide/svelte/icons/gauge";
-import ChartPie from "@lucide/svelte/icons/chart-pie";
 import Globe from "@lucide/svelte/icons/globe";
 import Shield from "@lucide/svelte/icons/shield";
 import Microscope from "@lucide/svelte/icons/microscope";
 import { CATALOG } from "@magna-carta/tools/catalog";
 import { toolsByGroup, type GroupedTools } from "@magna-carta/tools/select";
-import type { SubjectGroup, ToolManifest } from "@magna-carta/tools/types";
+import type { ToolManifest } from "@magna-carta/tools/types";
 import { grantedPermissions } from "./tool-permissions.ts";
 // Type-only: elided at build, so the plugin-less test config never resolves the $lib alias.
 import type { MaturityStage } from "@magna-carta/design-system/maturity";
@@ -66,7 +70,6 @@ export const TOOL_PRESENTATION: Record<string, ToolPresentation> = {
     description: "Measure this connection's download, upload, latency, and quality.",
     stage: "alpha",
   },
-  "firm-usage": { description: "See the firm's storage and platform consumption.", stage: "alpha" },
   "whois-lookup": { description: "Look up who registered a domain, and when.", stage: "alpha" },
   "safe-website-viewer": {
     description: "Open an untrusted website at arm's length.",
@@ -78,18 +81,6 @@ export const TOOL_PRESENTATION: Record<string, ToolPresentation> = {
   },
 };
 
-// SubjectGroup → engraved section label.
-export const SUBJECT_GROUP_LABELS: Record<SubjectGroup, string> = {
-  property: "Property",
-  "business-entities": "Business Entities",
-  "people-licenses": "People & Licenses",
-  "mailing-shipping": "Mailing & Shipping",
-  printing: "Printing",
-  "web-domains": "Web & Domains",
-  files: "Documents & Files",
-  diagnostics: "Diagnostics",
-};
-
 // Catalog icon-name string → imported Lucide component. Explicit imports (the destinations.ts
 // idiom), not dynamic import; the completeness test asserts every catalog icon appears here.
 export const TOOL_ICONS: Record<string, Component> = {
@@ -99,7 +90,6 @@ export const TOOL_ICONS: Record<string, Component> = {
   "badge-check": BadgeCheck,
   package: Package,
   gauge: Gauge,
-  "chart-pie": ChartPie,
   globe: Globe,
   shield: Shield,
   microscope: Microscope,
@@ -108,8 +98,8 @@ export const TOOL_ICONS: Record<string, Component> = {
 // Both lookups are keyed by a plain string (Record<string, T>), so an indexed read types as
 // possibly-undefined under this project's noUncheckedIndexedAccess — even though the
 // completeness test above guarantees every catalog tool resolves both. These two accessors are
-// the one place that guarantee is asserted, so call sites (tool-catalogue.ts, and through it the
-// /tools screen) read a plain ToolPresentation/Component, never an optional.
+// the one place that guarantee is asserted, so call sites (the rail's tool rows, the palette's tool
+// provider) read a plain ToolPresentation/Component, never an optional.
 
 /** A catalog tool's presentation entry. Throws only if the catalog outran this module's table. */
 export function toolPresentation(tool: ToolManifest): ToolPresentation {
@@ -136,9 +126,9 @@ export function toolIcon(tool: ToolManifest): Component {
  * findable by its name, its descriptor and its subject group, so a newly added catalog tool never
  * becomes invisible for lacking an entry — this map only widens the net. Keyed by catalog id.
  *
- * It lives in the presentation layer because two surfaces search the same tools and must find them
- * by the same words: the command palette (navigation/tool-destinations.ts) and the Tools catalogue
- * itself (tool-catalogue.ts). One map, both nets.
+ * It lives in the presentation layer because it is a fact about the tool rather than about any one
+ * surface: the command palette (navigation/tool-destinations.ts) casts this net today, and the next
+ * surface that searches tools gets the same words for free rather than a second list.
  */
 const TOOL_SEARCH_SYNONYMS: Record<string, readonly string[]> = {
   "network-speed-test": ["bandwidth", "throughput", "ping", "latency", "internet", "connection"],
@@ -219,8 +209,9 @@ export function toolSearchKeywords(tool: ToolManifest): readonly string[] {
   ];
 }
 
-// The page's data: permitted tools grouped by subject in the catalog's fixed order, empty
-// groups omitted — the same gate the contextual tool surfaces use. The grant itself is the
+// The rail's data: permitted tools grouped by subject cluster in the catalog's fixed order, empty
+// clusters omitted, tools alphabetical within a cluster — the same gate the contextual tool
+// surfaces use. The grant itself is the
 // area-wide seam in tool-permissions.ts, shared with the workbench so the two cannot disagree
 // about what a member holds.
 export function visibleToolGroups(): GroupedTools[] {

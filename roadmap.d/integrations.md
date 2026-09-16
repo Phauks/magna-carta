@@ -163,12 +163,13 @@
 
 - id: integrations.tools-area
   name: Tools area
-  scope: One Tools catalog surfacing first-party utilities and integration-backed tools via left-nav and contextual entry points; presentation layer above the plugin framework.
+  scope: One Tools catalog surfacing first-party utilities and integration-backed tools through the global rail and contextual entry points; presentation layer above the plugin framework.
   status: partial
   slices: tools-area
   adrs: ADR-0101
   spec: docs/specs/2026-06-16-tools-area-design.md
-  evidence: packages/tools catalog + /tools listing page merged; per-tool pages landing one at a time.
+  evidence: packages/tools catalog merged; every tool is a top-level ability at /<id> with a rail row in its subject cluster; per-tool pages landing one at a time.
+  notes: There is no Tools AREA left in the interface sense — the owner retired the two-sided screen and then its index on 2026-09-16, because a tool reached through a screen about tools costs a navigation and a column of the tools you are not using. The catalog, the permissions and the contextual selector are what the node still names.
 
 - id: integrations.tools-area.catalog
   name: Tools catalog package
@@ -181,13 +182,20 @@
 
 - id: integrations.tools-area.listing-page
   name: Tools listing page
-  scope: /tools page rendering the catalog grouped by subject, tiles or dense list, maturity-stage badges.
+  scope: A /tools page rendering the catalog grouped by subject, tiles or dense list, maturity-stage badges.
+  status: cut
+  slices: tools-area
+  spec: docs/specs/2026-07-08-tools-listing-page-design.md
+  notes: Built, shipped, and retired by the owner on 2026-09-16. It was a stop on the way to work - a member who wants the WHOIS lookup wants the WHOIS lookup, not a page about it - and the two things it carried that were worth keeping, the descriptors and the search, were never the page's: they are the presentation layer's, and the command palette has rendered them all along from one keystroke with no navigation first. Every tool is a top-level ability with a rail row of its own now (integrations.tools-area.rail-rows).
+
+- id: integrations.tools-area.rail-rows
+  name: Tools in the global rail
+  scope: Every permitted tool as a top-level row in the rail's Tools group, folded into its subject cluster (Records, Internet, Mailing, Files), alphabetical within a cluster, derived from the catalog.
   status: shipped
   surface: screen
   slices: tools-area
-  spec: docs/specs/2026-07-08-tools-listing-page-design.md
-  evidence: apps/web/src/routes/(app)/tools/+page.svelte over apps/web/src/lib/tools/ (tools-tiles-view, tools-list-view, tool-tile, tool-row, tool-presentation.ts, and the view preference), grouped by toolsByGroup from packages/tools/src/select.ts; unbuilt tools read "Soon".
-  notes: toolsByGroup renders only the tools whose permission the member holds, and until 2026-08-19 five manifests were granted to no role - so the property, business-entities, people-licenses and mailing-shipping groups rendered for nobody on any seat. Seeded in packages/database/drizzle/per-firm/20260908T000000_baseline.sql; all nineteen manifests are now reachable by some seat.
+  evidence: apps/web/src/lib/navigation/tool-sidebar.ts projecting packages/tools into rows, the cluster registry at apps/web/src/lib/navigation/clusters.ts, and the sub-menu parts (Sidebar.MenuTrigger, Sidebar.MenuSub) in packages/design-system/src/lib/components/sidebar. Held by apps/web/test/tools-navigation.test.ts.
+  notes: A cluster is a fold and never a screen — nothing is reached through one, and a cluster holding a single row is seated as a plain row instead. The eight subject groups became four on the same ruling: eight headings over nine tools is a heading per tool, which is no grouping at all.
 
 - id: integrations.tools-area.contextual-entry
   name: Contextual entry points
@@ -198,13 +206,13 @@
 
 - id: integrations.tools-area.diagnostics-group
   name: Diagnostics group (firm usage)
-  scope: Read-only firm usage snapshot in the Tools area, computed on request — storage by class, matters by type and by location, the file versioning breakdown, Directory and member counts, and the AI meters.
+  scope: Read-only firm usage snapshot in the Firm group, computed on request — storage by class, matters by type and by location, the file versioning breakdown, Directory and member counts, and the AI meters.
   status: shipped
   surface: screen
   adrs: ADR-0103
   spec: docs/specs/2026-06-17-firm-usage-diagnostics-design.md
-  evidence: apps/api-worker/src/routes/firm-usage.ts (GET /api/v1/firm-usage) composing per-domain reads from matters, file-manager, locations, directory, data-access, and search; the tables-only screen built over apps/web/src/lib/tools/firm-usage/ per docs/decisions/pending/firm-usage-is-quantitative-tables-computed-on-request.md.
-  notes: Storage totals read the storage_meter rollup, so they are zero for any firm whose files did not arrive through ingest until the daily reconciliation runs. Custodian holdings report per office through @magna-carta/custodian/usage (external roots on a Held Offsite row); per-firm compute stays a Soon table (waits on the Cloudflare Analytics API credential, the ADR-0103 deferral).
+  evidence: apps/api-worker/src/routes/firm-usage.ts (GET /api/v1/firm-usage) composing per-domain reads from matters, file-manager, locations, directory, data-access, and search; the tables-only screen built over apps/web/src/lib/firm-usage/ per docs/decisions/pending/firm-usage-is-quantitative-tables-computed-on-request.md.
+  notes: It left the tool catalog on 2026-09-16 and is a Firm destination at /firm-usage beside Reports, keeping the tools:firmUsage key that gates it — a tool is a utility a member RUNS, and this runs nothing; it is the firm reading its own records. Storage totals read the storage_meter rollup, so they are zero for any firm whose files did not arrive through ingest until the daily reconciliation runs. Custodian holdings report per office through @magna-carta/custodian/usage (external roots on a Held Offsite row); per-firm compute stays a Soon table (waits on the Cloudflare Analytics API credential, the ADR-0103 deferral).
 
 - id: integrations.tools-area.network-speed-test
   name: Network speed test
@@ -212,11 +220,11 @@
   status: shipped
   surface: screen
   spec: docs/specs/2026-07-09-network-speed-test-design.md
-  evidence: A route directory named after its catalog id under the app's tools section, over apps/web/src/lib/tools/speed-test/ — the measurement engine, the per-direction charts, the quality scores and the authenticated connection probe; stage alpha on the listing page.
+  evidence: A top-level route directory named after its catalog id, over apps/web/src/lib/tools/speed-test/ — the measurement engine, the per-direction charts, the quality scores and the authenticated connection probe; stage alpha on its rail row.
 
 - id: integrations.tools
   name: First-party tool set
-  scope: The credential-less first-party tools surfaced through the Tools area
+  scope: The credential-less first-party tools surfaced as top-level abilities in the rail
   status: partial
   audience: public
   public-name: Built-in tools

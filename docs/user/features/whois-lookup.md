@@ -20,7 +20,7 @@ For country-code domains that publish only a plain-text record, the raw WHOIS te
 
 **Look up a domain name**
 
-1. Open the Tools sidebar.
+1. Open **Tools → Internet** in the sidebar.
 2. Select **WHOIS Lookup** under **Websites & Domains**.
 3. Type or paste the domain name (for example `example.com`) and press Enter.
 4. The registration details appear below the search box.
@@ -43,4 +43,4 @@ You can paste a complete web address (for example `https://www.example.com/page`
 ## Related features
 
 - **Safe Website Viewer** — if you want to see what a suspicious website actually shows without risk, use the Safe Website Viewer alongside a WHOIS lookup.
-- **Tools** — WHOIS Lookup is one of the tools in the **Websites & Domains** group, accessible from the Tools sidebar.
+- **[Your sidebar](your-sidebar.md)** — WHOIS Lookup sits in the **Internet** group of the sidebar's Tools, beside the Safe Website Viewer and the Network Speed Test.

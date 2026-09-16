@@ -926,6 +926,47 @@ is usually the fastest way to understand the rule.
   (`@magna-carta/design-system/service-marks`), with a row in
   [`third-party-trademarks.md`](third-party-trademarks.md) recording whose it is and on what terms.
   Nothing else earns an exception to the icon rule. _(the build panel, 2026-09-16)_
+- **A FOLD is not a screen, and nothing is ever reached through one.** A group of rows too long to
+  take in at a glance folds behind a chevron; a group of rows reached by opening a page ABOUT them
+  costs a navigation and gives the reader a list of the things they are not doing. The nine tools
+  had been both in a fortnight — a two-sided screen, then an index — and the fold is what the
+  grouping was always trying to be. Three things keep a fold honest: pressing it opens the rows
+  rather than going anywhere, a fold holding one row is not drawn (a chevron hiding one thing costs
+  a press and saves nothing), and everything inside it stays reachable from search, because hiding
+  must never remove capability. _(the rail's sub-menus, 2026-09-16)_
+- **A category is named for what the reader is doing, not for what the thing is made of.** Eight
+  catalog subject groups became four — Records, Internet, Mailing, Files — because a member reaching
+  for a domain's registration thinks "internet" and never "web-domains", and because eight headings
+  over nine rows is a heading per row, which is no grouping at all. _(the tool clusters, 2026-09-16)_
+- **A set the reader scans by name is ordered by name.** Alphabetical is the default for any list
+  whose rows are things somebody arrives already knowing the name of; an authoring order is a fact
+  about the repository rather than about the firm. _(the tools in the rail, 2026-09-16)_
+- **One mark answers one question.** A star had been "show this row in my sidebar" while every other
+  product on the reader's screen uses it for "this is mine, keep it handy". The two are different
+  questions and now wear different marks: an EYE for visible-here, the star for a favourite. Where a
+  mark is doing two jobs, the fix is a second mark, not a better tooltip. _(Customize and favourites,
+  2026-09-16)_
+- **A shortcut the platform cannot predict is the member's to make, and the gesture belongs on every
+  page.** No registry can know which of ten thousand matters somebody opens each morning, so the
+  person standing on the page says so. That only works if the gesture is everywhere, which means it
+  rides the one component every screen already builds its title from rather than being added screen
+  by screen — a favourite control thirty screens have to opt into is a favourite control that covers
+  twenty. _(favourites, 2026-09-16)_
+- **A mark beside a label never rides inside it.** A row is a grid: the label takes the slack and
+  truncates, and the trailing mark sits in a column sized to its contents that never shrinks. Put
+  inside the label the mark inherits the label's overflow, so it is the FIRST thing to disappear on
+  exactly the rows long enough to need it — "Property Listing Links" hid its own Soon badge, which is
+  the one row where the badge was load-bearing. _(the sidebar rows, 2026-09-16)_
+- **A row that can be dragged says so at rest.** A grab cursor answers only once the pointer is
+  already on the row, which is an answer to a question nobody asked; a grip states the affordance
+  before the hand commits. The grip is decoration, not a second control — the whole row is the
+  handle. _(Customize mode, 2026-09-16)_
+- **Direct manipulation settles; it does not hunt.** A drag that reorders measures the real PITCH
+  between two rows (a row's height is short by the gap between them), moves its landing index only
+  once the pointer is well past a boundary and needs less travel to come back, and writes its
+  position once per animation frame however fast the device reports. Rounding at exactly half a slot
+  puts the flip where a hand rests while it is deciding, which is what makes a list judder.
+  _(reordering, 2026-09-16)_
 
 ### List screens
 
@@ -1317,6 +1358,41 @@ name, which is every screen outside a matter.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-16 — the rail regrouped, the tools elevated, and favourites
+
+The owner, in a second pass the same day, over the left navigation. What was said, and what each part
+generalizes to:
+
+- **"Move file workbench to tools. Remove all tools page. Move each tool to a top-level ability."**
+  The index that survived the morning's ruling did not survive the afternoon's, and for the reason
+  the morning's gave: a screen about tools is a stop on the way to work. Every tool is addressed at
+  `/<id>` with a rail row of its own; the File Workbench, which had been promoted out of the catalog
+  precisely because the old area charged a navigation to reach it, is a catalog tool again.
+- **"Allow for sub-carrot menus within tools (and potentially others)."** Built as a general
+  mechanism rather than a Tools feature — any group may fold, and the parenthesis is why. Generalized
+  above, with the three properties that keep a fold from becoming a screen.
+- **"Move firm usage to firm."** A tool is a utility a member RUNS; Firm Usage runs nothing, it is
+  the firm reading its own records, which is what Reports beside it does. Its permission travelled
+  with it rather than being dropped.
+- **"Identify best way to organize (records, internet, etc.)"** The owner's own two examples were the
+  answer: the eight subject groups became four named for what the reader is doing. Generalized above.
+- **"Default sort tools alphabetically."** Generalized above, for any list whose rows are things
+  somebody arrives knowing the name of.
+- **"Perhaps we move home and notifications out of workspace? Consider if they should move or any
+  others?"** They are about the person, not about the firm's work, and no ordering inside a
+  fourteen-row group was going to say that. Five groups now, each answering one question; Tasks,
+  Calendar and Magnus moved with them, on the same test.
+- **"For customize, instead of stars, let's find a better symbol... I want to create a favorites
+  section, whereby users can delineate certain pages as quick access... we would have to find a way
+  to get this in all pages."** Both halves generalized above: one mark per question, and the gesture
+  riding the one component every screen already uses.
+- **"Drag and drop for reorganization stutters, also, the items lack little dots on the side to show
+  that this can be moved."** Two separate rules above — the grip, and how direct manipulation
+  settles. The stutter was three faults stacked, and the arithmetic is recorded where it lives
+  (`apps/web/src/lib/components/drag-reorder.svelte.ts`).
+- **"For unmade tools, the soon badge does not appear in the left side bar, it is hidden by the
+  length of the text."** Generalized above: a mark beside a label never rides inside it.
 
 ### 2026-09-16 — the transfer registers, the rail, and two glyphs
 

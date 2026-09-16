@@ -275,7 +275,6 @@
 
 <ScreenHeader
   title="Network Speed Test"
-  back="tools"
   class="mb-24"
 >
   {#snippet meta()}

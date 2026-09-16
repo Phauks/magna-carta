@@ -59,11 +59,11 @@
 
 - id: documents.file-manager.file-inspector
   name: File Workbench
-  scope: Tools-host for an ephemeral (non-matter) file — one drop, and every file capability addresses it.
+  scope: The host for an ephemeral (non-matter) file — one drop, and every file capability addresses it.
   status: partial
   surface: screen
   slices: file-workbench
-  evidence: apps/web/src/lib/tools/file-workbench/ — the capability registry, the ephemeral source, the browser-side type reading and digests — rendered at `/file-workbench`, a sidebar destination in the Firm group; catalog entry `file-workbench` gated on `tools:fileWorkbench`, declaring that route so nothing addresses it under Tools, and the only row in the catalog's `files` group since the ten sibling utilities retired into its capability tabs.
+  evidence: apps/web/src/lib/tools/file-workbench/ — the capability registry, the ephemeral source, the browser-side type reading and digests — rendered at `/file-workbench`, a rail row in the Tools group's Files cluster; catalog entry `file-workbench` gated on `tools:fileWorkbench`, and the only row in that cluster since the ten sibling utilities retired into its capability tabs.
   notes: Two capabilities answer for real in the browser (file type from the leading bytes, SHA-256/SHA-1); the eight whose engines run in a container render their control disabled and name what they wait on. The firm-scoped scratch object is what unblocks them, and what makes the retention promise real. Not the same body as the matter file manager yet — converging the two is separate work.
 
 - id: documents.file-manager.content-hash
@@ -97,7 +97,7 @@
   status: shipped
   surface: screen
   adrs: ADR-0078, ADR-0103
-  evidence: packages/file-manager/src/metering-statements.ts + usage.ts + apps/api-worker/src/routes/firm-usage.ts, rendered by the Firm Usage screen built over apps/web/src/lib/tools/firm-usage/; slice 1-1 fragment lists metering crons built. No Analytics Engine trend is kept and the declared port for one is withdrawn — metering-statements.ts records why; the operational rate signals ride declared counters in packages/telemetry/src/metrics.ts.
+  evidence: packages/file-manager/src/metering-statements.ts + usage.ts + apps/api-worker/src/routes/firm-usage.ts, rendered by the Firm Usage screen built over apps/web/src/lib/firm-usage/; slice 1-1 fragment lists metering crons built. No Analytics Engine trend is kept and the declared port for one is withdrawn — metering-statements.ts records why; the operational rate signals ride declared counters in packages/telemetry/src/metrics.ts.
 
 - id: documents.upload
   name: Upload & ingest pipeline

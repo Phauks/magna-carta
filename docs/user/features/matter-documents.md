@@ -387,7 +387,7 @@ download instead. The file is stored either way, and nothing about it is changed
 
 A password-protected PDF asks for its password right there instead of failing outright — type it
 and the document opens normally. The password is checked in this browser and never sent anywhere.
-If you do not have it, the reader points you to File Unlock & Password Recovery in Tools, which can
+If you do not have it, the reader points you to the File Workbench's Unlock tab, which can
 search for a common or predictable one.
 
 A PDF is read-only here. There is no editing, and nothing you do in the reader changes the document

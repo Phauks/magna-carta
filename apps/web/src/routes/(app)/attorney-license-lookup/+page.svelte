@@ -80,7 +80,7 @@
 {/snippet}
 
 <div class="flex h-full flex-col gap-16">
-  <ScreenHeader title="Attorney License Lookup" back="tools" />
+  <ScreenHeader title="Attorney License Lookup" />
 
   <div class="flex min-h-0 min-w-0 flex-1 flex-col gap-16">
     <DataTable.Grid

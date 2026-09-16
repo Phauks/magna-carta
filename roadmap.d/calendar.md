@@ -18,7 +18,6 @@
   name: Litigation events and deadlines
   scope: Member-entered hearings, filings, service, orders, depositions and the like, plus first-class deadlines with a stated authority, satisfaction, and a vacate/supersede trail.
   status: shipped
-  surface: screen
   adrs: ADR-0055
   notes: Read on the matter's Calendar section and on the firm calendar; recorded, edited, cancelled, continued, satisfied, vacated and superseded from those screens through the record forms and the entry window.
   evidence: Four per-firm tables (matter_event, matter_event_type, matter_event_participant, matter_deadline) with civil dates, an explicit IANA zone per row, and the platform event-type catalog seeded by 20260806T000000_case-calendar; write paths in packages/calendar; read at apps/web/src/routes/(app)/matters/[id]/calendar/+page.svelte and apps/web/src/routes/(app)/calendar/+page.svelte; written from apps/web/src/lib/calendar/record-event-dialog.svelte, record-deadline-dialog.svelte and entry-window.svelte.

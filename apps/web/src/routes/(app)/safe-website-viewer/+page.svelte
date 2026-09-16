@@ -219,7 +219,7 @@
      Tools layout hands this page the content column bare (its +page.ts claims the scrolling), so
      the page carries the canvas inset itself. -->
 <div class="flex h-full flex-col">
-  <ScreenHeader title="Safe Website Viewer" back="tools" class="mb-24" />
+  <ScreenHeader title="Safe Website Viewer" class="mb-24" />
 
   <!-- Polite live region: announces an arrived snapshot to a screen reader without re-reading the
        whole result. Alert-rendered states announce themselves through their own role. -->

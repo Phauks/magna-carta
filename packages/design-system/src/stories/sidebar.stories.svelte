@@ -16,6 +16,11 @@
   import Clock from "@lucide/svelte/icons/clock";
   import ReceiptText from "@lucide/svelte/icons/receipt-text";
   import Settings from "@lucide/svelte/icons/settings";
+  import Network from "@lucide/svelte/icons/network";
+  import Globe from "@lucide/svelte/icons/globe";
+  import Shield from "@lucide/svelte/icons/shield";
+  import Gauge from "@lucide/svelte/icons/gauge";
+  import Badge from "../lib/components/badge/badge.svelte";
   import BrandMark from "../lib/components/brand-mark/brand-mark.svelte";
   import * as Sidebar from "../lib/components/sidebar/index.ts";
   import * as Tooltip from "../lib/components/tooltip/index.ts";
@@ -34,6 +39,9 @@
 <script lang="ts">
   // Held here so the brand label and the play assertions can read the same state the Trigger flips.
   let collapsed = $state(false);
+  // A cluster's fold — the rail's second level. Held by the consumer, exactly as the app holds it
+  // as a member preference; the part only draws the chevron and reports the press.
+  let toolsOpen = $state(true);
 </script>
 
 <Story
@@ -59,6 +67,24 @@
       const brandGlyph = canvasElement.querySelector(".mc-sidebar-header .mc-brand-mark-glyph");
       await expect(brandGlyph).toBeInTheDocument();
       await expect(brandGlyph!.getBoundingClientRect().width).toBeGreaterThan(10);
+    });
+
+    await step("A cluster folds its rows away and brings them back", async () => {
+      // A cluster is a FOLD, never a screen: pressing it opens the rows beneath rather than
+      // navigating, which is what tells it apart from the destination rows it sits among.
+      await expect(canvas.getByRole("link", { name: "WHOIS Lookup" })).toBeInTheDocument();
+      await userEvent.click(canvas.getByRole("button", { name: "Hide Internet" }));
+      await expect(canvas.queryByRole("link", { name: "WHOIS Lookup" })).toBeNull();
+      await userEvent.click(canvas.getByRole("button", { name: "Show Internet" }));
+      await expect(canvas.getByRole("link", { name: "WHOIS Lookup" })).toBeInTheDocument();
+    });
+
+    await step("A long label truncates and its trailing mark stays", async () => {
+      // The mark used to ride inside the label, which has the row's overflow: every long row hid
+      // it. The trailing column is sized to its contents and never shrinks.
+      const mark = canvas.getByText("Soon");
+      await expect(mark).toBeVisible();
+      await expect(mark.getBoundingClientRect().width).toBeGreaterThan(0);
     });
 
     await step("The trigger now says Expand, and expanding restores the labelled rail", async () => {
@@ -107,6 +133,51 @@
                   <Sidebar.MenuButton href="#contacts" tooltip="Contacts">
                     {#snippet icon()}<Users class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
                     Contacts
+                  </Sidebar.MenuButton>
+                </Sidebar.MenuItem>
+              </Sidebar.Menu>
+            </Sidebar.Group>
+
+            <!-- A group whose rows fold into a SUB-MENU. The cluster row carries the glyph, the
+                 name and the chevron; its members tuck beneath it behind an indent and a hairline.
+                 Nothing is reached THROUGH the cluster — pressing it opens the rows. -->
+            <Sidebar.Group>
+              <Sidebar.GroupLabel>Tools</Sidebar.GroupLabel>
+              <Sidebar.Menu>
+                <Sidebar.MenuItem>
+                  <Sidebar.MenuTrigger
+                    expanded={toolsOpen}
+                    tooltip="Internet"
+                    aria-label={toolsOpen ? "Hide Internet" : "Show Internet"}
+                    onclick={() => (toolsOpen = !toolsOpen)}
+                  >
+                    {#snippet icon()}<Network class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
+                    Internet
+                  </Sidebar.MenuTrigger>
+                  {#if toolsOpen}
+                    <Sidebar.MenuSub>
+                      <Sidebar.MenuItem>
+                        <Sidebar.MenuButton href="#whois" tooltip="WHOIS Lookup">
+                          {#snippet icon()}<Globe class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
+                          WHOIS Lookup
+                        </Sidebar.MenuButton>
+                      </Sidebar.MenuItem>
+                      <Sidebar.MenuItem>
+                        <Sidebar.MenuButton href="#speed" tooltip="Network Speed Test">
+                          {#snippet icon()}<Gauge class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
+                          Network Speed Test
+                        </Sidebar.MenuButton>
+                      </Sidebar.MenuItem>
+                    </Sidebar.MenuSub>
+                  {/if}
+                </Sidebar.MenuItem>
+                <!-- The longest label the rail carries, with a mark beside it: the label takes the
+                     ellipsis and the mark holds its column. -->
+                <Sidebar.MenuItem>
+                  <Sidebar.MenuButton href="#safe-website-viewer" tooltip="Safe Website Viewer">
+                    {#snippet icon()}<Shield class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
+                    Safe Website Viewer
+                    {#snippet trailing()}<Badge variant="outline">Soon</Badge>{/snippet}
                   </Sidebar.MenuButton>
                 </Sidebar.MenuItem>
               </Sidebar.Menu>
