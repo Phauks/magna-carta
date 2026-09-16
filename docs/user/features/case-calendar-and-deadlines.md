@@ -70,7 +70,11 @@ setting and deadline on every matter you can see, and the firm's own events besi
   entries per day and says how many more there are; press that and the agenda opens on that day.
   The **week** and the **day** are the two with hours: the time runs down the side, and an entry is
   drawn from the hour it starts at to the hour it ends, so a two-hour deposition is twice the block
-  a one-hour conference is and a free afternoon shows as a gap. The week's columns are its seven
+  a one-hour conference is and a free afternoon shows as a gap. **An event that runs for several days
+  shows on every one of them**: the first day from its start time to midnight, a day in the middle
+  filled, and the last day from midnight to when it ends — which is what "in court until Wednesday
+  afternoon" looks like on a calendar. **All-day entries sit in a band above the hours** rather than
+  at midnight, because a filing has no hour and parking it at the top of the column implied one. The week's columns are its seven
   days; the day's are the calendars you have turned on, so a Tuesday your firm spends in four
   places reads at a glance and a setting two people are at appears in both their columns. Anything
   with no time — a filing, a deadline, anything running several days — sits in the band above the

@@ -53,6 +53,7 @@
     type PlacedTimeEntry,
   } from "./time-placement.ts";
   import { blockStyle, blocksByStartingHour } from "./time-blocks.ts";
+  import { segmentsForDay } from "./day-segments.ts";
   import type { CalendarGridEntry } from "./types.ts";
 
   let {
@@ -146,15 +147,22 @@
     ),
   );
 
-  /** Per civil day, the blocks that BEGIN in each drawn hour. */
+  /*
+   * Per civil day, the blocks that BEGIN in each drawn hour.
+   *
+   * A timed entry is cut to the day rather than matched to its start date, so a trial that runs
+   * Monday to Wednesday is on all three columns — the start hour to midnight, then the whole
+   * column, then midnight to the end hour. Matching on `entry.date` put it on Monday alone and
+   * left a firm looking at an empty Tuesday it was spending in court.
+   */
   const blocks = $derived.by(() => {
     const byDay = new Map<string, ReadonlyMap<number, PlacedTimeEntry[]>>();
     for (const day of days) {
-      const key = formatCivilDate(day);
-      const timed = entries.filter(
-        (entry) => entry.startMinute !== undefined && entry.date === key,
+      const timed = segmentsForDay(entries, day).map((segment) => segment.entry);
+      byDay.set(
+        formatCivilDate(day),
+        blocksByStartingHour(placeTimeEntries(timed, axis, concurrency), hours, axis),
       );
-      byDay.set(key, blocksByStartingHour(placeTimeEntries(timed, axis, concurrency), hours, axis));
     }
     return byDay;
   });

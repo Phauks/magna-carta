@@ -58,6 +58,7 @@
     type PlacedTimeEntry,
   } from "./time-placement.ts";
   import { blockStyle, blocksByStartingHour } from "./time-blocks.ts";
+  import { segmentsForDay } from "./day-segments.ts";
   import type { CalendarGridEntry, CalendarGridLane } from "./types.ts";
 
   let {
@@ -130,9 +131,22 @@
 
   const dayDate = $derived(parseCivilDate(date));
   const columns = $derived(dayLanes(lanes));
-  const hours = $derived(dayHours(entries, firstHour, lastHour));
+  /*
+   * The day's own entries, with a timed one that runs past midnight cut to THIS day: a trial that
+   * began yesterday is this column from its top, not absent. All-day entries pass through
+   * untouched — they belong in the band above the hours, which spans them already.
+   */
+  const dayEntries = $derived(
+    dayDate === null
+      ? entries
+      : [
+          ...entries.filter((entry) => entry.startMinute === undefined),
+          ...segmentsForDay(entries, dayDate).map((segment) => segment.entry),
+        ],
+  );
+  const hours = $derived(dayHours(dayEntries, firstHour, lastHour));
   const slots = $derived(hourSlots(hours));
-  const placement = $derived(placeDayEntries(entries, columns));
+  const placement = $derived(placeDayEntries(dayEntries, columns));
   /** The axis the blocks are measured against: the first hour drawn to the end of the last. */
   const axis = $derived({
     from: hours.first * MINUTES_IN_HOUR,

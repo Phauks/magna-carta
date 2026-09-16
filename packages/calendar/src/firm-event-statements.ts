@@ -209,7 +209,10 @@ export function selectFirmEventsStatement(
     readonly limit: number;
   },
 ): SqlStatement {
-  const conditions = ["starts_on >= ?", "starts_on <= ?"];
+  // A firm event can SPAN days — a week of office closure, a two-day training — so the window holds
+  // it while it is still running rather than only on the day it began. `COALESCE` makes a one-day
+  // event behave exactly as it always did: its end IS its start.
+  const conditions = ["COALESCE(ends_on, starts_on) >= ?", "starts_on <= ?"];
   const bindings: unknown[] = [options.fromDate, options.toDate];
   if (options.status !== undefined) {
     conditions.push("status = ?");

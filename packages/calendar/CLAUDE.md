@@ -155,6 +155,16 @@ ADR-0059, ADR-0068, ADR-0051.)
   DECLARES that it has none and the row renders by kind alone — an email's subject line is privileged
   content, and putting one on a read spanning every matter is a disclosure. Absence is a decision,
   never an oversight.
+- **A WINDOW OVER A SPAN IS AN OVERLAP, NOT A START.** `civilDateWindowConditions` compares both
+  bounds against the source's sort column, which for an event is `starts_on` — so a three-day trial
+  was outside every window that did not contain its first day, and a firm reading Tuesday saw an
+  empty column it was spending in court. A source whose rows can span uses
+  `spanningCivilDateWindowConditions` instead: it is in the window when it STARTS before the window
+  closes and ENDS after it opens. `COALESCE(ends_on, starts_on)` is what makes a point-in-time row
+  behave exactly as it always did — its end IS its start — so the predicate collapses to the plain
+  one for almost every row the calendar holds. This does not widen a source past its window; it
+  returns rows the window always should have held. Today: the `matterEvent` and `firmEvent` sources
+  and `selectFirmEventsStatement`. A deadline is a point and keeps the plain window.
 - **A civil date is stored as a civil date.** `starts_on`, `ends_on`, and `due_on` are `YYYY-MM-DD`
   text and a time is separate and optional, because "all day" is a real and common answer. No column
   stores midnight-local-as-UTC: that is the daylight-saving off-by-one that moves a hearing by a day

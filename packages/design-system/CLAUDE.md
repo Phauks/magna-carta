@@ -32,7 +32,13 @@ properties; off-token values are machine-rejected.
   downwards for as long as it runs. Two pure modules carry the arithmetic and are tested without a
   browser: `time-placement.ts` (the span an entry occupies, floored at `MINIMUM_BLOCK_MINUTES` so a
   fifteen-minute call can still hold its label, and the share of the column it takes) and
-  `time-blocks.ts` (which cell it renders in, and the inline style that draws it). **How concurrent
+  `time-blocks.ts` (which cell it renders in, and the inline style that draws it), and
+  `day-segments.ts` (a timed entry that runs past midnight, cut into the piece it occupies on each
+  day it covers — the first day from its start hour to midnight, a day in the middle the whole
+  column, the last day midnight to its end hour). The month never needed that last one, because
+  `placeEntries` walks every day of a span; a span on an HOUR axis is not the same entry repeated,
+  which is why the time grids could not use it. Each piece carries its own id, because two pieces of
+  one record are two things to render and a grid keyed on a repeated id drops all but one. **How concurrent
   entries are drawn is the READER's** (`concurrency`: `side-by-side` divides the column,
   `overlap` steps them over one another) — a closed set, never a length or a flag at a call site.
   The month and the agenda have no hour axis and take no such prop. The calendar's own arithmetic,
