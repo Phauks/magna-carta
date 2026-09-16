@@ -236,3 +236,36 @@ dropdown.
   opens with the commit refused until one is chosen. That is the honest shape of the choice and it
   is deliberate; if it reads as friction, the fix is to lead with the step the lifecycle runs
   toward rather than to preselect nothing.
+
+## R3 — round three: the change panel takes two sides, and a press stops moving the window
+
+The owner, 2026-09-16: "For the status change modal, it should be two sides, with the right side
+being the details, and the left side being the options. Remove 'Choose a step first.' from the
+status modal. For physical file, and for many other items in the app, I do not want reflow when
+clicking buttons inside of modals. For example, the set location button."
+
+| #   | Ruling                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Status  |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| S5  | **The change panel is two sides: the steps on the left, the chosen step on the right.** Where the matter stands and the steps available from here are the left; what a step does to the record, what it requires, and the field it asks for are the right. Stacked, choosing a step grew a section under the choice and the reader scrolled away from what they had just pressed to read what it meant.                                                                                                               | settled |
+| S6  | **Nothing opens unchosen, and "Choose a step first." goes with the state that produced it.** The panel opens on the step the lifecycle runs toward — `matterLifecycleStep`'s own definition, the first the status offers — so the right side always has something to discuss. This is the seam R2 left open in its own last note, taken.                                                                                                                                                                              | settled |
+| S7  | **A press inside a modal does not grow the modal.** Set Location and Set Number each revealed a labelled field and a commit pair beneath their row, moving everything under them at the moment somebody acted. Both are fields at rest now: the office is a combobox carrying the office's name, the number an input carrying the number the matter wears, each with its refusal and its way-through on lines the row keeps whether or not they are carrying anything. Generalized into the standing rules and gated. | settled |
+
+**Notes recorded this round.**
+
+- **S5 needed no new component.** `ActionDialog` already lends the record window's right pane
+  through `context`, which the status window beside it has used since R2 — so the change panel gets
+  the same geometry the product uses for context everywhere, and `width` comes off the call because
+  a panel with two panes opens at the record width by definition.
+- **A refused step is still discussed.** Opening on the first step means a sample matter, whose every
+  step is refused, opens on a refused one; that is right. The row says why and the commit says why,
+  and a panel that refused to discuss any of them would say less than the rows already do.
+- **S7 is a gate now, not a convention** — `pnpm run lint:modal-reflow`, which refuses a
+  hand-written `aria-expanded` inside a modal shell or inside a snippet that shell is handed. Five
+  folds elsewhere predate the ruling and are listed in the gate with what each would take to clear;
+  one of them is this window's own fee-agreement history, which wants its own panel rather than a
+  fold. The standing rule and the three remedies are in
+  [`design-corrections.md`](design-corrections.md) under 2026-09-16.
+- **The office records on change, with no second press.** There is one value in the field, so a
+  commit beside it would only be a press confirming a choice already made. What that costs is the
+  Cancel, which a combobox does not need: reopening the list and choosing the office back is the
+  same gesture as the one that changed it.

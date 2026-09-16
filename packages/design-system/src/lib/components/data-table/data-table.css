@@ -353,6 +353,13 @@
     border-radius: var(--mc-radius-lg);
     background-color: var(--mc-surface-default);
   }
+  /* A FLUSH grid draws no card: the surface around it — a toolbar above, a footer below — is the
+     frame, and a second one inside it is a box in a box. See the `frame` prop for what else flush
+     changes, the last row's hairline in particular. */
+  .mc-table-grid-scroll[data-frame="flush"] {
+    border-style: none;
+    border-radius: var(--mc-radius-none);
+  }
   .mc-table-grid-scroll:focus-visible {
     outline: var(--mc-focus-ring-width) solid var(--mc-focus-ring);
     outline-offset: var(--mc-focus-ring-offset);
@@ -382,16 +389,56 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  /*
+   * THE GRID'S FOUR SCALABLE METRICS, named so a reader's scale control has something to move.
+   *
+   * Each is declared here as the token it already was, so a table nobody scales is unchanged to the
+   * pixel and the values stay where a designer looks for them. The multiplication happens in
+   * `data-table-grid.svelte`, which writes the scaled lengths as an inline style on this same
+   * element when its `scale` is not 1 — an inline declaration outranks these, and the arithmetic
+   * belongs in the component rather than here, where a recipe is token references and structural
+   * keywords and nothing else.
+   *
+   * WHAT SCALES IS WHAT THE READER IS ASKING ABOUT: the text, the row's height, its inner padding,
+   * and the glyphs that ride inside a row. Deliberately not the hairlines (a scaled hairline is a
+   * blurred one), and not the header band or the footer strip — those are the frame around the
+   * list rather than the list, and growing them would push the rows a reader asked to see more of
+   * off the bottom of the screen. Density stays a separate axis: a compact row at 150% is a
+   * compact row, half again as tall.
+   */
+  .mc-table-grid {
+    --mc-table-grid-font-size: var(--mc-font-size-sm);
+    --mc-table-grid-row-height: var(--mc-control-sm);
+    --mc-table-grid-row-height-compact: var(--mc-control-xs);
+    --mc-table-grid-row-stack: var(--mc-space-4);
+    --mc-table-grid-glyph-size: var(--mc-space-16);
+    font-size: var(--mc-table-grid-font-size);
+  }
   /* Consistent row heights: one line per row, cells never wrap, geometry from the control scale. */
   .mc-table-grid .mc-table-cell {
-    block-size: var(--mc-control-sm);
-    padding-block: var(--mc-space-4);
+    block-size: var(--mc-table-grid-row-height);
+    padding-block: var(--mc-table-grid-row-stack);
     padding-inline: var(--mc-space-8);
     white-space: nowrap;
   }
   .mc-table-grid[data-row-density="compact"] .mc-table-cell {
-    block-size: var(--mc-control-xs);
+    block-size: var(--mc-table-grid-row-height-compact);
     padding-block: var(--mc-space-0);
+  }
+  /*
+   * A glyph that rides inside a row — the file icon, the folder mark — rather than one that belongs
+   * to the chrome. It scales with the row, which is the whole reason it is a recipe and not the
+   * `size-16` utility a glyph elsewhere wears: a list scaled to twice its size with the same small
+   * icons beside the names reads as a list that only half worked.
+   *
+   * Written through the body it lives in, and that is the specificity talking rather than the
+   * scoping: a `FileIcon` carries its own size recipe, so a bare class beside it would win or lose
+   * on the order the stylesheets happen to be imported in. Three classes settle it.
+   */
+  .mc-table-grid .mc-table-body .mc-table-grid-row-glyph {
+    flex: none;
+    inline-size: var(--mc-table-grid-glyph-size);
+    block-size: var(--mc-table-grid-glyph-size);
   }
   /* Records answer to the pointer; the placeholders in the same body do not (see the hover rule
      above) — a cursor that says "press me" over an empty table is the same false promise. */
@@ -661,18 +708,41 @@
   }
   /* The pin rides the row's first cell, the one elegant gold touch a work surface earns. */
   /*
-   * The pin and the space it would occupy are one box with one set of metrics, so a row that is not
-   * pinned is laid out exactly like a row that is. Keeping them apart is how the gutter drifts.
+   * THE MARK'S SPACE IS THE CELL'S OWN LEADING PADDING, AND THE PIN IS PAINTED INTO IT. The space is
+   * reserved on every first cell of a table that marks rows, so a row that is not pinned is laid out
+   * exactly like a row that is, and pinning lights a glyph rather than shifting the row's text.
+   *
+   * It is padding rather than an inline box ahead of the content, and that is a correctness point
+   * rather than a tidier spelling. An inline-block sibling only stays on the content's line while
+   * the content is inline too — and every surface that composes a first cell out of an icon and a
+   * name reaches for flex, which is block-level. The mark was then a line of its OWN above the
+   * content: a band of empty space over every name, a first column sitting low in a row its
+   * neighbours were still centred in, and a list a third taller than the density asked for. Padding
+   * leaves the cell exactly one in-flow child whatever the surface renders there, so the row is one
+   * line tall and the first column's text sits on the same baseline as the rest.
+   *
+   * The header reserves the same width, so a column's label stands over its own values.
    */
-  .mc-table-grid-row-pin,
-  .mc-table-grid-row-pin-slot {
-    display: inline-block;
-    vertical-align: text-bottom;
-    margin-inline-end: var(--mc-space-4);
-    inline-size: var(--mc-space-12);
-    block-size: var(--mc-space-12);
+  .mc-table-grid[data-row-marks="on"] .mc-table-body .mc-table-grid-cell:first-child,
+  .mc-table-grid[data-row-marks="on"] .mc-table-grid-head:first-child .mc-table-grid-head-inner {
+    padding-inline-start: var(--mc-space-24);
+  }
+  /* Sticky already positions a pinned cell; only an unpinned one needs to become the pin's origin. */
+  .mc-table-grid[data-row-marks="on"]
+    .mc-table-body
+    .mc-table-grid-cell:first-child:not([data-pinned]) {
+    position: relative;
   }
   .mc-table-grid-row-pin {
+    position: absolute;
+    inset-inline-start: var(--mc-space-8);
+    /* Centred in whatever height the density gives the row, without naming that height: an
+       absolutely positioned box with both block insets and a definite height centres on auto
+       margins. Nothing here has to be revised when the row grows or the scale steps. */
+    inset-block: var(--mc-space-0);
+    margin-block: auto;
+    inline-size: var(--mc-space-12);
+    block-size: var(--mc-space-12);
     color: var(--mc-accent-default);
   }
   /*

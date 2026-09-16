@@ -54,6 +54,33 @@
     placeholderCount?: number;
     /** Row density; compact trims the row height a step further. */
     density?: "comfortable" | "compact";
+    /**
+     * The reader's own scale for this list, as a plain multiplier — 1 is the design's own size, 1.5
+     * is half again, 0.5 is half. It moves the four things a reader is actually asking about when
+     * they scale a list: its text, its row height, the padding inside a row, and the glyphs that
+     * ride in a row. It deliberately moves nothing else — not the hairlines, which blur when
+     * scaled, and not the header band or the footer strip, which are the frame around the list
+     * rather than the list, so growing them would push the rows off the bottom of the screen.
+     *
+     * Density is a separate axis and multiplies in: a compact row at 1.5 is a compact row, half
+     * again as tall. Never derive one from the other — a scale offering ten steps that only flips a
+     * two-value density has nine steps that do nothing.
+     */
+    scale?: number;
+    /**
+     * How the grid meets what is around it.
+     *
+     * `card` — the default — is the hairline, rounded table-card: the grid is a contained object on
+     * the page, and its LAST ROW DROPS ITS HAIRLINE because the card's own bottom rule runs a
+     * hairline below it and two lines a pixel apart read as a thick one.
+     *
+     * `flush` is edge to edge inside a frame the SURFACE already draws — a toolbar above, a footer
+     * below. There is no card, so the table takes the frame's full height and the surface simply
+     * continues beneath the last record; and the last record KEEPS its hairline, because there is
+     * no bottom rule left for it to meet. Dropping it there left the last file in a list as the one
+     * row with nothing under it while every other row was separated from its neighbour.
+     */
+    frame?: "card" | "flush";
     /** Right-click on a row: the selection re-targets first, then this fires for the surface's
      * menu. Rows carry no menu of their own here. */
     onRowContextMenu?: (event: MouseEvent, row: TRow, selectedRows: readonly TRow[]) => void;
@@ -72,6 +99,8 @@
     loading = false,
     placeholderCount = 8,
     density = "comfortable",
+    scale = 1,
+    frame = "card",
     onRowContextMenu,
     settings,
     class: className,
@@ -157,6 +186,33 @@
    * Two copies of this condition is how the filler starts appearing under a table with no totals.
    */
   const showTotals = $derived(grid.hasTotals && grid.rowsInView.length > 0 && !loading);
+  /*
+   * Whether the table asks for the frame's full height and hands the difference to the filler row.
+   * Two reasons to, and they want the same machinery: a totals strip needs something below it to be
+   * held down against, and a FLUSH grid needs the surface to continue past the last record rather
+   * than the table ending mid-frame with bare page under it.
+   */
+  const fillsFrame = $derived(showTotals || frame === "flush");
+
+  /*
+   * The scale, written onto the table as the four lengths the recipe reads. The multiplication is
+   * HERE and not in the recipe because a recipe is token references and structural keywords —
+   * a gate says so (`components-css-token-purity`) — and `calc()` is neither. The recipe declares
+   * each metric as the token it already was; this inline declaration outranks that when, and only
+   * when, a surface has asked for a scale. At 1 there is no style at all, so a table nobody scales
+   * carries no inline declaration to reason about.
+   */
+  const scaleStyle = $derived.by((): string | undefined => {
+    if (scale === 1) return undefined;
+    const times = (token: string): string => `calc(var(${token}) * ${String(scale)})`;
+    return [
+      `--mc-table-grid-font-size: ${times("--mc-font-size-sm")}`,
+      `--mc-table-grid-row-height: ${times("--mc-control-sm")}`,
+      `--mc-table-grid-row-height-compact: ${times("--mc-control-xs")}`,
+      `--mc-table-grid-row-stack: ${times("--mc-space-4")}`,
+      `--mc-table-grid-glyph-size: ${times("--mc-space-16")}`,
+    ].join("; ");
+  });
   let pinnedOffsets = $state<Readonly<Record<string, number>>>({});
   let pinnedEndOffsets = $state<Readonly<Record<string, number>>>({});
   $effect(() => {
@@ -394,6 +450,7 @@
   <div
     bind:this={scrollElement}
     class={mergeClasses("mc-table-grid-scroll mc-scrollbar min-h-0 w-full grow", className)}
+    data-frame={frame === "flush" ? "flush" : undefined}
     tabindex="0"
     role="group"
     aria-label={caption}
@@ -411,10 +468,12 @@
       Measured both ways; only this one moves the strip.
     -->
     <table
-      class={mergeClasses("mc-table mc-table-grid w-full", showTotals ? "h-full" : undefined)}
+      class={mergeClasses("mc-table mc-table-grid w-full", fillsFrame ? "h-full" : undefined)}
       data-zebra={grid.zebra ? "on" : undefined}
       data-fixed-columns={grid.columnWidthsFixed ? "on" : undefined}
+      style={scaleStyle}
       data-row-density={density}
+      data-row-marks={grid.marksRows ? "on" : undefined}
       data-row-detail={rowDetail ? "on" : undefined}
       data-totals={showTotals ? "on" : undefined}
     >
@@ -624,15 +683,14 @@
                   data-pinned-end-edge={pinned["data-pinned-end-edge"]}
                   style={pinned.style}
                 >
-                  {#if columnIndex === 0 && grid.marksRows}
-                    {#if mark?.pinned === true}
-                      <!-- One pin glyph everywhere the pin state shows; fill is the only difference. -->
-                      <Pin class="mc-table-grid-row-pin" fill="currentColor" aria-hidden="true" />
-                    {:else}
-                      <!-- The glyph's space, kept empty, so pinning lights a pin instead of
-                           shifting the row's text. -->
-                      <span class="mc-table-grid-row-pin-slot" aria-hidden="true"></span>
-                    {/if}
+                  {#if columnIndex === 0 && mark?.pinned === true}
+                    <!-- One pin glyph everywhere the pin state shows; fill is the only difference.
+                         It is PAINTED INTO the first cell's leading padding rather than rendered
+                         ahead of the cell's content, so the cell keeps exactly one in-flow child
+                         whatever the surface composes there. The space it needs is reserved by that
+                         padding on every row of a table that marks rows, so pinning lights a pin
+                         and shifts nothing. See the recipe for what the inline box cost. -->
+                    <Pin class="mc-table-grid-row-pin" fill="currentColor" aria-hidden="true" />
                   {/if}
                   {#if cell}
                     {@render cell({ row, column, text })}
@@ -696,14 +754,15 @@
               of the body, leaving the gap above them instead of below;
             • here, as the last body row, it takes the whole surplus and the records keep the one
               line each the density gives them.
-          It renders only alongside the strip: with no totals there is nothing to hold down, and a
-          table that ends where its rows end is right.
+          It renders for a totals strip and for a FLUSH grid: the strip needs holding down, and a
+          flush grid's surface has to continue past the last record. A carded table with neither
+          ends where its rows end, which is right.
           It is scenery, so it is hidden from assistive technology, and it carries no `data-grid-row`
           — the attribute that says "this row is a record", which every count of real rows filters
           on. The body already holds other structural rows for the same reason: the pin rule and the
           row-detail second lines.
         -->
-        {#if showTotals}
+        {#if fillsFrame}
           <tr class="mc-table-grid-filler-row h-full" aria-hidden="true">
             <td class="mc-table-grid-filler-cell" colspan={grid.visibleColumns.length}></td>
           </tr>

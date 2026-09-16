@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { statusEntry } from "@magna-carta/design-system/status-register";
 import {
   browseColumns,
+  locatedColumns,
   fileExtension,
   safetyKeyOf,
   FILE_COLUMN_IDENTIFIERS,
@@ -150,9 +151,45 @@ describe("browseColumns", () => {
     }
   });
 
-  it("keeps Location off in a folder listing and Name always on", () => {
+  it("has no Location column at all in a folder listing, and Name is always on", () => {
+    // A folder listing answers "where is this" in the crumb above it and the tree beside it, so the
+    // column would restate the same value on every row. It is not hidden here, it is absent — a
+    // hidden column is one a reader can switch on, and there is no state in which it would say
+    // anything. locatedColumns is where the question is real.
     const columns = browseColumns(context);
-    expect(columns.find((each) => each.id === FILE_COLUMN_IDENTIFIERS.location)?.hidden).toBe(true);
+    expect(columns.find((each) => each.id === FILE_COLUMN_IDENTIFIERS.location)).toBeUndefined();
     expect(columns.find((each) => each.id === FILE_COLUMN_IDENTIFIERS.name)?.anchored).toBe(true);
+  });
+});
+
+describe("locatedColumns", () => {
+  const context = {
+    index: new MatterFileIndex([], []),
+    hideExtensions: false,
+    documentTypeName: (documentTypeId: string | null) =>
+      documentTypeId === null ? "" : "Pleading",
+    createdBy: () => "",
+  };
+
+  it("carries Location, visible, where rows come from different folders", () => {
+    const column = locatedColumns(context).find(
+      (each) => each.id === FILE_COLUMN_IDENTIFIERS.location,
+    );
+    expect(column).toBeDefined();
+    expect(column?.hidden).toBeUndefined();
+  });
+
+  it("seats Location after Created By and ahead of the dates", () => {
+    const identifiers = locatedColumns(context).map((column) => column.id);
+    expect(identifiers.indexOf(FILE_COLUMN_IDENTIFIERS.location)).toBeGreaterThan(
+      identifiers.indexOf(FILE_COLUMN_IDENTIFIERS.createdBy),
+    );
+    expect(identifiers.indexOf(FILE_COLUMN_IDENTIFIERS.location)).toBeLessThan(
+      identifiers.indexOf(FILE_COLUMN_IDENTIFIERS.created),
+    );
+  });
+
+  it("adds nothing else to the browse set", () => {
+    expect(locatedColumns(context).length).toBe(browseColumns(context).length + 1);
   });
 });

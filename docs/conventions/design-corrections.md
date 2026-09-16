@@ -2648,3 +2648,66 @@ a common component."
   failure the gesture should never have allowed.
 - **The mark is an edge, not a fill.** It has to read over a row that is already selected, striped,
   pinned or cut, and a wash across data either loses that argument or wins it by covering the data.
+
+### 2026-09-16 — a press inside a modal does not grow the modal
+
+The owner, on the matter's status window: "For physical file, and for many other items in the app, I
+do not want reflow when clicking buttons inside of modals. For example, the set location button. We
+should make it that either a new modal is activated, the area is already designed for the additional
+info, or we use dropdowns (the kind you can click down or type in). Can we lint/design around that
+system."
+
+- **A modal is a fixed frame, and a press inside it must not move that frame.** A window centres
+  itself, is as tall as its content, and puts its commit at the bottom. A control that reveals a
+  form on press moves all three at the moment somebody acts: the commit walks down the screen, the
+  frame re-centres, and what was under the pointer is no longer under the pointer. On a window
+  already near the height of the screen the commit leaves the viewport entirely. _(gated:
+  `pnpm run lint:modal-reflow`, which refuses a hand-written `aria-expanded` inside a modal shell or
+  inside a snippet that shell is handed. Five folds predate the ruling and are listed in the gate
+  with what each would take to clear.)_
+- **The three remedies, in the order to reach for them.** A **second panel** over the first, which
+  is what Amend and Change Status already do from the status window. An **area that was already
+  there** — the field standing in its row at rest, carrying the value the record holds, with its
+  commit beside it. A **combobox**, for a closed choice: it opens in a floating layer over the
+  surface and displaces nothing, and the product's own rule is already that a closed choice takes
+  typing. Anything else is the defect.
+- **A field at rest needs no separate commit for a single value.** The paper file's office is one
+  office; a press to confirm a choice already made is a second press for nothing. What it does need
+  is somewhere fixed for the refusal to appear, and a way through to whatever the value names —
+  both of which are lines the row keeps whether or not they are carrying anything.
+- **This is the same rule the Upload dialog settled as A34**, generalized. That dialog is sized for
+  its settings open so that opening them moves nothing; the rule it was standing on was never about
+  uploads.
+
+### 2026-09-16 — a reader's scale control scales the thing, not the chrome around it
+
+The owner, on the file manager: the zoom did not appear to work between the icon view and the list
+view.
+
+- **A control that scales a surface scales what the reader is looking at, and nothing else.** The
+  text, the row height and the glyphs that ride inside a row take the multiplier. The hairlines do
+  not — a scaled hairline is a blurred one. The header band and the footer strip do not: they are
+  the frame around the list rather than the list, and growing them pushes the rows the reader asked
+  to see more of off the bottom of the screen.
+- **Scale and density are two axes, and one must not be derived from the other.** The file manager
+  derived a two-value density from a ten-step scale at a single threshold, so nine of the ten steps
+  changed nothing anybody could see, and the tenth moved the list in a jump. A control offering ten
+  steps has to answer to all ten.
+- **It is one multiplier on an ancestor, defaulting to 1** (`--mc-table-grid-scale`), so a surface
+  that scales nothing is unchanged to the pixel and a surface that scales publishes one number
+  rather than threading a size through every component in the region.
+
+### 2026-09-16 — a column that can only be right in one view belongs to that view
+
+The owner, on the file manager: "I don't see the benefit of the 'Location' column."
+
+- **A column shipped hidden is a column asking to be deleted.** Location was `hidden: true` in the
+  browse set because in a folder listing it prints the folder the reader is already standing in,
+  once per row — and the path above the list and the tree beside it have both already said it. The
+  hidden flag was the admission. It is defined only where rows genuinely come from different
+  folders now, which is search results and analysis.
+- **Hidden is for a column a reader might reasonably want; absent is for one that could never say
+  anything.** The difference matters because hidden columns are offered in the header menu, so a
+  reader can switch a table into a state where a whole column reads the same value top to bottom.
+- **One table, one typeface.** A column set in a different face than the columns beside it reads as
+  a different kind of data. File Type holds an extension, which is a word.

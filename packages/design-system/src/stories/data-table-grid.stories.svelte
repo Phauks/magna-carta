@@ -41,6 +41,10 @@
   const PINNED_ROW_KEYS = ["t12", "t05"];
   const CLIPBOARD_MARKS: Record<string, "cut" | "copy" | undefined> = { t04: "cut", t07: "copy" };
 
+  // The same columns with their sums taken off, so the table renders no totals strip — the one
+  // state in which the last record is the body's last child and the card's last-row rule reaches it.
+  const UNTOTALLED_COLUMNS = TIME_COLUMNS.map(({ total, totalText, ...column }) => column);
+
   // The Time Sheet's shape: the Status column stuck to the trailing edge while the rest scrolls.
   const TRAILING_PINNED_COLUMNS = TIME_COLUMNS.map((column) =>
     column.id === "status" ? Object.assign({}, column, { pinnedEnd: true }) : column,
@@ -711,13 +715,15 @@
 </Story>
 
 <!--
-  A FLUSH SURFACE GETS A FLUSH TABLE. The money ledgers and the file manager's archive listing
-  render the grid with no card around it — `rounded-none border-0` — because the table meets the
-  toolbar above it directly. The hairline and the radius belong to the scroll frame, and the frame
-  is now one of two boxes (a positioned shell holds the gilt edge rule beside it), so a class that
-  reached the only box there used to be has to keep reaching the one that wears the card. Sent to
-  the shell alone it would be inert, and five money sections plus the archive would quietly grow
-  their frames back. Measured on the computed style, since both spellings look identical in markup.
+  A FLUSH SURFACE GETS A FLUSH TABLE, and it asks for one with `frame="flush"`. The money ledgers
+  and the file manager's lists render the grid with no card around it, because the table meets the
+  toolbar above it directly. It used to be spelled `rounded-none border-0` on the frame class,
+  which gave those surfaces the PAINT and nothing else — and giving up the card changes more than
+  the paint: the table has to fill the frame instead of ending where its rows end, and the last
+  record has to KEEP the hairline a card's last row drops (the card's own bottom rule is what a
+  carded table's last row is meeting, and a flush one has no such rule). The file list's last file
+  was the one row in it with nothing underneath. Measured on the computed style, since a flush
+  frame and a carded one look identical in markup.
 -->
 <Story
   name="Flush, with no card around it"
@@ -738,7 +744,41 @@
   }}
 >
   {#snippet template()}
-    <LitigationGrid frameClass="max-h-96 rounded-none border-0" />
+    <LitigationGrid frame="flush" frameClass="max-h-96" />
+  {/snippet}
+</Story>
+
+<!--
+  AND THE LAST RECORD OF A FLUSH TABLE KEEPS ITS HAIRLINE. This needs a table with NO TOTALS to
+  say anything, which is why it is its own story: a totals strip already puts a filler row under
+  the last record, so the record is not the body's last child and the card rule never reaches it.
+  Without one, `:last-child` IS the last record — and dropping its hairline there left the last
+  file in the matter's file list as the only row in the list with nothing between it and the space
+  below. The card keeps that rule, because a card's own bottom rule runs a hairline under it.
+-->
+<Story
+  name="Flush and short: the last record keeps its line"
+  args={{}}
+  play={async ({ canvas, step }) => {
+    const lastRecordCell = (): Element => {
+      const last = bodyRows(canvas.getByRole("table")).at(-1);
+      if (last === undefined) throw new Error("the story rendered no records");
+      const cell = last.querySelector(".mc-table-grid-cell");
+      if (cell === null) throw new Error("the last record rendered no cells");
+      return cell;
+    };
+
+    await step("There is no totals strip to hold the last row off the edge", async () => {
+      await expect(canvas.getByRole("table").querySelector("tfoot")).toBeNull();
+    });
+
+    await step("The last record is separated from what is under it, like every other", async () => {
+      await expect(globalThis.getComputedStyle(lastRecordCell()).borderBottomWidth).not.toBe("0px");
+    });
+  }}
+>
+  {#snippet template()}
+    <LitigationGrid frame="flush" frameClass="max-h-96" columns={UNTOTALLED_COLUMNS} />
   {/snippet}
 </Story>
 
