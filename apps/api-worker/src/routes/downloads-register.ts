@@ -38,8 +38,11 @@ const DownloadItemView = z
   .object({
     id: z.string(),
     title: z.string(),
-    kind: z.enum(["artifact", "snapshot"]),
-    producer: z.enum(["export", "bundle", "conversion"]),
+    kind: z.enum(["artifact", "snapshot", "reference", "record"]),
+    producer: z.enum(["export", "bundle", "conversion", "file"]),
+    // The matter file a reference points at, so the screen can offer the way back to it. Null on
+    // every other kind.
+    subjectFileId: z.string().nullable(),
     byteSize: z.number().nullable(),
     // What it was made for, distinct from what has been taken.
     requestedFormat: z.string().nullable(),
@@ -47,7 +50,9 @@ const DownloadItemView = z
     // real state the shelf shows rather than hides.
     downloadedFormats: z.array(z.string()),
     createdAt: z.string(),
-    expiresAt: z.string(),
+    // When the BYTES let go, not the row — the register keeps what a member downloaded. Null on a
+    // reference, which holds no bytes of the register's to release.
+    expiresAt: z.string().nullable(),
     state: z.enum(["building", "ready", "failed", "expired"]),
   })
   .openapi("DownloadItem");
@@ -56,14 +61,22 @@ const DownloadShelfResponse = z
   .object({ items: z.array(DownloadItemView) })
   .openapi("DownloadShelfResponse");
 
-// One fetch answers for both kinds, because the member performed one act. An artifact hands back a
+// One fetch answers for every kind, because the member performed one act. An artifact hands back a
 // freshly minted presigned URL — the register never proxies bytes, so the browser's own download
 // manager keeps pause, resume and speed. A snapshot hands back the stored DOCUMENT, which the client
 // renders in whichever format it asked for (text, CSV and Excel in the browser; Word and PDF through
 // the report-export printer), so the register grows no renderer of its own.
+//
+// A REFERENCE HANDS BACK THIS PLATFORM'S OWN ADDRESS FOR THE FILE, and that is the security design
+// rather than a convenience. The file lives on a matter and is reached through the files route,
+// which runs the whole chokepoint — tenancy, authentication, the matter capability — on every
+// request. Presigning it here instead would mint a standing grant from a register row, so a member
+// screened off a matter afterwards would keep a working handle to its files. Handing back the route
+// means the answer to "may they still have this" is re-asked by the one thing that knows, at the
+// moment they ask for it.
 const DownloadFetchResponse = z
   .object({
-    kind: z.enum(["artifact", "snapshot"]),
+    kind: z.enum(["artifact", "snapshot", "reference", "record"]),
     url: z.string().optional(),
     document: z.unknown().optional(),
   })
@@ -342,6 +355,7 @@ export function registerDownloadRegisterRoutes(
             title: row.title,
             kind: row.kind,
             producer: row.producer,
+            subjectFileId: row.subjectFileId,
             byteSize: row.byteSize,
             requestedFormat: row.requestedFormat,
             downloadedFormats: [...row.downloadedFormats],
@@ -411,6 +425,40 @@ export function registerDownloadRegisterRoutes(
           { now: () => now.toISOString() },
         );
       };
+
+      if (row.kind === "reference") {
+        // The file's own address on this platform, never a presigned URL. The files route re-runs
+        // the matter capability check, so access is decided now rather than at the instant the row
+        // was written. A row with no file id cannot exist — the schema's CHECK ties the two — but
+        // the read is typed as nullable, and refusing is the honest answer to a row that broke it.
+        if (row.subjectFileId === null) {
+          return problemJson(c, {
+            type: "not-found",
+            title: "Download unavailable",
+            status: 410,
+            detail: "That download no longer names a file.",
+          });
+        }
+        await recordTaken();
+        return c.json(
+          {
+            kind: "reference" as const,
+            url: `/api/v1/files/${encodeURIComponent(row.subjectFileId)}/download`,
+          },
+          200,
+        );
+      }
+
+      // Past the reference branch every remaining kind holds bytes of its own, so a missing key is a
+      // row whose object has already been released rather than a shape this code should carry.
+      if (row.objectKey === null) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Download expired",
+          status: 410,
+          detail: "That download has passed its retention window and is no longer stored.",
+        });
+      }
 
       if (row.kind === "snapshot") {
         const document = await readSnapshotDocument(bucket, row.objectKey);

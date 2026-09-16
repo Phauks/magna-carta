@@ -56,6 +56,22 @@ export const REVIEWED_REBUILDS: ReadonlySet<string> = new Set<string>([
   // this migration could have done silently. The reasoning is written out in the migration's own
   // `-- contract:` header, and the durable-object case is proved rather than assumed in
   // apps/api-worker/test/leaf-rebuild-in-durable-object.test.ts.
+  // `download_item` admits every download rather than only what the platform MADE: `producer` gains
+  // `file`, `kind` gains `reference`, and `object_key`/`expires_at` become nullable so a row that
+  // holds no bytes of the register's can say so. Audited: the copy is column-for-column over the
+  // whole table — all twelve existing columns, in the order the replacement declares them, with no
+  // WHERE and no expression between source and target — so every shelf item carries across
+  // unchanged, and `subject_file_id` is the one new column, taking NULL. No CHECK can reject a
+  // copied row: the two vocabularies only ADD values, the nonempty CHECK was widened to admit the
+  // null it now permits, and the two new shape CHECKs hold for every pre-existing row (none is a
+  // reference, and every one carries a key). It is listed beside the claim table's widening rather
+  // than among the grandfathered parent rebuilds because `download_item` IS A LEAF: nothing in the
+  // schema references it — it points OUT, at the member who owns it — so the drop fires no
+  // violation, which is the condition parentRebuildViolations tests for. This table carries no
+  // triggers, so the trap that made the claim rebuild worth hand-writing does not apply; both
+  // indexes are recreated after the rename. The reasoning is written out in the migration's own
+  // `-- contract:` header.
+  "20260916T120000_download-register-admits-every-download",
   "20260908T040000_invoice-wip-claim-admits-a-fee",
   // `user`.`firm_id` widened to nullable, so an account can exist before it belongs to a firm.
   // Audited: the copy is column-for-column over the whole table, the foreign key and the unique

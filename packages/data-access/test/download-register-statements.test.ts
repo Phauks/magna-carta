@@ -36,6 +36,7 @@ function item(overrides: Partial<DownloadItemInsert> = {}): DownloadItemInsert {
     kind: "snapshot",
     producer: "export",
     objectKey: "downloads/snapshot-one.json",
+    subjectFileId: null,
     byteSize: null,
     requestedFormat: "xlsx",
     createdAt: "2026-08-31T12:00:00.000Z",

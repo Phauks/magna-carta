@@ -11,8 +11,8 @@ import type { SqlDatabase, SqlStatement } from "./idempotency-statements.ts";
 // different key, and it would get its own statement saying so.
 export const DOWNLOAD_ITEM_TABLE = "download_item";
 
-export type DownloadItemKind = "artifact" | "snapshot";
-export type DownloadItemProducer = "export" | "bundle" | "conversion";
+export type DownloadItemKind = "artifact" | "snapshot" | "reference" | "record";
+export type DownloadItemProducer = "export" | "bundle" | "conversion" | "file";
 export type DownloadItemState = "building" | "ready" | "failed" | "expired";
 
 export interface DownloadItemRow {
@@ -21,13 +21,17 @@ export interface DownloadItemRow {
   readonly title: string;
   readonly kind: DownloadItemKind;
   readonly producer: DownloadItemProducer;
-  readonly objectKey: string;
+  /** The bytes' key; null on a reference, which holds none of the register's own. */
+  readonly objectKey: string | null;
+  /** The matter file a reference points at; null on every other kind. */
+  readonly subjectFileId: string | null;
   readonly byteSize: number | null;
   /** The format the item was MADE for; null on rows written before the column existed. */
   readonly requestedFormat: string | null;
   readonly downloadedFormats: readonly string[];
   readonly createdAt: string;
-  readonly expiresAt: string;
+  /** When the BYTES let go — not the row, which is kept. Null on a reference. */
+  readonly expiresAt: string | null;
   readonly state: DownloadItemState;
 }
 
@@ -37,11 +41,12 @@ export interface DownloadItemInsert {
   readonly title: string;
   readonly kind: DownloadItemKind;
   readonly producer: DownloadItemProducer;
-  readonly objectKey: string;
+  readonly objectKey: string | null;
+  readonly subjectFileId: string | null;
   readonly byteSize: number | null;
   readonly requestedFormat: string | null;
   readonly createdAt: string;
-  readonly expiresAt: string;
+  readonly expiresAt: string | null;
   readonly state: DownloadItemState;
 }
 
@@ -66,19 +71,20 @@ function toRow(record: Record<string, unknown>): DownloadItemRow {
     title: String(record["title"]),
     kind: record["kind"] as DownloadItemKind,
     producer: record["producer"] as DownloadItemProducer,
-    objectKey: String(record["object_key"]),
+    objectKey: typeof record["object_key"] === "string" ? record["object_key"] : null,
+    subjectFileId: typeof record["subject_file_id"] === "string" ? record["subject_file_id"] : null,
     byteSize: record["byte_size"] === null ? null : Number(record["byte_size"]),
     requestedFormat:
       typeof record["requested_format"] === "string" ? record["requested_format"] : null,
     downloadedFormats: parseFormats(record["downloaded_formats_json"]),
     createdAt: String(record["created_at"]),
-    expiresAt: String(record["expires_at"]),
+    expiresAt: typeof record["expires_at"] === "string" ? record["expires_at"] : null,
     state: record["state"] as DownloadItemState,
   };
 }
 
 const COLUMNS =
-  "id, member_id, title, kind, producer, object_key, byte_size, requested_format, downloaded_formats_json, created_at, expires_at, state";
+  "id, member_id, title, kind, producer, object_key, subject_file_id, byte_size, requested_format, downloaded_formats_json, created_at, expires_at, state";
 
 export function insertDownloadItemStatement(
   database: SqlDatabase,
@@ -86,7 +92,7 @@ export function insertDownloadItemStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${DOWNLOAD_ITEM_TABLE} (id, member_id, title, kind, producer, object_key, byte_size, requested_format, downloaded_formats_json, created_at, expires_at, state) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, '[]', ?9, ?10, ?11)`,
+      `INSERT INTO ${DOWNLOAD_ITEM_TABLE} (id, member_id, title, kind, producer, object_key, subject_file_id, byte_size, requested_format, downloaded_formats_json, created_at, expires_at, state) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, '[]', ?10, ?11, ?12)`,
     )
     .bind(
       row.id,
@@ -95,6 +101,7 @@ export function insertDownloadItemStatement(
       row.kind,
       row.producer,
       row.objectKey,
+      row.subjectFileId,
       row.byteSize,
       row.requestedFormat,
       row.createdAt,
@@ -103,21 +110,48 @@ export function insertDownloadItemStatement(
     );
 }
 
+/** Where a page left off: the (created_at, id) pair of the last row it returned. */
+export interface DownloadShelfCursor {
+  readonly createdAt: string;
+  readonly id: DownloadItemId;
+}
+
 /**
- * One member's shelf, newest first. Bounded by the caller's limit — the shelf is short-lived by
- * construction, so this is a whole read rather than a cursor page, and the limit exists to keep a
- * pathological producer from returning an unbounded list rather than to paginate.
+ * One member's register, newest first, one page at a time.
+ *
+ * IT USED TO BE A WHOLE READ, and the comment here said why: the shelf was short-lived by
+ * construction, so a limit was a guard against a pathological producer rather than a page. Two
+ * changes took that premise away — every download registers now, not only what the platform made,
+ * and the row outlives the bytes rather than being swept with them — so a member's register grows
+ * without bound and paging is the only honest read.
+ *
+ * The walk is the (created_at, id) pair the index leads on, which is what makes the order TOTAL: two
+ * rows written in the same millisecond still have a definite order, so a page boundary landing
+ * between them can neither repeat one nor drop it. Comparing the pair as a tuple is the whole
+ * mechanism — `created_at < ?` alone would skip every sibling of the last row on the page.
  */
 export async function readDownloadShelf(
   database: SqlDatabase,
   memberId: string,
   limit: number,
+  after?: DownloadShelfCursor,
 ): Promise<DownloadItemRow[]> {
+  if (after === undefined) {
+    const { results } = await database
+      .prepare(
+        `SELECT ${COLUMNS} FROM ${DOWNLOAD_ITEM_TABLE} WHERE member_id = ?1 ORDER BY created_at DESC, id DESC LIMIT ?2`,
+      )
+      .bind(memberId, limit)
+      .all();
+    return results.map(toRow);
+  }
   const { results } = await database
     .prepare(
-      `SELECT ${COLUMNS} FROM ${DOWNLOAD_ITEM_TABLE} WHERE member_id = ?1 ORDER BY created_at DESC, id DESC LIMIT ?2`,
+      `SELECT ${COLUMNS} FROM ${DOWNLOAD_ITEM_TABLE}
+         WHERE member_id = ?1 AND (created_at, id) < (?2, ?3)
+         ORDER BY created_at DESC, id DESC LIMIT ?4`,
     )
-    .bind(memberId, limit)
+    .bind(memberId, after.createdAt, after.id, limit)
     .all();
   return results.map(toRow);
 }
@@ -189,9 +223,16 @@ export function deleteDownloadItemStatement(
 }
 
 /**
- * The retention sweep's read: rows whose window has closed, across the firm rather than one member.
- * Bounded, because a sweep that tried to answer for an unbounded backlog in one pass is a sweep that
- * times out and never makes progress; the next pass takes the next batch.
+ * The retention sweep's read: rows whose BYTES are due to be released, across the firm rather than
+ * one member. Bounded, because a sweep that tried to answer for an unbounded backlog in one pass is
+ * a sweep that times out and never makes progress; the next pass takes the next batch.
+ *
+ * ALREADY-EXPIRED ROWS ARE EXCLUDED, and that predicate is what makes the sweep terminate now that
+ * it marks rather than deletes. Without it every swept row would be re-selected by every later pass
+ * for ever, and the batch ceiling would mean the oldest rows were the only ones ever looked at.
+ *
+ * A REFERENCE IS NEVER SELECTED, without a predicate naming it: its expiry is null, and null never
+ * satisfies the range. That is the point of storing it as null rather than as a far-future instant.
  */
 export async function readExpiredDownloadItems(
   database: SqlDatabase,
@@ -200,16 +241,33 @@ export async function readExpiredDownloadItems(
 ): Promise<DownloadItemRow[]> {
   const { results } = await database
     .prepare(
-      `SELECT ${COLUMNS} FROM ${DOWNLOAD_ITEM_TABLE} WHERE expires_at <= ?1 ORDER BY expires_at ASC LIMIT ?2`,
+      `SELECT ${COLUMNS} FROM ${DOWNLOAD_ITEM_TABLE}
+         WHERE expires_at <= ?1 AND state <> 'expired'
+         ORDER BY expires_at ASC LIMIT ?2`,
     )
     .bind(now, limit)
     .all();
   return results.map(toRow);
 }
 
-export function deleteDownloadItemByIdStatement(
+/**
+ * Release a row's bytes without releasing the row.
+ *
+ * The register keeps what a member downloaded; the seven-day window is about the COPY it was holding
+ * for them. So the sweep marks instead of deleting.
+ *
+ * THE OBJECT KEY IS DELIBERATELY LEFT IN PLACE. Clearing it reads like tidiness and is not: the
+ * schema states that a key is present exactly when the row is not a reference, which is the
+ * constraint that stops a matter file ever reaching the presigning branch, and nulling the key on
+ * expiry would make that biconditional unwritable. The stale key is not a capability either — every
+ * fetch checks `state` before it reaches the key, so an expired row is refused before anything is
+ * signed, and keeping the key leaves a support question ("which object was that") answerable.
+ */
+export function expireDownloadItemStatement(
   database: SqlDatabase,
   id: DownloadItemId,
 ): SqlStatement {
-  return database.prepare(`DELETE FROM ${DOWNLOAD_ITEM_TABLE} WHERE id = ?1`).bind(id);
+  return database
+    .prepare(`UPDATE ${DOWNLOAD_ITEM_TABLE} SET state = 'expired' WHERE id = ?1`)
+    .bind(id);
 }

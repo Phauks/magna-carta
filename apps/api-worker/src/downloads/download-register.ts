@@ -82,6 +82,7 @@ export async function recordExportSnapshot(input: RecordSnapshotInput): Promise<
       kind: "snapshot",
       producer: "export",
       objectKey,
+      subjectFileId: null,
       // A snapshot's size is a property of a rendering nobody has asked for yet, not of the row.
       byteSize: null,
       requestedFormat: input.requestedFormat,
@@ -107,6 +108,52 @@ export async function readSnapshotDocument(
     // than a caller's mistake — and the honest answer for the member is the same as a reaped object.
     return undefined;
   }
+}
+
+export interface ReferenceShelfRow {
+  readonly memberId: string;
+  /** What the reader sees — the file's own name, which is what they went looking for. */
+  readonly title: string;
+  /** The matter file that was handed over. */
+  readonly fileId: string;
+  readonly byteSize: number | null;
+  readonly now: Date;
+}
+
+/*
+ * The producers' write for a REFERENCE: a file that lives on a matter and was never the register's
+ * to hold.
+ *
+ * It carries NO object key and NO expiry, and both absences are the design. No key, because a
+ * reference must be structurally incapable of reaching the presigning branch that an artifact takes
+ * — the file is reached through the files route instead, which re-runs the matter capability check
+ * on every request, so a member screened off a matter afterwards stops being able to take it. No
+ * expiry, because there are no bytes of the register's to release: the file's availability is the
+ * matter's business, and a row that claimed to expire would be making a promise about somebody
+ * else's object. The schema states both as CHECKs rather than trusting this function.
+ *
+ * Returned as a statement, like the artifact's, so a producer lands the row in the batch that
+ * records the act rather than in a second write that can fail on its own.
+ */
+export function referenceShelfStatement(
+  database: ProxyBatchDatabase,
+  row: ReferenceShelfRow,
+): SqlStatement {
+  return insertDownloadItemStatement(database, {
+    id: newIdentifier("downloadItem") as DownloadItemId,
+    memberId: row.memberId,
+    title: row.title,
+    kind: "reference",
+    producer: "file",
+    objectKey: null,
+    subjectFileId: row.fileId,
+    byteSize: row.byteSize,
+    // A file is the shape it is on the matter; nobody chose a format for it.
+    requestedFormat: null,
+    createdAt: row.now.toISOString(),
+    expiresAt: null,
+    state: "ready",
+  });
 }
 
 export interface ArtifactShelfRow {
@@ -138,6 +185,8 @@ export function artifactShelfStatement(
     kind: "artifact",
     producer: row.producer,
     objectKey: row.objectKey,
+    // An artifact holds its own bytes; only a reference names a file on a matter.
+    subjectFileId: null,
     byteSize: row.byteSize,
     // An artifact is bytes in one shape already; nobody chose a format for it.
     requestedFormat: null,
