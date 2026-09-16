@@ -32,3 +32,38 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 # Builds the archive fixtures the expansion routes are exercised against. Same pure-Rust backend the
 # engine reads with, so the fixture and the reader agree about what a deflated entry is.
 zip = { version = "8.6", default-features = false, features = ["deflate-flate2"] }
+
+# The lint floor. Same rules as crates/Cargo.toml, stated here because every container is its own Cargo
+# workspace and a workspace lint table reaches nothing outside its own tree. This workspace holds one
+# package, so the tables sit on the package directly and there is no `workspace = true` opt-in to forget.
+# Levels were measured against this workspace with `cargo clippy --all-targets` before being set; what is
+# absent is absent on evidence and says so. The print/exit restrictions that crates/Cargo.toml denies are
+# deliberately not here: a container's binary IS the process, so writing a startup diagnostic to stderr
+# and exiting non-zero on a fatal boot failure is the correct behaviour rather than a smell.
+[lints.rust]
+unsafe_code = "forbid"
+non_ascii_idents = "forbid"
+ffi_unwind_calls = "deny"
+missing_abi = "deny"
+macro_use_extern_crate = "deny"
+unused_extern_crates = "deny"
+meta_variable_misuse = "deny"
+explicit_outlives_requirements = "deny"
+redundant_lifetimes = "deny"
+unused_lifetimes = "deny"
+unused_import_braces = "deny"
+unused_macro_rules = "deny"
+unit_bindings = "deny"
+keyword_idents_2018 = "deny"
+keyword_idents_2024 = "deny"
+non_local_definitions = "deny"
+trivial_numeric_casts = "deny"
+
+[lints.clippy]
+unwrap_used = "deny"
+panic = "deny"
+panic_in_result_fn = "deny"
+todo = "deny"
+unimplemented = "deny"
+mem_forget = "deny"
+dbg_macro = "deny"

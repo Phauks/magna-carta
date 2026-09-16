@@ -38,6 +38,8 @@ export interface FirmEventRow {
   readonly location_text: string | null;
   // Where an online firm meeting is JOINED, which is a different fact from where it is held.
   readonly conference_url: string | null;
+  /** The RFC 5545 rule a repeating event runs on, null on a one-off. One row carries the series. */
+  readonly recurrence_rule: string | null;
   readonly recorded_at: string;
   readonly recorded_by: UserId | null;
   readonly created_at: string;
@@ -56,7 +58,7 @@ export interface FirmEventParticipantRow {
 
 const FIRM_EVENT_COLUMNS =
   "id, event_type_id, title, description, status, status_reason, starts_on, starts_at_time, ends_on, " +
-  "ends_at_time, time_zone, audience, location_id, location_text, conference_url, recorded_at, recorded_by, created_at, updated_at";
+  "ends_at_time, time_zone, audience, location_id, location_text, conference_url, recurrence_rule, recorded_at, recorded_by, created_at, updated_at";
 
 export interface InsertFirmEventInput {
   readonly id: FirmEventId;
@@ -73,6 +75,8 @@ export interface InsertFirmEventInput {
   readonly locationId: LocationId | null;
   readonly locationText: string | null;
   readonly conferenceUrl: string | null;
+  /** The RFC 5545 rule, or null for an event that happens once. */
+  readonly recurrenceRule: string | null;
   readonly recordedAt: string;
   readonly recordedBy: UserId | null;
   readonly now: string;
@@ -84,7 +88,7 @@ export function insertFirmEventStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${FIRM_EVENT_TABLE} (${FIRM_EVENT_COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?18)`,
+      `INSERT INTO ${FIRM_EVENT_TABLE} (${FIRM_EVENT_COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?19)`,
     )
     .bind(
       input.id,
@@ -103,6 +107,7 @@ export function insertFirmEventStatement(
       input.locationId,
       input.locationText,
       input.conferenceUrl,
+      input.recurrenceRule,
       input.recordedAt,
       input.recordedBy,
       input.now,
@@ -126,6 +131,8 @@ export function updateFirmEventStatement(
     readonly locationId: LocationId | null;
     readonly locationText: string | null;
     readonly conferenceUrl: string | null;
+    /** The repeat rule, which a correction may change or clear. */
+    readonly recurrenceRule: string | null;
   },
   updatedAt: string,
 ): SqlStatement {
@@ -136,7 +143,7 @@ export function updateFirmEventStatement(
       `UPDATE ${FIRM_EVENT_TABLE} SET event_type_id = ?2, title = ?3, description = ?4, status = ?5, ` +
         `starts_on = ?6, starts_at_time = ?7, ends_on = ?8, ends_at_time = ?9, time_zone = ?10, ` +
         `audience = ?11, location_id = ?12, location_text = ?13, conference_url = ?14, ` +
-        `updated_at = ?15 WHERE id = ?1`,
+        `recurrence_rule = ?15, updated_at = ?16 WHERE id = ?1`,
     )
     .bind(
       id,
@@ -153,6 +160,7 @@ export function updateFirmEventStatement(
       patch.locationId,
       patch.locationText,
       patch.conferenceUrl,
+      patch.recurrenceRule,
       updatedAt,
     );
 }
@@ -201,7 +209,10 @@ export function selectFirmEventsStatement(
     readonly limit: number;
   },
 ): SqlStatement {
-  const conditions = ["starts_on >= ?", "starts_on <= ?"];
+  // A firm event can SPAN days — a week of office closure, a two-day training — so the window holds
+  // it while it is still running rather than only on the day it began. `COALESCE` makes a one-day
+  // event behave exactly as it always did: its end IS its start.
+  const conditions = ["COALESCE(ends_on, starts_on) >= ?", "starts_on <= ?"];
   const bindings: unknown[] = [options.fromDate, options.toDate];
   if (options.status !== undefined) {
     conditions.push("status = ?");

@@ -13,6 +13,19 @@ onlyBuiltDependencies:
   - esbuild
   - sharp
 
+# A version published minutes ago is the shape a compromised release arrives in: the attacker
+# publishes, the automated upgrade opens its pull request, and the package is in the tree before the
+# registry has heard the report. The cooldown holds every resolution back until a version has been
+# public for three days, which is where this class of compromise has been caught every time so far —
+# by other people, in public, at no cost to us. It binds the weekly Renovate upgrades in particular,
+# which is the one path here that adds versions nobody chose by hand.
+#
+# It applies at RESOLUTION, so it changes nothing already in the lockfile, and it is a floor rather
+# than a wall: a security fix that has to land the day it ships is `pnpm add <package>@<version>
+# --config.minimumReleaseAge=0`, a deliberate act with a reason, which is the posture this file takes
+# everywhere else.
+minimumReleaseAge: 4320
+
 # Single source of truth for dependency versions (pnpm catalog).
 # Bump a version here once; every package.json that references `catalog:` follows.
 # Keep exact pins (no ^/~) — upgrades are deliberate, one line at a time.

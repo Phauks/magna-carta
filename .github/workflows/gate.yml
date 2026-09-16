@@ -334,6 +334,8 @@ jobs:
   governance:
     # 40 s measured, and none of it is CPU-bound: the five node lints plus the migration-integrity test
     # ran in 10 s pinned to a single core, and the osv-scanner pass is a download and a network scan.
+    # The repo-wide fitness sweep added ~4 s of that (26 read-only scans in one un-isolated Vitest
+    # process); it is the one step here that needs node_modules, which the shared setup already installs.
     runs-on: ubuntu-slim
     timeout-minutes: 20
     steps:
@@ -453,6 +455,23 @@ jobs:
       # own job above (26 s of list-only Vitest collections), and running it twice buys nothing.
       - name: Governance (every lint:* script, derived)
         run: node tooling/check-scoped/run-repo-wide-lints.mjs --all --except lint:test-collection
+
+      # The OTHER half of the repo-wide set. tooling/check-scoped/repo-wide.mjs defines that set as two
+      # halves — the `lint:*` scripts above, and the Vitest checks that self-register with an
+      # `@repo-wide-fitness` directive — and for a year CI ran only the first half. The second half is
+      # where the encryption chokepoint (no-plaintext-escape), the telemetry console ban, the off-token
+      # and bits-ui boundary scans and the schema conformance checks live, and every one of them is a
+      # whole-repo scan a diff in any package can break. They do each run under their own package's
+      # project in `pnpm test` — but the test battery is asked for, not automatic (the `run-tests`
+      # label; always on a queued merge), so on an unlabelled pull request nothing looked at them and
+      # the first report came from the merge queue, which is the most expensive place to learn it.
+      # Both scopes, unconditionally: `source` is broken by any source change and `schema` by any
+      # packages/database change, and deciding which applies is the inner loop's job, not a gate's —
+      # the whole sweep is ~4 s, an order of magnitude under what a condition would save.
+      - name: Repo-wide fitness sweep (self-registered @repo-wide-fitness checks)
+        env:
+          MAGNA_CARTA_FITNESS_SCOPES: source,schema
+        run: pnpm exec vp test run -c tooling/check-scoped/vitest.repo-wide-fitness.config.ts
       - name: Migration integrity (journal/chain/rebuild guards)
         # A plain node script rather than a single-file test run: these are structural assertions over
         # the committed journal/.sql/snapshot set plus one in-memory node:sqlite apply, so standing up
@@ -925,7 +944,12 @@ jobs:
   # with a cached cargo/target — independent of the Docker WASM build — and only when a crate changed.
   rust:
     needs: [classify, format]
-    if: needs.classify.outputs.rust == 'true'
+    # Two triggers, because two checks with different scopes live here. `rust` is the crates workspace
+    # (the classifier flips it on `crates/` or the toolchain pin); `containers` is the nine container
+    # workspaces, which are their own Cargo workspaces and never reach `vp run rust-check`. The license
+    # gate below covers all ten, so a containers-only change has to start this job too — each step then
+    # states its own scope.
+    if: needs.classify.outputs.rust == 'true' || needs.classify.outputs.containers == 'true'
     # Stays: cargo scales with cores, and a cold clippy build of the crates workspace runs well past
     # the 1-vCPU runner's 15-minute cap.
     runs-on: ubuntu-latest
@@ -936,7 +960,18 @@ jobs:
         with:
           rust: "true"
       - name: Rust gate (fmt + clippy + test)
+        if: needs.classify.outputs.rust == 'true'
         run: pnpm exec vp run rust-check
+      # The Rust half of the license policy. `pnpm run lint:licenses` reads the npm tree and never saw
+      # a crate, so the Rust supply chain — ten lockfiles, 866 crate versions — was audited for
+      # VULNERABILITIES by the osv step in `governance` and for LICENCES by nothing at all, against a
+      # deny-by-default policy whose whole reason is that network copyleft would force a source offer.
+      # It runs here rather than in `governance` because it needs `cargo metadata`, which needs the
+      # toolchain and every dependency's manifest on disk: seconds against this job's warm cargo cache,
+      # a rustup install plus a ~163 MB cold fetch on the slim runner. Manifests are discovered, so a
+      # new container joins the gate the day it is added.
+      - name: Cargo license gate (all ten Rust workspaces)
+        run: pnpm run lint:cargo-licenses
 
   # The container gate — two layers per CHANGED container: the workspace's own Rust gate (fmt --check
   # + clippy -D warnings + cargo test — each container is its own Cargo workspace, so the crates/-scoped
@@ -989,11 +1024,15 @@ jobs:
         # artifacts built by the previous compiler, which the old key permitted — prunes the saved
         # target dirs down to dependency artifacts (the workspace's own crates recompile anyway, and
         # leaving them in is what made these entries enormous), and skips the save entirely when
-        # nothing changed. Each container is its own Cargo workspace, so all eight are listed.
+        # nothing changed. Each container is its own Cargo workspace, so all NINE are listed — the
+        # list is not derived, so a container added later is a container whose dependency graph
+        # rebuilds from cold on every run, silently. `containers/discovery` was missing for exactly
+        # that reason; `containers/collabora` is correctly absent, being a Dockerfile with no crate.
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
             containers/bundle
+            containers/discovery
             containers/file-repair
             containers/libreoffice
             containers/ocr

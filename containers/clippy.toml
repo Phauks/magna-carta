@@ -1,0 +1,16 @@
+# Clippy configuration for every container workspace below this directory. Clippy walks up from the crate
+# it is linting until it finds this file, so one copy here reaches all nine rather than nine copies that
+# can drift apart; crates/clippy.toml is the matching file for the other workspace.
+#
+# The panic lints each container's Cargo.toml denies exist to stop a service aborting on bytes somebody
+# else chose. A test that unwraps a fixture it just built is not that hazard — the input is ours and the
+# failure is a failed test — so these four keys carve test code out centrally, and the rule can then be
+# denied for real in the code that runs in production.
+#
+# The exemption reaches `#[test]` functions and `#[cfg(test)]` modules. It does NOT reach a plain helper
+# function in a `tests/*.rs` integration file, which is compiled as ordinary code with no test attribute
+# on it; where that is the only thing keeping a lint off, the container's Cargo.toml names the sites.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-indexing-slicing-in-tests = true

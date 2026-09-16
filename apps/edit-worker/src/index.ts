@@ -2,6 +2,7 @@ import { getContainer } from "@cloudflare/containers";
 import { isVersionRequest, versionResponse } from "@magna-carta/build-identity/version-route";
 import { DocumentEditorContainer } from "./document-editor-container.ts";
 import { documentKeyFromHost } from "./document-routing.ts";
+import { allowAppFraming, appFrameAncestors } from "./embedding-policy.ts";
 
 // The standalone in-app document editor worker. It owns the DocumentEditorContainer Durable Object
 // (Container-backed) — ONE isolated coolwsd per open document. Two trust boundaries:
@@ -18,6 +19,10 @@ export type Bindings = {
   // intercepted WOPI callbacks — it mounts the token-guarded /wopi/files/* host. This worker holds no
   // R2/D1/secret bindings of its own; all object I/O flows through that host.
   APP_WORKER: Fetcher;
+  // The app origins allowed to frame the editor, space-separated CSP sources. Public configuration,
+  // not a secret: bound via wrangler.jsonc vars. Optional — the production app domain is the default in
+  // embedding-policy.ts, so only a deployment on another domain (or a local dev origin) sets it.
+  APP_FRAME_ANCESTORS?: string;
 };
 
 export { DocumentEditorContainer } from "./document-editor-container.ts";
@@ -41,6 +46,9 @@ export default {
     // Forwards the request verbatim, including the WebSocket upgrade, to the per-document container.
     // coolwsd's own WOPI callbacks do NOT pass through here — they leave the container via
     // outboundByHost straight to the app worker.
-    return getContainer(env.DOCUMENT_EDITOR, key).fetch(request);
+    const response = await getContainer(env.DOCUMENT_EDITOR, key).fetch(request);
+    // The one thing this worker changes about the container's answer: coolwsd cannot know which origin
+    // frames the editor here, so the app origins are added to the policy it sent (embedding-policy.ts).
+    return allowAppFraming(response, appFrameAncestors(env));
   },
 } satisfies ExportedHandler<Bindings>;

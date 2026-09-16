@@ -21,15 +21,18 @@
    * THE HOST'S HEADER GOES INSIDE THE LAYOUT, WHICH IS WHY THERE IS A `header` SNIPPET. The layout
    * takes the full height under the top bar and cancels the work canvas inset, so a screen drawing
    * its masthead above this tag would be drawing it above the whole canvas. The firm screen hands
-   * its masthead down instead and it is rendered at the top of the content column — the arrangement
-   * the Magnus workspace already uses, for the same reason.
+   * its masthead down instead.
    *
-   * AND THE HEADER IS HANDED THE ACTION ROW BACK, so a host can seat it beside its own create control
-   * rather than under it (owner, 2026-09-14: "move month view controls to next to the new event
-   * button"). The controls are the component's — only it holds the controller they act on — but WHERE
-   * they sit is the screen's, and on this screen they belong on the masthead's own line with New. A
-   * host that renders the snippet gets the row there and nothing under the masthead; a host that
-   * ignores it, or gives no header at all, gets the row above the grid where it has always been.
+   * THE TITLE SPANS BOTH COLUMNS AND THE DATE CONTROLS TAKE ITS OLD PLACE (owner, 2026-09-16: "move
+   * the large font title for calendar above the left sidebar, move the date selector to where
+   * calendar title used to be"). The masthead is handed to the layout's own `header`, a band over
+   * the whole canvas, so the screen's name stands over the screen rather than over one column of it
+   * — which is what it always named. The action row then sits at the top of the content column,
+   * directly over the grid it moves: both where the title used to be, and where every host without
+   * a rail has always drawn it. So there is now ONE arrangement instead of two, and no host claims
+   * the row. That replaces the 2026-09-14 arrangement, which seated the row in the masthead's
+   * actions beside New — right while the masthead sat over the grid's own column, and wrong the
+   * moment it spanned both.
    *
    * DOUBLE-CLICKING AN EMPTY DAY OR HOUR STARTS A RECORD ON IT. The component does not own the
    * forms — the host does, because the host is what knows whether a matter is in scope — so the
@@ -52,6 +55,7 @@
   import { entryId, recordKeyOf } from "./calendar-entries.ts";
   import { describeReadFailure, readFailureKey, readFailureTitle } from "./calendar-reads.ts";
   import CalendarRail from "./calendar-rail.svelte";
+  import CalendarMonthPicker from "./calendar-month-picker.svelte";
   import {
     calendarLabel,
     emptyCalendarMessage,
@@ -131,17 +135,16 @@
      */
     onCreate?: (date: string, minuteOfDay?: number) => void;
     /**
-     * The host screen's own masthead, drawn at the top of the content column where the rail stands.
-     * It belongs INSIDE the layout rather than above this tag: the navigation layout takes the full
-     * height under the top bar and cancels the canvas inset, so a masthead above it would sit above
-     * the whole canvas. A host with no rail is under no such layout: it draws its own masthead above
+     * The host screen's own masthead, drawn as a band ACROSS both columns above them. It belongs
+     * inside the layout rather than above this tag: the navigation layout takes the full height
+     * under the top bar and cancels the canvas inset, so a masthead above it would sit above the
+     * whole canvas. A host with no rail is under no such layout: it draws its own masthead above
      * this tag and passes nothing here, which is why the plain frame renders no header.
      *
-     * It is handed the ACTION ROW — the view switch and the window navigation — so it can seat them
-     * beside its own create control. A header that renders the snippet owns where they sit and the
-     * row is not drawn again above the grid; one that does not gets them there.
+     * It is NOT handed the action row. The view switch and the window navigation sit over the grid
+     * they move, in both arrangements, so a host never has to decide where they go.
      */
-    header?: Snippet<[Snippet]>;
+    header?: Snippet;
     class?: string;
   } = $props();
 
@@ -320,12 +323,6 @@
    */
   const railStands = $derived(rail && controller.firmSide);
 
-  /*
-   * Whether the action row is the header's rather than the body's. A host that takes a header takes
-   * the row with it — the snippet is handed over unconditionally, and a header is only ever given by
-   * a screen that seats it — so the row is drawn once and the two arrangements cannot both claim it.
-   */
-  const headerTookTheControls = $derived(header !== undefined);
 </script>
 
 <!--
@@ -334,19 +331,13 @@
   around it is one of two — the navigation layout where the rail stands, a plain full-height stack
   everywhere else — and the calendar inside them is the same calendar.
 -->
-<!--
-  The action row: the view switch and the window navigation. Declared once and rendered in exactly
-  one place — beside the host's create control where a header took it, above the grid where none
-  did — so the two arrangements can never both draw it.
--->
-{#snippet actionRow()}
-  <CalendarToolbar {controller} {viewSwitch} />
-{/snippet}
-
 {#snippet calendar(frameClass: string)}
 <div class="flex min-h-0 flex-col gap-12 {frameClass}">
-  {#if toolbar && !headerTookTheControls}
-    {@render actionRow()}
+  <!-- The action row: the view switch and the window navigation, over the grid they move. One
+       place, both arrangements — a row a header could claim was a row two arrangements could each
+       draw. -->
+  {#if toolbar}
+    <CalendarToolbar {controller} {viewSwitch} />
   {/if}
 
   {#each controller.failures as failed (readFailureKey(failed))}
@@ -471,14 +462,17 @@
     navigationWidth="standard"
     contentScrolls={false}
     class={className}
+    {header}
   >
     {#snippet navigation()}
       <CalendarRail {controller} />
     {/snippet}
+    <!-- Pinned under the rail, outside its scroll: the month a reader navigates by, which a firm
+         with twenty rooms would otherwise scroll past its rooms to reach. -->
+    {#snippet navigationFooter()}
+      <CalendarMonthPicker {controller} />
+    {/snippet}
     <div class="flex min-h-0 flex-1 flex-col gap-16 p-24">
-      {#if header}
-        {@render header(actionRow)}
-      {/if}
       {@render calendar("flex-1")}
     </div>
   </NavigationLayout>

@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 824 nodes of the feature ledger in
+is the complete register rather than a digest: all 825 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,8 +21,8 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**824 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
-below. 142 of them are roll-up parents — a node another node sits beneath — and the totals here
+**825 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+below. 143 of them are roll-up parents — a node another node sits beneath — and the totals here
 count the **682 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
@@ -30,8 +30,8 @@ not](#what-a-roll-up-is-not).
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 317 | 47% |
-| Part-built | partial, in-build | 123 | 18% |
+| Done | shipped | 316 | 47% |
+| Part-built | partial, in-build | 124 | 18% |
 | Ahead | designed, planned, researching, not-started | 200 | 29% |
 | Parked | deferred, cut | 42 | 6% |
 | **All units of work** | | **682** | **100%** |
@@ -40,8 +40,8 @@ not](#what-a-roll-up-is-not).
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 317 | 46% |
-| `partial` | 123 | 18% |
+| `shipped` | 316 | 46% |
+| `partial` | 124 | 18% |
 | `in-build` | 0 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 15 | 2% |
@@ -53,7 +53,7 @@ not](#what-a-roll-up-is-not).
 
 ### What a roll-up is not
 
-**142 of the 824 nodes are parents, and 111 of those parents are `partial`.** A parent's status is a
+**143 of the 825 nodes are parents, and 111 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 317 of 682 (46%). Shipped plus partial is 440 (65%).**
+**Shipped alone is 316 of 682 (46%). Shipped plus partial is 440 (65%).**
 
-The 123 units between those two numbers are work that is engineered and paid for and is not
+The 124 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -97,7 +97,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | AI & Inference | 18 | 5 | 0 | 0 | 0 | 1 | 3 | 3 | 0 | 30 | 60% |
 | Authentication, Access Control & Encryption | 13 | 5 | 0 | 0 | 0 | 0 | 5 | 3 | 0 | 26 | 50% |
-| Calendar and Rules-Based Docketing | 15 | 1 | 0 | 0 | 0 | 1 | 4 | 0 | 0 | 21 | 71% |
+| Calendar and Rules-Based Docketing | 14 | 2 | 0 | 0 | 0 | 1 | 4 | 0 | 0 | 21 | 67% |
 | Communications Layer | 5 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 17 | 29% |
 | Community & Feedback Forum | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 1 | 0 | 10 | 0% |
 | Conflicts Check | 6 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 75% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 13 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 20 | 65% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **317** | **123** | **0** | **46** | **15** | **5** | **134** | **38** | **4** | **682** | **46%** |
+| **All areas** | **316** | **124** | **0** | **46** | **15** | **5** | **134** | **38** | **4** | **682** | **46%** |
 
 ## Where we have been
 
@@ -472,10 +472,11 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Calendar and Rules-Based Docketing
 
-[`roadmap.d/calendar.md`](../roadmap.d/calendar.md) — 21 units of work, 71% shipped. 15 done, 1 part-built, 5 ahead, 0 parked.
+[`roadmap.d/calendar.md`](../roadmap.d/calendar.md) — 21 units of work, 67% shipped. 14 done, 2 part-built, 5 ahead, 0 parked.
 
 - `calendar` · `partial` · **Calendar and docketing** — Calendar surface for matters, deadlines, and appointments; two-way external sync; rules-based court-deadline computation.
   - `calendar.events` · `shipped` · **Litigation events and deadlines** — Member-entered hearings, filings, service, orders, depositions and the like, plus first-class deadlines with a stated authority, satisfaction, and a vacate/supersede trail. _Note: Read on the matter's Calendar section and on the firm calendar; recorded, edited, cancelled, continued, satisfied, vacated and superseded from those screens through the record forms and the entry window._
+    - `calendar.events.recurrence` · `partial` · **Repeating settings** — A calendar setting that happens more than once, held as one row carrying an RFC 5545 rule and expanded at read time, on both the matter and the firm scope. _Note: Partial because the rule is stored, returned, shown and edited but the occurrences are not painted on the grid yet; the read-time expansion and the this-occurrence-or-series question an edit has to ask are the next slice. Nothing here computes a deadline — a recurring event is not a docketing rule._
   - `calendar.timeline` · `shipped` · **Matter timeline (federated)** — One ordered history per matter across every subsystem that already records what the firm did, read in place through a source registry under one cursor and one visibility contract.
     - `calendar.timeline.activity-section` · `shipped` · **The matter's Activity section** — The federated timeline as a screen — one chronology per matter on the product's shared table, sorted and filtered by its own columns, each row named by the subsystem that owns it through that subsystem's own describe statement and contribution, opening into its section, and the first record (a note) written from it. _Note: The screen names no source and switches on none. A subsystem joins the chronology with a `permission` and a `describe` on its timeline source and an ActivityContribution beside its own web code; the test fails until both exist, and the coverage lint fails until a section owns the source or declares it ownerless. The description is server-side, one statement per source present on the page, gated per source by the member's capabilities: a member without notes:read sees that a note was written and not what it said. The firm-wide read is never described. A file's Type is what the file manager identifies it as (its document type, else the identification's own label), never a name suffix; Section and Type are two columns with two filters. Opening a row follows the timeline's deep link into the owning section; sections honouring `?entry=` is the next step._
   - `calendar.firm-events` · `shipped` · **Firm events** — Events that belong to the firm rather than to a case — meetings, closures, training, holidays, reservations — with an all-members/participants audience and the same civil-date/zone model as case events. _Note: On the firm calendar at /calendar beside the matters' settings, recorded from its Record menu, opened and edited in the entry window; /calendar/firm-events is the deep link the federated read emits._

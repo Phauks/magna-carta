@@ -109,7 +109,7 @@
 
   const refusal = $derived.by(() => {
     if (targetMatterId === null) return "A matter is needed.";
-    if (!deadlineDraftReady(draft)) return shortfalls[0];
+    if (!deadlineDraftReady(draft)) return shortfalls[0]?.sentence;
     if (superseding && reason.trim() === "") return "A reason is needed.";
     return undefined;
   });
