@@ -4,17 +4,31 @@ Every state publishes its own register of who is licensed to practise law there,
 is the authority on whether a lawyer is in good standing. Attorney License Lookup takes you to the
 right one. Find it under **Tools → Attorney License Lookup**.
 
-It covers all fifty states and the District of Columbia.
+It covers all fifty states and the District of Columbia, and shows them all at once.
 
 ## Looking a lawyer up
 
-1. Choose the state the lawyer is admitted in. Type the state's name or its two-letter code.
-2. The register for that state appears, named after the authority that keeps it.
-3. Choose **Open the Register**. It opens in a new tab, and you search there.
+1. Find the state the lawyer is admitted in. The table opens sorted by state name; the row names the
+   authority that keeps the register there.
+2. Choose the state's name. The register opens in a new tab, and you search there.
+
+Double-clicking anywhere on the row does the same thing, and so does pressing Enter on a row you
+have selected.
 
 Bar admission is per state, so the state you want is the one the lawyer is admitted in, which is not
 always the state they work in or the state your matter is in. A lawyer admitted in several states
 appears in several registers, and standing in one says nothing about standing in another.
+
+## Reading the table
+
+**State** is the state or district, and the link out to its register. **Code** is its two-letter
+postal code. **Register** names the authority that keeps the register. **Connection** says whether
+that register is served over an encrypted connection.
+
+The table behaves like every other table in Magna Carta. Choose a column heading to sort by it.
+Right-click a heading for everything else that column can be asked — narrow by it, hide it, pin it,
+or open **Columns** for the full list. One column starts hidden: **Address**, the register's full
+web address, for when you want to copy one or check it against a bookmark.
 
 ## What you are looking at
 
@@ -40,7 +54,9 @@ For the same reason, nothing here is attached to a matter and nothing is billed.
 
 ## When a register is not encrypted
 
-Two states publish their register over an unencrypted connection. The screen says so before you go.
+Two states publish their register over an unencrypted connection. Their **Connection** column reads
+**Not encrypted**, and hovering it says why that matters. To see just those two, right-click the
+**Connection** heading and narrow it to **Not encrypted**.
 
 It matters because of what you are about to type. On such a page, the name of the lawyer you are
 asking about and the answer that comes back can both be read by anyone able to observe the network
