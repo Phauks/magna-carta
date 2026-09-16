@@ -8,16 +8,21 @@
    * saying where it stands — so what was watched in the panel can be watched here after the panel
    * has gone.
    *
-   * LIVE STATE, NOT A REGISTER. An upload is this tab's: the browser's own file handles carry it
-   * and cannot survive a reload. So this page reads the upload queue, not the server, and says so
-   * in its empty state; the Downloads page beside it is the opposite case, a shelf on the member's
-   * record. Mixing the two would leave every row ambiguous about what closing the tab does to it.
+   * TWO HALVES, KEPT VISIBLY APART. A transfer is this tab's: the browser's own file handles carry
+   * it and cannot survive a reload, so the batches above read the upload queue and nothing else.
+   * What a finished batch DID is not a transfer, though — it is a list of names, a matter, a folder
+   * and the file each one became — so it is remembered per browser
+   * ($lib/transfers/upload-history.svelte.ts) and read below, where every file that landed can be
+   * downloaded again from the matter it landed on. Before that record existed this screen answered
+   * "nothing uploading" to "where is the thing I sent yesterday", which is true and useless.
    */
   import Ban from "@lucide/svelte/icons/ban";
+  import Download from "@lucide/svelte/icons/download";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import Button from "@magna-carta/design-system/button";
+  import * as DataTable from "@magna-carta/design-system/data-table";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import Progress from "@magna-carta/design-system/progress";
@@ -25,7 +30,21 @@
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import { intakeFolderPaths } from "$lib/file-manager/upload-intake.ts";
   import UploadSourceTable from "$lib/file-manager/upload-source-table.svelte";
-  import { formatTimeOfDay, placeholderOf } from "@magna-carta/design-system/formatters";
+  import { formatBytes } from "$lib/file-manager/file-rows.ts";
+  import { fileDownloadUrl } from "$lib/file-manager/matter-file-api.ts";
+  import { NO_UPLOADS } from "$lib/transfers/transfers.ts";
+  import {
+    clearUploadHistory,
+    forgetUpload,
+    uploadHistory,
+    type UploadHistoryEntry,
+    type UploadHistoryFile,
+  } from "$lib/transfers/upload-history.svelte.ts";
+  import {
+    formatInstant,
+    formatTimeOfDay,
+    placeholderOf,
+  } from "@magna-carta/design-system/formatters";
   import {
     batchCountsText,
     batchPaceText,
@@ -42,6 +61,15 @@
   const finishedCount = $derived(everyBatch.filter((batch) => !batch.running).length);
 
   /*
+   * What this browser remembers, minus anything the queue above is still showing. A batch that has
+   * just finished is both a live row (until it is cleared) and a remembered one; listing it in both
+   * halves would read as two uploads where there was one.
+   */
+  const everyRemembered = $derived(
+    uploadHistory().filter((entry) => !everyBatch.some((batch) => batch.id === entry.id)),
+  );
+
+  /*
    * Narrowing the register. Every batch is already in this tab — that is the whole nature of this
    * screen — so the query runs on every keystroke and never leaves the machine. It reads the matter
    * a batch is going to and the folder it lands in, because "where was I sending that" is the
@@ -55,6 +83,22 @@
       ? everyBatch
       : everyBatch.filter((batch) =>
           `${batch.matterTitle} ${batch.destinationLabel}`.toLowerCase().includes(batchSearch),
+        ),
+  );
+  /*
+   * The same query over the remembered half, and it reads the FILE NAMES as well as the matter:
+   * somebody coming back for a file they sent last week remembers what the file was called, which
+   * is the one fact the live half has no equivalent of.
+   */
+  const remembered = $derived(
+    batchSearch === ""
+      ? everyRemembered
+      : everyRemembered.filter((entry) =>
+          `${entry.matterTitle} ${entry.destinationLabel} ${entry.files
+            .map((file) => file.name)
+            .join(" ")}`
+            .toLowerCase()
+            .includes(batchSearch),
         ),
   );
 
@@ -74,6 +118,30 @@
   }
 
   const startedAt = (batch: UploadBatch): string => formatTimeOfDay(batch.startedAt);
+  const finishedAt = (entry: UploadHistoryEntry): string => formatInstant(entry.finishedAt);
+
+  /** Where a remembered batch landed, as the file list opens it. */
+  function rememberedFolderHref(entry: UploadHistoryEntry): string {
+    const base = `/matters/${encodeURIComponent(entry.matterId)}/files`;
+    return entry.destinationFolderId === null
+      ? base
+      : `${base}?folder=${encodeURIComponent(entry.destinationFolderId)}`;
+  }
+
+  /*
+   * How a remembered file ended, in the reader's words. "Landed" is left unsaid: a row that offers
+   * a download has visibly succeeded, and a column that reads the same word down every line of a
+   * mostly-successful batch is a column of noise.
+   */
+  const OUTCOME_WORDS: Record<UploadHistoryFile["outcome"], string> = {
+    landed: "",
+    failed: "Failed",
+    skipped: "Skipped",
+    "not-sent": "Not sent",
+  };
+
+  /** Which remembered batches are open. Closed by default: the register is a list of batches. */
+  let openEntries = $state<Record<string, boolean>>({});
 </script>
 
 <svelte:head>
@@ -99,21 +167,26 @@
         Clear Finished
       </Button>
     {/if}
+    {#if everyRemembered.length > 0}
+      <!-- Clears what this BROWSER remembers, and nothing else — the files stay on their matters.
+           Its label says "history" for exactly that reason: "Clear Uploads" beside a list of files
+           would read as a control that removes them. -->
+      <Button variant="ghost" onclick={clearUploadHistory}>
+        <Trash2 class="size-16" aria-hidden="true" />
+        Clear History
+      </Button>
+    {/if}
   {/snippet}
 </ScreenHeader>
 
-{#if batches.length === 0 && batchSearch !== ""}
-  <!-- Uploads ARE running and the query reaches none of them, so the answer is about the query
-       rather than about the queue. -->
+{#if batches.length === 0 && remembered.length === 0 && batchSearch !== ""}
+  <!-- Uploads exist and the query reaches none of them, so the answer is about the query rather
+       than about the register. -->
   <EmptyState title="Nothing Matches That Search">
-    No upload in this tab matches "{appliedSearch.trim()}". Clear the search to see them all again.
+    No upload matches "{appliedSearch.trim()}". Clear the search to see them all again.
   </EmptyState>
-{:else if batches.length === 0}
-  <EmptyState title="Nothing uploading">
-    Files you send to a matter show here while they go and until you clear them, with each file's
-    standing, the rate, and the time left. Uploads live in this browser tab: closing the tab ends
-    them, and files that had not landed would need to be sent again.
-  </EmptyState>
+{:else if batches.length === 0 && remembered.length === 0}
+  <EmptyState title={NO_UPLOADS} />
 {:else}
   <div class="flex flex-col gap-24">
     {#each batches as batch (batch.id)}
@@ -178,5 +251,94 @@
         />
       </section>
     {/each}
+    {#if remembered.length > 0}
+      <!-- What this browser remembers. Its own heading rather than more rows above: these files
+           are on their matters now, and the half above is bytes still in the air. -->
+      <section class="flex flex-col gap-16" aria-label="Uploads this browser remembers">
+        <FieldLabel as="h2">Earlier</FieldLabel>
+        {#each remembered as entry (entry.id)}
+          {@const isOpen = openEntries[entry.id] === true}
+          <div class="flex flex-col gap-8">
+            <div class="flex flex-wrap items-baseline gap-8">
+              <!-- The batch's name opens its files. A disclosure rather than a table of every file
+                   at once: a browser can remember fifty batches, and the question a reader arrives
+                   with is which upload, then which file inside it. -->
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-expanded={isOpen}
+                onclick={() => (openEntries = { ...openEntries, [entry.id]: !isOpen })}
+              >
+                {entry.matterTitle}
+              </Button>
+              <span class="text-sm text-text-muted">{entry.destinationLabel}</span>
+              <span class="text-xs text-text-subtle">finished {finishedAt(entry)}</span>
+              <span class="ms-auto text-xs text-text-subtle" role="status">
+                {String(entry.landed)} of {String(entry.total)} uploaded
+              </span>
+            </div>
+            {#if isOpen}
+              <DataTable.Root>
+                <DataTable.Caption class="sr-only">
+                  Files uploaded to {entry.matterTitle}
+                </DataTable.Caption>
+                <DataTable.Header>
+                  <DataTable.Row>
+                    <DataTable.Head>Name</DataTable.Head>
+                    <DataTable.Head>Size</DataTable.Head>
+                    <DataTable.Head>Standing</DataTable.Head>
+                    <DataTable.Head><span class="sr-only">Actions</span></DataTable.Head>
+                  </DataTable.Row>
+                </DataTable.Header>
+                <DataTable.Body>
+                  {#each entry.files as file, index (`${String(index)}:${file.name}`)}
+                    <DataTable.Row>
+                      <DataTable.Cell>{file.name}</DataTable.Cell>
+                      <DataTable.Cell>{formatBytes(file.byteSize)}</DataTable.Cell>
+                      <DataTable.Cell>{OUTCOME_WORDS[file.outcome]}</DataTable.Cell>
+                      <DataTable.Cell data-align="end">
+                        {#if file.fileId !== null}
+                          <!-- A real link to the file's own download route, which redirects to a
+                               short-lived presigned URL the browser's own download manager drives
+                               — the same route the matter's file list uses, so a file downloaded
+                               from here is the file on the matter and not a copy of it. -->
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            href={fileDownloadUrl(file.fileId)}
+                            download={file.name}
+                            aria-label={`Download ${file.name}`}
+                          >
+                            <Download class="size-16" aria-hidden="true" />
+                            Download
+                          </Button>
+                        {/if}
+                      </DataTable.Cell>
+                    </DataTable.Row>
+                  {/each}
+                </DataTable.Body>
+              </DataTable.Root>
+              {#if entry.files.length < entry.total}
+                <!-- A batch of thousands is remembered in part, and says so rather than reading as
+                     a batch that was smaller than it was. -->
+                <p class="text-xs text-text-muted">
+                  The first {String(entry.files.length)} of {String(entry.total)} files are
+                  remembered here; the rest are on the matter.
+                </p>
+              {/if}
+            {/if}
+            <div class="flex flex-wrap items-center gap-8">
+              <Button variant="secondary" size="sm" href={rememberedFolderHref(entry)}>
+                <FolderOpen class="size-16" aria-hidden="true" />
+                Open Folder
+              </Button>
+              <Button variant="ghost" size="sm" onclick={() => forgetUpload(entry.id)}>
+                Clear
+              </Button>
+            </div>
+          </div>
+        {/each}
+      </section>
+    {/if}
   </div>
 {/if}

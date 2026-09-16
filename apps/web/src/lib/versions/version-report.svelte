@@ -118,9 +118,9 @@
   import Button from "@magna-carta/design-system/button";
   import Separator from "@magna-carta/design-system/separator";
   import { copyText } from "@magna-carta/design-system/failure-details";
-  import ClipboardCopy from "@lucide/svelte/icons/clipboard-copy";
+  import Copy from "@lucide/svelte/icons/copy";
   import ExternalLink from "@lucide/svelte/icons/external-link";
-  import GitBranch from "@lucide/svelte/icons/git-branch";
+  import { GithubMark } from "@magna-carta/design-system/service-marks";
   import MessageSquareWarning from "@lucide/svelte/icons/message-square-warning";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import RotateCw from "@lucide/svelte/icons/rotate-cw";
@@ -739,7 +739,10 @@
             aria-label="Copy the whole diagnosis"
             onclick={() => void copyValue("panel", panelReport)}
           >
-            <ClipboardCopy class="size-16" aria-hidden="true" />
+            <!-- The two-sheets glyph every application uses for copy. It read as a clipboard with
+                 an arrow before, which is the PASTE gesture's picture, so the one control in this
+                 panel a person reaches for during an incident was drawn as its opposite. -->
+            <Copy class="size-16" aria-hidden="true" />
           </Button>
           <Button
             variant="ghost"
@@ -766,7 +769,12 @@
               {...opensBeside("external")}
               aria-label="Open the source repository on GitHub"
             >
-              <GitBranch class="size-16" aria-hidden="true" />
+              <!-- GitHub's own mark, because this link goes to GitHub and nothing else. A
+                   git-branch glyph named a git concept rather than the service, which is the one
+                   fact a reader needs before they follow a link out of the application. It is a
+                   third-party brand asset on the register's terms, not one of our icons
+                   (docs/conventions/third-party-trademarks.md). -->
+              <GithubMark class="size-16" />
             </Button>
           {/if}
         {/if}

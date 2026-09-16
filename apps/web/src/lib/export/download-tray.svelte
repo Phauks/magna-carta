@@ -19,14 +19,8 @@
   import Download from "@lucide/svelte/icons/download";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import Button from "@magna-carta/design-system/button";
-  import * as Popover from "@magna-carta/design-system/popover";
-  import * as Tooltip from "@magna-carta/design-system/tooltip";
-  import { MaturityDot } from "@magna-carta/design-system/maturity";
-  import {
-    DESTINATIONS,
-    destinationStage,
-    type Destination,
-  } from "$lib/navigation/destinations.ts";
+  import TransferTray from "$lib/transfers/transfer-tray.svelte";
+  import { NO_DOWNLOADS } from "$lib/transfers/transfers.ts";
   import {
     exportFromStored,
     fetchShelfItem,
@@ -46,12 +40,6 @@
   // member reads the whole shelf.
   const TRAY_LIMIT = 4;
   const LAST_SEEN_KEY = "mc-download-tray-last-seen";
-
-  // This is the top-bar entry to the Downloads destination, so its maturity dot reads the same
-  // stage as that destination's sidebar row — the bell's arrangement, for the same reason.
-  const downloadsDestination = DESTINATIONS.find(
-    (destination) => destination.id === "downloads",
-  ) as Destination;
 
   let open = $state(false);
   let items = $state<ShelfItem[]>([]);
@@ -122,7 +110,7 @@
    * they already had, and asking them to pick a format again at this size of surface would be a
    * menu inside a menu. The full page is where a different format is chosen.
    */
-  async function take(item: ShelfItem): Promise<void> {
+  async function take(item: ShelfItem, close: () => void): Promise<void> {
     const format = item.downloadedFormats[0] ?? "xlsx";
     const outcome = await fetchShelfItem(fetch, item.id, format);
     if (outcome.kind !== "ok") {
@@ -159,7 +147,7 @@
       failedTakes = Object.fromEntries(
         Object.entries(failedTakes).filter(([key]) => key !== item.id),
       );
-      open = false;
+      close();
     } catch {
       failedTakes = {
         ...failedTakes,
@@ -171,48 +159,18 @@
   const stamp = (value: string): string => formatTimeOfDay(value);
 </script>
 
-<Popover.Root bind:open>
-  <!-- The hover names the control: one word, the same question every control in the top bar's
-       cluster answers. The tooltip and the popover share ONE button through the tooltip trigger's
-       child snippet — two elements would be two controls. -->
-  <Tooltip.Root>
-    <Tooltip.Trigger>
-      {#snippet child({ props })}
-        <Popover.Trigger {...props} class="mc-top-bar-icon-button relative" aria-label="Downloads">
-          <Download class="size-16" aria-hidden="true" />
-          {#if hasUnseen}
-            <!-- Real state: the shelf holds something that arrived since this browser last looked.
-                 One 16px corner holds one mark, so while there is something new the arrival dot
-                 takes the slot from the maturity dot — the more time-sensitive signal wins it, and
-                 the stage stays stated on the sidebar row and in the panel below. -->
-            <span
-              class="absolute end-4 top-4 block size-8 rounded-full"
-              style="background: var(--mc-accent-default)"
-              aria-hidden="true"
-            ></span>
-            <span class="sr-only">New downloads</span>
-          {:else}
-            <MaturityDot
-              stage={destinationStage(downloadsDestination)}
-              class="absolute end-4 top-4"
-            />
-          {/if}
-        </Popover.Trigger>
-      {/snippet}
-    </Tooltip.Trigger>
-    <Tooltip.Content>Downloads</Tooltip.Content>
-  </Tooltip.Root>
-  <Popover.Content
-    align="end"
-    class="flex flex-col gap-8"
-    style="inline-size: var(--mc-size-popover)"
-  >
-    <p class="text-sm font-medium">Downloads</p>
+<TransferTray
+  bind:open
+  label="Downloads"
+  icon={Download}
+  href="/downloads"
+  destinationId="downloads"
+  marked={hasUnseen}
+  markedLabel="New downloads"
+>
+  {#snippet children({ close })}
     {#if items.length === 0}
-      <p class="text-sm text-text-muted">Nothing here yet.</p>
-      <p class="text-xs text-text-muted">
-        Reports and files the platform makes for you gather here for a week.
-      </p>
+      <p class="text-sm text-text-muted">{NO_DOWNLOADS}</p>
     {:else}
       <ul class="flex flex-col gap-4">
         {#each items.slice(0, TRAY_LIMIT) as item (item.id)}
@@ -220,7 +178,7 @@
             <button
               type="button"
               class="flex w-full flex-col items-start gap-2 rounded-4 p-8 text-start hover:bg-surface-sunken"
-              onclick={() => void take(item)}
+              onclick={() => void take(item, close)}
             >
               <span class="text-sm font-medium">{item.title}</span>
               <span class="text-xs text-text-muted">
@@ -241,7 +199,7 @@
                 <Button
                   variant="secondary"
                   size="sm"
-                  onclick={() => void take(item)}
+                  onclick={() => void take(item, close)}
                   aria-label={`Retry downloading ${item.title}`}
                 >
                   <RotateCcw class="size-16" aria-hidden="true" />
@@ -253,13 +211,5 @@
         {/each}
       </ul>
     {/if}
-    <a
-      href="/downloads"
-      class="text-sm font-medium"
-      style="color: var(--mc-accent-default)"
-      onclick={() => (open = false)}
-    >
-      Open downloads
-    </a>
-  </Popover.Content>
-</Popover.Root>
+  {/snippet}
+</TransferTray>

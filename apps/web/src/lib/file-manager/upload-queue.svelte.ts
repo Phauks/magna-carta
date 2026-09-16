@@ -46,6 +46,11 @@ import {
   type IntakeStage,
   type NameClashChoice,
 } from "./upload-intake.ts";
+import {
+  rememberFinishedUpload,
+  type UploadHistoryFile,
+  type UploadHistoryOutcome,
+} from "$lib/transfers/upload-history.svelte.ts";
 
 /** How many files are sent at once. */
 export const UPLOAD_CONCURRENCY = 3;
@@ -588,8 +593,42 @@ export function matterUploadRevision(matterId: string): number {
   return revisions[matterId] ?? 0;
 }
 
+/*
+ * How a finished item reads in the history. A stage that is neither settled, failed nor skipped at
+ * the moment a batch finishes is an item the run never reached — a cancel, in practice — and
+ * "not sent" is the honest word for it rather than the internal stage name.
+ */
+function historyOutcome(stage: IntakeStage): UploadHistoryOutcome {
+  if (stage === "settled") return "landed";
+  if (stage === "failed") return "failed";
+  if (stage === "skipped") return "skipped";
+  return "not-sent";
+}
+
+function historyFiles(batch: UploadBatch): UploadHistoryFile[] {
+  return batch.items.map((item) => ({
+    name: item.name,
+    byteSize: item.entry.file.size,
+    outcome: historyOutcome(item.stage),
+    fileId: item.fileId ?? null,
+  }));
+}
+
 function noteBatchFinished(batch: UploadBatch): void {
   revisions = { ...revisions, [batch.matterId]: (revisions[batch.matterId] ?? 0) + 1 };
+  // The batch is over, so what it DID outlives the tab it did it in. Only the record is kept —
+  // names, sizes, how each file ended, and the file each landed one became; never the bytes, which
+  // are on the matter and are what a re-download goes and fetches.
+  rememberFinishedUpload({
+    id: batch.id,
+    matterId: batch.matterId,
+    matterTitle: batch.matterTitle,
+    destinationFolderId: batch.destinationFolderId,
+    destinationLabel: batch.destinationLabel,
+    startedAt: batch.startedAt,
+    finishedAt: batch.finishedAt ?? new Date().toISOString(),
+    files: historyFiles(batch),
+  });
   releaseUnloadGuardIfIdle();
 }
 
