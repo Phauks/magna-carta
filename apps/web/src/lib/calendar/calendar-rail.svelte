@@ -22,6 +22,16 @@
    * stagger is the family's — the folder's cap-line at 12, its calendars one step past it — so a
    * reader who has learned one two-sided screen has learned this one.
    *
+   * A FOLDER FOLDS, AND FOLDING COSTS NO CAPABILITY. A firm with twenty rooms scrolled past all
+   * twenty to reach the folder under them (owner, 2026-09-16). The disclosure is the folder's NAME —
+   * chevron and name are one button, at the full width of what is left after the checkbox, which is
+   * the shape the application sidebar's own groups take. It is not the Accordion component: that
+   * component's trigger IS its whole header, and this header already holds a checkbox, which cannot
+   * be nested inside a button. What folds here is the LIST, not the head — so the three-state
+   * control stays reachable whether the folder is open or shut, and folding hides no calendar a
+   * reader could otherwise turn on. Hiding must never remove capability, which is the rule the
+   * sidebar's own fold keeps.
+   *
    * A FOLDER'S OWN CONTROL IS A THIRD STATE, NOT A SECOND BUTTON. Two of six attorneys on is neither
    * on nor off, and the checkbox says so; pressing it from there completes the folder, which is what
    * somebody who turned two on and reached for the folder meant.
@@ -41,6 +51,7 @@
    * rule for a designed-but-unwired capability. A firm asking whether this product holds its
    * file-destruction dates can see the answer, and can never mistake the shape of it for the thing.
    */
+  import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import { buttonClasses } from "@magna-carta/design-system/button";
   import Checkbox from "@magna-carta/design-system/checkbox";
   import Label from "@magna-carta/design-system/label";
@@ -71,30 +82,71 @@
   function folderChecked(folder: CalendarFolder): boolean {
     return controller.folderState(folder) === "all";
   }
+
+  /** How the folder's own switch names itself, now that the name beside it is the disclosure. */
+  function folderSwitchLabel(folder: CalendarFolder): string {
+    return `Every calendar in ${folder.name}`;
+  }
+
+  /**
+   * How many of a folder's calendars are on, shown only while it is SHUT.
+   *
+   * A folded folder hides its rows, and with them the only evidence that three of its rooms are
+   * painting on the grid. The count is that evidence, and it is absent while the folder is open
+   * because the rows themselves say it better.
+   */
+  function folderOnCount(folder: CalendarFolder): number {
+    return folder.sources.filter((source) => controller.onKeys.has(source.key)).length;
+  }
 </script>
 
 <div class="flex flex-col gap-24">
   {#each controller.folders as folder (folder.key)}
+    {@const folded = controller.foldedFolders.has(folder.key)}
     <div class="flex flex-col gap-8">
       <!-- The folder heads its group at the column's cap-line of 12, where the catalogue column's
            section header and the settings nav's band header both sit. Its own switch reads the
            three states its calendars can be in, and completing it is what pressing the middle one
            does. -->
       <div class="flex items-center gap-8 px-12">
+        <!-- The switch names itself now, because the name beside it belongs to the disclosure: a
+             label pointing at the checkbox and a button carrying the same words would be two
+             controls answering to one name. -->
         <Checkbox
-          id="{idPrefix}-{folder.key}"
           checked={folderChecked(folder)}
           indeterminate={folderIndeterminate(folder)}
+          aria-label={folderSwitchLabel(folder)}
           onCheckedChange={() => controller.toggleCalendarFolder(folder)}
         />
-        <!-- A folder heads a group of calendars, so it wears the product's small-caps register
-             rather than a field's own label voice — and it still points at its checkbox. -->
-        <Label for="{idPrefix}-{folder.key}" class="mc-field-label">{folder.name}</Label>
+        <!-- The name IS the disclosure, at the full width of what is left, so the target is the
+             heading rather than a chevron somebody has to hit. A folder heads a group of calendars,
+             so it keeps the product's small-caps register. -->
+        <button
+          type="button"
+          class="mc-field-label group flex min-w-0 flex-1 items-center gap-4 text-start"
+          aria-expanded={!folded}
+          aria-controls="{idPrefix}-{folder.key}-calendars"
+          onclick={() => controller.toggleCalendarFolderFold(folder)}
+        >
+          <ChevronRight
+            class="size-12 shrink-0 transition-transform group-aria-expanded:rotate-90"
+            aria-hidden="true"
+          />
+          <span class="min-w-0 flex-1 truncate">{folder.name}</span>
+          {#if folded && folderOnCount(folder) > 0}
+            <!-- What a shut folder would otherwise hide: that some of it is still painting. -->
+            <span class="text-xs font-normal text-text-muted">{folderOnCount(folder)}</span>
+          {/if}
+        </button>
       </div>
 
       <!-- One stagger step past the folder: the list's own inset plus each row's, which is how the
            catalogue column lands its rows 12 past its section header. -->
-      <ul class="flex flex-col gap-4 ps-12">
+      <ul
+        id="{idPrefix}-{folder.key}-calendars"
+        class="flex flex-col gap-4 ps-12"
+        class:hidden={folded}
+      >
         {#each folder.sources as source (source.key)}
           {@const on = controller.onKeys.has(source.key)}
           {@const color = controller.colors.get(source.key)}

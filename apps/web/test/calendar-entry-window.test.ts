@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { shortfallSentences } from "$lib/calendar/shortfall.ts";
 import type {
   CalendarDeadline,
   CalendarEvent,
@@ -58,6 +59,7 @@ const event: CalendarEvent = {
   timeZone: "America/New_York",
   locationText: "Courtroom 4",
   conferenceUrl: null,
+  recurrenceRule: null,
   courtReference: "26-CV-100",
   recordedAt: "2026-09-01T00:00:00Z",
   recordedBy: "user_1",
@@ -100,6 +102,7 @@ const firmEvent: FirmEvent = {
   locationId: null,
   locationText: null,
   conferenceUrl: null,
+  recurrenceRule: null,
   recordedAt: "2026-09-01T00:00:00Z",
   recordedBy: null,
 };
@@ -296,6 +299,7 @@ describe("what a correction sends", () => {
       timeZone: "America/New_York",
       locationText: "Courtroom 4",
       conferenceUrl: null,
+      recurrenceRule: null,
       courtReference: "26-CV-100",
     });
   });
@@ -353,13 +357,13 @@ describe("the continuance draft", () => {
     expect(draft.conferenceUrl).toBe("https://example.test/hearing");
     expect(draft.courtReference).toBe("26-CV-100");
     expect(continueDraftStarted(draft)).toBe(false);
-    expect(continueDraftShortfalls(draft)).toEqual(["A date is needed."]);
+    expect(shortfallSentences(continueDraftShortfalls(draft))).toEqual(["A date is needed."]);
   });
 
   it("is ready once the new date is stated, and sends nothing for what was left blank", () => {
     const draft = { ...continueDraftFrom(event), startsOn: "2026-09-17", statusReason: "  " };
     expect(continueDraftStarted(draft)).toBe(true);
-    expect(continueDraftShortfalls(draft)).toEqual([]);
+    expect(shortfallSentences(continueDraftShortfalls(draft))).toEqual([]);
     expect(continueDraftRequest(draft)).toEqual({
       startsOn: "2026-09-17",
       startsAtTime: "09:30",
@@ -375,7 +379,7 @@ describe("the continuance draft", () => {
 
   it("shares the timing rules every event shares", () => {
     const draft = { ...emptyContinueDraft(), startsOn: "2026-09-17", startsAtTime: "9am" };
-    expect(continueDraftShortfalls(draft)).toContain(
+    expect(shortfallSentences(continueDraftShortfalls(draft))).toContain(
       "The start time does not read as a time of day.",
     );
   });

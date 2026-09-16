@@ -52,6 +52,11 @@ export interface CreateFirmEventInput {
    * the room.
    */
   readonly conferenceUrl?: string | null;
+  /**
+   * The RFC 5545 rule a repeating event runs on, absent or null for one that happens once. One row
+   * carries the series; the reads expand it across the window they were asked for.
+   */
+  readonly recurrenceRule?: string | null;
   readonly participants?: readonly EventParticipantInput[];
 }
 
@@ -121,6 +126,7 @@ export async function createFirmEvent(
       locationId: input.locationId ?? null,
       locationText: input.locationText ?? null,
       conferenceUrl: input.conferenceUrl ?? null,
+      recurrenceRule: input.recurrenceRule ?? null,
       recordedAt: now,
       recordedBy: options.actorUserId,
       now,
@@ -155,6 +161,11 @@ export interface UpdateFirmEventInput {
   readonly locationId?: LocationId | null;
   readonly locationText?: string | null;
   readonly conferenceUrl?: string | null;
+  /**
+   * The repeat rule. Supplying it changes the series' rule; null makes a repeating event happen
+   * once; omitting it leaves the rule alone.
+   */
+  readonly recurrenceRule?: string | null;
   // Supplying this replaces the whole participant set; omitting it leaves it alone.
   readonly participants?: readonly EventParticipantInput[];
 }
@@ -190,6 +201,8 @@ export async function updateFirmEvent(
     locationText: patch.locationText === undefined ? existing.location_text : patch.locationText,
     conferenceUrl:
       patch.conferenceUrl === undefined ? existing.conference_url : patch.conferenceUrl,
+    recurrenceRule:
+      patch.recurrenceRule === undefined ? existing.recurrence_rule : patch.recurrenceRule,
   };
   assertEventShape(merged);
   // Only what the patch actually names: an edit to the title never re-litigates a type already on
