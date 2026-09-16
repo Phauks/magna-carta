@@ -87,6 +87,11 @@ function collect(options: {
   firm?: FirmDatabasePlan;
   backlog?: { pending: number; dead_lettered: number } | "throw";
   bucketName?: string | null;
+  // What the firm database reports ALONGSIDE its ledger. The schema state is not a head comparison
+  // alone: a runner that refused the ledger applied nothing, so a refused database can sit at head.
+  migrationFault?: string;
+  outOfOrderArrivals?: string[];
+  restorePoint?: { bookmark: string; takenAt: string; appliedTags: string[] };
 }) {
   const firmContext = {
     firmDatabase: fakeFirmDatabase(options.firm ?? {}),
@@ -97,11 +102,11 @@ function collect(options: {
       if (planned === "throw") return Promise.reject(new Error("firm database unreachable"));
       const tags = planned ?? [];
       return Promise.resolve({
-        fault: null,
+        fault: options.migrationFault ?? null,
         appliedCount: tags.length,
         appliedHead: tags.at(-1)?.tag ?? null,
-        outOfOrderArrivals: [],
-        restorePoint: null,
+        outOfOrderArrivals: options.outOfOrderArrivals ?? [],
+        restorePoint: options.restorePoint ?? null,
       });
     },
     readFirmName: () => Promise.resolve("Test Firm"),
@@ -269,5 +274,72 @@ describe("collectDatabaseHealth", () => {
       backlog: { pending: 0, dead_lettered: 2 },
     });
     expect(health.provisioning).toMatchObject({ state: "read", pending: 0, deadLettered: 2 });
+  });
+});
+
+/*
+ * The schema check reads more than two head tags. It used to read exactly two, which meant a
+ * database refusing every request because of its ledger was reported as "current" — the runner
+ * rejects such a ledger before applying anything, so its tags sit untouched at the expected head.
+ */
+describe("the schema check beyond the head comparison", () => {
+  it("reports a refused lineage as refused, even sitting at the expected head", async () => {
+    const health = await collect({
+      firm: HEALTHY_FIRM,
+      migrationFault:
+        'database has applied migration "20260911T000000_office-email" which this code does not know',
+    });
+    expect(health.schema.appliedHead).toBe(health.schema.expectedHead);
+    expect(health.schema.state).toBe("refused");
+  });
+
+  it("still reports the count and head of a refused lineage", async () => {
+    // Refused is not unread: the ledger answered, and what it holds is the row's actual subject.
+    const health = await collect({
+      firm: HEALTHY_FIRM,
+      migrationFault: 'database has applied migration "x" which this code does not know',
+    });
+    expect(health.schema.appliedHead).toBe(EXPECTED_HEAD);
+    expect(health.schema.appliedCount).toBeGreaterThan(0);
+  });
+
+  it("carries the out-of-order arrivals the firm database reported", async () => {
+    const health = await collect({
+      firm: HEALTHY_FIRM,
+      outOfOrderArrivals: ["20260911T000000_early"],
+    });
+    expect(health.schema.outOfOrderArrivals).toEqual(["20260911T000000_early"]);
+  });
+
+  it("carries the restore point, and never its bookmark", async () => {
+    // The opaque Cloudflare handle does nothing for the member reading this panel, and restoring is
+    // an operator's act with dashboard access. What travels is that a point exists and what it
+    // sits in front of.
+    const health = await collect({
+      firm: HEALTHY_FIRM,
+      restorePoint: {
+        bookmark: "0000007f-secret-bookmark",
+        takenAt: "2026-09-15T18:00:00.000Z",
+        appliedTags: ["20260914T191528_intake"],
+      },
+    });
+    expect(health.schema.restorePoint).toEqual({
+      takenAt: "2026-09-15T18:00:00.000Z",
+      precedes: ["20260914T191528_intake"],
+    });
+    expect(JSON.stringify(health)).not.toContain("secret-bookmark");
+  });
+
+  it("answers an ordinary firm with neither signal", async () => {
+    const health = await collect({ firm: HEALTHY_FIRM });
+    expect(health.schema.state).toBe("current");
+    expect(health.schema.outOfOrderArrivals).toEqual([]);
+    expect(health.schema.restorePoint).toBeNull();
+  });
+
+  it("still reports an unreadable lineage as unknown, never as refused", async () => {
+    // "Could not ask" and "asked, and the runner said no" are different facts about the database.
+    const health = await collect({ firm: { ...HEALTHY_FIRM, migrations: "throw" } });
+    expect(health.schema.state).toBe("unknown");
   });
 });
