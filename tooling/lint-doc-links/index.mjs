@@ -81,7 +81,7 @@ const gitLines = (args) =>
  * written but not yet committed is not rot — reporting it as rot would make the gate fire loudest
  * exactly when two people are working. The cost is the opposite mistake: a link into something that
  * exists only after a build passes locally and fails on a clean checkout. That is the better way
- * round, because the gate of record runs on the clean checkout and catches it.
+ * round, because a fresh worktree's first gate run is a clean checkout and catches it.
  */
 export function indexTree(trackedPaths, onDisk = () => null) {
   const files = new Set(trackedPaths);

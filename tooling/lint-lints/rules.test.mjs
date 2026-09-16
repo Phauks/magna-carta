@@ -14,22 +14,17 @@ import {
 
 const bare = (name, scriptFile) => ({ name, scriptFile, source: "walk(ROOT);", testFiles: [] });
 
-/** A gate workflow whose fitness-sweep step carries the given environment lines, and nothing else. */
-const workflowWithSweepEnvironment = (...environmentLines) =>
-  [
-    "jobs:",
-    "  gate:",
-    "    steps:",
-    "      - name: Something else",
-    "        run: pnpm run check",
-    "      - name: Repo-wide fitness sweep",
-    ...environmentLines,
-    "        run: pnpm exec vp test run -c tooling/sweep.config.ts",
-    "      - name: After",
-    "        env:",
-    "          UNRELATED: yes",
-    "        run: echo done",
-  ].join("\n");
+/** A gate step list whose fitness-sweep step carries the given environment, and nothing else. */
+const stepsWithSweepEnvironment = (env) => [
+  { name: "Something else", command: "pnpm", arguments: ["run", "check"] },
+  {
+    name: "Repo-wide fitness sweep",
+    command: "vp",
+    arguments: ["test", "run", "-c", "tooling/sweep.config.ts"],
+    ...(env === undefined ? {} : { env }),
+  },
+  { name: "After", command: "echo", arguments: ["done"], env: { UNRELATED: "yes" } },
+];
 
 describe("the startup self-test", () => {
   it("passes, so the gate proves itself on every invocation", () => {
@@ -272,35 +267,24 @@ describe("rule three: every cited command exists", () => {
   });
 });
 
-describe("reading the fitness sweep's environment out of the workflow", () => {
-  const workflow = workflowWithSweepEnvironment;
+describe("reading the fitness sweep's environment out of the gate's steps", () => {
+  const steps = stepsWithSweepEnvironment;
 
-  it("reads the step's own environment block and nothing else", () => {
+  it("reads the step's own environment and nothing else", () => {
     expect(
-      fitnessSweepEnvironment(
-        workflow("        env:", "          SOME_SCOPES: source,schema"),
-        "tooling/sweep.config.ts",
-      ),
+      fitnessSweepEnvironment(steps({ SOME_SCOPES: "source,schema" }), "tooling/sweep.config.ts"),
     ).toEqual({ found: true, variables: [["SOME_SCOPES", "source,schema"]] });
   });
 
-  it("does not read the step's own run line as a variable", () => {
-    const { variables } = fitnessSweepEnvironment(
-      workflow("        env:", "          SOME_SCOPES: source"),
-      "tooling/sweep.config.ts",
-    );
-    expect(variables.map(([name]) => name)).toEqual(["SOME_SCOPES"]);
-  });
-
-  it("reports a step with no environment block at all", () => {
-    expect(fitnessSweepEnvironment(workflow(), "tooling/sweep.config.ts")).toEqual({
+  it("reports a step with no environment at all", () => {
+    expect(fitnessSweepEnvironment(steps(), "tooling/sweep.config.ts")).toEqual({
       found: true,
       variables: [],
     });
   });
 
-  it("reports the sweep being absent from the workflow entirely", () => {
-    expect(fitnessSweepEnvironment(workflow(), "tooling/elsewhere.config.ts")).toEqual({
+  it("reports the sweep being absent from the gate entirely", () => {
+    expect(fitnessSweepEnvironment(steps(), "tooling/elsewhere.config.ts")).toEqual({
       found: false,
       variables: [],
     });
@@ -320,7 +304,7 @@ describe("rule four: the scope variable is pinned on both sides", () => {
     ).toEqual([]);
   });
 
-  it("fails when the workflow was renamed out from under the sweep", () => {
+  it("fails when the gate was renamed out from under the sweep", () => {
     const findings = compareFitnessScopeVariable({
       environment: { found: true, variables: [["RENAMED", "source,schema"]] },
       expectedName: "ORIGINAL",
@@ -342,7 +326,7 @@ describe("rule four: the scope variable is pinned on both sides", () => {
     expect(findings[0]).toContain("scheme");
   });
 
-  it("fails when the sweep step has gone from the workflow", () => {
+  it("fails when the sweep step has gone from the gate", () => {
     const findings = compareFitnessScopeVariable({
       environment: { found: false, variables: [] },
       expectedName: "SCOPES",

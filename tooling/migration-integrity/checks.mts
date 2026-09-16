@@ -84,10 +84,11 @@ export function journalStructureViolations(artifacts: Artifacts): string[] {
  * fleets diverge the first time one of those migrations depends on the other.
  *
  * WHY THIS LIVES HERE RATHER THAN ONLY IN A TEST. It was only in a test — the Vitest fitness
- * function in packages/database — and the gate runs its test battery only under the `run-tests`
- * label, so two inversions merged on 2026-09-11 and 2026-09-14 without anything failing. This
- * module runs on EVERY pull request, which is where a tag still costs nothing to change: a
- * migration nobody has applied can be renamed, and one that has reached a database cannot.
+ * function in packages/database — and the hosted gate of the time ran its test battery only when
+ * asked, so two inversions merged on 2026-09-11 and 2026-09-14 without anything failing. This
+ * module runs in the pre-push hook and in the gate's governance dimension on EVERY change, which is
+ * where a tag still costs nothing to change: a migration nobody has applied can be renamed, and one
+ * that has reached a database cannot.
  *
  * The remedy is always to re-stamp the incoming migration ABOVE the new head, never to renumber
  * `idx` — `idx` names snapshot files that describe the schema at that point, and reordering it

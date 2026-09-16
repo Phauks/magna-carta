@@ -1,11 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { computeAffected, selectFanoutSinks } from "./index.mjs";
 import {
-  GATE_INVOCATIONS,
   trueDependentClosure,
   verifyScopeCoverage,
   verifySinkSelection,
-  verifyWorkflowInvocations,
 } from "./scope-fitness.mjs";
 
 // money <- data-access <- worker <- web, with worker as the fan-out sink.
@@ -164,19 +162,5 @@ describe("selectFanoutSinks", () => {
       ]),
     });
     expect([...sinks]).toEqual(["@magna-carta/web"]);
-  });
-});
-
-describe("verifyWorkflowInvocations", () => {
-  it("passes when both invocations are present verbatim", () => {
-    const workflow = `steps:\n  run: |\n    ${GATE_INVOCATIONS.pullRequest}\n    ${GATE_INVOCATIONS.postMerge}\n`;
-    expect(verifyWorkflowInvocations(workflow)).toEqual([]);
-  });
-
-  it("BITES when the gate's flags are edited without editing this lint", () => {
-    const drifted = `steps:\n  run: |\n    node tooling/affected-lint/index.mjs --base "$base" --max-hops 1\n`;
-    expect(verifyWorkflowInvocations(drifted).join("\n")).toContain(
-      "pullRequest classifier invocation is not in .github/workflows/gate.yml",
-    );
   });
 });

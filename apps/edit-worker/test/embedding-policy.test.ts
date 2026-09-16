@@ -8,11 +8,11 @@ import {
 // The policy coolwsd actually sends for the editor page, shortened to the directives that matter here.
 // `frame-ancestors` names the editor's own origin and the internal WOPI host and nothing else — the
 // defect this module exists to correct.
-const DOCUMENT_KEY = "286b0ecd5380489120b8c0f96e26476bad69f2897c22af02d7d6";
+const DOCUMENT_HOST_LABEL = "286b0ecd5380489120b8c0f96e26476bad69f2897c22af02d7d6";
 const COOLWSD_POLICY = [
   "default-src 'none'",
   "script-src 'self' 'unsafe-inline'",
-  `frame-ancestors ${DOCUMENT_KEY}.magnacartausercontent.com:* wopi.magna-carta.internal:*`,
+  `frame-ancestors ${DOCUMENT_HOST_LABEL}.magnacartausercontent.com:* wopi.magna-carta.internal:*`,
 ].join("; ");
 
 const APP_SOURCES = ["https://magnacarta.esq", "https://*.magnacarta.esq"];
@@ -42,7 +42,7 @@ describe("withAppFrameAncestors", () => {
 
   it("keeps the sources coolwsd put there, because the editor frames pages of its own", () => {
     const merged = withAppFrameAncestors(COOLWSD_POLICY, APP_SOURCES);
-    expect(merged).toContain(`${DOCUMENT_KEY}.magnacartausercontent.com:*`);
+    expect(merged).toContain(`${DOCUMENT_HOST_LABEL}.magnacartausercontent.com:*`);
     expect(merged).toContain("wopi.magna-carta.internal:*");
   });
 

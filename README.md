@@ -11,6 +11,7 @@ Legal practice-management platform on Cloudflare. See [`CLAUDE.md`](CLAUDE.md) a
 - `vp run build-all` — build all apps in dependency order
 - `pnpm test` — run tests (including the Miniflare worker integration test); wraps `vp test` in a per-worktree single-flight lock
 - `pnpm check:scoped` — the inner loop: format + lint on the diff, incremental type-check, svelte-check/Rust only when touched
-- `pnpm check` — full quality gate (format + lint + TS type-check + svelte-check + Rust); what the gate of record runs
+- `pnpm gate` — the gate of record, run before a merge: every check the change can reach, from format and governance through the contract-drift checks to the full test battery; `--plan` says what a change will run
+- `pnpm check` — the whole-repo static half of that gate on its own (format + lint + TS type-check + svelte-check + Rust)
 
 The full guide is [`CLAUDE.md`](CLAUDE.md).

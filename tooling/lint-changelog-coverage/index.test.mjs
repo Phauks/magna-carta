@@ -43,7 +43,7 @@ describe("what counts as first-party source", () => {
     expect(isShippingSource("CLAUDE.md")).toBe(false);
     expect(isShippingSource("packages/design-system/CLAUDE.md")).toBe(false);
     expect(isShippingSource("tooling/lint-status.mjs")).toBe(false);
-    expect(isShippingSource(".github/workflows/gate.yml")).toBe(false);
+    expect(isShippingSource(".github/workflows/assemble-docs.yml")).toBe(false);
     expect(isShippingSource("changelog.d/a-thing-happened.md")).toBe(false);
     expect(isShippingSource("status.d/slice-3-2.md")).toBe(false);
   });

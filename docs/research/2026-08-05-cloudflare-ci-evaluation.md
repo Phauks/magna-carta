@@ -1,7 +1,7 @@
 # Running CI on Cloudflare instead of GitHub Actions — Evaluation
 
 **Date:** 2026-08-05
-**Scope:** Whether the whole-repo quality gate ([`.github/workflows/gate.yml`](../../.github/workflows/gate.yml)) can move off GitHub Actions and onto Cloudflare — Workers Builds specifically, plus every other CI-shaped thing Cloudflare sells — and what that would cost and take.
+**Scope:** Whether the whole-repo quality gate (`.github/workflows/gate.yml` as it stood on this date; the workflow was removed on 2026-09-16 in favour of the local `pnpm gate`, `tooling/gate/`) can move off GitHub Actions and onto Cloudflare — Workers Builds specifically, plus every other CI-shaped thing Cloudflare sells — and what that would cost and take.
 **Prompted by:** the owner's GitHub Actions minutes reaching their budget limit (CI austerity active as of 2026-08-05; merges temporarily backed by local verification), plus an owner-supplied Reddit link.
 **Purpose:** This is **research, not a spec and not a decision.** Nothing here is built or committed. The binding decision in this area is **ADR-0075 as amended** — Cloudflare Workers Builds is the build-and-deploy pipeline — and nothing in this document changes it. Items labelled a recommendation are recommendations only; items labelled owner-decision are requests for one.
 
@@ -165,7 +165,7 @@ On paper this clears several Workers Builds blockers at once: no 20-minute ceili
 
 ## 5. Per-job feasibility — the gate mapped onto Workers Builds
 
-Every job in [`gate.yml`](../../.github/workflows/gate.yml), with measured wall-clock from a real pull-request run (`30963909970`, 2026-08-05, 17 jobs, a broad change touching a foundational package). "Billable" is GitHub's per-job round-up to the whole minute.
+Every job in `gate.yml` (as it stood on this date), with measured wall-clock from a real pull-request run (`30963909970`, 2026-08-05, 17 jobs, a broad change touching a foundational package). "Billable" is GitHub's per-job round-up to the whole minute.
 
 | Job              | Measured                         | Billable | Feasible on Workers Builds?         | The binding constraint                                                                                                                                                                                                                                                                                                                                                                                  |
 | ---------------- | -------------------------------- | -------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -299,6 +299,6 @@ Sized honestly, so the number is available if the owner wants it despite the rec
 
 **Measured, this repository:** gate run [`30963909970`](https://github.com/Phauks/magna-carta/actions/runs/30963909970) (pull request, 17 jobs, 2026-08-05) via the Actions API — per-job durations in sections 5 and 7.
 
-**In-repo:** [`.github/workflows/gate.yml`](../../.github/workflows/gate.yml) · [`build-performance.md`](../conventions/build-performance.md) · [`operations.md`](../conventions/operations.md) (the Workers Builds runbook) · [`vite.config.ts`](../../vite.config.ts) (the `rust-wasm-build` Docker evidence) · [`operating-costs.md`](../operating-costs.md) · [`2026-08-04-cloudflare-agents-assessment.md`](2026-08-04-cloudflare-agents-assessment.md) (the prior Reddit-link precedent) · ADR-0075 as amended, ADR-0078.
+**In-repo:** `.github/workflows/gate.yml` (removed 2026-09-16; its successor is [`tooling/gate/`](../../tooling/gate/index.mjs)) · [`build-performance.md`](../conventions/build-performance.md) · [`operations.md`](../conventions/operations.md) (the Workers Builds runbook) · [`vite.config.ts`](../../vite.config.ts) (the `rust-wasm-build` Docker evidence) · [`operating-costs.md`](../operating-costs.md) · [`2026-08-04-cloudflare-agents-assessment.md`](2026-08-04-cloudflare-agents-assessment.md) (the prior Reddit-link precedent) · ADR-0075 as amended, ADR-0078.
 
 **Unreadable:** the owner-supplied Reddit thread (section 2).

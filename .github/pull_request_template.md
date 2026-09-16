@@ -43,11 +43,10 @@ Language: docs/conventions/documentation-style.md. Definition of done: docs/conv
 
 ## Verification
 
-<!-- The test battery runs in CI only under the `run-tests` label, so the branch's own full `pnpm test` is the standing merge bar. State the actual result, including anything that failed or could not be run. Attach the label when one machine's run is not the evidence the change deserves: a migration, a contract change, a shard split. -->
+<!-- There is no hosted check: `pnpm gate` on the branch is the gate of record and the merge bar (docs/conventions/build-performance.md). Paste its summary block. State the actual result, including any dimension it reported FAILED, NOT RUN or skipped by a flag, and why that is acceptable for this change; a check that did not run is not a check that passed. -->
 
-- `pnpm check:scoped`:
-- `pnpm test` (full, local):
-- `run-tests` label: attached / not needed because
+- `pnpm gate` (full, on this branch):
+- Dimensions not run, and why:
 
 ## Golden rules touched
 

@@ -260,11 +260,12 @@ describe("migration ids stay monotonic and collision-free (fitness function)", (
   // conformant; this catches a stamp edited or added by hand.
   //
   // IT DOES NOT ASSERT THAT TAG ORDER MATCHES IDX ORDER — not because the two may disagree, but
-  // because tooling/migration-integrity asserts it (applyOrderViolations) and the gate runs that on
-  // EVERY pull request, while this file's battery runs only under the `run-tests` label. That is the
-  // whole reason the check moved: two inversions merged in September 2026 with nothing failing,
-  // because the only assertion was here. Do not re-add it alongside; a guard in two places is one
-  // that can disagree with itself.
+  // because tooling/migration-integrity asserts it (applyOrderViolations) and the pre-push hook and
+  // the gate's governance dimension run that on EVERY change, where this file's battery is the
+  // gate's last and longest dimension. That is the whole reason the check moved: two inversions
+  // merged in September 2026 with nothing failing, because the only assertion was here and the
+  // hosted gate of the time ran the battery only when asked. Do not re-add it alongside; a guard in
+  // two places is one that can disagree with itself.
   //
   // The remedy there is to RE-STAMP the incoming migration above the lineage head, which is free
   // while no database has applied it. It stops being free the moment one has: the applied ledger is

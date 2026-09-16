@@ -11,7 +11,15 @@
 
 What this document is for now: **the account-side actions that no session can perform** — Cloudflare dashboard steps, DNS, R2 lifecycle rules, secrets, account entitlements, repository settings, and the GitHub Actions billing block. Every one of them is a step the repository cannot take on its own no matter what merges. Kept current by the orchestration stream.
 
-**The move raised the stakes on everything below.** While a deploy was a separate gesture, a mistake had two chances to be caught: the merge and the push. Now a migration, a contract change or a binding change reaches real users on the strength of whatever verification ran before it landed — and for the month the gate of record was blocked account-side (2026-08-05 to 2026-09-01) that verification was the scoped local gate plus whatever tests the change carries. The gate executes again; what stands between a merge and production now is the pull-request tier alone; the first entry below records why there is no second run on the exact tree that lands.
+**The move raised the stakes on everything below.** While a deploy was a separate gesture, a mistake had two chances to be caught: the merge and the push. Now a migration, a contract change or a binding change reaches real users on the strength of whatever verification ran before it landed — and since 2026-09-16 that verification is `pnpm gate` on the branch, run by whoever made the change, with nothing hosted repeating it. The first two entries below record why there is no second run on the exact tree that lands, and the one repository setting that still has to change.
+
+## Remove the `gate` status from the `main` ruleset — the workflow that reported it is gone (2026-09-16)
+
+**What to do.** Settings → Rules → Rulesets → the ruleset on `main` → _Require status checks to pass_: remove `gate` from the required checks (or turn the requirement off if it was the only one). Leave _Require a pull request before merging_ and the rest as they are.
+
+**Why.** The quality gate is now `pnpm gate`, run locally ([`build-performance.md`](conventions/build-performance.md) under _The gate — `pnpm gate`, on the machine that made the change_); `gate.yml` and `seed-caches.yml` are deleted. A required status check that no workflow reports keeps every pull request in the "waiting for status" state forever, which is exactly the stonewall the removal exists to end — until this setting changes, merges still need the administrator override they have needed since 2026-09-03. Nothing in the repository can change a ruleset.
+
+**Also worth doing while there:** close the stale docs-assembly pull request (#457), which was waiting on the gate; the next `assemble-docs` run opens a fresh one. Whether to fund Actions again is a separate decision — the only workflow left is the docs assembly, and nothing waits on it.
 
 _Position, 2026-08-29: `main` is production for the app Worker and the SPA. Everything else about the account is read live, not recorded here — including which projects are connected, what branch each builds from, and what is deployed on any of them. The 2026-08-24 API pass that this file used to treat as its "evidentiary floor" is exactly the thing that stopped being one: it was accurate on the day and had decayed within the week, and a floor that decays silently is worse than no floor. Read the account instead._
 
@@ -38,8 +46,9 @@ added; a story still clicking a button another merge removed; a lint rule and th
 it landing the same afternoon. The pull-request tier cannot see this by construction. A merge queue
 can: it builds the exact tree that will land and runs the gate on that, so the interleaving is caught
 before the deploy rather than by the next branch to run. The workflow side was wired for it in #488:
-`gate.yml` carries the `merge_group` trigger, resolves its diff base from the queue's payload, and
-defers the fan-out sinks on that tier for as long as the austerity holds.
+the hosted gate of the time carried a `merge_group` trigger, resolved its diff base from the queue's
+payload, and deferred the fan-out sinks on that tier (that workflow was removed on 2026-09-16; a
+queue would run `pnpm gate` in a workflow of its own).
 
 **Why it cannot be clicked.** GitHub offers merge queues in public repositories owned by an
 organization, and in private repositories owned by organizations on Enterprise Cloud. This repository
@@ -61,41 +70,36 @@ the number to decide against is the runner-minutes that option would spend again
 fixes cost.
 
 **Two things written for the queue that stay.** The docs-assembly workflow enables auto-merge with
-`gh pr merge --auto --rebase`; without a queue that is plain auto-merge, landing on the gate's green.
-And the values a queue would take — squash; build concurrency 1; group size 1 to 5 with a five-minute
-wait; a 60-minute check timeout; `gate` as the one required check; up-to-date-before-merge off — are
-in this file's history at #488, should the transfer ever happen.
+`gh pr merge --auto --rebase`; without a queue that is plain auto-merge. And the values a queue would
+take — squash; build concurrency 1; group size 1 to 5 with a five-minute wait; a 60-minute check
+timeout; up-to-date-before-merge off — are in this file's history at #488, should the transfer ever
+happen (the `gate` status it named as the one required check no longer exists; a queue would run
+`pnpm gate` in a workflow of its own).
 
-**It has recurred, and it is the live state as of 2026-09-15.** Every `gate` run since **2026-09-03**
-reports `failure`, and the fingerprint in [`operations.md`](conventions/operations.md) under _A job
-that never started is not a job that failed_ matches on every criterion a session can check without
-`gh`: the three jobs that gate the run (`classify`, `format`, `governance`, all `ubuntu-slim`) carry
-`started_at` **equal to** `created_at` and last 11 to 31 seconds; every other job in the run is
-`skipped` because `classify` gates them; the aggregate is red; and the log endpoint **404s on every
-job, including a run seconds old**. The decisive field, `runner_id`, is the one the GitHub tool
-server trims out of its job listing, so it is unverified here — check it with the `gh api` line in
-that section before concluding anything else.
+**The hosted gate is gone (2026-09-16), and this is why.** The Actions block recurred on
+**2026-09-03**: every `gate` run from then reported `failure` with the fingerprint in
+[`operations.md`](conventions/operations.md) under _Quality gates_ — jobs whose `started_at` equalled
+`created_at`, a log endpoint that 404d on runs seconds old, a red aggregate over a field of
+`skipped`. Run #1037 on 2026-09-03 was the last green one. Every merge from 2026-09-12 (#602, #603,
+#604) and the rounds of 2026-09-09 to 2026-09-14 (#605, #606) landed on local verification alone, on
+an administrator override past a required status that never reported, and each of them deployed. A
+gate that is present one month in three is a gate people learn to work around, so the owner removed
+it and kept its checks: `pnpm gate` is the gate of record, and the entry above is the setting that
+still has to follow.
 
-Run #1037 on 2026-09-03 was the last green one. What this costs is what the entry above describes,
-resumed: every merge from 2026-09-12 (#602, #603, #604) and the rounds of 2026-09-09 to 2026-09-14
-(#605, #606) landed on local verification alone, and each of them deployed. **A red gate in this
-window is not evidence about the code** — #605's red is this, not a defect it found, and its test
-jobs never executed. Do not read a red check on a pull request as a finding until `runner_id` says a
-runner ran.
+**History.** The first block stood from 2026-08-05 to 2026-09-01: GitHub had refused to start any
+billable job for the repository, so the gate executed nothing for a month. The billing step cleared
+it (jobs with real runner ids from 2026-09-01), and three days later it was blocked again. The
+recognition rule for that state stays in [`operations.md`](conventions/operations.md) under _Quality
+gates_, because it is the only way to read a red check from those windows correctly.
 
-**History.** This entry replaces the one that stood here from 2026-08-05 to 2026-09-01: GitHub had
-refused to start any billable job for the repository, so the gate executed nothing for a month. The
-billing step cleared it (jobs with real runner ids from 2026-09-01). The recognition rule for that
-state — a red aggregate over a field of `skipped`, `runner_id: 0`, no log to fetch — stays in
-[`operations.md`](conventions/operations.md) under _Quality gates_, because it is the only way to
-tell that outage from a red build if it recurs.
-
-**What it is costing, and it went up on 2026-08-29.** Every merge since 2026-08-05 has landed on the
-strength of local verification alone. Since the branch move, every merge also **deploys** on the
-strength of local verification alone — the gate of record and the deploy gate were two separate
-safety nets and now neither one is standing. Two specific checks are CI-authoritative and remain
-unanswered — see the scan-policy item under _Deferred — operational setup_ in
-[`ROADMAP.md`](../ROADMAP.md).
+**What it cost, and it went up on 2026-08-29.** Every merge since 2026-08-05 landed on the strength of
+local verification alone. Since the branch move, every merge also **deploys** on the strength of
+local verification alone. That is now the design rather than an outage — `pnpm gate` on the branch
+is the whole of the verification, and a pull request states its summary — so the cost has become a
+discipline: a pull request with no gate summary is a pull request whose verification is unknown. Two
+specific checks were CI-authoritative and remain unanswered — see the scan-policy item under
+_Deferred — operational setup_ in [`ROADMAP.md`](../ROADMAP.md).
 
 A third cost surfaced on 2026-08-25 and is now paid forward rather than accruing: the build register's
 trend series (`docs/register-history.json`) advances only when the per-merge assembly workflow runs, so
@@ -103,18 +107,15 @@ it sat frozen from 2026-08-17. The two defects that would have kept it frozen ev
 runner are fixed, and the workflow now names the trunk explicitly — so the first assembly run after
 this block clears brings the series current by itself, with no direct push and no step for the owner.
 
-**Still red on 2026-09-15, with the fingerprint intact.** Pull request #615 put three runs through
-it. Runs #1210 and #1211 are 40 and 32 seconds end to end; in #1211 `classify`, `format` and
-`governance` all carry `started_at` equal to `created_at` and last 21, 11 and 12 seconds; all eleven
-jobs behind them are `skipped`, several with a `completed_at` EARLIER than their own `started_at`,
-which is not a thing a job that ran can report; and the log endpoint 404s on a job hours old. Run
-#1215 is queued at the time of writing. The branch's own `pnpm check:scoped` is green on that head,
-so the red on #615 is this outage rather than anything in the change — which is exactly the reading
-this entry exists to make available without re-deriving it.
-
-**Do not "fix" this by editing the workflow.** The runner labels in `gate.yml` are correct and were
-verified against GitHub's current runner reference; `ubuntu-slim` is generally available. The outage
-reproduces identically on `ubuntu-latest`, and predates `ubuntu-slim` entering the repository.
+**The last reading of the fingerprint, 2026-09-15.** Pull request #615 put three runs through it.
+Runs #1210 and #1211 were 40 and 32 seconds end to end; in #1211 `classify`, `format` and
+`governance` all carried `started_at` equal to `created_at` and lasted 21, 11 and 12 seconds; all
+eleven jobs behind them were `skipped`, several with a `completed_at` EARLIER than their own
+`started_at`, which is not a thing a job that ran can report; and the log endpoint 404d on a job
+hours old. The branch's own `pnpm check:scoped` was green on that head, so the red on #615 was the
+outage rather than anything in the change. The runner labels were never the cause — the outage
+reproduced identically on `ubuntu-latest` and predated `ubuntu-slim` entering the repository — and
+the workflow is gone now regardless, so there is no longer a workflow to "fix".
 
 ## Reconcile the production branch across the fleet — check before acting, and expect it to be done
 

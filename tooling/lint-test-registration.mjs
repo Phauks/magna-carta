@@ -87,7 +87,7 @@ for (const path of discovered) {
   if (!entries.some((entry) => entryMatches(entry, path))) {
     errors.push(
       `  ${path}  exists on disk but no test.projects entry covers it — its tests run NOWHERE. ` +
-        `Register it in vite.config.ts (and add its path to the gate's test jobs, .github/workflows/gate.yml).`,
+        `Register it in vite.config.ts.`,
     );
   }
 }

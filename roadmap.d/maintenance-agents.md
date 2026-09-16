@@ -13,7 +13,7 @@
   name: Security agent
   scope: pnpm/cargo audit, CVE triage, secret scanning on a schedule.
   status: not-started
-  evidence: No scheduled agent or routine. What exists is CI-side and on-demand rather than a proposing agent — the gate.yml "Dependency audit (high+)" step runs a pinned osv-scanner over both supply chains on every pull request and push, with the accepted-advisory register at osv-scanner.toml, and .claude/skills/security-audit/ is a vendored on-demand audit skill rather than a scheduled one. Dependency security batches still land as manual branches.
+  evidence: No scheduled agent or routine. What exists is gate-side and on-demand rather than a proposing agent — the `audit` dimension of the local quality gate (`pnpm gate`) runs a pinned osv-scanner over both supply chains before every merge, with the accepted-advisory register at osv-scanner.toml, and .claude/skills/security-audit/ is a vendored on-demand audit skill rather than a scheduled one. Dependency security batches still land as manual branches.
 
 - id: maintenance-agents.dependency-upgrade
   name: Dependency & framework upgrade agent

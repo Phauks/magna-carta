@@ -50,10 +50,10 @@ import {
   FITNESS_SCOPES_ENV,
   allRepoWideLints,
 } from "../check-scoped/repo-wide.mjs";
+import { GOVERNANCE_STEPS } from "../gate/governance.mjs";
 import {
   CITATION_ROOTS,
   DOCUMENTATION_ROOTS,
-  GATE_WORKFLOW,
   LINTS_THAT_CANNOT_FAIL,
   checkEveryCitedCommandExists,
   checkEveryLintCanFail,
@@ -242,23 +242,26 @@ export const SELF_TEST = [
     expect: 0,
   },
   {
-    name: "the sweep step's environment block is read, keyed off the configuration it runs",
+    name: "the sweep step's environment is read, keyed off the configuration it runs",
     run: () =>
       JSON.stringify(
         fitnessSweepEnvironment(
           [
-            "      - name: Sweep",
-            "        env:",
-            "          SOME_SCOPES: source,schema",
-            "        run: pnpm exec vp test run -c tooling/sweep.config.ts",
-          ].join("\n"),
+            { name: "Other", command: "pnpm", arguments: ["run", "check"] },
+            {
+              name: "Sweep",
+              command: "vp",
+              arguments: ["test", "run", "-c", "tooling/sweep.config.ts"],
+              env: { SOME_SCOPES: "source,schema" },
+            },
+          ],
           "tooling/sweep.config.ts",
         ),
       ),
     expect: JSON.stringify({ found: true, variables: [["SOME_SCOPES", "source,schema"]] }),
   },
   {
-    name: "a renamed variable on the workflow side is a finding",
+    name: "a renamed variable on the gate side is a finding",
     run: () =>
       compareFitnessScopeVariable({
         environment: { found: true, variables: [["RENAMED_SCOPES", "source,schema"]] },
@@ -403,7 +406,7 @@ function main() {
   const cited = checkEveryCitedCommandExists({ citations, lintNames });
 
   const scopePinned = compareFitnessScopeVariable({
-    environment: fitnessSweepEnvironment(readFileSync(path.join(ROOT, GATE_WORKFLOW), "utf8")),
+    environment: fitnessSweepEnvironment(GOVERNANCE_STEPS),
     expectedName: FITNESS_SCOPES_ENV,
     knownScopes: FITNESS_SCOPES,
   });
