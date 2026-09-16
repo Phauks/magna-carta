@@ -25,6 +25,8 @@
     "lint:licenses": "node tooling/lint-licenses.mjs",
     "lint:status": "node tooling/lint-status.mjs",
     "lint:roadmap": "node tooling/lint-roadmap.mjs",
+    "lint:durable-object-gates": "node tooling/lint-durable-object-gates/index.mjs",
+    "lint:stale-response": "node tooling/lint-stale-response/index.mjs",
     "lint:guarded-writes": "node tooling/lint-guarded-writes/index.mjs",
     "lint:ledger-staleness": "node tooling/lint-ledger-staleness/index.mjs",
     "lint:ungranted-permissions": "node tooling/lint-ungranted-permissions/index.mjs",

@@ -27,6 +27,7 @@ import {
   type MagnusTurn,
   type MagnusTurnProgress,
 } from "./magnus-api.ts";
+import { LatestOnly, type ReadAttempt } from "../api/latest-only.ts";
 import type { ApiOutcome, Failure } from "$lib/api/request.ts";
 
 /** How long between polls while an answer is pending. */
@@ -76,7 +77,7 @@ export class ConversationSession {
 
   readonly #fetchImpl: typeof fetch;
   #conversationId: string | null = null;
-  #generation = 0;
+  readonly #latest = new LatestOnly();
   #timer: ReturnType<typeof setTimeout> | undefined;
   #slowTimer: ReturnType<typeof setTimeout> | undefined;
   #consecutivePollFailures = 0;
@@ -104,7 +105,7 @@ export class ConversationSession {
   open(conversationId: string): void {
     this.#stopPolling();
     this.#conversationId = conversationId;
-    this.#generation += 1;
+    this.#latest.supersede();
     this.conversation = null;
     this.turns = null;
     this.attachments = [];
@@ -114,7 +115,7 @@ export class ConversationSession {
     this.sending = false;
     this.loadingEarlier = false;
     this.#consecutivePollFailures = 0;
-    void this.#read(conversationId, this.#generation);
+    void this.#read(conversationId, this.#latest.attempt());
   }
 
   /** Adopt the attachments an attach or a detach answered with, without a re-read. */
@@ -131,7 +132,7 @@ export class ConversationSession {
   adopt(conversationId: string): void {
     this.#stopPolling();
     this.#conversationId = conversationId;
-    this.#generation += 1;
+    this.#latest.supersede();
     this.conversation = null;
     this.turns = [];
     this.attachments = [];
@@ -146,7 +147,7 @@ export class ConversationSession {
   close(): void {
     this.#stopPolling();
     this.#conversationId = null;
-    this.#generation += 1;
+    this.#latest.supersede();
     this.conversation = null;
     this.turns = null;
     this.attachments = [];
@@ -168,9 +169,9 @@ export class ConversationSession {
     const cursor = this.earlierCursor;
     if (conversationId === null || cursor === null || this.loadingEarlier) return;
     this.loadingEarlier = true;
-    const generation = this.#generation;
+    const attempt = this.#latest.attempt();
     const outcome = await readConversation(this.#fetchImpl, conversationId, cursor);
-    if (generation !== this.#generation) return;
+    if (!attempt.current) return;
     this.loadingEarlier = false;
     if (outcome.kind !== "ok") {
       this.failure = outcome.failure;
@@ -194,15 +195,15 @@ export class ConversationSession {
     if (message === "") return false;
     this.sending = true;
     this.submitFailure = null;
-    const generation = this.#generation;
+    const attempt = this.#latest.attempt();
     const outcome = await submitTurn(this.#fetchImpl, conversationId, message, newWriteKey());
-    if (generation !== this.#generation) return false;
+    if (!attempt.current) return false;
     this.sending = false;
     if (outcome.kind !== "ok") {
       this.submitFailure = outcome.failure;
       return false;
     }
-    await this.#read(conversationId, generation);
+    await this.#read(conversationId, attempt);
     return true;
   }
 
@@ -216,12 +217,12 @@ export class ConversationSession {
   /** Stop every timer. Called when the surface holding this session goes away. */
   dispose(): void {
     this.#stopPolling();
-    this.#generation += 1;
+    this.#latest.supersede();
   }
 
-  async #read(conversationId: string, generation: number): Promise<void> {
+  async #read(conversationId: string, attempt: ReadAttempt): Promise<void> {
     const outcome = await readConversation(this.#fetchImpl, conversationId);
-    if (generation !== this.#generation) return;
+    if (!attempt.current) return;
     if (outcome.kind !== "ok") {
       this.turns = this.turns ?? [];
       this.failure = outcome.failure;
@@ -245,19 +246,19 @@ export class ConversationSession {
       return;
     }
     this.#startSlowWatch();
-    const generation = this.#generation;
+    const attempt = this.#latest.attempt();
     this.#timer = setTimeout(() => {
-      void this.#poll(conversationId, pending.id, generation);
+      void this.#poll(conversationId, pending.id, attempt);
     }, POLL_INTERVAL_MILLISECONDS);
   }
 
-  async #poll(conversationId: string, turnId: string, generation: number): Promise<void> {
+  async #poll(conversationId: string, turnId: string, attempt: ReadAttempt): Promise<void> {
     const outcome: ApiOutcome<MagnusTurnProgress> = await readTurn(
       this.#fetchImpl,
       conversationId,
       turnId,
     );
-    if (generation !== this.#generation) return;
+    if (!attempt.current) return;
     if (outcome.kind !== "ok") {
       this.#consecutivePollFailures += 1;
       if (this.#consecutivePollFailures >= POLL_FAILURES_BEFORE_REPORTING) {

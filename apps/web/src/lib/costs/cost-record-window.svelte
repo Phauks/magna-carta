@@ -20,6 +20,7 @@
    * belongs, refused, saying what it waits on.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import { WriteIntent } from "$lib/api/write-intent.ts";
   import * as Select from "@magna-carta/design-system/select";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
@@ -62,7 +63,6 @@
     createCost,
     parseAmountMinor,
     patchCost,
-    writeKey,
     type CostLedgerEntry,
   } from "./cost-operations.ts";
   import { billingSentence, payeeText } from "./cost-vocabulary.ts";
@@ -142,6 +142,10 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
   let vendorName = $state<string | null>(null);
   let expenseCodeId = $state("");
   let saving = $state(false);
+  // One intent, one idempotency key: every attempt at saving THIS cost carries the same key, so a
+  // retry after a lost response replays the write the server may already have committed rather than
+  // recording the cost a second time. The key rotates once a save succeeds.
+  let writeIntent = new WriteIntent();
   let saveFailure = $state<string | null>(null);
   let printOpen = $state(false);
 
@@ -328,33 +332,41 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
     const code = expenseCodeId === "" ? null : expenseCodeId;
     const outcome =
       entry === null
-        ? await createCost(
-            fetch,
-            {
-              matterId: writingAgainst ?? matterId,
-              vendorId,
-              incurredDate: incurredDateText,
-              amountMinor: minor,
-              currency,
-              billable,
-              utbmsExpenseCodeId: code,
-              description: descriptionText.trim(),
-            },
-            writeKey(),
-          )
-        : await patchCost(
-            fetch,
-            entry.id,
-            {
-              vendorId,
-              incurredDate: incurredDateText,
-              amountMinor: minor,
-              billable,
-              utbmsExpenseCodeId: code,
-              description: descriptionText.trim(),
-            },
-            writeKey(),
-          );
+        ? (
+            await writeIntent.submit((key) =>
+              createCost(
+                fetch,
+                {
+                  matterId: writingAgainst ?? matterId,
+                  vendorId,
+                  incurredDate: incurredDateText,
+                  amountMinor: minor,
+                  currency,
+                  billable,
+                  utbmsExpenseCodeId: code,
+                  description: descriptionText.trim(),
+                },
+                key,
+              ),
+            )
+          ).value
+        : (
+            await writeIntent.submit((key) =>
+              patchCost(
+                fetch,
+                entry.id,
+                {
+                  vendorId,
+                  incurredDate: incurredDateText,
+                  amountMinor: minor,
+                  billable,
+                  utbmsExpenseCodeId: code,
+                  description: descriptionText.trim(),
+                },
+                key,
+              ),
+            )
+          ).value;
     saving = false;
     if (outcome.kind !== "ok") {
       saveFailure =
@@ -367,6 +379,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
     }
     onSaved();
     if (andKeepGoing) {
+      writeIntent = new WriteIntent();
       amountText = "";
       descriptionText = "";
       vendorId = null;

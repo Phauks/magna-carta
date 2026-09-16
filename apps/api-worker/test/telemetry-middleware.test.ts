@@ -68,6 +68,32 @@ describe("telemetry middleware", () => {
     expect(String(captured?.fields.messageHead)).toContain("telemetry probe boom");
   });
 
+  it("answers a guarded-write refusal as a 409 conflict, not a 500 with an Error ID", async () => {
+    // The member did nothing wrong and the platform understands exactly what happened: the record
+    // they named moved between this request's precondition read and its commit, and the batch rolled
+    // back whole. Mapped at the boundary because every guarded write in every route means that same
+    // thing; a route with a richer answer (the fee and cost ledgers reuse their own frozen-entry
+    // refusal) catches it first and never arrives here.
+    const { app, logger } = appWithMemoryLogger();
+    const response = await app.request(
+      "https://example.com/api/v1/__telemetry-guard-refusal",
+      {},
+      env,
+    );
+
+    expect(response.status).toBe(409);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({
+      type: "https://api.magnacarta.esq/problems/conflict",
+      status: 409,
+    });
+    // Still counted and still correlatable — a refusal the member can act on is not a reason to stop
+    // recording it.
+    expect(body["errorId"]).toMatch(/^error_/);
+    expect(logger.events.some((event) => event.name === "error.captured")).toBe(true);
+  });
+
   it("did not emit request.completed for the thrown request (error.captured is its terminal event)", async () => {
     const { app, logger } = appWithMemoryLogger();
     await app.request("https://example.com/api/v1/__telemetry-throw", {}, env);

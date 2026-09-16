@@ -2,11 +2,13 @@
 
 **Status:** Research, partly acted on. A survey of where races can exist in this system, what already pins them, and which techniques are worth adopting.
 
-Techniques 1 and 2 have since been built. The shared interleaving harness is `@magna-carta/data-access/interleave`, and the fitness function is `pnpm run lint:guarded-writes`; both are documented in [`docs/conventions/testing.md`](../conventions/testing.md), _Concurrency: choose the interleaving, and prove it happened_, and the reasoning is in the decision records `a-race-is-tested-by-choosing-the-interleaving-not-by-racing-promises` and `a-guarded-write-refuses-its-batch-rather-than-reporting-afterwards`.
+Techniques 1 through 6 have since been built, and each is documented in [`docs/conventions/testing.md`](../conventions/testing.md) with its reasoning in a decision record.
 
-Two things that survey did not anticipate are worth recording against it. First, the harness earned its keep immediately: the verifiers written with it found that a guarded write protected its row and still answered `200`, and that the audit statement riding the same batch recorded an edit that had been refused — neither visible from reading the code, both fixed by making a guarded statement abort its transaction. Second, the census below said 75 bare `UPDATE`s against 83 guarded ones; the fitness function, reading composed SQL rather than grepping, counts about 130 guard-shaped builders. The grep undercounted, and the larger number is the real backlog.
+Four things the survey did not anticipate are worth recording against it. The interleaving harness earned its keep immediately, finding that a guarded write protected its row and still answered `200` while the audit statement beside it recorded an edit that had been refused. The guarded-write census said 75 bare against 83 guarded from a grep; the fitness function, reading composed SQL, counts about 130 guard-shaped builders, and the grep undercounted. The Durable Object scan found a real single-flight hole on the one path that decides across an R2 round trip. And the number-draw property test found a ceiling no two-caller test could see: five concurrent draws converge, and beyond that the excess is refused — correctly, distinctly and gaplessly, but refused.
 
-Techniques 3 through 8 are still proposals. The findings and the ranking are kept as written, because what a survey concluded before anything was built is worth reading against what building it turned up.
+Two corrections to the survey's own claims. It said the `#generation` stale-answer guard existed in exactly one file; there were five, the fifth under a different field name, and the lint is what found it. And it said a client double-click produces two effects — a double click is already prevented wherever an in-flight flag is set synchronously, because the event loop makes check-and-set atomic. The real defect is the retry after an ambiguous failure, which mints a fresh key and records the thing twice.
+
+Techniques 7 (stress and soak) and 8 (Rust under `loom` or ThreadSanitizer) are still proposals, for the reasons recorded below. The findings and the ranking are kept as written, because what a survey concluded before anything was built is worth reading against what building it turned up.
 
 **Date:** 2026-09-16
 

@@ -216,7 +216,15 @@ export function deleteDraftFee(
   });
 }
 
-/** A fresh idempotency key for one write attempt and its retries. */
+/**
+ * A fresh idempotency key for ONE attempt.
+ *
+ * Not for its retries, despite how a call site reads: this is called inside the attempt, so a retry
+ * calls it again and gets a different key — which makes the retry a different request as far as the
+ * server is concerned, and records the thing twice if the first attempt committed before its response
+ * was lost. Where that matters, hold a `WriteIntent` (`$lib/api/write-intent.ts`) for the intent and
+ * let it supply the key: it keeps one key across every attempt and rotates only after a success.
+ */
 export function writeKey(): string {
   return crypto.randomUUID();
 }
