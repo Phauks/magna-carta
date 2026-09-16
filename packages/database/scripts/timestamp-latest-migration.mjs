@@ -14,14 +14,21 @@
 //      Now it is one command, and tooling/migration-integrity refuses the lineage if it is skipped.
 //
 // Idempotent: a latest migration that already sorts above every other tag is left untouched, as is a
-// no-op generate. When it DOES re-stamp, it prints the old and new tags — the worker bundle that
-// imports the .sql by name (apps/api-worker/src/per-firm-migrations.ts) is a hand-kept map and has
-// to be updated to match; its own test fails naming the tag if it is not.
+// no-op generate. When it DOES re-stamp, it prints the old and new tags, then regenerates the worker
+// bundles that import the .sql by name.
+//
+// ONE MIGRATION ONLY. A merge that brings in several at once — or one that leaves the lineage
+// inverted somewhere other than at its end — is `node tooling/resolve-journal/index.mjs`, which
+// resolves the journal itself and re-stamps everything the trunk does not already carry. This
+// borrows its tag arithmetic from there rather than keeping a second copy: two implementations of
+// "a tag that sorts above the head" is the shape of the bug both of them exist to prevent.
 //
 // usage: node scripts/timestamp-latest-migration.mjs <control-plane|per-firm>
 
 import { readFileSync, writeFileSync, renameSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { generateBundles } from "../../../tooling/migration-bundles/index.mjs";
+import { nextTagAbove, slugOf, TAG_PATTERN } from "../../../tooling/resolve-journal/stamp.mjs";
 
 const lineage = process.argv[2];
 if (lineage !== "control-plane" && lineage !== "per-firm") {
@@ -46,7 +53,7 @@ const head = journal.entries
   .filter((entry) => entry.idx !== latest.idx)
   .reduce((highest, entry) => (entry.tag > highest ? entry.tag : highest), "");
 
-const timestamped = /^\d{8}T\d{6}_/.test(latest.tag);
+const timestamped = TAG_PATTERN.test(latest.tag);
 if (timestamped && latest.tag > head) {
   console.log(`${lineage}: latest migration ${latest.tag} already sorts above the lineage head`);
   process.exit(0);
@@ -55,7 +62,7 @@ if (timestamped && latest.tag > head) {
 let slug;
 if (timestamped) {
   // Case 2: a merge moved the head above this migration's stamp. Re-stamp it.
-  slug = latest.tag.replace(/^\d{8}T\d{6}_/, "");
+  slug = slugOf(latest.tag);
 } else {
   const legacyMatch = /^(\d{4})_(.+)$/.exec(latest.tag);
   if (legacyMatch === null) {
@@ -66,26 +73,7 @@ if (timestamped) {
   }
   slug = legacyMatch[2];
 }
-const stamp = new Date()
-  .toISOString()
-  .replace(/[-:]/g, "")
-  .replace(/\.\d+Z$/, ""); // YYYYMMDDThhmmss
-let newTag = `${stamp}_${slug}`;
-// Wall-clock "now" is normally well above the head, but it is not guaranteed to be: a head stamped
-// from a machine running ahead, or two re-stamps inside the same second, both land at or below it.
-// Stepping one second past the head is the only thing that has to be true here.
-if (newTag <= head) {
-  const headStamp = head.slice(0, 15);
-  const stepped = new Date(
-    `${headStamp.slice(0, 4)}-${headStamp.slice(4, 6)}-${headStamp.slice(6, 8)}T` +
-      `${headStamp.slice(9, 11)}:${headStamp.slice(11, 13)}:${headStamp.slice(13, 15)}Z`,
-  );
-  stepped.setUTCSeconds(stepped.getUTCSeconds() + 1);
-  newTag = `${stepped
-    .toISOString()
-    .replace(/[-:]/g, "")
-    .replace(/\.\d+Z$/, "")}_${slug}`;
-}
+const newTag = nextTagAbove(head, slug);
 
 const oldSql = join(dir, `${latest.tag}.sql`);
 const newSql = join(dir, `${newTag}.sql`);
@@ -98,9 +86,11 @@ renameSync(oldSql, newSql);
 latest.tag = newTag;
 writeFileSync(journalPath, JSON.stringify(journal, null, 2) + "\n");
 console.log(`${lineage}: ${previousTag} -> ${newTag}`);
-if (timestamped) {
-  console.log(
-    `${lineage}: re-stamped above the head (${head}). Update any bundle that imports the .sql by ` +
-      "name — apps/api-worker/src/per-firm-migrations.ts for this lineage.",
-  );
+if (timestamped) console.log(`${lineage}: re-stamped above the head (${head}).`);
+
+// The worker bundles import the .sql by name, so a rename that stops here leaves them naming a file
+// that no longer exists. Regenerating them is part of the rename, not a follow-up somebody has to
+// remember — that is what the old hand-kept map got wrong.
+for (const module of generateBundles().written) {
+  console.log(`${lineage}: regenerated ${module}`);
 }
