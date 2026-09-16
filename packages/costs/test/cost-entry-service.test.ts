@@ -1,6 +1,7 @@
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import { runInterleaved } from "@magna-carta/data-access/interleave";
 import type { CostEntryId, MatterId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
 import {
@@ -451,5 +452,79 @@ describe("cost-entry receipt attach/detach", () => {
     await expect(detachReceipt(database, id as never, options)).rejects.toMatchObject({
       code: "frozen-entry",
     });
+  });
+});
+
+async function auditCount(database: BatchDatabase, event: string): Promise<number> {
+  const { results } = await database
+    .prepare("SELECT COUNT(*) AS n FROM audit_log WHERE event = ?1")
+    .bind(event)
+    .all<{ n: number }>();
+  return results[0]?.n ?? 0;
+}
+
+// The billing lock is read before the edit is composed and enforced by the statement that commits it.
+// Those are two round trips, so the read is advisory by the time the write runs and the freeze rests
+// entirely on each statement's `status NOT IN ('billed','void')`. These ask whether it does.
+describe("the billing lock under a race", () => {
+  it("refuses to attach a receipt to an entry invoiced inside the window", async () => {
+    const database = freshDatabase();
+    await seedMatter(database, "matter_1");
+    const id = await captureDraft(database);
+
+    await runInterleaved({
+      database,
+      concurrentWriter: () => billEntry(database, id),
+      operation: async (racing) => {
+        const { effect } = await attachReceipt(racing, id as CostEntryId, "file_receipt", options);
+        await commitEffectBatch(racing, effect, { now: clock.now });
+      },
+    });
+
+    // The entry was billed with no receipt and stays that way — the statement matched no row.
+    expect(await receiptOf(database, id)).toBeNull();
+  });
+
+  it("refuses to clear a receipt off an entry invoiced inside the window", async () => {
+    const database = freshDatabase();
+    await seedMatter(database, "matter_1");
+    const id = await captureDraft(database);
+    const { effect } = await attachReceipt(database, id as CostEntryId, "file_receipt", options);
+    await commitEffectBatch(database, effect, { now: clock.now });
+
+    await runInterleaved({
+      database,
+      concurrentWriter: () => billEntry(database, id),
+      operation: async (racing) => {
+        const { effect: detach } = await detachReceipt(racing, id as CostEntryId, options);
+        await commitEffectBatch(racing, detach, { now: clock.now });
+      },
+    });
+
+    // The receipt backing an invoiced expense cannot be detached after the fact.
+    expect(await receiptOf(database, id)).toBe("file_receipt");
+  });
+
+  it("writes an audit row for the attach that the freeze then refused", async () => {
+    // Recorded because the audit statement rides the SAME batch as the guarded write but carries no
+    // guard of its own, so a refused edit still leaves `cost_entry.receipt_attached` behind. The
+    // ledger is protected; the trail says something happened that did not. Pinned rather than fixed:
+    // making the audit row conditional on the guarded write is a change to what the audit trail
+    // means, which is the owner's call and not a detail to settle inside a test.
+    const database = freshDatabase();
+    await seedMatter(database, "matter_1");
+    const id = await captureDraft(database);
+
+    await runInterleaved({
+      database,
+      concurrentWriter: () => billEntry(database, id),
+      operation: async (racing) => {
+        const { effect } = await attachReceipt(racing, id as CostEntryId, "file_receipt", options);
+        await commitEffectBatch(racing, effect, { now: clock.now });
+      },
+    });
+
+    expect(await receiptOf(database, id)).toBeNull();
+    expect(await auditCount(database, "cost_entry.receipt_attached")).toBe(1);
   });
 });

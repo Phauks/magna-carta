@@ -96,7 +96,7 @@ Every slice that ships UI also ships a **manual verification checklist** — a d
 Every package or vertical slice gets an **adversarial review with empirical verifiers** once its tasks land and before it merges — this is what `STATUS.md`'s **Built** column means (implemented _and_ reviewed; review is not a separate column). It is not a prose read-through: each finding is **proven by a runnable verifier** (a focused test, a `grep`/source scan, a fault-injection, a migration apply) — evidence, not assertion. The pass attacks the change from seven angles; each slice instantiates them for its own domain (the ledger slice's "batch-atomicity edges / append-only source scan", the load-profile slice's "generator realism / snapshot-identity holes" are domain instances of the same frame):
 
 1. **Correctness & edge cases** — boundary inputs and partial-failure injection; the unhappy paths, not just the happy one.
-2. **Concurrency, ordering & idempotency** — races, retries, at-least-once redelivery, double-apply windows (queue consumers, effect batches, outbox).
+2. **Concurrency, ordering & idempotency** — races, retries, at-least-once redelivery, double-apply windows (queue consumers, effect batches, outbox). Technique and harness: _Concurrency: choose the interleaving, and prove it happened_, below.
 3. **Determinism & reproducibility** — behavior under clock / locale / seed / platform variation; no wall-clock or unseeded randomness where reproducibility is required.
 4. **Boundary & public surface** — the exports map / no-barrel discipline, a minimal public API, and type-consistency of shared names across the modules that define and consume them.
 5. **Invariant & constraint coverage** — domain invariants and DB CHECK/PK/index coverage matched against the spec; fitness functions that assert the real rule, not a mock.
@@ -104,6 +104,31 @@ Every package or vertical slice gets an **adversarial review with empirical veri
 7. **Security & tenancy isolation** — privilege/confidentiality (redaction, no privileged content in logs/errors), firm-scoping (no query or handle crosses firms), and secret handling. Instantiate this angle from the vendored attack taxonomy in [`.claude/skills/security-audit/`](../../.claude/skills/security-audit/) (`ATTACK-CLASSES.md`, `HUNTING.md`): pick the classes the slice's surface actually exposes — a slice with outbound HTTP runs the SSRF / feature-abuse and chained-attack classes; a write-path slice runs access-control and business-logic — so the security angle is a concrete checklist, not a prose read.
 
 Run it as a fan-out of independent reviewers (one per angle, or grouped), each returning findings with a `file:line` and the verifier that proves it; fix findings and update docs in the same pass. A finding without a runnable verifier is a hypothesis, not a result.
+
+## Concurrency: choose the interleaving, and prove it happened
+
+There is no interactive transaction here. A domain mutation reads its precondition in one round trip and commits its batch in another, so the read is advisory by the time the write runs — two callers can both read the same pre-state and both commit. The batch's atomicity does not stop that. What stops it is a UNIQUE or CHECK constraint that aborts the batch, or a guarded UPDATE whose WHERE repeats the precondition so a stale caller changes no rows.
+
+That guard is what a concurrency verifier has to exercise, and the read in front of it is why this needs a tool. A service that checks a status and then commits reads as though it enforces that status. Delete the `AND status = 'draft'` from the statement and every ordinary test still passes, because none of them ever arranged for the status to change in between.
+
+**Where the contended state is inside a Durable Object, fire two real calls.** The DO serializes them, so `Promise.all` before awaiting either is an honest race — `apps/api-worker/test/firm-database/firm-database-concurrency.test.ts` and `test/live-timer-do.test.ts` are the templates.
+
+**Everywhere else, place the competing writer at a named point** with [`@magna-carta/data-access/interleave`](../../packages/data-access/src/interleave.ts). Racing two promises against a read-then-commit service interleaves them however that run happened to schedule them: the test passes for a reason nobody chose, and stops failing for a reason nobody notices.
+
+```ts
+await runInterleaved({
+  database,
+  concurrentWriter: () => billOutsideTheService(database, id),
+  operation: (racing) =>
+    commit(racing, updateDraftFee(racing, id, { amountMinor: 999_999 }, options)),
+});
+```
+
+`beforeCommit(nth)` is the default point and fits any mutation that reads and commits in one call. `afterRead(matching, occurrence)` fires once a read whose SQL contains `matching` resolves, and is for an operation that does other work in between — the retroactive re-rate makes one rate-resolution round trip per candidate before committing them all, so its window is the whole span rather than the commit.
+
+**`runInterleaved` throws when the point was never reached, and that refusal is the point of using it.** A concurrency verifier whose competing writer never ran still exercises the operation, still asserts whatever it asserted, and still passes — it has become a single-caller test wearing a concurrency test's name, and nothing about it looks wrong on the day the guard it was meant to pin is deleted. The shape to watch for is a test asserting a rejection that came from a precondition the operation never got past; the operation's own failure survives on the error as `operationFailure`, so reading it costs nothing.
+
+**Pin what the guard does not cover rather than passing over it.** A guard can hold the data and still misreport: the affected-row count never leaves the batch seam, so a caller whose guarded write matched no row is told it succeeded, and an audit statement riding the same batch carries no guard of its own. Both are recorded as tests in `packages/fees/test/fee-entry-concurrency.test.ts` and `packages/costs/test/cost-entry-service.test.ts`, stating that they pin today's behaviour rather than endorse it — changing either is an API or audit-trail contract change, which is not a thing to settle inside a test.
 
 ## A repo-wide fitness function declares itself repo-wide
 
