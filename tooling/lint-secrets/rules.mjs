@@ -209,15 +209,20 @@ export const BINARY_EXTENSIONS = new Set([
   ".exe",
 ]);
 
-/** Files whose whole job is holding environment assignments. Rule R10 reads only these. */
+/**
+ * Files whose whole job is holding environment assignments. Rule R10 reads only these, and reads
+ * every line in them. The shapes: `.env` and `.env.<stage>`, a `<name>.env` sibling, `.dev.vars`
+ * and `.dev.vars.<stage>` (what wrangler and the Miniflare test pool load), and `.envrc`. The tree
+ * tracks exactly one today — apps/api-worker/.dev.vars — and that is the file the rule exists for.
+ */
 export function isEnvironmentFile(file) {
   const name = file.split("/").pop() ?? "";
   return (
     name === ".env" ||
     name.startsWith(".env.") ||
+    name.endsWith(".env") ||
     name === ".dev.vars" ||
     name.startsWith(".dev.vars.") ||
-    name === ".envrc" ||
     name.endsWith(".envrc")
   );
 }
@@ -956,6 +961,12 @@ export const SELF_TEST = [
     file: "apps/api-worker/.dev.vars",
     source: `ROOT_KEK=${Buffer.from("magna-carta-local-dev-root-kek!!").toString("base64")}`,
     rule: null,
+  },
+  {
+    label: "a real value in a `<name>.env` sibling, which is an environment file too",
+    file: "apps/web/production.env",
+    source: join("SESSION_SIGNING_SECRET=", "Jq4", "vR9tLm2XbN7wKd1ZsY6hG3pC8aE5uT0i"),
+    rule: "environment-file-value",
   },
   {
     label: "an empty value in an environment file",

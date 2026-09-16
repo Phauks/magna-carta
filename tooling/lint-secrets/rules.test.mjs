@@ -167,6 +167,8 @@ describe("environment files", () => {
   it("recognizes the shapes it is allowed to read", () => {
     expect(isEnvironmentFile("apps/api-worker/.dev.vars")).toBe(true);
     expect(isEnvironmentFile("apps/web/.env.production")).toBe(true);
+    expect(isEnvironmentFile("apps/web/production.env")).toBe(true);
+    expect(isEnvironmentFile("apps/api-worker/.dev.vars.test")).toBe(true);
     expect(isEnvironmentFile("apps/api-worker/src/config.ts")).toBe(false);
   });
 
