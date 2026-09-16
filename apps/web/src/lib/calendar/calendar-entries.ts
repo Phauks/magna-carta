@@ -54,6 +54,18 @@ export interface CalendarEntry extends CalendarGridEntry {
   /** The record's own identifier, without the kind prefix. */
   readonly recordId: string;
   readonly matterId: string | null;
+  /**
+   * Whether `detail` is — or is standing in for — this entry's matter NUMBER.
+   *
+   * The number is the one part of a chip that does not come from the entry's own read: it is
+   * looked up in the firm's matters, which arrive separately and later. A chip painted before they
+   * land carries whatever `detail` could say without one (a type name, or nothing), and `numbered`
+   * fills the number in when it arrives. This flag is what lets it: without it a later pass cannot
+   * tell a detail that WANTED a number from one that is complete as it stands, and would overwrite
+   * "Hearing · Department 12" on a matter's own calendar, where the number is the one fact every
+   * row shares and therefore the one worth saying nowhere.
+   */
+  readonly detailIsMatterNumber: boolean;
   /** The federated read's own deep link, where the entry came from it. */
   readonly link: string | null;
   /**
@@ -104,6 +116,7 @@ export function entryFromTimelineRow(
       kind: "event",
       recordId: row.rowId,
       matterId: row.matterId,
+      detailIsMatterNumber: true,
       link: row.link,
       settled: cancelled,
       sourceKeys: [],
@@ -122,6 +135,7 @@ export function entryFromTimelineRow(
     kind: "other",
     recordId: row.rowId,
     matterId: row.matterId,
+    detailIsMatterNumber: false,
     link: row.link,
     settled: false,
     sourceKeys: [],
@@ -147,6 +161,7 @@ export function entryFromDeadline(
     kind: "deadline",
     recordId: deadline.id,
     matterId: deadline.matterId,
+    detailIsMatterNumber: !isMatterScope(scope),
     link: null,
     settled: deadline.state !== "open",
     sourceKeys: [],
@@ -177,6 +192,7 @@ export function entryFromMatterEvent(
     kind: "event",
     recordId: event.id,
     matterId: event.matterId,
+    detailIsMatterNumber: !isMatterScope(scope),
     link: null,
     settled: event.status === "cancelled",
     sourceKeys: [],
@@ -209,6 +225,7 @@ export function entryFromFirmEvent(event: FirmEvent, context: EntryContext): Cal
     kind: "firmEvent",
     recordId: event.id,
     matterId: null,
+    detailIsMatterNumber: false,
     link: null,
     settled: event.status === "cancelled",
     sourceKeys: [],
@@ -245,6 +262,7 @@ export function entryFromAvailability(
   return {
     id: entryId(kind, entry.eventId),
     kind,
+    detailIsMatterNumber: false,
     recordId: entry.eventId,
     matterId: null,
     link: entry.link,
@@ -351,6 +369,35 @@ export function mergeByRecord(entries: readonly CalendarEntry[]): CalendarEntry[
  * an answer they can predict. On a day grid the lane decides instead, which is why the lane
  * expansion below overwrites it.
  */
+/**
+ * The entry with its matter's number filled in, once the firm's matters have arrived.
+ *
+ * THE NUMBER IS THE ONE PART OF A CHIP THAT IS NOT IN ITS OWN READ. Everything else a chip says
+ * comes back with the row; the matter number is a lookup against the firm's matters, which are read
+ * separately and — for a firm with a lot of them — considerably later. The calendar used to WAIT for
+ * that list before issuing its own reads, so the grid stayed blank until every page of the firm's
+ * matter listing had come back. That made the time to first paint scale with how many matters the
+ * firm has ever opened, which is exactly the wrong thing for it to scale with.
+ *
+ * So the grid paints as soon as ITS read lands, with the number missing, and this fills it in when
+ * the matters arrive. `detailIsMatterNumber` is what makes that safe: it marks the chips whose
+ * detail wanted a number, so a later pass cannot overwrite a detail that was already complete.
+ *
+ * It is a pure function over one entry, applied in the controller's own derived — so the chips
+ * re-label when the numbers land and NOTHING is read a second time.
+ */
+export function numbered(
+  entry: CalendarEntry,
+  matterNumbers: ReadonlyMap<string, string>,
+): CalendarEntry {
+  if (!entry.detailIsMatterNumber || entry.matterId === null) return entry;
+  const number = matterNumbers.get(entry.matterId);
+  // Unchanged where the number is not known yet, and where the chip already carries it: returning
+  // the same object keeps the grid from re-rendering a row nothing happened to.
+  if (number === undefined || number === entry.detail) return entry;
+  return { ...entry, detail: number };
+}
+
 export function colored(
   entry: CalendarEntry,
   colors: ReadonlyMap<string, CalendarGridColor>,

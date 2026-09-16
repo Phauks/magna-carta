@@ -1647,6 +1647,7 @@
     matterId={record.deadline.matterId}
     matters={context.matters}
     mattersCapped={context.mattersCapped}
+  mattersReading={context.mattersReading}
     preferredTimeZones={[context.readerTimeZone]}
     initialDate={record.deadline.dueOn}
     supersedes={record.deadline}
