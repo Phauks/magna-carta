@@ -1024,11 +1024,15 @@ jobs:
         # artifacts built by the previous compiler, which the old key permitted — prunes the saved
         # target dirs down to dependency artifacts (the workspace's own crates recompile anyway, and
         # leaving them in is what made these entries enormous), and skips the save entirely when
-        # nothing changed. Each container is its own Cargo workspace, so all eight are listed.
+        # nothing changed. Each container is its own Cargo workspace, so all NINE are listed — the
+        # list is not derived, so a container added later is a container whose dependency graph
+        # rebuilds from cold on every run, silently. `containers/discovery` was missing for exactly
+        # that reason; `containers/collabora` is correctly absent, being a Dockerfile with no crate.
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
             containers/bundle
+            containers/discovery
             containers/file-repair
             containers/libreoffice
             containers/ocr
