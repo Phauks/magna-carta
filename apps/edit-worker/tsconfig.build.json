@@ -16,6 +16,9 @@
   "references": [
     {
       "path": "../../packages/build-identity/tsconfig.build.json"
+    },
+    {
+      "path": "../../packages/telemetry/tsconfig.build.json"
     }
   ],
   "include": [

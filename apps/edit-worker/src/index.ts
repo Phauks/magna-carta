@@ -1,5 +1,7 @@
 import { getContainer } from "@cloudflare/containers";
 import { isVersionRequest, versionResponse } from "@magna-carta/build-identity/version-route";
+import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
+import { withEditorDiagnostics } from "./diagnostics.ts";
 import { DocumentEditorContainer } from "./document-editor-container.ts";
 import { documentKeyFromHost } from "./document-routing.ts";
 import { allowAppFraming, appFrameAncestors } from "./embedding-policy.ts";
@@ -23,6 +25,10 @@ export type Bindings = {
   // not a secret: bound via wrangler.jsonc vars. Optional — the production app domain is the default in
   // embedding-policy.ts, so only a deployment on another domain (or a local dev origin) sets it.
   APP_FRAME_ANCESTORS?: string;
+  // The Analytics Engine dataset the telemetry Workers logger mirrors counters to. Optional: a missing
+  // binding (the local pool, a deployment without it) degrades to console-only structured lines, never
+  // throws — createWorkersLogger handles undefined.
+  TELEMETRY?: AnalyticsEngineDataset;
 };
 
 export { DocumentEditorContainer } from "./document-editor-container.ts";
@@ -43,12 +49,22 @@ export default {
     if (isVersionRequest(request)) return versionResponse();
     const key = documentKeyFromHost(request.headers.get("host") ?? "");
     if (key === null) return new Response("Not Found", { status: 404 });
-    // Forwards the request verbatim, including the WebSocket upgrade, to the per-document container.
-    // coolwsd's own WOPI callbacks do NOT pass through here — they leave the container via
-    // outboundByHost straight to the app worker.
-    const response = await getContainer(env.DOCUMENT_EDITOR, key).fetch(request);
-    // The one thing this worker changes about the container's answer: coolwsd cannot know which origin
-    // frames the editor here, so the app origins are added to the policy it sent (embedding-policy.ts).
-    return allowAppFraming(response, appFrameAncestors(env));
+    // Everything from here reaches a container, and everything that reaches a container runs under the
+    // surface's diagnostics (diagnostics.ts): a throw becomes a 500 with an Error ID and one redacted
+    // event, and an upgrade the container declines is recorded with the status the browser cannot see.
+    return withEditorDiagnostics(
+      request,
+      { logger: createWorkersLogger(env.TELEMETRY), now: () => new Date().toISOString() },
+      async () => {
+        // Forwards the request verbatim, including the WebSocket upgrade, to the per-document
+        // container. coolwsd's own WOPI callbacks do NOT pass through here — they leave the container
+        // via outboundByHost straight to the app worker.
+        const response = await getContainer(env.DOCUMENT_EDITOR, key).fetch(request);
+        // The one thing this worker changes about the container's answer: coolwsd cannot know which
+        // origin frames the editor here, so the app origins are added to the policy it sent
+        // (embedding-policy.ts).
+        return allowAppFraming(response, appFrameAncestors(env));
+      },
+    );
   },
 } satisfies ExportedHandler<Bindings>;
