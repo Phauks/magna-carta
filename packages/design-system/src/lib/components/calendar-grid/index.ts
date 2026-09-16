@@ -1,8 +1,9 @@
 /*
  * CalendarGrid is a family of four domain-free presentations over the same entry shape: a month, a
- * week, a day and an agenda. The Day is the one with a time axis — the other three put a civil DAY
- * in a column and an entry in the day it is on; the Day puts an HOUR in a row and a calendar in a
- * column, which is how a firm reads a day its people spend in four places at once.
+ * week, a day and an agenda. Two of them are TIME GRIDS — the Day, whose columns are the calendars
+ * a reader turned on, and the Week, whose columns are its seven days — where an hour is a row and
+ * every timed entry is a block from its start to its end. The month and the agenda put a civil DAY
+ * in a cell and an entry in the day it is on, with no hour axis at all.
  *
  * The dual export — bare names (Month, Week, Day, Agenda) plus CalendarGrid-prefixed aliases — is
  * the house namespace shape (Card, Tabs, … follow it), so both `import * as CalendarGrid` then
@@ -33,6 +34,13 @@ export type {
   CalendarGridLane,
   CalendarGridTone,
 } from "./types.ts";
+export {
+  DEFAULT_CONCURRENCY,
+  MINIMUM_BLOCK_MINUTES,
+  placeTimeEntries,
+  timeSpanOf,
+} from "./time-placement.ts";
+export type { CalendarGridConcurrency, PlacedTimeEntry, TimeSpan } from "./time-placement.ts";
 export { CALENDAR_COLORS, defaultCalendarColor, isCalendarColor } from "./colors.ts";
 export {
   DEFAULT_FIRST_HOUR,

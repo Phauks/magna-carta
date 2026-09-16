@@ -34,7 +34,12 @@
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import type { LocationSummary } from "$lib/matters/matters-api.ts";
   import type { FirmMemberSummary } from "$lib/members/members-api.ts";
-  import { createFirmEvent, type EventType, type FirmEventAudience } from "./calendar-api.ts";
+  import {
+    createBooking,
+    createFirmEvent,
+    type EventType,
+    type FirmEventAudience,
+  } from "./calendar-api.ts";
   import {
     emptyFirmEventDraft,
     firmEventDraftReady,
@@ -47,6 +52,7 @@
   import EventTypeSelect from "./event-type-select.svelte";
   import RecordTimingFields from "./record-timing-fields.svelte";
   import LocationPicker from "./location-picker.svelte";
+  import { roomForLocation, roomNotHeldSentence } from "./room-location.ts";
   import DaySchedule from "./day-schedule.svelte";
   import type { FirmResource } from "./calendar-api.ts";
 
@@ -126,14 +132,39 @@
     attemptKey = null;
   }
 
+  /**
+   * A setting held in one of the firm's own rooms HOLDS that room (room-location.ts). The booking
+   * is a second write because it needs the event's id, so it can fail after the event has landed;
+   * the event is not unwound, and the dialog says which half did not happen rather than closing on
+   * a room somebody believes is held.
+   */
+  async function holdTheRoom(firmEventId: string): Promise<boolean> {
+    const room = roomForLocation(draft.locationText, resources, locations);
+    if (room === null) return true;
+    const outcome = await createBooking(
+      fetch,
+      { resourceId: room.id, firmEventId },
+      crypto.randomUUID(),
+    );
+    if (outcome.kind === "ok") return true;
+    failure = stated(
+      outcome.failure,
+      roomNotHeldSentence(room.name),
+      roomNotHeldSentence(room.name),
+    );
+    return false;
+  }
+
   async function submit(): Promise<ActionOutcome> {
     failure = null;
     attemptKey ??= crypto.randomUUID();
     const outcome = await createFirmEvent(fetch, firmEventDraftRequest(draft), attemptKey);
     if (outcome.kind === "ok") {
       attemptKey = null;
+      const held = await holdTheRoom(outcome.value.id);
+      // The event landed either way, so the grid is told either way.
       onRecorded({ id: outcome.value.id });
-      return "committed";
+      return held ? "committed" : "refused";
     }
     if (outcome.kind === "problem") attemptKey = null;
     failure = stated(

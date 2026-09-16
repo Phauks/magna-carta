@@ -25,6 +25,7 @@ import taskRungsAndArchiveSql from "@magna-carta/database/drizzle/per-firm/20260
 import eventConferenceLinkSql from "@magna-carta/database/drizzle/per-firm/20260914T120001_event-conference-link.sql";
 import matterPhysicalFileOfficeSql from "@magna-carta/database/drizzle/per-firm/20260914T191051_matter-physical-file-office.sql";
 import intakeNumberSql from "@magna-carta/database/drizzle/per-firm/20260914T191528_intake-number.sql";
+import eventRecurrenceSql from "@magna-carta/database/drizzle/per-firm/20260916T000000_event-recurrence.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -44,6 +45,7 @@ export function perFirmMigrations(): Migration[] {
     "20260914T120001_event-conference-link": eventConferenceLinkSql,
     "20260914T191051_matter-physical-file-office": matterPhysicalFileOfficeSql,
     "20260914T191528_intake-number": intakeNumberSql,
+    "20260916T000000_event-recurrence": eventRecurrenceSql,
   });
 }
 

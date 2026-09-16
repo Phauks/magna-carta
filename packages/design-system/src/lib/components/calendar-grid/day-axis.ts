@@ -1,6 +1,9 @@
 /*
- * The arithmetic behind a Day: which hours it draws, which lane an entry sits in, and which hour
- * row it lands on.
+ * The arithmetic behind a time grid: which hours it draws, and which column an entry sits in.
+ *
+ * WHERE on the axis a timed entry lands, how tall it is, and how it shares the column with whatever
+ * runs alongside it are time-placement.ts's answers. This module answers the frame: the hour range,
+ * the rows, the columns, and which column a thing is in.
  *
  * Kept out of the component for the reason every other answer in this family is: the questions a
  * reader would argue about — does a 7am deposition widen the day, does an entry with no time fall
@@ -95,50 +98,38 @@ export function laneOf(entry: CalendarGridEntry, lanes: readonly CalendarGridLan
   return lanes.some((lane) => lane.key === entry.lane) ? entry.lane : first;
 }
 
-/** A day's entries, split into the band above the hours and the hour rows themselves. */
+/** A day's entries, split per lane into the band above the hours and the ones the hours hold. */
 export interface DayPlacement {
   /** By lane key: the entries with no time, which is what all day means. */
   readonly allDay: ReadonlyMap<string, CalendarGridEntry[]>;
-  /** By lane key, then by the minute-of-day at the top of the hour the entry starts in. */
-  readonly hours: ReadonlyMap<string, ReadonlyMap<number, CalendarGridEntry[]>>;
+  /** By lane key: the entries that have an hour, in the order handed over. */
+  readonly timed: ReadonlyMap<string, CalendarGridEntry[]>;
 }
 
 /**
- * Place a day's entries into the lanes and hour rows that will be drawn.
+ * Split a day's entries by the lane they belong to, and within a lane by whether they have an hour.
  *
- * An entry starting before the first hour drawn is pulled into that first row rather than left out:
- * the range already grew to hold every entry it was given, so this only catches one a caller
- * clamped by hand — and it lands where a reader will look for it, at the top of the day.
+ * WHERE a timed entry lands on the axis is time-placement.ts's answer, not this module's: an entry
+ * is a block from its start to its end, and the block's position and its share of the column are
+ * arithmetic over the whole lane rather than a bucket per hour. This function answers only which
+ * column a thing is in and whether the hours hold it at all.
  */
 export function placeDayEntries(
   entries: readonly CalendarGridEntry[],
   lanes: readonly CalendarGridLane[],
-  hours: DayHours,
 ): DayPlacement {
   const allDay = new Map<string, CalendarGridEntry[]>();
-  const byHour = new Map<string, Map<number, CalendarGridEntry[]>>();
+  const timed = new Map<string, CalendarGridEntry[]>();
   for (const lane of lanes) {
     allDay.set(lane.key, []);
-    byHour.set(lane.key, new Map());
+    timed.set(lane.key, []);
   }
   for (const entry of entries) {
     const key = laneOf(entry, lanes);
-    if (entry.startMinute === undefined) {
-      allDay.get(key)?.push(entry);
-      continue;
-    }
-    const hour = Math.min(Math.max(hourOf(entry.startMinute), hours.first), hours.last);
-    const lane = byHour.get(key);
-    if (lane === undefined) continue;
-    const slot = hour * MINUTES_IN_HOUR;
-    const existing = lane.get(slot);
-    if (existing === undefined) {
-      lane.set(slot, [entry]);
-    } else {
-      existing.push(entry);
-    }
+    const into = entry.startMinute === undefined ? allDay : timed;
+    into.get(key)?.push(entry);
   }
-  return { allDay, hours: byHour };
+  return { allDay, timed };
 }
 
 /** The hour a minute-of-day falls in, clamped to a real hour. */

@@ -23,7 +23,12 @@ import {
   unseenEndLabel,
 } from "$lib/calendar/entry-links.ts";
 import { entryRecordKindLine, type EntryRecord } from "$lib/calendar/entry-reference.ts";
-import { deadlineUpdateOf, eventUpdateOf, firmEventUpdateOf } from "$lib/calendar/entry-updates.ts";
+import {
+  deadlineUpdateOf,
+  eventUpdateOf,
+  firmEventUpdateOf,
+  PARTICIPANTS_UNTOUCHED,
+} from "$lib/calendar/entry-updates.ts";
 import {
   deadlineRefusal,
   deadlineVerbRefusal,
@@ -275,7 +280,7 @@ describe("the counts on the tabs", () => {
 });
 
 describe("what a correction sends", () => {
-  it("never re-sends a setting's participants", () => {
+  it("does not send a setting's participants when the window never touched them", () => {
     const request = eventDraftRequest(eventDraftFrom(event, [participant]));
     expect(request.participants).toHaveLength(1);
     const update = eventUpdateOf(request);
@@ -302,11 +307,38 @@ describe("what a correction sends", () => {
     expect(update.dueOn).toBe("2026-09-10");
   });
 
-  it("never re-sends a firm event's audience or participants", () => {
+  it("never re-sends a firm event's audience, and leaves its participants alone by default", () => {
     const update = firmEventUpdateOf(firmEventDraftRequest(firmEventDraftFrom(firmEvent, [])));
     expect(update).not.toHaveProperty("audience");
     expect(update).not.toHaveProperty("participants");
     expect(update.locationId).toBeNull();
+  });
+
+  it("sends the whole list once the participant pane was edited", () => {
+    // Supplying participants replaces the list; omitting them leaves it alone. So a window that
+    // DID touch who is at a setting has to send them, or adding somebody would silently do nothing.
+    const request = eventDraftRequest(eventDraftFrom(event, [participant]));
+    const update = eventUpdateOf(request, { edited: true });
+    expect(update.participants).toEqual(request.participants);
+  });
+
+  it("sends a firm event's participants the same way", () => {
+    const request = firmEventDraftRequest(firmEventDraftFrom(firmEvent, []));
+    expect(firmEventUpdateOf(request, { edited: true }).participants).toEqual(request.participants);
+    expect(firmEventUpdateOf(request, { edited: false })).not.toHaveProperty("participants");
+  });
+
+  it("sends an EMPTY list when the pane was edited down to nobody", () => {
+    // Taking the last person off a setting is a real correction, and a projection that dropped an
+    // empty list would make it the one edit that silently does nothing.
+    const request = eventDraftRequest(eventDraftFrom(event, []));
+    const update = eventUpdateOf(request, { edited: true });
+    expect(update.participants).toEqual([]);
+  });
+
+  it("treats the untouched intent as the default", () => {
+    const request = eventDraftRequest(eventDraftFrom(event, [participant]));
+    expect(eventUpdateOf(request, PARTICIPANTS_UNTOUCHED)).toEqual(eventUpdateOf(request));
   });
 });
 

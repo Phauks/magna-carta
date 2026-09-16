@@ -2,22 +2,31 @@
   /*
    * CalendarGrid.Day — one day, drawn as an hour axis crossed with a column per calendar.
    *
-   * This is the presentation the other three cannot give: a firm whose six attorneys are in four
+   * This is the presentation the other views cannot give: a firm whose six attorneys are in four
    * places at once has a day that reads as eighteen rows in an agenda and as one crowded cell in a
    * month. Here each calendar the reader turned on is a COLUMN, so two settings at ten o'clock
    * stand side by side and the gap at two o'clock is visible as a gap. A caller that hands no lanes
    * gets one column, which is the plain day view.
    *
-   * A REAL TABLE, like the month and the week: the hours are row heads, the calendars are column
-   * heads, and every entry is a control in DOM order, so the grid's shape is legible to a screen
-   * reader with no ARIA at all. An entry sits in the row of the hour it STARTS in — the grid draws
-   * no proportional blocks, because a two-pixel sliver for a fifteen-minute call is unreadable and
-   * a block that overlapped its neighbour would need absolute positioning the table cannot give.
-   * How long a thing runs is on the chip, in the caller's own words.
+   * A REAL TABLE: the hours are row heads, the calendars are column heads, and every entry is a
+   * control inside the cell of the hour it starts in, in DOM order, so the grid's shape is legible
+   * to a screen reader with no ARIA at all.
+   *
+   * AN ENTRY IS A BLOCK FROM ITS START TO ITS END. It used to be a chip parked in its starting
+   * hour, with the duration said in words on the chip; the owner overturned that (2026-09-14:
+   * "start and end time need to properly show themselves on the calendar, not just on the start,
+   * should stretch accordingly"). The block is positioned inside its starting cell and sized in
+   * hours, so it runs down across the rows it actually occupies. The old argument against it — a
+   * two-pixel sliver for a fifteen-minute call — is answered by the MINIMUM block in
+   * time-placement.ts rather than by refusing to stretch, and the arithmetic lives there so a test
+   * reads it without a browser.
+   *
+   * WHAT RUNS AT THE SAME TIME EITHER DIVIDES THE COLUMN OR LIES OVER IT, and which is the
+   * reader's own choice (`concurrency`), not the grid's.
    *
    * ALL DAY IS A BAND, NOT AN HOUR. An entry with no `startMinute` is a filing, a deadline, a
    * holiday: it is true of the whole day and belongs above the hours rather than parked at
-   * midnight.
+   * midnight. The band is the one part of the grid that still stacks rather than places.
    *
    * DOUBLE-CLICKING AN HOUR STARTS A RECORD ON IT. The gesture is an accelerator, not the only
    * path — a screen that offers it also carries the create control every screen carries, which is
@@ -36,11 +45,19 @@
   import {
     DEFAULT_FIRST_HOUR,
     DEFAULT_LAST_HOUR,
+    MINUTES_IN_HOUR,
     dayHours,
     dayLanes,
     hourSlots,
     placeDayEntries,
   } from "./day-axis.ts";
+  import {
+    DEFAULT_CONCURRENCY,
+    placeTimeEntries,
+    type CalendarGridConcurrency,
+    type PlacedTimeEntry,
+  } from "./time-placement.ts";
+  import { blockStyle, blocksByStartingHour } from "./time-blocks.ts";
   import type { CalendarGridEntry, CalendarGridLane } from "./types.ts";
 
   let {
@@ -52,6 +69,7 @@
     today,
     firstHour = DEFAULT_FIRST_HOUR,
     lastHour = DEFAULT_LAST_HOUR,
+    concurrency = DEFAULT_CONCURRENCY,
     loading = false,
     loadingMessage = "Loading the calendar",
     emptyMessage = "Nothing recorded on this day.",
@@ -78,6 +96,8 @@
     firstHour?: number;
     /** The last hour drawn. Widened without asking by anything later. */
     lastHour?: number;
+    /** How things that run at the same time share a column: divided between them, or stacked over. */
+    concurrency?: CalendarGridConcurrency;
     /** True while the entries are being fetched: placeholder lines stand in for them. */
     loading?: boolean;
     /** What a screen reader is told while the grid is loading. */
@@ -112,7 +132,29 @@
   const columns = $derived(dayLanes(lanes));
   const hours = $derived(dayHours(entries, firstHour, lastHour));
   const slots = $derived(hourSlots(hours));
-  const placement = $derived(placeDayEntries(entries, columns, hours));
+  const placement = $derived(placeDayEntries(entries, columns));
+  /** The axis the blocks are measured against: the first hour drawn to the end of the last. */
+  const axis = $derived({
+    from: hours.first * MINUTES_IN_HOUR,
+    to: (hours.last + 1) * MINUTES_IN_HOUR,
+  });
+  /**
+   * Per lane, the blocks that BEGIN in each drawn hour. A block is rendered inside the cell of the
+   * hour it starts in — which is where a screen reader should meet it — and overflows that cell
+   * downwards for as long as it runs.
+   */
+  const blocks = $derived(
+    new Map(
+      columns.map((lane): [string, ReadonlyMap<number, PlacedTimeEntry[]>] => [
+        lane.key,
+        blocksByStartingHour(
+          placeTimeEntries(placement.timed.get(lane.key) ?? [], axis, concurrency),
+          hours,
+          axis,
+        ),
+      ]),
+    ),
+  );
   const isToday = $derived(today !== undefined && today === date);
   const isEmpty = $derived(!loading && entries.length === 0);
   /** Whether the column heads carry a word. A single unnamed lane heads nothing. */
@@ -169,7 +211,9 @@
     </tr>
   </thead>
   <tbody>
-    <!-- The band above the hours: what is true of the whole day, never parked at midnight. -->
+    <!-- The band above the hours: what is true of the whole day, never parked at midnight. It is
+         the one part of the grid that stacks rather than places, because an all-day thing has no
+         position on an hour axis to place it by. -->
     <tr class="mc-calendar-grid-row mc-calendar-grid-all-day-row">
       <th scope="row" class="mc-calendar-grid-hour mc-calendar-grid-gutter">{ALL_DAY_LABEL}</th>
       {#each columns as lane (lane.key)}
@@ -198,15 +242,15 @@
       {/each}
     </tr>
     {#each slots as slot, slotIndex (slot)}
-      <tr class="mc-calendar-grid-row">
+      <tr class="mc-calendar-grid-row mc-calendar-grid-hour-row">
         <th scope="row" class="mc-calendar-grid-hour mc-calendar-grid-gutter">
           {formatHourOfDay(slot, locale)}
         </th>
         {#each columns as lane (lane.key)}
-          {@const laneEntries = placement.hours.get(lane.key)?.get(slot) ?? []}
+          {@const starting = blocks.get(lane.key)?.get(slot) ?? []}
           <!-- svelte-ignore a11y_no_noninteractive_element_interactions -- as above. -->
           <td
-            class="mc-calendar-grid-cell mc-calendar-grid-day-cell"
+            class="mc-calendar-grid-cell mc-calendar-grid-day-cell mc-calendar-grid-time-cell"
             data-today={isToday ? "true" : undefined}
             ondblclick={(event) => create(event, slot)}
           >
@@ -216,11 +260,14 @@
                   <Skeleton class="mc-calendar-grid-line-placeholder w-full" />
                 </div>
               {/if}
-            {:else if laneEntries.length > 0}
-              <ol class="mc-calendar-grid-entries">
-                {#each laneEntries as entry (entry.id)}
-                  <li class="mc-calendar-grid-item">
-                    <CalendarGridEntryChip {entry} showDetail {onActivate} />
+            {:else if starting.length > 0}
+              <!-- The blocks that begin in this hour. Each is positioned inside the cell and sized
+                   in hours, so it runs down across every row it occupies; the list is static and
+                   the blocks are what is placed. -->
+              <ol class="mc-calendar-grid-blocks">
+                {#each starting as placed (placed.entry.id)}
+                  <li class="mc-calendar-grid-block" style={blockStyle(placed, slot, axis)}>
+                    <CalendarGridEntryChip entry={placed.entry} showDetail {onActivate} />
                   </li>
                 {/each}
               </ol>

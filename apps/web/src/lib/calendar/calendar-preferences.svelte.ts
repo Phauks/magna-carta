@@ -1,6 +1,6 @@
 /*
- * Which calendars this reader has turned on, and what colour they gave each — held per browser on
- * the shared persisted-preference primitive.
+ * Which calendars this reader has turned on, what colour they gave each, and how they want things
+ * that run at the same time drawn — held per browser on the shared persisted-preference primitive.
  *
  * THIS IS THE PERSONAL HALF, AND IT IS THE ONLY PERSONAL THING ON THIS SURFACE. The day the firm's
  * week begins on is the FIRM's (owner ruling, 2026-09-02): two members looking at the same week
@@ -21,7 +21,12 @@
  * not there. The catalog is the truth about what exists; this file holds only what was decided
  * about it.
  */
-import { isCalendarColor, type CalendarGridColor } from "@magna-carta/design-system/calendar-grid";
+import {
+  DEFAULT_CONCURRENCY,
+  isCalendarColor,
+  type CalendarGridColor,
+  type CalendarGridConcurrency,
+} from "@magna-carta/design-system/calendar-grid";
 import { jsonPreference } from "$lib/preferences/persisted-preference.ts";
 import { createPersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
 import { DEFAULT_ON_SOURCE_KEYS } from "./calendar-sources.ts";
@@ -38,10 +43,26 @@ export interface CalendarPreferencesValue {
   onOverrides: Record<string, boolean>;
   /** The colour the reader chose for a calendar. Absent means the catalog's own dealt colour. */
   colors: Record<string, CalendarGridColor>;
+  /**
+   * How things that run at the same time are drawn on a time grid: divided between them, or lying
+   * over one another. Personal for the same reason the colours are — it changes nothing anybody
+   * else sees, and a reader flips it while reading a crowded Tuesday.
+   */
+  concurrency: CalendarGridConcurrency;
 }
 
 function emptyValue(): CalendarPreferencesValue {
-  return { onOverrides: {}, colors: {} };
+  return { onOverrides: {}, colors: {}, concurrency: DEFAULT_CONCURRENCY };
+}
+
+/** The two presentations, as the control offers them. A closed set the grid also declares. */
+const CONCURRENCIES: ReadonlySet<CalendarGridConcurrency> = new Set<CalendarGridConcurrency>([
+  "side-by-side",
+  "overlap",
+]);
+
+function isConcurrency(value: unknown): value is CalendarGridConcurrency {
+  return typeof value === "string" && CONCURRENCIES.has(value as CalendarGridConcurrency);
 }
 
 /**
@@ -63,6 +84,7 @@ export function normalizeCalendarPreferences(parsed: unknown): CalendarPreferenc
       if (typeof color === "string" && isCalendarColor(color)) value.colors[key] = color;
     }
   }
+  if (isConcurrency(record.concurrency)) value.concurrency = record.concurrency;
   return value;
 }
 
@@ -124,4 +146,14 @@ export function setCalendarColor(key: string, color: CalendarGridColor): void {
     ...preference.current,
     colors: { ...preference.current.colors, [key]: color },
   });
+}
+
+/** How this reader wants concurrent entries drawn on a time grid. */
+export function chosenConcurrency(): CalendarGridConcurrency {
+  return preference.current.concurrency;
+}
+
+/** Choose how concurrent entries are drawn. */
+export function setConcurrency(concurrency: CalendarGridConcurrency): void {
+  preference.set({ ...preference.current, concurrency });
 }

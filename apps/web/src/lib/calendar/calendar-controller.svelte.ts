@@ -37,7 +37,11 @@
  */
 import { replaceState } from "$app/navigation";
 import { page } from "$app/state";
-import type { CalendarGridColor, CalendarGridLane } from "@magna-carta/design-system/calendar-grid";
+import type {
+  CalendarGridColor,
+  CalendarGridConcurrency,
+  CalendarGridLane,
+} from "@magna-carta/design-system/calendar-grid";
 import { colored, perLane, type CalendarEntry, type EntryContext } from "./calendar-entries.ts";
 import { readCalendarWindow, type CalendarReadFailure } from "./calendar-reads.ts";
 import {
@@ -50,8 +54,10 @@ import { calendarLayer } from "./calendar-vocabulary.ts";
 import {
   calendarsOn,
   chosenColors,
+  chosenConcurrency,
   setCalendarColor,
   setCalendarsOn,
+  setConcurrency,
 } from "./calendar-preferences.svelte.ts";
 import {
   assignedColors,
@@ -363,6 +369,19 @@ export class CalendarController {
   }
 
   /**
+   * How things that run at the same time are drawn on a time grid: divided between them
+   * (`side-by-side`) or lying over one another (`overlap`). The reader's own answer, held per
+   * browser beside the colours, because it changes nothing anybody else sees.
+   */
+  get concurrency(): CalendarGridConcurrency {
+    return chosenConcurrency();
+  }
+
+  chooseConcurrency(concurrency: CalendarGridConcurrency): void {
+    setConcurrency(concurrency);
+  }
+
+  /**
    * Write a selection back. The address's seed is folded in and then cleared, so the stored
    * selection is the whole answer from here and the reader can turn OFF something a link turned on.
    */
@@ -401,13 +420,6 @@ export class CalendarController {
     }
     const memberId = hostScope.kind === "mine" ? hostScope.memberId : this.#host.memberId();
     return memberId === null ? null : { kind: "mine", memberId };
-  }
-
-  /** Why Mine cannot be chosen yet, or undefined when it can. */
-  get mineRefusal(): string | undefined {
-    const hostScope = this.#host.scope();
-    if (hostScope.kind === "mine" || this.#host.memberId() !== null) return undefined;
-    return "Reading your session.";
   }
 
   // The derived fields read the host through a closure: a field initializer runs before the
@@ -518,14 +530,15 @@ export class CalendarController {
     this.#host.setView("agenda");
   }
 
+  /**
+   * Which of the firm's own records are read: everyone's, or one member's. No control offers this
+   * any more — the rail of calendars answers "whose day" a calendar at a time, and the Mine /
+   * Everyone pair beside it was a second mechanism for the same question (owner ruling,
+   * 2026-09-14). It survives for the two callers that are not controls: a host whose scope changes
+   * under it, and an arriving address whose `scope=` key is a promise somebody was handed.
+   */
   chooseScope(choice: ScopeChoice): void {
     this.scopeChoice = choice;
-  }
-
-  /** One colleague's calendar; null returns to Everyone. */
-  chooseMember(memberId: string | null): void {
-    this.memberChoice = memberId;
-    this.scopeChoice = memberId === null ? "everyone" : "member";
   }
 
   toggleHideSettled(): void {

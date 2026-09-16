@@ -113,7 +113,12 @@
     type EntryReferenceKind,
   } from "./entry-reference.ts";
   import EntryRoomsTab from "./entry-rooms-tab.svelte";
-  import { deadlineUpdateOf, eventUpdateOf, firmEventUpdateOf } from "./entry-updates.ts";
+  import {
+    deadlineUpdateOf,
+    eventUpdateOf,
+    firmEventUpdateOf,
+  } from "./entry-updates.ts";
+  import ParticipantPicker from "./participant-picker.svelte";
   import {
     deadlineVerbRefusal as deadlineVerbRefusalOf,
     editRefusal as editRefusalOf,
@@ -185,6 +190,14 @@
   /** A deadline the window has no way to read: no matter and no day to read it through. */
   let unreachableDeadline = $state(false);
   let editing = $state(false);
+  /*
+   * Whether the Participants pane was edited in THIS editing session. A correction sends the
+   * participants only when it did — the standing rule that a window which did not touch who is at a
+   * setting cannot change it — and the flag is what says so, because the projection cannot tell
+   * from the lists themselves: a draft's participants carry local keys and display names the server
+   * never sent, so any comparison would report a change on every open.
+   */
+  let participantsEdited = $state(false);
   let readGeneration = 0;
   let loadedKey: string | null = null;
 
@@ -210,6 +223,7 @@
     readFailure = null;
     unreachableDeadline = false;
     editing = false;
+    participantsEdited = false;
     saveFailure = null;
     reading = true;
 
@@ -400,7 +414,7 @@
       outcome = await updateMatterEvent(
         fetch,
         record.event.id,
-        eventUpdateOf(eventDraftRequest(eventDraft)),
+        eventUpdateOf(eventDraftRequest(eventDraft), { edited: participantsEdited }),
         key,
       );
     } else if (record.kind === "deadline" && deadlineDraft !== null) {
@@ -414,7 +428,7 @@
       outcome = await updateFirmEvent(
         fetch,
         record.event.id,
-        firmEventUpdateOf(firmEventDraftRequest(firmEventDraft)),
+        firmEventUpdateOf(firmEventDraftRequest(firmEventDraft), { edited: participantsEdited }),
         key,
       );
     }
@@ -429,6 +443,7 @@
       return;
     }
     editing = false;
+    participantsEdited = false;
     onChanged();
     reread();
   }
@@ -1179,6 +1194,43 @@
         <p class="text-sm text-text-muted">Nobody is listed.</p>
       {:else if record?.kind === "firmEvent" && record.event.audience === "all_members"}
         <p class="text-sm">Everyone at the firm.</p>
+      {:else if editing && record?.kind === "event" && eventDraft !== null}
+        <!--
+          Editing: the same picker the record form uses, over the draft's own list, so adding
+          somebody to a setting already recorded is the gesture it is on the form (owner,
+          2026-09-14: "in the modal it doesn't allow me to set new participants"). Touching it is
+          what marks the list as this correction's to send; a correction that never opens this tab
+          still sends no participants at all, which is the rule that mattered.
+        -->
+        {@render participantEditor()}
+        <ParticipantPicker
+          inputId="{idPrefix}-edit-participants"
+          members={context.members}
+          disabled={saving}
+          bind:participants={
+            () => eventDraft?.participants ?? [],
+            (next) => {
+              if (eventDraft === null) return;
+              eventDraft.participants = next;
+              participantsEdited = true;
+            }
+          }
+        />
+      {:else if editing && record?.kind === "firmEvent" && firmEventDraft !== null}
+        {@render participantEditor()}
+        <ParticipantPicker
+          inputId="{idPrefix}-edit-firm-participants"
+          members={context.members}
+          disabled={saving}
+          bind:participants={
+            () => firmEventDraft?.participants ?? [],
+            (next) => {
+              if (firmEventDraft === null) return;
+              firmEventDraft.participants = next;
+              participantsEdited = true;
+            }
+          }
+        />
       {:else if record !== null && record.participants.length === 0}
         <p class="text-sm text-text-muted">Nobody is listed.</p>
       {:else if record !== null}
@@ -1186,6 +1238,14 @@
       {/if}
     </LoadingRegion>
   {/if}
+{/snippet}
+
+<!-- What the editing pane says above the picker, so a reader knows the change rides the window's
+     own Save rather than landing as they type. -->
+{#snippet participantEditor()}
+  <p class="mb-8 text-xs text-text-muted">
+    Who is at this setting. Changes here are saved with the rest of the record.
+  </p>
 {/snippet}
 
 {#snippet roomsTabContent()}
@@ -1255,10 +1315,10 @@
       <Button
         variant="secondary"
         disabled={eventVerbRefusal !== undefined}
-        title={eventVerbRefusal ?? "Relate this setting to another on the same matter"}
+        title={eventVerbRefusal ?? "Link this setting to another on the same matter"}
         onclick={() => void linksTab?.openRelate()}
       >
-        Relate
+        Link Settings
       </Button>
     {:else if current?.kind === "deadline"}
       <Button
@@ -1305,10 +1365,10 @@
       <Button
         variant="secondary"
         disabled={eventVerbRefusal !== undefined}
-        title={eventVerbRefusal ?? "Relate this event to another of the firm's"}
+        title={eventVerbRefusal ?? "Link this event to another of the firm's"}
         onclick={() => void linksTab?.openRelate()}
       >
-        Relate
+        Link Events
       </Button>
     {/if}
     <Button onclick={() => (open = false)}>Close</Button>

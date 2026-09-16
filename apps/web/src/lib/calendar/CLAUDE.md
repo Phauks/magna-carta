@@ -35,9 +35,11 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   each, per browser, on the shared persisted-preference primitive. Stores only the DEPARTURES from
   the catalog's defaults, so a calendar shipped later arrives at its own
 - `calendar-rail.svelte` — the rail those two render as: a checkbox per calendar, a three-state
-  checkbox per folder, and the palette behind the colour pip
+  checkbox per folder, and the palette behind the colour pip. It is the CONTENT of the design
+  system's navigation column and draws no column of its own
 - `location-picker.svelte` — WHERE a setting is held, as the product's dropdown-with-add over the
-  firm's own offices and rooms, keeping a courthouse nobody has a record of
+  firm's own offices and their rooms, grouped by office, keeping a courthouse nobody has a record of;
+  `room-location.ts` — which room a written location names, and the name to write for one
 - `day-schedule.svelte` — the day being booked, in a record form's context pane. `CalendarView` with
   a day view and no toolbar; never a second calendar
 - `calendar-entries.ts` — the projection to `CalendarGridEntry`, and the day order
@@ -49,7 +51,9 @@ and a firm event. The backend it consumes is `packages/calendar` behind
 - `calendar-settings-draft.svelte.ts` — the firm's calendar settings (the day the week begins on)
   as a server-backed draft the settings page at `(app)/settings/calendar` renders through the
   shared settings rows and footer; the one draft on that surface with no local-storage copy
-- `calendar-view.svelte`, `calendar-toolbar.svelte` — the component and its one action row
+- `calendar-view.svelte`, `calendar-toolbar.svelte` — the component and its one action row. The row
+  is handed UP to a host's header through the `header` snippet, so the firm screen seats the view
+  switch and the window navigation beside its create control rather than in a band under it
 - `matter-calendar-list.svelte` — the matter section's List view: the two tables (deadlines lead,
   then events), each walked to its end by its own read
 - `entry-window.svelte` — the `RecordWindow` an event, a firm event or a deadline opens in: the
@@ -74,6 +78,17 @@ and a firm event. The backend it consumes is `packages/calendar` behind
 
 ## Local conventions
 
+- **The firm calendar is the design system's two-sided screen, and this module frames none of it.**
+  Where the rail stands, `CalendarView` renders `NavigationLayout` — the rail in its navigation
+  column, the toolbar and the grid in its content column — so the measure, the two independent
+  scroll regions, the reserved gutters, the cancelled canvas inset and the full height under the top
+  bar are the design system's, exactly as they are on Settings, Magnus, Tools and Reports. A width,
+  a scrollbar or a column written here is the drift the one component exists to end. That layout
+  takes the full height under the top bar, so **a host's masthead is handed DOWN as the `header`
+  snippet** and drawn at the top of the content column rather than above the tag; the Magnus
+  workspace does the same, for the same reason. The rail's rows stay CHECKBOX rows rather than
+  `NavigationLayout.Row`: the shared row renders its own anchor or button, and a switch cannot be
+  nested inside one. What the columns share is the frame and the indent stagger.
 - **A host embeds `CalendarView` with a scope and records through the dialogs. It writes no
   calendar read of its own.** A feature that needs "the next thirty days on this matter" is the
   component with a matter scope, `toolbar={false}`, `agendaDays={30}` and a `limit`, not a new
@@ -121,6 +136,29 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   reads `GET /api/v1/calendar/settings` once with the rest of its context and hands
   `weekStartsOn` to every grid; a surface never picks a week start of its own, and a member has
   no override. The setting is edited under Settings › Practice › Calendar.
+- **The week and the day are TIME GRIDS; the month and the agenda are lists of days.** A timed
+  entry on a time grid is a block from its start to its end (owner ruling, 2026-09-14), which is why
+  `endMinute` matters: the projection sets it for every source that has one, and an entry arriving
+  without one — the federated read declares a time of day and no duration — is drawn at the grid's
+  minimum block rather than given a guessed hour. **How concurrent entries are drawn is the
+  reader's**, held per browser beside the colours (`calendar-preferences.svelte.ts`) and offered on
+  the toolbar only where there is an hour axis to be concurrent on. Widening the federated read to
+  carry an end would make those entries stretch too, and is the one thing standing between a firm's
+  week and a complete picture of it.
+- **A room is offered under the office it is in, and named by it where the firm has more than one.**
+  `room-location.ts` is the one home for both halves — the grouping the picker draws and the written
+  name it stores — because the module that WRITES a location is the module that reads it back to
+  book the room, and two answers would drift within a round. A bare name two offices both answer to
+  matches neither: booking one of two rooms nobody chose between is worse than booking none.
+- **A setting held in one of the firm's own rooms HOLDS that room.** Location stores TEXT (a
+  courthouse, a department number, opposing counsel's office are none of them records this product
+  holds), and a room's calendar reads BOOKINGS — so choosing a room from the location picker used to
+  reach nothing, which is why an event held in a room never appeared on that room's calendar
+  (owner, 2026-09-14). `room-location.ts` matches the text back to an active room of the `room`
+  kind, by an exact trimmed case-folded name, and the record forms book it. The match is exact on
+  purpose: anything looser books a room off a guess. The booking is a SECOND write because it needs
+  the event's id, so it can fail after the event landed; the event is never unwound and the form
+  says which half did not happen.
 - **The grid tones are the subtle status register.** `info` for a court appearance, `danger` for an
   open past-due deadline, `success` satisfied, `warning` and struck for cancelled, `accent` for a
   firm entry; neutral otherwise. Decided once in `calendar-vocabulary.ts` and `calendar-entries.ts`.
@@ -152,9 +190,13 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   that reads as the whole month when it is not would be a silent cap, which the design refuses.
 - **Every write carries an idempotency key minted per attempt** (`crypto.randomUUID()`), reused on
   a retry of the same attempt and never across two.
-- **A correction never re-sends participants** (`entry-updates.ts`): the entry window's Edit sends
-  the fields its pane edits and nothing else, so a window that did not touch who is at a setting
-  cannot change it.
+- **A correction sends participants only where it edited them** (`entry-updates.ts`): the entry
+  window's Edit sends the fields its pane edits and nothing else, so a window that did not touch who
+  is at a setting cannot change it. The window SAYS whether it touched them (`participantsEdited`)
+  rather than the projection comparing lists — a draft's participants carry local keys and display
+  names the server never sent, so a comparison would report a change on every open. An edited list
+  is sent WHOLE, empty included: taking the last person off a setting is a real correction, and a
+  projection that dropped an empty list would make it the one edit that silently does nothing.
 - **Two modal shells and never a third**: the entry window is `RecordWindow`, every form and every
   question is `ActionDialog`.
 
