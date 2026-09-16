@@ -71,6 +71,13 @@ export interface CreateMatterEventInput {
    */
   readonly conferenceUrl?: string | null;
   readonly courtReference?: string | null;
+  /**
+   * The RFC 5545 rule a repeating setting runs on ("FREQ=WEEKLY;BYDAY=TU;COUNT=12"), absent or null
+   * for a setting that happens once. ONE ROW carries the whole series: the reads expand it across
+   * the window they were asked for. Refused unless this platform could have written it — the same
+   * grammar the record form uses, so a rule that saves is a rule that can be edited again.
+   */
+  readonly recurrenceRule?: string | null;
   readonly participants?: readonly MatterEventParticipantInput[];
 }
 
@@ -120,6 +127,7 @@ export function createMatterEvent(
       locationText: input.locationText ?? null,
       conferenceUrl: input.conferenceUrl ?? null,
       courtReference: input.courtReference ?? null,
+      recurrenceRule: input.recurrenceRule ?? null,
       // When the person asserted it, as against when it happens. Both are recorded because they
       // diverge routinely.
       recordedAt: now,
@@ -178,6 +186,11 @@ export interface UpdateMatterEventInput {
    */
   readonly conferenceUrl?: string | null;
   readonly courtReference?: string | null;
+  /**
+   * The repeat rule. Supplying it changes the whole series' rule; supplying null makes a repeating
+   * setting happen once; omitting it leaves the rule alone, as every other field here works.
+   */
+  readonly recurrenceRule?: string | null;
   // Supplying this replaces the whole participant set; omitting it leaves it alone.
   readonly participants?: readonly MatterEventParticipantInput[];
 }
@@ -211,6 +224,8 @@ export async function updateMatterEvent(
       patch.conferenceUrl === undefined ? existing.conference_url : patch.conferenceUrl,
     courtReference:
       patch.courtReference === undefined ? existing.court_reference : patch.courtReference,
+    recurrenceRule:
+      patch.recurrenceRule === undefined ? existing.recurrence_rule : patch.recurrenceRule,
   };
   assertEventShape(merged);
   const now = options.clock.now();

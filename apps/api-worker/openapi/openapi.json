@@ -12660,6 +12660,12 @@
               "null"
             ]
           },
+          "recurrenceRule": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "recordedAt": {
             "type": "string"
           },
@@ -12699,6 +12705,7 @@
           "locationText",
           "conferenceUrl",
           "courtReference",
+          "recurrenceRule",
           "recordedAt",
           "recordedBy",
           "continuedFromEventId",
@@ -13100,6 +13107,13 @@
             ],
             "maxLength": 120
           },
+          "recurrenceRule": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 400
+          },
           "participants": {
             "type": "array",
             "items": {
@@ -13255,6 +13269,13 @@
               "null"
             ],
             "maxLength": 120
+          },
+          "recurrenceRule": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 400
           },
           "participants": {
             "type": "array",
@@ -13586,6 +13607,12 @@
               "null"
             ]
           },
+          "recurrenceRule": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "recordedAt": {
             "type": "string"
           },
@@ -13612,6 +13639,7 @@
           "locationId",
           "locationText",
           "conferenceUrl",
+          "recurrenceRule",
           "recordedAt",
           "recordedBy"
         ]
@@ -13723,6 +13751,13 @@
             "maxLength": 2000,
             "format": "uri"
           },
+          "recurrenceRule": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 400
+          },
           "participants": {
             "type": "array",
             "items": {
@@ -13825,6 +13860,13 @@
             ],
             "maxLength": 2000,
             "format": "uri"
+          },
+          "recurrenceRule": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 400
           },
           "participants": {
             "type": "array",

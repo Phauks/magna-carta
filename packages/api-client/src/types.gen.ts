@@ -3128,6 +3128,7 @@ export type MatterEventDetail = {
     locationText: string | null;
     conferenceUrl: string | null;
     courtReference: string | null;
+    recurrenceRule: string | null;
     recordedAt: string;
     recordedBy: string | null;
     continuedFromEventId: string | null;
@@ -3217,6 +3218,7 @@ export type CreateMatterEventRequest = {
     locationText?: string | null;
     conferenceUrl?: string | null;
     courtReference?: string | null;
+    recurrenceRule?: string | null;
     participants?: Array<MatterEventParticipantInput>;
 };
 
@@ -3245,6 +3247,7 @@ export type UpdateMatterEventRequest = {
     locationText?: string | null;
     conferenceUrl?: string | null;
     courtReference?: string | null;
+    recurrenceRule?: string | null;
     participants?: Array<MatterEventParticipantInput>;
 };
 
@@ -3316,6 +3319,7 @@ export type FirmEventDetail = {
     locationId: string | null;
     locationText: string | null;
     conferenceUrl: string | null;
+    recurrenceRule: string | null;
     recordedAt: string;
     recordedBy: string | null;
 };
@@ -3339,6 +3343,7 @@ export type CreateFirmEventRequest = {
     locationId?: string | null;
     locationText?: string | null;
     conferenceUrl?: string | null;
+    recurrenceRule?: string | null;
     participants?: Array<MatterEventParticipantInput>;
 };
 
@@ -3356,6 +3361,7 @@ export type UpdateFirmEventRequest = {
     locationId?: string | null;
     locationText?: string | null;
     conferenceUrl?: string | null;
+    recurrenceRule?: string | null;
     participants?: Array<MatterEventParticipantInput>;
 };
 

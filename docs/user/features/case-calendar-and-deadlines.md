@@ -141,6 +141,25 @@ training, a reservation, anything that belongs to the firm rather than to a case
   conference room and on a call at the same time.
 - **That day's calendar stands beside the form** while you fill it in, so you can see who is already
   busy before you choose a time. It appears once you have chosen a date.
+- **Repeats** turns one record into a series. Choose how often — every day, week, month or year —
+  and how many of them to skip between: every week, every second week, every third. A weekly rule
+  falls on the day the event starts unless you pick the days yourself, and can fall on several
+  (Monday, Wednesday and Friday). A monthly rule asks which day it means: the same date every month,
+  or the same weekday in the same position — the 15th, or the third Tuesday. Then say where it
+  stops: never, after a number of occurrences, or on a date.
+
+  Under the controls the form reads the rule back to you in words — "Repeats every second Tuesday,
+  12 times" — and the record shows the same sentence. Check it before you save: a repeat is the one
+  answer on this form whose mistake is invisible until somebody misses a setting.
+
+  It is **one record**, not one per date. A weekly status conference is a single event with a rule
+  on it, so correcting the series is one correction rather than fifty-two. A month that has no such
+  date — the 31st in February — is skipped rather than moved to the 28th, because a firm that said
+  the 31st did not mean the end of the month.
+
+  An event imported from another calendar can carry a repeat rule more elaborate than this form
+  offers. Where it does, the form says the rule was recorded elsewhere rather than showing you a
+  simplified version that saving would make true; turning Repeats on replaces it with yours.
 - **The court's own case number** goes on the event as the court writes it.
 - **Who is there** can be a member of your firm, a contact from your directory, or somebody who is
   neither — a judge, a court reporter, an interpreter, a witness. You are not made to create a

@@ -17,12 +17,14 @@ import {
   eventDraftStarted,
   externalParticipant,
   memberParticipant,
+  recurrenceChanged,
 } from "$lib/calendar/event-draft.ts";
 import {
   emptyFirmEventDraft,
   firmEventDraftRequest,
   firmEventDraftShortfalls,
 } from "$lib/calendar/firm-event-draft.ts";
+import { weeklyRecurrence } from "@magna-carta/civil-time/recurrence";
 import { timeZoneOptions } from "$lib/calendar/time-zone-options.ts";
 
 describe("the event draft", () => {
@@ -55,6 +57,7 @@ describe("the event draft", () => {
       locationText: null,
       conferenceUrl: null,
       courtReference: null,
+      recurrenceRule: null,
       participants: [],
     });
   });
@@ -271,5 +274,42 @@ describe("a conference link", () => {
     expect(eventDraftShortfalls(draft)).toContain(
       "The conference link does not read as a web address.",
     );
+  });
+});
+
+describe("a repeat on a draft", () => {
+  it("sends no rule where the setting happens once", () => {
+    const draft = { ...emptyEventDraft("America/New_York", "2026-09-15"), title: "Deposition" };
+    expect(draft.recurrence).toBeNull();
+    expect(eventDraftRequest(draft).recurrenceRule).toBeNull();
+    expect(
+      firmEventDraftRequest(emptyFirmEventDraft("America/New_York")).recurrenceRule,
+    ).toBeNull();
+  });
+
+  it("writes the answer out as the stored line, on both kinds of event", () => {
+    const recurrence = { ...weeklyRecurrence(), interval: 2, weekdays: ["TU"] as const };
+    const event = {
+      ...emptyEventDraft("America/New_York", "2026-09-15"),
+      title: "Status conference",
+      recurrence,
+    };
+    expect(eventDraftRequest(event).recurrenceRule).toBe("FREQ=WEEKLY;INTERVAL=2;BYDAY=TU");
+    const firmEvent = {
+      ...emptyFirmEventDraft("America/New_York", "2026-09-15"),
+      title: "Partners meeting",
+      recurrence,
+    };
+    expect(firmEventDraftRequest(firmEvent).recurrenceRule).toBe("FREQ=WEEKLY;INTERVAL=2;BYDAY=TU");
+  });
+
+  it("does not call a difference the stored line cannot carry a change", () => {
+    // Weekdays belong to a weekly rule. Ticking one under Monthly changes the line by nothing, so a
+    // form that asked "discard your changes?" over it would be asking about nothing.
+    const monthly = { ...weeklyRecurrence(), frequency: "monthly" as const };
+    expect(recurrenceChanged(monthly, { ...monthly, weekdays: ["TU"] })).toBe(false);
+    expect(recurrenceChanged(monthly, { ...monthly, interval: 2 })).toBe(true);
+    expect(recurrenceChanged(null, monthly)).toBe(true);
+    expect(recurrenceChanged(null, null)).toBe(false);
   });
 });

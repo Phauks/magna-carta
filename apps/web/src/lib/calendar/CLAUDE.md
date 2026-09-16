@@ -40,6 +40,9 @@ and a firm event. The backend it consumes is `packages/calendar` behind
 - `location-picker.svelte` — WHERE a setting is held, as the product's dropdown-with-add over the
   firm's own offices and their rooms, grouped by office, keeping a courthouse nobody has a record of;
   `room-location.ts` — which room a written location names, and the name to write for one
+- `recurrence-field.svelte` — WHETHER a setting repeats and on what rule, over the shared grammar
+  in `@magna-carta/civil-time/recurrence`; `recurrence-sentence.ts` — what that rule says in
+  English, which is the one home for those words
 - `day-schedule.svelte` — the day being booked, in a record form's context pane. `CalendarView` with
   a day view and no toolbar; never a second calendar
 - `calendar-entries.ts` — the projection to `CalendarGridEntry`, and the day order
@@ -126,6 +129,19 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   draft shortfalls and request shapes, which verbs a record's state allows, what a correction
   sends, which end of a link is the other one. A Svelte file renders those answers and decides
   none of them; a decision found in a `.svelte` file is moved out, not tested through the DOM.
+- **A repeat is an ANSWER on the draft and a line only at the send.** The draft holds a
+  `RecurrenceRule` and `recurrence-field.svelte` edits it; `formatRecurrence` writes the RFC 5545
+  line once, in the draft's request projection. Nothing in this module parses or spells the
+  standard: the grammar is `@magna-carta/civil-time/recurrence`, which both this form and the
+  calendar service depend on so the server can refuse a line it could not itself have written. What
+  the rule MEANS in English is `recurrence-sentence.ts` and is the same sentence the form shows
+  under its controls, the record pane shows, and the print sheet carries — three copies of those
+  words would drift, and a person checks a repeat against exactly those words before saving.
+- **A rule this product cannot present is SAID, never half-shown.** `parseRecurrence` answers null
+  for a line another calendar wrote with parts the form does not offer, which is the same null a
+  one-off carries — so the surface that saw the stored line tells the control (`unreadable`), and it
+  states that the rule was recorded elsewhere. Rendering it as "does not repeat" is the one wrong
+  answer: saving would then make that true.
 - **One field group, rendered once.** The timing every event shares is `record-timing-fields.svelte`
   and the type question is `event-type-select.svelte`, in the record forms and in the entry window
   alike; a pane that draws its own copy of either drifts from the form within a round.

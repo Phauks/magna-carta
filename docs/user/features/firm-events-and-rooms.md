@@ -39,6 +39,13 @@ can pick the office — which also tells the calendar which rooms are nearby —
 offsite. Classify it from the same type list case events use; the shipped list includes **Firm
 meeting**, **Training**, **Office closure**, **Firm holiday**, and **Reservation**.
 
+**Repeats** asks whether the meeting is a series. Most firm meetings are: a weekly stand-up, a
+partners meeting every second Tuesday, a quarterly review. Set the cadence, the days, and where it
+stops, and the form reads the rule back to you in words before you save it. It is one record with a
+rule on it, not one record per date — see
+[Case calendar and deadlines](case-calendar-and-deadlines.md) for the whole of how a repeat works,
+which is the same on both kinds of event.
+
 A moved staff meeting is just an edit: change the date, and the audit trail carries the move.
 Cancelling keeps the record, with an optional note saying why.
 

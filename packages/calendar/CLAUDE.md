@@ -78,6 +78,16 @@ ADR-0059, ADR-0068, ADR-0051.)
   and every `firm`-anchored source is one of `FIRM_ANCHORED_SOURCE_KEYS` (today: exactly
   `firmEvent`). If screening firm events is ever needed, that is a NEW declared anchor with its own
   predicate — never a loosening of this one.
+- **A repeating setting is ONE ROW carrying a rule, and this package writes no occurrence.**
+  `recurrence_rule` holds an RFC 5545 `RRULE`; the dates it falls on are read back from it, never
+  stored. A row per date would multiply a firm's calendar by the length of its longest series before
+  anybody looked at it and make "move the series" fifty-two writes. **The rule is validated at the
+  WRITE against the grammar the record form itself writes** (`@magna-carta/civil-time/recurrence`,
+  which both sides depend on precisely so there is one reading of what a valid rule is): a rule this
+  platform cannot read back is a series nobody can edit again, so it is refused with
+  `calendar-invalid-recurrence` rather than stored. **A continuance does not inherit the series** —
+  continuing a hearing moves ONE setting to a new date, and carrying the rule across would make the
+  replacement repeat.
 - **The correction/continuance line.** A CORRECTION is an edit: the row misdescribed reality, the
   edit-in-place rule stands, and the audit row carries the fix. A CONTINUANCE is a real-world
   reschedule: the court vacated one setting and made another, both of which happened — so the old

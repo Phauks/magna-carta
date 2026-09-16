@@ -7,6 +7,7 @@
   "exports": {
     "./civil-date": "./src/civil-date.ts",
     "./instant": "./src/instant.ts",
+    "./recurrence": "./src/recurrence.ts",
     "./refuse": "./src/refuse.ts",
     "./sql-shape": "./src/sql-shape.ts",
     "./time-zone": "./src/time-zone.ts",

@@ -61,6 +61,7 @@
   import ParticipantPicker from "./participant-picker.svelte";
   import EventTypeSelect from "./event-type-select.svelte";
   import RecordTimingFields from "./record-timing-fields.svelte";
+  import RecurrenceField from "./recurrence-field.svelte";
   import LocationPicker from "./location-picker.svelte";
   import { roomForLocation, roomNotHeldSentence } from "./room-location.ts";
   import DaySchedule from "./day-schedule.svelte";
@@ -184,6 +185,7 @@
       locationId: null,
       locationText: draft.locationText,
       conferenceUrl: draft.conferenceUrl,
+      recurrence: draft.recurrence,
       participants: draft.participants,
     };
     return firmEventDraftRequest(asFirm);
@@ -315,6 +317,13 @@
         bind:draft
         idPrefix="{idPrefix}-timing"
         preferred={preferredTimeZones}
+        disabled={busy}
+      />
+
+      <RecurrenceField
+        bind:rule={draft.recurrence}
+        startsOn={draft.startsOn}
+        idPrefix="{idPrefix}-repeat"
         disabled={busy}
       />
 

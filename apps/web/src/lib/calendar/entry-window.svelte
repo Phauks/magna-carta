@@ -145,6 +145,7 @@
   import EventTypeSelect from "./event-type-select.svelte";
   import RecordDeadlineDialog from "./record-deadline-dialog.svelte";
   import RecordTimingFields from "./record-timing-fields.svelte";
+  import RecurrenceField from "./recurrence-field.svelte";
   import LocationPicker from "./location-picker.svelte";
   import TimeZonePicker from "./time-zone-picker.svelte";
 
@@ -933,6 +934,13 @@
             preferred={preferredZones}
             disabled={readOnly}
           />
+          <RecurrenceField
+            bind:rule={draft.recurrence}
+            startsOn={draft.startsOn}
+            idPrefix="{idPrefix}-repeat"
+            disabled={readOnly}
+            unreadable={record.event.recurrenceRule !== null && draft.recurrence === null}
+          />
           <div class="grid gap-12 @md:grid-cols-2">
             <div class="flex flex-col gap-4">
               <Label for="{idPrefix}-location">Location</Label>
@@ -1077,6 +1085,13 @@
             idPrefix="{idPrefix}-timing"
             preferred={preferredZones}
             disabled={readOnly}
+          />
+          <RecurrenceField
+            bind:rule={draft.recurrence}
+            startsOn={draft.startsOn}
+            idPrefix="{idPrefix}-repeat"
+            disabled={readOnly}
+            unreadable={record.event.recurrenceRule !== null && draft.recurrence === null}
           />
           <div class="grid gap-12 @md:grid-cols-2">
             <div class="flex flex-col gap-4">

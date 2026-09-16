@@ -18,6 +18,11 @@ import type {
   ParticipantInput,
   ParticipantKind,
 } from "./calendar-api.ts";
+import {
+  formatRecurrence,
+  parseRecurrence,
+  type RecurrenceRule,
+} from "@magna-carta/civil-time/recurrence";
 import { isCivilDate } from "./calendar-window.ts";
 import { isWallClockTime, optionalText } from "./draft-text.ts";
 import { isResolvableTimeZone } from "./time-zone-options.ts";
@@ -54,6 +59,11 @@ export interface EventDraft extends EventTimingDraft {
   /** Where it is JOINED, where it is online. A different question, so a different field. */
   conferenceUrl: string;
   courtReference: string;
+  /**
+   * The rule this setting repeats on, or null for a one-off. Held as the ANSWER rather than the
+   * stored line so the form edits a structure and the line is written once, at the send.
+   */
+  recurrence: RecurrenceRule | null;
   participants: ParticipantDraft[];
 }
 
@@ -70,6 +80,7 @@ export function emptyEventDraft(timeZone: string, startsOn: string | null = null
     locationText: "",
     conferenceUrl: "",
     courtReference: "",
+    recurrence: null,
     participants: [],
   };
 }
@@ -156,6 +167,7 @@ export function eventDraftStarted(draft: EventDraft, since: EventDraft): boolean
     draft.locationText !== since.locationText ||
     draft.conferenceUrl !== since.conferenceUrl ||
     draft.courtReference !== since.courtReference ||
+    recurrenceChanged(draft.recurrence, since.recurrence) ||
     draft.participants.length !== since.participants.length ||
     draft.participants.some((participant, index) => {
       const before = since.participants[index];
@@ -164,6 +176,22 @@ export function eventDraftStarted(draft: EventDraft, since: EventDraft): boolean
       );
     })
   );
+}
+
+/**
+ * Whether two repeat answers differ.
+ *
+ * Compared through the STORED LINE rather than field by field, because that is the only difference
+ * that reaches the record: `formatRecurrence` leaves out the parts a frequency ignores, so a person
+ * who ticked Tuesday, switched to Monthly and left it there has changed nothing the server will see.
+ * An unsaved-changes prompt over a difference that cannot be saved is a prompt nobody can satisfy.
+ */
+export function recurrenceChanged(
+  draft: RecurrenceRule | null,
+  since: RecurrenceRule | null,
+): boolean {
+  if (draft === null || since === null) return draft !== since;
+  return formatRecurrence(draft) !== formatRecurrence(since);
 }
 
 export function participantInput(participant: ParticipantDraft): ParticipantInput {
@@ -190,6 +218,7 @@ export function eventDraftRequest(draft: EventDraft): CreateEventRequest {
     locationText: optionalText(draft.locationText),
     conferenceUrl: optionalText(draft.conferenceUrl),
     courtReference: optionalText(draft.courtReference),
+    recurrenceRule: draft.recurrence === null ? null : formatRecurrence(draft.recurrence),
     participants: draft.participants.map(participantInput),
   };
 }
@@ -212,6 +241,7 @@ export function eventDraftFrom(
     locationText: event.locationText ?? "",
     conferenceUrl: event.conferenceUrl ?? "",
     courtReference: event.courtReference ?? "",
+    recurrence: parseRecurrence(event.recurrenceRule),
     participants: participants.map((participant) =>
       participantDraftFrom(participant, displayNames),
     ),

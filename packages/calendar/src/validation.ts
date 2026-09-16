@@ -18,6 +18,11 @@ export type CalendarValidationCode =
   // be rendered must not be storable, because the alternative is a hearing nobody can display and
   // nobody can correct without a migration.
   | "calendar-unknown-time-zone"
+  // A repeat rule this platform could not have written. Read with the same grammar the record form
+  // writes (@magna-carta/civil-time/recurrence), so a rule the form can produce is one this accepts
+  // — and a rule from elsewhere that the form could not present is refused rather than stored as a
+  // series nobody can see the end of.
+  | "calendar-invalid-recurrence"
   // A participant whose kind names a column that is empty.
   | "calendar-invalid-participant"
   // A deadline sourced from the statutory catalog before any verified catalog exists. It stays a

@@ -20,6 +20,9 @@ this package encodes, and the gate that keeps them the only copy.
   arithmetic: `zonedReading`, `instantForCivilDateTime`, `endOfCivilDayInstant`.
 - `src/refuse.ts` — what happens when a date is the wrong kind of date. Every entry point above
   refuses a value that is not its shape and names what the value actually is.
+- `src/recurrence.ts` — what a repeat rule IS: the typed answer a form edits, the RFC 5545 `RRULE`
+  it is stored as (`formatRecurrence` / `parseRecurrence`), and the civil days it falls on inside a
+  window (`occurrencesOf`).
 - `src/sql-shape.ts` — the same shapes as SQLite globs, for the column guards in
   `packages/database/src/date-shape-checks.ts`. Proven equivalent to the patterns by a test that
   runs a corpus through a real `CHECK`, not asserted.
@@ -33,6 +36,16 @@ this package encodes, and the gate that keeps them the only copy.
   needed it most (`notes`, `tasks`, the workers' route modules) stop being able to reach it, and they
   go back to writing their own copy. That is exactly how the three `isResolvableTimeZone`
   implementations happened.
+- **The repeat grammar lives here because BOTH SIDES have to agree about it.** The record form in
+  `apps/web` writes a rule and `packages/calendar` has to refuse one it could not have written. The
+  web app does not depend on the calendar package (a backend package carrying SQL), so a grammar
+  held in either would be copied into the other, and two readings of "what is a valid rule" disagree
+  the first time one is corrected. A recurrence rule is a statement about civil dates and nothing
+  else, which is what this package is for.
+- **`parseRecurrence` returning null is a REAL ANSWER, not a failure.** A rule another calendar
+  wrote with parts this product does not offer is not half-rendered as something it is not; the
+  consumers say so instead. Widening what the parser claims to understand is a decision about what
+  the form can present, made in both places at once or not at all.
 - **A civil date is a string, not a `Date`.** A `Date` is an instant and an instant is a day only once
   somebody names a zone. Functions that take one say so in their type.
 - **The patterns carry no regex flags.** They are handed to zod at route boundaries and the OpenAPI
@@ -47,6 +60,9 @@ this package encodes, and the gate that keeps them the only copy.
   precisely because it was computed. `addCalendarDays` counts days and nothing else. The month
   helpers are the same rule read the other way: `startOfCivilMonth` / `endOfCivilMonth` exist so a
   call site never cuts a date out of another with `slice`, which is where a day quietly goes missing.
+  `occurrencesOf` is that same counting: it WALKS civil days from the series' own start, so a weekly
+  nine o'clock setting is nine o'clock on both sides of a daylight-saving change, and a month with no
+  such date (the 31st in February) is SKIPPED rather than pulled back to a date nobody chose.
 - **A stored zone is a named IANA zone, never a fixed offset.** `isResolvableTimeZone` refuses
   `+05:00` even where the runtime accepts it — an offset is wrong for half the year in every zone that
   observes daylight saving, and storing one is how a hearing moves by an hour when the clocks change.
