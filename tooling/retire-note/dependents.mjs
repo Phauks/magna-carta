@@ -80,3 +80,70 @@ export function planRetirement({ notePath, fragments }) {
 function normalize(path) {
   return path.replace(/\\/g, "/").replace(/^\.\//, "");
 }
+
+/**
+ * Whether a retirement may proceed, and the sentence refusing it when it may not.
+ *
+ * TWO WORKFLOWS, TWO GUARDS. Retiring a note used to mean one thing: a second merge to `main` after
+ * the work landed, whose only content was the deletion. There the landing check is exactly right —
+ * the deletion takes effect the moment it merges, so a note removed while its stream is still in
+ * flight erases the one collision warning other worktrees get, immediately.
+ *
+ * `--with-merge` is the other workflow, and the landing check is the wrong question for it. The
+ * deletion is a commit on the branch, so it reaches `main` when the branch does and not one moment
+ * sooner: `main` keeps the note for the whole time the pull request is open, and every other
+ * worktree goes on seeing it. Nothing is erased early, so there is nothing for a landing check to
+ * protect — and it cannot pass anyway, because a branch cannot have landed while the pull request
+ * landing it is still open. What replaces it is the fact that actually has to hold: HEAD is on the
+ * branch whose note this is, which is what makes "the deletion travels with the merge" true rather
+ * than merely asserted.
+ *
+ * The workspace half is untouched by this. Removing a worktree and deleting a branch cannot happen
+ * from inside that branch, so `--with-merge` never tries, and the landing check still guards that
+ * half when it runs later.
+ */
+export function retirementRefusal({
+  branch,
+  withMerge = false,
+  force = false,
+  hasLanded = false,
+  branchUnknown = false,
+  headBranch = null,
+  noteExists = false,
+  dependentCount = 0,
+  hasWorkspace = false,
+}) {
+  // A workspace alone is enough to proceed: that is precisely the state `--with-merge` leaves
+  // behind once it lands — note gone, pointers cleared, worktree and branch still here — and the
+  // cleanup pass would otherwise be told there is nothing to do by the retirement that worked.
+  if (!noteExists && dependentCount === 0 && !hasWorkspace) {
+    return (
+      `${branch}: no note, no status fragment pointing at one, and no workspace here — nothing to retire.\n` +
+      "  Check the branch name: a note's path mirrors its branch exactly, slashes included."
+    );
+  }
+
+  if (withMerge) {
+    if (headBranch !== branch) {
+      return (
+        `--with-merge retires ${branch}'s note in the commit that lands it, so it has to run on ` +
+        `${branch}.\n` +
+        `  HEAD is ${headBranch === null ? "not on any branch" : `on ${headBranch}`}.\n` +
+        "  Check out the branch, or drop --with-merge to retire a note that has already landed."
+      );
+    }
+    return null;
+  }
+
+  if (!hasLanded && !force) {
+    return (
+      `${branch} has not landed${branchUnknown ? " (and resolves to no ref)" : ""}.\n` +
+      "  Retiring a live stream removes the only collision warning other worktrees get.\n" +
+      "  If this note retires with the pull request that lands the work, use --with-merge.\n" +
+      "  If the stream really is finished (abandoned, superseded, landed under another name),\n" +
+      "  re-run with --force."
+    );
+  }
+
+  return null;
+}
