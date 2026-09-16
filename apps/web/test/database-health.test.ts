@@ -14,6 +14,7 @@ import {
   copyLineForDatabaseHealth,
   databaseHealthRows,
   describeProvisioningBacklog,
+  describeSchemaLineage,
   healthBadgeVariant,
   overallHealthReading,
   worstReading,
@@ -42,6 +43,8 @@ const HEALTHY: DatabaseHealthValue = {
     appliedCount: 214,
     appliedHead: "20260903T020000_conflicts-hit-entity-index",
     expectedHead: "20260903T020000_conflicts-hit-entity-index",
+    outOfOrderArrivals: [],
+    restorePoint: null,
   },
   membership: { state: "active", roles: ["Owner/Admin"], permissionCount: 84 },
   provisioning: { state: "read", pending: 0, deadLettered: 0 },
@@ -447,5 +450,107 @@ describe("the file storage row", () => {
       "fileStorage",
     );
     expect(unread).toMatchObject({ reading: "attention", status: "Not read" });
+  });
+});
+
+/*
+ * A refused lineage is at head and broken at the same time, which is the shape that defeated the
+ * head comparison this row used to be. The firm database was answering nothing, its ledger held a
+ * tag the build could not place, and the runner rejects such a ledger BEFORE applying anything — so
+ * the tags already in it sat exactly at the expected head and the row printed "Up to date" beside a
+ * firm database row reporting an outage.
+ */
+describe("a refused lineage", () => {
+  const REFUSED: DatabaseHealthValue = {
+    ...HEALTHY,
+    firmDatabase: {
+      state: "unreachable",
+      roundTripMilliseconds: null,
+      fault:
+        "the firm database is not migrated: database has applied migration " +
+        '"20260911T000000_office-email-address-lines" which this code does not know',
+    },
+    schema: { ...HEALTHY.schema, state: "refused" },
+  };
+
+  it("does not read as healthy while the ledger sits at the expected head", () => {
+    // The regression, stated as the thing that must never come back.
+    expect(REFUSED.schema.appliedHead).toBe(REFUSED.schema.expectedHead);
+    const row = rowFor(REFUSED, "schema");
+    expect(row.reading).toBe("fault");
+    expect(row.status).not.toBe(rowFor(HEALTHY, "schema").status);
+  });
+
+  it("still prints what the database does have, which is the row's actual subject", () => {
+    const row = rowFor(REFUSED, "schema");
+    expect(row.detail).toContain(String(REFUSED.schema.appliedCount));
+    expect(row.detail).toContain(REFUSED.schema.expectedHead);
+  });
+
+  it("points at the firm database row instead of repeating its sentence", () => {
+    // One home per fact: the refusal is the firm database's own words, and a second copy here would
+    // be free to drift from it.
+    const row = rowFor(REFUSED, "schema");
+    expect(row.detail).not.toContain("which this code does not know");
+    expect(row.detail).toContain("firm database row");
+  });
+
+  it("makes the section read as a fault, so a folded section cannot hide it", () => {
+    expect(overallHealthReading(REFUSED)).toBe("fault");
+  });
+});
+
+/*
+ * Two facts the firm database has always computed and sent, and this model used to read off the
+ * wire and drop. Neither is a row: a row blank on every healthy firm teaches a reader to skip it.
+ */
+describe("describeSchemaLineage", () => {
+  it("says nothing about an ordinary firm", () => {
+    expect(describeSchemaLineage(HEALTHY)).toEqual([]);
+  });
+
+  it("names a migration that arrived behind the ledger head, without calling it a fault", () => {
+    // Everything is applied; what differs is the ORDER this database met the pair in. It has no
+    // other symptom, which is why it is worth a line at all.
+    const notes = describeSchemaLineage({
+      ...HEALTHY,
+      schema: { ...HEALTHY.schema, outOfOrderArrivals: ["20260911T000000_early"] },
+    });
+    expect(notes).toHaveLength(1);
+    expect(notes[0]?.reading).toBe("attention");
+    expect(notes[0]?.sentence).toContain("20260911T000000_early");
+  });
+
+  it("counts several arrivals rather than saying 'one migration' about three", () => {
+    const notes = describeSchemaLineage({
+      ...HEALTHY,
+      schema: { ...HEALTHY.schema, outOfOrderArrivals: ["a_one", "b_two", "c_three"] },
+    });
+    expect(notes[0]?.sentence).toContain("3 migrations");
+  });
+
+  it("names a restore point, with the instant and what it precedes", () => {
+    const notes = describeSchemaLineage({
+      ...HEALTHY,
+      schema: {
+        ...HEALTHY.schema,
+        restorePoint: { takenAt: "2026-09-15T18:00:00.000Z", precedes: ["20260914T191528_intake"] },
+      },
+    });
+    expect(notes).toHaveLength(1);
+    expect(notes[0]?.sentence).toContain("2026-09-15T18:00:00.000Z");
+    expect(notes[0]?.sentence).toContain("20260914T191528_intake");
+  });
+
+  it("says both when both are true", () => {
+    const notes = describeSchemaLineage({
+      ...HEALTHY,
+      schema: {
+        ...HEALTHY.schema,
+        outOfOrderArrivals: ["20260911T000000_early"],
+        restorePoint: { takenAt: "2026-09-15T18:00:00.000Z", precedes: ["20260914T191528_intake"] },
+      },
+    });
+    expect(notes).toHaveLength(2);
   });
 });

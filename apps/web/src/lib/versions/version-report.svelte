@@ -149,6 +149,7 @@
     type HealthReading,
     databaseHealthRows,
     describeProvisioningBacklog,
+    describeSchemaLineage,
     healthBadgeVariant,
     DATABASE_SECTION_LABEL,
     DEPLOYMENT_SECTION_LABEL,
@@ -423,6 +424,7 @@
   const provisioningBacklog = $derived(
     healthValue === null ? null : describeProvisioningBacklog(healthValue),
   );
+  const schemaLineage = $derived(healthValue === null ? [] : describeSchemaLineage(healthValue));
   // The read split the way the panel now shows it: the pair that serves the app's address, and the
   // rest of the fleet. Lifted out of the template because each section's shut heading has to count
   // only the Workers ITS OWN fold hides — Workers is no longer nested inside Deployment, so one
@@ -1010,6 +1012,16 @@
             {@render healthRow(row)}
           {/each}
         </div>
+        {#each schemaLineage as note (note.sentence)}
+          <!-- What the schema row cannot fit: a migration that arrived behind the ledger head, and
+               the restore point sitting in front of the last batch. Both come off the wire from the
+               firm database itself and were being dropped here; neither is a row, because a row
+               that is blank on every healthy firm teaches a reader to skip it. -->
+          <div class="flex items-center gap-8">
+            <Badge variant={healthBadgeVariant(note.reading)}>Lineage</Badge>
+            <p class="text-xs text-text-muted">{note.sentence}</p>
+          </div>
+        {/each}
         {#if provisioningBacklog !== null}
           <!-- The membership row's explanation, said only when there is one. A firm whose mirrors
                have all landed carries nothing here: "0 pending" is an info line with nothing
