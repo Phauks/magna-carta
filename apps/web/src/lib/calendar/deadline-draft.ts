@@ -13,6 +13,7 @@
  */
 import type { CalendarDeadline, CreateDeadlineRequest, DeadlineSource } from "./calendar-api.ts";
 import { isCivilDate } from "./calendar-window.ts";
+import { shortfall, type Shortfall } from "./shortfall.ts";
 import { isWallClockTime, optionalText } from "./draft-text.ts";
 import { isResolvableTimeZone } from "./time-zone-options.ts";
 
@@ -54,23 +55,50 @@ export function deadlineSourceLabel(source: DeadlineSource): string {
   return SOURCE_LABELS[source];
 }
 
+/** The fields a deadline draft asks about, as a shortfall names them. */
+export const DEADLINE_FIELDS = {
+  title: "title",
+  dueOn: "dueOn",
+  dueAtTime: "dueAtTime",
+  timeZone: "timeZone",
+  priority: "priority",
+} as const;
+
 /** Every reason the deadline cannot be recorded yet. Empty means it can. */
-export function deadlineDraftShortfalls(draft: DeadlineDraft): string[] {
-  const shortfalls: string[] = [];
-  if (draft.title.trim() === "") shortfalls.push("A title is needed.");
-  if (draft.dueOn === null || !isCivilDate(draft.dueOn)) shortfalls.push("A due date is needed.");
+export function deadlineDraftShortfalls(draft: DeadlineDraft): Shortfall[] {
+  const shortfalls: Shortfall[] = [];
+  if (draft.title.trim() === "") {
+    shortfalls.push(shortfall(DEADLINE_FIELDS.title, "A title is needed."));
+  }
+  if (draft.dueOn === null || !isCivilDate(draft.dueOn)) {
+    shortfalls.push(shortfall(DEADLINE_FIELDS.dueOn, "A due date is needed."));
+  }
   if (draft.dueAtTime !== "" && !isWallClockTime(draft.dueAtTime)) {
-    shortfalls.push("The time does not read as a time of day.");
+    shortfalls.push(
+      shortfall(DEADLINE_FIELDS.dueAtTime, "The time does not read as a time of day."),
+    );
   }
   if (draft.timeZone.trim() === "") {
-    shortfalls.push("A time zone is needed: the one the deadline is measured in.");
+    shortfalls.push(
+      shortfall(
+        DEADLINE_FIELDS.timeZone,
+        "A time zone is needed: the one the deadline is measured in.",
+      ),
+    );
   } else if (!isResolvableTimeZone(draft.timeZone)) {
-    shortfalls.push("The time zone is not one a date can be read in.");
+    shortfalls.push(
+      shortfall(DEADLINE_FIELDS.timeZone, "The time zone is not one a date can be read in."),
+    );
   }
   if (draft.priority !== "") {
     const priority = Number(draft.priority);
     if (!Number.isInteger(priority) || priority < 1 || priority > DEADLINE_PRIORITY_MAX) {
-      shortfalls.push(`Priority is a whole number from 1 to ${String(DEADLINE_PRIORITY_MAX)}.`);
+      shortfalls.push(
+        shortfall(
+          DEADLINE_FIELDS.priority,
+          `Priority is a whole number from 1 to ${String(DEADLINE_PRIORITY_MAX)}.`,
+        ),
+      );
     }
   }
   return shortfalls;

@@ -6,7 +6,7 @@
    * drift apart in what a "list of things on the left" looks like.
    *
    * IT READS THE SAME PROJECTION THE LANDING SCREEN READS. The sections are the catalogue's own
-   * (tool-catalogue.ts, report-catalogue.ts), so an entry added to a registry reaches the column
+   * (report-catalogue.ts), so an entry added to a registry reaches the column
    * with no edit here, and the column and the landing index can never disagree about what the
    * catalogue holds. Names only: the descriptive line, the view switch and the search stay on the
    * landing screen, which is where a reader goes to find out what a thing does.

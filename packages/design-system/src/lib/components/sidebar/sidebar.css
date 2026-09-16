@@ -176,9 +176,12 @@
    */
   .mc-sidebar-menu-button {
     display: grid;
-    /* A FIXED icon track (not auto) keeps the icon a constant size as the label column collapses to
-       0fr. The icon is exactly this size (mc-sidebar-icon). */
-    grid-template-columns: var(--mc-space-20) 1fr;
+    /* THREE TRACKS: a FIXED icon track (not auto) keeps the icon a constant size as the label column
+       collapses to 0fr; the label takes the slack and truncates; the trailing track is sized to its
+       contents (`auto`) so a maturity badge or a chevron is never the thing that gives way. A badge
+       rendered inside the label instead rode the label's own overflow and was clipped off every long
+       row — "Property Listing Links" hid its Soon mark entirely (owner report, 2026-09-16). */
+    grid-template-columns: var(--mc-space-20) 1fr auto;
     align-items: center;
     justify-content: start;
     min-block-size: var(--mc-control-md);
@@ -253,6 +256,9 @@
   }
   .mc-sidebar-label {
     overflow: hidden;
+    /* A grid item's automatic minimum size is its content, so without this the label refuses to
+       shrink, the row overflows, and the trailing column is pushed out of the rail entirely. */
+    min-inline-size: var(--mc-space-0);
     padding-inline-start: var(--mc-space-8);
     color: inherit;
     text-overflow: ellipsis;
@@ -261,16 +267,93 @@
        here would still be mid-fade when the view transition captures its snapshots, so the label
        would fade a second time after the slide instead of being revealed by it. */
   }
+  /* The row's inline-end slot: a maturity badge, a count, a cluster's chevron. It never shrinks, and
+     it is what the label truncates in favour of. */
+  .mc-sidebar-trailing {
+    display: flex;
+    flex: none;
+    align-items: center;
+    padding-inline-start: var(--mc-space-8);
+    color: inherit;
+  }
+  /*
+   * A SUB-MENU — the rows beneath a cluster trigger. Inset from its parent row, with a hairline down
+   * the start edge so the rows read as belonging to the row above rather than as a list that happens
+   * to be indented. The inset is applied as margin rather than padding so the hairline sits between
+   * the parent's icon column and its rows, tracking the icon rather than the text.
+   */
+  .mc-sidebar-menu-sub {
+    margin-inline-start: var(--mc-space-16);
+    padding-inline-start: var(--mc-space-8);
+    border-inline-start: var(--mc-border-width-default) solid var(--mc-chrome-border);
+  }
+  /* A cluster trigger is a control, not a destination: its glyph is muted so a group of rows does
+     not read as five destinations one of which is oddly bold. */
+  .mc-sidebar-menu-trigger .mc-sidebar-icon {
+    color: var(--mc-chrome-text-muted);
+  }
+  /* A cluster holding the CURRENT row stays legible while folded — the fold must never make a
+     reader wonder where they are. The gilt mark is the row's own; this is the quieter statement
+     that the answer is inside. */
+  .mc-sidebar-menu-trigger[data-holds-current="true"] .mc-sidebar-icon {
+    color: var(--mc-chrome-accent);
+  }
+  /*
+   * THE GRIP — the three-by-two dots at a reorderable row's start edge in Customize mode. Without
+   * it the row said nothing about being draggable: the cursor only answers after the pointer is
+   * already on it, which is an answer to a question nobody asked (owner report, 2026-09-16). It is
+   * muted at rest and lifts with the row's hover, so it reads as an affordance rather than as
+   * content.
+   */
+  .mc-sidebar-grip {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--mc-space-16);
+    color: var(--mc-chrome-text-muted);
+    transition-property: color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-sidebar-edit-row:hover .mc-sidebar-grip {
+    color: var(--mc-chrome-text-strong);
+  }
+  .mc-sidebar-grip[data-fixed="true"] {
+    color: var(--mc-chrome-border);
+  }
+  /*
+   * A row under the pointer during a drag. `will-change` promotes it to its own layer BEFORE the
+   * first move, so the initial frames are not spent rasterizing it; `user-select: none` stops a
+   * drag across labels from selecting text, which on a long drag turned the rail blue and swallowed
+   * the pointer stream.
+   */
+  .mc-sidebar-edit-row[data-dragging="true"] {
+    will-change: transform;
+    user-select: none;
+  }
   /* Collapsed icon rail: the label column goes to 0 (its width AND its leading padding to zero so it
      leaves the row) and its text fades. The icon does NOT recentre — it stays exactly where it is (the
      rail width is sized so a left-aligned icon reads centred), so collapsing never slides the icons
      sideways. The before→after change is composited by the sidebar view-transition. */
   .mc-sidebar[data-state="collapsed"] .mc-sidebar-menu-button {
-    grid-template-columns: var(--mc-space-20) 0fr;
+    grid-template-columns: var(--mc-space-20) 0fr 0fr;
   }
   .mc-sidebar[data-state="collapsed"] .mc-sidebar-label {
     padding-inline-start: var(--mc-space-0);
     color: transparent;
+  }
+  /* The trailing slot goes with the label — a badge's own label would be unreadable at rail width,
+     and the stage is carried there by a dot on the icon instead (see the shell). */
+  .mc-sidebar[data-state="collapsed"]:not([data-peek="true"]) .mc-sidebar-trailing {
+    display: none;
+  }
+  /* A sub-menu in the rail loses its indent and its rule: there is no parent label beside it to
+     belong to, so the rows stand as icons like every other. */
+  .mc-sidebar[data-state="collapsed"]:not([data-peek="true"]) .mc-sidebar-menu-sub {
+    margin-inline-start: var(--mc-space-0);
+    padding-inline-start: var(--mc-space-0);
+    border-inline-start-style: none;
   }
   /* Group labels fade out in the rail; the change is instant and composited by the sidebar
      view-transition (no per-frame colour transition needed). */
@@ -345,10 +428,16 @@
     color: var(--mc-chrome-accent);
   }
   /*
-   * The trailing star/lock in a Customize-mode row — a consistent control slot, vertically
+   * The trailing eye/star/lock in a Customize-mode row — a consistent control slot, vertically
    * centred against the row's label. Sized to the control height so the row keeps the SAME height
-   * as a normal nav row (only the added control differs). `data-starred` fills the star gold
-   * (in the sidebar); `data-locked` is the pinned rows' lock — a stated fact, not a live toggle.
+   * as a normal nav row (only the added control differs).
+   *
+   * THREE MARKS, THREE MEANINGS (owner ruling, 2026-09-16). `data-shown` is the EYE: whether a
+   * destination the platform ships appears in its group — gold while it is in the rail, muted and
+   * struck through while it is not. `data-starred` is the STAR, and it means what a star means
+   * everywhere else: this is the member's own favourite, and pressing it gives the shortcut back.
+   * `data-locked` is the pinned rows' lock — a stated fact, not a live toggle. The eye took the
+   * star's old seat precisely so the two stopped wearing one symbol for two different questions.
    */
   .mc-sidebar-row-control {
     display: flex;
@@ -373,7 +462,8 @@
     outline: var(--mc-focus-ring-width) solid var(--mc-chrome-accent);
     outline-offset: var(--mc-focus-ring-offset);
   }
-  .mc-sidebar-row-control[data-starred="true"] {
+  .mc-sidebar-row-control[data-starred="true"],
+  .mc-sidebar-row-control[data-shown="true"] {
     color: var(--mc-chrome-accent);
   }
   .mc-sidebar-row-control[data-locked="true"] {
@@ -397,7 +487,7 @@
    * order wins). The controls cluster likewise returns to a row inside the widened panel.
    */
   .mc-sidebar[data-peek="true"] .mc-sidebar-menu-button {
-    grid-template-columns: var(--mc-space-20) 1fr;
+    grid-template-columns: var(--mc-space-20) 1fr auto;
   }
   .mc-sidebar[data-peek="true"] .mc-sidebar-label {
     padding-inline-start: var(--mc-space-8);

@@ -53,6 +53,7 @@ export function eventUpdateOf(
     locationText: request.locationText,
     conferenceUrl: request.conferenceUrl,
     courtReference: request.courtReference,
+    recurrenceRule: request.recurrenceRule,
     ...(participants.edited ? { participants: request.participants } : {}),
   };
 }
@@ -85,6 +86,7 @@ export function firmEventUpdateOf(
     locationId: request.locationId,
     locationText: request.locationText,
     conferenceUrl: request.conferenceUrl,
+    recurrenceRule: request.recurrenceRule,
     ...(participants.edited ? { participants: request.participants } : {}),
   };
 }

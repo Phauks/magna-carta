@@ -65,6 +65,7 @@
     visibleDestinations,
     type Destination,
   } from "$lib/navigation/destinations.ts";
+  import { grantedPermissions } from "$lib/tools/tool-permissions.ts";
   import {
     formatDocumentSize,
     formatDocumentTimestamp,
@@ -130,7 +131,7 @@
     DESTINATION_GROUPS.map((group) => ({
       id: group.id,
       label: group.label,
-      destinations: visibleDestinations().filter(
+      destinations: visibleDestinations(grantedPermissions()).filter(
         (destination: Destination) => destination.group === group.id,
       ),
     })).filter((group) => group.destinations.length > 0),

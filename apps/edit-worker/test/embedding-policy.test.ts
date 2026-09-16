@@ -106,6 +106,24 @@ describe("allowAppFraming", () => {
     expect(response.statusText).toBe("Not Found");
   });
 
+  it("hands a WebSocket upgrade back untouched, whatever headers it carries", () => {
+    // The document's editing session rides this socket. The runtime refuses to construct a Response
+    // with status 101, so rebuilding one throws and the editor never connects — and a rebuild would
+    // drop the `webSocket` the upgrade carries even where it did not throw. A 101 cannot be built
+    // here either, which is why the upgrade is stood in for rather than constructed.
+    const socket = {};
+    const upgrade = {
+      status: 101,
+      webSocket: socket,
+      headers: new Headers({ "Content-Security-Policy": COOLWSD_POLICY }),
+    } as unknown as Response;
+
+    const response = allowAppFraming(upgrade, APP_SOURCES);
+
+    expect(response).toBe(upgrade);
+    expect((response as unknown as { webSocket: unknown }).webSocket).toBe(socket);
+  });
+
   it("passes a response with no policy straight through, untouched", () => {
     // The editor page is what carries the policy; the assets and the WebSocket upgrade beside it never
     // had one, and giving them one would state a boundary the container never stated.

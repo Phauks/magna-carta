@@ -280,7 +280,7 @@
   ]}
   <div class="flex min-h-screen flex-col gap-32 bg-surface-default p-24 text-text-default">
     <header class="flex max-w-prose flex-col gap-8">
-      <ScreenHeader title="Record Window States" back={DEVELOPER_CONSOLE_BACK} />
+      <ScreenHeader title="Record Window States" favoritable={false} back={DEVELOPER_CONSOLE_BACK} />
       <p class="text-sm text-text-muted">
         The record family in every state it has to survive, rendered from the real design system
         over an invented litigation file. Use this instead of a standalone mockup: a mockup is

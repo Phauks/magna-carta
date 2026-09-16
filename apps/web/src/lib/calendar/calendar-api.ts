@@ -54,6 +54,12 @@ export interface CalendarEvent {
    * firm that typed "Zoom" where the room goes has lost the room.
    */
   conferenceUrl: string | null;
+  /**
+   * The RFC 5545 rule a repeating setting runs on, null on a one-off. ONE record carries the whole
+   * series: the dates it falls on are read back from this rule, never stored as rows, so a series
+   * that changes changes in one place.
+   */
+  recurrenceRule: string | null;
   courtReference: string | null;
   recordedAt: string;
   recordedBy: string | null;
@@ -104,6 +110,12 @@ export interface FirmEvent {
    * firm that typed "Zoom" where the room goes has lost the room.
    */
   conferenceUrl: string | null;
+  /**
+   * The RFC 5545 rule a repeating setting runs on, null on a one-off. ONE record carries the whole
+   * series: the dates it falls on are read back from this rule, never stored as rows, so a series
+   * that changes changes in one place.
+   */
+  recurrenceRule: string | null;
   recordedAt: string;
   recordedBy: string | null;
 }
@@ -325,6 +337,8 @@ export interface CreateEventRequest {
   locationText?: string | null;
   conferenceUrl?: string | null;
   courtReference?: string | null;
+  /** An RFC 5545 rule the record form wrote. The server refuses one it could not read back. */
+  recurrenceRule?: string | null;
   participants?: ParticipantInput[];
 }
 
@@ -359,6 +373,8 @@ export interface CreateFirmEventRequest {
   locationId?: string | null;
   locationText?: string | null;
   conferenceUrl?: string | null;
+  /** An RFC 5545 rule the record form wrote. The server refuses one it could not read back. */
+  recurrenceRule?: string | null;
   participants?: ParticipantInput[];
 }
 

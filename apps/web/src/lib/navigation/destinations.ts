@@ -9,12 +9,20 @@
  * auth session lands — filtering composes onto the registry; the registry itself never changes
  * shape for it.
  *
- * THE STAR LAYER: this registry stays canonical — membership, groups, canonical order, the
- * shipped/announced light-ups. WHICH rows the sidebar shows, and in what per-group order, is
- * the member's own preference (src/lib/navigation/sidebar-preferences.svelte.ts): pinned +
- * starred rows render; everything else is added back from the sidebar's own Customize mode,
- * which reveals every destination grouped. `defaultStarred` is the registry's half of that
- * contract — the curated core arrives starred, exotic additions arrive available-but-quiet.
+ * THE VISIBILITY LAYER: this registry stays canonical — membership, groups, clusters, canonical
+ * order, the shipped/announced light-ups. WHICH rows the sidebar shows, and in what per-group
+ * order, is the member's own preference (src/lib/navigation/sidebar-preferences.svelte.ts):
+ * pinned + shown rows render; everything else is brought back from the sidebar's own Customize
+ * mode, which reveals every destination grouped. `defaultShown` is the registry's half of that
+ * contract — the curated core arrives visible, exotic additions arrive available-but-quiet.
+ *
+ * SHOWING A ROW IS NOT FAVOURITING IT, and the two now wear different marks (owner ruling,
+ * 2026-09-16). Customize decides whether a destination the platform ships appears in its group,
+ * and says so with an EYE — the plain word for "visible here". A FAVOURITE is the member's own
+ * shortcut to any address at all, a matter or a tool or a screen deep inside one, and keeps the
+ * STAR, which is what a star means everywhere else. Favourites are not registry data and are not
+ * declared in this file: they live in navigation/favorites.svelte.ts and render as the rail's
+ * first group.
  *
  * ONLY REAL THINGS (owner-directed): every entry is either `shipped` (its user-facing surface
  * exists) or `announced` (an owner-curated Soon stub the sidebar and palette pre-announce ahead
@@ -23,9 +31,10 @@
  *
  * The Ctrl+K command palette (src/lib/components/command-palette.svelte) also renders from this
  * registry — adding a destination here is what makes it searchable; never hand-list it there.
- * Stars never touch the palette: hiding must never remove capability.
+ * Hiding a row never touches the palette: hiding must never remove capability.
  */
 import type { Component } from "svelte";
+import { assertPermission, type Permission } from "@magna-carta/access-control/registry";
 import type { MaturityStage } from "@magna-carta/design-system/maturity";
 import House from "@lucide/svelte/icons/house";
 import Download from "@lucide/svelte/icons/download";
@@ -45,15 +54,14 @@ import FileSearch from "@lucide/svelte/icons/file-search";
 import Settings from "@lucide/svelte/icons/settings";
 import Vault from "@lucide/svelte/icons/vault";
 import ShieldAlert from "@lucide/svelte/icons/shield-alert";
-import Wrench from "@lucide/svelte/icons/wrench";
-import Microscope from "@lucide/svelte/icons/microscope";
 import MessageSquare from "@lucide/svelte/icons/message-square";
 import ChartColumn from "@lucide/svelte/icons/chart-column";
+import ChartPie from "@lucide/svelte/icons/chart-pie";
 import Sparkles from "@lucide/svelte/icons/sparkles";
 import ListChecks from "@lucide/svelte/icons/list-checks";
 import HandCoins from "@lucide/svelte/icons/hand-coins";
 
-export type DestinationGroup = "top" | "money" | "firm" | "tools";
+export type DestinationGroup = "favorites" | "desk" | "work" | "money" | "firm" | "tools";
 
 export interface Destination {
   readonly id: string;
@@ -73,18 +81,31 @@ export interface Destination {
    */
   readonly announced?: true;
   /**
-   * Cannot be unstarred — Customize mode shows a lock instead of a star ("always in your
-   * sidebar"). Home and the footer fixtures also hold fixed positions (Home first; Downloads,
-   * Uploads and Settings in the pinned footer); Matters is movable within its group but never
-   * hideable.
+   * Cannot be hidden — Customize mode shows a lock instead of the eye ("always in your sidebar").
+   * Home and the footer fixtures also hold fixed positions (Home first; Downloads, Uploads and
+   * Settings in the pinned footer); Matters is movable within its group but never hideable.
    */
   readonly pinned?: true;
   /**
-   * The registry's half of the star contract: whether this destination arrives in a fresh
+   * The registry's half of the visibility contract: whether this destination arrives in a fresh
    * member's sidebar. The curated core is true; future exotic additions arrive false —
-   * revealed in Customize mode and added by a click, never pushed.
+   * revealed in Customize mode and brought in by a click, never pushed.
    */
-  readonly defaultStarred: boolean;
+  readonly defaultShown: boolean;
+  /**
+   * The sub-menu this row folds into within its group (navigation/clusters.ts), when it folds into
+   * one at all. A cluster is a FOLD, never a screen: it has no address and opening it reveals its
+   * rows. A cluster holding a single row is seated as a plain row instead, so a chevron never hides
+   * one thing.
+   */
+  readonly cluster?: string;
+  /**
+   * The permission that gates this destination, for the few surfaces that are not simply "a place
+   * in the app everyone with a seat can stand". A destination without one is visible to every
+   * member; one with it renders only for a member who holds the key, in the rail and in the palette
+   * alike (filtering composes onto the registry — the registry never changes shape for it).
+   */
+  readonly permission?: Permission;
   /**
    * Lives in the sidebar's pinned footer utility tray, not the scrolling groups — Settings,
    * Downloads and Uploads. The groups renderer (and Customize mode with it) skips it; the
@@ -117,23 +138,37 @@ export function destinationStage(destination: Destination): MaturityStage {
 }
 
 /*
- * Group headings in canonical order. Every group carries a heading now (owner-directed — a
- * headless top group read as unbalanced against the labelled ones): "Workspace" is the
- * matter/document daily surfaces, "Money" the ledger, "Firm" the firm-wide surfaces, "Tools" the
- * standalone utilities.
+ * Group headings in canonical order — the rail's first level, reworked on the owner's direction of
+ * 2026-09-16. Every group carries a heading (a headless top group read as unbalanced against the
+ * labelled ones), and each answers ONE question:
+ *
+ *   Favourites — the member's own shortcuts. Not registry data: the rows come from
+ *                navigation/favorites.svelte.ts, and the group is absent until a member makes one.
+ *                It leads the rail because a shortcut nobody passes on the way to something else is
+ *                a shortcut nobody uses.
+ *   My Desk    — what is on MY plate: my day, my alerts, my tasks, my calendar, my assistant.
+ *                Home and Notifications sat in Workspace until now, which put "your morning" in the
+ *                same list as "the firm's evidence"; they are about the person, not about the work,
+ *                and a fourteen-row Workspace group was the price of not saying so.
+ *   Workspace  — the firm's work: matters and everything that hangs off one.
+ *   Money      — the ledger, in the order money moves.
+ *   Firm       — the firm about itself: its numbers, its consumption, its settings.
+ *   Tools      — the standalone utilities, folded into subject clusters.
  *
  * TOOLS IS THE ONE GROUP THIS FILE DOES NOT HOLD THE ROWS FOR. The tool catalog
  * (@magna-carta/tools) is already the one home of what a tool is, and its rows reach the rail
  * through navigation/tool-sidebar.ts. Copying nine tools in here would be the same fact in two
- * registries, free to disagree the first time one is added.
+ * registries, free to disagree the first time one is added. Favourites likewise: they are the
+ * member's, not the platform's.
  */
 export const DESTINATION_GROUPS: ReadonlyArray<{ id: DestinationGroup; label: string }> = [
-  { id: "top", label: "Workspace" },
+  { id: "favorites", label: "Favorites" },
+  { id: "desk", label: "My Desk" },
+  { id: "work", label: "Workspace" },
   { id: "money", label: "Money" },
   { id: "firm", label: "Firm" },
   { id: "tools", label: "Tools" },
 ];
-
 /*
  * ORDERING IS UNDER REVIEW (owner-directed draft, 2026-07-03): the announced Soon rows exist
  * precisely so the owner can feel the order — daily drivers and matter-work first, money next,
@@ -143,18 +178,20 @@ export const DESTINATION_GROUPS: ReadonlyArray<{ id: DestinationGroup; label: st
  * and where reconciliation seats new arrivals.
  */
 const DESTINATION_LIST = [
-  // Workspace — the owner's draft order: daily drivers, then the matter-work cluster.
+  // My Desk — the member's own surfaces: the day, the alerts, the plate, the diary, the assistant.
+  // The two transfer registers are `desk` too (they are this member's transfers), though the rail
+  // seats them in the footer tray rather than the group.
   {
     id: "home",
     label: "Home",
     href: "/home",
     icon: House,
     description: "Your day at a glance — tasks, deadlines, and the matters you touch.",
-    group: "top",
+    group: "desk",
     shipped: true,
     stage: "alpha",
     pinned: true,
-    defaultStarred: true,
+    defaultShown: true,
   },
   {
     // The download register: what the platform produced for this member, kept for a short window so
@@ -170,11 +207,11 @@ const DESTINATION_LIST = [
     href: "/downloads",
     icon: Download,
     description: "Reports and files the platform made for you, ready to download again.",
-    group: "top",
+    group: "desk",
     shipped: true,
     stage: "alpha",
     pinned: true,
-    defaultStarred: true,
+    defaultShown: true,
     footerPinned: true,
   },
   {
@@ -187,11 +224,11 @@ const DESTINATION_LIST = [
     href: "/uploads",
     icon: Upload,
     description: "Files you are sending to matters, each one's progress, and what did not go.",
-    group: "top",
+    group: "desk",
     shipped: true,
     stage: "alpha",
     pinned: true,
-    defaultStarred: true,
+    defaultShown: true,
     footerPinned: true,
   },
   {
@@ -202,10 +239,10 @@ const DESTINATION_LIST = [
     href: "/notifications",
     icon: Bell,
     description: "Alerts, mentions, and updates across your matters.",
-    group: "top",
+    group: "desk",
     shipped: true,
     stage: "alpha",
-    defaultStarred: true,
+    defaultShown: true,
   },
   {
     // The member's own work, across every matter they can see plus their own tasks on no matter.
@@ -220,10 +257,10 @@ const DESTINATION_LIST = [
     href: "/tasks",
     icon: ListChecks,
     description: "Every task with your name on it, across your matters and the firm's own work.",
-    group: "top",
+    group: "desk",
     shipped: true,
     stage: "alpha",
-    defaultStarred: true,
+    defaultShown: true,
   },
   {
     // Magnus — the Magna Carta assistant. This is its always-reachable home: one sidebar entry,
@@ -238,10 +275,10 @@ const DESTINATION_LIST = [
     href: "/magnus",
     icon: Sparkles,
     description: "The Magna Carta assistant — ask, draft, and navigate in plain language.",
-    group: "top",
+    group: "desk",
     shipped: true,
     stage: "alpha",
-    defaultStarred: true,
+    defaultShown: true,
   },
   {
     id: "calendar",
@@ -249,24 +286,26 @@ const DESTINATION_LIST = [
     href: "/calendar",
     icon: CalendarDays,
     description: "Deadlines, hearings, and appointments across the firm.",
-    group: "top",
+    group: "desk",
     shipped: true,
     // The firm calendar reads and records; the room grid, kind narrowing and the member picker
     // beyond Mine/Everyone are still to come.
     stage: "alpha",
-    defaultStarred: true,
+    defaultShown: true,
   },
+  // Workspace — the firm's work. Matters leads it; everything else here hangs off a matter or
+  // feeds one.
   {
     id: "matters",
     label: "Matters",
     href: "/matters",
     icon: FolderOpen,
     description: "Every matter the firm holds — the work's home.",
-    group: "top",
+    group: "work",
     shipped: true,
     stage: "alpha",
     pinned: true,
-    defaultStarred: true,
+    defaultShown: true,
   },
   {
     id: "intake",
@@ -274,12 +313,12 @@ const DESTINATION_LIST = [
     href: "/intake",
     icon: Inbox,
     description: "New client and matter intake, from first inquiry to open file.",
-    group: "top",
+    group: "work",
     shipped: true,
     // The desk lists every intake in flight, starts one, and schedules the consultation; the public
     // form, the pipeline board and call intake are still to come.
     stage: "alpha",
-    defaultStarred: true,
+    defaultShown: true,
   },
   {
     // Runs at intake, so it sits beside it.
@@ -288,14 +327,14 @@ const DESTINATION_LIST = [
     href: "/conflicts",
     icon: ShieldAlert,
     description: "Conflict checks run at intake and on demand.",
-    group: "top",
+    group: "work",
     shipped: true,
     // The runner, the firm's check history, one check read back with its candidates and their
     // adjudications, where a matter stands, and the firm's own floor under Settings. What is still
     // short of the whole act is the assembled report a firm could hand a court: printing gives a
     // sheet rather than a document filed onto the matter.
     stage: "alpha",
-    defaultStarred: true,
+    defaultShown: true,
   },
   {
     id: "directory",
@@ -303,12 +342,12 @@ const DESTINATION_LIST = [
     href: "/directory",
     icon: Users,
     description: "Clients, parties, counsel, and courts in one book.",
-    group: "top",
+    group: "work",
     shipped: true,
     // Alpha, not ready: the record is searched rather than browsed, and three of its panes render
     // their shape while their reads are built.
     stage: "alpha",
-    defaultStarred: true,
+    defaultShown: true,
   },
   {
     // Calls and texts — the two channels a conversation only exists in if the platform records it.
@@ -322,13 +361,13 @@ const DESTINATION_LIST = [
     href: "/messaging",
     icon: MessageSquare,
     description: "Calls and texts with clients, logged against their matters.",
-    group: "top",
+    group: "work",
     shipped: true,
     // The log reads and records what a member writes down. Nothing is sent or received yet: the
     // carrier adapter that writes these same rows by itself, and the recording and transcript that
     // hang off a call, are the rungs after this one.
     stage: "alpha",
-    defaultStarred: true,
+    defaultShown: true,
   },
   {
     id: "documents",
@@ -336,10 +375,10 @@ const DESTINATION_LIST = [
     href: "/documents",
     icon: FileText,
     description: "The firm's documents — stored, scanned, and versioned.",
-    group: "top",
+    group: "work",
     shipped: false,
     announced: true,
-    defaultStarred: true,
+    defaultShown: true,
   },
   {
     // Document automation and court forms — the documents cluster, distinct glyph from
@@ -349,10 +388,10 @@ const DESTINATION_LIST = [
     href: "/forms",
     icon: ClipboardPenLine,
     description: "Document automation and court forms.",
-    group: "top",
+    group: "work",
     shipped: false,
     announced: true,
-    defaultStarred: true,
+    defaultShown: true,
   },
   {
     // The evidence cluster: discovery beside its custodian stewardship.
@@ -361,7 +400,7 @@ const DESTINATION_LIST = [
     href: "/discovery",
     icon: FileSearch,
     description: "Every review set you can reach, across every matter.",
-    group: "top",
+    group: "work",
     shipped: true,
     /*
      * The register reads and opens; a review set is created from the matter it belongs to, which is
@@ -375,7 +414,7 @@ const DESTINATION_LIST = [
      * only through matters would hide from them precisely the work they were given.
      */
     stage: "alpha",
-    defaultStarred: true,
+    defaultShown: true,
   },
   {
     // A safe for what the firm holds in stewardship (Trust keeps Landmark — institutional
@@ -385,13 +424,13 @@ const DESTINATION_LIST = [
     href: "/custodian",
     icon: Vault,
     description: "Evidence and holdings in the firm's stewardship, tracked end to end.",
-    group: "top",
+    group: "work",
     shipped: true,
     // The register reads: what is held, where, for whom, what is overdue and what is under hold.
     // Logging a packet and recording a movement have no form behind them yet, and each control
     // says so where it stands.
     stage: "alpha",
-    defaultStarred: true,
+    defaultShown: true,
   },
   // Money — in the order the money moves: hours and flat charges are recorded, disbursements are
   // advanced, then a bill claims all three and trust settles it.
@@ -408,7 +447,7 @@ const DESTINATION_LIST = [
     group: "money",
     shipped: true,
     stage: "alpha",
-    defaultStarred: true,
+    defaultShown: true,
   },
   {
     // The firm's fee record over a period, across every matter — the flat charges it made for work
@@ -429,7 +468,7 @@ const DESTINATION_LIST = [
     // and the files riding it are still to come, and the firm's review setting is not served, so the
     // review verbs are absent rather than offered.
     stage: "alpha",
-    defaultStarred: true,
+    defaultShown: true,
   },
   {
     // The firm's cost record over a period, across every matter — what was advanced, what is still
@@ -451,7 +490,7 @@ const DESTINATION_LIST = [
     // The period reads, narrows and opens any cost in the shared record window. Approving a
     // submitted cost across matters, and the recorder each row is missing, are still to come.
     stage: "alpha",
-    defaultStarred: true,
+    defaultShown: true,
   },
   {
     // The firm's own billing register: every bill for every client, newest first, with the
@@ -469,7 +508,7 @@ const DESTINATION_LIST = [
     group: "money",
     shipped: true,
     stage: "alpha",
-    defaultStarred: true,
+    defaultShown: true,
   },
   {
     id: "trust",
@@ -480,62 +519,9 @@ const DESTINATION_LIST = [
     group: "money",
     shipped: false,
     announced: true,
-    defaultStarred: true,
+    defaultShown: true,
   },
-  // Firm
-  {
-    /*
-     * Where a file that belongs to no matter is brought, and every file capability is run from.
-     * It leads the Firm group ahead of Tools because it is not one of them: the ten file utilities
-     * in the tool catalog are its own capability tabs, so the catalog was listing eleven doors into
-     * one room with the room itself filed between them. A surface whose entry gesture is DROPPING A
-     * FILE has to be reachable in one reach from wherever the reader already is, which a row inside
-     * a twenty-row catalogue is not.
-     *
-     * Firm rather than Workspace, and the test is scope, not importance: Workspace holds the
-     * matter-scoped daily surfaces, and this one is matter-free by construction — nothing brought
-     * here is filed, versioned, or remembered.
-     *
-     * It keeps its tool-catalog manifest row for one reason: so a file in hand can still be offered
-     * it through toolsFor(). The manifest names this address as its route, which is both what stops
-     * anything deriving /tools/file-workbench and what takes it out of the Tools listing, the Tools
-     * navigation column and the palette's tool provider — it is not one of their rows any more.
-     */
-    id: "file-workbench",
-    label: "File Workbench",
-    href: "/file-workbench",
-    icon: Microscope,
-    description: "Read, verify, repair, and convert a file that belongs to no matter.",
-    group: "firm",
-    shipped: true,
-    // The surface, its file list and the Overview are built; the ten capability tabs each render
-    // the standard pending treatment with the dependency they are waiting on named beneath.
-    stage: "alpha",
-    defaultStarred: true,
-  },
-  /*
-   * The tools index — the one row in the Tools group this registry holds. Every OTHER row in that
-   * group is the tool catalog itself (navigation/tool-sidebar.ts), which is where a member now
-   * reaches a tool from: the owner's direction of 2026-09-16 is that the tools are too unlike each
-   * other to share one sub-page, and that the navigation column that sub-page carried was taking
-   * the screen space the tool itself wants — a shipping label and a postage rate most of all.
-   *
-   * So this row is no longer the way IN to the tools; it is the index where a reader finds out
-   * what each one does, with the descriptions and the search. It lights as current only on its own
-   * address (`exact`), because everything beneath it is now a row of its own in the same group.
-   */
-  {
-    id: "tools",
-    label: "All Tools",
-    href: "/tools",
-    icon: Wrench,
-    description: "Every standalone utility, with what each one does.",
-    group: "tools",
-    shipped: true,
-    exact: true,
-    stage: "alpha",
-    defaultStarred: true,
-  },
+  // Firm — the firm about itself.
   {
     id: "reports",
     label: "Reports",
@@ -545,7 +531,33 @@ const DESTINATION_LIST = [
     group: "firm",
     shipped: true,
     stage: "alpha",
-    defaultStarred: true,
+    defaultShown: true,
+  },
+  {
+    /*
+     * What the firm is consuming: storage by class, matters by type and location, the versioning
+     * breakdown, the Directory and member counts, the AI meters.
+     *
+     * IT IS NOT A TOOL, and it spent a while filed as one. A tool is a utility a member RUNS —
+     * bring it a domain, an address, a file — and this runs nothing: it is the firm reading its own
+     * records, which is exactly what the Firm group is for and exactly what Reports beside it does.
+     * Filed under Tools it sat behind a heading nobody with a billing question would open (owner's
+     * direction, 2026-09-16).
+     *
+     * It keeps the permission it was gated by as a tool. Renaming the key would be a migration
+     * across the role seeds for no reader's benefit, and the key gates the same read either way;
+     * what matters is that the gate travelled with the row, which is what `permission` here is for.
+     */
+    id: "firm-usage",
+    label: "Firm Usage",
+    href: "/firm-usage",
+    icon: ChartPie,
+    description: "See the firm's storage and platform consumption.",
+    group: "firm",
+    shipped: true,
+    stage: "alpha",
+    defaultShown: true,
+    permission: assertPermission("tools:firmUsage"),
   },
   {
     id: "settings",
@@ -557,7 +569,7 @@ const DESTINATION_LIST = [
     shipped: true,
     stage: "alpha",
     pinned: true,
-    defaultStarred: true,
+    defaultShown: true,
     footerPinned: true,
   },
 ] as const satisfies readonly Destination[];
@@ -585,10 +597,32 @@ export function destinationById(id: DestinationId): Destination | null {
   return DESTINATIONS.find((destination) => destination.id === id) ?? null;
 }
 
-/** Shipped plus announced-Soon destinations — what the palette presents (never star-filtered). */
-export function visibleDestinations(): readonly Destination[] {
+/**
+ * Whether this member may see a destination at all. A destination without a `permission` is a place
+ * in the app rather than a capability, and every member with a seat may stand there; one with a
+ * permission renders only for a member holding it.
+ *
+ * This is the gate, not the visibility preference: a member who cannot hold the key never sees the
+ * row anywhere, including in Customize mode and in the palette, because a row offering a capability
+ * access control has refused is a row that can only disappoint.
+ */
+export function isPermittedDestination(
+  destination: Destination,
+  permissions: ReadonlySet<Permission>,
+): boolean {
+  return destination.permission === undefined || permissions.has(destination.permission);
+}
+
+/**
+ * Shipped plus announced-Soon destinations the member may see — what the palette presents. Never
+ * filtered by the member's own show/hide preference: hiding a row from the rail must never remove
+ * the capability, and searching for a thing is wanting it.
+ */
+export function visibleDestinations(permissions: ReadonlySet<Permission>): readonly Destination[] {
   return DESTINATIONS.filter(
-    (destination) => destination.shipped || destination.announced === true,
+    (destination) =>
+      (destination.shipped || destination.announced === true) &&
+      isPermittedDestination(destination, permissions),
   );
 }
 

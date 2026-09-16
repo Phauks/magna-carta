@@ -57,7 +57,6 @@
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Hash from "@lucide/svelte/icons/hash";
-  import MapPin from "@lucide/svelte/icons/map-pin";
   import SquarePen from "@lucide/svelte/icons/square-pen";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { formatInstantDate } from "@magna-carta/design-system/formatters";
@@ -124,7 +123,6 @@
    * where the matter has been active (the number is drawn at open and never before), and asked in
    * place rather than in a second window.
    */
-  let numberFormOpen = $state(false);
   let numberDraft = $state("");
   let numberTouched = $state(false);
   let numberSaving = $state(false);
@@ -162,6 +160,12 @@
   const isSample = $derived(matter.source === "sample");
 
   /**
+   * Whether the row offers the field or reads. Decided by the record and by who is asking — never
+   * by a press, which is the whole point: the row is the same height before and after it is used.
+   */
+  const numberEditable = $derived(mayCarryNumber && !isSample && numberBlock === null);
+
+  /**
    * The paper file's office: which of the firm's offices this matter's folder is kept at.
    *
    * Read from the matter itself rather than taken from the record the chrome already holds, because
@@ -178,10 +182,22 @@
   const physicalFileLocationId = $derived(offices?.physicalFileLocationId ?? null);
   const physicalFileLocationName = $derived(offices?.physicalFileLocationName ?? null);
 
-  /** Where the file is kept is set in place, the way the number is, rather than in a second window. */
-  let physicalFileFormOpen = $state(false);
-  let physicalFileDraft = $state<string | null>(null);
+  /*
+   * Where the file is kept is a FIELD at rest, not a button that grows one (owner ruling,
+   * 2026-09-16). It was a Set Location press that revealed a labelled picker and a Record/Cancel
+   * pair beneath it, which grew the window under the reader's pointer at the moment they acted.
+   * A closed choice over the firm's own offices is exactly what the combobox is for: it shows the
+   * office's name at rest, takes typing, and is the same size before and after it is used. What it
+   * chooses is recorded straight away — there is one value here, so a commit would only be a second
+   * press to confirm the first.
+   */
   let physicalFileSaving = $state(false);
+  /**
+   * What the field is showing. It follows the record — every read puts the recorded office back in
+   * it — and a refused write puts it back too, so a field that says one office while the record
+   * holds another is not a state this window can be left in.
+   */
+  let physicalFileDraft = $state<string | null>(null);
   let physicalFileFailure = $state<StatedFailure | null>(null);
   const physicalFileBlock = $derived.by((): string | null => {
     if (!sessionSettled) return "Reading your session.";
@@ -233,6 +249,7 @@
     const outcome = await readMatterOffices(fetch, matter.id);
     if (outcome.kind === "ok") {
       offices = outcome.value;
+      physicalFileDraft = outcome.value.physicalFileLocationId;
       officesFailure = null;
       return;
     }
@@ -247,12 +264,12 @@
   // the last time somebody was in it.
   function reset(): void {
     historyShown = false;
-    numberFormOpen = false;
-    numberDraft = "";
+    // The field opens holding the number the matter wears, so changing one digit of it is changing
+    // one digit rather than retyping the whole number from an empty box.
+    numberDraft = matter.matterNumber ?? "";
     numberTouched = false;
     numberFailure = null;
     numberRefusal = null;
-    physicalFileFormOpen = false;
     physicalFileFailure = null;
     if (isSample) return;
     // Both re-reads keep the last answer standing while they are in flight, so a window somebody
@@ -261,22 +278,23 @@
     void readOffices();
   }
 
-  async function setPhysicalFileLocation(): Promise<void> {
-    if (physicalFileSaving) return;
+  async function setPhysicalFileLocation(officeId: string | null): Promise<void> {
+    if (physicalFileSaving || officeId === physicalFileLocationId) return;
     physicalFileSaving = true;
     physicalFileFailure = null;
     const outcome = await updateMatter(
       fetch,
       matter.id,
-      { physicalFileLocationId: physicalFileDraft },
+      { physicalFileLocationId: officeId },
       crypto.randomUUID(),
     );
     physicalFileSaving = false;
     if (outcome.kind === "ok") {
-      physicalFileFormOpen = false;
       await readOffices();
       return;
     }
+    // The write was refused, so the field goes back to what the record still says.
+    physicalFileDraft = physicalFileLocationId;
     physicalFileFailure = stated(
       outcome.failure,
       "Where the file is kept was not recorded.",
@@ -293,8 +311,6 @@
     const outcome = await renumberMatter(fetch, matter.id, numberDraft.trim(), crypto.randomUUID());
     numberSaving = false;
     if (outcome.kind === "ok") {
-      numberFormOpen = false;
-      numberDraft = "";
       numberTouched = false;
       await invalidateAll();
       return;
@@ -437,28 +453,43 @@
         <div class="grid grid-cols-2 items-center gap-16">
           <dt class="text-text-muted">Matter Number</dt>
           <dd class="flex flex-wrap items-center gap-8">
-            {#if matter.matterNumber !== null}
+            <!-- THE FIELD IS THE CONTROL HERE TOO, for the reason the paper file's office is:
+                 Set Number was a press that grew a labelled field and a Set/Cancel pair beneath
+                 the row, shifting everything under it at the moment somebody acted. The field
+                 stands in the row at rest, carrying the number the matter wears, and the commit
+                 beside it lights only once the text differs from what is on the record. Where
+                 there is nothing to set — a matter that has not opened, a sample, an account
+                 without the permission — the row reads instead. -->
+            {#if numberEditable}
+              <Input
+                bind:value={numberDraft}
+                disabled={numberSaving}
+                aria-label={matter.matterNumber === null ? "Matter number" : "New matter number"}
+                aria-invalid={numberError !== null}
+                class="min-w-0 flex-1"
+                onblur={() => (numberTouched = true)}
+                onkeydown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void setNumber();
+                  }
+                }}
+              />
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={numberSaving || numberDraft.trim() === (matter.matterNumber ?? "")}
+                onclick={() => void setNumber()}
+              >
+                <Hash class="size-16" aria-hidden="true" />
+                {numberSaving ? "Setting" : "Record"}
+              </Button>
+            {:else if matter.matterNumber !== null}
               <span class="tabular-nums">{matter.matterNumber}</span>
             {:else}
               <span class="text-text-subtle">
                 {mayCarryNumber ? "Not recorded" : "Drawn when the matter opens"}
               </span>
-            {/if}
-            {#if mayCarryNumber && !isSample}
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={numberBlock !== null || numberSaving}
-                title={numberBlock ?? undefined}
-                aria-expanded={numberFormOpen}
-                onclick={() => {
-                  numberFormOpen = !numberFormOpen;
-                  numberRefusal = null;
-                }}
-              >
-                <Hash class="size-16" aria-hidden="true" />
-                {matter.matterNumber === null ? "Set Number" : "Change Number"}
-              </Button>
             {/if}
           </dd>
         </div>
@@ -470,56 +501,27 @@
         {/if}
       </dl>
       {#if mayCarryNumber && !isSample && numberBlock !== null}
+        <!-- A disabled control can be neither hovered nor focused, so the refusal has to read. -->
         <p class="text-xs text-text-subtle">{numberBlock}</p>
       {/if}
-      {#if numberFormOpen}
-        <LabelledField
-          label={matter.matterNumber === null ? "Matter Number" : "New Matter Number"}
-          hint="A court's number, a number from the firm's old system, or a correction. It has to be unique in the firm and able to stand in a link; the number it replaces stays on the record."
-          error={numberError ?? undefined}
-        >
-          {#snippet children({ props })}
-            <Input
-              {...props}
-              bind:value={numberDraft}
-              disabled={numberSaving}
-              onblur={() => (numberTouched = true)}
-              onkeydown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  void setNumber();
-                }
-              }}
-            />
-          {/snippet}
-        </LabelledField>
-        {#if numberFailure !== null}
-          <FailureNotice
-            failure={numberFailure.failure}
-            title="The Number Was Not Set"
-            fallback={numberFailure.fallback}
-            whenSilent={numberFailure.whenSilent}
-          />
-        {/if}
-        <div class="flex flex-wrap items-center gap-8">
-          <Button variant="primary" size="sm" disabled={numberSaving} onclick={() => void setNumber()}>
-            <Hash class="size-16" aria-hidden="true" />
-            {numberSaving ? "Setting" : matter.matterNumber === null ? "Set Number" : "Change Number"}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={numberSaving}
-            onclick={() => {
-              numberFormOpen = false;
-              numberDraft = "";
-              numberTouched = false;
-              numberRefusal = null;
-            }}
-          >
-            Cancel
-          </Button>
-        </div>
+      {#if numberEditable}
+        <!-- What the field is for, beside it at all times rather than arriving with a form. -->
+        <p class="text-xs text-text-subtle">
+          A court's number, a number from the firm's old system, or a correction. It has to be
+          unique in the firm and able to stand in a link; the number it replaces stays on the
+          record.
+        </p>
+      {/if}
+      {#if numberError !== null}
+        <p class="text-xs text-status-danger-subtle-foreground">{numberError}</p>
+      {/if}
+      {#if numberFailure !== null}
+        <FailureNotice
+          failure={numberFailure.failure}
+          title="The Number Was Not Set"
+          fallback={numberFailure.fallback}
+          whenSilent={numberFailure.whenSilent}
+        />
       {/if}
     </div>
 
@@ -709,29 +711,42 @@
                     />
                   {/if}
                 {/snippet}
-                <span class="flex flex-wrap items-center gap-8">
+                <!-- THE FIELD IS THE CONTROL, and it is the same size before and after it is
+                     used: a combobox over the firm's own offices, showing the office's name at
+                     rest and taking typing. Where the reader may not change it — a sample matter,
+                     or an account without the permission — the row reads instead, as the linked
+                     name. Which of the two shows is decided by who is asking, never by a press,
+                     so nothing here grows under a pointer. -->
+                {#if isSample || physicalFileBlock !== null}
                   <OfficeLink
                     officeId={physicalFileLocationId}
                     name={physicalFileLocationName}
                     whenNone="Not recorded"
                   />
-                  {#if !isSample}
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      disabled={physicalFileBlock !== null || physicalFileSaving}
-                      title={physicalFileBlock ?? undefined}
-                      aria-expanded={physicalFileFormOpen}
-                      onclick={() => {
-                        physicalFileDraft = physicalFileLocationId;
-                        physicalFileFormOpen = !physicalFileFormOpen;
-                      }}
-                    >
-                      <MapPin class="size-16" aria-hidden="true" />
-                      {physicalFileLocationId === null ? "Set Location" : "Change Location"}
-                    </Button>
-                  {/if}
-                </span>
+                {:else}
+                  <div class="flex flex-col gap-4">
+                    <OfficePicker
+                      label="Office"
+                      bind:value={physicalFileDraft}
+                      disabled={physicalFileSaving}
+                      title={physicalFileSaving ? "Recording where the file is kept." : undefined}
+                      onchange={(officeId) => void setPhysicalFileLocation(officeId)}
+                    />
+                    <!-- The way through to the office's own record, on a line the row keeps
+                         whether or not an office is named: naming one lights a link rather than
+                         growing the row by a line. -->
+                    {#if physicalFileLocationId === null}
+                      <span class="text-xs text-text-subtle">
+                        Name an office and its record opens from here.
+                      </span>
+                    {:else}
+                      <OfficeLink
+                        officeId={physicalFileLocationId}
+                        name={physicalFileLocationName}
+                      />
+                    {/if}
+                  </div>
+                {/if}
               </LoadingRegion>
             </dd>
           {:else}
@@ -747,51 +762,22 @@
       <!-- A disabled control can be neither hovered nor focused, so the refusal has to read. -->
       <p class="text-xs text-text-subtle">{physicalFileBlock}</p>
     {/if}
-    {#if physicalFileFormOpen}
-      <!-- Asked in place, the way the number is. Emptying it is a real answer: a firm that does
-           not know where a folder is must be able to say that rather than leave a guess standing. -->
-      <LabelledField
-        label="Location"
-        hint="The office the firm keeps this matter's folder at. Not the office the matter is run out of: a file that has been boxed elsewhere is recorded where it actually is."
-      >
-        {#snippet children({ props })}
-          <OfficePicker
-            inputId={props.id}
-            bind:value={physicalFileDraft}
-            disabled={physicalFileSaving}
-          />
-        {/snippet}
-      </LabelledField>
-      {#if physicalFileFailure !== null}
-        <FailureNotice
-          failure={physicalFileFailure.failure}
-          title="The Paper File Is Unchanged"
-          fallback={physicalFileFailure.fallback}
-          whenSilent={physicalFileFailure.whenSilent}
-        />
-      {/if}
-      <div class="flex flex-wrap items-center gap-8">
-        <Button
-          variant="primary"
-          size="sm"
-          disabled={physicalFileSaving}
-          onclick={() => void setPhysicalFileLocation()}
-        >
-          <MapPin class="size-16" aria-hidden="true" />
-          {physicalFileSaving ? "Recording" : "Record Location"}
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={physicalFileSaving}
-          onclick={() => {
-            physicalFileFormOpen = false;
-            physicalFileFailure = null;
-          }}
-        >
-          Cancel
-        </Button>
-      </div>
+    <!-- What the field is for, stated once, beside it — not as a hint that arrives with a form.
+         Emptying it is a real answer: a firm that does not know where a folder is must be able to
+         say that rather than leave a guess standing. -->
+    {#if !isSample && physicalFileBlock === null}
+      <p class="text-xs text-text-subtle">
+        The office the firm keeps this matter's folder at. Not the office the matter is run out of:
+        a file that has been boxed elsewhere is recorded where it actually is.
+      </p>
+    {/if}
+    {#if physicalFileFailure !== null}
+      <FailureNotice
+        failure={physicalFileFailure.failure}
+        title="The Paper File Is Unchanged"
+        fallback={physicalFileFailure.fallback}
+        whenSilent={physicalFileFailure.whenSilent}
+      />
     {/if}
   </div>
 {/snippet}

@@ -6,15 +6,17 @@
  * destination registry (navigation/destinations.ts). The palette (components/command-palette.svelte)
  * renders this registry; it must never hardcode a tool row.
  *
+ * SINCE THE TOOLS AREA CLOSED, this is also the only place a tool's descriptor is read outside the
+ * rail. The /tools index carried the descriptions and the search; when it was retired (every tool is
+ * a top-level ability now — see navigation/tool-sidebar.ts) the palette was already doing the same
+ * job better, over every destination at once, from one keystroke, without a navigation first.
+ *
  * Three facts are reused, not re-derived:
- *   - Each tool is addressed by toolRoute(): /tools/<id> for a tool reached inside the Tools
- *     area, and its declared route for one addressed at the top level.
- *   - Whether a tool is launchable is hasSurface(stage) from maturity.ts, the exact predicate the
- *     Tools catalogue (tools/tool-catalogue.ts) uses to decide whether an entry is a link. A `soon`
- *     tool has no surface yet; alpha and above do.
- *   - The extra words a tool is findable by are toolSearchKeywords() from the presentation layer,
- *     the same net the Tools catalogue's own search casts, so a word that reaches a tool in one
- *     place reaches it in the other.
+ *   - Each tool is addressed by toolRoute(): /<id>, at the top level.
+ *   - Whether a tool is launchable is hasSurface(stage) from maturity.ts. A `soon` tool has no
+ *     surface yet; alpha and above do.
+ *   - The extra words a tool is findable by are toolSearchKeywords() from the presentation layer, so
+ *     a word that reaches a tool here reaches it in the rail's tooltip vocabulary too.
  *
  * A tool whose presentation entry is missing throws at the guarded accessor (toolPresentation),
  * failing loud rather than surfacing a blank row.
@@ -26,11 +28,8 @@
  */
 import { CATALOG, toolRoute } from "@magna-carta/tools/catalog";
 import { hasSurface } from "@magna-carta/design-system/maturity";
-import {
-  SUBJECT_GROUP_LABELS,
-  toolPresentation,
-  toolSearchKeywords,
-} from "../tools/tool-presentation.ts";
+import { toolPresentation, toolSearchKeywords } from "../tools/tool-presentation.ts";
+import { clusterById } from "./clusters.ts";
 
 export interface ToolDestination {
   /** Stable catalog id (kebab-case). */
@@ -48,19 +47,18 @@ export interface ToolDestination {
 }
 
 /**
- * Every catalog tool as a searchable palette entry, in the catalog's canonical order. Throws only
- * if the catalog outran the presentation registry (via toolPresentation's guard).
+ * Every catalog tool as a searchable palette entry, in the catalog's declared order. Throws only if
+ * the catalog outran the presentation registry (via toolPresentation's guard).
  *
- * A tool that declares its own `route` is skipped: declaring one is what a tool does when it has
- * outgrown the Tools area and earned a destination row of its own, and the palette already renders
- * the destination registry beside this list. Offering the same surface twice in one flat search is
- * two rows a reader has to tell apart, and the destination row is the one carrying the description
- * and the maturity badge. The Tools area's own projection drops it for its own reason
- * (tools/tool-catalogue.ts): every row in that column loads beside the column.
+ * Every tool is listed — there is no longer such a thing as a tool that lives somewhere the palette
+ * does not reach, because there is no longer a Tools area for one to live outside of. The cluster's
+ * label joins the search net so "internet" reaches the WHOIS lookup and "records" the county
+ * recorder, which is the vocabulary the rail now shows a member.
  */
 export function toolDestinations(): readonly ToolDestination[] {
-  return CATALOG.filter((tool) => tool.route === undefined).map((tool) => {
+  return CATALOG.map((tool) => {
     const presentation = toolPresentation(tool);
+    const cluster = clusterById(tool.subjectGroup);
     return {
       id: tool.id,
       name: tool.name,
@@ -69,7 +67,7 @@ export function toolDestinations(): readonly ToolDestination[] {
       launchable: hasSurface(presentation.stage),
       keywords: [
         presentation.description,
-        SUBJECT_GROUP_LABELS[tool.subjectGroup],
+        ...(cluster === null ? [] : [cluster.label]),
         ...toolSearchKeywords(tool),
       ],
     };

@@ -148,6 +148,11 @@ export async function continueMatterEvent(
         input.courtReference === undefined ? existing.court_reference : input.courtReference,
       recordedAt: now,
       recordedBy: options.actorUserId,
+      // A CONTINUANCE DOES NOT INHERIT THE SERIES. Continuing a hearing moves that one setting
+      // to a new date; carrying the rule across would make the replacement repeat, which is a
+      // series nobody asked for on a date a court chose. A firm continuing an occurrence of a
+      // recurring setting is moving that occurrence, and the successor is a one-off.
+      recurrenceRule: null,
       now,
     }),
     ...participants.map((participant) =>

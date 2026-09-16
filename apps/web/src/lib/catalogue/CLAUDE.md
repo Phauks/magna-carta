@@ -3,16 +3,20 @@
 **Purpose.** The one framework behind every screen that lists things a member opens. A catalogue is
 sections with an engraved heading, and under each a run of entries carrying a glyph, a name, one
 line saying what the thing does, and a maturity mark that decides whether the entry is a link or an
-honest "not yet". Two screens render through it today — **Tools** and **Reports** — and they are
-identical screens by construction rather than by anybody remembering to keep them so.
+honest "not yet". One screen renders through it today — **Reports**. There were two: the Tools
+catalogue was the other, and it was retired on 2026-09-16 when every tool became a top-level ability
+with a rail row of its own. The framework stays, because one screen using a shared shape is not a
+reason to un-share it, and because what is written down here is what the next catalogue will be held
+to.
 
 **A catalogue has a third view, and it lives here too.** Beside the list and the tiles that a
 landing index renders, `catalogue-navigation.svelte` is the **navigation column** of the two-sided
 screen each catalogue became: the same sections and entries, names only, with the one the reader is
-standing on lit. It serves Tools and Reports equally, which is why it sits in this directory rather
-than in either one's — it was written in `$lib/tools/` and Reports had to reach across for it.
+standing on lit. It sits in this directory rather than in any one screen's — it was written in
+`$lib/tools/` and Reports had to reach across for it, which is exactly the arrangement that made the
+Tools catalogue's retirement a deletion of one registry rather than a rescue of the framework.
 
-**White paper:** _Tools_, _Reports_. **Archetype:** List/Index, in
+**White paper:** _Reports_. **Archetype:** List/Index, in
 [`docs/specs/2026-06-12-page-archetypes.md`](../../../../../docs/specs/2026-06-12-page-archetypes.md).
 
 ## Key files / entry points
@@ -34,7 +38,7 @@ than in either one's — it was written in `$lib/tools/` and Reports had to reac
 ## Local conventions
 
 - **A registry projects; it never renders.** Each catalogue owns a small projection module beside
-  its own registry — `tools/tool-catalogue.ts`, `reports/report-catalogue.ts` — that says which of
+  its own registry — `reports/report-catalogue.ts` — that says which of
   its facts fills which part of an entry. Nothing about a tool or a report is decided in this
   directory, and this directory cannot name either, so it cannot grow a branch per consumer.
 - **`href` decides launchability, not the stage.** A projection computes it from whatever rule its

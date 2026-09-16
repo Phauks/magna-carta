@@ -15,6 +15,10 @@
 
 A component is properly covered when it has: a **catalog entry** (definition/review), **behavior tests** (Vite+), and is under **visual-regression** — appearance _and_ behavior, not one or the other.
 
+**`pnpm run lint:catalog-coverage` holds that definition.** The unit is the component **family** — a directory under `packages/design-system/src/lib/components/`, which is also what the package's `exports` map names one subpath each — not the file: a compound component exports its parts by design (`DataTable` alone ships sixteen `.svelte` files as its namespace), so a per-file rule would open with a 173-entry register of parts the family's own story already photographs. That is a form to fill in, not a debt to pay. 79 of 83 families have an entry of their own; the four that do not are the register.
+
+Coverage means the story that entry is **about** — its file name, or the component `defineMeta` names — never a component that merely renders inside someone else's story. Rendered-somewhere is enough for a screenshot to move and not enough for a person to find the component, and not finding it is how the second implementation gets built. The behaviour leg is checked from either side (the story's own `storybook/test` assertions, which 87 of 91 stories carry, or a unit test that imports the family) and is clean. The visual-regression leg is not per-component checkable and is not pretended to be: `visual-regression/catalog.spec.ts` holds no component list at all — it derives its matrix from the built catalog at run time — so what the gate asserts is that the derivation is still there, which makes leg three a consequence of leg one.
+
 ## Test data
 
 - **Fixtures via domain write-paths only** — typed factories calling real service APIs; never raw SQL inserts (would bypass ledger/trust/conflicts invariants). See the white paper _Synthetic data & fixtures_.

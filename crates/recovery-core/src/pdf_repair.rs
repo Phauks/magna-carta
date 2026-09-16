@@ -208,7 +208,7 @@ pub fn rebuild_with_xref(bytes: &[u8], scanned: &[ScannedObject], root: (u32, u1
 
     let mut out = bytes.to_vec();
     // The xref keyword must begin its own line.
-    if !out.is_empty() && *out.last().unwrap() != b'\n' {
+    if out.last().is_some_and(|byte| *byte != b'\n') {
         out.push(b'\n');
     }
     let xref_offset = out.len();

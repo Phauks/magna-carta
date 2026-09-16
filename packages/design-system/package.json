@@ -112,7 +112,7 @@
   },
   "scripts": {
     "test": "vp test run",
-    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "check": "svelte-check --tsconfig ./tsconfig.json --threshold warning",
     "storybook": "storybook dev -p 6006",
     "storybook-build": "storybook build",
     "visual-regression": "playwright test --config visual-regression/playwright.config.ts",

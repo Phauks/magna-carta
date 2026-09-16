@@ -20,7 +20,7 @@ The viewer returns:
 
 **View a suspicious link**
 
-1. Open the Tools sidebar.
+1. Open **Tools → Internet** in the sidebar.
 2. Select **Safe Website Viewer** under **Websites & Domains**.
 3. Paste the URL into the address box.
 4. Select **View Safely**.
@@ -49,4 +49,4 @@ The key protection is isolation: **the suspect page never loads in your browser.
 ## Related features
 
 - **WHOIS Lookup** — for the same domain, WHOIS Lookup shows who registered it and when. Using both tools together gives you a fuller picture of a suspicious link.
-- **Tools** — Safe Website Viewer is one of the tools in the **Websites & Domains** group, accessible from the Tools sidebar.
+- **[Your sidebar](your-sidebar.md)** — Safe Website Viewer sits in the **Internet** group of the sidebar's Tools, beside the WHOIS Lookup and the Network Speed Test.

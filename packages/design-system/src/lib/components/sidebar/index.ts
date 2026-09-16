@@ -18,6 +18,8 @@ import GroupTrigger from "./sidebar-group-trigger.svelte";
 import Menu from "./sidebar-menu.svelte";
 import MenuItem from "./sidebar-menu-item.svelte";
 import MenuButton from "./sidebar-menu-button.svelte";
+import MenuTrigger from "./sidebar-menu-trigger.svelte";
+import MenuSub from "./sidebar-menu-sub.svelte";
 import Trigger from "./sidebar-trigger.svelte";
 
 export {
@@ -31,6 +33,8 @@ export {
   Menu,
   MenuItem,
   MenuButton,
+  MenuTrigger,
+  MenuSub,
   Trigger,
   //
   Root as Sidebar,
@@ -43,5 +47,7 @@ export {
   Menu as SidebarMenu,
   MenuItem as SidebarMenuItem,
   MenuButton as SidebarMenuButton,
+  MenuTrigger as SidebarMenuTrigger,
+  MenuSub as SidebarMenuSub,
   Trigger as SidebarTrigger,
 };

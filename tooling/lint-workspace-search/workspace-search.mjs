@@ -59,8 +59,16 @@ export const SCREEN_HEADER = "ScreenHeader";
 /** The sidebar registry: where a destination's group, its path and whether it shipped all live. */
 export const DESTINATIONS_SOURCE = "apps/web/src/lib/navigation/destinations.ts";
 
-/** The group heading this gate binds. The Money and Firm groups are not in its scope. */
-export const WORKSPACE_GROUP = "top";
+/*
+ * The group headings this gate binds. The Money, Firm and Tools groups are not in its scope.
+ *
+ * TWO, not one, and the second is not a widening. The screens this gate has always covered sat in a
+ * single `top` group until the rail was regrouped on 2026-09-16; that group split into `desk` (the
+ * member's own surfaces — Home, Notifications, Tasks, Calendar, Magnus) and `work` (the firm's
+ * work). Binding both keeps the covered set exactly what it was. Binding one would have quietly
+ * dropped four screens the owner's correction of 2026-09-14 had just brought INTO scope.
+ */
+export const WORKSPACE_GROUPS = ["desk", "work"];
 
 /*
  * RECORDED DECLINES. A Workspace screen with no search, with the reason, so the exception is
@@ -145,7 +153,7 @@ export function workspaceDestinations(source) {
   const seen = new Set();
   for (const match of source.matchAll(entry)) {
     const [, id, label, href, group, shipped] = match;
-    if (seen.has(id) || group !== WORKSPACE_GROUP) continue;
+    if (seen.has(id) || !WORKSPACE_GROUPS.includes(group)) continue;
     seen.add(id);
     found.push({ id, label, href, shipped: shipped === "true" });
   }

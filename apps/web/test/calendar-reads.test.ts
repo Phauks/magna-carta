@@ -62,6 +62,7 @@ const event: CalendarEvent = {
   timeZone: "America/New_York",
   locationText: null,
   conferenceUrl: null,
+  recurrenceRule: null,
   courtReference: null,
   recordedAt: "2026-09-01T00:00:00.000Z",
   recordedBy: null,
@@ -104,6 +105,7 @@ const firmEvent: FirmEvent = {
   locationId: null,
   locationText: null,
   conferenceUrl: null,
+  recurrenceRule: null,
   recordedAt: "2026-09-01T00:00:00.000Z",
   recordedBy: null,
 };

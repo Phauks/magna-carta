@@ -77,7 +77,7 @@
   status: partial
   slices: 0-1-walking-skeleton, 0-7b-auth-ui-deferred-surfaces
   adrs: ADR-0005
-  evidence: apps/web/src/routes/ (login, matters, settings, tools, account)
+  evidence: apps/web/src/routes/ (login, matters, settings, account, and a route per tool)
   notes: Skeleton shipped; the app shell and first operable surfaces are on main, and the settings sections are being completed under docs/active-work/claude/settings-implementation-plan-asr0l6.md.
 
 - id: platform.web-spa.app-shell
@@ -87,8 +87,27 @@
   surface: screen
   slices: 0-7b-auth-ui-deferred-surfaces
   spec: docs/specs/2026-07-02-slice-0-7b-stage-1-app-shell-design.md
-  evidence: apps/web/src/lib/components/app-shell.svelte, apps/web/src/lib/view-shell, apps/web/src/routes/(app)/ (matters, settings, tools); the July branch slice-0-7b-app-shell was superseded by the streams that landed these, and its note is retired
-  notes: The shell, navigation, matter and tools views are on main; several settings sections are still stubs, which docs/active-work/claude/settings-implementation-plan-asr0l6.md is closing.
+  evidence: apps/web/src/lib/components/app-shell.svelte, apps/web/src/lib/view-shell, apps/web/src/routes/(app)/ (matters, settings, the tools at the top level); the July branch slice-0-7b-app-shell was superseded by the streams that landed these, and its note is retired
+  notes: The shell, navigation, matter and tool views are on main; several settings sections are still stubs, which docs/active-work/claude/settings-implementation-plan-asr0l6.md is closing.
+
+- id: platform.web-spa.rail-information-architecture
+  name: The rail's information architecture
+  scope: Five groups, each answering one question — Favorites, My Desk, Workspace, Money, Firm, Tools — with a fold at the group level and a sub-menu cluster inside a group.
+  status: shipped
+  surface: screen
+  evidence: apps/web/src/lib/navigation/destinations.ts (the groups and the rows), clusters.ts (the sub-menus), sidebar-preferences.svelte.ts (the render tree, the two folds and the show/hide layer), and the sub-menu parts in packages/design-system/src/lib/components/sidebar. Held by apps/web/test/sidebar-groups.test.ts.
+  notes: The owner's direction of 2026-09-16. Home and Notifications had sat in a fourteen-row Workspace group, which put "your morning" in the same list as "the firm's evidence"; My Desk is what the split says out loud. Firm Usage moved to Firm on the same ruling, and the tools became top-level rows folded into subject clusters.
+
+- id: platform.web-spa.favorites
+  name: Favorites
+  scope: A member's own shortcuts to any address in the product — a matter, a tool, a record, a section deep inside one — saved from every screen's header and rendered as the rail's first group.
+  status: shipped
+  surface: screen
+  audience: public
+  public-name: Favorites
+  public-summary: Star any page — a matter, a tool, a client record — and it sits at the top of your sidebar.
+  evidence: apps/web/src/lib/navigation/favorites.svelte.ts (the store, the pathname identity, the glyph resolved from the area), apps/web/src/lib/navigation/favorite-control.svelte (the star every screen's header carries), and the Favorites group in sidebar-preferences.svelte.ts. Held by apps/web/test/favorites.test.ts.
+  notes: Per browser, like every other sidebar preference; carrying them across a member's devices waits on the member-preferences store. The star is the favourite's mark and the eye is Customize's show/hide, which is the owner's ruling of 2026-09-16 — one symbol had been answering two questions.
 
 - id: platform.web-spa.multi-tab-sync
   name: Cross-tab state sync

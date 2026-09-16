@@ -62,14 +62,27 @@ describe("the columns scroll independently with a reserved gutter", () => {
   );
 
   it("names the house scrollbar on every element the recipe or a utility makes scroll", () => {
-    // The root scrolls only in the stacked (narrow-viewport) state; the two columns at every width.
+    // Four: the root (which scrolls only in the stacked, narrow-viewport state), the <nav>, the
+    // inner stack a pinned navigationFooter moves the scroll onto, and the content column. The
+    // <nav>'s own expression is a ternary — it scrolls itself when there is no footer, and hands
+    // the scroll to the inner stack when there is — so the house scrollbar is named on whichever
+    // of the two is the scroller, and the string is present either way.
     const classExpressions = [...component.matchAll(/class=\{mergeClasses\(([\s\S]*?)\)\}/g)].map(
       ([, expression]) => expression,
     );
-    expect(classExpressions).toHaveLength(3);
+    expect(classExpressions).toHaveLength(4);
     for (const expression of classExpressions) {
       expect(expression).toContain("mc-scrollbar");
     }
+  });
+
+  it("gives a pinned navigationFooter the column's gutter and never its scroll", () => {
+    // The point of the footer: a month picker under a rail of calendars stays in view while the
+    // calendars scroll past it. An overflow on the footer would make it a second scroll region
+    // inside a column that has already reserved a gutter for one.
+    expect(component).toMatch(/data-navigation-layout="navigation-footer"[\s\S]*?class="shrink-0/);
+    const footer = component.slice(component.indexOf('data-navigation-layout="navigation-footer"'));
+    expect(footer.slice(0, 200)).not.toContain("overflow");
   });
 });
 

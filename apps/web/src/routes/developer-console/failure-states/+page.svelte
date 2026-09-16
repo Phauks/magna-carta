@@ -133,7 +133,7 @@
 {#if import.meta.env.DEV}
   <div class="flex min-h-screen flex-col gap-32 bg-surface-default p-24 text-text-default">
     <header class="flex flex-col gap-4">
-      <ScreenHeader title="Failure states" back={DEVELOPER_CONSOLE_BACK} />
+      <ScreenHeader title="Failure states" favoritable={false} back={DEVELOPER_CONSOLE_BACK} />
       <p class="max-w-prose text-sm text-text-muted">
         Every shape a failure takes, rendered by the real components over real problem documents.
         Copy works on every one of them; the trace it puts on the clipboard is the whole report.

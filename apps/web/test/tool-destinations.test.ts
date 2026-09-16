@@ -1,14 +1,13 @@
 /*
  * The Tools palette provider is a registry projection, not a hand-list: it must surface every
- * catalog tool that the Tools area still addresses, route each through toolRoute(), and light up
- * exactly the tools that have a real surface (hasSurface) — a `soon` tool inert, an alpha-or-better
- * tool launchable. The guard that keeps a newly-added catalog tool from rendering blank (a missing
- * presentation entry throws) is asserted here too, so the palette can never quietly outrun its
- * presentation layer.
+ * catalog tool, route each through toolRoute(), and light up exactly the tools that have a real
+ * surface (hasSurface) — a `soon` tool inert, an alpha-or-better tool launchable. The guard that
+ * keeps a newly-added catalog tool from rendering blank (a missing presentation entry throws) is
+ * asserted here too, so the palette can never quietly outrun its presentation layer.
  *
- * A tool that declares its own route has been promoted to a sidebar destination, which the palette
- * renders from the destination registry instead. It must NOT also appear here, or one surface is
- * offered twice in a single flat search.
+ * EVERY tool is here, with no exception for one addressed elsewhere, because there is nowhere else:
+ * a tool is a top-level ability at /<id> (owner's direction, 2026-09-16) and the palette is the one
+ * surface that searches them all.
  */
 import { describe, expect, it } from "vitest";
 import { CATALOG, toolRoute } from "@magna-carta/tools/catalog";
@@ -17,42 +16,34 @@ import { toolPresentation } from "../src/lib/tools/tool-presentation.ts";
 import { hasSurface } from "@magna-carta/design-system/maturity";
 
 const entries = toolDestinations();
-const areaTools = CATALOG.filter((tool) => tool.route === undefined);
-const promotedTools = CATALOG.filter((tool) => tool.route !== undefined);
-const catalogIds = areaTools.map((tool) => tool.id).sort();
+const catalogIds = CATALOG.map((tool) => tool.id).sort();
 
 describe("toolDestinations", () => {
-  it("surfaces every Tools-area tool exactly once", () => {
+  it("surfaces every catalog tool exactly once", () => {
     expect(entries.map((entry) => entry.id).sort()).toEqual(catalogIds);
   });
 
-  it("routes every tool at /tools/<id>", () => {
+  it("addresses every tool at the top level, at its own id", () => {
+    // There is no Tools area to be inside any more, so there is no /tools/ prefix to derive. A
+    // reader who kept a link to a tool kept a link to its name.
     for (const entry of entries) {
-      expect(entry.href).toBe(`/tools/${entry.id}`);
+      expect(entry.href).toBe(`/${entry.id}`);
+      expect(entry.href.startsWith("/tools/")).toBe(false);
     }
+    expect(toolRoute(CATALOG.find((tool) => tool.id === "whois-lookup")!)).toBe("/whois-lookup");
   });
 
-  it("omits a tool promoted to its own destination, so the palette never offers it twice", () => {
-    // The File Workbench is the one promoted row today: it holds a sidebar destination of its own
-    // (navigation/destinations.ts), which the palette renders beside this list.
-    expect(promotedTools.map((tool) => tool.id)).toEqual(["file-workbench"]);
-    for (const tool of promotedTools) {
-      expect(entries.some((entry) => entry.id === tool.id)).toBe(false);
-    }
-  });
-
-  it("addresses a promoted tool where it declares, not under /tools", () => {
-    for (const tool of promotedTools) {
-      expect(toolRoute(tool)).toBe(tool.route);
-      expect(toolRoute(tool).startsWith("/tools/")).toBe(false);
-    }
-    // An ordinary tool still derives its address from its id.
-    const whois = CATALOG.find((tool) => tool.id === "whois-lookup")!;
-    expect(toolRoute(whois)).toBe("/tools/whois-lookup");
+  it("carries the File Workbench like any other tool", () => {
+    // It spent a while promoted out of the catalog's surfaces and into a hand-written destination.
+    // It is a tool again — the Files cluster's only member — so the palette offers it here, once.
+    const workbench = entries.filter((entry) => entry.id === "file-workbench");
+    expect(workbench).toHaveLength(1);
+    expect(workbench[0]?.href).toBe("/file-workbench");
+    expect(workbench[0]?.launchable).toBe(true);
   });
 
   it("marks launchable to match hasSurface(stage) for every tool", () => {
-    for (const tool of areaTools) {
+    for (const tool of CATALOG) {
       const entry = entries.find((candidate) => candidate.id === tool.id);
       expect(entry?.launchable).toBe(hasSurface(toolPresentation(tool).stage));
     }
@@ -70,6 +61,15 @@ describe("toolDestinations", () => {
     // The Network Speed Test is the first tool with a real surface (stage alpha).
     const speedTest = entries.find((entry) => entry.id === "network-speed-test");
     expect(speedTest?.launchable).toBe(true);
+  });
+
+  it("folds the cluster's own name into the keywords", () => {
+    // "internet" is the word the rail shows over these three, so it has to be a word that finds
+    // them — the vocabulary a member is shown and the vocabulary that answers must be the same one.
+    const whois = entries.find((entry) => entry.id === "whois-lookup");
+    expect(whois?.keywords.join(" ").toLowerCase()).toContain("internet");
+    const workbench = entries.find((entry) => entry.id === "file-workbench");
+    expect(workbench?.keywords.join(" ").toLowerCase()).toContain("files");
   });
 
   it("folds search terms beyond the name into each entry's keywords", () => {

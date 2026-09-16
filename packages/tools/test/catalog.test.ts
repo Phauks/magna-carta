@@ -1,6 +1,6 @@
 import { isPermission } from "@magna-carta/access-control/registry";
 import { describe, expect, it } from "vitest";
-import { CATALOG } from "../src/catalog.ts";
+import { CATALOG, toolRoute } from "../src/catalog.ts";
 import { SUBJECT_GROUP_ORDER } from "../src/types.ts";
 
 describe("tool catalog", () => {
@@ -26,19 +26,32 @@ describe("tool catalog", () => {
     }
   });
 
-  it("includes the tools that exist today", () => {
+  it("includes the tools that exist today, grouped by the cluster they fold into", () => {
     expect(CATALOG.map((tool) => tool.id)).toEqual([
-      "property-listing-links",
-      "county-property-records",
-      "business-entity-lookup",
       "attorney-license-lookup",
-      "shipping",
+      "business-entity-lookup",
+      "county-property-records",
+      "property-listing-links",
       "network-speed-test",
-      "firm-usage",
-      "whois-lookup",
       "safe-website-viewer",
+      "whois-lookup",
+      "shipping",
       "file-workbench",
     ]);
+  });
+
+  it("addresses every tool at the top level, at its own id", () => {
+    // Owner's direction, 2026-09-16: a tool is a top-level ability, not a screen inside an area.
+    // There is no /tools to be under, so a manifest cannot be addressed as though there were.
+    for (const tool of CATALOG) {
+      expect(toolRoute(tool), tool.id).toBe(`/${tool.id}`);
+    }
+  });
+
+  it("holds no firm-usage row: reading the firm's own records is not running a tool", () => {
+    // It is a destination in the Firm group now (apps/web/src/lib/navigation/destinations.ts),
+    // beside Reports, which is what it has in common with anything.
+    expect(CATALOG.some((tool) => tool.id === "firm-usage")).toBe(false);
   });
 
   it("registers the workbench as a matter-free, library-backed file tool", () => {

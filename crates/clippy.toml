@@ -1,0 +1,16 @@
+# Clippy configuration for this workspace, read by every member because clippy walks up from a crate's
+# own directory looking for this file.
+#
+# The panic lints denied in Cargo.toml exist to stop a parser aborting on a document somebody else chose.
+# A fixture builder that unwraps a writer it just created is not that hazard: the input is ours, the
+# failure is a failed test, and rewriting assertion scaffolding into error plumbing makes the tests harder
+# to read while protecting nothing. These four keys carve test code out of the four lints centrally, so
+# the rule can be denied for real in library code instead of being watered down to reach it.
+#
+# The exemption reaches `#[test]` functions and `#[cfg(test)]` modules. It does NOT reach a plain helper
+# function in a `tests/*.rs` integration file, which is compiled as ordinary code with no test attribute
+# in sight; the handful of those carry a file-level allow that says so at the top of the file.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-indexing-slicing-in-tests = true
