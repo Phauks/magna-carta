@@ -157,9 +157,14 @@
 <!--
   THE SCREEN IS THE COMPONENT'S TWO SIDES, and this file frames nothing. The rail of calendars is the
   navigation column of the design system's NavigationLayout, which takes the full height under the
-  top bar and cancels the work canvas inset itself — so the masthead goes DOWN into the component, to
-  be drawn at the top of the content column, rather than standing above the whole canvas. The Magnus
-  workspace hands its own header down for the same reason.
+  top bar and cancels the work canvas inset itself — so the masthead goes DOWN into the component
+  rather than standing above the whole canvas. The Magnus workspace hands its own header down for
+  the same reason.
+
+  It is drawn as a band ACROSS both columns (owner, 2026-09-16), so the screen's name stands over the
+  screen rather than over one column of it. The view switch and the window navigation are no longer
+  seated beside New: they moved into the content column, over the grid they move, which is where the
+  title used to be and where every calendar without a rail has always drawn them.
 -->
 <CalendarView
   {scope}
@@ -172,7 +177,7 @@
   {refreshToken}
   search={appliedSearch}
 >
-  {#snippet header(controls)}
+  {#snippet header()}
     <ScreenHeader {title} {back}>
       {#snippet actions()}
         <!-- The search leads the row and grows toward the inline start, so nothing after it moves
@@ -187,11 +192,6 @@
             appliedSearch = next;
           }}
         />
-        <!-- The component's own controls — the view switch, the window, Today — seated on the
-             masthead's line rather than in a row under it (owner ruling, 2026-09-14). They act on
-             the component's controller, so the component owns them; this screen owns only where
-             they sit, and on a calendar they belong beside the act they are read with. -->
-        {@render controls()}
         <!-- The glyphs are the ones each kind already wears wherever it is named
              (calendar-activity-contribution.ts): one kind, one glyph, across the product. -->
         <CreateControl

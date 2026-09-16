@@ -392,6 +392,15 @@ by hand at two widths with two scroll treatments.
   never scrolls on such a route; the two columns do, with `scrollbar-gutter: stable` so a
   scrollbar arriving never shifts what sits beside it. A screen that renders it beneath a masthead
   of its own is not this shape yet.
+- **A title can SPAN both columns (`header`), and the navigation can PIN something under its
+  scroll (`navigationFooter`).** Both are optional, and giving neither leaves the DOM byte-identical
+  for the screens composing this today. The calendar asked for both and neither is calendar-specific:
+  a title that names the SCREEN belongs over the whole canvas rather than over one column of it, and
+  a rail with a picker under it is the shape of every navigation whose last element must stay in
+  view while its list scrolls. The header sits inside the cancelled canvas inset and puts the gutter
+  back itself; `navigationFooter` moves the scroll region and its reserved gutter off the `<nav>`
+  onto an inner stack, because a pinned footer cannot sit inside the thing that scrolls past it. The
+  landmark stays the `<nav>` either way.
 - **`contentScrolls={false}` for a page that stages header / scrolling middle / pinned footer.**
   The column is then a bare full-height flex stack and the page owns its scroller; otherwise the
   page's middle would draw a second scrollbar inside a column that had already reserved a gutter.

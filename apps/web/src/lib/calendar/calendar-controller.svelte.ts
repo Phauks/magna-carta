@@ -54,8 +54,10 @@ import { calendarLayer } from "./calendar-vocabulary.ts";
 import {
   calendarsOn,
   chosenColors,
+  isFolderFolded,
   chosenConcurrency,
   setCalendarColor,
+  setFolderFolded,
   setCalendarsOn,
   setConcurrency,
 } from "./calendar-preferences.svelte.ts";
@@ -353,6 +355,21 @@ export class CalendarController {
     return folderSelection(folder, this.onKeys);
   }
 
+  /**
+   * Which folders are folded shut, read once so the rail's rows are a derived rather than a call
+   * per folder. A firm with twenty rooms scrolled past all twenty to reach the folder under them
+   * (owner, 2026-09-16); folding costs no capability, because the folder's own three-state control
+   * stays on its head whether it is open or shut.
+   */
+  readonly foldedFolders: ReadonlySet<string> = $derived(
+    new Set(this.folders.map((folder) => folder.key).filter((key) => isFolderFolded(key))),
+  );
+
+  /** Fold a folder shut, or open it. */
+  toggleCalendarFolderFold(folder: CalendarFolder): void {
+    setFolderFolded(folder.key, !this.foldedFolders.has(folder.key));
+  }
+
   /** Turn one calendar on or off. A Soon row does not move. */
   toggleCalendar(source: CalendarSource): void {
     this.#writeSelection(toggleSource(source, this.onKeys));
@@ -522,6 +539,18 @@ export class CalendarController {
 
   goToday(): void {
     this.#host.setAnchor(this.today);
+  }
+
+  /**
+   * Move the window to a day, keeping the view.
+   *
+   * What the pinned month picker does. Somebody reading a week who presses a Thursday means that
+   * Thursday's WEEK — the picker is the calendar's own navigation at a second scale, not a request
+   * for a day view — so the view is deliberately untouched. `showDay` is the other gesture, and it
+   * switches deliberately because a day's overflow control is a request to see that day.
+   */
+  goToDay(date: string): void {
+    this.#host.setAnchor(date);
   }
 
   /** A day's overflow control opens that day in the agenda. */

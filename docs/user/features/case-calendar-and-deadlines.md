@@ -35,6 +35,18 @@ setting and deadline on every matter you can see, and the firm's own events besi
   everything else is yours to add. What you have open is **yours**: it follows you between screens
   and visits on this browser, and changes nothing for anybody else.
 
+  **Fold a folder you are not using.** Press its name and it closes up, so a firm with twenty
+  conference rooms does not scroll past all twenty to reach what is under them. Folding takes
+  nothing away: the tick beside the folder's name still turns every calendar in it on or off while
+  it is closed, and a closed folder shows how many of its calendars are switched on so nothing
+  disappears quietly. What you have folded is remembered on this browser, like the rest of the list.
+
+- **A small month sits under the list, and it stays there.** It shows where you are and takes you
+  somewhere else in one press, and it does not scroll away when you scroll the calendars above it.
+  Pressing a day moves the calendar to that day **without changing your view** — press a Thursday
+  while you are reading a week and you get that Thursday's week, not a day view of it. Its week
+  begins on the day your firm chose, so its columns and the grid's are the same seven days.
+
 - **A colour per calendar.** Press the dot beside a calendar's name and pick a colour. It paints a
   stripe down the edge of every entry from that calendar, and heads that calendar's column on the
   day view, so one person's day is told from another's at a glance. Calendars you have not coloured
@@ -51,8 +63,10 @@ setting and deadline on every matter you can see, and the firm's own events besi
 - **Hide settled.** On the agenda, press it to leave out what is no longer coming: cancelled
   settings and satisfied, vacated or superseded deadlines. The agenda says how many it left out.
   The month and the week always show them, struck through.
-- **Month, week, day, agenda.** Four views of the same calendar, chosen at the top right beside
-  **New**, with the arrows and **Today** that move you through time. The month grid shows a few
+- **Month, week, day, agenda.** Four views of the same calendar, chosen directly above the calendar
+  itself, with the arrows and **Today** that move you through time. The screen's name runs across
+  the top of the whole page, above both the list of calendars and the calendar, with the search and
+  **New** on its line. The month grid shows a few
   entries per day and says how many more there are; press that and the agenda opens on that day.
   The **week** and the **day** are the two with hours: the time runs down the side, and an entry is
   drawn from the hour it starts at to the hour it ends, so a two-hour deposition is twice the block
@@ -160,6 +174,7 @@ training, a reservation, anything that belongs to the firm rather than to a case
   An event imported from another calendar can carry a repeat rule more elaborate than this form
   offers. Where it does, the form says the rule was recorded elsewhere rather than showing you a
   simplified version that saving would make true; turning Repeats on replaces it with yours.
+
 - **The court's own case number** goes on the event as the court writes it.
 - **Who is there** can be a member of your firm, a contact from your directory, or somebody who is
   neither — a judge, a court reporter, an interpreter, a witness. You are not made to create a

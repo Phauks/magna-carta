@@ -34,6 +34,8 @@ and a firm event. The backend it consumes is `packages/calendar` behind
 - `calendar-preferences.svelte.ts` — which calendars THIS reader has open and what colour they gave
   each, per browser, on the shared persisted-preference primitive. Stores only the DEPARTURES from
   the catalog's defaults, so a calendar shipped later arrives at its own
+- `calendar-month-picker.svelte` — the little month pinned under the rail: where the reader is,
+  and one press to be somewhere else
 - `calendar-rail.svelte` — the rail those two render as: a checkbox per calendar, a three-state
   checkbox per folder, and the palette behind the colour pip. It is the CONTENT of the design
   system's navigation column and draws no column of its own
@@ -92,6 +94,24 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   workspace does the same, for the same reason. The rail's rows stay CHECKBOX rows rather than
   `NavigationLayout.Row`: the shared row renders its own anchor or button, and a switch cannot be
   nested inside one. What the columns share is the frame and the indent stagger.
+- **The screen's name spans both columns; the date controls sit over the grid.** The masthead is
+  handed to `NavigationLayout`'s own `header`, which is a band across the whole canvas, so the title
+  stands over the screen rather than over one column of it — which is what it always named (owner,
+  2026-09-16). The view switch and the window navigation then sit at the top of the CONTENT column,
+  directly over the grid they move, in every arrangement. That is one place instead of two: the
+  2026-09-14 ruling seated them in the masthead's actions beside New, which was right while the
+  masthead sat over the grid's own column and wrong the moment it spanned both. `CalendarView`'s
+  `header` prop is therefore a plain `Snippet` and hands nothing back.
+- **A folder in the rail FOLDS, and the month picker under it does not scroll.** A firm with twenty
+  rooms scrolled past all twenty to reach the folder beneath them. The disclosure is the folder's
+  name — chevron and name are one button — and it is not the Accordion component, because that
+  component's trigger is its whole header and this header already holds the three-state checkbox,
+  which cannot be nested in a button. What folds is the LIST, so every calendar stays reachable
+  through the folder's own switch whether it is open or shut: hiding must never remove capability.
+  A shut folder shows how many of its calendars are on, because that is the one fact its hidden rows
+  were carrying. `calendar-month-picker.svelte` rides the layout's `navigationFooter`, outside the
+  rail's scroll region, and moves the ANCHOR without changing the view — somebody reading a week who
+  presses a Thursday means that Thursday's week (`goToDay`), which is why it is not `showDay`.
 - **A host embeds `CalendarView` with a scope and records through the dialogs. It writes no
   calendar read of its own.** A feature that needs "the next thirty days on this matter" is the
   component with a matter scope, `toolbar={false}`, `agendaDays={30}` and a `limit`, not a new
