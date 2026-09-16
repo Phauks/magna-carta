@@ -14,6 +14,7 @@ import Content from "./sidebar-content.svelte";
 import Footer from "./sidebar-footer.svelte";
 import Group from "./sidebar-group.svelte";
 import GroupLabel from "./sidebar-group-label.svelte";
+import GroupTrigger from "./sidebar-group-trigger.svelte";
 import Menu from "./sidebar-menu.svelte";
 import MenuItem from "./sidebar-menu-item.svelte";
 import MenuButton from "./sidebar-menu-button.svelte";
@@ -26,6 +27,7 @@ export {
   Footer,
   Group,
   GroupLabel,
+  GroupTrigger,
   Menu,
   MenuItem,
   MenuButton,
@@ -37,6 +39,7 @@ export {
   Footer as SidebarFooter,
   Group as SidebarGroup,
   GroupLabel as SidebarGroupLabel,
+  GroupTrigger as SidebarGroupTrigger,
   Menu as SidebarMenu,
   MenuItem as SidebarMenuItem,
   MenuButton as SidebarMenuButton,

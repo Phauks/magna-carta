@@ -106,8 +106,14 @@ const SchemaCheck = z
   .object({
     // "current" once the firm's applied lineage head matches the build's own journal head.
     // "behind" is a database that self-migrated to an older head (a firm not yet woken by this
-    // build). "unknown" is the lineage read failing — never guessed as either of the other two.
-    state: z.enum(["current", "behind", "unknown"]),
+    // build). "refused" is the runner declining the lineage outright — the ledger holds a tag this
+    // build cannot place, so NOTHING was applied and the head comparison is not the question.
+    // "unknown" is the lineage read failing — never guessed as any of the other three.
+    //
+    // "refused" exists because the head comparison alone answered "current" for a database that was
+    // refusing every request: its ledger was at head, and the runner had rejected it anyway. Two
+    // rows describing one subsystem then contradicted each other, and the reassuring one was wrong.
+    state: z.enum(["current", "behind", "refused", "unknown"]),
     // How many migrations the firm's database has actually run. Deliberately NOT paired with a
     // target: a superseding migration collapses several applied tags into one, so a firm at head
     // can legitimately carry fewer than the lineage lists, and "213 of 214" would be a false alarm
@@ -116,6 +122,22 @@ const SchemaCheck = z
     // The greatest applied tag and the tag this build expects, so a "behind" row says how far.
     appliedHead: z.string().nullable(),
     expectedHead: z.string(),
+    // Migrations that reached this database BEHIND its own ledger head, because two branches merged
+    // and seated one behind a migration that had already shipped. Everything is applied either way,
+    // so this is not a fault — but this database ran the pair in a different order than a freshly
+    // provisioned one will, and the ledger is a set of tags that cannot say so afterwards. Empty on
+    // every ordinary firm. The runner reports it once, on the wake that applied them; it is carried
+    // here because a report nothing reads is a report that was not made.
+    outOfOrderArrivals: z.array(z.string()),
+    // The restore point the object took before its last batch of migrations, when it took one: the
+    // instant it names, and the migrations it sits in front of. A migration that FAILS needs no
+    // restore — the whole context rolls back — so this is for the other case, a migration that
+    // succeeded and was wrong, which the lineage cannot undo by running forwards.
+    //
+    // The Cloudflare bookmark itself is deliberately NOT on the wire. Restoring is an operator's
+    // act with dashboard access, and the opaque handle does nothing for the member reading this
+    // panel; what they need to know is that a point exists and what it precedes.
+    restorePoint: z.object({ takenAt: z.string(), precedes: z.array(z.string()) }).nullable(),
   })
   .openapi("DatabaseHealthSchema");
 
@@ -212,13 +234,37 @@ async function readSchemaState(
   try {
     const state = await migrationState();
     return {
-      state: state.appliedHead === expectedHead ? "current" : "behind",
+      // The fault is read FIRST, and that ordering is the point. A refused lineage can sit at head
+      // — the runner rejects the ledger before it applies anything, so the tags already in it are
+      // untouched — and comparing heads alone then calls that database current while it answers
+      // nothing. The fault is the fact; the heads only say how far along a database that is
+      // actually running has got.
+      state:
+        state.fault !== null
+          ? "refused"
+          : state.appliedHead === expectedHead
+            ? "current"
+            : "behind",
       appliedCount: state.appliedCount,
       appliedHead: state.appliedHead,
       expectedHead,
+      // Copied, not aliased: the migration read hands these back readonly, and the response shape
+      // owns its own arrays rather than sharing the object's.
+      outOfOrderArrivals: [...state.outOfOrderArrivals],
+      restorePoint:
+        state.restorePoint === null
+          ? null
+          : { takenAt: state.restorePoint.takenAt, precedes: [...state.restorePoint.appliedTags] },
     };
   } catch {
-    return { state: "unknown", appliedCount: 0, appliedHead: null, expectedHead };
+    return {
+      state: "unknown",
+      appliedCount: 0,
+      appliedHead: null,
+      expectedHead,
+      outOfOrderArrivals: [],
+      restorePoint: null,
+    };
   }
 }
 

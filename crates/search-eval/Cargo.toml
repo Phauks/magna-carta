@@ -12,3 +12,41 @@ publish = false
 search-core = { path = "../search-core" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+# This crate spells the floor out instead of inheriting it, because Cargo refuses to let a package carry
+# both `workspace = true` and an override in the same `[lints]` table. The `rust` half below is a verbatim
+# copy of crates/Cargo.toml's and must stay one; the `clippy` half is where this crate differs and why.
+[lints.rust]
+unsafe_code = "forbid"
+non_ascii_idents = "forbid"
+ffi_unwind_calls = "deny"
+missing_abi = "deny"
+macro_use_extern_crate = "deny"
+unused_extern_crates = "deny"
+meta_variable_misuse = "deny"
+explicit_outlives_requirements = "deny"
+redundant_lifetimes = "deny"
+unused_lifetimes = "deny"
+unused_import_braces = "deny"
+unused_macro_rules = "deny"
+unit_bindings = "deny"
+keyword_idents_2018 = "deny"
+keyword_idents_2024 = "deny"
+non_local_definitions = "deny"
+trivial_numeric_casts = "deny"
+
+[lints.clippy]
+unwrap_used = "deny"
+panic = "deny"
+panic_in_result_fn = "deny"
+todo = "deny"
+unimplemented = "deny"
+mem_forget = "deny"
+dbg_macro = "deny"
+# search-eval is a developer command-line harness that exists to produce a report on a terminal, so the
+# report IS its output and a bad argument should stop the run. It keeps the abort lints above — it has no
+# unwrap or panic to excuse — and differs from the floor only in being allowed to write and exit.
+# Measured here: 87 print_stdout, 10 print_stderr, 2 exit.
+print_stdout = "allow"
+print_stderr = "allow"
+exit = "allow"

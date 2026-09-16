@@ -450,6 +450,7 @@
             "enum": [
               "current",
               "behind",
+              "refused",
               "unknown"
             ]
           },
@@ -464,13 +465,42 @@
           },
           "expectedHead": {
             "type": "string"
+          },
+          "outOfOrderArrivals": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "restorePoint": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "takenAt": {
+                "type": "string"
+              },
+              "precedes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "takenAt",
+              "precedes"
+            ]
           }
         },
         "required": [
           "state",
           "appliedCount",
           "appliedHead",
-          "expectedHead"
+          "expectedHead",
+          "outOfOrderArrivals",
+          "restorePoint"
         ]
       },
       "DatabaseHealthMembership": {

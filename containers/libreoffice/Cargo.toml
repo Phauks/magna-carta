@@ -57,3 +57,47 @@ lopdf = "0.44"
 # Loopback HTTP client for the full-app tests, matching containers/file-repair. default-features off
 # + rustls keeps the TLS backend pure Rust; a test binary never ships.
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+
+# The lint floor. Same rules as crates/Cargo.toml, stated here because every container is its own Cargo
+# workspace and a workspace lint table reaches nothing outside its own tree. This workspace holds one
+# package, so the tables sit on the package directly and there is no `workspace = true` opt-in to forget.
+# Levels were measured against this workspace with `cargo clippy --all-targets` before being set; what is
+# absent is absent on evidence and says so. The print/exit restrictions that crates/Cargo.toml denies are
+# deliberately not here: a container's binary IS the process, so writing a startup diagnostic to stderr
+# and exiting non-zero on a fatal boot failure is the correct behaviour rather than a smell.
+[lints.rust]
+# `unsafe_code` is the one rule in the floor this workspace cannot take, and the exception is real rather
+# than incidental: worker.rs:125 builds a `CStr` from the raw pointer LibreOfficeKit hands its error
+# callback, which is the whole reason that binary exists. It is the only unsafe block here. Forbidding it
+# workspace-wide would fail the build; denying it would need a `#[allow]` plus a safety comment on that
+# block, which belongs to a change that is touching the worker. Everything else below is identical to
+# crates/Cargo.toml, so a SECOND unsafe block arriving anywhere in this workspace is still invisible to
+# the gate — that is the gap this note is recording, not excusing.
+non_ascii_idents = "forbid"
+ffi_unwind_calls = "deny"
+missing_abi = "deny"
+macro_use_extern_crate = "deny"
+unused_extern_crates = "deny"
+meta_variable_misuse = "deny"
+explicit_outlives_requirements = "deny"
+redundant_lifetimes = "deny"
+unused_lifetimes = "deny"
+unused_import_braces = "deny"
+unused_macro_rules = "deny"
+unit_bindings = "deny"
+keyword_idents_2018 = "deny"
+keyword_idents_2024 = "deny"
+non_local_definitions = "deny"
+trivial_numeric_casts = "deny"
+
+[lints.clippy]
+panic = "deny"
+panic_in_result_fn = "deny"
+todo = "deny"
+unimplemented = "deny"
+mem_forget = "deny"
+dbg_macro = "deny"
+# `clippy::unwrap_used` is absent over 8 measured sites, every one of them a plain helper function in
+# tests/pool.rs or tests/service.rs — test scaffolding the exemption in containers/clippy.toml cannot
+# reach because none of them carries `#[test]`. No library or binary code in this workspace unwraps, so
+# this is a file-level allow in two test files away from being denied.

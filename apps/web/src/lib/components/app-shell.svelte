@@ -61,11 +61,13 @@
   import {
     acknowledgeArrival,
     expandSidebarOnHover,
+    isGroupCollapsed,
     isNewArrival,
     moveDestination,
     setStarred,
     sidebarEditingGroups,
     sidebarGroups,
+    toggleGroupCollapsed,
     type SidebarEditingGroupView,
   } from "$lib/navigation/sidebar-preferences.svelte.ts";
   import { developerPreferences } from "$lib/settings/developer-preferences.svelte.ts";
@@ -120,6 +122,14 @@
   const groups = $derived(sidebarGroups());
   const editingGroups = $derived(sidebarEditingGroups());
   const hoverExpand = $derived(expandSidebarOnHover());
+
+  /*
+   * THE ICON RAIL CANNOT FOLD. A folded group is a heading with its rows tucked under it, and the
+   * collapsed rail has no visible heading — folding there would leave a column of icons with
+   * nothing to say why the rest are missing and nothing to press to bring them back. So the rail
+   * shows every group whole, and the member's folds are waiting when it opens again.
+   */
+  const railCollapsed = $derived(collapsed && !peeking);
 
   // "Expand on hover" makes the rail REST collapsed and float open on hover, so whenever the
   // preference is on (and we are not customizing, which needs the rail expanded to arrange) the
@@ -333,8 +343,24 @@
         {/each}
       {:else}
         {#each groups as group (group.id)}
+          {@const folded = !railCollapsed && isGroupCollapsed(group.id)}
           <Sidebar.Group>
-            <Sidebar.GroupLabel>{group.label}</Sidebar.GroupLabel>
+            {#if railCollapsed}
+              <Sidebar.GroupLabel>{group.label}</Sidebar.GroupLabel>
+            {:else}
+              <!-- The heading folds the group away. It is the heading, not a control beside one:
+                   same voice, same seat, a chevron and the whole width as its target. Folding is
+                   the sidebar's, never the palette's — every destination in a folded group is
+                   still one Ctrl+K away, the same invariant the star layer keeps. -->
+              <Sidebar.GroupTrigger
+                expanded={!folded}
+                aria-label={folded ? `Show ${group.label}` : `Hide ${group.label}`}
+                onclick={() => toggleGroupCollapsed(group.id)}
+              >
+                {group.label}
+              </Sidebar.GroupTrigger>
+            {/if}
+            {#if !folded}
             <Sidebar.Menu>
               {#each group.destinations as destination (destination.id)}
                 {@const Icon = destination.icon}
@@ -386,6 +412,7 @@
                 </Sidebar.MenuItem>
               {/each}
             </Sidebar.Menu>
+            {/if}
           </Sidebar.Group>
         {/each}
       {/if}

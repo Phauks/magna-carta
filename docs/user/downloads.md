@@ -51,6 +51,10 @@ to save each file" setting; turn that on and it will ask you each time.
 copy the platform was holding. For an assembled file it removes your row and leaves the file to
 expire on its own schedule, since a colleague may have asked for the same one.
 
+## Related
+
+- [Uploads](uploads.md) — what you send to a matter, and downloading it again.
+
 ## What this list is, and what it is not
 
 Your list is **yours**. Colleagues do not see what you have exported, and you do not see theirs.

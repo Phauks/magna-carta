@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clearPointer, planRetirement, pointerIn } from "./dependents.mjs";
+import { clearPointer, planRetirement, pointerIn, retirementRefusal } from "./dependents.mjs";
 
 // The real shape of a status.d fragment, trimmed to the fields that matter here.
 const fragment = (pointer) =>
@@ -115,5 +115,92 @@ describe("planRetirement", () => {
       fragments: similar,
     });
     expect(plan.dependents).toEqual([]);
+  });
+});
+
+// The guard decides between two workflows that look alike and are not: retiring a note after its
+// work landed (the deletion takes effect at once) and retiring it in the pull request that lands the
+// work (the deletion travels with the merge). The landing check is right for the first and cannot
+// even be satisfied by the second, which is what these pin.
+describe("retirementRefusal", () => {
+  const landed = { branch: "claude/thing", noteExists: true, hasLanded: true };
+  const inFlight = { branch: "claude/thing", noteExists: true, hasLanded: false };
+
+  it("allows retiring a note whose branch has landed", () => {
+    expect(retirementRefusal(landed)).toBeNull();
+  });
+
+  it("refuses an unlanded branch, and names --with-merge as the other way", () => {
+    const refusal = retirementRefusal(inFlight);
+    expect(refusal).toContain("has not landed");
+    expect(refusal).toContain("--with-merge");
+    expect(refusal).toContain("--force");
+  });
+
+  it("still lets --force retire an abandoned stream", () => {
+    expect(retirementRefusal({ ...inFlight, force: true })).toBeNull();
+  });
+
+  it("allows --with-merge on an unlanded branch, which is the whole point of it", () => {
+    // A branch cannot have landed while the pull request landing it is still open, so requiring
+    // that here would make the flag unusable in the only situation it exists for.
+    expect(
+      retirementRefusal({ ...inFlight, withMerge: true, headBranch: "claude/thing" }),
+    ).toBeNull();
+  });
+
+  it("refuses --with-merge from any branch but the note's own", () => {
+    // The deletion only travels with the merge if it is committed on the branch being merged.
+    const refusal = retirementRefusal({
+      ...inFlight,
+      withMerge: true,
+      headBranch: "main",
+    });
+    expect(refusal).toContain("has to run on claude/thing");
+    expect(refusal).toContain("HEAD is on main");
+  });
+
+  it("refuses --with-merge on a detached HEAD, saying so in those words", () => {
+    const refusal = retirementRefusal({ ...inFlight, withMerge: true, headBranch: null });
+    expect(refusal).toContain("not on any branch");
+  });
+
+  it("refuses when there is no note, no pointer and no workspace", () => {
+    const refusal = retirementRefusal({
+      branch: "claude/typo",
+      noteExists: false,
+      hasLanded: true,
+    });
+    expect(refusal).toContain("nothing to retire");
+    expect(refusal).toContain("mirrors its branch exactly");
+  });
+
+  it("proceeds on a workspace alone — the state --with-merge leaves behind once it lands", () => {
+    // Note gone, pointers cleared, worktree and branch still here. Refusing this would mean the
+    // cleanup pass is turned away by the retirement that worked.
+    expect(
+      retirementRefusal({
+        branch: "claude/thing",
+        noteExists: false,
+        hasLanded: true,
+        hasWorkspace: true,
+      }),
+    ).toBeNull();
+  });
+
+  it("proceeds on a dangling pointer alone, with the note already gone", () => {
+    expect(
+      retirementRefusal({
+        branch: "claude/thing",
+        noteExists: false,
+        hasLanded: true,
+        dependentCount: 1,
+      }),
+    ).toBeNull();
+  });
+
+  it("says a branch resolves to no ref, which is a different mistake from an unlanded one", () => {
+    const refusal = retirementRefusal({ ...inFlight, branchUnknown: true });
+    expect(refusal).toContain("resolves to no ref");
   });
 });

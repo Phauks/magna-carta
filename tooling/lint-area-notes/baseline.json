@@ -1,0 +1,58 @@
+{
+  "missing-note": {
+    "note": "Workspace packages and apps with no CLAUDE.md, recorded 2026-09-16. This register may only shrink: a new package must arrive with its note, and an entry the repository has since fixed fails the gate. Burning these down is a separate pass. Two entries will not burn down the way the rest will: packages/tsconfig holds shared compiler configuration and no source, and packages/api-client is generated from the OpenAPI contract. The register does not distinguish permanent exemptions from debt, deliberately, because a register with two kinds of entry becomes a place to file things rather than a list to empty.",
+    "count": 30,
+    "entries": [
+      "apps/bundle-worker",
+      "apps/convert-worker",
+      "apps/discovery-worker",
+      "apps/edit-worker",
+      "apps/email-worker",
+      "apps/file-repair-worker",
+      "apps/ocr-worker",
+      "apps/recovery-worker",
+      "apps/scan-worker",
+      "apps/sign-worker",
+      "apps/web",
+      "apps/web-worker",
+      "packages/ai-detection",
+      "packages/api-client",
+      "packages/data-access",
+      "packages/decryption",
+      "packages/email",
+      "packages/export-document",
+      "packages/feature-flags",
+      "packages/fees",
+      "packages/government-links",
+      "packages/gpu-benchmark",
+      "packages/identifiers",
+      "packages/matter-search",
+      "packages/money",
+      "packages/pdf",
+      "packages/seven-zip",
+      "packages/signing",
+      "packages/status",
+      "packages/tsconfig"
+    ]
+  },
+  "no-title": {
+    "note": "Notes with no level-one heading. Clean at 55 of 55 notes; the register exists so the rule has somewhere to be recorded if that ever stops being true, and an empty register is the rule at rest.",
+    "count": 0,
+    "entries": []
+  },
+  "title-names-elsewhere": {
+    "note": "Notes whose title names a different area — the signature of a note copied from a neighbouring package. Clean at 55 of 55.",
+    "count": 0,
+    "entries": []
+  },
+  "unstated-purpose": {
+    "note": "Notes that do not say what the area is, in prose, before the headings and the bullets. Clean at 55 of 55: every note here opens with its sentence, whether as a bold Purpose lead, as a plain paragraph, or under a first heading such as packages/file-type's 'What this package is'.",
+    "count": 0,
+    "entries": []
+  },
+  "unfilled-template": {
+    "note": "Notes still carrying the placeholders of docs/conventions/area-claude-template.md. Clean at 55 of 55.",
+    "count": 0,
+    "entries": []
+  }
+}

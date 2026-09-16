@@ -50,11 +50,15 @@ describe("the File Workbench destination", () => {
     expect(isCurrentDestination(workbench!, "/file-workbench/recovery/job-1")).toBe(true);
   });
 
-  it("leads the Firm group, ahead of Tools", () => {
+  it("leads the Firm group, and is not in the Tools group at all", () => {
+    // It used to lead Firm "ahead of Tools", which was a statement about a Tools ROW sitting in the
+    // same group. Since the tools were elevated into a group of their own (2026-09-16) that row is
+    // no longer Firm's, so the fact worth pinning is the one that still holds: the workbench leads
+    // its group, and is not one of the tools.
     const firm = DESTINATIONS.filter((destination) => destination.group === "firm");
-    expect(firm.findIndex((destination) => destination.id === "file-workbench")).toBeLessThan(
-      firm.findIndex((destination) => destination.id === "tools"),
-    );
+    expect(firm[0]?.id).toBe("file-workbench");
+    expect(firm.some((destination) => destination.id === "tools")).toBe(false);
+    expect(destinationById("tools")?.group).toBe("tools");
   });
 });
 

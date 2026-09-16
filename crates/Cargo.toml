@@ -23,6 +23,128 @@ hayro = "0.7"
 image = "0.25"
 lopdf = "0.44"
 
+# The lint floor for every crate in this workspace.
+#
+# Almost all of this Rust reads bytes somebody else chose — a PDF from an opposing party, a .msg from an
+# unknown sender, a 7z a custodian handed over — on behalf of a firm that is answerable for whatever comes
+# out. That makes two failure modes the ones worth spending a build gate on: a memory-safety hole, which is
+# remote code execution over privileged material, and a panic, which is a denial of service on one firm's
+# document. The tables below are aimed at exactly those two, not at style.
+#
+# Every level here was MEASURED against the tree before it was chosen. `cargo clippy --all-targets --
+# -D warnings` is the gate command, so in continuous integration a "warn" is a red build exactly like a
+# "deny": there is no level that means "tell me later". A lint is therefore denied only where the whole
+# workspace is already clean of it, and a lint the workspace is not clean of is either scoped away from the
+# crates that violate it (a member then spells its own `[lints]` tables out in full, because Cargo refuses
+# to let a package both inherit `workspace = true` and override an inherited lint) or left out entirely and
+# recorded, with its real count, in the register at the end of this block.
+#
+# A workspace lint table does nothing on its own: it applies only to members that opt in with a `[lints]`
+# table of their own carrying `workspace = true`. Every member in `members` above does. A new member that
+# forgets is silently unprotected, which is the one way this floor can quietly stop existing.
+#
+# Test code is exempted through crates/clippy.toml rather than through scattered attributes, because a
+# fixture builder that unwraps is not the hazard any of this is aimed at. That exemption reaches `#[test]`
+# functions and `#[cfg(test)]` modules; it does NOT reach a plain helper function in a `tests/*.rs` file,
+# which is compiled as ordinary code, so the few of those carry a file-level allow that says why.
+[workspace.lints.rust]
+# THE RULE THE WHOLE PLATFORM RESTS ON, and the reason it is `forbid` rather than `deny`: forbid cannot be
+# taken back by a `#[allow]` on a crate, a module, or an expression, so the only way to reintroduce unsafe
+# Rust here is to edit this line, in a diff a reviewer reads. These crates are unsafe-free today, which
+# makes this cost nothing at all to impose and closes the door while it is still shut. A future crate with
+# a genuine need — an FFI seam, a memory map — argues that case here rather than annotating past it.
+unsafe_code = "forbid"
+# Forbidden for the same reason rather than merely denied: a non-ASCII identifier has no legitimate use in
+# this tree, and it is a homoglyph vector — two identifiers a human reviewer reads as the same word are
+# different symbols to the compiler, which is precisely how a malicious change survives review.
+non_ascii_idents = "forbid"
+# Unsound or misleading foreign-function shapes. None of these can fire while `unsafe_code` is forbidden
+# and no crate declares an `extern` block, which is the point: they are the tripwires that fire on the day
+# somebody adds the first one, rather than rules invented after the fact.
+ffi_unwind_calls = "deny"
+missing_abi = "deny"
+macro_use_extern_crate = "deny"
+unused_extern_crates = "deny"
+# Declarations that lie about their own shape. `meta_variable_misuse` catches a macro arm whose expansion
+# cannot be what its matcher promises; the rest are redundant bounds, lifetimes, braces and rules that a
+# reader has to prove are inert before moving on. All clean today.
+meta_variable_misuse = "deny"
+explicit_outlives_requirements = "deny"
+redundant_lifetimes = "deny"
+unused_lifetimes = "deny"
+unused_import_braces = "deny"
+unused_macro_rules = "deny"
+unit_bindings = "deny"
+# Edition tripwires. `keyword_idents_*` fails on an identifier that a later edition takes as a keyword, so
+# an edition bump is a mechanical change rather than an archaeology exercise; `non_local_definitions` fails
+# on an impl written inside a function body, whose resolution behaviour is changing under us.
+keyword_idents_2018 = "deny"
+keyword_idents_2024 = "deny"
+non_local_definitions = "deny"
+# A numeric cast written with no width change at all is either a leftover from a type that moved or a
+# reader's trap. The lossy casts are a different question and are in the register below, unenforced.
+trivial_numeric_casts = "deny"
+
+[workspace.lints.clippy]
+# A parser reached from untrusted bytes must return an error, never abort. `unwrap_used` is the headline:
+# an `Option`/`Result` unwrapped on a path an attacker's file can steer is one crafted document away from
+# taking the engine down. Denied workspace-wide after measurement showed only three members violating it at
+# all — pdf-core's two sites were in a fixture helper, recovery-core's seven were six fixture helpers plus
+# one genuine site, and pdf-eval is a developer command-line harness that opts out below.
+unwrap_used = "deny"
+# The explicit forms of the same abort. `panic_in_result_fn` is the sharpest of the four for this codebase,
+# because a function that already returns `Result` and panics anyway has an error channel it declined to
+# use. All clean in library code.
+panic = "deny"
+panic_in_result_fn = "deny"
+todo = "deny"
+unimplemented = "deny"
+# A leak of an `Arc`/`Box`/guard is not memory-unsafe, but it is the one safe-Rust operation that defeats
+# a destructor, and destructors here are what zero key material and close file handles.
+mem_forget = "deny"
+# Debugging residue. `dbg_macro` prints to stderr from wherever it was forgotten, which in these crates
+# means printing a fragment of a privileged document into a container's log stream.
+dbg_macro = "deny"
+# A library does not own the process's output or its exit. Every one of the 167 measured violations is in
+# pdf-eval or search-eval, which are command-line evaluation harnesses and are meant to print and exit;
+# both spell their own tables out below. No crate that ships in a Worker, a wasm module or a container
+# image violates these, and this keeps it that way.
+print_stdout = "deny"
+print_stderr = "deny"
+exit = "deny"
+
+# THE REGISTER OF WHAT IS DELIBERATELY NOT HERE. Counts are unique source sites from
+# `cargo clippy --manifest-path crates/Cargo.toml --all-targets` with every candidate lint set to warn and
+# the crates/clippy.toml test exemptions applied. They are the burn-down, in priority order.
+#
+#   clippy::indexing_slicing — 361 sites, in 10 of the 11 members (pdf-core 146, decryption-core 85,
+#     email-core 28, seven-zip-core 28, recovery-core 25, discovery-core 20, pdf-eval 18, search-eval 6,
+#     search-core 3, ocr-core 2). This is the one that most deserves to be on: a slice index derived from a
+#     length field in an attacker-controlled file is both a panic and, in evidence handling, a correctness
+#     bug. It is off because it is clean in exactly one member, so there is nothing to scope it to, and
+#     because the fix is per-site judgement (`get()` plus a real error) rather than a mechanical rewrite.
+#     Worth burning down crate by crate, decryption-core and pdf-core first.
+#   clippy::arithmetic_side_effects — 416 sites, every member. Overflow in a release build wraps rather
+#     than panicking, so this is a correctness rule for offsets and counts computed from file headers, not
+#     a panic rule. Too large to land as a gate; the checked/saturating forms belong in the byte-offset
+#     arithmetic specifically.
+#   clippy::expect_used — 40 sites: 36 in test and evaluation harnesses, and only 4 in library code
+#     (decryption-core 2, pdf-core 1, search-core 1). All four are deliberate invariant assertions carrying
+#     real messages ("trailer is 8 bytes", "non-empty ciphertext"). Turning those into errors is a small
+#     piece of domain work rather than a lint decision, and it is the cheapest item on this list.
+#   clippy::cast_possible_truncation 73 · cast_lossless 75 · cast_sign_loss 22 · integer_division 56 —
+#     the numeric-narrowing family, concentrated in pdf-core. Same character as the arithmetic lint.
+#   clippy::string_slice — 13 sites (pdf-core 9, discovery-core 2, email-core 2). A byte range into a
+#     `str` panics on a character boundary, and this material is full of legacy encodings. Small enough to
+#     clear in one pass.
+#   clippy::unreachable — 2 sites, both deliberate ("the set of taken names is finite"). Left alone: an
+#     `unreachable!` that states a proved invariant is not the same construct as a `panic!`.
+#   clippy::float_cmp — 2 sites, both inside the expansion of a standard-library assertion macro rather
+#     than in our own source, so denying it would fail a build over code nobody here wrote.
+#   missing_docs 432 · unused_qualifications 181 · unused_results 153 · unreachable_pub 118 —
+#     documentation and hygiene rather than safety, and each is a large mechanical diff that would collide
+#     with every branch in flight. They belong to a quiet week, not to this floor.
+
 [profile.release]
 opt-level = "z"
 lto = true

@@ -118,9 +118,9 @@
   import Button from "@magna-carta/design-system/button";
   import Separator from "@magna-carta/design-system/separator";
   import { copyText } from "@magna-carta/design-system/failure-details";
-  import ClipboardCopy from "@lucide/svelte/icons/clipboard-copy";
+  import Copy from "@lucide/svelte/icons/copy";
   import ExternalLink from "@lucide/svelte/icons/external-link";
-  import GitBranch from "@lucide/svelte/icons/git-branch";
+  import { GithubMark } from "@magna-carta/design-system/service-marks";
   import MessageSquareWarning from "@lucide/svelte/icons/message-square-warning";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import RotateCw from "@lucide/svelte/icons/rotate-cw";
@@ -149,6 +149,7 @@
     type HealthReading,
     databaseHealthRows,
     describeProvisioningBacklog,
+    describeSchemaLineage,
     healthBadgeVariant,
     DATABASE_SECTION_LABEL,
     DEPLOYMENT_SECTION_LABEL,
@@ -423,6 +424,7 @@
   const provisioningBacklog = $derived(
     healthValue === null ? null : describeProvisioningBacklog(healthValue),
   );
+  const schemaLineage = $derived(healthValue === null ? [] : describeSchemaLineage(healthValue));
   // The read split the way the panel now shows it: the pair that serves the app's address, and the
   // rest of the fleet. Lifted out of the template because each section's shut heading has to count
   // only the Workers ITS OWN fold hides — Workers is no longer nested inside Deployment, so one
@@ -737,7 +739,10 @@
             aria-label="Copy the whole diagnosis"
             onclick={() => void copyValue("panel", panelReport)}
           >
-            <ClipboardCopy class="size-16" aria-hidden="true" />
+            <!-- The two-sheets glyph every application uses for copy. It read as a clipboard with
+                 an arrow before, which is the PASTE gesture's picture, so the one control in this
+                 panel a person reaches for during an incident was drawn as its opposite. -->
+            <Copy class="size-16" aria-hidden="true" />
           </Button>
           <Button
             variant="ghost"
@@ -764,7 +769,12 @@
               {...opensBeside("external")}
               aria-label="Open the source repository on GitHub"
             >
-              <GitBranch class="size-16" aria-hidden="true" />
+              <!-- GitHub's own mark, because this link goes to GitHub and nothing else. A
+                   git-branch glyph named a git concept rather than the service, which is the one
+                   fact a reader needs before they follow a link out of the application. It is a
+                   third-party brand asset on the register's terms, not one of our icons
+                   (docs/conventions/third-party-trademarks.md). -->
+              <GithubMark class="size-16" />
             </Button>
           {/if}
         {/if}
@@ -1010,6 +1020,16 @@
             {@render healthRow(row)}
           {/each}
         </div>
+        {#each schemaLineage as note (note.sentence)}
+          <!-- What the schema row cannot fit: a migration that arrived behind the ledger head, and
+               the restore point sitting in front of the last batch. Both come off the wire from the
+               firm database itself and were being dropped here; neither is a row, because a row
+               that is blank on every healthy firm teaches a reader to skip it. -->
+          <div class="flex items-center gap-8">
+            <Badge variant={healthBadgeVariant(note.reading)}>Lineage</Badge>
+            <p class="text-xs text-text-muted">{note.sentence}</p>
+          </div>
+        {/each}
         {#if provisioningBacklog !== null}
           <!-- The membership row's explanation, said only when there is one. A firm whose mirrors
                have all landed carries nothing here: "0 pending" is an info line with nothing

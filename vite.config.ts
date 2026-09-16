@@ -148,7 +148,19 @@ export default defineConfig({
       "tooling/lint-back-navigation/vitest.config.ts",
       "tooling/lint-cache-keys/vitest.config.ts",
       "tooling/lint-conflicts-vocabulary/vitest.config.ts",
+      "tooling/lint-hard-rules/vitest.config.ts",
+      "tooling/lint-lints/vitest.config.ts",
+      "tooling/license-policy/vitest.config.ts",
       "tooling/lint-date-handling/vitest.config.ts",
+      "tooling/lint-money-arithmetic/vitest.config.ts",
+      "tooling/lint-area-notes/vitest.config.ts",
+      "tooling/lint-catalog-coverage/vitest.config.ts",
+      "tooling/lint-doc-links/vitest.config.ts",
+      "tooling/lint-changelog-coverage/vitest.config.ts",
+      "tooling/lint-active-work/vitest.config.ts",
+      "tooling/lint-secrets/vitest.config.ts",
+      "tooling/lint-containers/vitest.config.ts",
+      "tooling/lint-native-builds/vitest.config.ts",
       "tooling/lint-ledger-staleness/vitest.config.ts",
       "tooling/lint-list-pagination/vitest.config.ts",
       "tooling/lint-one-ui/vitest.config.ts",
@@ -338,7 +350,11 @@ export default defineConfig({
       // active-work note, re-render STATUS.md + STATUS.json, delete the note, and remove the worktree
       // and branch. Done by hand the pointer is routinely left behind and `pnpm run lint:status` fails
       // afterwards, which is why the parts are not separable here. Takes the branch name, plus
-      // --dry-run / --force / --keep-workspace: node tooling/retire-note/index.mjs <branch> --dry-run
+      // --with-merge / --dry-run / --force / --keep-workspace.
+      // ROUTINE USE IS --with-merge, run ON the branch, in the pull request that lands the work: a
+      // merge to main deploys, so retiring afterwards means a second production deploy to delete one
+      // file. It does the paperwork only and leaves the worktree and branch for a later local pass,
+      // which is the half that cannot run from inside the branch anyway.
       "retire-note": {
         command: "node tooling/retire-note/index.mjs",
       },

@@ -85,6 +85,7 @@
     "./scroll-edge-hint": "./src/lib/components/scroll-edge-hint/index.ts",
     "./select": "./src/lib/components/select/index.ts",
     "./separator": "./src/lib/components/separator/index.ts",
+    "./service-marks": "./src/lib/components/service-marks/index.ts",
     "./sidebar": "./src/lib/components/sidebar/index.ts",
     "./status-mark": "./src/lib/components/status-mark/index.ts",
     "./status-register": "./src/lib/status-register/index.ts",
@@ -111,7 +112,7 @@
   },
   "scripts": {
     "test": "vp test run",
-    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "check": "svelte-check --tsconfig ./tsconfig.json --threshold warning",
     "storybook": "storybook dev -p 6006",
     "storybook-build": "storybook build",
     "visual-regression": "playwright test --config visual-regression/playwright.config.ts",

@@ -133,10 +133,15 @@ export type DatabaseHealthFirmDatabase = {
 };
 
 export type DatabaseHealthSchema = {
-    state: 'current' | 'behind' | 'unknown';
+    state: 'current' | 'behind' | 'refused' | 'unknown';
     appliedCount: number;
     appliedHead: string | null;
     expectedHead: string;
+    outOfOrderArrivals: Array<string>;
+    restorePoint: {
+        takenAt: string;
+        precedes: Array<string>;
+    } | null;
 };
 
 export type DatabaseHealthMembership = {

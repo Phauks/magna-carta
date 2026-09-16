@@ -27,7 +27,7 @@
 - **Within a package**, import the specific source module — `import { roundTax } from './trust/rounding.ts'` — never an intermediate `index.ts` re-export hub. Barrels force Vite's dev server to crawl/transform every re-exported module for a single import, break tree-shaking when they mix inline + re-exports (Rolldown can pull a whole barrel + its heavy deps into a shared chunk), and breed circular dependencies and slow `tsc`/IDE.
 - **A package's public API is its `package.json` `exports` map** — one small, **curated, side-effect-free** entry plus explicit subpaths (`@magna-carta/money`, `@magna-carta/money/rounding`), with **`"sideEffects": false`** set so unused re-exports still tree-shake. This curated boundary module is the _only_ acceptable barrel-like file; keep it flat (no nested re-export chains).
 - **Across packages**, import only another package's declared `exports` — never reach into its internal files.
-- **Enforcement:** the **Oxlint no-barrel rule** runs in `vp check`; **`dependency-cruiser` / `ts-arch`** boundary + `no-cycle` rules run in CI (the _Architectural integrity & coherence_ fitness-function tier). The wrong import fails CI, not review.
+- **Enforcement:** the **Oxlint no-barrel rule** runs in `vp check`, and **`import/no-cycle`** is held by [`pnpm run lint:hard-rules`](../../tooling/lint-hard-rules/) at a count that may only fall. `dependency-cruiser` / `ts-arch` were named here for years and never adopted — nothing looked for a cycle until the hard-rule pass did, and it found thirty-six. The wrong import fails CI, not review; the remaining cycles are a recorded debt, not a permission.
 
 Rationale and rejected alternatives: **ADR-0070**. This is the boundary-rules category of the white paper's _Architectural integrity & coherence_.
 
@@ -40,13 +40,51 @@ Rationale and rejected alternatives: **ADR-0070**. This is the boundary-rules ca
 Enabled:
 
 - **Categories.** `suspicious` and `perf` are **warn** — high-signal but with enough justified existing cases that a hard failure would block unrelated work; warnings do not fail `vp check`, so they are advisory until burned down. `correctness` is **not overridden** and keeps its inherited (advisory) severity — promoting it to a hard error is tracked below, not done.
-- **Plugins.** `typescript`, `unicorn`, `oxc`. No `react`/`jsx-a11y`: the app is Svelte with no `.tsx`/`.jsx`, and Svelte a11y is svelte-check's job. `import` and `vitest` are held back — enabling them turns real findings in existing code into gate errors, so each is adopted behind its own cleanup pass.
+- **Plugins.** `typescript`, `unicorn`, `oxc`. No `react`/`jsx-a11y`: the app is Svelte with no `.tsx`/`.jsx`, and Svelte a11y is svelte-check's job — which it can only do because svelte-check now runs at `--threshold warning` (below). `import` and `vitest` are held back as PLUGINS — enabling one switches on everything it carries at its category severity — so the rules from them that are worth having hard are named individually in the hard-rule pass instead.
 - **Errors.** `oxc/no-barrel-file` is the one rule set to **error** — the barrel-file ban is structural, so it blocks rather than advises.
 - **Off, on purpose.** `typescript/no-unsafe-type-assertion` only: reviewed `as` at typed parse/deserialize/branded-id seams is the intended tool, so repo-wide enforcement is low-signal noise. `eslint/no-await-in-loop` is **on** as a warning through the `perf` category — sequential D1/Queue batches are usually deliberate, but the count is a tenable backlog and a genuinely hot-path loop is worth surfacing, so it stays advisory rather than off.
 
 The whole-repo pass currently reports **0 errors and ~820 warnings across ~1850 files**, and takes ~45 minutes on a 4-core runner. That runtime is why the gate lints only the affected packages on a pull request and pays the whole-repo pass on the merge and scheduled tiers — see [`build-performance.md`](build-performance.md).
 
 A change to `vite.config.ts` is a global lint input: `tooling/affected-lint` re-lints the **whole repo** for it (the ruleset can move findings anywhere), so a ruleset edit pays the full type-aware pass in CI.
+
+### svelte-check fails on warnings
+
+`svelte-check` exits zero on warnings by default, and a Svelte accessibility finding IS a warning —
+so for as long as both `check` scripts ran bare, the a11y rules the compiler carries were enforced by
+nobody. The Storybook axe pass is real but sits in the test battery, which a pull request has to ask
+for. Both packages now run `svelte-check --threshold warning`, which cost exactly one suppression to
+adopt: the design system was already at 0 warnings over 3,145 files and the SPA at 1 over 3,949.
+
+That one was `state_referenced_locally` in the matter's activity register, where the variant prop is a
+literal at both call sites and the read is correct — so it took the documented `svelte-ignore` the
+catalogue screen already uses, with the reason written beside it, rather than a change in behaviour.
+
+### Rules held hard, in a pass that can fail
+
+The ruleset above is almost entirely advisory, and that has a consequence worth stating plainly: the
+whole-repo type-aware pass — the most expensive job the gate runs — can fail on exactly one rule
+(`oxc/no-barrel-file`). Everything else it reports is a warning in a list of ~820 that nothing reads.
+
+A rule does not have to wait for the cleanup pass to become real. [`pnpm run lint:hard-rules`](../../tooling/lint-hard-rules/)
+runs the rules this repository can enforce **today**, in their own pass, where they genuinely fail:
+
+| Rule                       | Held at             | Why here rather than in the shared ruleset                                          |
+| -------------------------- | ------------------- | ------------------------------------------------------------------------------------ |
+| `import/no-cycle`          | 36, may only fall   | Nothing else detects a package or module cycle; a bundler resolves one silently.     |
+| `vitest/no-focused-tests`  | 0                   | A stray `.only` is green and takes its file's coverage with it — and the battery is asked for, not automatic. |
+| `vitest/no-disabled-tests` | 0                   | A skipped test reads as coverage and asserts nothing.                                |
+
+Two properties make this cheap rather than a second ruleset. It needs **no type-aware pass** — six
+seconds over ~3,900 files against forty-five minutes — so it sits in the always-on governance tier
+rather than the scoped one. And it **proves its own invocation**: every rule is run against a fixture
+written to trip it before its count is believed, because a wrapper whose plugin flag was renamed
+reports a clean tree forever.
+
+The `import` and `vitest` plugins stay OUT of the shared ruleset for the same reason they are named
+one rule at a time here: enabling a plugin switches on everything it carries at its category
+severity, which adds warnings to the forty-five-minute pass and moves nothing from advisory to
+enforced.
 
 ### Planned strictening (tracked)
 
@@ -55,7 +93,7 @@ Two tightenings are deferred, not rejected — each needs a cleanup pass before 
 - **Promote `correctness` to a hard error.** It currently keeps its inherited (advisory) severity; forcing it to `error` turns the existing correctness findings (`typescript/unbound-method`, `eslint/no-unused-vars`, `eslint/preserve-caught-error`, …) into gate failures. Fix those findings, then set `categories.correctness: "error"`. Correctness is the category that most deserves to block, so this is the highest-value next step.
 - **Enable `typescript/no-unsafe-type-assertion`.** Off today (~600 findings, mostly reviewed `as` at typed seams). Investigate whether a narrower form — an `overrides` entry scoping it to non-seam directories, or a codemod that replaces the mechanical cases — makes it a net win, then turn it on where it pays.
 
-Adopting the `import` and `vitest` plugins is the same shape of work (they surface real findings in existing test code) and belongs on this list too.
+Adopting the `import` and `vitest` plugins wholesale is the same shape of work and belongs on this list too — the rules from them that are already clean, or nearly so, are named individually in the hard-rule pass above rather than waiting for it.
 
 ---
 

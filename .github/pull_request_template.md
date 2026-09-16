@@ -39,7 +39,7 @@ Language: docs/conventions/documentation-style.md. Definition of done: docs/conv
 - [ ] Feature ledger: `roadmap.d/` node status flipped, `vp run register-build` run, `docs/now.md` committed
 - [ ] `ROADMAP.md` reflects the new status
 - [ ] Slice status: `status.d/<slice>.md` edited, `vp run status-build` run, `STATUS.md` and `STATUS.json` committed
-- [ ] Active-work note at `docs/active-work/<branch>.md` (retired with `vp run retire-note` once this lands)
+- [ ] Active-work note at `docs/active-work/<branch>.md`, retired **in this pull request** with `vp run retire-note <branch> --with-merge` (the worktree and branch are cleared locally afterwards)
 
 ## Verification
 

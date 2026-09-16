@@ -40,3 +40,9 @@ aho-corasick = "1"
 # image without a full pixel decode). Pure Rust; zune-jpeg is already in the tree transitively.
 zune-jpeg = "0.5"
 zune-png = "0.4"
+
+# The workspace lint floor (see crates/Cargo.toml): unsafe Rust forbidden, and the abort lints denied so a
+# malformed input returns an error instead of taking the process down. A member that omits this table is
+# not covered by any of it.
+[lints]
+workspace = true
