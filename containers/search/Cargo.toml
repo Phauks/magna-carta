@@ -35,3 +35,42 @@ ureq = { version = "3", default-features = false }
 # A minimal in-process HTTP server for the object-host fake the tests read and write through, so the
 # range reader is exercised over a real socket rather than against a trait double.
 tiny_http = "0.12"
+
+# The lint floor. Same rules as crates/Cargo.toml, stated here because every container is its own Cargo
+# workspace and a workspace lint table reaches nothing outside its own tree. This workspace holds one
+# package, so the tables sit on the package directly and there is no `workspace = true` opt-in to forget.
+# Levels were measured against this workspace with `cargo clippy --all-targets` before being set; what is
+# absent is absent on evidence and says so. The print/exit restrictions that crates/Cargo.toml denies are
+# deliberately not here: a container's binary IS the process, so writing a startup diagnostic to stderr
+# and exiting non-zero on a fatal boot failure is the correct behaviour rather than a smell.
+[lints.rust]
+unsafe_code = "forbid"
+non_ascii_idents = "forbid"
+ffi_unwind_calls = "deny"
+missing_abi = "deny"
+macro_use_extern_crate = "deny"
+unused_extern_crates = "deny"
+meta_variable_misuse = "deny"
+explicit_outlives_requirements = "deny"
+redundant_lifetimes = "deny"
+unused_lifetimes = "deny"
+unused_import_braces = "deny"
+unused_macro_rules = "deny"
+unit_bindings = "deny"
+keyword_idents_2018 = "deny"
+keyword_idents_2024 = "deny"
+non_local_definitions = "deny"
+trivial_numeric_casts = "deny"
+
+[lints.clippy]
+unwrap_used = "deny"
+panic_in_result_fn = "deny"
+todo = "deny"
+unimplemented = "deny"
+mem_forget = "deny"
+dbg_macro = "deny"
+# `clippy::panic` is absent over exactly one site: tests/object_reads.rs:46 panics in the match arm that
+# rejects an unexpected listen address while standing the object-host fake up. That is a helper, not a
+# `#[test]` function, so the test exemption in containers/clippy.toml does not reach it, and it is the
+# only panic in this workspace. Denying it needs a file-level allow in that test, which belongs to a
+# change that is touching the test.

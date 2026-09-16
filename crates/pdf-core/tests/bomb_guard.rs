@@ -1,6 +1,12 @@
 //! A deflate stream that inflates past the 256 MiB per-stream cap must be rejected
 //! by the pre-flight before any parser inflates it. One bomb, several entrypoints.
 
+// The bomb builders below are plain helper functions rather than `#[test]` ones, so the test exemption
+// in crates/clippy.toml does not reach them even though this whole file is test code. They compress
+// bytes this file just wrote; a failure here is a broken fixture, not the abort on attacker-chosen input
+// that the workspace `unwrap_used` rule exists to prevent.
+#![allow(clippy::unwrap_used)]
+
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use std::io::Write;
