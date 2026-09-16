@@ -156,6 +156,11 @@
    * record a contribution can make from here: one verb as the control's own press, several as its
    * choices. Only the section claims — a tile on another screen must not take that screen's control.
    */
+  // The variant is what this register IS — the matter's activity section, or the overview's recent
+  // tile — and both call sites pass it as a literal. It cannot change for a mounted instance, so the
+  // claim is made once here rather than re-evaluated: a tile that became a section mid-life would be
+  // a different screen, not a re-render.
+  // svelte-ignore state_referenced_locally
   if (variant === "section") {
     claimMatterCreate("activity", () => {
       const refusal = isSample ? SAMPLE_MATTER_REFUSAL : undefined;

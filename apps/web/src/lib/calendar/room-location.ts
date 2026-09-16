@@ -137,3 +137,48 @@ export function roomsByOffice(
 export function roomNotHeldSentence(roomName: string): string {
   return `The event was recorded, but ${roomName} was not held. Book it from the event's Rooms tab.`;
 }
+
+/**
+ * What a correction has to do to the event's bookings so they say what the location says.
+ *
+ * ONE GESTURE, NOT TWO. Choosing a firm room as the location books it — that has been true at the
+ * RECORD since 2026-09-14, and it was never true at the CORRECTION, which is the half that made
+ * Location and Book a Room still read as two features (owner, 2026-09-16: "booking a room and
+ * location should be consolidated"). An event moved from the Boardroom to Conference Room B kept
+ * the Boardroom held and never held Conference Room B, so after one edit the two room calendars
+ * disagreed with the record and with each other.
+ *
+ * SO THE CORRECTION RECONCILES, AND RECONCILES ONLY THE ROOM THE LOCATION NAMES. A booking for a
+ * room the location no longer names is released; the room it now names is booked. Every OTHER
+ * booking is left exactly as it is, which is what keeps the second room a firm held by hand from
+ * being swept away by an edit to a field that never mentioned it — the Rooms tab is still where a
+ * second room is held, and this never touches one.
+ *
+ * NOTHING HAPPENS WHERE NOTHING CHANGED. A location edited from one courthouse to another names no
+ * room at either end and moves no booking; a location left alone re-books nothing. That is what
+ * makes this safe to run on every save rather than only when somebody remembered to.
+ */
+export interface BookingReconciliation {
+  /** The booking ids to release: held for a room the location no longer names. */
+  readonly release: readonly string[];
+  /** The room to book, or null where the location names none or the right one is already held. */
+  readonly book: FirmResource | null;
+}
+
+export function reconcileRoomBooking(
+  locationText: string,
+  bookings: readonly { id: string; resourceId: string }[],
+  resources: readonly FirmResource[],
+  offices: readonly LocationSummary[],
+): BookingReconciliation {
+  const wanted = roomForLocation(locationText, resources, offices);
+  // Only bookings for a ROOM are this field's business. A pool car held against the same event was
+  // never named by the location and is not released by a change to it.
+  const roomIds = new Set(bookableRooms(resources).map((room) => room.id));
+  const held = bookings.filter((booking) => roomIds.has(booking.resourceId));
+  const release = held
+    .filter((booking) => wanted === null || booking.resourceId !== wanted.id)
+    .map((booking) => booking.id);
+  const alreadyHeld = wanted !== null && held.some((booking) => booking.resourceId === wanted.id);
+  return { release, book: wanted !== null && !alreadyHeld ? wanted : null };
+}

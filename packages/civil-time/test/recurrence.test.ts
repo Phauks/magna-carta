@@ -14,7 +14,7 @@ import {
   weekdayPositionOf,
   weeklyRecurrence,
   type RecurrenceRule,
-} from "$lib/calendar/recurrence.ts";
+} from "../src/recurrence.ts";
 
 function rule(overrides: Partial<RecurrenceRule> = {}): RecurrenceRule {
   return { ...weeklyRecurrence(), ...overrides };

@@ -71,6 +71,9 @@
     readMatterEvent,
     satisfyDeadline,
     updateDeadline,
+    createBooking,
+    deleteBooking,
+    listEventBookings,
     updateFirmEvent,
     updateMatterEvent,
     vacateDeadline,
@@ -113,11 +116,13 @@
     type EntryReferenceKind,
   } from "./entry-reference.ts";
   import EntryRoomsTab from "./entry-rooms-tab.svelte";
+  import { shortfallFor, type Shortfall } from "./shortfall.ts";
   import {
     deadlineUpdateOf,
     eventUpdateOf,
     firmEventUpdateOf,
   } from "./entry-updates.ts";
+  import { reconcileRoomBooking, roomNotHeldSentence } from "./room-location.ts";
   import ParticipantPicker from "./participant-picker.svelte";
   import {
     deadlineVerbRefusal as deadlineVerbRefusalOf,
@@ -145,6 +150,7 @@
   import EventTypeSelect from "./event-type-select.svelte";
   import RecordDeadlineDialog from "./record-deadline-dialog.svelte";
   import RecordTimingFields from "./record-timing-fields.svelte";
+  import RecurrenceField from "./recurrence-field.svelte";
   import LocationPicker from "./location-picker.svelte";
   import TimeZonePicker from "./time-zone-picker.svelte";
 
@@ -313,6 +319,12 @@
   // dialogs, and the counts the tab strip shows.
 
   let linksTab = $state<EntryLinksTab>();
+  /*
+   * The Rooms tab's own handle. It no longer carries a verb on the ACTION BAR — holding the room a
+   * setting is held in is the Location field's gesture, and a second control for the same act read
+   * as a second feature (owner, 2026-09-16) — but the handle stays, because the tab is still where
+   * a SECOND room, or a car, is held by hand.
+   */
   let roomsTab = $state<EntryRoomsTab>();
   let relatedCount = $state(0);
   let bookingCount = $state(0);
@@ -372,13 +384,26 @@
     return false;
   });
 
-  /** Why the change cannot be committed as it stands, or undefined when it can. */
-  const shortfall = $derived.by((): string | undefined => {
-    if (eventDraft !== null) return eventDraftShortfalls(eventDraft)[0];
-    if (deadlineDraft !== null) return deadlineDraftShortfalls(deadlineDraft)[0];
-    if (firmEventDraft !== null) return firmEventDraftShortfalls(firmEventDraft)[0];
-    return "There is no record to change.";
+  /**
+   * Everything the change still needs, each knowing which field it is about.
+   *
+   * The bar shows the FIRST sentence and the fields carry their own once a save has been refused,
+   * so the reader is told why the commit will not press AND where to go — one wording, written in
+   * the draft and rendered twice.
+   */
+  const shortfalls = $derived.by((): readonly Shortfall[] => {
+    if (eventDraft !== null) return eventDraftShortfalls(eventDraft);
+    if (deadlineDraft !== null) return deadlineDraftShortfalls(deadlineDraft);
+    if (firmEventDraft !== null) return firmEventDraftShortfalls(firmEventDraft);
+    return [{ field: "", sentence: "There is no record to change." }];
   });
+  const shortfall = $derived(shortfalls[0]?.sentence);
+  /*
+   * Fields are marked only once a save was asked for and refused. A form that opens with every
+   * unanswered field already marked has told the reader they are wrong for not having typed yet.
+   */
+  let saveAttempted = $state(false);
+  const fieldShortfalls = $derived(saveAttempted ? shortfalls : []);
 
   let saving = $state(false);
   let saveFailure = $state<StatedFailure | null>(null);
@@ -403,6 +428,7 @@
   // ---- the commit ------------------------------------------------------------------------------
 
   async function save(): Promise<void> {
+    saveAttempted = true;
     if (record === null || saving || shortfall !== undefined) return;
     saving = true;
     saveFailure = null;
@@ -442,10 +468,64 @@
       );
       return;
     }
+    // The room the location names is held, and one it no longer names is released — so a setting
+    // MOVED from the Boardroom to Conference Room B leaves both room calendars saying what the
+    // record says. Booking at the record was already true; this is the correction's half of it,
+    // and its absence is what kept Location and Book a Room reading as two features.
+    await reconcileRooms();
     editing = false;
     participantsEdited = false;
+    saveAttempted = false;
     onChanged();
     reread();
+  }
+
+  /**
+   * Make the event's room bookings say what its location says.
+   *
+   * It runs AFTER the record saved, because the location it reconciles to is the one that landed.
+   * A booking that could not be moved does not unwind the correction — the correction is a real
+   * change the reader asked for — so the window states which half did not happen and leaves the
+   * record as saved, exactly as the record form does.
+   *
+   * Only the room the location names is touched. A pool car, or a second room somebody held from
+   * the Rooms tab, was never named by this field and is not swept away by an edit to it.
+   */
+  async function reconcileRooms(): Promise<void> {
+    if (record === null || record.kind === "deadline") return;
+    const locationText =
+      record.kind === "event" ? (eventDraft?.locationText ?? "") : (firmEventDraft?.locationText ?? "");
+    const held = await listEventBookings(fetch, {
+      kind: record.kind === "event" ? "matterEvent" : "firmEvent",
+      id: record.event.id,
+    });
+    if (held.kind !== "ok") return;
+    const plan = reconcileRoomBooking(
+      locationText,
+      held.value.data,
+      context.resources,
+      context.locations,
+    );
+    for (const bookingId of plan.release) {
+      await deleteBooking(fetch, bookingId, crypto.randomUUID());
+    }
+    if (plan.book === null) return;
+    const booked = await createBooking(
+      fetch,
+      {
+        resourceId: plan.book.id,
+        matterEventId: record.kind === "event" ? record.event.id : null,
+        firmEventId: record.kind === "firmEvent" ? record.event.id : null,
+      },
+      crypto.randomUUID(),
+    );
+    if (booked.kind !== "ok") {
+      saveFailure = stated(
+        booked.failure,
+        roomNotHeldSentence(plan.book.name),
+        roomNotHeldSentence(plan.book.name),
+      );
+    }
   }
 
   /** Abandoning: the window has already left editing; the fields go back to the seed. */
@@ -931,7 +1011,15 @@
             bind:draft={eventDraft}
             idPrefix="{idPrefix}-timing"
             preferred={preferredZones}
+            shortfalls={fieldShortfalls}
             disabled={readOnly}
+          />
+          <RecurrenceField
+            bind:rule={draft.recurrence}
+            startsOn={draft.startsOn}
+            idPrefix="{idPrefix}-repeat"
+            disabled={readOnly}
+            unreadable={record.event.recurrenceRule !== null && draft.recurrence === null}
           />
           <div class="grid gap-12 @md:grid-cols-2">
             <div class="flex flex-col gap-4">
@@ -1076,7 +1164,15 @@
             bind:draft={firmEventDraft}
             idPrefix="{idPrefix}-timing"
             preferred={preferredZones}
+            shortfalls={fieldShortfalls}
             disabled={readOnly}
+          />
+          <RecurrenceField
+            bind:rule={draft.recurrence}
+            startsOn={draft.startsOn}
+            idPrefix="{idPrefix}-repeat"
+            disabled={readOnly}
+            unreadable={record.event.recurrenceRule !== null && draft.recurrence === null}
           />
           <div class="grid gap-12 @md:grid-cols-2">
             <div class="flex flex-col gap-4">
@@ -1307,14 +1403,6 @@
       <Button
         variant="secondary"
         disabled={eventVerbRefusal !== undefined}
-        title={eventVerbRefusal ?? "Book a room, a car or equipment for this setting's window"}
-        onclick={() => roomsTab?.openBook()}
-      >
-        Book a Room
-      </Button>
-      <Button
-        variant="secondary"
-        disabled={eventVerbRefusal !== undefined}
         title={eventVerbRefusal ?? "Link this setting to another on the same matter"}
         onclick={() => void linksTab?.openRelate()}
       >
@@ -1353,14 +1441,6 @@
         onclick={openCancel}
       >
         Cancel Event
-      </Button>
-      <Button
-        variant="secondary"
-        disabled={eventVerbRefusal !== undefined}
-        title={eventVerbRefusal ?? "Book a room, a car or equipment for this event's window"}
-        onclick={() => roomsTab?.openBook()}
-      >
-        Book a Room
       </Button>
       <Button
         variant="secondary"
@@ -1478,7 +1558,7 @@
   notice={verbNotice}
   commitLabel="Continue Setting"
   commitBusyLabel="Continuing"
-  commitRefusal={continueRefusal}
+  commitRefusal={continueRefusal?.sentence}
   unsavedChanges={continueStarted}
   width="wide"
   onCommit={commitContinue}

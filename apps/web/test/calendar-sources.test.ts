@@ -238,13 +238,16 @@ describe("what a browser remembers", () => {
       onOverrides: {},
       colors: {},
       concurrency: DEFAULT_CONCURRENCY,
+      foldedFolders: {},
     });
     const salvaged = normalizeCalendarPreferences({
       onOverrides: { records: true, firmEvents: "yes" },
       colors: { records: "blue", firmEvents: "chartreuse" },
+      foldedFolders: { rooms: true, dates: "shut" },
     });
     expect(salvaged.onOverrides).toEqual({ records: true });
     expect(salvaged.colors).toEqual({ records: "blue" });
+    expect(salvaged.foldedFolders).toEqual({ rooms: true });
   });
 
   it("keeps a stored presentation of concurrent entries, and drops one it does not offer", () => {

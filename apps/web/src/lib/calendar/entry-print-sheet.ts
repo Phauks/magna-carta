@@ -23,6 +23,7 @@ import {
 } from "./calendar-api.ts";
 import { deadlineSourceLabel } from "./deadline-draft.ts";
 import type { EntryRecord } from "./entry-reference.ts";
+import { recurrenceSentence } from "./recurrence-sentence.ts";
 import { timeZoneLabel } from "./time-zone-options.ts";
 
 /** Everything the sheet needs that the record itself does not carry. */
@@ -164,6 +165,7 @@ export function entrySheet(record: EntryRecord, context: EntrySheetContext): Pri
             { label: "Location", value: event.locationText ?? NOT_RECORDED },
             { label: "Conference Link", value: event.conferenceUrl ?? NOT_RECORDED },
             { label: "Court Reference", value: event.courtReference ?? NOT_RECORDED },
+            ...repeatFact(event.recurrenceRule, event.startsOn),
             { label: "Status", value: eventStatusLabel(event.status) },
             ...(event.statusReason === null
               ? []
@@ -221,6 +223,7 @@ export function entrySheet(record: EntryRecord, context: EntrySheetContext): Pri
           { label: "Office", value: context.officeName ?? NOT_RECORDED },
           { label: "Location", value: event.locationText ?? NOT_RECORDED },
           { label: "Conference Link", value: event.conferenceUrl ?? NOT_RECORDED },
+          ...repeatFact(event.recurrenceRule, event.startsOn),
           { label: "Status", value: eventStatusLabel(event.status) },
           ...(event.statusReason === null ? [] : [{ label: "Reason", value: event.statusReason }]),
         ],
@@ -248,4 +251,19 @@ export function entrySheet(record: EntryRecord, context: EntrySheetContext): Pri
     ],
     footer,
   };
+}
+
+/**
+ * The Repeats line, on a sheet for a setting that repeats and on no other.
+ *
+ * Present-or-absent rather than the "Not recorded" the neighbouring facts use, because a repeat is
+ * not a blank somebody failed to fill in: almost every setting a firm records happens once, and a
+ * row stating so on every printed sheet is a line nobody reads carrying no news.
+ */
+function repeatFact(
+  recurrenceRule: string | null,
+  startsOn: string,
+): { label: string; value: string }[] {
+  const sentence = recurrenceSentence(recurrenceRule, startsOn);
+  return sentence === null ? [] : [{ label: "Repeats", value: sentence }];
 }

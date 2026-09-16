@@ -35,6 +35,18 @@ setting and deadline on every matter you can see, and the firm's own events besi
   everything else is yours to add. What you have open is **yours**: it follows you between screens
   and visits on this browser, and changes nothing for anybody else.
 
+  **Fold a folder you are not using.** Press its name and it closes up, so a firm with twenty
+  conference rooms does not scroll past all twenty to reach what is under them. Folding takes
+  nothing away: the tick beside the folder's name still turns every calendar in it on or off while
+  it is closed, and a closed folder shows how many of its calendars are switched on so nothing
+  disappears quietly. What you have folded is remembered on this browser, like the rest of the list.
+
+- **A small month sits under the list, and it stays there.** It shows where you are and takes you
+  somewhere else in one press, and it does not scroll away when you scroll the calendars above it.
+  Pressing a day moves the calendar to that day **without changing your view** — press a Thursday
+  while you are reading a week and you get that Thursday's week, not a day view of it. Its week
+  begins on the day your firm chose, so its columns and the grid's are the same seven days.
+
 - **A colour per calendar.** Press the dot beside a calendar's name and pick a colour. It paints a
   stripe down the edge of every entry from that calendar, and heads that calendar's column on the
   day view, so one person's day is told from another's at a glance. Calendars you have not coloured
@@ -48,15 +60,28 @@ setting and deadline on every matter you can see, and the firm's own events besi
   calendar on and the others off; to read a colleague's, turn theirs on. A colleague's calendar
   shows the settings they are a participant at or the responsible attorney for, over the matters
   you can see, and every firm event whose audience is everyone.
+- **Kinds.** The list on the left says whose calendars you are looking at; **Kinds**, at the top,
+  says what sort of thing — case settings, deadlines, firm events, or the dates from the register.
+  Not every week needs all four at once. Every kind is shown until you say otherwise, so the first
+  press takes one away rather than leaving you with only it. **Show Everything** puts them back and
+  appears only while something is being held back. Turning all four off shows you everything rather
+  than an empty calendar. It narrows what is on screen and asks the server for nothing, so it
+  answers as fast as you press it — and it reaches exactly as far as the window you are looking at.
 - **Hide settled.** On the agenda, press it to leave out what is no longer coming: cancelled
   settings and satisfied, vacated or superseded deadlines. The agenda says how many it left out.
   The month and the week always show them, struck through.
-- **Month, week, day, agenda.** Four views of the same calendar, chosen at the top right beside
-  **New**, with the arrows and **Today** that move you through time. The month grid shows a few
+- **Month, week, day, agenda.** Four views of the same calendar, chosen directly above the calendar
+  itself, with the arrows and **Today** that move you through time. The screen's name runs across
+  the top of the whole page, above both the list of calendars and the calendar, with the search and
+  **New** on its line. The month grid shows a few
   entries per day and says how many more there are; press that and the agenda opens on that day.
   The **week** and the **day** are the two with hours: the time runs down the side, and an entry is
   drawn from the hour it starts at to the hour it ends, so a two-hour deposition is twice the block
-  a one-hour conference is and a free afternoon shows as a gap. The week's columns are its seven
+  a one-hour conference is and a free afternoon shows as a gap. **An event that runs for several days
+  shows on every one of them**: the first day from its start time to midnight, a day in the middle
+  filled, and the last day from midnight to when it ends — which is what "in court until Wednesday
+  afternoon" looks like on a calendar. **All-day entries sit in a band above the hours** rather than
+  at midnight, because a filing has no hour and parking it at the top of the column implied one. The week's columns are its seven
   days; the day's are the calendars you have turned on, so a Tuesday your firm spends in four
   places reads at a glance and a setting two people are at appears in both their columns. Anything
   with no time — a filing, a deadline, anything running several days — sits in the band above the
@@ -111,10 +136,22 @@ same picker. What you change there is saved with the rest of the record, when yo
 
 ## Recording an event
 
-An event is anything that happened or will happen in the case. Give it a title, a date, and the time
-zone it happens in. Everything else is optional — **including the matter**. Leave the matter blank
-(the field's first row says so) and what you record is a **firm event** instead: a meeting, a
-training, a reservation, anything that belongs to the firm rather than to a case.
+An event is anything that happened or will happen. There is **one form** for all of them, and its
+first line asks who the event belongs to: **a matter**, or **the firm**.
+
+- Choose **a matter** and the matter picker appears beside it. What you record is a setting on that
+  case — a hearing, a deposition, a closing.
+- Choose **the firm** and what you record is a firm event: a meeting, a training, an office closure,
+  a reservation. You are then asked the two things only a firm event needs — **who sees it**
+  (everyone at the firm, or just the people you list) and **which office** it is at, which is what
+  tells the form which conference rooms are nearby. The court reference field disappears, because a
+  firm meeting has no court.
+- There is no third option, and a personal appointment is not a special case: record it as a firm
+  event with only yourself on it.
+
+On a matter's own calendar there is nothing to choose — the matter is the one you are standing in.
+
+Give the event a title, a date, and the time zone it happens in. Everything else is optional.
 
 - **A time is optional, and that is deliberate.** Leave it off and the event is an all-day one, which
   is what a filing is. Put it on and the event sits at that time.
@@ -130,21 +167,55 @@ training, a reservation, anything that belongs to the firm rather than to a case
 - **Location** offers the places your firm already has: your offices, then your conference rooms,
   each under its own heading. Type anything else and it is kept — a courthouse, a department number,
   opposing counsel's address — because most hearings are not at one of your offices.
-- **Choosing one of your conference rooms books it.** The room is held for the event's own window
+- **Choosing one of your conference rooms books it, and changing it moves the booking.** The room is held for the event's own window
   and the event appears on that room's calendar, so "held here" and "this room is taken" are one
   act rather than two you have to remember. If the room cannot be held — somebody else has it, or
   the booking is refused — the form says so and names the room; the event is still recorded, and
   you can book the room from its Rooms tab. Typing a place your firm has no record of books
   nothing, which is what a courthouse should do.
+
+  **Editing the location afterwards moves the booking too.** Move a deposition from the Boardroom
+  to Conference Room B and the Boardroom is released and Conference Room B held; change the
+  location to a courthouse and the room is released; change one courthouse for another and nothing
+  moves. A car or a second room you booked by hand is never touched, because the location field
+  never named it. If the new room cannot be held, your change to the event is still saved and the
+  window says the room was not held.
+
 - **A conference link** is its own field, for a setting held on a call: paste the Zoom, Teams or
   other meeting link. It is separate from Location on purpose, because a deposition can be in a
   conference room and on a call at the same time.
 - **That day's calendar stands beside the form** while you fill it in, so you can see who is already
   busy before you choose a time. It appears once you have chosen a date.
+- **Repeats** turns one record into a series. Choose how often — every day, week, month or year —
+  and how many of them to skip between: every week, every second week, every third. A weekly rule
+  falls on the day the event starts unless you pick the days yourself, and can fall on several
+  (Monday, Wednesday and Friday). A monthly rule asks which day it means: the same date every month,
+  or the same weekday in the same position — the 15th, or the third Tuesday. Then say where it
+  stops: never, after a number of occurrences, or on a date.
+
+  Under the controls the form reads the rule back to you in words — "Repeats every second Tuesday,
+  12 times" — and the record shows the same sentence. Check it before you save: a repeat is the one
+  answer on this form whose mistake is invisible until somebody misses a setting.
+
+  It is **one record**, not one per date. A weekly status conference is a single event with a rule
+  on it, so correcting the series is one correction rather than fifty-two. A month that has no such
+  date — the 31st in February — is skipped rather than moved to the 28th, because a firm that said
+  the 31st did not mean the end of the month.
+
+  An event imported from another calendar can carry a repeat rule more elaborate than this form
+  offers. Where it does, the form says the rule was recorded elsewhere rather than showing you a
+  simplified version that saving would make true; turning Repeats on replaces it with yours.
+
 - **The court's own case number** goes on the event as the court writes it.
 - **Who is there** can be a member of your firm, a contact from your directory, or somebody who is
   neither — a judge, a court reporter, an interpreter, a witness. You are not made to create a
   directory contact for a judge you will never write to.
+
+**When the form will not save, it says which answers it still needs.** The reason appears beside the
+button, as it always has, and the field it is about is marked with the same sentence underneath it —
+so you are told where to go rather than only what is wrong. Nothing is marked while you are still
+filling the form in: the marks appear the moment you try to save and cannot, and they clear when the
+record goes in.
 
 **Correcting a record and rescheduling reality are different acts, and there is a verb for each.**
 Typed the 13th when the hearing was always on the 14th? Edit the event — the record misdescribed

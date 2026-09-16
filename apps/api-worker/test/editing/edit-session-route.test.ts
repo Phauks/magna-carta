@@ -124,6 +124,10 @@ describe("POST /api/v1/documents/{fileId}/edit-session", () => {
     expect(claims.fileId).toBe(fileId);
     expect(claims.capability).toBe("edit");
     expect(claims.firmId).toBe(firmId);
+    // The origin that asked for the launch rides in the token, because the WOPI callbacks have no
+    // request of their own to read it from — it is what CheckFileInfo returns as PostMessageOrigin,
+    // and without it the editor never reports itself up to the screen framing it.
+    expect(claims.appOrigin).toBe("https://example.com");
   });
 
   it("denies a Read-only member, whose seat the documents:edit seed deliberately does not reach", async () => {

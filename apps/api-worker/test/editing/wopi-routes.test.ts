@@ -110,6 +110,38 @@ describe("WOPI CheckFileInfo", () => {
     expect(info.Version.length).toBeGreaterThan(0);
   });
 
+  it("hands back the launching origin as PostMessageOrigin, so the editor can report itself up", async () => {
+    // Without it the editor posts nothing, and the screen framing it cannot tell a container that is
+    // still starting from a frame the browser refused.
+    const { fileId, versionId } = await seedCleanFile("Spoken.docx", "hello");
+    const claims = { ...claimsFor(fileId, versionId, "edit"), appOrigin: "https://acme.example" };
+
+    const info = await checkFileInfo(claims, {
+      database: firmDb,
+      bucket: env.R2,
+      currentMeta: null,
+      liveSessionId: null,
+    });
+
+    expect(info.PostMessageOrigin).toBe("https://acme.example");
+  });
+
+  it("omits PostMessageOrigin for a token minted before the claim existed, rather than guessing one", async () => {
+    // A guessed origin would not match the page, so the messages would go nowhere — the same silence,
+    // with a configuration value standing behind it. Such a token is still inside its hour.
+    const { fileId, versionId } = await seedCleanFile("Silent.docx", "hello");
+
+    const info = await checkFileInfo(claimsFor(fileId, versionId, "edit"), {
+      database: firmDb,
+      bucket: env.R2,
+      currentMeta: null,
+      liveSessionId: null,
+    });
+
+    expect(info.PostMessageOrigin).toBeUndefined();
+    expect("PostMessageOrigin" in info).toBe(false);
+  });
+
   it("withholds write for a view token (capability is the gate, not a UI hint)", async () => {
     const { fileId, versionId } = await seedCleanFile("ReadOnly.docx", "abc");
 

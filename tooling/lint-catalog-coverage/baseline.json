@@ -1,0 +1,17 @@
+{
+  "catalog-entry": {
+    "note": "Component families with no catalog entry of their own, recorded 2026-09-16 (4 of 83). field-label and record-reference are rendered inside other families' stories and so are photographed, but neither can be FOUND in the catalog, which is the half that stops a second implementation. folder-glyph and service-marks are rendered nowhere in it at all. This register may only shrink: a new family must arrive with its story, and an entry the catalog has since covered fails the gate.",
+    "count": 4,
+    "entries": ["field-label", "folder-glyph", "record-reference", "service-marks"]
+  },
+  "behaviour-test": {
+    "note": "Families whose catalog entry only draws them and which no unit test reaches. Clean at 0: 87 of the 91 stories carry `storybook/test` assertions and test/ reaches 21 families, so every family with an entry has behaviour coverage today. The four stories with no assertions (app-shell, design-tokens, focus-ring-proposal, palette-swatches) are compositions and token galleries that belong to no family, so no family depends on them for its behaviour leg. An empty register is the rule at rest.",
+    "count": 0,
+    "entries": []
+  },
+  "visual-regression-derived": {
+    "note": "Set when visual-regression/catalog.spec.ts stops building its matrix from the static build's index.json. That derivation is the only reason this gate treats a catalog entry as visual-regression coverage, so it is asserted rather than assumed. Clean, and an entry here would mean the gate is overstating what it checks rather than that a component is uncovered — which is why it is a register of one line, not a place to file components.",
+    "count": 0,
+    "entries": []
+  }
+}

@@ -76,7 +76,7 @@ where, and record it. The row then shows the setting; move or cancel it from the
 
 Once the consultation has happened and the firm agrees to act, open the matter from its status
 seal, as described in
-[`intake-procedure.md`](intake-procedure.md#opening-the-matter). The matter leaves the desk when it
+[`intake-procedure.md`](intake-procedure.md#completing-the-intake-and-opening-the-matter). The matter leaves the desk when it
 opens, and when an intake or a consultation is closed without opening.
 
 ## Tips and Edge Cases

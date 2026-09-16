@@ -49,10 +49,21 @@ export interface CalendarPreferencesValue {
    * else sees, and a reader flips it while reading a crowded Tuesday.
    */
   concurrency: CalendarGridConcurrency;
+  /**
+   * The folders this reader has folded shut, by key. A DEPARTURE like the rest of this file: a
+   * folder absent here is open, so a folder shipped later arrives open rather than shut because a
+   * stored list predates it.
+   *
+   * Folded rather than hidden. A firm with twenty rooms had to scroll past all twenty to reach the
+   * folder under them (owner, 2026-09-16), and folding is the answer that costs no capability —
+   * the folder's own three-state control stays on its head, so every calendar inside it can still
+   * be turned on and off without opening it.
+   */
+  foldedFolders: Record<string, boolean>;
 }
 
 function emptyValue(): CalendarPreferencesValue {
-  return { onOverrides: {}, colors: {}, concurrency: DEFAULT_CONCURRENCY };
+  return { onOverrides: {}, colors: {}, concurrency: DEFAULT_CONCURRENCY, foldedFolders: {} };
 }
 
 /** The two presentations, as the control offers them. A closed set the grid also declares. */
@@ -85,6 +96,11 @@ export function normalizeCalendarPreferences(parsed: unknown): CalendarPreferenc
     }
   }
   if (isConcurrency(record.concurrency)) value.concurrency = record.concurrency;
+  if (record.foldedFolders !== null && typeof record.foldedFolders === "object") {
+    for (const [key, folded] of Object.entries(record.foldedFolders)) {
+      if (typeof folded === "boolean") value.foldedFolders[key] = folded;
+    }
+  }
   return value;
 }
 
@@ -156,4 +172,17 @@ export function chosenConcurrency(): CalendarGridConcurrency {
 /** Choose how concurrent entries are drawn. */
 export function setConcurrency(concurrency: CalendarGridConcurrency): void {
   preference.set({ ...preference.current, concurrency });
+}
+
+/** Whether a folder is folded shut. Absent means open, which is where every folder starts. */
+export function isFolderFolded(key: string): boolean {
+  return preference.current.foldedFolders[key] ?? false;
+}
+
+/** Fold a folder shut, or open it. */
+export function setFolderFolded(key: string, folded: boolean): void {
+  preference.set({
+    ...preference.current,
+    foldedFolders: { ...preference.current.foldedFolders, [key]: folded },
+  });
 }

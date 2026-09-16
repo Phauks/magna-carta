@@ -32,7 +32,13 @@ properties; off-token values are machine-rejected.
   downwards for as long as it runs. Two pure modules carry the arithmetic and are tested without a
   browser: `time-placement.ts` (the span an entry occupies, floored at `MINIMUM_BLOCK_MINUTES` so a
   fifteen-minute call can still hold its label, and the share of the column it takes) and
-  `time-blocks.ts` (which cell it renders in, and the inline style that draws it). **How concurrent
+  `time-blocks.ts` (which cell it renders in, and the inline style that draws it), and
+  `day-segments.ts` (a timed entry that runs past midnight, cut into the piece it occupies on each
+  day it covers — the first day from its start hour to midnight, a day in the middle the whole
+  column, the last day midnight to its end hour). The month never needed that last one, because
+  `placeEntries` walks every day of a span; a span on an HOUR axis is not the same entry repeated,
+  which is why the time grids could not use it. Each piece carries its own id, because two pieces of
+  one record are two things to render and a grid keyed on a repeated id drops all but one. **How concurrent
   entries are drawn is the READER's** (`concurrency`: `side-by-side` divides the column,
   `overlap` steps them over one another) — a closed set, never a length or a flag at a call site.
   The month and the agenda have no hour axis and take no such prop. The calendar's own arithmetic,
@@ -423,6 +429,15 @@ by hand at two widths with two scroll treatments.
   never scrolls on such a route; the two columns do, with `scrollbar-gutter: stable` so a
   scrollbar arriving never shifts what sits beside it. A screen that renders it beneath a masthead
   of its own is not this shape yet.
+- **A title can SPAN both columns (`header`), and the navigation can PIN something under its
+  scroll (`navigationFooter`).** Both are optional, and giving neither leaves the DOM byte-identical
+  for the screens composing this today. The calendar asked for both and neither is calendar-specific:
+  a title that names the SCREEN belongs over the whole canvas rather than over one column of it, and
+  a rail with a picker under it is the shape of every navigation whose last element must stay in
+  view while its list scrolls. The header sits inside the cancelled canvas inset and puts the gutter
+  back itself; `navigationFooter` moves the scroll region and its reserved gutter off the `<nav>`
+  onto an inner stack, because a pinned footer cannot sit inside the thing that scrolls past it. The
+  landmark stays the `<nav>` either way.
 - **`contentScrolls={false}` for a page that stages header / scrolling middle / pinned footer.**
   The column is then a bare full-height flex stack and the page owns its scroller; otherwise the
   page's middle would draw a second scrollbar inside a column that had already reserved a gutter.
