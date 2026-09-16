@@ -15,9 +15,10 @@
  *     old ledger from a newer schema — which blocks every later migration for the life of the
  *     database. `packages/database/src/legacy-baselines.ts` is what undoing one of those costs.
  *
- * The deliberate exceptions are ./allowed-changes.mts. The one case that is NOT an exception is a
- * baseline collapse, which the runtime already reconciles through `LEGACY_BASELINES` — the gate
- * reads that list rather than asking for the same fact twice.
+ * The deliberate exceptions are ./allowed-changes.mts. Two cases are NOT exceptions, because the
+ * runtime reconciles them itself and the gate reads its lists rather than asking for the same fact
+ * twice: a baseline collapse (`LEGACY_BASELINES`) and a re-stamped tag (`RE_STAMPED_MIGRATIONS`).
+ * Both arrive here through `reconciledByRuntime`.
  */
 
 import type { AllowedChange } from "./allowed-changes.mts";
@@ -60,9 +61,12 @@ export function immutabilityViolations(
       violations.push(
         `${tag} is on main — which is production — but this lineage no longer contains it. Every ` +
           "database that applied it holds a tag this code cannot recognize, and the runner then " +
-          "refuses the whole lineage for the life of that database. If the rename is deliberate " +
-          "and provably safe, record it in tooling/migration-immutability/allowed-changes.mts with " +
-          "the reason no database can have applied it.",
+          "refuses the whole lineage for the life of that database. If this is a pure rename — the " +
+          "same SQL under a new tag — record it in " +
+          "packages/database/src/re-stamped-migrations.ts, which is what teaches the runner to " +
+          "rewrite those ledgers instead of refusing them. Record it in " +
+          "tooling/migration-immutability/allowed-changes.mts only when the tag is going away for " +
+          "good, with the reason no database can have applied it.",
       );
       continue;
     }
