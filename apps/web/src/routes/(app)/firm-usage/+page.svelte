@@ -24,19 +24,19 @@
   import ExportMenu from "$lib/export/export-menu.svelte";
   import { MaturityBadge } from "@magna-carta/design-system/maturity";
   import FieldLabel from "@magna-carta/design-system/field-label";
-  import ByLocationTable from "$lib/tools/firm-usage/by-location-table.svelte";
+  import ByLocationTable from "$lib/firm-usage/by-location-table.svelte";
   import {
     readFirmUsage,
     type FirmUsageByLocation,
     type FirmUsageResponse,
-  } from "$lib/tools/firm-usage/firm-usage-api.ts";
-  import { firmUsageExportDocument } from "$lib/tools/firm-usage/firm-usage-report.ts";
+  } from "$lib/firm-usage/firm-usage-api.ts";
+  import { firmUsageExportDocument } from "$lib/firm-usage/firm-usage-report.ts";
   import {
     formatByteSize,
     formatCount,
     formatShare,
     notMeteredLabel,
-  } from "$lib/tools/firm-usage/firm-usage-format.ts";
+  } from "$lib/firm-usage/firm-usage-format.ts";
 
   let usage = $state<FirmUsageResponse | null>(null);
   let readFailure = $state<StatedFailure | null>(null);
@@ -180,7 +180,6 @@
 
 <ScreenHeader
   title="Firm Usage"
-  back="tools"
   class="mb-24"
 >
   {#snippet actions()}

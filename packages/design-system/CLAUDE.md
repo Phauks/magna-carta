@@ -373,6 +373,28 @@ handlers is a defect rather than a choice.
   cannot be expressed with a custom property inside a media query. Its class strings are literal in
   `field-row/variants.ts` for Tailwind's scanner.
 
+## The sidebar's two levels
+
+**`Sidebar.MenuTrigger` + `Sidebar.MenuSub` are the rail's SUB-MENU**, added when the tools became
+top-level rows and nine of them arrived in one group (owner's direction, 2026-09-16).
+
+- **The trigger wears the destination row's recipe exactly** and differs in the one way that
+  matters: pressing it opens the rows beneath instead of going anywhere. A row that looked like a
+  category and navigated like a destination would be the `/tools` index again in miniature. Its
+  chevron follows the group heading's convention — down while open, toward the inline start while
+  folded — and rides the trailing column, so a long cluster name truncates and the chevron stays.
+- **`MenuSub` is a real nested `<ul>` inside the trigger's `<li>`**, so the nesting a reader sees is
+  the nesting a screen reader hears. Its indent and start-edge hairline are what make "these belong
+  to the row above" legible at a glance rather than by measurement.
+- **The expansion state is the CONSUMER's.** Neither part holds it: the app stores a member's folds
+  as departures (`sidebar-preferences.svelte.ts`), and the story holds a `$state` for the same
+  reason. A part that remembered its own fold would be a second answer to a question the preference
+  store has already settled.
+- **`MenuButton` gained a `trailing` snippet**, and the row is a three-track grid: icon, label
+  (takes the slack, truncates), trailing (sized to its contents, never shrinks). A mark rendered
+  among the children rides inside the label's own overflow, which clipped the maturity badge off
+  every row long enough to need it. The collapsed rail hides the trailing column with the label.
+
 ## The navigation layout: a screen's two sides, drawn once
 
 **`src/lib/components/navigation-layout/` is the one shape for a canvas with a navigational column

@@ -44,7 +44,7 @@
 
 <svelte:head><title>Attorney License Lookup · Magna Carta</title></svelte:head>
 
-<ScreenHeader title="Attorney License Lookup" back="tools" class="mb-24" />
+<ScreenHeader title="Attorney License Lookup" class="mb-24" />
 
 <div class="mb-16 w-3xs">
   <LabelledField label="State" id="attorney-license-state">

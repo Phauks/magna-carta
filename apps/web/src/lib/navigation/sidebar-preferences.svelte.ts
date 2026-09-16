@@ -1,73 +1,94 @@
 /*
- * Per-member sidebar preferences — the STAR layer over the canonical destination registry
+ * Per-member sidebar preferences — the VISIBILITY layer over the canonical destination registry
  * (destinations.ts), on the shared persisted-preference primitive. The registry stays the truth
  * about what exists; this store holds only what THIS member shows and in what per-group order. The
  * primitive owns the localStorage read/write, the SSR guard, and the cross-tab follower; the
  * normalize below is this store's read-time validator (unknown ids drop; the shape is rebuilt
  * fresh), applied to first read and to any payload arriving from another tab.
  *
- * INVARIANT — STARS GOVERN THE SIDEBAR ONLY. Every destination stays reachable through the command
- * palette regardless of stars, and Customize mode reveals every destination for re-adding: hiding
- * must never remove capability — searching for a thing is wanting it.
+ * INVARIANT — HIDING GOVERNS THE SIDEBAR ONLY. Every destination stays reachable through the command
+ * palette regardless, and Customize mode reveals every destination for bringing back: hiding must
+ * never remove capability — searching for a thing is wanting it.
+ *
+ * THREE LAYERS, THREE MEANINGS, THREE MARKS (owner ruling, 2026-09-16):
+ *   - SHOW/HIDE (the eye) — whether a destination the platform ships appears in its group. This
+ *     store.
+ *   - FAVOURITE (the star) — the member's own shortcut to any address at all, platform row or not.
+ *     navigation/favorites.svelte.ts; rendered as the rail's first group.
+ *   - PERMISSION — whether the member may see the thing at all. Access control's, never a
+ *     preference's: a row gated by a permission the member lacks is absent everywhere, including
+ *     from Customize mode.
  *
  * Storage shape (localStorage, per browser):
- * - `starredOverrides` records only DEPARTURES from the registry's defaultStarred, so a new
- *   registry destination shipped with defaultStarred true arrives starred even for members with
- *   long-standing customizations — additions surface predictably.
+ * - `visibilityOverrides` records only DEPARTURES from the registry's defaultShown, so a new registry
+ *   destination shipped with defaultShown true arrives visible even for members with long-standing
+ *   customizations — additions surface predictably.
  * - `order` is per group, and holds ONLY ids the member has actually arranged. RECONCILIATION
- *   RULE: a starred id absent from the stored order enters at its CANONICAL position relative to
+ *   RULE: a shown id absent from the stored order enters at its CANONICAL position relative to
  *   the member's arrangement (mergeGroupOrder below); ids gone from the registry drop on read.
  * - `known` is arrival bookkeeping: ids that have appeared in this member's sidebar before. A
  *   visible id not yet known is a NEW ARRIVAL — the shell gives it a one-time gilt-draw highlight
  *   so the eye catches where it landed, then acknowledges it into `known`.
  * - `expandOnHover` is a per-browser interaction preference (default off): when the rail rests
  *   collapsed, hovering it floats the rail open as an overlay over the canvas.
- * - `collapsedGroups` names the groups this member has FOLDED AWAY. Departures again, not state:
- *   every group is open until somebody folds it, so a group added to the registry later arrives
- *   open rather than inheriting a fold nobody asked for. Folding hides rows the way a star does,
- *   and carries the same invariant — the palette still reaches every destination in a folded
- *   group, because hiding must never remove capability.
+ * - `collapsedGroups` names the groups this member has FOLDED AWAY, and `collapsedClusters` the
+ *   sub-menus. Departures again, not state: everything is open until somebody folds it, so a group
+ *   or cluster added later arrives open rather than inheriting a fold nobody asked for. Folding
+ *   hides rows the way the eye does, and carries the same invariant — the palette still reaches
+ *   every destination inside a fold, because hiding must never remove capability.
  */
 
+import type { Component } from "svelte";
 import { jsonPreference } from "$lib/preferences/persisted-preference.ts";
 import { createPersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
+import { grantedPermissions } from "$lib/tools/tool-permissions.ts";
 import {
   DESTINATION_GROUPS,
   DESTINATIONS,
+  isPermittedDestination,
   type Destination,
   type DestinationGroup,
 } from "./destinations.ts";
+import { clusterById } from "./clusters.ts";
 import { FIXED_LEADING_ID, mergeGroupOrder } from "./sidebar-order.ts";
 import { toolSidebarDestinations } from "./tool-sidebar.ts";
+import {
+  favoriteDestinations,
+  favoritePathFromRowId,
+  moveFavorite,
+  removeFavorite,
+} from "./favorites.svelte.ts";
 
 const STORAGE_KEY = "mc-sidebar-preferences";
 
 interface SidebarPreferencesValue {
-  starredOverrides: Record<string, boolean>;
+  visibilityOverrides: Record<string, boolean>;
   order: Partial<Record<DestinationGroup, string[]>>;
   known: string[];
   expandOnHover: boolean;
   collapsedGroups: DestinationGroup[];
+  collapsedClusters: string[];
 }
 
 const REGISTRY_IDS = new Set(DESTINATIONS.map((destination) => destination.id));
 
-/** What a pristine sidebar shows — the registry's pinned + default-starred rows. */
+/** What a pristine sidebar shows — the registry's pinned + default-shown rows. */
 function defaultVisibleIds(): string[] {
   return DESTINATIONS.filter(
-    (destination) => destination.pinned === true || destination.defaultStarred,
+    (destination) => destination.pinned === true || destination.defaultShown,
   ).map((destination) => destination.id);
 }
 
 function emptyValue(): SidebarPreferencesValue {
   // `known` seeds to the default-visible set: a fresh sidebar is not a wall of arrivals — the gilt
-  // highlight is for rows that land LATER (a star elsewhere, a new registry addition).
+  // highlight is for rows that land LATER (brought back in Customize, or a new registry addition).
   return {
-    starredOverrides: {},
+    visibilityOverrides: {},
     order: {},
     known: defaultVisibleIds(),
     expandOnHover: false,
     collapsedGroups: [],
+    collapsedClusters: [],
   };
 }
 
@@ -76,10 +97,10 @@ function normalize(parsed: unknown): SidebarPreferencesValue {
   const value = emptyValue();
   if (parsed === null || typeof parsed !== "object") return value;
   const record = parsed as Partial<SidebarPreferencesValue>;
-  if (record.starredOverrides !== null && typeof record.starredOverrides === "object") {
-    for (const [id, starred] of Object.entries(record.starredOverrides)) {
-      if (REGISTRY_IDS.has(id) && typeof starred === "boolean") {
-        value.starredOverrides[id] = starred;
+  if (record.visibilityOverrides !== null && typeof record.visibilityOverrides === "object") {
+    for (const [id, shown] of Object.entries(record.visibilityOverrides)) {
+      if (REGISTRY_IDS.has(id) && typeof shown === "boolean") {
+        value.visibilityOverrides[id] = shown;
       }
     }
   }
@@ -108,6 +129,11 @@ function normalize(parsed: unknown): SidebarPreferencesValue {
       (id): id is DestinationGroup => typeof id === "string" && groupIds.has(id),
     );
   }
+  if (Array.isArray(record.collapsedClusters)) {
+    value.collapsedClusters = record.collapsedClusters.filter(
+      (id): id is string => typeof id === "string" && clusterById(id) !== null,
+    );
+  }
   return value;
 }
 
@@ -120,44 +146,113 @@ function destinationById(id: string): Destination | undefined {
   return DESTINATIONS.find((destination) => destination.id === id);
 }
 
-/** Pinned rows are always on; otherwise the member's override wins over the registry default. */
-export function isStarred(destination: Destination): boolean {
-  if (destination.pinned === true) return true;
-  return preference.current.starredOverrides[destination.id] ?? destination.defaultStarred;
+/** Every registry destination this member may see at all — the permission gate, not a preference. */
+function permittedDestinations(): readonly Destination[] {
+  const permissions = grantedPermissions();
+  return DESTINATIONS.filter((destination) => isPermittedDestination(destination, permissions));
 }
+
+/** Pinned rows are always on; otherwise the member's override wins over the registry default. */
+export function isShown(destination: Destination): boolean {
+  if (destination.pinned === true) return true;
+  return preference.current.visibilityOverrides[destination.id] ?? destination.defaultShown;
+}
+
+/**
+ * One row, or one fold holding several. The rail's render tree is a list of these per group, which
+ * is what lets any group carry a sub-menu without the shell learning a second shape.
+ */
+export type SidebarNode =
+  | { readonly kind: "row"; readonly destination: Destination }
+  | {
+      readonly kind: "cluster";
+      readonly id: string;
+      readonly label: string;
+      readonly icon: Component;
+      readonly rows: readonly Destination[];
+    };
 
 export interface SidebarGroupView {
   readonly id: DestinationGroup;
   readonly label: string;
+  /** Flat — every row the group holds, folded or not. The collapsed icon rail draws this. */
   readonly destinations: readonly Destination[];
+  /** Folded — rows and clusters, in render order. The expanded rail draws this. */
+  readonly nodes: readonly SidebarNode[];
 }
 
 /**
- * The sidebar's render tree: per group, the pinned + starred destinations in the member's
- * reconciled order. Footer-pinned rows (Settings, Downloads, Uploads) are excluded — the footer's
- * utility tray renders them.
+ * Rows folded into their clusters. A cluster is seated where its FIRST member sits, so a member's
+ * own arrangement still decides where the fold lands; a cluster holding one row is not a fold at
+ * all and its row is seated plainly, because a chevron hiding one thing costs a press and saves
+ * nothing.
+ */
+function foldIntoClusters(rows: readonly Destination[]): SidebarNode[] {
+  const nodes: SidebarNode[] = [];
+  const seated = new Set<string>();
+  for (const destination of rows) {
+    const clusterId = destination.cluster;
+    if (clusterId === undefined) {
+      nodes.push({ kind: "row", destination });
+      continue;
+    }
+    if (seated.has(clusterId)) continue;
+    seated.add(clusterId);
+    const members = rows.filter((candidate) => candidate.cluster === clusterId);
+    const cluster = clusterById(clusterId);
+    if (cluster === null || members.length < 2) {
+      for (const member of members) nodes.push({ kind: "row", destination: member });
+      continue;
+    }
+    nodes.push({
+      kind: "cluster",
+      id: cluster.id,
+      label: cluster.label,
+      icon: cluster.icon,
+      rows: members,
+    });
+  }
+  return nodes;
+}
+
+/**
+ * The rail's render tree: per group, the pinned + shown destinations in the member's reconciled
+ * order, folded into clusters. Footer-pinned rows (Settings, Downloads, Uploads) are excluded — the
+ * footer's utility tray renders them.
+ *
+ * Two groups hold rows this registry does not declare, each for its own reason. TOOLS is the tool
+ * catalog projected (tool-sidebar.ts), because what a tool is has one home and it is not this file.
+ * FAVOURITES is the member's own (favorites.svelte.ts), because the platform cannot know which of
+ * ten thousand matters somebody opens every morning. Both are appended rather than merged into the
+ * order above: the catalog's own cluster-and-alphabetical order is the order, and a favourite's
+ * place is wherever the member dragged it.
  */
 export function sidebarGroups(): readonly SidebarGroupView[] {
+  const permitted = permittedDestinations();
   return DESTINATION_GROUPS.map((group) => {
-    const visibleCanonical = DESTINATIONS.filter(
-      (destination) =>
-        destination.group === group.id &&
-        destination.footerPinned !== true &&
-        isStarred(destination),
-    ).map((destination) => destination.id);
+    const visibleCanonical = permitted
+      .filter(
+        (destination) =>
+          destination.group === group.id &&
+          destination.footerPinned !== true &&
+          isShown(destination),
+      )
+      .map((destination) => destination.id);
     const orderedIds = mergeGroupOrder(visibleCanonical, preference.current.order[group.id] ?? []);
     const registryRows = orderedIds
       .map((id) => destinationById(id))
       .filter((destination): destination is Destination => destination !== undefined);
+    const destinations =
+      group.id === "tools"
+        ? [...registryRows, ...toolSidebarDestinations()]
+        : group.id === "favorites"
+          ? [...registryRows, ...favoriteDestinations()]
+          : registryRows;
     return {
       id: group.id,
       label: group.label,
-      // The Tools group is the registry's index row followed by the tool catalog itself, which
-      // this registry deliberately does not hold (navigation/tool-sidebar.ts). Appended rather
-      // than merged into the order above because the catalog's own subject order is the order —
-      // there is no member arrangement over it to reconcile with.
-      destinations:
-        group.id === "tools" ? [...registryRows, ...toolSidebarDestinations()] : registryRows,
+      destinations,
+      nodes: foldIntoClusters(destinations),
     };
   }).filter((group) => group.destinations.length > 0);
 }
@@ -165,45 +260,56 @@ export function sidebarGroups(): readonly SidebarGroupView[] {
 export interface SidebarEditingGroupView {
   readonly id: DestinationGroup;
   readonly label: string;
-  /** In the sidebar now — pinned + starred, in the member's reconciled order (draggable). */
-  readonly starred: readonly Destination[];
-  /** Hidden from the sidebar — offered in canonical order, one click to add back. */
-  readonly unstarred: readonly Destination[];
+  /** In the sidebar now — pinned + shown, in the member's reconciled order (draggable). */
+  readonly shown: readonly Destination[];
+  /** Hidden from the sidebar — offered in canonical order, one click to bring back. */
+  readonly hidden: readonly Destination[];
 }
 
 /**
- * The Customize-mode render tree: per group, EVERY destination split into the two tiers the editor
- * shows — the ones in the sidebar now (starred, member order) and the ones a click would add
- * (unstarred, canonical order). Footer-pinned rows (Settings, Downloads, Uploads) are excluded —
- * the footer's utility tray owns them, so they are never hideable or reorderable.
+ * The Customize-mode render tree: per group, EVERY destination the member may see, split into the
+ * two tiers the editor shows — the ones in the sidebar now (shown, member order) and the ones a
+ * click would bring back (hidden, canonical order). Footer-pinned rows (Settings, Downloads,
+ * Uploads) are excluded — the footer's utility tray owns them, so they are never hideable or
+ * reorderable.
+ *
+ * Clusters are NOT drawn here: Customize is about which rows are in the rail and in what order, and
+ * a fold is a reading convenience the member opens and closes as they work. Editing inside a fold
+ * would mean opening four of them to find one row.
  *
  * THE TOOLS GROUP IS EXCLUDED WHOLE. What a member sees there is what they are permitted to run,
- * and access control has already answered that; a star beside a tool would be a second answer to
- * the same question, and an inert one. The group folds away like any other if the rail is too
- * long, which is the control that actually belongs to the reader.
- * This is the editor's superset of sidebarGroups(), which shows only the starred tier.
+ * and access control has already answered that; an eye beside a tool would be a second answer to the
+ * same question, and an inert one. FAVOURITES is included — a favourite is the member's own, so
+ * dragging them into the order they want is exactly what this mode is for, and the star removes one.
+ * This is the editor's superset of sidebarGroups(), which shows only the visible tier.
  */
 export function sidebarEditingGroups(): readonly SidebarEditingGroupView[] {
+  const permitted = permittedDestinations();
   return DESTINATION_GROUPS.filter((group) => group.id !== "tools")
     .map((group) => {
-      const members = DESTINATIONS.filter(
+      const members = permitted.filter(
         (destination) => destination.group === group.id && destination.footerPinned !== true,
       );
-      const starredCanonical = members
-        .filter((destination) => isStarred(destination))
+      const shownCanonical = members
+        .filter((destination) => isShown(destination))
         .map((destination) => destination.id);
-      const orderedStarredIds = mergeGroupOrder(
-        starredCanonical,
+      const orderedShownIds = mergeGroupOrder(
+        shownCanonical,
         preference.current.order[group.id] ?? [],
       );
-      const starred = orderedStarredIds
+      const shown = orderedShownIds
         .map((id) => destinationById(id))
         .filter((destination): destination is Destination => destination !== undefined);
-      // Canonical order for the add-back tier — the members array is already canonical.
-      const unstarred = members.filter((destination) => !isStarred(destination));
-      return { id: group.id, label: group.label, starred, unstarred };
+      // Canonical order for the bring-back tier — the members array is already canonical.
+      const hidden = members.filter((destination) => !isShown(destination));
+      return {
+        id: group.id,
+        label: group.label,
+        shown: group.id === "favorites" ? [...shown, ...favoriteDestinations()] : shown,
+        hidden,
+      };
     })
-    .filter((group) => group.starred.length + group.unstarred.length > 0);
+    .filter((group) => group.shown.length + group.hidden.length > 0);
 }
 
 /** A visible id the member's sidebar has never carried before — highlight once, then acknowledge. */
@@ -217,33 +323,49 @@ export function acknowledgeArrival(id: string): void {
   preference.set({ ...preference.current, known: [...preference.current.known, id] });
 }
 
-export function setStarred(id: string, next: boolean): void {
+/**
+ * Show or hide a row. A FAVOURITE is not a registry row and cannot be hidden — hiding one would
+ * leave it saved and invisible, which is no state at all — so the gesture removes it instead, which
+ * is what the star on its row means.
+ */
+export function setShown(id: string, next: boolean): void {
+  const favoritePath = favoritePathFromRowId(id);
+  if (favoritePath !== null) {
+    if (!next) removeFavorite(favoritePath);
+    return;
+  }
   const destination = destinationById(id);
   if (destination === undefined || destination.pinned === true) return;
   const current = preference.current;
   // Store only departures from the registry default, so future default changes reach members who
   // never touched this row.
-  let starredOverrides: Record<string, boolean>;
-  if (next === destination.defaultStarred) {
-    const { [id]: dropped, ...rest } = current.starredOverrides;
+  let visibilityOverrides: Record<string, boolean>;
+  if (next === destination.defaultShown) {
+    const { [id]: dropped, ...rest } = current.visibilityOverrides;
     void dropped;
-    starredOverrides = rest;
+    visibilityOverrides = rest;
   } else {
-    starredOverrides = { ...current.starredOverrides, [id]: next };
+    visibilityOverrides = { ...current.visibilityOverrides, [id]: next };
   }
-  // Adding a row back replays its one-time gilt-draw arrival: forgetting it from `known` lets the
-  // shell catch it as a NEW ARRIVAL where reconciliation seats it, then re-acknowledge it. Removing
+  // Bringing a row back replays its one-time gilt-draw arrival: forgetting it from `known` lets the
+  // shell catch it as a NEW ARRIVAL where reconciliation seats it, then re-acknowledge it. Hiding
   // never highlights (there is nothing to draw attention to).
   const known = next ? current.known.filter((knownId) => knownId !== id) : current.known;
-  preference.set({ ...current, starredOverrides, known });
+  preference.set({ ...current, visibilityOverrides, known });
 }
 
 /**
  * Reorder within a group (Customize mode). The whole reconciled arrangement is folded into storage
- * on the first move, so subsequent merges are stable around it.
+ * on the first move, so subsequent merges are stable around it. Favourites keep their order in their
+ * own store, which is the only place it exists.
  */
 export function moveDestination(group: DestinationGroup, id: string, toIndex: number): void {
   if (id === FIXED_LEADING_ID) return;
+  const favoritePath = favoritePathFromRowId(id);
+  if (favoritePath !== null) {
+    moveFavorite(favoritePath, toIndex);
+    return;
+  }
   const groupView = sidebarGroups().find((candidate) => candidate.id === group);
   if (groupView === undefined) return;
   const ids = groupView.destinations.map((destination) => destination.id);
@@ -278,6 +400,23 @@ export function setGroupCollapsed(group: DestinationGroup, next: boolean): void 
 
 export function toggleGroupCollapsed(group: DestinationGroup): void {
   setGroupCollapsed(group, !isGroupCollapsed(group));
+}
+
+/** Whether a sub-menu is folded away. Same departures-not-state rule as a group's fold. */
+export function isClusterCollapsed(cluster: string): boolean {
+  return preference.current.collapsedClusters.includes(cluster);
+}
+
+export function setClusterCollapsed(cluster: string, next: boolean): void {
+  if (isClusterCollapsed(cluster) === next) return;
+  const collapsedClusters = next
+    ? [...preference.current.collapsedClusters, cluster]
+    : preference.current.collapsedClusters.filter((id) => id !== cluster);
+  preference.set({ ...preference.current, collapsedClusters });
+}
+
+export function toggleClusterCollapsed(cluster: string): void {
+  setClusterCollapsed(cluster, !isClusterCollapsed(cluster));
 }
 
 /** The hover-to-expand preference — read reactively; default off. */

@@ -276,7 +276,7 @@
     },
     {
       "rule": "table-machinery",
-      "file": "apps/web/src/lib/tools/firm-usage/by-location-table.svelte",
+      "file": "apps/web/src/lib/firm-usage/by-location-table.svelte",
       "reason": "predates the rule; a sort written locally over the presentational primitives, with the remainder, offsite and totals rows held outside it by hand. It should be a DataTable.Grid \u2014 the Grid's row groups and scope-honest totals row already model the three rows this table keeps outside its sort \u2014 and that port is a design round on the firm-usage surface, reviewed on the deployed site, not a lint fix."
     },
     {
@@ -381,7 +381,7 @@
     },
     {
       "rule": "hand-placed-loading",
-      "file": "apps/web/src/routes/(app)/tools/safe-website-viewer/+page.svelte",
+      "file": "apps/web/src/routes/(app)/safe-website-viewer/+page.svelte",
       "text": "aria-busy",
       "reason": "a capture narrating its own real stages in the shell's viewport (owner ruling 2026-08-31: the loading viewport says what is happening, never a generic spinner), not a region whose data has not arrived. The tabs beside it are regions; the mark on the frame is the act's own semantics."
     },
