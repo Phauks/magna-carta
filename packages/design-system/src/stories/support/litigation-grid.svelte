@@ -155,6 +155,8 @@
      * of the design-system API; nothing shipped sizes a table this way.
      */
     frameHeight?: string;
+    /** How the grid meets its surroundings — the card, or edge to edge inside the surface's own frame. */
+    frame?: "card" | "flush";
     onActivate?: (row: TimeEntry) => void;
     onSelectionChange?: (keys: readonly string[], rows: readonly TimeEntry[]) => void;
   };
@@ -170,6 +172,7 @@
     columnWidths,
     frameClass = "max-h-96",
     frameHeight,
+    frame = "card",
     onActivate,
     onSelectionChange,
   }: Props = $props();
@@ -206,6 +209,7 @@
     {loading}
     {density}
     {rowDetail}
+    {frame}
     class={frameClass}
   >
     {#snippet cell({ row, column, text })}

@@ -73,8 +73,9 @@ including the ones later set aside.
 
 ## Completing the Intake, and Opening the Matter
 
-Press the status badge on an intake, then **Change Status**, and choose **Complete Intake**.
-**Requirements To Complete Intake** lists each required step that is outstanding, in the words of
+Press the status badge on an intake, then **Change Status**, and choose **Complete Intake** from
+the steps on the left of the panel. On its right, **Requirements To Complete Intake** lists each
+required step that is outstanding, in the words of
 whoever should answer it, with a way through to the Intake section where they are answered; the
 commit is available once the list is empty, and the same control stands on the Intake desk.
 Pressing it while something is outstanding answers with the same list. Completing the intake draws

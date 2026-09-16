@@ -49,6 +49,7 @@
     "lint:screen-data": "node tooling/lint-screen-data/index.mjs",
     "lint:screen-headers": "node tooling/lint-screen-headers/index.mjs",
     "lint:modal-headers": "node tooling/lint-modal-headers/index.mjs",
+    "lint:modal-reflow": "node tooling/lint-modal-reflow/index.mjs",
     "lint:structured-empty": "node tooling/lint-structured-empty/index.mjs",
     "lint:scrollbar": "node tooling/lint-scrollbar/index.mjs",
     "lint:workspace-search": "node tooling/lint-workspace-search/index.mjs",

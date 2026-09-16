@@ -132,10 +132,13 @@ released or closed; a closed matter reopens. There is no list of statuses to pic
 matter reaches a status by being opened, held, released, closed or reopened, not by being set to
 one.
 
-Each step on that list carries one line saying where it stands: that nothing is in its way, that a
-requirement is not met, or that this account may not take it and why. Choose a step and the panel
-says what it would do to the record and lists everything it requires, each one already answered.
-The button at the foot then reads that step's own verb — **Close Matter**, **Open Matter**,
+The panel has two sides. The steps are down the left, each carrying one line saying where it
+stands: that nothing is in its way, that a requirement is not met, or that this account may not
+take it and why. The step you have chosen is discussed down the right — what it would do to the
+record, everything it requires with each one already answered, and whatever it asks you for. It
+opens on the step the matter runs toward next, so there is always something to read; choosing a
+different step on the left rewrites the right and moves nothing else.
+The button at the foot reads that step's own verb — **Close Matter**, **Open Matter**,
 **Complete Intake**, **Put On Hold**, **Release Hold**, **Reopen Matter** — so what you are about
 to do is named where you press it. A step you may not take is shown refused with the reason, never
 hidden.
@@ -191,11 +194,13 @@ Consultation if it carries a consultation number, and Intake if it carries neith
 recorded close date.
 
 **The matter's number** sits under **Number** in the same window, with the consultation number
-beside it where the matter had one. On a matter that has been active, **Set Number** (or **Change
-Number**) records a court's number, a number from the firm's previous system, or a correction. It
-has to be unique in the firm and able to stand in a link, and it touches no counter; the number it
-replaces stays on the record. It needs the `matters:renumber` permission. An intake or a
-consultation shows that the number is drawn when the matter opens, and cannot be given one by hand.
+beside it where the matter had one. On a matter that has been active it is a field holding the
+number the matter wears: type over it and press **Record** to put a court's number, a number from
+the firm's previous system, or a correction on the record. Nothing moves when you do — the field is
+there before you touch it. It has to be unique in the firm and able to stand in a link, and it
+touches no counter; the number it replaces stays on the record. It needs the `matters:renumber`
+permission, and without it the number reads instead of being offered. An intake or a consultation
+shows that the number is drawn when the matter opens, and cannot be given one by hand.
 
 **Notices are not refusals.** A close can report things worth knowing without stopping: if the firm
 still holds a client's property in the safe-custody register against the matter, the panel says so
@@ -212,12 +217,13 @@ and who to ask. Ask whoever administers your firm.
 The right-hand side of the window is your firm's own paper file for the matter: the **location** it
 is kept at, what it is **held in**, and the date the file may be **destroyed after**.
 
-**Location** is one of your firm's offices, and it reads as a link: press the office's name and its
-record opens, with its address, its telephone and who works there. Press **Set Location** to record
-where the file is, or **Change Location** to move it — the field searches your firm's offices, and
-each one is shown with its town and its numbering code so two offices in the same city are told
-apart. You can also empty the field and record nothing, which is the right answer when nobody knows
-where a folder has got to; a guess left standing is worse than a gap.
+**Location** is one of your firm's offices, chosen in a field that is there at rest: press it for
+the list, or type to search it. Each office is shown with its town and its numbering code, so two
+offices in the same city are told apart. What you choose is recorded straight away, and the line
+under the field takes you to that office's own record, with its address, its telephone and who
+works there. You can also empty the field and record nothing, which is the right answer when nobody
+knows where a folder has got to; a guess left standing is worse than a gap. An account without the
+permission to change it reads the office as a link instead.
 
 This is the office the **file** is kept at, not the office the matter is run out of. They are
 commonly the same, and they are not the same fact: a matter opened at one office is often boxed at
