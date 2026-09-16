@@ -9,13 +9,13 @@ catalog, and the palette's tool provider. The app shell renders it; this directo
 
 ## The four registries, and what each one owns
 
-| File                          | Owns                                                                        |
-| ----------------------------- | --------------------------------------------------------------------------- |
-| `destinations.ts`             | Every platform destination: membership, group, cluster, canonical order, the shipped/announced light-ups, and the permission a few of them carry |
-| `clusters.ts`                 | The rail's sub-menus — a cluster's id, group, name and glyph                 |
-| `tool-sidebar.ts`             | The tool catalog projected into rail rows (the registry holds none of them)  |
-| `favorites.svelte.ts`         | The member's own shortcuts — not platform data, and never declared here      |
-| `sidebar-preferences.svelte.ts` | The render tree: what this member shows, in what order, with which folds   |
+| File                            | Owns                                                                                                                                             |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `destinations.ts`               | Every platform destination: membership, group, cluster, canonical order, the shipped/announced light-ups, and the permission a few of them carry |
+| `clusters.ts`                   | The rail's sub-menus — a cluster's id, group, name and glyph                                                                                     |
+| `tool-sidebar.ts`               | The tool catalog projected into rail rows (the registry holds none of them)                                                                      |
+| `favorites.svelte.ts`           | The member's own shortcuts — not platform data, and never declared here                                                                          |
+| `sidebar-preferences.svelte.ts` | The render tree: what this member shows, in what order, with which folds                                                                         |
 
 **Nothing has two homes.** What a tool IS lives in `@magna-carta/tools`; what it looks like lives in
 `$lib/tools/tool-presentation.ts`; where it is addressed is `toolRoute()`. This directory says which
