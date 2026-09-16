@@ -68,6 +68,7 @@
     eventDraftReady,
     eventDraftRequest,
     eventDraftShortfalls,
+    EVENT_FIELDS,
     eventDraftStarted,
     type EventDraft,
     type ParticipantDraft,
@@ -76,6 +77,8 @@
   import EventTypeSelect from "./event-type-select.svelte";
   import RecordTimingFields from "./record-timing-fields.svelte";
   import RecurrenceField from "./recurrence-field.svelte";
+  import FieldRefusal from "./field-refusal.svelte";
+  import { shortfallFor } from "./shortfall.ts";
   import LocationPicker from "./location-picker.svelte";
   import { roomForLocation, roomNotHeldSentence } from "./room-location.ts";
   import DaySchedule from "./day-schedule.svelte";
@@ -177,12 +180,20 @@
   );
 
   const shortfalls = $derived(eventDraftShortfalls(draft));
+  /*
+   * Fields are marked only once a save was asked for and refused. A form that opens with every
+   * unanswered field already marked has told the reader they are wrong for not having typed yet.
+   */
+  let saveAttempted = $state(false);
+  const fieldShortfalls = $derived(saveAttempted ? shortfalls : []);
+  const titleRefusal = $derived(shortfallFor(fieldShortfalls, EVENT_FIELDS.title));
+  const conferenceRefusal = $derived(shortfallFor(fieldShortfalls, EVENT_FIELDS.conferenceUrl));
 
   /*
    * Why the commit is unavailable, or undefined when it is available. Stated beside the control it
    * refuses rather than hiding the control, so a reader is told which answer is still missing.
    */
-  const refusal = $derived(eventDraftReady(draft) ? undefined : shortfalls[0]);
+  const refusal = $derived(eventDraftReady(draft) ? undefined : shortfalls[0]?.sentence);
 
   /**
    * What the commit will write. A matter makes it a setting on that case; no matter makes it the
@@ -211,6 +222,7 @@
     draft = seeded();
     since = seeded();
     chosenMatterId = null;
+    saveAttempted = false;
     belongsTo = "matter";
     audience = "participants";
     officeId = null;
@@ -276,6 +288,7 @@
   }
 
   async function submit(): Promise<ActionOutcome> {
+    saveAttempted = true;
     failure = null;
     const target = targetMatterId;
     attemptKey ??= crypto.randomUUID();
@@ -379,7 +392,13 @@
       <div class="grid gap-16 sm:grid-cols-2">
         <div class="flex flex-col gap-8">
           <Label for="{idPrefix}-title">Title</Label>
-          <Input id="{idPrefix}-title" disabled={busy} bind:value={draft.title} />
+          <Input
+            id="{idPrefix}-title"
+            aria-invalid={titleRefusal === undefined ? undefined : "true"}
+            disabled={busy}
+            bind:value={draft.title}
+          />
+          <FieldRefusal refusal={titleRefusal} />
         </div>
         <EventTypeSelect
           id="{idPrefix}-type"
@@ -394,6 +413,7 @@
         bind:draft
         idPrefix="{idPrefix}-timing"
         preferred={preferredTimeZones}
+        shortfalls={fieldShortfalls}
         disabled={busy}
       />
 
@@ -490,9 +510,11 @@
           inputmode="url"
           autocomplete="off"
           spellcheck={false}
+          aria-invalid={conferenceRefusal === undefined ? undefined : "true"}
           disabled={busy}
           bind:value={draft.conferenceUrl}
         />
+        <FieldRefusal refusal={conferenceRefusal} />
       </div>
 
       <div class="flex flex-col gap-8">

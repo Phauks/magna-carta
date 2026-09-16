@@ -176,6 +176,30 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   the office (a real foreign key there, because it is what says which rooms are nearby) and hides
   the court reference, which a firm meeting has no court for. The Record menu offers two kinds, not
   three: a third item would be a second way to open one panel.
+- **A SHORTFALL KNOWS WHICH FIELD IT IS ABOUT, and the field says it too.** The commit's refusal
+  was one sentence at the weak end of the bar, which tells a reader what is wrong and leaves them to
+  find the field — a glance on a short form, a hunt on one asking about a matter, a title, a type,
+  two dates, two times, a zone, a repeat, a location, a court reference, a link, a description and a
+  list of people (owner, 2026-09-16). Every draft's shortfalls are now `Shortfall[]`
+  (`shortfall.ts`): a field and a sentence. The bar shows the first sentence, unchanged, and the
+  field it names carries the SAME sentence beneath it with `aria-invalid` on the control — written
+  once in the draft and rendered twice, so the two can never disagree. `shortfallSentences` is what
+  a caller that only wants the bar reads. **Nothing is marked before a save was asked for**
+  (`saveAttempted`): a form that opens with every unanswered field already marked has told the
+  reader they are wrong for not having typed yet. `field-refusal.svelte` renders the sentence in the
+  design system's own `mc-form-errors`, so a refused field here and a refused field on a validated
+  form read the same; it renders nothing when there is nothing to say, so the form's spacing never
+  moves as answers arrive.
+- **The rail says WHOSE calendar; the Kinds control says WHAT KIND.** Two halves of one question, and
+  the second had nothing on the screen asking it (`schedule-narrowing.ts`). It narrows what was
+  already read and makes no request — so it reaches exactly as far as the window on screen, which is
+  why it sits beside the window's own navigation rather than beside a search that would imply the
+  whole record. **A narrowing is never a read**: turning a calendar off in the rail stops a request,
+  turning a kind off does not, and keeping them apart is what stops a reader thinking they have made
+  the screen cheaper when they have made it shorter. An untouched control means EVERY kind, so the
+  first press removes one rather than isolating one; turning every kind off shows the whole window
+  rather than an empty grid, because the one thing a calendar must not do is look empty when it is
+  not.
 - **One field group, rendered once.** The timing every event shares is `record-timing-fields.svelte`
   and the type question is `event-type-select.svelte`, in the record forms and in the entry window
   alike; a pane that draws its own copy of either drifts from the form within a round.

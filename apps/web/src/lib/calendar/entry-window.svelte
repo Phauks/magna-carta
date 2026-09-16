@@ -116,6 +116,7 @@
     type EntryReferenceKind,
   } from "./entry-reference.ts";
   import EntryRoomsTab from "./entry-rooms-tab.svelte";
+  import { shortfallFor, type Shortfall } from "./shortfall.ts";
   import {
     deadlineUpdateOf,
     eventUpdateOf,
@@ -383,13 +384,26 @@
     return false;
   });
 
-  /** Why the change cannot be committed as it stands, or undefined when it can. */
-  const shortfall = $derived.by((): string | undefined => {
-    if (eventDraft !== null) return eventDraftShortfalls(eventDraft)[0];
-    if (deadlineDraft !== null) return deadlineDraftShortfalls(deadlineDraft)[0];
-    if (firmEventDraft !== null) return firmEventDraftShortfalls(firmEventDraft)[0];
-    return "There is no record to change.";
+  /**
+   * Everything the change still needs, each knowing which field it is about.
+   *
+   * The bar shows the FIRST sentence and the fields carry their own once a save has been refused,
+   * so the reader is told why the commit will not press AND where to go — one wording, written in
+   * the draft and rendered twice.
+   */
+  const shortfalls = $derived.by((): readonly Shortfall[] => {
+    if (eventDraft !== null) return eventDraftShortfalls(eventDraft);
+    if (deadlineDraft !== null) return deadlineDraftShortfalls(deadlineDraft);
+    if (firmEventDraft !== null) return firmEventDraftShortfalls(firmEventDraft);
+    return [{ field: "", sentence: "There is no record to change." }];
   });
+  const shortfall = $derived(shortfalls[0]?.sentence);
+  /*
+   * Fields are marked only once a save was asked for and refused. A form that opens with every
+   * unanswered field already marked has told the reader they are wrong for not having typed yet.
+   */
+  let saveAttempted = $state(false);
+  const fieldShortfalls = $derived(saveAttempted ? shortfalls : []);
 
   let saving = $state(false);
   let saveFailure = $state<StatedFailure | null>(null);
@@ -414,6 +428,7 @@
   // ---- the commit ------------------------------------------------------------------------------
 
   async function save(): Promise<void> {
+    saveAttempted = true;
     if (record === null || saving || shortfall !== undefined) return;
     saving = true;
     saveFailure = null;
@@ -460,6 +475,7 @@
     await reconcileRooms();
     editing = false;
     participantsEdited = false;
+    saveAttempted = false;
     onChanged();
     reread();
   }
@@ -995,6 +1011,7 @@
             bind:draft={eventDraft}
             idPrefix="{idPrefix}-timing"
             preferred={preferredZones}
+            shortfalls={fieldShortfalls}
             disabled={readOnly}
           />
           <RecurrenceField
@@ -1147,6 +1164,7 @@
             bind:draft={firmEventDraft}
             idPrefix="{idPrefix}-timing"
             preferred={preferredZones}
+            shortfalls={fieldShortfalls}
             disabled={readOnly}
           />
           <RecurrenceField
@@ -1540,7 +1558,7 @@
   notice={verbNotice}
   commitLabel="Continue Setting"
   commitBusyLabel="Continuing"
-  commitRefusal={continueRefusal}
+  commitRefusal={continueRefusal?.sentence}
   unsavedChanges={continueStarted}
   width="wide"
   onCommit={commitContinue}

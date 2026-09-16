@@ -42,7 +42,16 @@
    * ONE zone, so there is one control for it, asked under the two moments it qualifies, at a measure
    * that can show a list of continents and cities.
    *
-   * AN EMPTY TIME IS ALL DAY. A filing has no hour, and a form that made somebody tick "all day"
+   * A FIELD SAYS WHAT IT STILL NEEDS, ONCE A SAVE HAS BEEN REFUSED. The commit's refusal is one
+ * sentence at the weak end of the bar, which tells a reader what is wrong and leaves them to find
+ * the field (owner, 2026-09-16: "We need better visual language to showcase what is still required
+ * when the item cannot be saved"). A shortfall now carries the field it is about (shortfall.ts), so
+ * the same sentence is also shown beneath the control and the control is marked `aria-invalid` —
+ * one wording, written in the draft and rendered twice, so the bar and the field cannot disagree.
+ * Nothing is marked before a save was ASKED for: a form that opens with every unanswered field
+ * already marked has told the reader they are wrong for not having typed yet.
+ *
+ * AN EMPTY TIME IS ALL DAY. A filing has no hour, and a form that made somebody tick "all day"
    * before it would accept a date without a time is a form that asks a question the blank already
    * answers. So there is no checkbox: leaving the time empty is what all day means.
    */
@@ -52,7 +61,9 @@
   import { DatePicker } from "@magna-carta/design-system/date-picker";
   import type { DateValue } from "@internationalized/date";
   import { civilDateValue } from "./draft-text.ts";
-  import type { EventTimingDraft } from "./event-draft.ts";
+  import { TIMING_FIELDS, type EventTimingDraft } from "./event-draft.ts";
+  import { shortfallFor, type Shortfall } from "./shortfall.ts";
+  import FieldRefusal from "./field-refusal.svelte";
   import TimeZonePicker from "./time-zone-picker.svelte";
   import { civilDateAsUtc, isCivilDate } from "./calendar-window.ts";
   import { civilDateText } from "$lib/dates";
@@ -62,6 +73,7 @@
     idPrefix,
     preferred,
     disabled = false,
+    shortfalls = [],
   }: {
     /** The timing half of the draft being edited. Bindable; the fields write straight into it. */
     draft: EventTimingDraft;
@@ -70,7 +82,18 @@
     /** The zones offered first: the reader's own and the firm's offices, in that order. */
     preferred: readonly string[];
     disabled?: boolean;
+    /**
+     * What these fields still need, each naming its own. Empty until the form has asked to save and
+     * been refused, which is what keeps an untouched form unmarked.
+     */
+    shortfalls?: readonly Shortfall[];
   } = $props();
+
+  const startsOnRefusal = $derived(shortfallFor(shortfalls, TIMING_FIELDS.startsOn));
+  const startsAtTimeRefusal = $derived(shortfallFor(shortfalls, TIMING_FIELDS.startsAtTime));
+  const endsOnRefusal = $derived(shortfallFor(shortfalls, TIMING_FIELDS.endsOn));
+  const endsAtTimeRefusal = $derived(shortfallFor(shortfalls, TIMING_FIELDS.endsAtTime));
+  const timeZoneRefusal = $derived(shortfallFor(shortfalls, TIMING_FIELDS.timeZone));
 
   const startsOnValue = $derived(civilDateValue(draft.startsOn));
   const endsOnValue = $derived(civilDateValue(draft.endsOn));
@@ -98,7 +121,14 @@
   <!-- Starts: the day and the hour, on equal tracks so the line below can be the same line. -->
   <FieldRow columns={2}>
     <div class="flex flex-col gap-4">
-      <DatePicker label="Starts" value={startsOnValue} onValueChange={recordStartsOn} {disabled} />
+      <DatePicker
+        label="Starts"
+        value={startsOnValue}
+        onValueChange={recordStartsOn}
+        aria-invalid={startsOnRefusal === undefined ? undefined : "true"}
+        {disabled}
+      />
+      <FieldRefusal refusal={startsOnRefusal} />
     </div>
     <div class="flex flex-col gap-8">
       <Label for="{idPrefix}-starts-at-time">Time</Label>
@@ -106,16 +136,25 @@
         id="{idPrefix}-starts-at-time"
         type="time"
         autocomplete="off"
+        aria-invalid={startsAtTimeRefusal === undefined ? undefined : "true"}
         {disabled}
         bind:value={draft.startsAtTime}
       />
+      <FieldRefusal refusal={startsAtTimeRefusal} />
     </div>
   </FieldRow>
 
   <!-- Ends: the same two tracks, so answering a start never shifts the fields under it. -->
   <FieldRow columns={2}>
     <div class="flex flex-col gap-4">
-      <DatePicker label="Ends" value={endsOnValue} onValueChange={recordEndsOn} {disabled} />
+      <DatePicker
+        label="Ends"
+        value={endsOnValue}
+        onValueChange={recordEndsOn}
+        aria-invalid={endsOnRefusal === undefined ? undefined : "true"}
+        {disabled}
+      />
+      <FieldRefusal refusal={endsOnRefusal} />
     </div>
     <div class="flex flex-col gap-8">
       <Label for="{idPrefix}-ends-at-time">Time</Label>
@@ -123,9 +162,11 @@
         id="{idPrefix}-ends-at-time"
         type="time"
         autocomplete="off"
+        aria-invalid={endsAtTimeRefusal === undefined ? undefined : "true"}
         {disabled}
         bind:value={draft.endsAtTime}
       />
+      <FieldRefusal refusal={endsAtTimeRefusal} />
     </div>
   </FieldRow>
 
@@ -140,5 +181,6 @@
       {disabled}
       bind:value={draft.timeZone}
     />
+    <FieldRefusal refusal={timeZoneRefusal} />
   </div>
 </div>

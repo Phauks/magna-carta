@@ -60,6 +60,13 @@ setting and deadline on every matter you can see, and the firm's own events besi
   calendar on and the others off; to read a colleague's, turn theirs on. A colleague's calendar
   shows the settings they are a participant at or the responsible attorney for, over the matters
   you can see, and every firm event whose audience is everyone.
+- **Kinds.** The list on the left says whose calendars you are looking at; **Kinds**, at the top,
+  says what sort of thing — case settings, deadlines, firm events, or the dates from the register.
+  Not every week needs all four at once. Every kind is shown until you say otherwise, so the first
+  press takes one away rather than leaving you with only it. **Show Everything** puts them back and
+  appears only while something is being held back. Turning all four off shows you everything rather
+  than an empty calendar. It narrows what is on screen and asks the server for nothing, so it
+  answers as fast as you press it — and it reaches exactly as far as the window you are looking at.
 - **Hide settled.** On the agenda, press it to leave out what is no longer coming: cancelled
   settings and satisfied, vacated or superseded deadlines. The agenda says how many it left out.
   The month and the week always show them, struck through.
@@ -203,6 +210,12 @@ Give the event a title, a date, and the time zone it happens in. Everything else
 - **Who is there** can be a member of your firm, a contact from your directory, or somebody who is
   neither — a judge, a court reporter, an interpreter, a witness. You are not made to create a
   directory contact for a judge you will never write to.
+
+**When the form will not save, it says which answers it still needs.** The reason appears beside the
+button, as it always has, and the field it is about is marked with the same sentence underneath it —
+so you are told where to go rather than only what is wrong. Nothing is marked while you are still
+filling the form in: the marks appear the moment you try to save and cannot, and they clear when the
+record goes in.
 
 **Correcting a record and rescheduling reality are different acts, and there is a verb for each.**
 Typed the 13th when the hearing was always on the 14th? Edit the event — the record misdescribed

@@ -18,8 +18,10 @@ import {
   type RecurrenceRule,
 } from "@magna-carta/civil-time/recurrence";
 import { optionalText } from "./draft-text.ts";
+import { shortfall, type Shortfall } from "./shortfall.ts";
 import {
   conferenceShortfalls,
+  EVENT_FIELDS,
   participantDraftFrom,
   participantInput,
   recurrenceChanged,
@@ -65,9 +67,11 @@ export function emptyFirmEventDraft(
 }
 
 /** Every reason the firm event cannot be recorded yet. Empty means it can. */
-export function firmEventDraftShortfalls(draft: FirmEventDraft): string[] {
-  const shortfalls: string[] = [];
-  if (draft.title.trim() === "") shortfalls.push("A title is needed.");
+export function firmEventDraftShortfalls(draft: FirmEventDraft): Shortfall[] {
+  const shortfalls: Shortfall[] = [];
+  if (draft.title.trim() === "") {
+    shortfalls.push(shortfall(EVENT_FIELDS.title, "A title is needed."));
+  }
   shortfalls.push(...timingShortfalls(draft));
   shortfalls.push(...conferenceShortfalls(draft.conferenceUrl));
   return shortfalls;

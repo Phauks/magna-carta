@@ -24,6 +24,7 @@ import {
   type RecurrenceRule,
 } from "@magna-carta/civil-time/recurrence";
 import { isCivilDate } from "./calendar-window.ts";
+import { shortfall, type Shortfall } from "./shortfall.ts";
 import { isWallClockTime, optionalText } from "./draft-text.ts";
 import { isResolvableTimeZone } from "./time-zone-options.ts";
 
@@ -85,42 +86,74 @@ export function emptyEventDraft(timeZone: string, startsOn: string | null = null
   };
 }
 
+/**
+ * The fields the shared timing asks about, as a shortfall names them.
+ *
+ * They are the SUFFIXES the record forms mint their ids from, so a form marks the control a
+ * shortfall names without a second table mapping one to the other.
+ */
+export const TIMING_FIELDS = {
+  startsOn: "startsOn",
+  startsAtTime: "startsAtTime",
+  endsOn: "endsOn",
+  endsAtTime: "endsAtTime",
+  timeZone: "timeZone",
+} as const;
+
+/** The other fields an event draft asks about. */
+export const EVENT_FIELDS = {
+  title: "title",
+  conferenceUrl: "conferenceUrl",
+} as const;
+
 /** The shortfalls in the timing every event shares, in the order a person meets them. */
-export function timingShortfalls(draft: EventTimingDraft): string[] {
-  const shortfalls: string[] = [];
+export function timingShortfalls(draft: EventTimingDraft): Shortfall[] {
+  const shortfalls: Shortfall[] = [];
   if (draft.startsOn === null || !isCivilDate(draft.startsOn)) {
-    shortfalls.push("A date is needed.");
+    shortfalls.push(shortfall(TIMING_FIELDS.startsOn, "A date is needed."));
   }
   if (draft.startsAtTime !== "" && !isWallClockTime(draft.startsAtTime)) {
-    shortfalls.push("The start time does not read as a time of day.");
+    shortfalls.push(
+      shortfall(TIMING_FIELDS.startsAtTime, "The start time does not read as a time of day."),
+    );
   }
   if (draft.endsOn !== null && !isCivilDate(draft.endsOn)) {
-    shortfalls.push("The end date does not read as a date.");
+    shortfalls.push(shortfall(TIMING_FIELDS.endsOn, "The end date does not read as a date."));
   } else if (draft.endsOn !== null && draft.startsOn !== null && draft.endsOn < draft.startsOn) {
-    shortfalls.push("The end date is before the start.");
+    shortfalls.push(shortfall(TIMING_FIELDS.endsOn, "The end date is before the start."));
   }
   if (draft.endsAtTime !== "" && !isWallClockTime(draft.endsAtTime)) {
-    shortfalls.push("The end time does not read as a time of day.");
+    shortfalls.push(
+      shortfall(TIMING_FIELDS.endsAtTime, "The end time does not read as a time of day."),
+    );
   } else if (
     draft.endsAtTime !== "" &&
     draft.startsAtTime !== "" &&
     (draft.endsOn === null || draft.endsOn === draft.startsOn) &&
     draft.endsAtTime <= draft.startsAtTime
   ) {
-    shortfalls.push("The end time is not after the start time.");
+    shortfalls.push(
+      shortfall(TIMING_FIELDS.endsAtTime, "The end time is not after the start time."),
+    );
   }
   if (draft.timeZone.trim() === "") {
-    shortfalls.push("A time zone is needed: the one the event happens in.");
+    shortfalls.push(
+      shortfall(TIMING_FIELDS.timeZone, "A time zone is needed: the one the event happens in."),
+    );
   } else if (!isResolvableTimeZone(draft.timeZone)) {
-    shortfalls.push("The time zone is not one a date can be read in.");
+    shortfalls.push(
+      shortfall(TIMING_FIELDS.timeZone, "The time zone is not one a date can be read in."),
+    );
   }
   return shortfalls;
 }
 
 /** Every reason the event cannot be recorded yet. Empty means it can. */
-export function eventDraftShortfalls(draft: EventDraft): string[] {
-  const shortfalls: string[] = [];
-  if (draft.title.trim() === "") shortfalls.push("A title is needed.");
+export function eventDraftShortfalls(draft: EventDraft): Shortfall[] {
+  const shortfalls: Shortfall[] = [];
+  if (draft.title.trim() === "") {
+    shortfalls.push(shortfall(EVENT_FIELDS.title, "A title is needed."));
+  }
   shortfalls.push(...timingShortfalls(draft));
   shortfalls.push(...conferenceShortfalls(draft.conferenceUrl));
   return shortfalls;
@@ -134,17 +167,19 @@ export function eventDraftShortfalls(draft: EventDraft): string[] {
  * own URL parse and a scheme test — `javascript:` and `data:` are not places to join a meeting, and
  * a field that accepted them would be a link a surface then had to be careful about rendering.
  */
-export function conferenceShortfalls(conferenceUrl: string): string[] {
+export function conferenceShortfalls(conferenceUrl: string): Shortfall[] {
   const trimmed = conferenceUrl.trim();
   if (trimmed === "") return [];
   let parsed: URL;
   try {
     parsed = new URL(trimmed);
   } catch {
-    return ["The conference link does not read as a web address."];
+    return [
+      shortfall(EVENT_FIELDS.conferenceUrl, "The conference link does not read as a web address."),
+    ];
   }
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-    return ["The conference link has to be a web address."];
+    return [shortfall(EVENT_FIELDS.conferenceUrl, "The conference link has to be a web address.")];
   }
   return [];
 }
