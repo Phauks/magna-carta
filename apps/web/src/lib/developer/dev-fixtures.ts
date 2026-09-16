@@ -51,6 +51,11 @@ export const FIXTURE_GROUPS: readonly DevPageGroup[] = [
         note: "Where the show/hide-a-pane control could live",
       },
       {
+        label: "Document editor headers",
+        href: "/developer-console/document-editor-headers",
+        note: "Three candidate bands for the editor with no rail and no top bar",
+      },
+      {
         label: "Table states",
         href: "/developer-console/table-states",
         note: "The one table, in every state",

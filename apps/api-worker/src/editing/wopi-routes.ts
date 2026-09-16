@@ -117,6 +117,12 @@ export interface CheckFileInfoBody {
   readonly UserId: string;
   readonly UserCanWrite: boolean;
   readonly LastModifiedTime: string | null;
+  // The origin the editor addresses its status messages to (the WOPI PostMessageOrigin property). It is
+  // the app origin that launched this session, carried in the token because this call has no request of
+  // its own to read it from. Absent, the editor posts nothing and the screen framing it has no way to
+  // learn that the document came up — which is the difference between a member watching a waiting state
+  // that resolves and one watching a blank frame.
+  readonly PostMessageOrigin?: string;
 }
 
 export async function checkFileInfo(
@@ -149,6 +155,10 @@ export async function checkFileInfo(
     UserId: claims.memberId,
     UserCanWrite: claims.capability === "edit",
     LastModifiedTime: liveWorkingCopy?.wopiTimestamp ?? null,
+    // Only ever the origin the token carries. The property is omitted rather than defaulted when the
+    // token has none: a guessed origin would not match the page and the messages would go nowhere, which
+    // is the same silence with a configuration value standing behind it.
+    ...(claims.appOrigin === undefined ? {} : { PostMessageOrigin: claims.appOrigin }),
   };
 }
 
