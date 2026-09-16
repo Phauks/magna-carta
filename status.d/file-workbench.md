@@ -9,8 +9,8 @@ built: in-progress by="Opus 5"
 ui: in-progress by="Opus 5"
 load-profile: n/a
 tested: done by="Opus 5"
-branch: claude/nice-lovelace-606byh
-active-work: docs/active-work/claude/nice-lovelace-606byh.md
+branch: main
+active-work:
 next: the firm-scoped scratch object, so the container-backed capabilities can address the bytes
 link-spec:
 link-plan:
