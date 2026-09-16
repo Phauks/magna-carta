@@ -2582,7 +2582,7 @@
         }
       },
       "branch": "claude/hopeful-cannon-tsrczb",
-      "activeWork": "docs/active-work/claude/hopeful-cannon-tsrczb.md",
+      "activeWork": null,
       "next": "carrying a member's favorites and sidebar arrangement across their devices, which waits on the member-preferences store; a matter's own section rows as a cluster, now that the mechanism exists",
       "links": {
         "spec": null,

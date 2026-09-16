@@ -10,7 +10,7 @@ ui: done
 load-profile: n/a
 tested: done
 branch: claude/hopeful-cannon-tsrczb
-active-work: docs/active-work/claude/hopeful-cannon-tsrczb.md
+active-work:
 next: carrying a member's favorites and sidebar arrangement across their devices, which waits on the member-preferences store; a matter's own section rows as a cluster, now that the mechanism exists
 link-spec:
 link-plan:
