@@ -54,6 +54,18 @@ export const DEFERRED_LINTS = new Map([
     },
   ],
   [
+    "lint:hard-rules",
+    {
+      // 6.6 s — one whole-repo linter walk for the rules, plus a second over the fixtures that prove
+      // each rule still fires. Ten times the median lint here, and the fixture half is not optional:
+      // it is what stops a wrapper whose plugin flag was renamed from reporting a clean tree forever.
+      // Only a source change can move its counts, and the inner loop already lints the diff, so the
+      // CI governance tier (which calls this runner with `--all`) is where it belongs.
+      reason: "6.6 s (two whole-repo linter walks) — the CI governance tier runs it",
+      runWhenDependenciesChange: false,
+    },
+  ],
+  [
     "lint:test-collection",
     {
       // 26 s — four list-only Vitest collections over ~70 projects. An order of magnitude past what
