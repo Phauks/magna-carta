@@ -200,6 +200,19 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   name it stores — because the module that WRITES a location is the module that reads it back to
   book the room, and two answers would drift within a round. A bare name two offices both answer to
   matches neither: booking one of two rooms nobody chose between is worse than booking none.
+- **HOLDING A ROOM IS THE LOCATION FIELD'S GESTURE, at the record AND at the correction.** Booking
+  when an event is recorded landed on 2026-09-14; the correction was still not doing it, so an event
+  MOVED from the Boardroom to Conference Room B kept the Boardroom held and never held Conference
+  Room B — after one edit the two room calendars disagreed with the record and with each other, and
+  Location and Book a Room still read as two features (owner, 2026-09-16). `reconcileRoomBooking`
+  is the pure answer: release a booking for a room the location no longer names, book the one it now
+  does, and touch NOTHING else — a pool car, or a second room somebody held from the Rooms tab, was
+  never named by this field and is not swept away by an edit to it. It runs AFTER the record saved,
+  because the location it reconciles to is the one that landed, and a booking it could not move does
+  not unwind the correction: the window says which half did not happen. **The Book a Room verb has
+  left the action bar** — a second control for the act the Location field performs is the
+  duplication the owner named — and the Rooms tab keeps it, because a second room is a real thing to
+  hold and nothing else can.
 - **A setting held in one of the firm's own rooms HOLDS that room.** Location stores TEXT (a
   courthouse, a department number, opposing counsel's office are none of them records this product
   holds), and a room's calendar reads BOOKINGS — so choosing a room from the location picker used to

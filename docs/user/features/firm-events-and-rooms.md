@@ -53,6 +53,11 @@ Cancelling keeps the record, with an optional note saying why.
 
 ## Booking a room, a car, or anything else
 
+**The room a setting is HELD in is booked by the Location field, not from here.** Choose one of your
+conference rooms as the location and it is held for the event's window; change the location and the
+booking follows. This section is for everything else: a second room, a pool car, a projector — and
+for seeing and releasing what an event already holds, on its **Rooms** tab.
+
 A booking always belongs to an event — the room is busy _because something is happening in it_.
 Book the conference room for a deposition, the pool car for a site visit, the video rig for a
 hearing. Want the car on Friday with no particular occasion? Record a **Reservation** firm event

@@ -160,12 +160,20 @@ Give the event a title, a date, and the time zone it happens in. Everything else
 - **Location** offers the places your firm already has: your offices, then your conference rooms,
   each under its own heading. Type anything else and it is kept — a courthouse, a department number,
   opposing counsel's address — because most hearings are not at one of your offices.
-- **Choosing one of your conference rooms books it.** The room is held for the event's own window
+- **Choosing one of your conference rooms books it, and changing it moves the booking.** The room is held for the event's own window
   and the event appears on that room's calendar, so "held here" and "this room is taken" are one
   act rather than two you have to remember. If the room cannot be held — somebody else has it, or
   the booking is refused — the form says so and names the room; the event is still recorded, and
   you can book the room from its Rooms tab. Typing a place your firm has no record of books
   nothing, which is what a courthouse should do.
+
+  **Editing the location afterwards moves the booking too.** Move a deposition from the Boardroom
+  to Conference Room B and the Boardroom is released and Conference Room B held; change the
+  location to a courthouse and the room is released; change one courthouse for another and nothing
+  moves. A car or a second room you booked by hand is never touched, because the location field
+  never named it. If the new room cannot be held, your change to the event is still saved and the
+  window says the room was not held.
+
 - **A conference link** is its own field, for a setting held on a call: paste the Zoom, Teams or
   other meeting link. It is separate from Location on purpose, because a deposition can be in a
   conference room and on a call at the same time.

@@ -71,6 +71,9 @@
     readMatterEvent,
     satisfyDeadline,
     updateDeadline,
+    createBooking,
+    deleteBooking,
+    listEventBookings,
     updateFirmEvent,
     updateMatterEvent,
     vacateDeadline,
@@ -118,6 +121,7 @@
     eventUpdateOf,
     firmEventUpdateOf,
   } from "./entry-updates.ts";
+  import { reconcileRoomBooking, roomNotHeldSentence } from "./room-location.ts";
   import ParticipantPicker from "./participant-picker.svelte";
   import {
     deadlineVerbRefusal as deadlineVerbRefusalOf,
@@ -314,6 +318,12 @@
   // dialogs, and the counts the tab strip shows.
 
   let linksTab = $state<EntryLinksTab>();
+  /*
+   * The Rooms tab's own handle. It no longer carries a verb on the ACTION BAR — holding the room a
+   * setting is held in is the Location field's gesture, and a second control for the same act read
+   * as a second feature (owner, 2026-09-16) — but the handle stays, because the tab is still where
+   * a SECOND room, or a car, is held by hand.
+   */
   let roomsTab = $state<EntryRoomsTab>();
   let relatedCount = $state(0);
   let bookingCount = $state(0);
@@ -443,10 +453,63 @@
       );
       return;
     }
+    // The room the location names is held, and one it no longer names is released — so a setting
+    // MOVED from the Boardroom to Conference Room B leaves both room calendars saying what the
+    // record says. Booking at the record was already true; this is the correction's half of it,
+    // and its absence is what kept Location and Book a Room reading as two features.
+    await reconcileRooms();
     editing = false;
     participantsEdited = false;
     onChanged();
     reread();
+  }
+
+  /**
+   * Make the event's room bookings say what its location says.
+   *
+   * It runs AFTER the record saved, because the location it reconciles to is the one that landed.
+   * A booking that could not be moved does not unwind the correction — the correction is a real
+   * change the reader asked for — so the window states which half did not happen and leaves the
+   * record as saved, exactly as the record form does.
+   *
+   * Only the room the location names is touched. A pool car, or a second room somebody held from
+   * the Rooms tab, was never named by this field and is not swept away by an edit to it.
+   */
+  async function reconcileRooms(): Promise<void> {
+    if (record === null || record.kind === "deadline") return;
+    const locationText =
+      record.kind === "event" ? (eventDraft?.locationText ?? "") : (firmEventDraft?.locationText ?? "");
+    const held = await listEventBookings(fetch, {
+      kind: record.kind === "event" ? "matterEvent" : "firmEvent",
+      id: record.event.id,
+    });
+    if (held.kind !== "ok") return;
+    const plan = reconcileRoomBooking(
+      locationText,
+      held.value.data,
+      context.resources,
+      context.locations,
+    );
+    for (const bookingId of plan.release) {
+      await deleteBooking(fetch, bookingId, crypto.randomUUID());
+    }
+    if (plan.book === null) return;
+    const booked = await createBooking(
+      fetch,
+      {
+        resourceId: plan.book.id,
+        matterEventId: record.kind === "event" ? record.event.id : null,
+        firmEventId: record.kind === "firmEvent" ? record.event.id : null,
+      },
+      crypto.randomUUID(),
+    );
+    if (booked.kind !== "ok") {
+      saveFailure = stated(
+        booked.failure,
+        roomNotHeldSentence(plan.book.name),
+        roomNotHeldSentence(plan.book.name),
+      );
+    }
   }
 
   /** Abandoning: the window has already left editing; the fields go back to the seed. */
@@ -1322,14 +1385,6 @@
       <Button
         variant="secondary"
         disabled={eventVerbRefusal !== undefined}
-        title={eventVerbRefusal ?? "Book a room, a car or equipment for this setting's window"}
-        onclick={() => roomsTab?.openBook()}
-      >
-        Book a Room
-      </Button>
-      <Button
-        variant="secondary"
-        disabled={eventVerbRefusal !== undefined}
         title={eventVerbRefusal ?? "Link this setting to another on the same matter"}
         onclick={() => void linksTab?.openRelate()}
       >
@@ -1368,14 +1423,6 @@
         onclick={openCancel}
       >
         Cancel Event
-      </Button>
-      <Button
-        variant="secondary"
-        disabled={eventVerbRefusal !== undefined}
-        title={eventVerbRefusal ?? "Book a room, a car or equipment for this event's window"}
-        onclick={() => roomsTab?.openBook()}
-      >
-        Book a Room
       </Button>
       <Button
         variant="secondary"
