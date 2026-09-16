@@ -15,7 +15,9 @@ Four questions, in the order their answers depend on each other:
 2. **Who is at it** — correcting participants after the fact, and adding several at once by what
    they are rather than one name at a time.
 3. **When it repeats** — recurrence.
-4. **What zone its end is read in** — today a record has one zone; the owner asked for two.
+4. ~~**What zone its end is read in**~~ — withdrawn by the owner on 2026-09-16; a setting is read in
+   one zone and the forms already ask once. Section 4 records why.
+5. **What it would collide with** — a recurring setting is fifty-two chances to double-book.
 
 Each is a slice that ships on its own. They are one spec because they touch the same two tables and
 the same two forms, and building them blind to each other would cost the schema twice.
@@ -202,31 +204,46 @@ monthly by weekday, and yearly, with an end after N or on a date. A firm that pa
 not a case this serves. Nothing here generates deadlines — a recurring event is not a docketing
 rule, and rules-based docketing is its own subsystem.
 
-## 4 · A setting's end has its own zone
+## 4 · A setting is read in ONE zone — withdrawn
 
-The owner: "they may start and end separately."
+This spec proposed a second zone for a setting's end, on the owner's "they may start and end
+separately". **The owner reversed it on 2026-09-16: "only have one field for time zone. always the
+same for start and stop."**
 
-`matter_event.time_zone` and `firm_event.time_zone` are one column each, and
-[`record-timing-fields.svelte`](../../apps/web/src/lib/calendar/record-timing-fields.svelte) asks
-once because of it.
+Nothing was built, so nothing is unwound. The record forms already ask once
+([`record-timing-fields.svelte`](../../apps/web/src/lib/calendar/record-timing-fields.svelte)), both
+event tables keep their single `time_zone`, and no `end_time_zone` column exists. **Do not add one.**
 
-**Change.** Add `end_time_zone`, nullable, null meaning "the same as the start" — so every existing
-row is already correct and nothing backfills. The form asks a second zone only when an end date or
-time is set. The projection carries both; the grid keeps placing by the civil day and the wall clock
-in the row's own zone, unchanged, because a block on an hour axis is drawn in ONE zone and the
-start's is the one it is drawn in.
+The reversal is the better design and worth keeping the reasoning for: the two-zone version bought a
+handful of genuinely cross-zone settings and cost every form a second question, every read a second
+column, and the grid a conversion it otherwise never performs — the one place in the calendar where
+a wall clock would have had to move between zones to compute a block's height. A setting is read in
+one zone. Where somebody is in another, that is what the wall-clock text's zone suffix already says.
 
-**What it is for.** A deposition that starts in Denver and ends in Chicago is not the case; an
-overnight flight, a hearing that runs past midnight into another zone's day, and a multi-day trial
-whose venue moves are. The honest reading is that the END is stated where the end happens.
+## 5 · What a setting would collide with
 
-**What it must not do.** It must not tempt anything into deriving a duration across two zones. The
-day and week grids size a block from `startMinute` and `endMinute` in the row's own zone
-([`time-placement.ts`](../../packages/design-system/src/lib/components/calendar-grid/time-placement.ts));
-where the two zones differ, the end minute is the end's wall clock converted into the start's zone
-for LAYOUT ONLY, and the displayed end time keeps its own zone's words. This is the one conversion
-in the calendar, and it exists so a block's height is a real length rather than a number from two
-different clocks.
+A recurring setting is why this exists. One hearing at a bad hour is visible in the day schedule the
+record form already draws beside itself; a weekly setting for a year is fifty-two chances to collide
+and nobody scrolls a year to check by eye.
+
+**A double booking is never refused, only stated.** The platform does not know that two things at
+once are wrong — a partner signs an order while an associate takes a deposition, and a room is
+booked for both halves of a mediation on purpose. So the form reports and the reader decides, which
+is the posture the resource booking already takes ("lands even when it double-books, and says so in
+`conflicts`").
+
+**It compares civil days and wall clocks, never instants**, exactly as the grid does. Two settings
+collide when they share a civil day and their minutes overlap on it; an all-day record collides with
+everything on its day, because a thing true of the whole day is true of every hour of it. Touching
+is not overlapping: a setting ending at eleven and one starting at eleven are a full morning. A
+settled record — a vacated hearing, a satisfied deadline — is not a conflict, because it is not
+competing for anybody's Tuesday.
+
+**It counts DAYS rather than collisions.** "Three of the twelve dates" is the question a person asks
+about a series; "seven conflicts" leaves them working out whether that is seven bad days or two
+crowded ones.
+
+Home: [`schedule-conflicts.ts`](../../apps/web/src/lib/calendar/schedule-conflicts.ts).
 
 ## Test plan
 
@@ -244,17 +261,19 @@ area's standing rule.
   window, an exception that moves one in, a cancelled occurrence, and a series cancelled with a live
   exception. Daylight saving: a weekly 9am setting is 9am on both sides of the change, because the
   expansion is over civil dates and never over instants.
-- **Zones.** An end with no zone reads as the start's. An end in another zone lays out by its
-  converted minute and prints its own words. A block whose end converts to before its start is read
-  as a point, which is the rule `timeSpanOf` already applies.
+- **Conflicts.** Back-to-back is not a collision; an all-day record collides with everything on its
+  day and with nothing on another; a settled record collides with nothing at all; a setting never
+  conflicts with itself when it is the one being edited; a series counts every occurrence, and
+  reports days rather than collisions.
 
 ## Order of build
 
 1. **Places** (1.1, 1.2) — narrow, and the picker is already half of it.
 2. **Participants editable** (2.1) — the owner's reported defect; no new storage.
-3. **A setting's end zone** (4) — one nullable column, one form question.
+3. ~~A setting's end zone~~ — withdrawn.
 4. **Groups and tags** (2.2) — new storage and a settings surface.
 5. **Meeting links** (1.3) — new kind, new column, and the conflict threshold changes with it.
-6. **Recurrence** (3) — the largest, and the one that should land alone.
+6. **Recurrence** (3) and **conflicts** (5) — the largest, and the pair that should land together,
+   because recurrence is what makes a conflict check worth having.
 
 Nothing in 2 through 6 blocks 1, and each ships a working calendar.

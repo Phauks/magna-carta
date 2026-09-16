@@ -2444,6 +2444,28 @@ properly show themselves on the calendar, not just on the start, should stretch 
   controller they act on — and a host that ignores the snippet still gets the row above the grid.
   _(built 2026-09-14)_
 
+### 2026-09-16 — a setting is read in one zone, and a series says what it would collide with
+
+The owner: "only have one field for time zone. always the same for start and stop." And, in the
+same breath as starting recurrence: "check conflicts."
+
+- **ONE zone field on a setting, shared by its start and its end.** This reverses the owner's own
+  earlier "they may start and end separately", which had been specified but not built — so nothing
+  is unwound, and the forms already ask once. The reversal is the better design: two zones bought a
+  handful of genuinely cross-zone settings and cost every form a second question, every read a
+  second column, and the grid the one conversion it otherwise never performs, since a block's height
+  would have had to be computed across two clocks. Where somebody is in another zone, the
+  wall-clock text's zone suffix already says so. **Do not add `end_time_zone`.** _(standing;
+  nothing to build)_
+- **A setting says what it would collide with, and is never refused for it.** Two things at once is
+  not something the platform knows to be wrong — a partner signs an order while an associate takes a
+  deposition, and a room is booked for both halves of a mediation on purpose — so the form states
+  and the reader decides, which is the posture the resource booking already took. Collisions are
+  compared on civil days and wall clocks, never instants; back-to-back is not a collision; a vacated
+  hearing competes for nobody's Tuesday; and a series reports DAYS rather than collisions, because
+  "three of the twelve dates" is the question a person asks and "seven conflicts" is not.
+  _(built 2026-09-16 as `schedule-conflicts.ts`)_
+
 ### 2026-09-14 — messaging's create control names a message
 
 The owner: "messaging, new should say new message, not new call".
