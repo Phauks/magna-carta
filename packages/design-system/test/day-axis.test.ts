@@ -90,28 +90,30 @@ describe("where a day's entries land", () => {
   const alsoMorning = entry({ id: "b", lane: "ada", startMinute: 9 * 60 + 45 });
   const afternoon = entry({ id: "c", lane: "grace", startMinute: 14 * 60 });
   const filing = entry({ id: "d", lane: "grace" });
-  const hours = dayHours([morning, alsoMorning, afternoon, filing]);
-  const placed = placeDayEntries([morning, alsoMorning, afternoon, filing], LANES, hours);
+  const placed = placeDayEntries([morning, alsoMorning, afternoon, filing], LANES);
 
   it("puts what has no hour in the band above the hours", () => {
     expect(placed.allDay.get("grace")).toEqual([filing]);
     expect(placed.allDay.get("ada")).toEqual([]);
   });
 
-  it("puts a timed entry in the row of the hour it STARTS in", () => {
-    expect(placed.hours.get("ada")?.get(9 * 60)).toEqual([morning, alsoMorning]);
-    expect(placed.hours.get("grace")?.get(14 * 60)).toEqual([afternoon]);
+  it("keeps a timed entry in its own column, for the axis to place", () => {
+    // WHERE on the axis it lands is time-placement.ts's answer; this module only says which
+    // column holds it and that the hours hold it at all.
+    expect(placed.timed.get("ada")).toEqual([morning, alsoMorning]);
+    expect(placed.timed.get("grace")).toEqual([afternoon]);
   });
 
   it("gives every column a place to put things, empty or not", () => {
     expect([...placed.allDay.keys()]).toEqual(["ada", "grace"]);
-    expect([...placed.hours.keys()]).toEqual(["ada", "grace"]);
+    expect([...placed.timed.keys()]).toEqual(["ada", "grace"]);
   });
 
-  it("pulls an entry outside the hours drawn into the nearest row rather than dropping it", () => {
+  it("keeps an entry outside the hours drawn rather than dropping it", () => {
+    // The range already grew to hold it; a caller that clamped the hours by hand still gets the
+    // entry, and the axis clips the block rather than losing the record.
     const dawn = entry({ id: "e", lane: "ada", startMinute: 2 * 60 });
-    const narrow = placeDayEntries([dawn], LANES, { first: 9, last: 17 });
-    expect(narrow.hours.get("ada")?.get(9 * 60)).toEqual([dawn]);
+    expect(placeDayEntries([dawn], LANES).timed.get("ada")).toEqual([dawn]);
   });
 });
 

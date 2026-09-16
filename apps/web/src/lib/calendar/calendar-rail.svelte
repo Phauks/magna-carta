@@ -9,9 +9,28 @@
    * than people — so this is the rail every calendar product settled on, over the catalog in
    * calendar-sources.ts.
    *
+   * IT DRAWS NO COLUMN OF ITS OWN. The rail stands in the navigation column of the design system's
+   * NavigationLayout, which owns the landmark and its name, the measure, the scroll region and the
+   * reserved gutter — so this file is the column's CONTENT and nothing else, and the firm calendar
+   * cannot drift from Settings, Magnus, Tools or Reports in what a permanent left column looks
+   * like. It had its own `<nav>` at `w-3xs` with its own scrollbar until 2026-09-14, which was the
+   * fifth hand-rolled copy of a shape the owner ruled is one component.
+   *
+   * THE FOLDER HEADS ITS GROUP, and there is no title above the folders: the column is named by the
+   * landmark, exactly as the catalogue column's is, and a "Calendars" heading over a column of
+   * Attorneys / Staff / Rooms / Dates would be a level neither sibling screen has. The indent
+   * stagger is the family's — the folder's cap-line at 12, its calendars one step past it — so a
+   * reader who has learned one two-sided screen has learned this one.
+   *
    * A FOLDER'S OWN CONTROL IS A THIRD STATE, NOT A SECOND BUTTON. Two of six attorneys on is neither
    * on nor off, and the checkbox says so; pressing it from there completes the folder, which is what
    * somebody who turned two on and reached for the folder meant.
+   *
+   * A CALENDAR'S ROW IS A CHECKBOX ROW, NOT NavigationLayout.Row. The shared row is a destination or
+   * an act — it renders the anchor or the button itself and lights the one the reader is standing on
+   * — and every row here is a switch with a control already inside it, which cannot be nested in
+   * another. What the two share is the column and the stagger; the part that differs is the part
+   * that genuinely differs, which is why the layout imposes no structure on what a navigation holds.
    *
    * THE COLOUR IS BEHIND THE PIP, where the colour already is. A row shows the colour it wears as a
    * small disc; pressing the disc opens the palette. A separate control per row would be a second
@@ -24,7 +43,6 @@
    */
   import { buttonClasses } from "@magna-carta/design-system/button";
   import Checkbox from "@magna-carta/design-system/checkbox";
-  import FieldLabel from "@magna-carta/design-system/field-label";
   import Label from "@magna-carta/design-system/label";
   import * as Popover from "@magna-carta/design-system/popover";
   import { SoonAffordance } from "@magna-carta/design-system/maturity";
@@ -41,9 +59,6 @@
 
   const idPrefix = $props.id();
 
-  /** The rail's own name, and the word above it. */
-  const RAIL_LABEL = "Calendars";
-
   /** How a colour control names what it would colour. */
   function colorLabel(source: CalendarSource): string {
     return `Colour of ${source.name}`;
@@ -58,14 +73,14 @@
   }
 </script>
 
-<nav aria-label={RAIL_LABEL} class="mc-scrollbar flex w-3xs shrink-0 flex-col gap-16 overflow-y-auto pe-8">
-  <FieldLabel as="p">{RAIL_LABEL}</FieldLabel>
-
+<div class="flex flex-col gap-24">
   {#each controller.folders as folder (folder.key)}
-    <section class="flex flex-col gap-4">
-      <!-- The folder's own switch reads the three states its rows can be in, and completing it is
-           what pressing the middle one does. -->
-      <div class="flex items-center gap-8">
+    <div class="flex flex-col gap-8">
+      <!-- The folder heads its group at the column's cap-line of 12, where the catalogue column's
+           section header and the settings nav's band header both sit. Its own switch reads the
+           three states its calendars can be in, and completing it is what pressing the middle one
+           does. -->
+      <div class="flex items-center gap-8 px-12">
         <Checkbox
           id="{idPrefix}-{folder.key}"
           checked={folderChecked(folder)}
@@ -77,18 +92,20 @@
         <Label for="{idPrefix}-{folder.key}" class="mc-field-label">{folder.name}</Label>
       </div>
 
-      <ul class="flex flex-col gap-4 ps-24">
+      <!-- One stagger step past the folder: the list's own inset plus each row's, which is how the
+           catalogue column lands its rows 12 past its section header. -->
+      <ul class="flex flex-col gap-4 ps-12">
         {#each folder.sources as source (source.key)}
           {@const on = controller.onKeys.has(source.key)}
           {@const color = controller.colors.get(source.key)}
-          <li class="flex min-w-0 items-center gap-8">
+          <li class="flex min-w-0 items-center gap-8 px-12">
             {#if source.soonReason === undefined}
               <Checkbox
                 id="{idPrefix}-{source.key}"
                 checked={on}
                 onCheckedChange={() => controller.toggleCalendar(source)}
               />
-              <Label for="{idPrefix}-{source.key}" class="min-w-0 flex-1 truncate text-sm font-normal">
+              <Label for="{idPrefix}-{source.key}" class="min-w-0 flex-1 text-sm font-normal">
                 {source.name}
               </Label>
               <!-- The colour lives behind the disc that already shows it. The disc is eight
@@ -118,7 +135,7 @@
                 {#snippet control(soon)}
                   <span class="flex min-w-0 items-center gap-8">
                     <Checkbox checked={false} {...soon} />
-                    <span class="min-w-0 flex-1 truncate text-sm text-text-muted">{source.name}</span>
+                    <span class="min-w-0 flex-1 text-sm text-text-muted">{source.name}</span>
                   </span>
                 {/snippet}
               </SoonAffordance>
@@ -126,6 +143,6 @@
           </li>
         {/each}
       </ul>
-    </section>
+    </div>
   {/each}
-</nav>
+</div>

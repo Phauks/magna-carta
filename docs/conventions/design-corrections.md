@@ -900,6 +900,33 @@ is usually the fastest way to understand the rule.
   every view, so the swapper keeps the end. Same property the create control's fixed width protects
   in the matter header. _(the file manager, 2026-09-06)_
 
+- **A pair of surfaces that are one idea pointed two ways is ONE frame rendered twice.** Uploads and
+  Downloads had been built separately and had drifted the way separate things do: one named itself on
+  hover and the other did not, so the single control in that band that STARTS a transfer was the one a
+  reader could not identify, and each had grown its own empty wording with its own paragraph under it
+  explaining the mechanism. The frame is shared (the trigger, the dot, the titled panel, the way to
+  the full surface) and what differs is passed in. What is NOT shared is as deliberate: where the two
+  hold different kinds of record — a stored document any format can be taken from, against a file on a
+  matter — their tables stay their own, because one table over both means a column that is blank for
+  half the rows. The test is whether the FRAME is the same thing, not whether the contents rhyme.
+  _(the transfer registers, 2026-09-16)_
+- **A live register that forgets is answering the wrong question.** Where a surface holds work that
+  genuinely cannot survive the tab, separate the TRANSFER from the RECORD of it and keep the record.
+  An upload's file handles die with the tab; the names, the matter, the folder and the file each one
+  became do not, and those are what somebody is asking for the next morning. Keep the record where
+  the transient thing lived, bounded, with nothing privileged in it, and make every landed item
+  reachable again from there — a register that answers "nothing uploading" to "where is the thing I
+  sent yesterday" is truthful and useless. _(the Uploads screen, 2026-09-16)_
+- **A control that opens an outside service wears that service's own mark, not the nearest glyph we
+  have.** The icon rule is absolute for iconography — every glyph is Lucide, none is drawn — and a
+  brand mark is not iconography: it is the identity of one specific service, and the nearest Lucide
+  shape for it states a concept instead. The build panel's repository link wore a git-branch glyph,
+  which says "a branch" about a link that goes to GitHub. A service's mark is a compliance artefact
+  rather than a design choice, so it ships self-hosted and unaltered, in its own quarantined home
+  (`@magna-carta/design-system/service-marks`), with a row in
+  [`third-party-trademarks.md`](third-party-trademarks.md) recording whose it is and on what terms.
+  Nothing else earns an exception to the icon rule. _(the build panel, 2026-09-16)_
+
 ### List screens
 
 - **A list screen is ONE table at the full width, and a rail down its side has to earn the
@@ -1233,6 +1260,31 @@ name, which is every screen outside a matter.
   the same fact in the one window a stylesheet cannot reach. _(reported as a white flash between
   screens, 2026-09-07)_
 
+- **A capability a member OPENS is a row in the rail, not a row in a column inside a sub-page.**
+  Where a set of surfaces is reached through a screen whose left side lists them all, ask what that
+  column is worth to the reader who has already chosen. If the members of the set have nothing to do
+  with each other — the tool catalog is the case that settled it: a postage rate, a WHOIS record, a
+  county recorder's site and a bandwidth measurement — the column is a standing list of the things
+  you are not doing, and it charges the surface you ARE doing the width of itself on every visit.
+  The two-sided shape earns its column where the column is a finding aid over ONE subject the reader
+  moves around inside (settings, a matter's sections, the reports register); it does not where the
+  rows are unrelated destinations. Elevating them costs nothing that matters: the addresses do not
+  move, the index survives as the place to read what each one does, and the rail was already the
+  product's answer to "where do I go". _(the tools, 2026-09-16)_
+- **A sidebar group folds, and the heading is the control.** Not a chevron beside a label, not a
+  control in a row of its own: the heading itself takes the chevron and the full width as its hit
+  target, keeps the letterspaced-caps voice unchanged, and the fold is remembered per browser. Two
+  things it is not allowed to be. It is not available in the collapsed icon rail — a rail with no
+  visible heading has nothing to fold BY, and folding there would leave a column of icons with
+  nothing saying why the rest are missing. And it never reaches the command palette: folding hides
+  rows the way a star does, and the invariant is the star layer's — hiding must never remove
+  capability. _(the sidebar, 2026-09-16)_
+- **An index whose children are destinations in their own right lights as current only on its own
+  address.** The default is the opposite and is right nearly everywhere — a destination owns
+  everything beneath its path, which is what keeps the gilt bar on Matters while a matter is open.
+  Where the things beneath it are rows of the same rail, prefix-matching lights two rows at once and
+  the reader has to work out which one is the answer. _(All Tools, 2026-09-16)_
+
 ### Spacing and rhythm
 
 - **The App Shell draws the page inset, once, for everybody.** A screen rendered into the shell's
@@ -1265,6 +1317,39 @@ name, which is every screen outside a matter.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-16 — the transfer registers, the rail, and two glyphs
+
+The owner, in one pass over the upload and download surfaces, the sidebar and the build panel. What
+was said, and what each part generalizes to:
+
+- **"Hovering over upload button in header should say upload."** The download tray beside it already
+  did. Generalized above: a pair of surfaces that are one idea pointed two ways is one frame rendered
+  twice — the fix is not a tooltip added to one control, it is the two controls ceasing to be two
+  implementations.
+- **"History of uploads and downloads should be retained between sessions."** Downloads already were
+  (a shelf on the member's record, held a week). Uploads were not, and could not be as transfers —
+  so the record was separated from the transfer and kept per browser. Generalized above.
+- **The two empty states become "No Uploads" and "No Downloads."** Not a new rule: the empty-state
+  ruling of 2026-09-14 (two words, title case, no description) reaching two screens that predated it
+  and each carried a paragraph about the mechanism instead.
+- **"Uploads and downloads are so similar, make sure they are built modularly."** The frame is one
+  component; the words neither is allowed its own copy of are one module. The ruling states the line
+  the modularity stops at, which is the part a later round would otherwise get wrong.
+- **"Items should be redownloadable from the upload or downloads areas."** Every landed file carries
+  a download straight to its own route on the matter — the same route the file list uses, so what
+  comes back is the file and not a copy of it.
+- **"In build info, replace copy button and github button with better icons."** Copy was a clipboard
+  with an arrow, which is the picture of paste. The repository link was a git-branch glyph, which
+  names a git concept rather than the service. Generalized above, including the one exception to the
+  icon rule and the compliance track that carries it.
+- **"Workspace, money, and firm should all be collapsible menus."** Generalized above, with the two
+  places folding is not allowed to reach.
+- **"Instead of tools being a sub-page, maybe we should elevate those tools to the left sidebar,
+  since they are all so different, and we lose screen space without it. Especially relating to high
+  usage like mailing and postage, this may be a long-term benefit."** The reasoning is the ruling and
+  is generalized above: an unrelated set does not earn a navigation column, and the surfaces that
+  will be used most are the ones least able to pay for one.
 
 ### 2026-09-14 — everything has a number, intake included
 
@@ -2485,6 +2570,15 @@ navigational menu (such as for magnus and settings), and a right content menu."
   _(built 2026-09-14: Settings, Magnus, Tools and Reports all render on `NavigationLayout`; Tools
   and Reports share one catalogue column, with the landing index kept in the content column so a
   route's back control never bounces. The folder tree remains the follow-up.)_
+- **The firm calendar's rail of calendars is the fifth consumer**, named by the owner on 2026-09-14
+  ("calendar … has a permanent left sidebar, similar to what we have in tools and settings; let's
+  try and get these components together"). It had been a `<nav>` at `w-3xs` with a scroll region and
+  a gutter of its own beside the grid — a sixth width for the one shape. `CalendarView` now renders
+  the layout where the rail stands, and the screen's masthead is handed DOWN into the content column
+  (the Magnus arrangement) because the layout takes the full height under the top bar. The rail's
+  rows stay CHECKBOX rows: `NavigationLayout.Row` renders its own anchor or button and a switch
+  cannot be nested inside one, so what the columns share is the frame and the indent stagger — which
+  is what "the layout imposes no structure on what the navigation holds" is for. _(built 2026-09-14)_
 - **The row inside that column is `NavigationLayout.Row`, and a navigation row's name wraps rather
   than truncating.** The treatment had been written three times — the settings nav, the catalogue
   column, and inline in both. A row reading "Property Listin… Soon" has stopped naming the thing it
@@ -2493,6 +2587,89 @@ navigational menu (such as for magnus and settings), and a right content menu."
   has about thirteen characters a line at the `standard` measure: the column's content box is
   `size.popover` at every width, so a wider gutter cannot buy the name room — only a third row
   measure would, which is the owner's to settle if the wrapping reads cramped.)_
+
+### 2026-09-14 — the calendar's left column, and four corrections on its surface
+
+The owner, on the firm calendar: "calendar is starting to look really good. it has a permanent left
+sidebar, similar to what we have in tools and settings. let's try and get these components
+together." Then, in the same round: "remove colleague, mine, everyone buttons since that is covered
+by leftside bar functionality"; "type field should be the common component that allows for typing
+and dropdown, we have it, if not, make it. should be sorted alphabetically"; and on the record
+form's timing, "zone dropdown is separate from where it should be, one is a dropdown, the other
+isn't and i cant see the contents of the dropdown … size of start and end boxes are slightly
+different, perhaps only when one has value."
+
+- **The rail of calendars is `NavigationLayout`'s navigation column**, which makes the firm calendar
+  the fifth consumer of the one two-sided screen. See the 2026-09-11 ruling above for the component
+  and for why the screen's masthead moves inside it. _(built 2026-09-14)_
+- **Whose calendar is the rail's question, not a toolbar's.** Mine / Everyone / a colleague narrowed
+  the SAME firm read that the rail narrows a calendar at a time, so the three controls are gone. A
+  reader wanting their own day turns their own calendar on. The address's `scope=` key is still
+  honoured, because a link somebody was handed is a promise about what they will see.
+  _(built 2026-09-14)_
+- **A long closed list is typed at, not scrolled.** The event type is the product's combobox, sorted
+  alphabetically — the same control the zone field and the member pickers already were. A catalog
+  ordered by when somebody happened to create each entry has no order at all. _(built 2026-09-14)_
+- **Two lines that ask the same shape of question are built on equal tracks, never fitted
+  controls.** An empty time field and a filled one are different widths in every browser, so Starts
+  and Ends drifted apart as soon as one was answered; `FieldRow` cannot do that. And **a control
+  and a sentence are not two renderings of one field** — the zone was a dropdown on one line and a
+  statement on the other, both in a 40-pixel slot. A record still has one zone, so it is asked once,
+  full width, under the two moments it qualifies. _(built 2026-09-14. A separate zone for the END of
+  a setting — the owner's "they may start and end separately" — is a schema change and is open.)_
+
+### 2026-09-14 — the calendar's grids answer time
+
+The owner, in one round: "move month view controls to next to the new event button. week view
+should be taller since we can include time. there should be a setting to allow for overlapping
+events on one calendar, or showing them next to each other. you did something like that for daily
+view, but this should be a choice for all views." And separately: "start and end time need to
+properly show themselves on the calendar, not just on the start, should stretch accordingly."
+
+- **A timed entry is a BLOCK from its start to its end, on every grid with an hour axis.** The Day
+  had argued the other way in its own comment — a two-pixel sliver for a fifteen-minute call is
+  unreadable, and a block that overlapped its neighbour needs positioning a table cannot give — and
+  both halves of that are answered rather than accepted: the sliver by a minimum block height, the
+  positioning by placing the block out of the table cell it already sits in. A chip parked in its
+  starting hour with the duration written on it was a calendar that made the reader do the
+  arithmetic. _(built 2026-09-14)_
+- **The week is a time grid, not seven cells.** A week is the span a firm plans in, and a list per
+  day answers none of what it is read for. Hours down the leading edge, a day per column, and a band
+  above the hours for what is true of a whole day — where a multi-day run is still drawn across its
+  days. _(built 2026-09-14)_
+- **How things that run at the same time are drawn is the READER's choice, not the grid's.** Side by
+  side divides the column so nothing hides; overlapping steps them over one another so each keeps
+  more of its width. Held per browser beside the calendar colours, because it changes nothing anyone
+  else sees. _(built 2026-09-14, on the week and the day — the two views with an hour axis. The
+  month and the agenda are lists of days, where there is no spatial concurrency to choose between;
+  if "all views" meant something else there, it is unbuilt and needs saying.)_
+- **A screen decides WHERE a component's controls sit, even though the component owns them.**
+  `CalendarView` hands its action row up through the `header` snippet, and the firm calendar seats
+  it on the masthead's line beside New. The component keeps the controls — only it holds the
+  controller they act on — and a host that ignores the snippet still gets the row above the grid.
+  _(built 2026-09-14)_
+
+### 2026-09-16 — a setting is read in one zone, and a series says what it would collide with
+
+The owner: "only have one field for time zone. always the same for start and stop." And, in the
+same breath as starting recurrence: "check conflicts."
+
+- **ONE zone field on a setting, shared by its start and its end.** This reverses the owner's own
+  earlier "they may start and end separately", which had been specified but not built — so nothing
+  is unwound, and the forms already ask once. The reversal is the better design: two zones bought a
+  handful of genuinely cross-zone settings and cost every form a second question, every read a
+  second column, and the grid the one conversion it otherwise never performs, since a block's height
+  would have had to be computed across two clocks. Where somebody is in another zone, the
+  wall-clock text's zone suffix already says so. **Do not add `end_time_zone`.** _(standing;
+  nothing to build)_
+- **A setting says what it would collide with, and is never refused for it.** Two things at once is
+  not something the platform knows to be wrong — a partner signs an order while an associate takes a
+  deposition, and a room is booked for both halves of a mediation on purpose — so the form states
+  and the reader decides, which is the posture the resource booking already took. Collisions are
+  compared on civil days and wall clocks, never instants; back-to-back is not a collision; a vacated
+  hearing competes for nobody's Tuesday; and a series reports DAYS rather than collisions, because
+  "three of the twelve dates" is the question a person asks and "seven conflicts" is not.
+  _(built 2026-09-16 as `schedule-conflicts.ts`)_
 
 ### 2026-09-14 — messaging's create control names a message
 

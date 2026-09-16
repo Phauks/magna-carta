@@ -40,22 +40,54 @@ migrations_ section of [`docs/conventions/operations.md`](../../docs/conventions
   snapshots, which stay on their `NNNN_` names because that is what drizzle diffs by. Three modules
   in this repo used to say `idx` was the apply order; all three were wrong, and that belief is what
   let two inversions merge in September 2026.
-- **After merging `main` into a branch that adds a migration, RE-STAMP it:**
-  `node scripts/timestamp-latest-migration.mjs <lineage>`. A branch cut on Monday and merged on
-  Wednesday keeps Monday's timestamp while drizzle renumbers its `idx` to the end — and since apply
-  order is by tag, a fresh database then runs it before the migrations it was written on top of,
-  building its schema in an order no already-migrated firm ever used. The script is idempotent (a
-  migration already above the head is left alone) and prints the old and new tags, because the
-  worker bundle that imports the `.sql` by name is a hand-kept map. `tooling/migration-integrity`
-  refuses the lineage on **every pull request** if the re-stamp is skipped — it used to be a Vitest
-  fitness function only, which the gate runs solely under the `run-tests` label.
+- **After merging `main` into a branch that adds a migration, RE-STAMP it.** A branch cut on Monday
+  and merged on Wednesday keeps Monday's timestamp while drizzle renumbers its `idx` to the end —
+  and since apply order is by tag, a fresh database then runs it before the migrations it was
+  written on top of, building its schema in an order no already-migrated firm ever used. Two of
+  those reached `main` in September 2026. Two commands, and the second is the general one:
+
+  ```
+  node scripts/timestamp-latest-migration.mjs <lineage>     # ONE migration, at the end of the lineage
+  node ../../tooling/resolve-journal/index.mjs [<lineage>]  # the journal itself: a live conflict, or a repair
+  ```
+
+  `resolve-journal` is what a conflicted `_journal.json` is for. Resolving that conflict by hand
+  looks trivial — two adjacent entries, keep both — and is wrong twice over: `idx` is a dense
+  counter naming the `meta/` snapshots, so the union leaves two entries sharing one, and the
+  branch's migration keeps a tag that now sorts below the head. It reads git's conflict stages, or
+  the journal on disk when there is no conflict, keeps every tag that is on `main` (`main` is
+  production, so those have deployed and are immutable), appends the rest in the order they were
+  integrated, re-stamps each one above the head, renames the `.sql` to match, and regenerates the
+  worker bundles. `--dry-run` prints the plan. Both commands are idempotent and both print every
+  rename. `tooling/migration-integrity` refuses the lineage on **every pull request** if the
+  re-stamp is skipped — it used to be a Vitest fitness function only, which the gate runs solely
+  under the `run-tests` label.
+
 - **Never renumber `idx` to fix an ordering complaint.** The snapshots are named for it and describe
   the schema at that point; reordering `idx` makes each one describe a state its name denies. Move
   the TAG.
-- **A tag is immutable once any database has applied it.** Re-stamping is free only before the
-  migration deploys — the runner refuses a database holding an applied tag it does not recognise. See
-  `src/legacy-baselines.ts` for what that costs after the fact, and `docs/deploy-queue.md` for the
-  2026-09-15 rename and the window that made it safe.
+- **A tag is immutable once it is on `main`, because `main` is production.** Re-stamping is free
+  only before the migration deploys. The applied-ledger in every database records the TAG, not the
+  SQL behind it, so an edit to a deployed migration is never seen by the databases that already ran
+  it, and a rename leaves them holding a tag this code cannot recognise — which the runner refuses,
+  blocking every later migration for the life of that database. Neither is fixed by deploying
+  again. `pnpm run lint:migration-immutability` refuses both on every pull request, measured from
+  where the branch left `main`. Two things are **not** exceptions and need no entry anywhere,
+  because the runtime reconciles them and the gate reads its lists directly: a baseline collapse
+  (`src/legacy-baselines.ts`) and a re-stamp (`src/re-stamped-migrations.ts`). Everything else that
+  is deliberate goes in `tooling/migration-immutability/allowed-changes.mts` with the reason no
+  database could have applied it.
+- **If you do re-stamp a deployed tag, record it in `src/re-stamped-migrations.ts` in the same
+  commit.** That is what turns the refusal into a one-time ledger rewrite on the next wake, instead
+  of a database that has to be recreated. A rename moves the id and not the SQL, so the schema a
+  database already has is the schema the new id names and the rewrite asserts nothing new — which is
+  also why the registry is **only** for a pure rename: a tag whose SQL also changed is not a
+  re-stamp, and an entry for one would claim a schema the database does not have. Append a new
+  migration instead. Do not reach for "the affected databases can just be recreated": that is a
+  claim about the whole fleet, and the 2026-09-15 rename was taken on it and was wrong — a firm
+  database had applied one of the two retired ids and refused to wake from the moment the rename
+  deployed.
+  `docs/deploy-queue.md` records that rename and what it actually cost.
 - **Hand-written migrations are normal here.** Partial indexes with a `WHERE`, FTS5 virtual tables
   and their triggers, seed `INSERT`s, and column adds that must land in a specific order are written
   by hand and appended to the journal — drizzle-kit cannot express them, or expresses them as a
@@ -78,10 +110,14 @@ migrations_ section of [`docs/conventions/operations.md`](../../docs/conventions
   `test/task-rungs-migration.test.ts` is the shape — seed at the pre-migration schema, apply the rest
   of the lineage, assert what each row became. `test/rebuilds-over-populated-data.test.ts` does the
   same for rebuilds.
-- **A new migration file is registered in the WORKER too.** Workers have no filesystem, so the SQL is
-  imported as raw text: add the import and its journal-keyed entry to
-  `apps/api-worker/src/per-firm-migrations.ts` (or its control-plane sibling) in the same commit, or
-  every firm database fails to wake with "is in the journal but its SQL was not provided".
+- **A new migration file is registered in the WORKER too — by the generator, not by hand.** Workers
+  have no filesystem, so the SQL is imported as raw text. `apps/api-worker/src/per-firm-migrations.ts`
+  and its control-plane sibling carry that import list, and both are **generated from the journal**:
+  run `pnpm run migration-bundles` and commit what it writes. Hand-editing them is how the list used
+  to lose an entry — a merge resolved the journal cleanly, because its entries are adjacent lines,
+  and dropped one branch's import in the same conflict, after which every firm database failed to
+  wake with "is in the journal but its SQL was not provided". `pnpm run lint:migration-bundles` runs
+  on every pull request and fails when a module and its journal disagree.
 - **The lineages never merge.** A per-firm change goes only into `drizzle/per-firm`, a platform
   change only into `drizzle/control-plane`; auth tables exist solely in the control plane.
 

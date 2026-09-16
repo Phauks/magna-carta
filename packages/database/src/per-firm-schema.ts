@@ -6516,6 +6516,25 @@ export const matterEvent = sqliteTable(
     // distinguishes a continuance from a cancellation is not this column but the existence of a
     // successor, which is calendar_event_link's fact.
     statusReason: text("status_reason"),
+    // ---- recurrence -------------------------------------------------------------------------
+    // A repeating setting is ONE row with a rule, expanded across the window a read asks for. The
+    // alternative — a row per occurrence — multiplies a firm's calendar by the length of its
+    // longest series before anybody looks at it, and makes "move the series" fifty-two writes.
+    //
+    // The rule is an RFC 5545 RRULE ("FREQ=WEEKLY;BYDAY=TU;COUNT=12"), null on a one-off. The
+    // standard is stored rather than a private shape because it is the one every calendar product
+    // reads and writes, and a firm exporting its calendar should not find this product's dialect in
+    // it. What the FORM offers is narrower than the standard allows; a rule it cannot present is
+    // read, painted and left uneditable rather than silently rewritten.
+    recurrenceRule: text("recurrence_rule"),
+    // An EXCEPTION: a real event that replaces one occurrence of a series. The parent's expansion
+    // skips the date this names, so an occurrence moved, renamed or called off is an ordinary row
+    // that happens to know what it replaces — and every read that already understands an event
+    // understands it, including the cancelled-and-struck rule.
+    recurrenceParentId: text("recurrence_parent_id").$type<MatterEventId>(),
+    // The civil date in the parent's series this row stands in for. Set with the parent id and
+    // never without it.
+    recurrenceOccurrenceOn: text("recurrence_occurrence_on"),
     startsOn: text("starts_on").notNull(), // civil date, YYYY-MM-DD
     startsAtTime: text("starts_at_time"), // HH:MM wall clock; null means all day, which is what a filing is
     endsOn: text("ends_on"), // null on a point event; set on a range, which is what a three-day trial is
@@ -6558,6 +6577,11 @@ export const matterEvent = sqliteTable(
     // A civil date is stored as a civil date. The shape check is what keeps an instant, a locale
     // rendering, or a naive local datetime out of a column the whole timeline sorts on as text.
     check("matter_event_starts_on_shape_check", civilDateShape(table.startsOn)),
+    // The occurrence an exception replaces is a civil date like every other day on a calendar.
+    check(
+      "matter_event_recurrence_occurrence_on_shape_check",
+      civilDateShape(table.recurrenceOccurrenceOn, true),
+    ),
     check("matter_event_ends_on_shape_check", civilDateShape(table.endsOn, true)),
     check(
       "matter_event_starts_at_time_shape_check",
@@ -7388,6 +7412,25 @@ export const firmEvent = sqliteTable(
     // Why this is no longer happening, when it is not. Optional: a cancelled staff meeting does not
     // always deserve a paragraph.
     statusReason: text("status_reason"),
+    // ---- recurrence -------------------------------------------------------------------------
+    // A repeating setting is ONE row with a rule, expanded across the window a read asks for. The
+    // alternative — a row per occurrence — multiplies a firm's calendar by the length of its
+    // longest series before anybody looks at it, and makes "move the series" fifty-two writes.
+    //
+    // The rule is an RFC 5545 RRULE ("FREQ=WEEKLY;BYDAY=TU;COUNT=12"), null on a one-off. The
+    // standard is stored rather than a private shape because it is the one every calendar product
+    // reads and writes, and a firm exporting its calendar should not find this product's dialect in
+    // it. What the FORM offers is narrower than the standard allows; a rule it cannot present is
+    // read, painted and left uneditable rather than silently rewritten.
+    recurrenceRule: text("recurrence_rule"),
+    // An EXCEPTION: a real event that replaces one occurrence of a series. The parent's expansion
+    // skips the date this names, so an occurrence moved, renamed or called off is an ordinary row
+    // that happens to know what it replaces — and every read that already understands an event
+    // understands it, including the cancelled-and-struck rule.
+    recurrenceParentId: text("recurrence_parent_id").$type<FirmEventId>(),
+    // The civil date in the parent's series this row stands in for. Set with the parent id and
+    // never without it.
+    recurrenceOccurrenceOn: text("recurrence_occurrence_on"),
     startsOn: text("starts_on").notNull(), // civil date, YYYY-MM-DD
     startsAtTime: text("starts_at_time"), // HH:MM wall clock; null means all day
     endsOn: text("ends_on"),
@@ -7424,6 +7467,11 @@ export const firmEvent = sqliteTable(
     check("firm_event_audience_check", sql`${table.audience} IN ('all_members', 'participants')`),
     check("firm_event_time_zone_check", sql`length(${table.timeZone}) > 0`),
     check("firm_event_starts_on_shape_check", civilDateShape(table.startsOn)),
+    // The occurrence an exception replaces is a civil date like every other day on a calendar.
+    check(
+      "firm_event_recurrence_occurrence_on_shape_check",
+      civilDateShape(table.recurrenceOccurrenceOn, true),
+    ),
     check("firm_event_ends_on_shape_check", civilDateShape(table.endsOn, true)),
     check(
       "firm_event_starts_at_time_shape_check",

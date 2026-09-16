@@ -117,6 +117,12 @@ async function buildLaunch(
   },
 ): Promise<z.infer<typeof SessionLaunchResponse>> {
   const exp = Date.now() + TOKEN_WINDOW_MS;
+  // The origin of the page that asked for this launch — the firm's own branded subdomain. It is carried
+  // in the token because the WOPI callbacks have no request of their own to read it from, and it is read
+  // from THIS request rather than configured because per-firm subdomains mean there is no one app origin
+  // a deployment could name. CheckFileInfo returns it as PostMessageOrigin, which is what lets the editor
+  // tell the screen framing it that the document is up.
+  const appOrigin = new URL(c.req.url).origin;
   const accessToken = await mintEditToken(
     {
       firmId: input.firmId,
@@ -126,6 +132,7 @@ async function buildLaunch(
       memberId: input.memberId,
       capability: input.capability,
       sessionId: input.sessionId,
+      appOrigin,
       exp,
     },
     c.env,

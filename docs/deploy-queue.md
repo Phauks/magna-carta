@@ -704,7 +704,7 @@ Order does not matter; both are needed. The page corrects itself within one
 cron cycle (10 minutes) of the app worker deploying, plus the 30-second edge
 cache window.
 
-## Two per-firm migrations were re-stamped — any database that already applied the old ids must be recreated (2026-09-15)
+## Two per-firm migrations were re-stamped, one firm database had applied them, and the runtime now reconciles it (2026-09-15, resolved 2026-09-16)
 
 Two migrations carried timestamp ids that sorted BELOW the migration they were merged after, so a
 freshly provisioned firm would have applied them in an order no already-migrated firm ever used. They
@@ -718,21 +718,35 @@ were re-stamped to restore one apply order:
 **A migration id is immutable once a database has applied it**, which is the rule
 `packages/database/src/legacy-baselines.ts` states about its own list. The runner refuses a database
 holding an applied tag it does not recognise — `database has applied migration "…" which this code
-does not know` — so **any per-firm database that applied either old id now refuses to wake and has to
-be recreated from the lineage.** That is why the rename was taken rather than left: no firm is
-onboarded (per `operations.md`), the `DB_FIRM_POOL_*` databases are empty pre-provisioning pools per
-ADR-0135, and the cost of the rename falls to zero while that holds. It will not hold after the first
-alpha firm.
+does not know` — so any per-firm database that applied either old id stopped waking the moment the
+rename deployed.
 
-**What to check before assuming this is free:** any per-firm database seeded for development
-(`tooling/seed-dev-firm.mjs`) or standing in a preview environment applied these ids between
-2026-09-14 and 2026-09-15 and needs recreating. There is no data to preserve in either.
+**The premise the rename was taken on did not hold, and the entry that stood here said it did.** It
+read: no firm is onboarded (per `operations.md`), the `DB_FIRM_POOL_*` databases are empty
+pre-provisioning pools per ADR-0135, so the cost of the rename falls to zero and any affected
+database is simply recreated. A firm database had applied the first of the two old ids. It refused
+to wake from the 2026-09-15 deploy onwards, and the build-information panel reported it as
+`Firm database: Not answering` with the runner's sentence for an unknown tag —
+`deploy mismatch (code older than schema)` — which named the opposite of what had happened. The
+deployment was _newer_ than the rename. Whether that database had also applied the second old id is
+not visible from the outside and does not change the remedy: the runner reports only the FIRST
+unknown tag in sort order, and reconciliation handles each independently.
 
-**After the first firm is onboarded this remedy is gone.** From that point an inversion caught after
-it has deployed cannot be renamed away, and the answer is either a reconciling ledger rewrite (the
-machinery `supersedeAppliedMigrations` already provides) or living with the inversion and recording
-why it is harmless. `tooling/migration-integrity` now refuses one on every pull request, which is the
-window where a rename is still free.
+**The remedy is no longer recreation.** `packages/database/src/re-stamped-migrations.ts` records the
+two renames as data, and `runPendingMigrations` consults it before it refuses: the retired ledger row
+is rewritten to the id the migration carries now, in one transaction, running no schema SQL. A
+re-stamp moves the id and not the SQL, so the database already has the schema the new id names. Any
+affected database — the firm's, a `tooling/seed-dev-firm.mjs` development firm, a preview
+environment — reconciles itself on its next wake with no action here and nothing to preserve or
+restore. **There is no owner action left in this item.**
+
+**What to take from it.** "The affected databases can just be recreated" is a claim about the entire
+fleet, checked once, at the moment it is most tempting to believe — and the per-firm database is a
+firmId-addressed Durable Object, so acting on that claim means wiping durable storage or moving the
+firm to a new id, not a drop and a re-provision. Treat the reconciling ledger rewrite as the remedy
+and the recreation as the fallback, not the other way round. Renaming a deployed tag stays the last
+resort: `tooling/migration-integrity` refuses an inverted apply order on every pull request, which is
+the window where a rename is genuinely free, because nothing has applied it yet.
 
 ## Order-sensitive deploy hazards
 

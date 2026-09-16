@@ -21,10 +21,22 @@ properties; off-token values are machine-rejected.
   animation constants; `floatingContentClasses()` is the canonical Tier 3/4 content-class builder
 - `src/lib/internal/close-guard.svelte.ts` + `discard-question.svelte` — the unsaved-work guard and
   the question BOTH modal shells run every exit through; owned here, never re-implemented in a shell
-- `src/lib/components/calendar-grid/` — `CalendarGrid` (Month, Week, Agenda): the domain-free
-  month, week and agenda presentation on the EventRail division — entries with a civil day, a label,
-  a caller-formatted time and a tone come in, and it never learns what a hearing is. The calendar's
-  own arithmetic, reads and vocabulary live with its one consumer, `apps/web/src/lib/calendar/`
+- `src/lib/components/calendar-grid/` — `CalendarGrid` (Month, Week, Day, Agenda): the domain-free
+  presentations on the EventRail division — entries with a civil day, a label, a caller-formatted
+  time and a tone come in, and it never learns what a hearing is. **Two of the four are TIME
+  GRIDS** — the Day, whose columns are the calendars a reader turned on, and the Week, whose columns
+  are its seven days: an hour is a row, and a timed entry is a BLOCK from its start to its end
+  rather than a chip parked in its starting hour (owner ruling, 2026-09-14). The block sits in the
+  DOM cell of the hour it begins in, which is where a screen reader should meet it, and is
+  positioned out of that cell over the hour step (`--mc-calendar-grid-hour-size`), so it overflows
+  downwards for as long as it runs. Two pure modules carry the arithmetic and are tested without a
+  browser: `time-placement.ts` (the span an entry occupies, floored at `MINIMUM_BLOCK_MINUTES` so a
+  fifteen-minute call can still hold its label, and the share of the column it takes) and
+  `time-blocks.ts` (which cell it renders in, and the inline style that draws it). **How concurrent
+  entries are drawn is the READER's** (`concurrency`: `side-by-side` divides the column,
+  `overlap` steps them over one another) — a closed set, never a length or a flag at a call site.
+  The month and the agenda have no hour axis and take no such prop. The calendar's own arithmetic,
+  reads and vocabulary live with its one consumer, `apps/web/src/lib/calendar/`
 - `src/lib/components/address-fields/` — `AddressFields`, the product's ONE address form. Its shape
   is the country's (`address-format.ts`), not the platform's; see the Compound Inputs note below for
   the three rules it keeps. Domain-blind: it takes the parts and the countries to offer and knows

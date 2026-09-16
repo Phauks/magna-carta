@@ -42,6 +42,7 @@
   import MatterPicker from "$lib/time/matter-picker.svelte";
   import type { SheetMatter } from "$lib/time/time-sheet-model.ts";
   import {
+    createBooking,
     createFirmEvent,
     createMatterEvent,
     type CreateFirmEventRequest,
@@ -61,6 +62,7 @@
   import EventTypeSelect from "./event-type-select.svelte";
   import RecordTimingFields from "./record-timing-fields.svelte";
   import LocationPicker from "./location-picker.svelte";
+  import { roomForLocation, roomNotHeldSentence } from "./room-location.ts";
   import DaySchedule from "./day-schedule.svelte";
   import { firmEventDraftRequest, type FirmEventDraft } from "./firm-event-draft.ts";
   import type { LocationSummary } from "$lib/matters/matters-api.ts";
@@ -187,6 +189,38 @@
     return firmEventDraftRequest(asFirm);
   }
 
+  /**
+   * A setting held in one of the firm's own rooms HOLDS that room.
+   *
+   * Location and Book a Room were two ways to say one thing and only one of them reached the room's
+   * calendar (room-location.ts). The booking is a second write because it needs the event's id, so
+   * it can fail after the event has landed — and a form that closed silently on that would leave
+   * somebody believing a room was held that is not. The event is not unwound (it is a real record
+   * and the reader asked for it); the dialog stays open and says which half did not happen.
+   */
+  async function holdTheRoom(event: { kind: "matterEvent" | "firmEvent"; id: string }): Promise<
+    boolean
+  > {
+    const room = roomForLocation(draft.locationText, resources, locations);
+    if (room === null) return true;
+    const outcome = await createBooking(
+      fetch,
+      {
+        resourceId: room.id,
+        matterEventId: event.kind === "matterEvent" ? event.id : null,
+        firmEventId: event.kind === "firmEvent" ? event.id : null,
+      },
+      crypto.randomUUID(),
+    );
+    if (outcome.kind === "ok") return true;
+    failure = stated(
+      outcome.failure,
+      roomNotHeldSentence(room.name),
+      roomNotHeldSentence(room.name),
+    );
+    return false;
+  }
+
   async function submit(): Promise<ActionOutcome> {
     failure = null;
     const target = targetMatterId;
@@ -197,8 +231,14 @@
         : await createMatterEvent(fetch, target, eventDraftRequest(draft), attemptKey);
     if (outcome.kind === "ok") {
       attemptKey = null;
+      const held = await holdTheRoom({
+        kind: target === null ? "firmEvent" : "matterEvent",
+        id: outcome.value.id,
+      });
+      // The event landed either way, so the grid is told either way; only the dialog's own
+      // disposition differs.
       onRecorded({ id: outcome.value.id, matterId: target });
-      return "committed";
+      return held ? "committed" : "refused";
     }
     // A refusal is an answer, so the attempt is over; silence is not, so the key is kept for the
     // retry and the same write is repeated rather than a second one made.

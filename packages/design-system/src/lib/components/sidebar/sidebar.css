@@ -112,6 +112,50 @@
     letter-spacing: var(--mc-tracking-caps);
     white-space: nowrap;
   }
+  /*
+   * A group heading that FOLDS. It carries the label recipe above unchanged — same voice, same
+   * seat, same colour — and adds only what a control needs: the whole heading width as its hit
+   * target (a two-word target above a twenty-row group is found once and never again), a hover
+   * that lifts the ink rather than painting a button, and the chevron below.
+   */
+  .mc-sidebar-group-trigger {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+    border: none;
+    background: none;
+    text-align: start;
+    cursor: pointer;
+    border-radius: var(--mc-radius-md);
+    transition-property: color;
+    transition-duration: var(--mc-duration-normal);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-sidebar-group-trigger:hover {
+    color: var(--mc-chrome-text-strong);
+  }
+  .mc-sidebar-group-trigger:focus-visible {
+    outline: var(--mc-focus-ring-width) solid var(--mc-chrome-accent);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-sidebar-group-trigger-label {
+    flex: auto;
+    min-inline-size: var(--mc-space-0);
+  }
+  /*
+   * Down while the group is open, toward the inline start while it is folded — the near-universal
+   * disclosure convention, so the chevron states which way the group will go without a legend. It
+   * rotates rather than swapping glyphs: one shape turning is read as one thing moving, where two
+   * glyphs alternating is read as two different marks. The rotation itself is a utility on the
+   * component (a recipe may carry no literal, and an angle is not a token), the way the accordion's
+   * chevron does it; only the transition belongs here.
+   */
+  .mc-sidebar-group-chevron {
+    flex: none;
+    transition-property: transform;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
   .mc-sidebar-menu {
     display: flex;
     flex-direction: column;

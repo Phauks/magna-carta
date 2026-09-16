@@ -129,6 +129,55 @@
     },
   ];
 
+  /*
+   * A morning with three settings running over each other, and a fourth that only begins when the
+   * longest of them ends. It is the fixture the two concurrency presentations are read against:
+   * the three share their column, and the fourth takes it back whole, because back-to-back is not
+   * concurrent and a column divided for it would be divided all day.
+   */
+  const CROWDED_MORNING: readonly CalendarGridEntry[] = [
+    {
+      id: "deposition",
+      date: "2026-09-15",
+      label: "Deposition",
+      detail: "2026-00412",
+      time: "9:00 AM",
+      startMinute: 540,
+      endMinute: 720,
+      tone: "info",
+    },
+    {
+      id: "status",
+      date: "2026-09-15",
+      label: "Status conference",
+      detail: "2026-00354",
+      time: "9:30 AM",
+      startMinute: 570,
+      endMinute: 630,
+      tone: "info",
+    },
+    {
+      id: "call",
+      date: "2026-09-15",
+      label: "Client call",
+      detail: "2026-00377",
+      time: "10:00 AM",
+      startMinute: 600,
+      endMinute: 660,
+      tone: "neutral",
+    },
+    {
+      id: "afternoon",
+      date: "2026-09-15",
+      label: "Settlement conference",
+      detail: "2026-00377",
+      time: "12:00 PM",
+      startMinute: 720,
+      endMinute: 840,
+      tone: "info",
+    },
+  ];
+
   // September 2026 begins on a Tuesday. The 15th carries six entries so the month folds it; the
   // trial runs Friday to Sunday, across the Sunday-start week boundary; the hearing on the 22nd
   // was called off and is struck; the 29th's entry goes somewhere, so it is a link.
@@ -407,8 +456,16 @@
   }}
 />
 
+<!--
+  The Week. A TIME GRID since the owner's 2026-09-14 round: seven day columns over an hour axis,
+  where every timed entry is a block from its start to its end and what is true of a whole day sits
+  in the band above the hours. The fixture is the month's own entries, which is the point — the same
+  domain-free shape reads as a month of cells or as a week of hours depending only on the grid.
+-->
 {#snippet week()}
-  <div class="h-96">
+  <!-- A week of hours is taller than the frame it is read in, so the story scrolls it — wearing
+       the house scrollbar, as every scroll region in the product does. -->
+  <div class="mc-scrollbar h-96 overflow-auto">
     <CalendarGrid.Week
       entries={SEPTEMBER}
       label="Firm calendar"
@@ -417,7 +474,6 @@
       locale="en-US"
       emptyMessage="Nothing recorded this week"
       onActivate={activate}
-      class="h-full"
     />
   </div>
 {/snippet}
@@ -425,22 +481,21 @@
 <Story
   name="Week"
   template={week}
-  play={async ({ canvas, step }) => {
-    await step("One row of seven days", async () => {
-      await expect(canvas.getAllByRole("columnheader")).toHaveLength(7);
-      await expect(canvas.getAllByRole("cell")).toHaveLength(7);
-    });
-
-    await step("Every entry on a day shows, with its detail, and nothing folds", async () => {
-      await expect(canvas.getAllByText("2026-00412")).toHaveLength(2);
-      await expect(canvas.queryByRole("button", { name: /more on/ })).toBeNull();
-      await expect(canvas.getAllByRole("listitem")).toHaveLength(7);
+  play={async ({ canvas, canvasElement, step }) => {
+    await step("Seven days across, and the time gutter that heads the hours", async () => {
+      await expect(canvas.getAllByRole("columnheader")).toHaveLength(8);
     });
 
     await step("A span reaching into the week from before it is marked only at its end", async () => {
+      // A multi-day run has no hour, so it sits in the all-day band, where spans are still drawn
+      // across their days and marked at each end.
       const trial = canvas.getByRole("button", { name: /Trial/ });
       await expect(trial).toHaveAttribute("data-span-end", "true");
       await expect(trial).not.toHaveAttribute("data-span-start");
+    });
+
+    await step("Today is a column, not a cell", async () => {
+      await expect(canvasElement.querySelectorAll('th[data-today="true"]')).toHaveLength(1);
     });
   }}
 />
@@ -675,6 +730,55 @@
       const grid = canvas.getByRole("table", { name: "The firm's calendar" });
       await expect(grid).toHaveAttribute("aria-busy", "true");
       await expect(within(grid).getAllByRole("columnheader")).toHaveLength(4);
+    });
+  }}
+/>
+
+<!--
+  What runs at the same time, both ways. The same crowded morning in one column: divided between
+  its settings, and stacked over. Which one a reader sees is theirs to choose (owner ruling,
+  2026-09-14) — side by side hides nothing, overlapping keeps each block wide — so the grid offers
+  both and decides neither.
+-->
+{#snippet dayConcurrent()}
+  <div class="flex max-w-5xl gap-24">
+    <CalendarGrid.Day
+      entries={CROWDED_MORNING}
+      label="Side by side"
+      date="2026-09-15"
+      locale="en-US"
+      concurrency="side-by-side"
+      onActivate={activate}
+    />
+    <CalendarGrid.Day
+      entries={CROWDED_MORNING}
+      label="Overlapping"
+      date="2026-09-15"
+      locale="en-US"
+      concurrency="overlap"
+      onActivate={activate}
+    />
+  </div>
+{/snippet}
+
+<Story
+  name="DayConcurrentEntries"
+  template={dayConcurrent}
+  play={async ({ canvas, step }) => {
+    await step("Both grids hold every setting; neither drops one to fit", async () => {
+      await expect(canvas.getAllByRole("button", { name: /Deposition/ })).toHaveLength(2);
+      await expect(canvas.getAllByRole("button", { name: /Status conference/ })).toHaveLength(2);
+    });
+
+    await step("Side by side divides the column; overlapping does not", async () => {
+      const divided = within(canvas.getByRole("table", { name: "Side by side" }));
+      const stacked = within(canvas.getByRole("table", { name: "Overlapping" }));
+      // Three things at once: a third of the column each when divided, and the first of them still
+      // the full width when they are stacked instead.
+      const dividedFirst = divided.getAllByRole("listitem")[0];
+      const stackedFirst = stacked.getAllByRole("listitem")[0];
+      await expect(dividedFirst).toHaveAttribute("style", expect.stringContaining("inline-size: 33"));
+      await expect(stackedFirst).toHaveAttribute("style", expect.stringContaining("inline-size: 100%"));
     });
   }}
 />

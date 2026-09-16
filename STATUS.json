@@ -2420,8 +2420,8 @@
           "by": "Opus 5"
         }
       },
-      "branch": "claude/nice-lovelace-606byh",
-      "activeWork": "docs/active-work/claude/nice-lovelace-606byh.md",
+      "branch": "main",
+      "activeWork": null,
       "next": "the firm-scoped scratch object, so the container-backed capabilities can address the bytes",
       "links": {
         "spec": null,

@@ -1,7 +1,13 @@
 <script lang="ts">
   /*
    * The Links tab of the entry window: the continuance a setting is part of, the deadline's
-   * trigger, and the settings a person RELATED it to by hand — with Relate and Remove.
+   * trigger, and the settings a person LINKED it to by hand — with Link and Remove.
+   *
+   * IT SAYS LINK, NOT RELATE (owner, 2026-09-14: "Not sure what the relate button means"). The tab is
+   * called Links, the model calls them links (entry-links.ts, createEventLink), and the button alone
+   * said Relate — one act with two names, and the name a reader met first was the one the rest of the
+   * product never used. The word is Link everywhere now, and the control names what it links rather
+   * than standing as a bare verb.
    *
    * The tab owns its read, its form and its failure, so the window shell holds none of them. The
    * continuance ends are already on the record (written only by the continue operation); the
@@ -63,13 +69,20 @@
      * the links will take, the other draws nothing because the record pane says why.
      */
     reading: boolean;
-    /** Why Relate and Remove refuse, or undefined when the setting is open to them. */
+    /** Why Link and Remove refuse, or undefined when the setting is open to them. */
     verbRefusal: string | undefined;
     /** How many related links the tab lists, for the count on the tab. */
     relatedCount?: number;
     /** Re-open the window on a neighbouring record. */
     onOpen: (reference: EntryReference) => void;
   } = $props();
+
+  /**
+   * Whether the record on screen is one of the FIRM's events rather than a matter's setting. The
+   * two link to different things — a firm event to another firm event, a setting to another on the
+   * same matter — so the words differ by that and nothing else.
+   */
+  const firmSide = $derived(record?.kind === "firmEvent");
 
   let relatedLinks = $state<readonly RelatedLink[] | null>(null);
   let linksFailure = $state<StatedFailure | null>(null);
@@ -151,9 +164,11 @@
   let relateNote = $state("");
   let relateFailure = $state<StatedFailure | null>(null);
   let relateAttemptKey: string | null = null;
-  const relateRefusal = $derived(relateTargetId === "" ? "Choose the setting to relate." : undefined);
+  const relateRefusal = $derived(
+    relateTargetId === "" ? "Choose the setting to link this one to." : undefined,
+  );
 
-  /** Open the Relate dialog; the window's action bar calls this. */
+  /** Open the Link dialog; the window's action bar calls this. */
   export async function openRelate(): Promise<void> {
     if (record === null || record.kind === "deadline") return;
     relateTargetId = "";
@@ -239,7 +254,7 @@
   >
     {#snippet fixture()}
       <div class="flex flex-col gap-8">
-        <FieldLabel as="p">Related</FieldLabel>
+        <FieldLabel as="p">Linked</FieldLabel>
         {@render relatedFixture()}
       </div>
     {/snippet}
@@ -285,7 +300,7 @@
 
     {#if record !== null && record.kind !== "deadline"}
       <div class="flex flex-col gap-8">
-        <FieldLabel as="p">Related</FieldLabel>
+        <FieldLabel as="p">Linked</FieldLabel>
         {#if removeFailure !== null}
           <FailureNotice failure={removeFailure.failure} fallback={removeFailure.fallback} />
         {/if}
@@ -308,7 +323,7 @@
             {/if}
           {/snippet}
           {#snippet emptyState()}
-            <p class="text-sm text-text-muted">Related to nothing.</p>
+            <p class="text-sm text-text-muted">Linked to nothing.</p>
           {/snippet}
           <ul class="flex flex-col gap-8 text-sm">
             {#each relatedLinks ?? [] as link (link.id)}
@@ -347,9 +362,9 @@
 
 <ActionDialog
   bind:open={relateOpen}
-  heading="Relate Settings"
-  commitLabel="Relate"
-  commitBusyLabel="Relating"
+  heading={firmSide ? "Link Two Events" : "Link Two Settings"}
+  commitLabel="Link"
+  commitBusyLabel="Linking"
   commitRefusal={relateRefusal}
   unsavedChanges={relateTargetId !== "" || relateNote !== ""}
   onCommit={commitRelate}
@@ -358,7 +373,7 @@
     {#if relateFailure !== null}
       <FailureNotice
         failure={relateFailure.failure}
-        title="The Settings Were Not Related"
+        title={firmSide ? "The Events Were Not Linked" : "The Settings Were Not Linked"}
         fallback={relateFailure.fallback}
         whenSilent={relateFailure.whenSilent}
       />
@@ -369,7 +384,7 @@
       <div class="flex flex-col gap-4">
         <Label for="{idPrefix}-relate-target">Setting</Label>
         {#if relateChoices.length === 0}
-          <p class="text-sm text-text-muted">Nothing else to relate this to.</p>
+          <p class="text-sm text-text-muted">Nothing else to link this to.</p>
         {:else}
           <Select.Root
             type="single"

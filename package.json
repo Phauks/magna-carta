@@ -11,6 +11,7 @@
     "dev": "vp dev",
     "build": "vp build",
     "generate-client": "pnpm --filter @magna-carta/api-client run generate",
+    "migration-bundles": "node tooling/migration-bundles/index.mjs",
     "lint:process-refs": "node tooling/lint-process-references.mjs",
     "lint:date-handling": "node tooling/lint-date-handling/index.mjs",
     "lint:control-characters": "node tooling/lint-control-characters.mjs",
@@ -48,6 +49,8 @@
     "lint:test-registration": "node tooling/lint-test-registration.mjs",
     "lint:test-collection": "node tooling/lint-test-collection/index.mjs",
     "lint:affected-scope": "node tooling/affected-lint/scope-fitness.mjs",
+    "lint:migration-bundles": "node tooling/migration-bundles/index.mjs --check",
+    "lint:migration-immutability": "node tooling/migration-immutability/index.mts",
     "postinstall": "node tooling/setup-hooks/index.mjs",
     "test": "node tooling/test-single-flight/index.mjs"
   },

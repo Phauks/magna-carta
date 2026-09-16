@@ -22,6 +22,13 @@ export interface MintEditTokenInput {
   capability: EditCapability;
   sessionId: string;
   exp: number;
+  // The origin of the app page that launched this session — the firm's own branded subdomain, which
+  // differs per firm and is therefore known only at launch. CheckFileInfo hands it back as
+  // PostMessageOrigin, which is the origin the editor addresses its status messages to; without it the
+  // editor loads and says nothing, and the screen framing it cannot tell a cold container from a
+  // refused frame. Optional because a token minted before this claim existed is still inside its hour:
+  // it simply carries no origin, and the editor stays silent for the rest of that session.
+  appOrigin?: string;
 }
 
 // The verified claim set handed to a WOPI callback handler.
