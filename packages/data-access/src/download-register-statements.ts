@@ -12,7 +12,7 @@ import type { SqlDatabase, SqlStatement } from "./idempotency-statements.ts";
 export const DOWNLOAD_ITEM_TABLE = "download_item";
 
 export type DownloadItemKind = "artifact" | "snapshot" | "reference" | "record";
-export type DownloadItemProducer = "export" | "bundle" | "conversion" | "file";
+export type DownloadItemProducer = "export" | "bundle" | "conversion" | "file" | "discovery";
 export type DownloadItemState = "building" | "ready" | "failed" | "expired";
 
 export interface DownloadItemRow {
@@ -209,6 +209,33 @@ export function setDownloadItemStateStatement(
       `UPDATE ${DOWNLOAD_ITEM_TABLE} SET state = ?2, byte_size = COALESCE(?3, byte_size) WHERE id = ?1`,
     )
     .bind(id, state, byteSize);
+}
+
+/**
+ * Advance a row that was registered before its bytes existed, found by the object it named.
+ *
+ * Keyed on the OBJECT rather than on the row id, because the producer that learns the work finished
+ * is not always the one that wrote the row — a conversion is registered by the route that submits it
+ * and completed by whichever poll first sees the job done, and carrying the row id between those two
+ * would mean threading it through a Durable Object's state. The key is already unique per job, and
+ * it is the same fact both halves have.
+ *
+ * Idempotent on purpose: the poll runs repeatedly, so setting a ready row ready again is a no-op
+ * rather than something the caller has to guard.
+ */
+export function markDownloadItemReadyByObjectKeyStatement(
+  database: SqlDatabase,
+  memberId: string,
+  objectKey: string,
+  byteSize: number | null,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${DOWNLOAD_ITEM_TABLE}
+         SET state = 'ready', byte_size = COALESCE(?4, byte_size)
+       WHERE member_id = ?1 AND object_key = ?2 AND state = ?3`,
+    )
+    .bind(memberId, objectKey, "building", byteSize);
 }
 
 /** A member clearing their own shelf. Member-scoped for the reason the single read is. */

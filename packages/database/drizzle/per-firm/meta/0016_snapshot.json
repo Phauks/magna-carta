@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "0fd9380f-b8a0-403b-b5e9-2cc3a84bf7f0",
+  "id": "b18b3f3a-6a7e-4af8-880e-df985f448d03",
   "prevId": "e002a99e-fa2d-4bf5-a457-82172a79e5df",
   "tables": {
     "account_balance": {
@@ -7415,7 +7415,7 @@
         },
         "download_item_producer_check": {
           "name": "download_item_producer_check",
-          "value": "\"download_item\".\"producer\" IN ('export', 'bundle', 'conversion', 'file')"
+          "value": "\"download_item\".\"producer\" IN ('export', 'bundle', 'conversion', 'file', 'discovery')"
         },
         "download_item_reference_shape_check": {
           "name": "download_item_reference_shape_check",

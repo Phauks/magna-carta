@@ -66,7 +66,7 @@ CREATE TABLE `__new_download_item` (
 	`requested_format` text,
 	FOREIGN KEY (`member_id`) REFERENCES `member`(`user_id`),
 	CONSTRAINT `download_item_kind_check` CHECK (`kind` IN ('artifact', 'snapshot', 'reference', 'record')),
-	CONSTRAINT `download_item_producer_check` CHECK (`producer` IN ('export', 'bundle', 'conversion', 'file')),
+	CONSTRAINT `download_item_producer_check` CHECK (`producer` IN ('export', 'bundle', 'conversion', 'file', 'discovery')),
 	CONSTRAINT `download_item_state_check` CHECK (`state` IN ('building', 'ready', 'failed', 'expired')),
 	CONSTRAINT `download_item_title_nonempty_check` CHECK (length(trim(`title`)) > 0),
 	CONSTRAINT `download_item_object_key_nonempty_check` CHECK (`object_key` IS NULL OR length(trim(`object_key`)) > 0),

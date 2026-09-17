@@ -91,7 +91,7 @@ import type { ProblemTypeKey } from "../contracts/problem-types.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { maybeEnqueueRescanOnAccess } from "../files/access-rescan.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
-import { referenceShelfStatement } from "../downloads/download-register.ts";
+import { registerDownload } from "../downloads/download-register.ts";
 import { enqueueDevIngestEvent } from "../files/presign.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
 import {
@@ -1542,13 +1542,16 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
               metadata: { fileId: id, versionId: version.id, ...downloadAuditExtra },
               now,
             }),
-            referenceShelfStatement(firm.firmDatabase, {
+            registerDownload(firm.firmDatabase, {
               memberId: userId,
-              title: version.name,
-              fileId: id,
-              byteSize: version.sizeBytes,
               now: new Date(now),
-            }),
+              registration: {
+                producer: "file",
+                title: version.name,
+                fileId: id,
+                byteSize: version.sizeBytes,
+              },
+            }).statement,
           ],
           outboxMessages: [],
         },

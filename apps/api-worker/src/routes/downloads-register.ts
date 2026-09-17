@@ -39,7 +39,7 @@ const DownloadItemView = z
     id: z.string(),
     title: z.string(),
     kind: z.enum(["artifact", "snapshot", "reference", "record"]),
-    producer: z.enum(["export", "bundle", "conversion", "file"]),
+    producer: z.enum(["export", "bundle", "conversion", "file", "discovery"]),
     // The matter file a reference points at, so the screen can offer the way back to it. Null on
     // every other kind.
     subjectFileId: z.string().nullable(),

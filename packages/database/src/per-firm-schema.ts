@@ -10035,7 +10035,9 @@ export const downloadItem = sqliteTable(
     // WHICH PRODUCER made it — or, for `file`, handed it over. `bundle` and `conversion` were named
     // here from the start with no client able to create one, precisely so that naming them later
     // would not cost a rebuild; `file` was not foreseen and did cost one.
-    producer: text("producer", { enum: ["export", "bundle", "conversion", "file"] }).notNull(),
+    producer: text("producer", {
+      enum: ["export", "bundle", "conversion", "file", "discovery"],
+    }).notNull(),
     // For an artifact, the producer's own key under the producer's own prefix, which is what keeps
     // this table a catalog rather than a second store. For a snapshot, this register's own object
     // holding the stored document, swept with the row. NULL for a reference, which holds no bytes of
@@ -10091,7 +10093,7 @@ export const downloadItem = sqliteTable(
     ),
     check(
       "download_item_producer_check",
-      sql`${table.producer} IN ('export', 'bundle', 'conversion', 'file')`,
+      sql`${table.producer} IN ('export', 'bundle', 'conversion', 'file', 'discovery')`,
     ),
     // The two halves of the third kind, stated as constraints rather than trusted to the writers: a
     // reference names a file and holds no key, and everything else holds a key and names no file.
