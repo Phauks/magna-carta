@@ -1,7 +1,7 @@
 # Firm Usage
 
 Firm Usage shows what your firm holds on the platform and what it uses, as plain figures. Find it
-under **Firm Usage**, in the Tools group of the sidebar. It is visible to Owner and Admin seats, runs outside any matter, and
+under **Firm Usage**, in the Firm group of the sidebar, beside Reports. It is visible to Owner and Admin seats, runs outside any matter, and
 saves nothing — every number is computed at the moment you open the page, so what you see is
 current. **Refresh** recomputes on the spot, and **Download Report** saves everything on the page
 as a file — an Excel workbook with each section on its own worksheet, an Excel workbook with

@@ -1,3 +1,4 @@
+import { guarded } from "@magna-carta/data-access/effect-batch";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -419,11 +420,14 @@ export function completeBulkCoding(
 ): EffectWrite {
   return {
     statements: [
-      completeTagEventStatement(
-        database,
-        plan.reviewTagEventId,
-        documentCount,
-        options.clock.now(),
+      guarded(
+        completeTagEventStatement(
+          database,
+          plan.reviewTagEventId,
+          documentCount,
+          options.clock.now(),
+        ),
+        "tag-event.complete",
       ),
     ],
     outboxMessages: [],
@@ -476,7 +480,7 @@ export async function undoTagEvent(
           : undoRemovedRowsStatement(database, { undoneEventId: undone.id }, access),
         // Ordered after the row work so a failure anywhere above leaves the event still `complete`
         // and still undoable, rather than marked undone over rows that never moved.
-        markTagEventUndoneStatement(database, undone.id),
+        guarded(markTagEventUndoneStatement(database, undone.id), "tag-event.undo"),
       ],
       outboxMessages: [],
     },

@@ -928,3 +928,97 @@ The owner's notes of 2026-09-14, from the deployed screen.
 - The screen was not driven in a browser this round: the scroll chain, the rail's selected fill and
   the icon tiles are asserted by the reasoning above and by the lints (`lint:page-inset`,
   `lint:scrollbar`), and are unverified visually.
+
+## R24 — round twenty-one: the list holds one line per file, the scale reaches it, and a second person's edits
+
+The owner's notes of 2026-09-16, on the list's geometry and on what two people working at once do to
+one file. Five of the seven are one defect each; L57 is a column leaving, and C1 is not a complaint at
+all but a question the screen had never been made to answer in writing.
+
+| #   | Ruling                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Status                       |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| L55 | **A row in the list is ONE LINE TALL, and its first cell's text sits on the same baseline as every other cell's.** The row-mark slot the grid reserves in each first cell was an inline box, and every surface that composes a first cell out of an icon and a name composes it with flex — which is block-level, so the mark took a line of its own ABOVE the content. That is the band of empty space over every file name, and it is why the name read low in a row whose other cells were still centred: they were centring in a row a line taller than it should have been. The slot is now the cell's own leading padding with the pin painted into it, so the cell holds exactly one in-flow child whatever a surface renders there.                                        | settled                      |
+| L56 | **There is a line under the last file, the same line every other file has under it.** The table-card's last row gives up its hairline because the card's own bottom rule runs a hairline below it; the file manager's table has no card — the toolbar above and the counts strip below are its frame — so the rule left the last file as the one row with nothing under it. The grid now takes a `frame` of `card` or `flush`, and flush keeps the hairline and lets the surface continue past the last record instead of the table ending mid-frame.                                                                                                                                                                                                                              | settled                      |
+| L57 | **The Location column is gone from the file list.** A folder listing already answers "where is this" in the path above it and the tree beside it, so the column restated the one fact a reader cannot get away from, once per row — which is why it had to ship hidden. A column whose only honest setting is off in the view a reader lives in is not a column that view has. It stands in Search Results and File Analysis, where rows genuinely come from different folders and the question is real. Supersedes **L27.2** in the half that put it in browse.                                                                                                                                                                                                                   | settled                      |
+| L58 | **File Type reads in the table's own face.** It was set in the monospace face, which made one column of a list of plain words look like a column of code and put a second typeface on a screen that has one. **L32** governs what the column SAYS (always the extension); nothing ever asked for it to be lettered differently.                                                                                                                                                                                                                                                                                                                                                                                                                                                    | settled                      |
+| N38 | **The scale control scales the LIST, not only the icon grid.** It moved one thing in list view — a step between two densities, at one threshold, in the middle of a ten-step range — so nine of the ten steps changed nothing a reader could see, which is the "zoom does not work between the two views" the owner reported. The list's text, its row height and the glyphs inside its rows now take the scale as a multiplier, across every view the surface renders, the inside of an archive included. The header band and the counts strip do not: they are the frame around the list rather than the list, and growing them pushes the rows a reader asked to see more of off the screen. **L39b** stands unchanged on what the control looks like and what range it covers. | settled                      |
+| C1  | **A file moved, renamed or deleted by somebody else while a first person is editing it.** Answered below — the bytes are safe by construction, the delete is coordinated, and what is missing is on the reader's screen rather than in the data.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | settled, with two gaps named |
+
+### C1 — two people, one file, one of them editing it
+
+The question as the owner put it: how do we make sure the data stays correct when a file somebody is
+actively editing is moved, renamed or deleted by a second member. Read against what is built rather
+than answered from principle. There are three acts and they are three different answers.
+
+**A MOVE OR A RENAME CANNOT REACH THE EDIT AT ALL, and that is by construction rather than by luck.**
+Every object key an edit touches is derived from the verified edit token's `fileId` and `versionId` —
+never from the request line, and never from the file's name or the folder it sits in
+(`apps/api-worker/src/editing/CLAUDE.md`, the WOPI handlers). A move writes `file.folder_id`; a rename
+writes `file.name`; neither touches a version row, a key, or the live working copy. So the editor
+keeps reading and keeps saving, the version it cuts on the way out lands on the same file, and the
+file is afterwards exactly where the second member put it, under the name they gave it. There is no
+lost update to have, because the two members wrote different columns of different tables.
+
+**A DELETE IS COORDINATED, and the delete route is where that happens.** `DELETE /api/v1/files/{id}`
+force-closes the file's live `DocumentSession` BEFORE the soft-delete runs, so an edit in flight is
+ended rather than left holding a lock on a row that has gone; the soft-delete then clears the
+`current_*` pointer and the working copy's own object is destroyed with it. Every committed version
+and its bytes are retained — only a retention policy ever destroys those — so the file is restorable
+with its whole history, and a restore puts it back in the folder it came out of. The one thing lost is
+whatever had been typed since the last version was cut, which is the honest consequence of a delete
+and not a defect in the coordination.
+
+**AN OFFLINE COPY OUTLIVES THE DELETE, and check-in says so rather than failing.** A member holding a
+checked-out copy of a file a second member then deletes gets a 404 on check-in — the same answer every
+read of that file gives — and the copy stays on their machine. An undelete makes check-in possible
+again (`apps/api-worker/src/editing/checkout-routes.ts`). Nothing is silently discarded and nothing is
+silently accepted against a record that is gone.
+
+**WHAT IS ACTUALLY MISSING IS ON THE SCREEN, NOT IN THE DATA.** Two gaps, both about what a second
+member SEES, and neither one able to corrupt anything:
+
+1. **The file list does not learn.** There is no live channel and no poll on this surface: a member
+   looking at a folder keeps looking at the rows as they stood when the folder was opened. Acting on a
+   row a second member has already moved or deleted is refused by the server, correctly — and then the
+   list still shows the row, so the refusal reads as the app being broken rather than as the list being
+   old. The fix is a re-read on refusal at minimum, and the matter's own event stream when there is one;
+   it is a screen change, and it does not touch the data model.
+2. **A metadata write carries no precondition.** `PATCH /api/v1/files/{id}` takes a name or a folder and
+   applies it. Two members renaming the same file within the same few seconds is last-write-wins, with
+   no way for the second to be told they overwrote the first. This is the ONE place a real lost update
+   lives on this surface, and it is small — a name, not a document — but it is the one the optimistic
+   model has not been extended to. The remedy is the shape the check-in already uses: the write states
+   the version of the row it read, and a stale one is refused with what the row now says.
+
+**WHY NEITHER GAP IS A HOLE IN THE LEDGER.** The file's CONTENT is versioned, content-addressed, and
+never rewritten in place: a version is cut, never edited, and `current` never regresses to a conflicting
+copy. Divergence between two offline copies is resolved by a person against a `conflict_pending` copy
+that is retained forever, never auto-merged. So the worst a second member can do to a first member's
+work is end their session or make them retype a name — never quietly replace their text.
+
+**Notes recorded this round:**
+
+- **L55 and N38 are the same component's two halves, and both were the design system's rather than
+  the screen's.** The mark's slot and the grid's scale both live in `DataTable.Grid` and its recipe;
+  the file manager hands each of its four lists one number and composes the row glyphs with the
+  recipe class that reads it. Fixing either one inside the file manager's own cell snippet would
+  have left every other table in the product with the same defect and no way to find it.
+- **The scale is a multiplier whose 1 writes nothing, so no other table changed by a pixel.** It
+  multiplies the row's text, its height and its inner padding, and the glyphs that ride inside a
+  row; deliberately not the hairlines, which blur when scaled, and not the header or the footer.
+  The arithmetic is the component's and not the recipe's, because a recipe here is token references
+  and structural keywords by gate, and `calc()` is neither — the recipe names the four metrics as
+  the tokens they already were, and the component writes the scaled lengths over them inline.
+- **The scale no longer drives the density.** It used to be `scalePercent < 100 ? compact :
+comfortable`, which is the whole reason nine of the ten steps did nothing: the control's only
+  effect in list view was that one flip. Density is a separate axis and the file manager simply
+  takes the default; the scale does the work continuously across the whole range.
+- **`frame="flush"` replaces the `rounded-none border-0` incantation** that four file-manager grids
+  and five money ledgers were each spelling out. Giving up the card is not only paint — the last
+  row's hairline and whether the table fills its frame go with it — and three things that must move
+  together should not be three utilities a caller has to remember.
+- **The mark is painted into the cell's padding rather than sitting ahead of the content**, so the
+  cell holds exactly one in-flow child whatever a surface composes there. The previous shape
+  (L28's era) worked only while every first cell's content happened to be inline, and every surface
+  that puts an icon beside a name uses flex, which is block-level. The reservation is unchanged:
+  a table that can mark a row reserves the width on every row, so pinning still moves nothing.

@@ -135,6 +135,7 @@ export function transitionFeeStatusStatement(
 // transition so the reason and status change are atomic. A null clears the reason, which is what
 // the next submission does: a non-null reason therefore means exactly "this draft came back and
 // has not been sent again", and no surface has to date-compare anything to work that out.
+// fitness:unguarded-write — rides the same batch as the guarded status transition, which refuses for both
 export function setFeeKickBackReasonStatement(
   database: SqlDatabase,
   id: FeeEntryId,

@@ -1,4 +1,4 @@
-import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import { commitEffectBatch, GuardedWriteRefusedError } from "@magna-carta/data-access/effect-batch";
 import type { FolderId, MatterId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
 import { createFolder, deleteFolder, moveFolder, renameFolder } from "../src/folder-service.ts";
@@ -116,7 +116,7 @@ describe("renameFolder / moveFolder", () => {
   // write. Two cross moves that each pass their own read can still commit a cycle, which permanently
   // detaches a subtree — nothing can reach it to move it back. The guard inside the UPDATE re-decides
   // against the rows as they are at write time, so the second writer moves nothing.
-  it("moves nothing when another writer re-parented the target between the check and the commit", async () => {
+  it("refuses when another writer re-parented the target between the check and the commit", async () => {
     const database = freshDatabase();
     const matterId = await seedMatter(database);
     const alpha = await makeFolder(database, matterId, "Alpha");
@@ -131,7 +131,12 @@ describe("renameFolder / moveFolder", () => {
       .bind(beta, alpha)
       .run();
 
-    await commitEffectBatch(database, effect, { now });
+    // The cycle check rides the UPDATE, so the commit matches no row — and that refuses the batch
+    // rather than quietly moving nothing. Somebody who dragged a folder and was told it worked, only
+    // to find it where they left it, had no way to tell that from a slow refresh.
+    await expect(commitEffectBatch(database, effect, { now })).rejects.toBeInstanceOf(
+      GuardedWriteRefusedError,
+    );
 
     const { results } = await database
       .prepare("SELECT id, parent_folder_id FROM folder WHERE id IN (?1, ?2)")

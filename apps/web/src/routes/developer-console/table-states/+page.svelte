@@ -196,7 +196,7 @@
 {#if import.meta.env.DEV}
   <div class="flex min-h-screen flex-col gap-32 bg-surface-default p-24 text-text-default">
     <header class="flex max-w-prose flex-col gap-8">
-      <ScreenHeader title="Table states" back={DEVELOPER_CONSOLE_BACK} />
+      <ScreenHeader title="Table states" favoritable={false} back={DEVELOPER_CONSOLE_BACK} />
       <p class="text-sm text-text-muted">
         The platform's one table (DataTable.Grid) in every state, rendered from the real design
         system over a litigation fixture. Use this instead of a standalone mockup: a mockup is

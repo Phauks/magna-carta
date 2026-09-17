@@ -936,6 +936,47 @@ is usually the fastest way to understand the rule.
   (`@magna-carta/design-system/service-marks`), with a row in
   [`third-party-trademarks.md`](third-party-trademarks.md) recording whose it is and on what terms.
   Nothing else earns an exception to the icon rule. _(the build panel, 2026-09-16)_
+- **A FOLD is not a screen, and nothing is ever reached through one.** A group of rows too long to
+  take in at a glance folds behind a chevron; a group of rows reached by opening a page ABOUT them
+  costs a navigation and gives the reader a list of the things they are not doing. The nine tools
+  had been both in a fortnight — a two-sided screen, then an index — and the fold is what the
+  grouping was always trying to be. Three things keep a fold honest: pressing it opens the rows
+  rather than going anywhere, a fold holding one row is not drawn (a chevron hiding one thing costs
+  a press and saves nothing), and everything inside it stays reachable from search, because hiding
+  must never remove capability. _(the rail's sub-menus, 2026-09-16)_
+- **A category is named for what the reader is doing, not for what the thing is made of.** Eight
+  catalog subject groups became four — Records, Internet, Mailing, Files — because a member reaching
+  for a domain's registration thinks "internet" and never "web-domains", and because eight headings
+  over nine rows is a heading per row, which is no grouping at all. _(the tool clusters, 2026-09-16)_
+- **A set the reader scans by name is ordered by name.** Alphabetical is the default for any list
+  whose rows are things somebody arrives already knowing the name of; an authoring order is a fact
+  about the repository rather than about the firm. _(the tools in the rail, 2026-09-16)_
+- **One mark answers one question.** A star had been "show this row in my sidebar" while every other
+  product on the reader's screen uses it for "this is mine, keep it handy". The two are different
+  questions and now wear different marks: an EYE for visible-here, the star for a favourite. Where a
+  mark is doing two jobs, the fix is a second mark, not a better tooltip. _(Customize and favourites,
+  2026-09-16)_
+- **A shortcut the platform cannot predict is the member's to make, and the gesture belongs on every
+  page.** No registry can know which of ten thousand matters somebody opens each morning, so the
+  person standing on the page says so. That only works if the gesture is everywhere, which means it
+  rides the one component every screen already builds its title from rather than being added screen
+  by screen — a favourite control thirty screens have to opt into is a favourite control that covers
+  twenty. _(favourites, 2026-09-16)_
+- **A mark beside a label never rides inside it.** A row is a grid: the label takes the slack and
+  truncates, and the trailing mark sits in a column sized to its contents that never shrinks. Put
+  inside the label the mark inherits the label's overflow, so it is the FIRST thing to disappear on
+  exactly the rows long enough to need it — "Property Listing Links" hid its own Soon badge, which is
+  the one row where the badge was load-bearing. _(the sidebar rows, 2026-09-16)_
+- **A row that can be dragged says so at rest.** A grab cursor answers only once the pointer is
+  already on the row, which is an answer to a question nobody asked; a grip states the affordance
+  before the hand commits. The grip is decoration, not a second control — the whole row is the
+  handle. _(Customize mode, 2026-09-16)_
+- **Direct manipulation settles; it does not hunt.** A drag that reorders measures the real PITCH
+  between two rows (a row's height is short by the gap between them), moves its landing index only
+  once the pointer is well past a boundary and needs less travel to come back, and writes its
+  position once per animation frame however fast the device reports. Rounding at exactly half a slot
+  puts the flip where a hand rests while it is deciding, which is what makes a list judder.
+  _(reordering, 2026-09-16)_
 
 ### List screens
 
@@ -1370,6 +1411,41 @@ to:
   reaching a surface that had been a card list.
 - **"we have verbose table functionality we should attempt to use."** The standing one-table ruling,
   restated by the owner. A register that is not `DataTable.Grid` is a defect.
+
+### 2026-09-16 — the rail regrouped, the tools elevated, and favourites
+
+The owner, in a second pass the same day, over the left navigation. What was said, and what each part
+generalizes to:
+
+- **"Move file workbench to tools. Remove all tools page. Move each tool to a top-level ability."**
+  The index that survived the morning's ruling did not survive the afternoon's, and for the reason
+  the morning's gave: a screen about tools is a stop on the way to work. Every tool is addressed at
+  `/<id>` with a rail row of its own; the File Workbench, which had been promoted out of the catalog
+  precisely because the old area charged a navigation to reach it, is a catalog tool again.
+- **"Allow for sub-carrot menus within tools (and potentially others)."** Built as a general
+  mechanism rather than a Tools feature — any group may fold, and the parenthesis is why. Generalized
+  above, with the three properties that keep a fold from becoming a screen.
+- **"Move firm usage to firm."** A tool is a utility a member RUNS; Firm Usage runs nothing, it is
+  the firm reading its own records, which is what Reports beside it does. Its permission travelled
+  with it rather than being dropped.
+- **"Identify best way to organize (records, internet, etc.)"** The owner's own two examples were the
+  answer: the eight subject groups became four named for what the reader is doing. Generalized above.
+- **"Default sort tools alphabetically."** Generalized above, for any list whose rows are things
+  somebody arrives knowing the name of.
+- **"Perhaps we move home and notifications out of workspace? Consider if they should move or any
+  others?"** They are about the person, not about the firm's work, and no ordering inside a
+  fourteen-row group was going to say that. Five groups now, each answering one question; Tasks,
+  Calendar and Magnus moved with them, on the same test.
+- **"For customize, instead of stars, let's find a better symbol... I want to create a favorites
+  section, whereby users can delineate certain pages as quick access... we would have to find a way
+  to get this in all pages."** Both halves generalized above: one mark per question, and the gesture
+  riding the one component every screen already uses.
+- **"Drag and drop for reorganization stutters, also, the items lack little dots on the side to show
+  that this can be moved."** Two separate rules above — the grip, and how direct manipulation
+  settles. The stutter was three faults stacked, and the arithmetic is recorded where it lives
+  (`apps/web/src/lib/components/drag-reorder.svelte.ts`).
+- **"For unmade tools, the soon badge does not appear in the left side bar, it is hidden by the
+  length of the text."** Generalized above: a mark beside a label never rides inside it.
 
 ### 2026-09-16 — the transfer registers, the rail, and two glyphs
 
@@ -2786,3 +2862,66 @@ a common component."
   failure the gesture should never have allowed.
 - **The mark is an edge, not a fill.** It has to read over a row that is already selected, striped,
   pinned or cut, and a wash across data either loses that argument or wins it by covering the data.
+
+### 2026-09-16 — a press inside a modal does not grow the modal
+
+The owner, on the matter's status window: "For physical file, and for many other items in the app, I
+do not want reflow when clicking buttons inside of modals. For example, the set location button. We
+should make it that either a new modal is activated, the area is already designed for the additional
+info, or we use dropdowns (the kind you can click down or type in). Can we lint/design around that
+system."
+
+- **A modal is a fixed frame, and a press inside it must not move that frame.** A window centres
+  itself, is as tall as its content, and puts its commit at the bottom. A control that reveals a
+  form on press moves all three at the moment somebody acts: the commit walks down the screen, the
+  frame re-centres, and what was under the pointer is no longer under the pointer. On a window
+  already near the height of the screen the commit leaves the viewport entirely. _(gated:
+  `pnpm run lint:modal-reflow`, which refuses a hand-written `aria-expanded` inside a modal shell or
+  inside a snippet that shell is handed. Five folds predate the ruling and are listed in the gate
+  with what each would take to clear.)_
+- **The three remedies, in the order to reach for them.** A **second panel** over the first, which
+  is what Amend and Change Status already do from the status window. An **area that was already
+  there** — the field standing in its row at rest, carrying the value the record holds, with its
+  commit beside it. A **combobox**, for a closed choice: it opens in a floating layer over the
+  surface and displaces nothing, and the product's own rule is already that a closed choice takes
+  typing. Anything else is the defect.
+- **A field at rest needs no separate commit for a single value.** The paper file's office is one
+  office; a press to confirm a choice already made is a second press for nothing. What it does need
+  is somewhere fixed for the refusal to appear, and a way through to whatever the value names —
+  both of which are lines the row keeps whether or not they are carrying anything.
+- **This is the same rule the Upload dialog settled as A34**, generalized. That dialog is sized for
+  its settings open so that opening them moves nothing; the rule it was standing on was never about
+  uploads.
+
+### 2026-09-16 — a reader's scale control scales the thing, not the chrome around it
+
+The owner, on the file manager: the zoom did not appear to work between the icon view and the list
+view.
+
+- **A control that scales a surface scales what the reader is looking at, and nothing else.** The
+  text, the row height and the glyphs that ride inside a row take the multiplier. The hairlines do
+  not — a scaled hairline is a blurred one. The header band and the footer strip do not: they are
+  the frame around the list rather than the list, and growing them pushes the rows the reader asked
+  to see more of off the bottom of the screen.
+- **Scale and density are two axes, and one must not be derived from the other.** The file manager
+  derived a two-value density from a ten-step scale at a single threshold, so nine of the ten steps
+  changed nothing anybody could see, and the tenth moved the list in a jump. A control offering ten
+  steps has to answer to all ten.
+- **It is one multiplier on an ancestor, defaulting to 1** (`--mc-table-grid-scale`), so a surface
+  that scales nothing is unchanged to the pixel and a surface that scales publishes one number
+  rather than threading a size through every component in the region.
+
+### 2026-09-16 — a column that can only be right in one view belongs to that view
+
+The owner, on the file manager: "I don't see the benefit of the 'Location' column."
+
+- **A column shipped hidden is a column asking to be deleted.** Location was `hidden: true` in the
+  browse set because in a folder listing it prints the folder the reader is already standing in,
+  once per row — and the path above the list and the tree beside it have both already said it. The
+  hidden flag was the admission. It is defined only where rows genuinely come from different
+  folders now, which is search results and analysis.
+- **Hidden is for a column a reader might reasonably want; absent is for one that could never say
+  anything.** The difference matters because hidden columns are offered in the header menu, so a
+  reader can switch a table into a state where a whole column reads the same value top to bottom.
+- **One table, one typeface.** A column set in a different face than the columns beside it reads as
+  a different kind of data. File Type holds an extension, which is a word.

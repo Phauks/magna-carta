@@ -162,6 +162,40 @@ export function civilDateWindowConditions(
   return { conditions, bindings };
 }
 
+// The civil-date window for a source whose rows can SPAN days, which is a different question.
+//
+// A row that runs from the 12th to the 16th is IN a window covering the 14th, and the plain window
+// above says it is not: it compares both bounds against the start, so a three-day trial vanished
+// from every window that did not contain its first day, and a firm reading Tuesday saw an empty
+// column it was in fact spending in court. The lower bound therefore compares against the row's own
+// END — a row is in the window when it starts before the window closes and ends after it opens —
+// while the upper bound stays on the start, because a span that begins after the window closes is
+// still outside it.
+//
+// `COALESCE` is what makes a row with no end behave exactly as it did: its end IS its start, so the
+// predicate collapses to the plain one for every point-in-time row, which is almost all of them.
+//
+// This does NOT widen what a source may return beyond its window. It returns rows the window always
+// should have held and never did.
+export function spanningCivilDateWindowConditions(
+  sortColumn: string,
+  endColumn: string,
+  fromDate: string | undefined,
+  toDate: string | undefined,
+): { conditions: string[]; bindings: unknown[] } {
+  const conditions: string[] = [];
+  const bindings: unknown[] = [];
+  if (fromDate !== undefined) {
+    conditions.push(`COALESCE(${endColumn}, ${sortColumn}) >= ?`);
+    bindings.push(fromDate);
+  }
+  if (toDate !== undefined) {
+    conditions.push(`${sortColumn} <= ?`);
+    bindings.push(toDate);
+  }
+  return { conditions, bindings };
+}
+
 // The same window against an INSTANT column. A canonical instant begins with its own civil date, so
 // the bounds are date-prefix comparisons and no zone has to be known inside the SQL — the upper
 // bound compares against the date's last representable prefix so the whole of the closing day is in.

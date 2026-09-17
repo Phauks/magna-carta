@@ -11,6 +11,7 @@
 import type { CalendarEvent, ContinueEventRequest } from "./calendar-api.ts";
 import { optionalText } from "./draft-text.ts";
 import { timingShortfalls, type EventTimingDraft } from "./event-draft.ts";
+import type { Shortfall } from "./shortfall.ts";
 
 export interface ContinueDraft extends EventTimingDraft {
   locationText: string;
@@ -55,7 +56,7 @@ export function continueDraftFrom(event: CalendarEvent): ContinueDraft {
 }
 
 /** Every reason the continuance cannot be recorded yet: the timing rules every event shares. */
-export function continueDraftShortfalls(draft: ContinueDraft): string[] {
+export function continueDraftShortfalls(draft: ContinueDraft): Shortfall[] {
   return timingShortfalls(draft);
 }
 

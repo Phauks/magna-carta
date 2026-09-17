@@ -15,6 +15,7 @@
 import type { Component } from "svelte";
 import Terminal from "@lucide/svelte/icons/terminal";
 import FolderOpen from "@lucide/svelte/icons/folder-open";
+import Microscope from "@lucide/svelte/icons/microscope";
 import { destinationById, type DestinationId } from "$lib/navigation/destinations.ts";
 
 /** A screen the way back leads to, spelled out — for destinations outside the sidebar registry. */
@@ -40,6 +41,19 @@ export function resolveBackDestination(back: BackTarget): BackDestination | null
   if (destination === null) return null;
   return { href: destination.href, label: destination.label, icon: destination.icon };
 }
+
+/**
+ * The File Workbench — a real screen with a sub-screen (a password-recovery job), spelled out
+ * because the workbench is a TOOL and tools are not in the destination registry: what a tool is has
+ * one home, the catalog (@magna-carta/tools), and the rail projects its rows from there. Spelling
+ * this one out is cheaper than teaching the back-link vocabulary to read a second registry for the
+ * single screen that sits under a tool. A test pins it to the manifest, so the two cannot drift.
+ */
+export const FILE_WORKBENCH_BACK: BackDestination = {
+  href: "/file-workbench",
+  label: "File Workbench",
+  icon: Microscope,
+};
 
 /** The developer console — a real screen with sub-screens, deliberately outside the sidebar. */
 export const DEVELOPER_CONSOLE_BACK: BackDestination = {

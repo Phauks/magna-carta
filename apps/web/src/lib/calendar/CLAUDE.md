@@ -34,12 +34,17 @@ and a firm event. The backend it consumes is `packages/calendar` behind
 - `calendar-preferences.svelte.ts` — which calendars THIS reader has open and what colour they gave
   each, per browser, on the shared persisted-preference primitive. Stores only the DEPARTURES from
   the catalog's defaults, so a calendar shipped later arrives at its own
+- `calendar-month-picker.svelte` — the little month pinned under the rail: where the reader is,
+  and one press to be somewhere else
 - `calendar-rail.svelte` — the rail those two render as: a checkbox per calendar, a three-state
   checkbox per folder, and the palette behind the colour pip. It is the CONTENT of the design
   system's navigation column and draws no column of its own
 - `location-picker.svelte` — WHERE a setting is held, as the product's dropdown-with-add over the
   firm's own offices and their rooms, grouped by office, keeping a courthouse nobody has a record of;
   `room-location.ts` — which room a written location names, and the name to write for one
+- `recurrence-field.svelte` — WHETHER a setting repeats and on what rule, over the shared grammar
+  in `@magna-carta/civil-time/recurrence`; `recurrence-sentence.ts` — what that rule says in
+  English, which is the one home for those words
 - `day-schedule.svelte` — the day being booked, in a record form's context pane. `CalendarView` with
   a day view and no toolbar; never a second calendar
 - `calendar-entries.ts` — the projection to `CalendarGridEntry`, and the day order
@@ -69,8 +74,9 @@ and a firm event. The backend it consumes is `packages/calendar` behind
     Relate dialog and its failures
   - `entry-rooms-tab.svelte` — the Rooms tab, owning its bookings read, its Book a Room dialog and
     its failures
-- `record-event-dialog.svelte`, `record-deadline-dialog.svelte`, `record-firm-event-dialog.svelte`,
+- `record-event-dialog.svelte` (the ONE event form, matter or firm), `record-deadline-dialog.svelte`,
   `participant-picker.svelte`, `record-timing-fields.svelte`, `event-type-select.svelte`,
+  `recurrence-field.svelte`,
   `time-zone-picker.svelte` — the `ActionDialog` forms and the field groups they share with the
   entry window, over the pure draft models `event-draft.ts`, `deadline-draft.ts`,
   `firm-event-draft.ts`, `continue-draft.ts`, `draft-text.ts` (the readings of typed text every
@@ -89,6 +95,24 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   workspace does the same, for the same reason. The rail's rows stay CHECKBOX rows rather than
   `NavigationLayout.Row`: the shared row renders its own anchor or button, and a switch cannot be
   nested inside one. What the columns share is the frame and the indent stagger.
+- **The screen's name spans both columns; the date controls sit over the grid.** The masthead is
+  handed to `NavigationLayout`'s own `header`, which is a band across the whole canvas, so the title
+  stands over the screen rather than over one column of it — which is what it always named (owner,
+  2026-09-16). The view switch and the window navigation then sit at the top of the CONTENT column,
+  directly over the grid they move, in every arrangement. That is one place instead of two: the
+  2026-09-14 ruling seated them in the masthead's actions beside New, which was right while the
+  masthead sat over the grid's own column and wrong the moment it spanned both. `CalendarView`'s
+  `header` prop is therefore a plain `Snippet` and hands nothing back.
+- **A folder in the rail FOLDS, and the month picker under it does not scroll.** A firm with twenty
+  rooms scrolled past all twenty to reach the folder beneath them. The disclosure is the folder's
+  name — chevron and name are one button — and it is not the Accordion component, because that
+  component's trigger is its whole header and this header already holds the three-state checkbox,
+  which cannot be nested in a button. What folds is the LIST, so every calendar stays reachable
+  through the folder's own switch whether it is open or shut: hiding must never remove capability.
+  A shut folder shows how many of its calendars are on, because that is the one fact its hidden rows
+  were carrying. `calendar-month-picker.svelte` rides the layout's `navigationFooter`, outside the
+  rail's scroll region, and moves the ANCHOR without changing the view — somebody reading a week who
+  presses a Thursday means that Thursday's week (`goToDay`), which is why it is not `showDay`.
 - **A host embeds `CalendarView` with a scope and records through the dialogs. It writes no
   calendar read of its own.** A feature that needs "the next thirty days on this matter" is the
   component with a matter scope, `toolbar={false}`, `agendaDays={30}` and a `limit`, not a new
@@ -102,6 +126,23 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   widened to and the word each kind paints as. A layer is also a ROW IN THE RAIL now, under Dates;
   the word `layers` survives in the controller and the address because the address has carried it
   since the toolbar had them, and a link somebody was handed is a promise about what they will see.
+- **THE GRID NEVER WAITS FOR THE FIRM'S MATTERS.** It used to: `context.ready` included
+  `firmMatters`, and the read plan refuses to issue anything until that is true — so the calendar
+  stayed blank until a walk of up to ten pages, two requests each, run one after another, had come
+  back. Time to first paint scaled with how many matters the firm had ever opened, which is the
+  wrong thing for it to scale with and gets worse every year a firm uses the product. What the walk
+  contributes to the grid is a matter NUMBER on a chip, and that is the one thing on a chip that
+  does not arrive with its own row. So `ready` now waits only for what a chip cannot be painted
+  WITHOUT — the type catalog and the week start, two parallel reads of fixed size — and `numbered`
+  (calendar-entries.ts) fills the number in from the controller's own derived when the matters land.
+  Nothing is read a second time. `detailIsMatterNumber` is what makes that safe: it marks the chips
+  whose detail wanted a number, so a later pass cannot overwrite a detail that was already complete
+  — a matter's OWN calendar says "Hearing · Department 12", because every row there shares the
+  matter and the number is the one fact worth saying nowhere.
+- **An empty picker means two things, and it must not say the wrong one.** A form can now open
+  before the matters land, so `MatterPicker` takes `reading`: "Reading the firm's matters" while the
+  walk is in flight, "No matters were read" only once it has come back empty. The caller holds the
+  read, so the caller says which — `context.mattersReading`.
 - **A calendar that is ON is a read; a calendar that is OFF is no read at all.** That is what keeps
   the request count the reader's own choice rather than the roster's size, and it is why the read
   plan is a plan PER CALENDAR (`readOneCalendar`) rather than one read narrowed afterwards. A
@@ -126,6 +167,56 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   draft shortfalls and request shapes, which verbs a record's state allows, what a correction
   sends, which end of a link is the other one. A Svelte file renders those answers and decides
   none of them; a decision found in a `.svelte` file is moved out, not tested through the DOM.
+- **A repeat is an ANSWER on the draft and a line only at the send.** The draft holds a
+  `RecurrenceRule` and `recurrence-field.svelte` edits it; `formatRecurrence` writes the RFC 5545
+  line once, in the draft's request projection. Nothing in this module parses or spells the
+  standard: the grammar is `@magna-carta/civil-time/recurrence`, which both this form and the
+  calendar service depend on so the server can refuse a line it could not itself have written. What
+  the rule MEANS in English is `recurrence-sentence.ts` and is the same sentence the form shows
+  under its controls, the record pane shows, and the print sheet carries — three copies of those
+  words would drift, and a person checks a repeat against exactly those words before saving.
+- **A rule this product cannot present is SAID, never half-shown.** `parseRecurrence` answers null
+  for a line another calendar wrote with parts the form does not offer, which is the same null a
+  one-off carries — so the surface that saw the stored line tells the control (`unreadable`), and it
+  states that the rule was recorded elsewhere. Rendering it as "does not repeat" is the one wrong
+  answer: saving would then make that true.
+- **ONE record form for an event, and its first question is who the event belongs to.** There were
+  two — `record-event-dialog.svelte` and a firm-event form beside it — until 2026-09-16, which meant
+  a reader had to know before opening anything whether the thing they were recording was firm
+  business, and had to close one panel and open the other on finding out they had guessed wrong.
+  They asked nearly the same questions in nearly the same order and drifted anyway (owner: "firm
+  events and events should be the exact same"). **Two choices and no third** (owner ruling): Matter
+  writes a `matter_event`, Firm writes a `firm_event`, and there is no None because there is no
+  third table for one to land in — a personal appointment is a firm event with only the one person
+  on it, which is what the `participants` audience already means. What the choice reveals is only
+  what genuinely differs: Matter reveals the matter picker beside it; Firm reveals the audience and
+  the office (a real foreign key there, because it is what says which rooms are nearby) and hides
+  the court reference, which a firm meeting has no court for. The Record menu offers two kinds, not
+  three: a third item would be a second way to open one panel.
+- **A SHORTFALL KNOWS WHICH FIELD IT IS ABOUT, and the field says it too.** The commit's refusal
+  was one sentence at the weak end of the bar, which tells a reader what is wrong and leaves them to
+  find the field — a glance on a short form, a hunt on one asking about a matter, a title, a type,
+  two dates, two times, a zone, a repeat, a location, a court reference, a link, a description and a
+  list of people (owner, 2026-09-16). Every draft's shortfalls are now `Shortfall[]`
+  (`shortfall.ts`): a field and a sentence. The bar shows the first sentence, unchanged, and the
+  field it names carries the SAME sentence beneath it with `aria-invalid` on the control — written
+  once in the draft and rendered twice, so the two can never disagree. `shortfallSentences` is what
+  a caller that only wants the bar reads. **Nothing is marked before a save was asked for**
+  (`saveAttempted`): a form that opens with every unanswered field already marked has told the
+  reader they are wrong for not having typed yet. `field-refusal.svelte` renders the sentence in the
+  design system's own `mc-form-errors`, so a refused field here and a refused field on a validated
+  form read the same; it renders nothing when there is nothing to say, so the form's spacing never
+  moves as answers arrive.
+- **The rail says WHOSE calendar; the Kinds control says WHAT KIND.** Two halves of one question, and
+  the second had nothing on the screen asking it (`schedule-narrowing.ts`). It narrows what was
+  already read and makes no request — so it reaches exactly as far as the window on screen, which is
+  why it sits beside the window's own navigation rather than beside a search that would imply the
+  whole record. **A narrowing is never a read**: turning a calendar off in the rail stops a request,
+  turning a kind off does not, and keeping them apart is what stops a reader thinking they have made
+  the screen cheaper when they have made it shorter. An untouched control means EVERY kind, so the
+  first press removes one rather than isolating one; turning every kind off shows the whole window
+  rather than an empty grid, because the one thing a calendar must not do is look empty when it is
+  not.
 - **One field group, rendered once.** The timing every event shares is `record-timing-fields.svelte`
   and the type question is `event-type-select.svelte`, in the record forms and in the entry window
   alike; a pane that draws its own copy of either drifts from the form within a round.
@@ -150,6 +241,19 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   name it stores — because the module that WRITES a location is the module that reads it back to
   book the room, and two answers would drift within a round. A bare name two offices both answer to
   matches neither: booking one of two rooms nobody chose between is worse than booking none.
+- **HOLDING A ROOM IS THE LOCATION FIELD'S GESTURE, at the record AND at the correction.** Booking
+  when an event is recorded landed on 2026-09-14; the correction was still not doing it, so an event
+  MOVED from the Boardroom to Conference Room B kept the Boardroom held and never held Conference
+  Room B — after one edit the two room calendars disagreed with the record and with each other, and
+  Location and Book a Room still read as two features (owner, 2026-09-16). `reconcileRoomBooking`
+  is the pure answer: release a booking for a room the location no longer names, book the one it now
+  does, and touch NOTHING else — a pool car, or a second room somebody held from the Rooms tab, was
+  never named by this field and is not swept away by an edit to it. It runs AFTER the record saved,
+  because the location it reconciles to is the one that landed, and a booking it could not move does
+  not unwind the correction: the window says which half did not happen. **The Book a Room verb has
+  left the action bar** — a second control for the act the Location field performs is the
+  duplication the owner named — and the Rooms tab keeps it, because a second room is a real thing to
+  hold and nothing else can.
 - **A setting held in one of the firm's own rooms HOLDS that room.** Location stores TEXT (a
   courthouse, a department number, opposing counsel's office are none of them records this product
   holds), and a room's calendar reads BOOKINGS — so choosing a room from the location picker used to

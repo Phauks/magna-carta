@@ -185,6 +185,7 @@ export function selectMemberRoleIdsStatement(database: SqlDatabase, userId: User
 // Takes one role off a member. The insert side is insertRoleAssignmentStatement above; a role change
 // is expressed as the removals and the additions its diff names, never as a delete-all-then-insert,
 // so a role the member keeps is never momentarily absent from a concurrent authorization read.
+// fitness:unguarded-write — matches a set rather than one row, so zero is an empty set rather than a refusal
 export function deleteRoleAssignmentStatement(
   database: SqlDatabase,
   memberUserId: UserId,

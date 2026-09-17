@@ -4,6 +4,7 @@ import {
   boundedFirmScopedSelect,
   boundedSelect,
   civilDateWindowConditions,
+  spanningCivilDateWindowConditions,
   describeSelect,
   firstLineExpression,
   instantWindowConditions,
@@ -54,8 +55,11 @@ const matterEventSource: TimelineSource = {
   declaresLabel: true,
   supportsMemberFilter: true,
   buildStatements: (request) => {
-    const window = civilDateWindowConditions(
+    // An event can SPAN days — a three-day trial, a week of closure — so the window holds it while
+    // it is still running rather than only on the day it began.
+    const window = spanningCivilDateWindowConditions(
       "matter_event.starts_on",
+      "matter_event.ends_on",
       request.scope.fromDate,
       request.scope.toDate,
     );
@@ -1209,8 +1213,11 @@ const firmEventSource: TimelineSource = {
   supportsMemberFilter: true,
   buildStatements: (request) => {
     if (request.scope.matterId !== undefined) return [];
-    const window = civilDateWindowConditions(
+    // An event can SPAN days — a three-day trial, a week of closure — so the window holds it while
+    // it is still running rather than only on the day it began.
+    const window = spanningCivilDateWindowConditions(
       "firm_event.starts_on",
+      "firm_event.ends_on",
       request.scope.fromDate,
       request.scope.toDate,
     );

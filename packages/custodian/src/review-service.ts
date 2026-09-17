@@ -1,4 +1,6 @@
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
+import { guarded } from "@magna-carta/data-access/effect-batch";
+import type { EffectStatement } from "@magna-carta/data-access/effect-batch";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
@@ -121,7 +123,7 @@ export async function completeCustodyReview(
         input.nextReviewOn === undefined
           ? nextReviewDate(scheduled, calendarDate(occurredAt), intervalMonths)
           : input.nextReviewOn;
-      const statements: SqlStatement[] = [
+      const statements: EffectStatement[] = [
         insertCustodyMovementStatement(database, {
           id: movementId,
           packetId,
@@ -144,7 +146,10 @@ export async function completeCustodyReview(
         }),
         item === undefined
           ? rollCustodyPacketReviewStatement(database, packetId, nextReviewOn, scheduled, now)
-          : rollCustodyItemReviewStatement(database, item.id, nextReviewOn, scheduled, now),
+          : guarded(
+              rollCustodyItemReviewStatement(database, item.id, nextReviewOn, scheduled, now),
+              "custody-item.review-date",
+            ),
         custodyAuditStatement(database, options, "custodyReview.completed", movementId, {
           packetId,
           itemId: input.itemId ?? null,

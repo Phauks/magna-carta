@@ -23,6 +23,7 @@
   import { cancelRecovery, pollRecovery, type RecoveryJobStatus } from "$lib/tools/file-workbench/decryption-api.ts";
   import { formatCandidateCount, presentRecoveryStatus } from "$lib/tools/file-workbench/recovery-status.ts";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
+  import { FILE_WORKBENCH_BACK } from "$lib/screen/screen-header.ts";
 
   const jobId = $derived(page.params.jobId ?? "");
 
@@ -102,7 +103,7 @@
 
 <svelte:head><title>Password Recovery · Magna Carta</title></svelte:head>
 
-<ScreenHeader title="Password Recovery" back="file-workbench" class="mb-24" />
+<ScreenHeader title="Password Recovery" back={FILE_WORKBENCH_BACK} class="mb-24" />
 
 <LoadingRegion {loading} failed={false} empty={notFound} label="Reading the recovery job">
   {#snippet emptyState()}

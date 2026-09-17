@@ -85,6 +85,7 @@ export async function readDedupPrimary(
 //
 // The caller learns which happened by reading the group back rather than from a row count, so the
 // answer is the same whether this statement wrote the row or a concurrent one did.
+// fitness:unguarded-write — take primacy or take nothing — under at-least-once another consumer holding the group is the ordinary outcome, not a refusal
 export function claimDedupPrimaryStatement(
   database: SqlDatabase,
   id: ReviewDocumentId,

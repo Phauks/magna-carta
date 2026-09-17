@@ -32,7 +32,13 @@ properties; off-token values are machine-rejected.
   downwards for as long as it runs. Two pure modules carry the arithmetic and are tested without a
   browser: `time-placement.ts` (the span an entry occupies, floored at `MINIMUM_BLOCK_MINUTES` so a
   fifteen-minute call can still hold its label, and the share of the column it takes) and
-  `time-blocks.ts` (which cell it renders in, and the inline style that draws it). **How concurrent
+  `time-blocks.ts` (which cell it renders in, and the inline style that draws it), and
+  `day-segments.ts` (a timed entry that runs past midnight, cut into the piece it occupies on each
+  day it covers — the first day from its start hour to midnight, a day in the middle the whole
+  column, the last day midnight to its end hour). The month never needed that last one, because
+  `placeEntries` walks every day of a span; a span on an HOUR axis is not the same entry repeated,
+  which is why the time grids could not use it. Each piece carries its own id, because two pieces of
+  one record are two things to render and a grid keyed on a repeated id drops all but one. **How concurrent
   entries are drawn is the READER's** (`concurrency`: `side-by-side` divides the column,
   `overlap` steps them over one another) — a closed set, never a length or a flag at a call site.
   The month and the agenda have no hour axis and take no such prop. The calendar's own arithmetic,
@@ -282,6 +288,37 @@ opposite reading order, load-more three times in two places — and the drift is
 - **The footer's inline "Show all" stays.** It is part of the tally sentence ("x of y · filtered on
   Status, Matter"), not a control in a control row, and the two are different things.
 
+## The grid's frame, its scale, and its row marks
+
+Three things about `DataTable.Grid` that a surface gets wrong by spelling them out itself.
+
+- **`frame` is `card` or `flush`, and it is a prop rather than three utilities.** A card is the
+  hairline, rounded table-card, and its LAST ROW DROPS ITS HAIRLINE because the card's own bottom
+  rule runs one a pixel below it. Flush is edge to edge inside a frame the surface already draws —
+  a toolbar above, a footer below — so the table takes the frame's full height, the surface
+  continues past the last record, and the last record KEEPS its hairline, because there is no
+  bottom rule left for it to meet. Nine surfaces were each passing `rounded-none border-0` to get
+  the paint, which gave them the paint and none of the rest: the file list's last file was the one
+  row in the list with nothing under it.
+- **`scale` is the reader's own multiplier, and it moves four things.** 1 is the design's own size,
+  so a table nobody scales carries no inline declaration at all. It moves the row's text, its
+  height, the padding inside it, and the glyphs that ride in a row — which wear
+  `mc-table-grid-row-glyph` rather than a `size-*` utility, so they scale with the row. It moves
+  NOT the hairlines (a scaled hairline is a blurred one), nor the header band or the footer strip,
+  which are the frame around the list rather than the list. The four metrics are declared in the
+  recipe as the tokens they already were and multiplied in the COMPONENT, written back as an inline
+  style: `calc()` is neither a token reference nor a structural keyword, and the recipe layer is
+  token-pure by gate (`components-css-token-purity`). Density is a separate axis and multiplies in;
+  never derive one from the other, which is how the file manager's ten-step control came to have
+  exactly one visible step.
+- **A row mark is painted into the first cell's leading padding, never rendered ahead of its
+  content.** The space is reserved on every row of a table that CAN mark one — a capability that
+  cannot change under the reader — so marking a row lights a glyph and moves nothing. It is padding
+  and not an inline box because an inline box only stays on the content's line while the content is
+  inline too, and every surface composing an icon beside a name reaches for flex, which is
+  block-level: the mark then took a line of its own ABOVE the content, and the row was two lines
+  tall with its first column sitting low in it.
+
 ## The history family: one stack, one pair of controls, one set of keys
 
 **`src/lib/components/history/` is the one home of undo and redo.** `HistoryStack` holds the steps,
@@ -373,6 +410,28 @@ handlers is a defect rather than a choice.
   cannot be expressed with a custom property inside a media query. Its class strings are literal in
   `field-row/variants.ts` for Tailwind's scanner.
 
+## The sidebar's two levels
+
+**`Sidebar.MenuTrigger` + `Sidebar.MenuSub` are the rail's SUB-MENU**, added when the tools became
+top-level rows and nine of them arrived in one group (owner's direction, 2026-09-16).
+
+- **The trigger wears the destination row's recipe exactly** and differs in the one way that
+  matters: pressing it opens the rows beneath instead of going anywhere. A row that looked like a
+  category and navigated like a destination would be the `/tools` index again in miniature. Its
+  chevron follows the group heading's convention — down while open, toward the inline start while
+  folded — and rides the trailing column, so a long cluster name truncates and the chevron stays.
+- **`MenuSub` is a real nested `<ul>` inside the trigger's `<li>`**, so the nesting a reader sees is
+  the nesting a screen reader hears. Its indent and start-edge hairline are what make "these belong
+  to the row above" legible at a glance rather than by measurement.
+- **The expansion state is the CONSUMER's.** Neither part holds it: the app stores a member's folds
+  as departures (`sidebar-preferences.svelte.ts`), and the story holds a `$state` for the same
+  reason. A part that remembered its own fold would be a second answer to a question the preference
+  store has already settled.
+- **`MenuButton` gained a `trailing` snippet**, and the row is a three-track grid: icon, label
+  (takes the slack, truncates), trailing (sized to its contents, never shrinks). A mark rendered
+  among the children rides inside the label's own overflow, which clipped the maturity badge off
+  every row long enough to need it. The collapsed rail hides the trailing column with the label.
+
 ## The navigation layout: a screen's two sides, drawn once
 
 **`src/lib/components/navigation-layout/` is the one shape for a canvas with a navigational column
@@ -392,6 +451,15 @@ by hand at two widths with two scroll treatments.
   never scrolls on such a route; the two columns do, with `scrollbar-gutter: stable` so a
   scrollbar arriving never shifts what sits beside it. A screen that renders it beneath a masthead
   of its own is not this shape yet.
+- **A title can SPAN both columns (`header`), and the navigation can PIN something under its
+  scroll (`navigationFooter`).** Both are optional, and giving neither leaves the DOM byte-identical
+  for the screens composing this today. The calendar asked for both and neither is calendar-specific:
+  a title that names the SCREEN belongs over the whole canvas rather than over one column of it, and
+  a rail with a picker under it is the shape of every navigation whose last element must stay in
+  view while its list scrolls. The header sits inside the cancelled canvas inset and puts the gutter
+  back itself; `navigationFooter` moves the scroll region and its reserved gutter off the `<nav>`
+  onto an inner stack, because a pinned footer cannot sit inside the thing that scrolls past it. The
+  landmark stays the `<nav>` either way.
 - **`contentScrolls={false}` for a page that stages header / scrolling middle / pinned footer.**
   The column is then a bare full-height flex stack and the page owns its scroller; otherwise the
   page's middle would draw a second scrollbar inside a column that had already reserved a gutter.

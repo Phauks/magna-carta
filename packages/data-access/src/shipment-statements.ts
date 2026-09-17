@@ -51,6 +51,7 @@ export function selectShipmentStatement(database: SqlDatabase, id: ShipmentId): 
 // statuses so re-rating can never reset a shipment whose label is already bought or in flight —
 // and so the id a later purchase is checked against is one THIS server persisted, not one the
 // client supplied.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function markShipmentRatedStatement(
   database: SqlDatabase,
   id: ShipmentId,
@@ -75,6 +76,7 @@ export function markShipmentRatedStatement(
 // so a same-key re-claim would let both reach the carrier. Recovery from a stuck claim goes through
 // releaseShipmentPurchaseClaimStatement, which only the holder can call and only when the carrier
 // definitively rejected the buy.
+// fitness:unguarded-write — the caller runs this on its own and branches on the affected-row count, so a refusal is already surfaced there
 export function claimShipmentPurchaseStatement(
   database: SqlDatabase,
   id: ShipmentId,
@@ -93,6 +95,7 @@ export function claimShipmentPurchaseStatement(
 // another request's in-flight purchase. An INDETERMINATE failure — a network drop, a carrier 5xx,
 // or any failure after the buy returned — must NOT be released: the label may exist and be billed,
 // and the shipment stays `purchasing` until it is refunded or reconciled.
+// fitness:unguarded-write — the claim-key predicate decides whose purchase this is, and the caller owns what losing it means
 export function releaseShipmentPurchaseClaimStatement(
   database: SqlDatabase,
   id: ShipmentId,

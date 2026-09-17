@@ -28,6 +28,7 @@ const event: CalendarEvent = {
   timeZone: "America/New_York",
   locationText: "Courtroom 4",
   conferenceUrl: null,
+  recurrenceRule: null,
   courtReference: "26-CV-100",
   recordedAt: "2026-09-01T00:00:00Z",
   recordedBy: "user_1",
@@ -70,6 +71,7 @@ const firmEvent: FirmEvent = {
   locationId: null,
   locationText: null,
   conferenceUrl: null,
+  recurrenceRule: null,
   recordedAt: "2026-09-01T00:00:00Z",
   recordedBy: null,
 };
@@ -90,6 +92,7 @@ function painted(
     kind,
     recordId,
     matterId,
+    detailIsMatterNumber: false,
     link: null,
     settled: false,
     sourceKeys: [],

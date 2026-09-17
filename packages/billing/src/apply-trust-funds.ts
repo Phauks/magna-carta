@@ -1,4 +1,4 @@
-import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
+import type { EffectWrite, EffectStatement } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type {
   InvoiceApplicationId,
@@ -145,7 +145,7 @@ export async function applyTrustFundsToInvoices(
     },
   );
 
-  const statements: SqlStatement[] = [...transfer.effect.statements];
+  const statements: EffectStatement[] = [...transfer.effect.statements];
   const applicationIds: InvoiceApplicationId[] = [];
   for (const application of resolution.applications) {
     const composed = composeInvoiceApplication(

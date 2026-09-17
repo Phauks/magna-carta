@@ -169,11 +169,11 @@ its order was fixed. A gate you rely on being run by somebody else is not a gate
 
 So `pnpm check:scoped` runs the repo-wide set itself, as two clearly-labelled steps:
 
-| Step                        | When                                             | Measured cost                             |
-| --------------------------- | ------------------------------------------------ | ----------------------------------------- |
-| `repo-wide lints`           | **always**, whatever the diff                    | ~0.7 s (twelve scans, run concurrently)   |
-| `repo-wide fitness sweep`   | any first-party source under `apps/`/`packages/` | ~2.5 s (nine Vitest scans in one process) |
-| ... plus the `schema` scope | a `packages/database/` change                    | ~+0.6 s (ten more)                        |
+| Step                        | When                                             | Measured cost                                 |
+| --------------------------- | ------------------------------------------------ | --------------------------------------------- |
+| `repo-wide lints`           | **always**, whatever the diff                    | ~0.7 s (twelve scans, run concurrently)       |
+| `repo-wide fitness sweep`   | any first-party source under `apps/`/`packages/` | ~2.1 s (thirteen Vitest scans in one process) |
+| ... plus the `schema` scope | a `packages/database/` change                    | ~+0.5 s (thirteen more)                       |
 
 Where the line is drawn, and why. **The lints are unconditional** because the diff shape that breaks them
 is often docs-only — a swept stream note leaving a dangling `status.d/` pointer did exactly that, twice —
@@ -209,6 +209,28 @@ bug one level up — the next one somebody writes will not be on it, and nothing
 - The **fitness tests** self-register with a directive comment in their own header:
   `// @repo-wide-fitness — <why the diff can't reach it>`, or `scope=schema` for one whose only input is
   the Drizzle schema. The check declares its own jurisdiction in the file a reader is already looking at.
+
+**And the governance lints have a governance lint.** [`pnpm run lint:lints`](../../tooling/lint-lints/)
+holds four properties over the derived set itself: every `lint:*` script can actually fail (it has a
+fixture test beside it, or a self-test that runs on every invocation), every one is named somewhere a
+reader can find it, every lint command the conventions cite still resolves to a real script, and the
+gate's `MAGNA_CARTA_FITNESS_SCOPES` stays identical to `FITNESS_SCOPES_ENV` in `repo-wide.mjs` — a
+rename there would leave the sweep on its default scope, covering less than the step claims, and say
+nothing. The first property is the one with debt: 23 of the 36 lints can fail today, and the other 13
+are carried on a register in `tooling/lint-lints/rules.mjs` that may only shrink. The argument is the
+one `lint-control-characters.mjs` makes about invisible bytes, one level up — a check that never fires
+is indistinguishable from a clean tree, and that hazard applies hardest to the checks nothing checks.
+
+**Both halves run in CI — and for a long time only one did.** The `governance` job called the lint
+runner with `--all` and stopped there; nothing ran the fitness sweep. Its twenty-six members do each
+run under their own package's Vitest project, but the test battery is ASKED FOR on a pull request (the
+`run-tests` label; always on a queued merge), so on an unlabelled pull request the encryption
+chokepoint scan, the telemetry console ban, the off-token and `bits-ui` boundary scans and the schema
+conformance checks were reported for the first time by the merge queue — the most expensive place to
+learn it. The sweep is now a step of its own in `governance`, both scopes, unconditional: it is ~4 s
+there, which is less than deciding whether to run it would be worth. The derivation is what makes this
+maintainable — neither half has a roster — but a derived set still has to be CALLED, and this one was
+half-called for as long as it existed.
 
 Both mechanisms, the two deferrals, and what qualifies as repo-wide live in
 [`tooling/check-scoped/repo-wide.mjs`](../../tooling/check-scoped/repo-wide.mjs). The sweep runs under its

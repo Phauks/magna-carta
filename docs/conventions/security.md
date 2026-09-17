@@ -37,6 +37,43 @@ These bind now. The integration shape, rationale, and build findings live in **A
 - **Platform-admin key comparison is constant-time.** `X-Platform-Admin-Key` is compared via SHA-256-folded `timingSafeEqual` (`apps/api-worker/src/constant-time.ts`) so neither content nor length leaks through timing; the secret guard itself is a named seam until a real platform-admin principal model exists (ADR-0073).
 - **Dead-lettered outbox rows are revived by the requeue statement.** The relay marks a row `status='failed'` (dead-letter) terminally after max attempts — nothing re-dispatches it automatically. Recovery is an operator action: `requeueDeadLetteredMessageStatement` (`@magna-carta/data-access/outbox-statements`) flips a failed row back to `pending` (attempts reset) so the next sweep retries it. The guarded UPDATE only ever revives a genuinely failed row. A self-service admin surface is a later slice.
 
+## Supply chain — what may enter the tree, and on what terms
+
+Four gates, none of which needs a third-party service: the firm keeps its own dependency metadata on
+its own compute.
+
+- **Licenses are deny-by-default, in one policy read by two gates.** The platform is proprietary
+  SaaS, so AGPL and SSPL are a hard prohibition — network interaction counts as distribution, which
+  would force a source offer — and the allowlist is permissive licenses plus weak (file- and
+  library-level) copyleft. The policy, the SPDX expression parser and its self-test live in
+  [`tooling/license-policy/`](../../tooling/license-policy/); `pnpm run lint:licenses` reads the npm
+  tree (701 versions) and `pnpm run lint:cargo-licenses` reads all ten Cargo workspaces (866 crate
+  versions — the crates workspace plus every container). The Cargo half is new: the Rust supply chain
+  had been vulnerability-scanned by the osv step for a year and license-checked by nothing.
+  - The expression parser is a real parser, not a split on `OR`. The regex it replaced read
+    `(MIT OR GPL-3.0) AND AGPL-3.0` as **allowed**, because it stripped the parentheses and found a
+    permissive disjunct — a conjunct that binds the whole work waved through by precedence the
+    classifier did not implement. It also denied three forms the Rust tree actually carries
+    (`WITH` exceptions, the legacy `MIT/Apache-2.0` slash form, lowercase identifiers).
+  - Adding an identifier to the allowlist is a deliberate policy act and binds both ecosystems.
+- **A published version waits before it can be resolved.** `minimumReleaseAge` in
+  `pnpm-workspace.yaml` holds new versions for three days, which is where a compromised release is
+  caught — in public, by other people. It binds the weekly automated upgrades in particular. The
+  override for a same-day security fix is in that file's own comment.
+- **Vulnerabilities fail the gate at HIGH and above**, across every lockfile including the Rust ones
+  (the `governance` job's osv-scanner step). An accepted advisory carries a cause and an expiry in
+  [`osv-scanner.toml`](../../osv-scanner.toml); acceptance cannot silently become permanent.
+- **A C or C++ dependency arrives only by consent** (golden rule 14 in the root
+  [`CLAUDE.md`](../../CLAUDE.md)), and `pnpm run lint:native-builds` is the mechanism: the
+  `onlyBuiltDependencies` grant in `pnpm-workspace.yaml` is an audited allowlist, and a native build
+  step arriving without one fails. The consented exception is clamd in the scan container, which is
+  network-isolated and documented where it runs.
+
+**Nothing secret is committed.** `pnpm run lint:secrets` scans the tracked tree for credential shapes
+— private key headers, provider tokens, and high-entropy literals bound to secret-shaped names — and
+`pnpm run lint:containers` holds the Dockerfile properties that matter for images built from this
+repository. Both are in-house scans for the same reason the license gate is.
+
 ## Untrusted file handling (uploads, processing & preview)
 
 Every uploaded byte (File Manager, Client portal, Discovery ingest) is **untrusted** — Discovery and portal files arrive from external/adversarial parties. Rationale and the full threat model live in the [white paper](../Magna-Carta-White-Paper.md) (_Matters and File Manager_ `Needs development` note); don't restate them here. A malicious file is **inert at rest** (R2 cannot be corrupted/infected) — risk arises only when something **processes, serves, or forwards** it. **Containment is the primary defense; detection (AV) is a thinner layer.** Three threats, in priority order:

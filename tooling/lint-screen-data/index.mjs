@@ -35,9 +35,9 @@ const HAND_WRITTEN_TRANSPORT_BUDGET = 56;
  * Every entry is a path, so a rename surfaces here rather than silently widening the exemption.
  */
 const READS_ON_DEMAND = new Set([
-  "apps/web/src/routes/(app)/tools/whois-lookup/+page.svelte",
-  "apps/web/src/routes/(app)/tools/safe-website-viewer/+page.svelte",
-  "apps/web/src/routes/(app)/tools/network-speed-test/+page.svelte",
+  "apps/web/src/routes/(app)/whois-lookup/+page.svelte",
+  "apps/web/src/routes/(app)/safe-website-viewer/+page.svelte",
+  "apps/web/src/routes/(app)/network-speed-test/+page.svelte",
   "apps/web/src/routes/(app)/matters/[id]/search/+page.svelte",
 ]);
 

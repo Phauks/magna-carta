@@ -56,6 +56,7 @@
     disabled = false,
     title,
     capped = false,
+    reading = false,
     noMatterLabel = "No matter",
     extraChoices = [],
     extraHeading,
@@ -74,6 +75,15 @@
     title?: string;
     /** Whether the list is a page of the record rather than all of it, so the panel can say so. */
     capped?: boolean;
+    /**
+     * Whether the firm's matters are still being read.
+     *
+     * An empty list means two different things and the panel must not say the wrong one: a firm
+     * with nothing to file on, and a walk that has not come back yet. They look identical from
+     * here, so the caller — which holds the read — says which. Default false, because a caller that
+     * hands over a list it already has is never in the second state.
+     */
+    reading?: boolean;
     /** What the row that takes it off every matter is called, where "No matter" is not the words. */
     noMatterLabel?: string;
     /** Answers that are not matters, offered after them under `extraHeading`. */
@@ -223,9 +233,11 @@
     {#if matching.length === 0 && matchingExtras.length === 0}
       <Combobox.Group>
         <Combobox.GroupHeading>
-          {matters.length === 0
-            ? "No matters were read, so there is nothing to file this on."
-            : `No matter matches "${query.trim()}".`}
+          {matters.length === 0 && reading
+            ? "Reading the firm's matters."
+            : matters.length === 0
+              ? "No matters were read, so there is nothing to file this on."
+              : `No matter matches "${query.trim()}".`}
         </Combobox.GroupHeading>
       </Combobox.Group>
     {:else if capped}

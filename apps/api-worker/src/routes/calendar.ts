@@ -180,6 +180,16 @@ const CreateEventRequest = z
     // conference room AND on a call.
     conferenceUrl: z.string().url().max(2000).nullable().optional(),
     courtReference: z.string().max(120).nullable().optional(),
+    /**
+     * The RFC 5545 rule a repeating setting runs on — "FREQ=WEEKLY;BYDAY=TU;COUNT=12". Null or
+     * absent for a setting that happens once. ONE record carries the whole series: a reader asking
+     * for a window gets an entry per occurrence in it, rather than the platform writing a row per
+     * date. The standard is stored rather than a private shape because it is what every calendar
+     * product reads and writes, and a firm exporting its calendar should not find a dialect in it.
+     * Only the rules the record form can present are accepted, so a rule that saves is one that can
+     * be edited again.
+     */
+    recurrenceRule: z.string().max(400).nullable().optional(),
     participants: z.array(ParticipantRequest).max(50).optional(),
   })
   .openapi("CreateMatterEventRequest");
@@ -208,6 +218,8 @@ const EventDetail = z
     locationText: z.string().nullable(),
     conferenceUrl: z.string().nullable(),
     courtReference: z.string().nullable(),
+    /** The repeat rule as an RFC 5545 RRULE, null on a setting that happens once. */
+    recurrenceRule: z.string().nullable(),
     recordedAt: z.string(),
     recordedBy: z.string().nullable(),
     // The immediate continuance neighbors, resolved from the link table in the same page's bounded
@@ -397,6 +409,11 @@ const CreateFirmEventRequest = z
     // else's release schedule. A different fact from where it is HELD: a deposition can be in a
     // conference room AND on a call.
     conferenceUrl: z.string().url().max(2000).nullable().optional(),
+    /**
+     * The RFC 5545 rule a repeating event runs on, null or absent for one that happens once. One
+     * record carries the whole series; only the rules the record form can present are accepted.
+     */
+    recurrenceRule: z.string().max(400).nullable().optional(),
     participants: z.array(ParticipantRequest).max(50).optional(),
   })
   .openapi("CreateFirmEventRequest");
@@ -428,6 +445,8 @@ const FirmEventDetail = z
     locationId: z.string().nullable(),
     locationText: z.string().nullable(),
     conferenceUrl: z.string().nullable(),
+    /** The repeat rule as an RFC 5545 RRULE, null on an event that happens once. */
+    recurrenceRule: z.string().nullable(),
     recordedAt: z.string(),
     recordedBy: z.string().nullable(),
   })
@@ -2018,6 +2037,7 @@ function eventDetail(
     locationText: row.location_text,
     conferenceUrl: row.conference_url,
     courtReference: row.court_reference,
+    recurrenceRule: row.recurrence_rule,
     recordedAt: row.recorded_at,
     recordedBy: row.recorded_by,
     continuedFromEventId: neighbors.continuedFromEventId,
@@ -2042,6 +2062,7 @@ function firmEventDetail(row: FirmEventRow): z.infer<typeof FirmEventDetail> {
     locationId: row.location_id,
     locationText: row.location_text,
     conferenceUrl: row.conference_url,
+    recurrenceRule: row.recurrence_rule,
     recordedAt: row.recorded_at,
     recordedBy: row.recorded_by,
   };

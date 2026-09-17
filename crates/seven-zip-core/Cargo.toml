@@ -26,3 +26,9 @@ js-sys = "0.3"
 # `cargo build --lib` the wasm artefact comes from, so the shipped module still has no AES coder.
 sevenz-rust2 = { version = "0.7", features = ["aes256"] }
 crc32fast = "1.4"
+
+# The workspace lint floor (see crates/Cargo.toml): unsafe Rust forbidden, and the abort lints denied so a
+# malformed input returns an error instead of taking the process down. A member that omits this table is
+# not covered by any of it.
+[lints]
+workspace = true

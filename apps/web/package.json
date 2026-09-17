@@ -7,7 +7,7 @@
   "scripts": {
     "build": "vp build && node scripts/emit-version-asset.mjs",
     "dev": "vp dev",
-    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "check": "svelte-check --tsconfig ./tsconfig.json --threshold warning",
     "prepare": "svelte-kit sync || echo ''",
     "test:e2e": "playwright test --config e2e/playwright.config.ts"
   },

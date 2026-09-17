@@ -145,6 +145,7 @@ export function updateMatterAssetStatement(
 
 // Soft delete. The row stays because a valuation history and a document link hang off it, and a firm
 // that removed a house by mistake at nine in the morning wants it back at ten.
+// fitness:unguarded-write — soft-deleting an asset already soft-deleted is the state the caller asked for
 export function softDeleteMatterAssetStatement(
   database: SqlDatabase,
   id: MatterAssetId,

@@ -11,7 +11,7 @@ function makeTool(
     id: over.id,
     name: over.name ?? over.id,
     icon: over.icon ?? "circle",
-    subjectGroup: over.subjectGroup ?? "property",
+    subjectGroup: over.subjectGroup ?? "records",
     permission: over.permission,
     contextTags: over.contextTags ?? ["none"],
     backing: over.backing ?? { kind: "library" },
@@ -27,19 +27,19 @@ const catalog: ToolManifest[] = [
   makeTool({
     id: "a",
     permission: propertyListings,
-    subjectGroup: "property",
+    subjectGroup: "records",
     contextTags: ["address"],
   }),
   makeTool({
     id: "b",
     permission: businessLookup,
-    subjectGroup: "business-entities",
+    subjectGroup: "internet",
     contextTags: ["company"],
   }),
   makeTool({
     id: "c",
     permission: shipping,
-    subjectGroup: "mailing-shipping",
+    subjectGroup: "mailing",
     contextTags: ["address"],
   }),
 ];
@@ -49,17 +49,29 @@ const allPermissions = new Set<Permission>([propertyListings, businessLookup, sh
 describe("toolsByGroup", () => {
   it("groups permitted tools in fixed subject order, omitting empty groups", () => {
     const grouped = toolsByGroup(catalog, allPermissions);
-    expect(grouped.map((entry) => entry.group)).toEqual([
-      "property",
-      "business-entities",
-      "mailing-shipping",
-    ]);
+    expect(grouped.map((entry) => entry.group)).toEqual(["records", "internet", "mailing"]);
     expect(grouped[0]!.tools.map((tool) => tool.id)).toEqual(["a"]);
+  });
+
+  it("sorts a group's tools alphabetically by name, not by catalog order", () => {
+    // Owner's direction, 2026-09-16. A member scans the rail for a NAME; the order rows were
+    // written in is a fact about this repository and not about the firm.
+    const unsorted = [
+      makeTool({ id: "z", name: "Zoning Lookup", permission: propertyListings }),
+      makeTool({ id: "a", name: "Assessor Records", permission: businessLookup }),
+      makeTool({ id: "m", name: "map overlays", permission: shipping }),
+    ];
+    const grouped = toolsByGroup(unsorted, allPermissions);
+    expect(grouped[0]!.tools.map((tool) => tool.name)).toEqual([
+      "Assessor Records",
+      "map overlays",
+      "Zoning Lookup",
+    ]);
   });
 
   it("hides tools the principal lacks permission for, and drops a group that empties", () => {
     const grouped = toolsByGroup(catalog, new Set<Permission>([businessLookup]));
-    expect(grouped.map((entry) => entry.group)).toEqual(["business-entities"]);
+    expect(grouped.map((entry) => entry.group)).toEqual(["internet"]);
   });
 
   it("returns [] when the principal holds nothing", () => {
@@ -99,31 +111,33 @@ describe("file context tag", () => {
   });
 });
 
-describe("web-domains group and website context tag", () => {
+describe("the internet cluster and the website context tag", () => {
   const whois = assertPermission("tools:whois");
   const safeBrowse = assertPermission("tools:safeBrowse");
 
   const webDomainsCatalog: ToolManifest[] = [
     makeTool({
       id: "whois-lookup",
+      name: "WHOIS Lookup",
       permission: whois,
-      subjectGroup: "web-domains",
+      subjectGroup: "internet",
       contextTags: ["website"],
     }),
     makeTool({
       id: "safe-website-viewer",
+      name: "Safe Website Viewer",
       permission: safeBrowse,
-      subjectGroup: "web-domains",
+      subjectGroup: "internet",
       contextTags: ["website"],
     }),
   ];
 
   const webPermissions = new Set<Permission>([whois, safeBrowse]);
 
-  it("web-domains group surfaces both website tools in order", () => {
+  it("surfaces both website tools under Internet, alphabetically", () => {
     const groups = toolsByGroup(webDomainsCatalog, webPermissions);
-    const webDomains = groups.find((g) => g.group === "web-domains");
-    expect(webDomains?.tools.map((t) => t.id)).toEqual(["whois-lookup", "safe-website-viewer"]);
+    const internet = groups.find((group) => group.group === "internet");
+    expect(internet?.tools.map((tool) => tool.id)).toEqual(["safe-website-viewer", "whois-lookup"]);
   });
 
   it("toolsFor('website') returns both website tools", () => {

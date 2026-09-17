@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { shortfallSentences } from "$lib/calendar/shortfall.ts";
 import {
   deadlineDraftFrom,
   deadlineDraftReady,
@@ -17,18 +18,20 @@ import {
   eventDraftStarted,
   externalParticipant,
   memberParticipant,
+  recurrenceChanged,
 } from "$lib/calendar/event-draft.ts";
 import {
   emptyFirmEventDraft,
   firmEventDraftRequest,
   firmEventDraftShortfalls,
 } from "$lib/calendar/firm-event-draft.ts";
+import { weeklyRecurrence } from "@magna-carta/civil-time/recurrence";
 import { timeZoneOptions } from "$lib/calendar/time-zone-options.ts";
 
 describe("the event draft", () => {
   it("needs a title, a date and a zone, in that order", () => {
     const draft = emptyEventDraft("");
-    expect(eventDraftShortfalls(draft)).toEqual([
+    expect(shortfallSentences(eventDraftShortfalls(draft))).toEqual([
       "A title is needed.",
       "A date is needed.",
       "A time zone is needed: the one the event happens in.",
@@ -55,35 +58,40 @@ describe("the event draft", () => {
       locationText: null,
       conferenceUrl: null,
       courtReference: null,
+      recurrenceRule: null,
       participants: [],
     });
   });
 
   it("refuses the contradictions and the unreadable", () => {
     const base = { ...emptyEventDraft("America/New_York"), title: "Trial", startsOn: "2026-09-14" };
-    expect(eventDraftShortfalls({ ...base, endsOn: "2026-09-13" })).toEqual([
+    expect(shortfallSentences(eventDraftShortfalls({ ...base, endsOn: "2026-09-13" }))).toEqual([
       "The end date is before the start.",
     ]);
-    expect(eventDraftShortfalls({ ...base, startsAtTime: "9am" })).toEqual([
+    expect(shortfallSentences(eventDraftShortfalls({ ...base, startsAtTime: "9am" }))).toEqual([
       "The start time does not read as a time of day.",
     ]);
-    expect(eventDraftShortfalls({ ...base, startsAtTime: "10:00", endsAtTime: "09:30" })).toEqual([
-      "The end time is not after the start time.",
-    ]);
     expect(
-      eventDraftShortfalls({
-        ...base,
-        startsAtTime: "10:00",
-        endsOn: "2026-09-15",
-        endsAtTime: "09:30",
-      }),
+      shortfallSentences(
+        eventDraftShortfalls({ ...base, startsAtTime: "10:00", endsAtTime: "09:30" }),
+      ),
+    ).toEqual(["The end time is not after the start time."]);
+    expect(
+      shortfallSentences(
+        eventDraftShortfalls({
+          ...base,
+          startsAtTime: "10:00",
+          endsOn: "2026-09-15",
+          endsAtTime: "09:30",
+        }),
+      ),
     ).toEqual([]);
-    expect(eventDraftShortfalls({ ...base, timeZone: "+05:00" })).toEqual([
+    expect(shortfallSentences(eventDraftShortfalls({ ...base, timeZone: "+05:00" }))).toEqual([
       "The time zone is not one a date can be read in.",
     ]);
-    expect(eventDraftShortfalls({ ...base, timeZone: "Mars/Olympus" })).toEqual([
-      "The time zone is not one a date can be read in.",
-    ]);
+    expect(shortfallSentences(eventDraftShortfalls({ ...base, timeZone: "Mars/Olympus" }))).toEqual(
+      ["The time zone is not one a date can be read in."],
+    );
   });
 
   it("sends each participant shape as the contract names it", () => {
@@ -142,7 +150,7 @@ describe("the event draft", () => {
 
 describe("the deadline draft", () => {
   it("needs a title, a due date and a zone", () => {
-    expect(deadlineDraftShortfalls(emptyDeadlineDraft(""))).toEqual([
+    expect(shortfallSentences(deadlineDraftShortfalls(emptyDeadlineDraft("")))).toEqual([
       "A title is needed.",
       "A due date is needed.",
       "A time zone is needed: the one the deadline is measured in.",
@@ -168,10 +176,10 @@ describe("the deadline draft", () => {
       triggerEventId: null,
       priority: 2,
     });
-    expect(deadlineDraftShortfalls({ ...draft, priority: "12" })).toEqual([
+    expect(shortfallSentences(deadlineDraftShortfalls({ ...draft, priority: "12" }))).toEqual([
       "Priority is a whole number from 1 to 9.",
     ]);
-    expect(deadlineDraftShortfalls({ ...draft, dueAtTime: "5pm" })).toEqual([
+    expect(shortfallSentences(deadlineDraftShortfalls({ ...draft, dueAtTime: "5pm" }))).toEqual([
       "The time does not read as a time of day.",
     ]);
   });
@@ -210,7 +218,7 @@ describe("the firm event draft", () => {
       audience: "all_members" as const,
       participants: [memberParticipant("user_1", "A")],
     };
-    expect(firmEventDraftShortfalls(draft)).toEqual([]);
+    expect(shortfallSentences(firmEventDraftShortfalls(draft))).toEqual([]);
     expect(firmEventDraftRequest(draft)).toMatchObject({
       audience: "all_members",
       participants: [],
@@ -218,9 +226,9 @@ describe("the firm event draft", () => {
     expect(firmEventDraftRequest({ ...draft, audience: "participants" }).participants).toHaveLength(
       1,
     );
-    expect(firmEventDraftShortfalls({ ...draft, endsOn: "2026-09-06" })).toEqual([
-      "The end date is before the start.",
-    ]);
+    expect(
+      shortfallSentences(firmEventDraftShortfalls({ ...draft, endsOn: "2026-09-06" })),
+    ).toEqual(["The end date is before the start."]);
   });
 });
 
@@ -242,21 +250,21 @@ describe("timeZoneOptions", () => {
 
 describe("a conference link", () => {
   it("is optional, and an empty one refuses nothing", () => {
-    expect(conferenceShortfalls("")).toEqual([]);
-    expect(conferenceShortfalls("   ")).toEqual([]);
+    expect(shortfallSentences(conferenceShortfalls(""))).toEqual([]);
+    expect(shortfallSentences(conferenceShortfalls("   "))).toEqual([]);
   });
 
   it("takes a web address", () => {
-    expect(conferenceShortfalls("https://example.test/j/123")).toEqual([]);
-    expect(conferenceShortfalls("http://example.test/room")).toEqual([]);
+    expect(shortfallSentences(conferenceShortfalls("https://example.test/j/123"))).toEqual([]);
+    expect(shortfallSentences(conferenceShortfalls("http://example.test/room"))).toEqual([]);
   });
 
   it("refuses what is not one, rather than storing a link nobody can follow", () => {
     // The one moment a conference link is read is the moment somebody is late for the meeting.
-    expect(conferenceShortfalls("zoom us")).toEqual([
+    expect(shortfallSentences(conferenceShortfalls("zoom us"))).toEqual([
       "The conference link does not read as a web address.",
     ]);
-    expect(conferenceShortfalls("javascript:alert(1)")).toEqual([
+    expect(shortfallSentences(conferenceShortfalls("javascript:alert(1)"))).toEqual([
       "The conference link has to be a web address.",
     ]);
   });
@@ -268,8 +276,45 @@ describe("a conference link", () => {
       conferenceUrl: "not a link",
     };
     expect(eventDraftReady(draft)).toBe(false);
-    expect(eventDraftShortfalls(draft)).toContain(
+    expect(shortfallSentences(eventDraftShortfalls(draft))).toContain(
       "The conference link does not read as a web address.",
     );
+  });
+});
+
+describe("a repeat on a draft", () => {
+  it("sends no rule where the setting happens once", () => {
+    const draft = { ...emptyEventDraft("America/New_York", "2026-09-15"), title: "Deposition" };
+    expect(draft.recurrence).toBeNull();
+    expect(eventDraftRequest(draft).recurrenceRule).toBeNull();
+    expect(
+      firmEventDraftRequest(emptyFirmEventDraft("America/New_York")).recurrenceRule,
+    ).toBeNull();
+  });
+
+  it("writes the answer out as the stored line, on both kinds of event", () => {
+    const recurrence = { ...weeklyRecurrence(), interval: 2, weekdays: ["TU"] as const };
+    const event = {
+      ...emptyEventDraft("America/New_York", "2026-09-15"),
+      title: "Status conference",
+      recurrence,
+    };
+    expect(eventDraftRequest(event).recurrenceRule).toBe("FREQ=WEEKLY;INTERVAL=2;BYDAY=TU");
+    const firmEvent = {
+      ...emptyFirmEventDraft("America/New_York", "2026-09-15"),
+      title: "Partners meeting",
+      recurrence,
+    };
+    expect(firmEventDraftRequest(firmEvent).recurrenceRule).toBe("FREQ=WEEKLY;INTERVAL=2;BYDAY=TU");
+  });
+
+  it("does not call a difference the stored line cannot carry a change", () => {
+    // Weekdays belong to a weekly rule. Ticking one under Monthly changes the line by nothing, so a
+    // form that asked "discard your changes?" over it would be asking about nothing.
+    const monthly = { ...weeklyRecurrence(), frequency: "monthly" as const };
+    expect(recurrenceChanged(monthly, { ...monthly, weekdays: ["TU"] })).toBe(false);
+    expect(recurrenceChanged(monthly, { ...monthly, interval: 2 })).toBe(true);
+    expect(recurrenceChanged(null, monthly)).toBe(true);
+    expect(recurrenceChanged(null, null)).toBe(false);
   });
 });

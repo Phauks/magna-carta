@@ -1,4 +1,5 @@
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
+import { guarded } from "@magna-carta/data-access/effect-batch";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { VisibleMatterPredicate } from "@magna-carta/calendar/visibility";
@@ -275,7 +276,10 @@ export async function unrouteCommunication(
   return {
     effect: {
       statements: [
-        unrouteCommunicationStatement(database, { id: communicationId, now }),
+        guarded(
+          unrouteCommunicationStatement(database, { id: communicationId, now }),
+          "communication.unroute",
+        ),
         domainAuditStatement(database, {
           event: "communications.communication.unrouted",
           subjectId: communicationId,
@@ -324,11 +328,14 @@ export async function setCommunicationDisposition(
   return {
     effect: {
       statements: [
-        setCommunicationDispositionStatement(database, {
-          id: communicationId,
-          disposition: wanted,
-          now,
-        }),
+        guarded(
+          setCommunicationDispositionStatement(database, {
+            id: communicationId,
+            disposition: wanted,
+            now,
+          }),
+          "communication.disposition",
+        ),
         domainAuditStatement(database, {
           event:
             wanted === null

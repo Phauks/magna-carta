@@ -1,28 +1,31 @@
 import { assertPermission } from "@magna-carta/access-control/registry";
 import type { ToolManifest } from "./types.ts";
 
-// The single source of truth for the Tools area. The sidebar renders this grouped by subject;
-// contextual surfaces query it by context tag. Adding a tool is one row here (and, for the UI, one
-// id->component mapping in the shell). Each permission is validated at module load — an unregistered
-// key fails loud here rather than rendering a tool no one can be granted.
+/*
+ * The single source of truth for the firm's standalone tools. The rail renders this grouped by
+ * subject cluster; contextual surfaces query it by context tag. Adding a tool is one row here (and,
+ * for the UI, a route and a presentation entry in the web app). Each permission is validated at
+ * module load — an unregistered key fails loud here rather than rendering a tool no one can be
+ * granted.
+ *
+ * EVERY TOOL IS A TOP-LEVEL ABILITY (owner's direction, 2026-09-16). There is no Tools area to be
+ * inside any more: no index screen, no sub-page, no /tools/<id> address. A tool is addressed at
+ * /<id>, reached in one press from the rail, and opens onto the whole canvas. The rail folds them
+ * into subject clusters (types.ts) so nine rows read as four; the clusters are a fold, not a
+ * screen — nothing is reached THROUGH one.
+ *
+ * ROW ORDER HERE IS NOT RENDER ORDER. Tools sort alphabetically by name within their cluster
+ * (select.ts); this list is grouped by cluster only so a reader of the catalog sees the shape.
+ */
 export const CATALOG: readonly ToolManifest[] = [
+  // Records — a public register or a record site, opened for a subject the firm is working on.
   {
-    id: "property-listing-links",
-    name: "Property Listing Links",
-    icon: "house",
-    subjectGroup: "property",
-    permission: assertPermission("tools:propertyListings"),
-    contextTags: ["address"],
-    backing: { kind: "library" },
-    matterContext: "none",
-  },
-  {
-    id: "county-property-records",
-    name: "County Property Records",
-    icon: "landmark",
-    subjectGroup: "property",
-    permission: assertPermission("tools:propertyRecords"),
-    contextTags: ["address"],
+    id: "attorney-license-lookup",
+    name: "Attorney License Lookup",
+    icon: "badge-check",
+    subjectGroup: "records",
+    permission: assertPermission("tools:attorneyLicense"),
+    contextTags: ["person"],
     backing: { kind: "library" },
     matterContext: "none",
   },
@@ -30,59 +33,40 @@ export const CATALOG: readonly ToolManifest[] = [
     id: "business-entity-lookup",
     name: "Business Entity Lookup",
     icon: "building-2",
-    subjectGroup: "business-entities",
+    subjectGroup: "records",
     permission: assertPermission("tools:businessLookup"),
     contextTags: ["company"],
     backing: { kind: "library" },
     matterContext: "none",
   },
   {
-    id: "attorney-license-lookup",
-    name: "Attorney License Lookup",
-    icon: "badge-check",
-    subjectGroup: "people-licenses",
-    permission: assertPermission("tools:attorneyLicense"),
-    contextTags: ["person"],
+    id: "county-property-records",
+    name: "County Property Records",
+    icon: "landmark",
+    subjectGroup: "records",
+    permission: assertPermission("tools:propertyRecords"),
+    contextTags: ["address"],
     backing: { kind: "library" },
     matterContext: "none",
   },
   {
-    id: "shipping",
-    name: "Shipping & Postage",
-    icon: "package",
-    subjectGroup: "mailing-shipping",
-    permission: assertPermission("tools:shipping"),
+    id: "property-listing-links",
+    name: "Property Listing Links",
+    icon: "house",
+    subjectGroup: "records",
+    permission: assertPermission("tools:propertyListings"),
     contextTags: ["address"],
-    backing: { kind: "integration", category: "shipping" },
+    backing: { kind: "library" },
     matterContext: "none",
   },
+  // Internet — the network itself, and what is on it.
   {
     id: "network-speed-test",
     name: "Network Speed Test",
     icon: "gauge",
-    subjectGroup: "diagnostics",
+    subjectGroup: "internet",
     permission: assertPermission("tools:speedTest"),
     contextTags: ["none"],
-    backing: { kind: "library" },
-    matterContext: "none",
-  },
-  {
-    id: "firm-usage",
-    name: "Firm Usage",
-    icon: "chart-pie",
-    subjectGroup: "diagnostics",
-    permission: assertPermission("tools:firmUsage"),
-    contextTags: ["none"],
-    backing: { kind: "library" },
-    matterContext: "none",
-  },
-  {
-    id: "whois-lookup",
-    name: "WHOIS Lookup",
-    icon: "globe",
-    subjectGroup: "web-domains",
-    permission: assertPermission("tools:whois"),
-    contextTags: ["website"],
     backing: { kind: "library" },
     matterContext: "none",
   },
@@ -90,12 +74,34 @@ export const CATALOG: readonly ToolManifest[] = [
     id: "safe-website-viewer",
     name: "Safe Website Viewer",
     icon: "shield",
-    subjectGroup: "web-domains",
+    subjectGroup: "internet",
     permission: assertPermission("tools:safeBrowse"),
     contextTags: ["website"],
     backing: { kind: "library" },
     matterContext: "none",
   },
+  {
+    id: "whois-lookup",
+    name: "WHOIS Lookup",
+    icon: "globe",
+    subjectGroup: "internet",
+    permission: assertPermission("tools:whois"),
+    contextTags: ["website"],
+    backing: { kind: "library" },
+    matterContext: "none",
+  },
+  // Mailing — what the firm sends.
+  {
+    id: "shipping",
+    name: "Shipping & Postage",
+    icon: "package",
+    subjectGroup: "mailing",
+    permission: assertPermission("tools:shipping"),
+    contextTags: ["address"],
+    backing: { kind: "integration", category: "shipping" },
+    matterContext: "none",
+  },
+  // Files — a file that belongs to no matter.
   {
     id: "file-workbench",
     name: "File Workbench",
@@ -114,21 +120,17 @@ export const CATALOG: readonly ToolManifest[] = [
     // to carry.
     backing: { kind: "library" },
     matterContext: "none",
-    // Addressed at the top level, because it is a sidebar destination in its own right rather than
-    // a utility reached through the Tools area (apps/web/src/lib/navigation/destinations.ts). The
-    // manifest row stays for one reason only: so a `file` in hand can still be offered it through
-    // toolsFor(). The Tools area's own listing and column leave it out, as does the palette's tool
-    // provider, each because it is no longer one of the things they enumerate.
-    route: "/file-workbench",
   },
 ];
 
 /**
- * Where a tool's surface is addressed. The ordinary tool lives inside the Tools area at a route
- * named after its id; one that declares its own `route` has outgrown that area and is addressed
- * where it declares. Every consumer that turns a manifest into a link goes through here, so the
- * two facts a link needs — the address, and who is allowed to derive it — stay in one place.
+ * Where a tool's surface is addressed: the top level, at its own id. Every consumer that turns a
+ * manifest into a link goes through here, so the address is stated once.
+ *
+ * There is no area prefix because there is no area (see the note on CATALOG). The id is the path
+ * segment, which is also what keeps the two from drifting: a tool cannot be renamed in the catalog
+ * and left addressed at its old URL.
  */
 export function toolRoute(tool: ToolManifest): string {
-  return tool.route ?? `/tools/${tool.id}`;
+  return `/${tool.id}`;
 }
