@@ -36,6 +36,7 @@
  * handed is a promise about what they will see.
  */
 import { replaceState } from "$app/navigation";
+import { LatestOnly } from "../api/latest-only.ts";
 import { page } from "$app/state";
 import type {
   CalendarGridColor,
@@ -44,6 +45,7 @@ import type {
 } from "@magna-carta/design-system/calendar-grid";
 import {
   colored,
+  numbered,
   perLane,
   type CalendarEntry,
   type CalendarEntryKind,
@@ -238,7 +240,7 @@ function narrowToSearch(
 
 export class CalendarController {
   readonly #host: CalendarHost;
-  #generation = 0;
+  readonly #latest = new LatestOnly();
 
   /** The reader's civil date today, in their own zone. */
   readonly today: string;
@@ -485,7 +487,11 @@ export class CalendarController {
     // The colour of the first calendar in the rail's order that this entry is on. The day grid
     // overrides it per lane, because there the column already says which calendar it is.
     const order = this.selectedSources.map((source) => source.key);
-    return matching.map((entry) => colored(entry, this.colors, order));
+    // The matter numbers are filled in HERE rather than at the projection, because they arrive
+    // later than the rows do and the grid no longer waits for them. This derived re-runs when they
+    // land, so the chips take their numbers with no second read.
+    const numbers = this.#host.context().matterNumbers;
+    return matching.map((entry) => colored(numbered(entry, numbers), this.colors, order));
   });
 
   /**
@@ -613,8 +619,7 @@ export class CalendarController {
    * so nothing flashes under the reader.
    */
   async read(fetchImpl: typeof fetch, mode: "fresh" | "refresh"): Promise<void> {
-    this.#generation += 1;
-    const generation = this.#generation;
+    const attempt = this.#latest.begin();
     if (mode === "fresh") {
       // A window the reader moved to starts clean: a notice about the last window's read would
       // stand over this one's skeleton and read as a failure of a read that has not happened.
@@ -627,7 +632,7 @@ export class CalendarController {
     const result = await readCalendarWindow(fetchImpl, scope, this.window, this.#host.context(), {
       sources: this.firmSide ? this.selectedSources : undefined,
     });
-    if (generation !== this.#generation) return;
+    if (!attempt.current) return;
     this.entries = result.entries;
     this.failures = result.failures;
     this.truncated = result.truncated;

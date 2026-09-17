@@ -1,7 +1,7 @@
 // Runs the repo-wide governance lints — the set derived in repo-wide.mjs, never a list written here.
 //
 // Two callers, one derivation: the inner-loop gate (tooling/check-scoped/index.mjs) and the whole-repo
-// gate (.github/workflows/gate.yml). Adding a `lint:*` script to the root package.json puts it in both,
+// gate (tooling/gate/governance.mjs). Adding a `lint:*` script to the root package.json puts it in both,
 // which is the point — a governance lint nobody remembered to wire is a governance lint that is not
 // running.
 //

@@ -42,6 +42,9 @@ and a firm event. The backend it consumes is `packages/calendar` behind
 - `location-picker.svelte` — WHERE a setting is held, as the product's dropdown-with-add over the
   firm's own offices and their rooms, grouped by office, keeping a courthouse nobody has a record of;
   `room-location.ts` — which room a written location names, and the name to write for one
+- `participant-role-field.svelte` — WHAT somebody is at a setting, as the same dropdown-with-add
+  over `PARTICIPANT_ROLE_OPTIONS`, keeping a role the list has never heard of; the vocabulary and
+  the collapse onto an offered spelling are `calendar-vocabulary.ts`'s
 - `recurrence-field.svelte` — WHETHER a setting repeats and on what rule, over the shared grammar
   in `@magna-carta/civil-time/recurrence`; `recurrence-sentence.ts` — what that rule says in
   English, which is the one home for those words
@@ -126,6 +129,23 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   widened to and the word each kind paints as. A layer is also a ROW IN THE RAIL now, under Dates;
   the word `layers` survives in the controller and the address because the address has carried it
   since the toolbar had them, and a link somebody was handed is a promise about what they will see.
+- **THE GRID NEVER WAITS FOR THE FIRM'S MATTERS.** It used to: `context.ready` included
+  `firmMatters`, and the read plan refuses to issue anything until that is true — so the calendar
+  stayed blank until a walk of up to ten pages, two requests each, run one after another, had come
+  back. Time to first paint scaled with how many matters the firm had ever opened, which is the
+  wrong thing for it to scale with and gets worse every year a firm uses the product. What the walk
+  contributes to the grid is a matter NUMBER on a chip, and that is the one thing on a chip that
+  does not arrive with its own row. So `ready` now waits only for what a chip cannot be painted
+  WITHOUT — the type catalog and the week start, two parallel reads of fixed size — and `numbered`
+  (calendar-entries.ts) fills the number in from the controller's own derived when the matters land.
+  Nothing is read a second time. `detailIsMatterNumber` is what makes that safe: it marks the chips
+  whose detail wanted a number, so a later pass cannot overwrite a detail that was already complete
+  — a matter's OWN calendar says "Hearing · Department 12", because every row there shares the
+  matter and the number is the one fact worth saying nowhere.
+- **An empty picker means two things, and it must not say the wrong one.** A form can now open
+  before the matters land, so `MatterPicker` takes `reading`: "Reading the firm's matters" while the
+  walk is in flight, "No matters were read" only once it has come back empty. The caller holds the
+  read, so the caller says which — `context.mattersReading`.
 - **A calendar that is ON is a read; a calendar that is OFF is no read at all.** That is what keeps
   the request count the reader's own choice rather than the roster's size, and it is why the read
   plan is a plan PER CALENDAR (`readOneCalendar`) rather than one read narrowed afterwards. A
@@ -219,6 +239,19 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   the toolbar only where there is an hour axis to be concurrent on. Widening the federated read to
   carry an end would make those entries stretch too, and is the one thing standing between a firm's
   week and a complete picture of it.
+- **AN OFFERED VOCABULARY IS NOT A CLOSED ONE, and a role is the second field here to learn it.**
+  The participant's role was a bare text box, which failed in the way a blank box always fails: a
+  reader met a field called Role and had nothing telling them what belonged in it. It is now the
+  same control the location beside it is — the offered spellings, then the add row — because the
+  standing rule in `docs/conventions/design-corrections.md` is that a vocabulary which is neither
+  closed nor free is this one control in every such field. **A closed list was the other option and
+  is the wrong one**: a special master, a Rule 30(b)(6) designee and a check interpreter are all
+  ordinary, and a fixed list missing the role somebody needs makes them pick a wrong-but-adjacent
+  one — which corrupts the consistency the list existed for, invisibly, because an entry from a
+  fixed set looks clean. What the list buys instead is `settledParticipantRole`: a role matching an
+  offered spelling in any casing settles to the OFFERED spelling, so "court reporter" stops founding
+  a second role. The field's own name stays **Role** and not something more explanatory, because
+  `Combobox.AddOption` reads it into a sentence — `Add role` works and `Add attending as` does not.
 - **A room is offered under the office it is in, and named by it where the firm has more than one.**
   `room-location.ts` is the one home for both halves — the grouping the picker draws and the written
   name it stores — because the module that WRITES a location is the module that reads it back to

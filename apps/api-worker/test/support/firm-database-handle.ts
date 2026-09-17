@@ -26,6 +26,9 @@ export interface FirstStatement {
 export interface FirmDatabaseHandle {
   prepare(sql: string): FirstStatement;
   batch: ProxyBatchDatabase["batch"];
+  // Carried from the proxy rather than declared here: this handle IS the Durable Object, so it
+  // enforces a guarded write exactly as a request does. Asserting it locally would let the two drift.
+  readonly enforcesGuardedWrites: ProxyBatchDatabase["enforcesGuardedWrites"];
 }
 
 export function firmDatabaseHandle(firmId: FirmId): FirmDatabaseHandle {
@@ -41,5 +44,6 @@ export function firmDatabaseHandle(firmId: FirmId): FirmDatabaseHandle {
   return {
     prepare: (sql: string) => wrap(proxy.prepare(sql)),
     batch: proxy.batch.bind(proxy),
+    enforcesGuardedWrites: proxy.enforcesGuardedWrites,
   };
 }

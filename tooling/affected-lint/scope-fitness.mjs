@@ -1,20 +1,24 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { computeAffected, discoverPackages, resolveFanoutSinks } from "./index.mjs";
 
 // Fitness function for the lint scope the gate trusts (sibling of lint-test-collection.mjs, which
-// guards what the gate's TEST jobs collect).
+// guards what the test suite collects).
 //
-// The gate does not lint the whole repository on a pull request. It lints a computed scope, and a
+// The gate does not lint the whole repository for every change. It lints a computed scope, and a
 // scope that is too NARROW does not fail — it reports a fast green, exactly the way a test filter that
-// still matches SOME files narrows a test job without failing it (lint-test-collection.mjs has the
+// still matches SOME files narrows a run without failing it (lint-test-collection.mjs has the
 // measurements; a filter matching NOTHING is the case the runner does catch, exiting 1). So the scope
 // needs a proof rather than a reading, and that is what this is.
 //
+// Two passes are proved here. The UNDEFERRED pass is what `pnpm gate` runs (tooling/gate): the
+// changed packages plus their full transitive dependent closure, fan-out sinks included. The DEFERRED
+// pass (`--defer-fanout-sinks`) is the cheaper one a machine that cannot afford the sink may run; the
+// hosted gate used it on every pull request and ran the undeferred pass after the merge. The names
+// "post-merge" and "pull-request" below are kept for those two passes.
+//
 // What it asserts:
-//   1. COVERAGE. For a change to every workspace package in turn, the unscoped pass (the one every
-//      trigger except `pull_request` runs) covers that package's true transitive dependent closure —
+//   1. COVERAGE. For a change to every workspace package in turn, the undeferred pass (the one the
+//      gate runs) covers that package's true transitive dependent closure —
 //      derived here by an independent fixpoint over the dependency edges, NOT by the breadth-first
 //      walk over inverted edges that the classifier uses, so an error in either algorithm shows up as
 //      a disagreement rather than as two copies of the same mistake. Both read the one package graph
@@ -26,23 +30,16 @@ import { computeAffected, discoverPackages, resolveFanoutSinks } from "./index.m
 //   4. DEFERRAL IS EXACTLY THE SINKS. Nothing else is ever dropped from the pull-request scope.
 //   5. THE SINK RULE STAYS AN OUTLIER RULE. The selected sinks are few, and each is far above the rest
 //      of the distribution — so a dependency-shape change that quietly made half the workspace
-//      "expensive" fails here instead of silently gutting the pull-request pass.
-//   6. NO DRIFT WITH THE GATE. The classifier invocations are held verbatim below and checked against
-//      .github/workflows/gate.yml, so editing the workflow's flags without editing this lint fails.
+//      "expensive" fails here instead of silently gutting the deferred pass.
+//
+// The gate cannot drift from this lint on the classifier's flags: tooling/gate/index.mjs calls
+// `computeAffected` directly with its defaults (the full closure, no sinks), which is the undeferred
+// pass proved here, rather than spelling an invocation a second time.
 //
 // Run: `pnpm run lint:affected-scope`. Pure graph work over package manifests — well under a second,
 // no install and no build beyond the workspace checkout.
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
-const WORKFLOW_PATH = join(ROOT, ".github", "workflows", "gate.yml");
-
-// The two classifier invocations in .github/workflows/gate.yml, verbatim. The pull-request tier defers
-// the fan-out sinks; every other trigger walks the same unbounded closure with nothing deferred.
-export const GATE_INVOCATIONS = {
-  pullRequest:
-    'node tooling/affected-lint/index.mjs --base "$base" --max-hops all --defer-fanout-sinks',
-  postMerge: 'node tooling/affected-lint/index.mjs --base "$base" --max-hops all',
-};
 
 // The sink rule must stay a rule about outliers: at most this many packages may be selected.
 //
@@ -106,18 +103,6 @@ export function trueDependentClosure({ packages, seed }) {
     }
   }
   return closure;
-}
-
-export function verifyWorkflowInvocations(workflowText) {
-  const problems = [];
-  for (const [tier, invocation] of Object.entries(GATE_INVOCATIONS)) {
-    if (!workflowText.includes(invocation)) {
-      problems.push(
-        `  the ${tier} classifier invocation is not in .github/workflows/gate.yml verbatim:\n    ${invocation}`,
-      );
-    }
-  }
-  return problems;
 }
 
 // `computeScope` is the classifier under test, injectable so the lint's own tests can feed it a
@@ -203,11 +188,7 @@ function main() {
     packages,
   });
 
-  const problems = [
-    ...verifyWorkflowInvocations(readFileSync(WORKFLOW_PATH, "utf8")),
-    ...verifySinkSelection({ sinks }),
-    ...verifyScopeCoverage({ packages, sinks }),
-  ];
+  const problems = [...verifySinkSelection({ sinks }), ...verifyScopeCoverage({ packages, sinks })];
 
   const ranked = [...weights].toSorted((a, b) => b[1] - a[1]).slice(0, 5);
   console.log(
@@ -229,7 +210,7 @@ function main() {
     process.exit(1);
   }
   console.log(
-    "  scope is sound: the post-merge pass covers every dependent closure, and the pull-request pass differs only by the deferred sinks.",
+    "  scope is sound: the undeferred pass (what `pnpm gate` runs) covers every dependent closure, and the deferred pass differs only by the sinks.",
   );
 }
 

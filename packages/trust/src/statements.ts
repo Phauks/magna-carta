@@ -324,6 +324,7 @@ export function selectMatterTrustPositionsStatement(
 // write a `kind` the table's CHECK does not permit, and the constraint aborts the entire batch —
 // the close, its audit row, its outbox message, and its idempotency record together. The value can
 // never be stored, so this statement cannot corrupt a node even in the case where it fires.
+// fitness:unguarded-write — matches a set rather than one row, so zero is an empty set rather than a refusal
 export function refuseMatterCloseWithTrustBalanceStatement(
   database: SqlDatabase,
   matterId: MatterId,

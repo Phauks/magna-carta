@@ -189,7 +189,7 @@ export const SELF_TEST = [
     changed: [
       "tooling/lint-doc-links/index.mjs",
       "tooling/lint-doc-links/vitest.config.ts",
-      ".github/workflows/gate.yml",
+      ".github/workflows/assemble-docs.yml",
       "package.json",
     ],
     expect: "no-source",

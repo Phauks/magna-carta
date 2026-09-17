@@ -172,6 +172,7 @@ export function insertCommunicationStatement(
 // matter the matter is already known. The statement names the row's current matter state in its
 // WHERE so two people filing the same message in the same instant cannot both succeed: the second
 // UPDATE matches nothing and the service reads back what actually happened.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function routeCommunicationStatement(
   database: SqlDatabase,
   input: {

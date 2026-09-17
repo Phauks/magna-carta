@@ -90,6 +90,7 @@
     matterId,
     matters,
     mattersCapped,
+    mattersReading = false,
     eventTypes,
     members,
     locations = [],
@@ -108,6 +109,8 @@
     matters: readonly SheetMatter[];
     /** Whether `matters` is a page of the record rather than all of it. */
     mattersCapped: boolean;
+    /** Whether the firm's matters are still being read, so the picker does not say there are none. */
+    mattersReading?: boolean;
     /** The firm's event-type catalog. Inactive types are dropped here. */
     eventTypes: readonly EventType[];
     /** The firm's roster, for the participant picker. */
@@ -380,6 +383,7 @@
                 inputId="{idPrefix}-matter"
                 {matters}
                 capped={mattersCapped}
+                reading={mattersReading}
                 value={chosenMatterId}
                 disabled={busy}
                 onpick={(picked) => (chosenMatterId = picked)}

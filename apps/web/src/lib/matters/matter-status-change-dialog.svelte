@@ -15,12 +15,25 @@
    * which is one POST that takes no status at all (matter-lifecycle.ts holds the model and the
    * argument). Naming what each step requires on the way past is what a menu of verbs could not do.
    *
-   * WHAT IT SAYS, IN THE ORDER IT SAYS IT. Where the matter stands; the steps available from here,
-   * each carrying the one line that says whether anything is in its way; and then, for the step
-   * chosen, what it does to the record and every requirement it has, already answered. The
-   * close-readiness route runs the firm's own registered rules read-only, so a requirement arrives
-   * answered rather than being discovered by pressing the commit. The close still has the last
-   * word — a balance can move between the reading and the press — and a refusal at that moment
+   * IT IS TWO SIDES: THE OPTIONS ON THE LEFT, THE DETAILS ON THE RIGHT (owner ruling, 2026-09-16).
+   * The left side is where the matter stands and the steps available from here, each carrying the
+   * one line that says whether anything is in its way. The right side discusses the step that is
+   * chosen: what it does to the record, every requirement it has already answered, and the one
+   * field a step asks for. Stacked, the two read as one long column in which choosing a step made
+   * the panel grow a section underneath, and the reader had to scroll away from the choice to see
+   * what it meant. Side by side, changing the choice on the left rewrites the right and moves
+   * nothing.
+   *
+   * NOTHING EVER OPENS UNCHOSEN. The panel opens on the step the lifecycle runs toward — the first
+   * one it offers — so the right side always has something to discuss. A commit refusal reading
+   * "Choose a step first." stood here and was struck with the state that produced it: it could only
+   * ever have been true of a panel that opened with an empty right side, which is not a state this
+   * shape has. A step that is blocked is still discussed; the reason is on its row and on the
+   * commit.
+   *
+   * The close-readiness route runs the firm's own registered rules read-only, so a requirement
+   * arrives answered rather than being discovered by pressing the commit. The close still has the
+   * last word — a balance can move between the reading and the press — and a refusal at that moment
    * re-answers the rows already on screen rather than arriving as a second kind of message.
    *
    * A REFUSED STEP IS OFFERED REFUSED. A step this account may not take, or a sample matter's every
@@ -137,7 +150,10 @@
 
   /** Everything the rules have answered, in one record so one function can read any step's standing. */
   let readiness = $state<MatterLifecycleReadiness>(NO_LIFECYCLE_READINESS);
-  /** The step the reader has chosen. Null until they do, which is what the commit's refusal says. */
+  /**
+   * The step under discussion: the reader's, once they press a row, and before that the step the
+   * lifecycle runs toward. Null only where a status offers no step at all, which none does.
+   */
   let chosen = $state<MatterLifecycleStep | null>(null);
   let holdReason = $state("");
   let holdReasonTouched = $state(false);
@@ -161,7 +177,6 @@
   const standing = $derived(chosen === null ? null : matterStepStanding(chosen, readiness));
   const chosenBlock = $derived(chosen === null ? null : blockOf(chosen));
   const commitRefusal = $derived.by((): string | undefined => {
-    if (chosen === null) return "Choose a step first.";
     if (chosenBlock !== null) return chosenBlock;
     // An unanswered question is NOT a refusal and never shuts the commit: nothing has been
     // predicted, and the step itself is the authority either way.
@@ -177,7 +192,9 @@
    * refuse differently between two openings — money moves — so every opening asks again.
    */
   function reset(): void {
-    chosen = steps.length === 1 && !isSample ? (steps[0] ?? null) : null;
+    // The step the lifecycle runs toward. A sample matter opens on it too: every step of one is
+    // refused, and a panel that refused to discuss any of them would say less than the rows do.
+    chosen = steps[0] ?? null;
     holdReason = "";
     holdReasonTouched = false;
     failure = null;
@@ -330,12 +347,88 @@
   }
 </script>
 
+<!-- THE RIGHT SIDE: the chosen step, discussed. What it does to the record, then everything it
+     requires with each one already answered by the rules themselves. Not a checklist — nothing
+     here is a person's to tick, and the mark states what the program found rather than what
+     anybody is being asked to confirm. A step's own field is asked here too, beside the reason
+     it is being asked for, rather than appearing under the list of steps once one is pressed.
+
+     While the change is being taken it holds still, and once it is taken the left side carries
+     the outcome: two accounts of one act, one on each side, would be the panel arguing with
+     itself. -->
+{#snippet details({ done }: { busy: boolean; done: boolean })}
+  {#if !done && chosen !== null && standing !== null}
+    <div class="flex flex-col gap-8">
+      <FieldLabel as="h3">{chosen.label}</FieldLabel>
+      <p class="text-sm text-text-muted">{chosen.consequence}</p>
+      {#if standing.requirements.length > 0}
+        <ul class="flex flex-col gap-8 text-sm">
+          {#each standing.requirements as requirement (requirement.key)}
+            <li class="flex items-start gap-8">
+              {#if requirement.state === "met"}
+                <!-- The word beside it says the same thing, so the mark is decoration here. -->
+                <StatusMark decorative class="mt-2 size-16" />
+              {:else}
+                {@const RequirementIcon = UNMET_ICON[requirement.state]}
+                <RequirementIcon
+                  class="mt-2 size-16 shrink-0 {REQUIREMENT_TONE[requirement.state]}"
+                  aria-hidden="true"
+                />
+              {/if}
+              <span class="flex flex-col gap-4">
+                <span
+                  class={requirement.state === "met" ? "text-text-muted" : "text-text-default"}
+                  >{requirement.label}</span
+                >
+                {#if requirement.detail !== null}
+                  <span class="text-status-danger-subtle-foreground">{requirement.detail}</span>
+                {/if}
+              </span>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+      {#if chosen.action === "graduate"}
+        <!-- Where the outstanding steps are actually answered. A requirement stated with no
+             way through to the place it is met leaves the reader hunting for it. -->
+        <a
+          href={intakeHref}
+          class="self-start text-xs underline underline-offset-2 hover:text-text-default"
+        >
+          Open the Intake section
+        </a>
+      {/if}
+      {#if chosen.action === "hold"}
+        <!-- The pause's reason, asked here because this is where the pause is recorded. The
+             same field for a consultation being parked: the reason is the one thing a hold
+             carries either way. -->
+        <LabelledField
+          label="Reason"
+          hint="Why the firm has stopped work on this matter, in a sentence. It prints beside the status; the account of it belongs on the matter's notes."
+          error={holdReasonError ?? undefined}
+        >
+          {#snippet children({ props })}
+            <Textarea
+              {...props}
+              bind:value={holdReason}
+              rows={3}
+              onblur={() => (holdReasonTouched = true)}
+            />
+          {/snippet}
+        </LabelledField>
+      {/if}
+    </div>
+  {/if}
+{/snippet}
+
+<!-- No `width`: a panel with a context side opens at the record width, which is the geometry two
+     panes have. Naming a width here as well would be a second answer to a settled question. -->
 <ActionDialog
   kind="form"
   bind:open
   heading="Change Status"
   {subtitle}
-  width="wide"
+  context={details}
   commitLabel={chosen?.label ?? "Change Status"}
   commitBusyLabel={chosen?.busyLabel}
   {commitRefusal}
@@ -396,74 +489,6 @@
             {/each}
           </div>
         </div>
-
-        {#if chosen !== null && standing !== null}
-          <!-- The chosen step, discussed: what it does to the record, then everything it requires
-               with each one already answered by the rules themselves. Not a checklist — nothing
-               here is a person's to tick, and the mark states what the program found rather than
-               what anybody is being asked to confirm. -->
-          <div class="flex flex-col gap-8">
-            <FieldLabel as="h3">{chosen.label}</FieldLabel>
-            <p class="text-sm text-text-muted">{chosen.consequence}</p>
-            {#if standing.requirements.length > 0}
-              <ul class="flex flex-col gap-8 text-sm">
-                {#each standing.requirements as requirement (requirement.key)}
-                  <li class="flex items-start gap-8">
-                    {#if requirement.state === "met"}
-                      <!-- The word beside it says the same thing, so the mark is decoration here. -->
-                      <StatusMark decorative class="mt-2 size-16" />
-                    {:else}
-                      {@const RequirementIcon = UNMET_ICON[requirement.state]}
-                      <RequirementIcon
-                        class="mt-2 size-16 shrink-0 {REQUIREMENT_TONE[requirement.state]}"
-                        aria-hidden="true"
-                      />
-                    {/if}
-                    <span class="flex flex-col gap-4">
-                      <span
-                        class={requirement.state === "met" ? "text-text-muted" : "text-text-default"}
-                        >{requirement.label}</span
-                      >
-                      {#if requirement.detail !== null}
-                        <span class="text-status-danger-subtle-foreground">{requirement.detail}</span
-                        >
-                      {/if}
-                    </span>
-                  </li>
-                {/each}
-              </ul>
-            {/if}
-            {#if chosen.action === "graduate"}
-              <!-- Where the outstanding steps are actually answered. A requirement stated with no
-                   way through to the place it is met leaves the reader hunting for it. -->
-              <a
-                href={intakeHref}
-                class="self-start text-xs underline underline-offset-2 hover:text-text-default"
-              >
-                Open the Intake section
-              </a>
-            {/if}
-            {#if chosen.action === "hold"}
-              <!-- The pause's reason, asked here because this is where the pause is recorded. The
-                   same field for a consultation being parked: the reason is the one thing a hold
-                   carries either way. -->
-              <LabelledField
-                label="Reason"
-                hint="Why the firm has stopped work on this matter, in a sentence. It prints beside the status; the account of it belongs on the matter's notes."
-                error={holdReasonError ?? undefined}
-              >
-                {#snippet children({ props })}
-                  <Textarea
-                    {...props}
-                    bind:value={holdReason}
-                    rows={3}
-                    onblur={() => (holdReasonTouched = true)}
-                  />
-                {/snippet}
-              </LabelledField>
-            {/if}
-          </div>
-        {/if}
       </div>
     {/if}
   {/snippet}

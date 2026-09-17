@@ -288,6 +288,37 @@ opposite reading order, load-more three times in two places — and the drift is
 - **The footer's inline "Show all" stays.** It is part of the tally sentence ("x of y · filtered on
   Status, Matter"), not a control in a control row, and the two are different things.
 
+## The grid's frame, its scale, and its row marks
+
+Three things about `DataTable.Grid` that a surface gets wrong by spelling them out itself.
+
+- **`frame` is `card` or `flush`, and it is a prop rather than three utilities.** A card is the
+  hairline, rounded table-card, and its LAST ROW DROPS ITS HAIRLINE because the card's own bottom
+  rule runs one a pixel below it. Flush is edge to edge inside a frame the surface already draws —
+  a toolbar above, a footer below — so the table takes the frame's full height, the surface
+  continues past the last record, and the last record KEEPS its hairline, because there is no
+  bottom rule left for it to meet. Nine surfaces were each passing `rounded-none border-0` to get
+  the paint, which gave them the paint and none of the rest: the file list's last file was the one
+  row in the list with nothing under it.
+- **`scale` is the reader's own multiplier, and it moves four things.** 1 is the design's own size,
+  so a table nobody scales carries no inline declaration at all. It moves the row's text, its
+  height, the padding inside it, and the glyphs that ride in a row — which wear
+  `mc-table-grid-row-glyph` rather than a `size-*` utility, so they scale with the row. It moves
+  NOT the hairlines (a scaled hairline is a blurred one), nor the header band or the footer strip,
+  which are the frame around the list rather than the list. The four metrics are declared in the
+  recipe as the tokens they already were and multiplied in the COMPONENT, written back as an inline
+  style: `calc()` is neither a token reference nor a structural keyword, and the recipe layer is
+  token-pure by gate (`components-css-token-purity`). Density is a separate axis and multiplies in;
+  never derive one from the other, which is how the file manager's ten-step control came to have
+  exactly one visible step.
+- **A row mark is painted into the first cell's leading padding, never rendered ahead of its
+  content.** The space is reserved on every row of a table that CAN mark one — a capability that
+  cannot change under the reader — so marking a row lights a glyph and moves nothing. It is padding
+  and not an inline box because an inline box only stays on the content's line while the content is
+  inline too, and every surface composing an icon beside a name reaches for flex, which is
+  block-level: the mark then took a line of its own ABOVE the content, and the row was two lines
+  tall with its first column sitting low in it.
+
 ## The history family: one stack, one pair of controls, one set of keys
 
 **`src/lib/components/history/` is the one home of undo and redo.** `HistoryStack` holds the steps,
@@ -378,6 +409,28 @@ handlers is a defect rather than a choice.
 - **`FieldRow` is utilities, not a recipe** (`grid gap-12 sm:grid-cols-2|3`), because a breakpoint
   cannot be expressed with a custom property inside a media query. Its class strings are literal in
   `field-row/variants.ts` for Tailwind's scanner.
+
+## The sidebar's two levels
+
+**`Sidebar.MenuTrigger` + `Sidebar.MenuSub` are the rail's SUB-MENU**, added when the tools became
+top-level rows and nine of them arrived in one group (owner's direction, 2026-09-16).
+
+- **The trigger wears the destination row's recipe exactly** and differs in the one way that
+  matters: pressing it opens the rows beneath instead of going anywhere. A row that looked like a
+  category and navigated like a destination would be the `/tools` index again in miniature. Its
+  chevron follows the group heading's convention — down while open, toward the inline start while
+  folded — and rides the trailing column, so a long cluster name truncates and the chevron stays.
+- **`MenuSub` is a real nested `<ul>` inside the trigger's `<li>`**, so the nesting a reader sees is
+  the nesting a screen reader hears. Its indent and start-edge hairline are what make "these belong
+  to the row above" legible at a glance rather than by measurement.
+- **The expansion state is the CONSUMER's.** Neither part holds it: the app stores a member's folds
+  as departures (`sidebar-preferences.svelte.ts`), and the story holds a `$state` for the same
+  reason. A part that remembered its own fold would be a second answer to a question the preference
+  store has already settled.
+- **`MenuButton` gained a `trailing` snippet**, and the row is a three-track grid: icon, label
+  (takes the slack, truncates), trailing (sized to its contents, never shrinks). A mark rendered
+  among the children rides inside the label's own overflow, which clipped the maturity badge off
+  every row long enough to need it. The collapsed rail hides the trailing column with the label.
 
 ## The navigation layout: a screen's two sides, drawn once
 

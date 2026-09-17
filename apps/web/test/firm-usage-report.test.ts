@@ -3,8 +3,8 @@ import { renderCsvExport } from "$lib/export/render-csv.ts";
 import { renderTextExport } from "$lib/export/render-text.ts";
 import { workbookPlan, worksheetName } from "$lib/export/render-xlsx.ts";
 import { exportCellText, exportFilename } from "$lib/export/tabular-export.ts";
-import type { FirmUsageResponse } from "$lib/tools/firm-usage/firm-usage-api.ts";
-import { firmUsageExportDocument } from "$lib/tools/firm-usage/firm-usage-report.ts";
+import type { FirmUsageResponse } from "$lib/firm-usage/firm-usage-api.ts";
+import { firmUsageExportDocument } from "$lib/firm-usage/firm-usage-report.ts";
 
 const usage: FirmUsageResponse = {
   storage: {

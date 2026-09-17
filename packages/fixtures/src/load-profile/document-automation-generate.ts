@@ -1,4 +1,9 @@
-import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
+import {
+  commitEffectBatch,
+  type BatchDatabase,
+  type EffectStatement,
+  guarded,
+} from "@magna-carta/data-access/effect-batch";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import {
   defineCustomField,
@@ -336,11 +341,11 @@ function formManifestFor(
       key,
       format: null,
       occurrences: sites.length,
-      parts: [...new Set(sites.map((site) => `page ${(site.page ?? 0) + 1}`))].sort(),
+      parts: [...new Set(sites.map((site) => `page ${(site.page ?? 0) + 1}`))].toSorted(),
       forms: ["acroForm" as const],
       formFields: sites,
     }))
-    .sort((left, right) => left.key.localeCompare(right.key));
+    .toSorted((left, right) => left.key.localeCompare(right.key));
 
   return {
     fields,
@@ -394,7 +399,9 @@ export async function generateDocumentAutomationVolume(
   const { faker, clock, randomSource } = context;
   const serviceOptions: TemplateServiceOptions = { clock, actorUserId: null, randomSource };
   const customFieldOptions: CustomFieldWriteOptions = { clock, actorUserId: null, randomSource };
-  const commit = async (statements: readonly SqlStatement[]): Promise<void> => {
+  // The batch's statement type, not the port's: a guarded statement must survive this seam so an
+  // unmatched precondition refuses the batch here exactly as it does under the service.
+  const commit = async (statements: readonly EffectStatement[]): Promise<void> => {
     await commitEffectBatch(
       database,
       { statements: [...statements], outboxMessages: [] },
@@ -614,15 +621,21 @@ export async function generateDocumentAutomationVolume(
     // never cleared would leave the template unassemblable, which is a state the routes' own tests
     // cover — what this volume needs is a catalogue whose rows are readable.
     await commit([
-      markTemplateVersionCleanStatement(
-        database,
-        currentVersionId,
-        "clean",
-        "fixture",
-        null,
-        clock.now(),
+      guarded(
+        markTemplateVersionCleanStatement(
+          database,
+          currentVersionId,
+          "clean",
+          "fixture",
+          null,
+          clock.now(),
+        ),
+        "template-version.verdict",
       ),
-      setCurrentTemplateVersionStatement(database, templateId, currentVersionId, clock.now()),
+      guarded(
+        setCurrentTemplateVersionStatement(database, templateId, currentVersionId, clock.now()),
+        "document-template.current-version",
+      ),
     ]);
     clock.advanceMinutes(1);
     return currentVersionId;
@@ -818,7 +831,7 @@ export async function generateDocumentAutomationVolume(
 
   // The keyset cursor the catalogue list's second page starts from: the sorted-by-name row at the page
   // boundary, so the measured list is taken mid-catalogue rather than only at the head.
-  const sortedActive = [...activeTemplates].sort((left, right) =>
+  const sortedActive = [...activeTemplates].toSorted((left, right) =>
     left.name === right.name
       ? left.id.localeCompare(right.id)
       : left.name.localeCompare(right.name),

@@ -18,8 +18,9 @@
 // separate changes reached `main` red in one session through that hole. What belongs in that set, and
 // how membership derives itself rather than being listed, is repo-wide.mjs.
 //
-// The whole-repo gate of record is GitHub Actions (`.github/workflows/gate.yml`, full `pnpm check` +
-// `vp test` on every pull request and push to `main`), not this. This is what you run while working.
+// The whole-repo gate of record is `pnpm gate` (tooling/gate/index.mjs — the full check, the contract
+// drift checks, the affected-closure lint, the audit and the full `pnpm test`, run before a merge),
+// not this. This is what you run while working.
 //
 // To APPLY the formatter and the lint autofixes to the same change set, run `pnpm fix:scoped`
 // (fix.mjs) — never a bare repo-wide `vp check --fix`.
@@ -213,10 +214,10 @@ const skipped = [
     ? "repo-wide fitness sweep, schema scope (no packages/database change)"
     : null,
   !touchedDependencies ? "lint:licenses (no manifest or lockfile changed)" : null,
-  // 26 s of list-only Vitest collections over ~70 projects — an order of magnitude past the inner
-  // loop's budget, and only a change to the CI test split can break it.
-  "lint:test-collection (26 s — CI's test-collection job)",
-  "dependency audit (pre-push only)",
+  // A list-only Vitest collection over ~70 projects — an order of magnitude past the inner loop's
+  // budget, and only a project registration can move it.
+  "lint:test-collection (the gate's test-collection dimension)",
+  "dependency audit (the gate's audit dimension)",
 ].filter(Boolean);
 
 let failed = null;
@@ -253,6 +254,4 @@ for (const step of steps) {
 
 console.log("check:scoped: skipped — " + skipped.join("; "));
 if (failed) process.exit(1);
-console.log(
-  "check:scoped: passed. The full `pnpm check` + `vp test` run in GitHub Actions on every push to main.",
-);
+console.log("check:scoped: passed. The whole-repo gate is `pnpm gate` — run it before the merge.");

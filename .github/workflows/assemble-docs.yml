@@ -6,11 +6,17 @@
 # propose-only docs-sync routine — see docs/maintenance/README.md and
 # docs/specs/2026-07-14-docs-sync-routine-design.md.
 #
-# Delivery is an AUTO-MERGING PULL REQUEST from the `docs-assembly` branch, not a direct push: the main
-# ruleset requires the `gate` status on every commit, so the PR carries the gate and merges itself
-# hands-free while honoring the ruleset. Because a PR created with the workflow's own token fires no
-# `pull_request` events, the gate is dispatched onto the branch explicitly (gate.yml carries
-# `workflow_dispatch` for exactly this).
+# Delivery is an AUTO-MERGING PULL REQUEST from the `docs-assembly` branch, not a direct push, so the
+# `main` ruleset (a pull request before merging) is honored hands-free. No status check stands between
+# the pull request and its merge: the quality gate is `pnpm gate`, run on the machine that made a
+# change (tooling/gate/index.mjs says why it left the runner), and a deterministic re-render of
+# already-reviewed fragments has nothing for it to verify beyond the formatting this job applies.
+#
+# THIS WORKFLOW ALSO NEEDS ACTIONS MINUTES, and it is the one workflow left that does. While the
+# account's budget is exhausted it does not run, nothing waits on it, and the fragments accumulate
+# until the weekly docs-sync routine (docs/maintenance/README.md) or a session runs the same
+# assemblers by hand; it resumes on its own when the budget does. Nothing else in the repository
+# depends on a hosted runner.
 #
 # TWO one-time repository settings are required, or the job fails LOUDLY (by design — a silent green
 # run once hid exactly this):
@@ -19,9 +25,9 @@
 #   2. Settings > General > Pull Requests > "Allow auto-merge"  (without it, `gh pr merge --auto` fails).
 #
 # Loop and race behavior: the auto-merged assembly commit contains no fragment files, so the run it
-# triggers exits without a PR. If another merge lands while an assembly PR waits on its gate, the next
+# triggers exits without a PR. If another merge lands while an assembly PR is still open, the next
 # run re-assembles from the newer main and force-pushes `docs-assembly` — the open PR simply updates to
-# the superset and the gate is re-dispatched. Serialized by the concurrency group.
+# the superset. Serialized by the concurrency group.
 name: assemble-docs
 
 on:
@@ -91,9 +97,9 @@ jobs:
 
       # The assemblers can produce output the formatter rejects — e.g. build-decisions rewrites
       # `ADR-<slug>` references to `ADR-NNNN`, which changes text width inside Markdown tables and breaks
-      # their column alignment. Format the output here so the assembly PR always passes the gate's format
-      # check, whatever the assemblers touched. Pristine `main` is format-clean, so this only ever fixes
-      # freshly-rendered files.
+      # their column alignment. Format the output here so the assembly commit is format-clean, the way
+      # `pnpm gate` would require of any other change. Pristine `main` is format-clean, so this only
+      # ever fixes freshly-rendered files.
       - name: Format the rendered output
         if: steps.assembled.outputs.changed == 'true'
         run: pnpm exec vp check --no-lint --fix
@@ -113,7 +119,8 @@ jobs:
           git commit -m "docs: assemble fragments into the rendered trackers"
           # --no-verify: the setup action's `pnpm install` postinstall arms the repo's pre-push hook
           # (core.hooksPath -> tooling/git-hooks), whose scoped quality gate cannot run in this
-          # assembly context (no WASM artefacts, etc.). The gate that matters runs on the assembly PR.
+          # assembly context (no WASM artefacts, etc.). The output is a deterministic re-render of
+          # fragments that were reviewed on their own pull requests, formatted above.
           git push --no-verify -f origin docs-assembly
 
           # Ensure exactly one open assembly PR. Creating it fails hard rather than masking a green run:
@@ -124,15 +131,12 @@ jobs:
           if [ -z "$existing" ]; then
             gh pr create --base main --head docs-assembly \
               --title "docs: assemble fragments into the rendered trackers" \
-              --body "Automated per-merge fragment assembly (see docs/maintenance/README.md). Deterministic transform of already-reviewed fragments; auto-merges when the gate passes."
+              --body "Automated per-merge fragment assembly (see docs/maintenance/README.md). Deterministic transform of already-reviewed fragments; auto-merges."
           else
             echo "assembly PR #$existing already open; branch force-updated to the current assembly"
           fi
 
-          # Enable auto-merge (needs Settings > General > "Allow auto-merge"), then dispatch the gate
-          # onto the branch — a PR opened by the workflow's own token fires no pull_request events, so
-          # the required `gate` status must be produced explicitly. Both fail hard so breakage is visible.
-          # With a merge queue on the repository this adds the entry to the queue and the queue's
-          # own merge method applies (docs/deploy-queue.md); the flag is for the no-queue case.
+          # Enable auto-merge (needs Settings > General > "Allow auto-merge"). With no required status
+          # check on `main` this merges as soon as the ruleset's other conditions hold; it fails hard
+          # so breakage is visible.
           gh pr merge docs-assembly --auto --rebase --delete-branch
-          gh workflow run gate.yml --ref docs-assembly

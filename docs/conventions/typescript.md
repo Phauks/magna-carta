@@ -69,11 +69,11 @@ whole-repo type-aware pass — the most expensive job the gate runs — can fail
 A rule does not have to wait for the cleanup pass to become real. [`pnpm run lint:hard-rules`](../../tooling/lint-hard-rules/)
 runs the rules this repository can enforce **today**, in their own pass, where they genuinely fail:
 
-| Rule                       | Held at             | Why here rather than in the shared ruleset                                          |
-| -------------------------- | ------------------- | ------------------------------------------------------------------------------------ |
-| `import/no-cycle`          | 36, may only fall   | Nothing else detects a package or module cycle; a bundler resolves one silently.     |
-| `vitest/no-focused-tests`  | 0                   | A stray `.only` is green and takes its file's coverage with it — and the battery is asked for, not automatic. |
-| `vitest/no-disabled-tests` | 0                   | A skipped test reads as coverage and asserts nothing.                                |
+| Rule                       | Held at           | Why here rather than in the shared ruleset                                                                    |
+| -------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------- |
+| `import/no-cycle`          | 36, may only fall | Nothing else detects a package or module cycle; a bundler resolves one silently.                              |
+| `vitest/no-focused-tests`  | 0                 | A stray `.only` is green and takes its file's coverage with it — and the battery is asked for, not automatic. |
+| `vitest/no-disabled-tests` | 0                 | A skipped test reads as coverage and asserts nothing.                                                         |
 
 Two properties make this cheap rather than a second ruleset. It needs **no type-aware pass** — six
 seconds over ~3,900 files against forty-five minutes — so it sits in the always-on governance tier

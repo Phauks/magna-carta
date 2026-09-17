@@ -3,6 +3,7 @@ import type { CustomFieldId, CustomFieldValueId } from "@magna-carta/identifiers
 
 const TABLE = "custom_field_value";
 
+// fitness:unguarded-write — matches a set rather than one row, so zero is an empty set rather than a refusal
 export function flipCurrentValueStatement(
   database: SqlDatabase,
   fieldId: CustomFieldId,

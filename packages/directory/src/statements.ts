@@ -99,6 +99,7 @@ export function insertMatterPartyStatement(
 // Guarded on deleted_at IS NULL so a repeated unlink reports zero rows changed rather than moving
 // the timestamp: the instant a link was severed is a fact about the first severing, and a caller
 // retrying must not be able to rewrite it.
+// fitness:unguarded-write — soft-deleting a link already soft-deleted is the state the caller asked for
 export function softDeleteMatterPartyStatement(
   database: SqlDatabase,
   row: { readonly id: MatterPartyId; readonly deletedAt: string },
@@ -163,6 +164,7 @@ function contactValues(fields: ContactRowFields): readonly (string | number | nu
 // an insert or update that sets a new preferred one, so the invariant holds inside the same atomic
 // batch. Three statements rather than one because the fact spans three tables and D1 has no
 // interactive transaction to hold them open between.
+// fitness:unguarded-write — matches a set rather than one row, so zero is an empty set rather than a refusal
 export function demoteEntityPreferredContactStatements(
   database: SqlDatabase,
   entityId: string,
@@ -212,6 +214,7 @@ export function insertEmailStatement(database: SqlDatabase, row: InsertEmailRow)
 
 // Demote every live primary email on an entity to non-primary. Composed ahead of an insert/update that
 // sets a new primary so the "at most one primary per entity" invariant holds in the same atomic batch.
+// fitness:unguarded-write — matches a set rather than one row, so zero is an empty set rather than a refusal
 export function demoteEntityPrimaryEmailsStatement(
   database: SqlDatabase,
   entityId: string,
@@ -323,6 +326,7 @@ export function insertNameStatement(database: SqlDatabase, row: InsertNameRow): 
 // predate the columns — a live write derives them in insertNameStatement above and never needs this.
 // Guarded on the columns still being null so a re-run, or an overlap with another pass, is a no-op
 // rather than a rewrite.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function backfillNameMatchKeysStatement(
   database: SqlDatabase,
   nameId: DirectoryNameId,
@@ -498,6 +502,7 @@ export function selectOrganizationStatement(
 // Flip the entity's current name row to a former row: set name_role='former', is_current=0,
 // valid_to=now, and touch updated_at. The row is preserved in place — never deleted — so phonetic
 // codes and normalized_display remain queryable for the conflicts corpus.
+// fitness:unguarded-write — matches a set rather than one row, so zero is an empty set rather than a refusal
 export function flipCurrentNameToFormerStatement(
   database: SqlDatabase,
   entityId: string,
@@ -645,6 +650,7 @@ export function updatePhoneStatement(
     );
 }
 
+// fitness:unguarded-write — matches a set rather than one row, so zero is an empty set rather than a refusal
 export function demoteEntityPrimaryPhonesStatement(
   database: SqlDatabase,
   entityId: string,
@@ -770,6 +776,7 @@ export function updateAddressStatement(
     );
 }
 
+// fitness:unguarded-write — matches a set rather than one row, so zero is an empty set rather than a refusal
 export function demoteEntityPrimaryAddressesStatement(
   database: SqlDatabase,
   entityId: string,

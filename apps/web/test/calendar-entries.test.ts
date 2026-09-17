@@ -13,10 +13,12 @@ import {
   entryFromMatterEvent,
   entryFromTimelineRow,
   mergeByRecord,
+  numbered,
   orderEntries,
   perLane,
   recordKeyOf,
   taggedWith,
+  type CalendarEntry,
   type EntryContext,
 } from "$lib/calendar/calendar-entries.ts";
 import {
@@ -412,5 +414,63 @@ describe("the hour a chip sits at", () => {
     const entry = entryFromTimelineRow(timelineRow({ timeOfDay: null }), context)!;
     expect(entry.startMinute).toBeUndefined();
     expect(entry.time).toBeUndefined();
+  });
+});
+
+describe("a matter number arriving after the chips", () => {
+  const NUMBERS = new Map([["matter_a", "2026-0042"]]);
+
+  function chip(overrides: Partial<CalendarEntry>): CalendarEntry {
+    return {
+      id: "event:e1",
+      kind: "event",
+      recordId: "e1",
+      matterId: "matter_a",
+      detailIsMatterNumber: true,
+      link: null,
+      settled: false,
+      sourceKeys: [],
+      date: "2026-09-15",
+      label: "Hearing",
+      tone: "neutral",
+      ...overrides,
+    } as CalendarEntry;
+  }
+
+  it("fills the number in", () => {
+    expect(numbered(chip({ detail: undefined }), NUMBERS).detail).toBe("2026-0042");
+  });
+
+  it("REPLACES the stand-in a chip was painted with while the number was unknown", () => {
+    // A matter event with no type name falls back to its type word; the number is what it wanted.
+    expect(numbered(chip({ detail: "Hearing" }), NUMBERS).detail).toBe("2026-0042");
+  });
+
+  it("leaves a detail that never wanted a number alone", () => {
+    // A matter's OWN calendar says "Hearing · Department 12": every row shares the matter, so the
+    // number is the one fact worth saying nowhere.
+    const onItsOwnMatter = chip({ detail: "Hearing · Department 12", detailIsMatterNumber: false });
+    expect(numbered(onItsOwnMatter, NUMBERS)).toBe(onItsOwnMatter);
+  });
+
+  it("leaves an entry with no matter alone", () => {
+    const firmEvent = chip({ matterId: null, detail: "Firm meeting" });
+    expect(numbered(firmEvent, NUMBERS)).toBe(firmEvent);
+  });
+
+  it("is unchanged while the matters are still being read", () => {
+    const waiting = chip({ detail: undefined });
+    expect(numbered(waiting, new Map())).toBe(waiting);
+  });
+
+  it("returns the SAME object once the chip already carries the number", () => {
+    // A grid re-rendering a row nothing happened to is work for no reason.
+    const already = chip({ detail: "2026-0042" });
+    expect(numbered(already, NUMBERS)).toBe(already);
+  });
+
+  it("is unchanged for a matter the read did not return — a capped walk loses no chip", () => {
+    const elsewhere = chip({ matterId: "matter_beyond_the_cap", detail: undefined });
+    expect(numbered(elsewhere, NUMBERS)).toBe(elsewhere);
   });
 });

@@ -13,6 +13,16 @@ import type { FieldValue, TelemetryEvent } from "./event.ts";
 // at the edge of the match: `\b` is a word-character boundary, so it does not exist between a space
 // and `(` and would refuse to anchor a parenthesised area code at the start of a value.
 const PATTERNS: readonly RegExp[] = [
+  // A bearer token, in the two shapes it travels in. The document editor carries its WOPI access token
+  // as a query parameter on every request the browser makes to the editor worker — the page, every
+  // asset, the document's WebSocket — so an error message that quotes a URL from that surface quotes
+  // a live credential with it. First the parameter as written on the wire, then the bare token: three
+  // base64url segments opening with the `eyJ` that a JSON object header always encodes to. The bare
+  // shape is what an error message carries once something has unpacked the URL. Neither pattern can
+  // meet ordinary telemetry — no route, status, name or count looks like either — so a trip here is
+  // always a real leak caught, never noise.
+  /access_token=[^&\s"'<>]+/g,
+  /\beyJ[\w-]{8,}\.[\w-]{8,}\.[\w-]{8,}/g,
   /[\w.+-]+@[\w-]+\.[\w.-]+/g, // email addresses
   /\b\d{3}-\d{2}-\d{4}\b/g, // SSN shapes
   // Card/account numbers written the way humans and payment forms actually write them: 12 to 19

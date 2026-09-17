@@ -127,6 +127,7 @@ export function selectFirmSupportGrantsStatement(
 // firm_id guard (defense in depth, consistent with cosign/revoke) ensures a cross-firm redeem is
 // a no-op even if a pre-check is bypassed. The WHERE guard also makes a wrong-state redeem a no-op
 // the caller detects via changes === 0.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function redeemSupportGrantStatement(
   database: SqlDatabase,
   input: {
@@ -144,6 +145,7 @@ export function redeemSupportGrantStatement(
 
 // Cosign: requested → active, recording the approving admin. Guarded to the requested state and
 // the calling firm — firm_id = ? prevents a cross-firm co-sign even if the pre-check is bypassed.
+// fitness:unguarded-write — the caller runs this on its own and branches on the affected-row count, so a refusal is already surfaced there
 export function cosignSupportGrantStatement(
   database: SqlDatabase,
   input: {
@@ -161,6 +163,7 @@ export function cosignSupportGrantStatement(
 
 // Revoke: → revoked, only from a live (requested/active) state — never resurrect a terminal grant.
 // firm_id = ? is defense in depth against cross-firm revoke even if the pre-check is bypassed.
+// fitness:unguarded-write — the caller runs this on its own and branches on the affected-row count, so a refusal is already surfaced there
 export function revokeSupportGrantStatement(
   database: SqlDatabase,
   input: { readonly id: SupportGrantId; readonly firmId: FirmId },

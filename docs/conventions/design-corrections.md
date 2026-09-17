@@ -926,6 +926,57 @@ is usually the fastest way to understand the rule.
   (`@magna-carta/design-system/service-marks`), with a row in
   [`third-party-trademarks.md`](third-party-trademarks.md) recording whose it is and on what terms.
   Nothing else earns an exception to the icon rule. _(the build panel, 2026-09-16)_
+- **A FOLD is not a screen, and nothing is ever reached through one.** A group of rows too long to
+  take in at a glance folds behind a chevron; a group of rows reached by opening a page ABOUT them
+  costs a navigation and gives the reader a list of the things they are not doing. The nine tools
+  had been both in a fortnight — a two-sided screen, then an index — and the fold is what the
+  grouping was always trying to be. Three things keep a fold honest: pressing it opens the rows
+  rather than going anywhere, a fold holding one row is not drawn (a chevron hiding one thing costs
+  a press and saves nothing), and everything inside it stays reachable from search, because hiding
+  must never remove capability. _(the rail's sub-menus, 2026-09-16)_
+- **A category is named for what the reader is doing, not for what the thing is made of.** Eight
+  catalog subject groups became four — Records, Internet, Mailing, Files — because a member reaching
+  for a domain's registration thinks "internet" and never "web-domains", and because eight headings
+  over nine rows is a heading per row, which is no grouping at all. _(the tool clusters, 2026-09-16)_
+- **A set the reader scans by name is ordered by name.** Alphabetical is the default for any list
+  whose rows are things somebody arrives already knowing the name of; an authoring order is a fact
+  about the repository rather than about the firm. _(the tools in the rail, 2026-09-16)_
+- **One mark answers one question.** A star had been "show this row in my sidebar" while every other
+  product on the reader's screen uses it for "this is mine, keep it handy". The two are different
+  questions and now wear different marks: an EYE for visible-here, the star for a favourite. Where a
+  mark is doing two jobs, the fix is a second mark, not a better tooltip. _(Customize and favourites,
+  2026-09-16)_
+- **A shortcut the platform cannot predict is the member's to make, and the gesture belongs on every
+  page.** No registry can know which of ten thousand matters somebody opens each morning, so the
+  person standing on the page says so. That only works if the gesture is everywhere, which means it
+  rides the one component every screen already builds its title from rather than being added screen
+  by screen — a favourite control thirty screens have to opt into is a favourite control that covers
+  twenty. _(favourites, 2026-09-16)_
+- **A mark beside a label never rides inside it.** A row is a grid: the label takes the slack and
+  truncates, and the trailing mark sits in a column sized to its contents that never shrinks. Put
+  inside the label the mark inherits the label's overflow, so it is the FIRST thing to disappear on
+  exactly the rows long enough to need it — "Property Listing Links" hid its own Soon badge, which is
+  the one row where the badge was load-bearing. _(the sidebar rows, 2026-09-16)_
+- **A row that can be dragged says so at rest, and the thing that says so must work.** A grab cursor
+  answers only once the pointer is already on the row, which is an answer to a question nobody
+  asked; a grip states the affordance before the hand commits. But a grip drawn beside the gesture
+  rather than inside it is worse than no grip at all: it answers the question WRONGLY, and the
+  reader who takes it at its word finds nothing happens. The press belongs to the whole row — grip,
+  glyph, name and mark alike — with the row's own trailing control let out by target, because that
+  is the one thing on the row somebody presses to act rather than to move. _(Customize mode,
+  2026-09-16; the handle corrected 2026-09-17)_
+- **A nested list is stepped far enough to read as one.** A rail's rows already carry an inset of
+  their own, so a sub-menu indented by less than that inset again puts a child's glyph barely a
+  glyph's width right of its parent's, and the fold reads as one flat list — the hairline down the
+  edge then has to carry the whole relationship by itself. Step the child by more than the row's
+  own inset, and let the rule sit on the step rather than in place of it. _(the rail's sub-menus,
+  2026-09-17)_
+- **Direct manipulation settles; it does not hunt.** A drag that reorders measures the real PITCH
+  between two rows (a row's height is short by the gap between them), moves its landing index only
+  once the pointer is well past a boundary and needs less travel to come back, and writes its
+  position once per animation frame however fast the device reports. Rounding at exactly half a slot
+  puts the flip where a hand rests while it is deciding, which is what makes a list judder.
+  _(reordering, 2026-09-16)_
 
 ### List screens
 
@@ -1317,6 +1368,54 @@ name, which is every screen outside a matter.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-17 — the second level, read and grasped
+
+The owner on the deployed rail, two items:
+
+- **"The parts under tools such as records should be indented slightly so that they are easier to
+  delineate as subparts."** The sub-menu had a 24px step against rows that already sit 8px in, so a
+  tool under Records landed almost under Records. It is a 32px step now, with the hairline on it.
+  Generalized above.
+- **"The dragging icons should be draggable, not just the text."** The grip was drawn beside the
+  element that took the press rather than inside it, so pressing the one thing on the row that says
+  "move me" did nothing. The row takes the press now. Generalized above, as an amendment to the grip
+  ruling of the day before — the affordance and the gesture are one thing or they are a lie.
+
+### 2026-09-16 — the rail regrouped, the tools elevated, and favourites
+
+The owner, in a second pass the same day, over the left navigation. What was said, and what each part
+generalizes to:
+
+- **"Move file workbench to tools. Remove all tools page. Move each tool to a top-level ability."**
+  The index that survived the morning's ruling did not survive the afternoon's, and for the reason
+  the morning's gave: a screen about tools is a stop on the way to work. Every tool is addressed at
+  `/<id>` with a rail row of its own; the File Workbench, which had been promoted out of the catalog
+  precisely because the old area charged a navigation to reach it, is a catalog tool again.
+- **"Allow for sub-carrot menus within tools (and potentially others)."** Built as a general
+  mechanism rather than a Tools feature — any group may fold, and the parenthesis is why. Generalized
+  above, with the three properties that keep a fold from becoming a screen.
+- **"Move firm usage to firm."** A tool is a utility a member RUNS; Firm Usage runs nothing, it is
+  the firm reading its own records, which is what Reports beside it does. Its permission travelled
+  with it rather than being dropped.
+- **"Identify best way to organize (records, internet, etc.)"** The owner's own two examples were the
+  answer: the eight subject groups became four named for what the reader is doing. Generalized above.
+- **"Default sort tools alphabetically."** Generalized above, for any list whose rows are things
+  somebody arrives knowing the name of.
+- **"Perhaps we move home and notifications out of workspace? Consider if they should move or any
+  others?"** They are about the person, not about the firm's work, and no ordering inside a
+  fourteen-row group was going to say that. Five groups now, each answering one question; Tasks,
+  Calendar and Magnus moved with them, on the same test.
+- **"For customize, instead of stars, let's find a better symbol... I want to create a favorites
+  section, whereby users can delineate certain pages as quick access... we would have to find a way
+  to get this in all pages."** Both halves generalized above: one mark per question, and the gesture
+  riding the one component every screen already uses.
+- **"Drag and drop for reorganization stutters, also, the items lack little dots on the side to show
+  that this can be moved."** Two separate rules above — the grip, and how direct manipulation
+  settles. The stutter was three faults stacked, and the arithmetic is recorded where it lives
+  (`apps/web/src/lib/components/drag-reorder.svelte.ts`).
+- **"For unmade tools, the soon badge does not appear in the left side bar, it is hidden by the
+  length of the text."** Generalized above: a mark beside a label never rides inside it.
 
 ### 2026-09-16 — the transfer registers, the rail, and two glyphs
 
@@ -2733,3 +2832,138 @@ a common component."
   failure the gesture should never have allowed.
 - **The mark is an edge, not a fill.** It has to read over a row that is already selected, striped,
   pinned or cut, and a wash across data either loses that argument or wins it by covering the data.
+
+### 2026-09-16 — a press inside a modal does not grow the modal
+
+The owner, on the matter's status window: "For physical file, and for many other items in the app, I
+do not want reflow when clicking buttons inside of modals. For example, the set location button. We
+should make it that either a new modal is activated, the area is already designed for the additional
+info, or we use dropdowns (the kind you can click down or type in). Can we lint/design around that
+system."
+
+- **A modal is a fixed frame, and a press inside it must not move that frame.** A window centres
+  itself, is as tall as its content, and puts its commit at the bottom. A control that reveals a
+  form on press moves all three at the moment somebody acts: the commit walks down the screen, the
+  frame re-centres, and what was under the pointer is no longer under the pointer. On a window
+  already near the height of the screen the commit leaves the viewport entirely. _(gated:
+  `pnpm run lint:modal-reflow`, which refuses a hand-written `aria-expanded` inside a modal shell or
+  inside a snippet that shell is handed. Five folds predate the ruling and are listed in the gate
+  with what each would take to clear.)_
+- **The three remedies, in the order to reach for them.** A **second panel** over the first, which
+  is what Amend and Change Status already do from the status window. An **area that was already
+  there** — the field standing in its row at rest, carrying the value the record holds, with its
+  commit beside it. A **combobox**, for a closed choice: it opens in a floating layer over the
+  surface and displaces nothing, and the product's own rule is already that a closed choice takes
+  typing. Anything else is the defect.
+- **A field at rest needs no separate commit for a single value.** The paper file's office is one
+  office; a press to confirm a choice already made is a second press for nothing. What it does need
+  is somewhere fixed for the refusal to appear, and a way through to whatever the value names —
+  both of which are lines the row keeps whether or not they are carrying anything.
+- **This is the same rule the Upload dialog settled as A34**, generalized. That dialog is sized for
+  its settings open so that opening them moves nothing; the rule it was standing on was never about
+  uploads.
+
+### 2026-09-16 — a reader's scale control scales the thing, not the chrome around it
+
+The owner, on the file manager: the zoom did not appear to work between the icon view and the list
+view.
+
+- **A control that scales a surface scales what the reader is looking at, and nothing else.** The
+  text, the row height and the glyphs that ride inside a row take the multiplier. The hairlines do
+  not — a scaled hairline is a blurred one. The header band and the footer strip do not: they are
+  the frame around the list rather than the list, and growing them pushes the rows the reader asked
+  to see more of off the bottom of the screen.
+- **Scale and density are two axes, and one must not be derived from the other.** The file manager
+  derived a two-value density from a ten-step scale at a single threshold, so nine of the ten steps
+  changed nothing anybody could see, and the tenth moved the list in a jump. A control offering ten
+  steps has to answer to all ten.
+- **It is one multiplier on an ancestor, defaulting to 1** (`--mc-table-grid-scale`), so a surface
+  that scales nothing is unchanged to the pixel and a surface that scales publishes one number
+  rather than threading a size through every component in the region.
+
+### 2026-09-16 — a column that can only be right in one view belongs to that view
+
+The owner, on the file manager: "I don't see the benefit of the 'Location' column."
+
+- **A column shipped hidden is a column asking to be deleted.** Location was `hidden: true` in the
+  browse set because in a folder listing it prints the folder the reader is already standing in,
+  once per row — and the path above the list and the tree beside it have both already said it. The
+  hidden flag was the admission. It is defined only where rows genuinely come from different
+  folders now, which is search results and analysis.
+- **Hidden is for a column a reader might reasonably want; absent is for one that could never say
+  anything.** The difference matters because hidden columns are offered in the header menu, so a
+  reader can switch a table into a state where a whole column reads the same value top to bottom.
+- **One table, one typeface.** A column set in a different face than the columns beside it reads as
+  a different kind of data. File Type holds an extension, which is a word.
+
+### 2026-09-17 — a state one stylesheet owns is not a state every stylesheet may set
+
+The owner, on the calendar's month picker: "when a date is selected in the calendar sidebar, and it
+is today, i cannot see the date. use greater shadowing in the small calendar to delineate outside
+the month. can you make mock data to simulate this?"
+
+- **A component's own states are scoped to that component, and a shared recipe is not the place to
+  put them.** The range picker added its band states — endpoints, the muted span, today — as bare
+  `.mc-calendar-day[...]` selectors on the recipe every calendar in the product shares. Same
+  specificity, later in the cascade, so its `background-color: transparent` for today overrode the
+  selected fill everywhere, and selection's near-white foreground was left painting a number onto
+  the white surface. A rule that only makes sense inside one component hangs off a class that
+  component puts on itself.
+- **A state marker is a RING when the state can coincide with another one.** A fill can only be one
+  colour, so marking today with a fill means today and selected are competing for the same
+  property, and whichever declaration wins erases the other. The ring is inset, so the fill sits
+  behind it and the hairline simply changes colour to stay legible on it. Any state that can be
+  true at the same time as selection gets the same treatment.
+- **A boundary is shaded, not merely tinted.** Outside-month days were paler text and nothing else;
+  with six fixed weeks that is up to eleven days, and a reader had to count columns to find where
+  the month began. The wash goes on the CELL so the neighbours read as one continuous band and each
+  day keeps its own chip for hover and selection — and because the band is already the colour an
+  ordinary day hovers to, an outside-month day hovers one step darker.
+- **A state that is only reachable on the right day is a state nobody reviews.** Today-and-selected
+  happens once a month per reader, which is why a defect that made a date invisible survived every
+  round. It has a specimen now — `/developer-console/calendar-day-states`, which selects today
+  deliberately, because `data-today` comes from the clock and the fixture is the SELECTION rather
+  than the date. Generalizes: when a state depends on the clock, the ambient environment, or data a
+  reviewer cannot summon, build the specimen beside the screen rather than describing the state.
+- **A defect that lives in the cascade needs a pin that reads the cascade.** No type, and no jsdom
+  render, could have caught this: jsdom applies no cross-stylesheet cascade, which is precisely
+  what broke. `packages/design-system/test/calendar-day-states.test.ts` reads the stylesheets as
+  text and pins the scope, the declaration order, and the import order they depend on.
+
+### 2026-09-17 — a participant's role is offered, not asked for blind
+
+The owner, on the calendar's record form: "Note sure what the write-in role field means. would make
+more sense for a dropdown?" — then, having been given both options: "consider both options for
+participant role field", and "take best option".
+
+- **A blank text box does not ask its question.** The field was labelled Role and was empty, and a
+  label is not a question a reader can answer: "Role" could mean the person's job at the firm, their
+  role on the matter, or their capacity at this one setting. The correction is not a clearer label —
+  ghost text is the field's own name and vanishes at the first keystroke, which is exactly when an
+  example would be wanted — it is that **the answer set is what explains the field.** A reader who
+  sees Appearing counsel, Court reporter and Interpreter offered knows what the field is for without
+  being told.
+- **The closed dropdown was the wrong one of the two, and for a reason worth keeping.** The roles a
+  practice needs do not close: a special master, a Rule 30(b)(6) designee, a parenting coordinator,
+  a check interpreter. A closed list missing the role somebody needs does not stop them — it makes
+  them pick a wrong-but-adjacent one, which corrupts the very consistency the closed list existed to
+  protect, and does it **invisibly**, because an entry chosen from a fixed set looks clean while free
+  text looks obviously rough. Generalizes: **prefer the failure that is visible.** Where a closed
+  set cannot be completed, a control that refuses the missing value is worse than one that records
+  it, because the first hides its own gaps.
+- **The already-standing rule decided this, and the round should have started there.** _A vocabulary
+  that is not closed but is not free either is the product's dropdown-with-add_ (under _Data entry_
+  above, 2026-09-08) already says the combobox with `AddOption` "is the same control in every such
+  field". Two siblings had it — the location field on this same form, and the matter-party role —
+  and this field was simply the one that had not been carried over. **A question that a promoted
+  rule already answers is a question about which fields have not caught up yet.**
+- **What the offered list buys is one spelling, and that is worth a function of its own.** A role
+  matching an offered spelling in any casing settles to the offered spelling
+  (`settledParticipantRole`), so "court reporter" does not found a second role beside "Court
+  reporter". Free text gave one firm three spellings of the same role and a reader narrowing to one
+  of them saw a third of the events. Anything unlisted is kept exactly as typed.
+- **A field's name has to survive being read into a sentence.** "Attending as" is a clearer name for
+  this field than "Role" and was rejected anyway, because `Combobox.AddOption` renders the field's
+  name into a row that reads `Add <name>`: `Add role` is a sentence and `Add attending as` is not.
+  Generalizes: where a control composes the field's name into prose, the name is chosen against that
+  prose, not in isolation.

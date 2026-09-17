@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 822 nodes of the feature ledger in
+is the complete register rather than a digest: all 825 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,39 +21,39 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**822 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**825 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 143 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **679 that are units of work**, for the reason set out under [What a roll-up is
+count the **682 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 315 | 46% |
+| Done | shipped | 317 | 47% |
 | Part-built | partial, in-build | 123 | 18% |
-| Ahead | designed, planned, researching, not-started | 200 | 30% |
-| Parked | deferred, cut | 41 | 6% |
-| **All units of work** | | **679** | **100%** |
+| Ahead | designed, planned, researching, not-started | 200 | 29% |
+| Parked | deferred, cut | 42 | 6% |
+| **All units of work** | | **682** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 315 | 46% |
+| `shipped` | 317 | 46% |
 | `partial` | 123 | 18% |
 | `in-build` | 0 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
 | `not-started` | 134 | 20% |
-| `deferred` | 38 | 6% |
-| `cut` | 3 | 0% |
-| **All statuses** | **679** | **100%** |
+| `deferred` | 38 | 5% |
+| `cut` | 4 | 1% |
+| **All statuses** | **682** | **100%** |
 
 ### What a roll-up is not
 
-**143 of the 822 nodes are parents, and 111 of those parents are `partial`.** A parent's status is a
+**143 of the 825 nodes are parents, and 111 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 315 of 679 (46%). Shipped plus partial is 438 (65%).**
+**Shipped alone is 317 of 682 (46%). Shipped plus partial is 440 (65%).**
 
 The 123 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**438 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**440 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 100 | 23% |
+| A person can open it today (`screen`) | 102 | 23% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 158 | 36% |
 | No user surface by nature (`internal`) | 180 | 41% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **438** | **100%** |
+| **Everything with something built** | **440** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -110,14 +110,14 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
 | Financial Core | 21 | 19 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 62 | 34% |
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
-| Integrations & Plugins | 16 | 3 | 0 | 1 | 0 | 3 | 15 | 3 | 0 | 41 | 39% |
+| Integrations & Plugins | 16 | 3 | 0 | 1 | 0 | 3 | 15 | 3 | 1 | 42 | 38% |
 | Maintenance Agents | 2 | 2 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 10 | 20% |
 | Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 12 | 58% |
 | Notifications | 4 | 6 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 14 | 29% |
 | Observability & Diagnostics | 14 | 0 | 0 | 0 | 0 | 0 | 4 | 2 | 0 | 20 | 70% |
 | Payments | 0 | 0 | 0 | 6 | 0 | 0 | 3 | 0 | 0 | 9 | 0% |
 | Performance & Concurrency | 6 | 2 | 0 | 0 | 0 | 0 | 1 | 2 | 0 | 11 | 55% |
-| Platform — Delivery, Architecture, Tenancy & Data Conventions | 31 | 7 | 0 | 1 | 0 | 0 | 20 | 6 | 1 | 66 | 47% |
+| Platform — Delivery, Architecture, Tenancy & Data Conventions | 33 | 7 | 0 | 1 | 0 | 0 | 20 | 6 | 1 | 68 | 49% |
 | Client Portal | 0 | 0 | 0 | 0 | 0 | 0 | 13 | 1 | 0 | 14 | 0% |
 | Product Updates & User-Facing Documentation | 2 | 4 | 0 | 0 | 0 | 0 | 8 | 0 | 0 | 14 | 14% |
 | Release Channels | 7 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 8 | 88% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 13 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 20 | 65% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **315** | **123** | **0** | **46** | **15** | **5** | **134** | **38** | **3** | **679** | **46%** |
+| **All areas** | **317** | **123** | **0** | **46** | **15** | **5** | **134** | **38** | **4** | **682** | **46%** |
 
 ## Where we have been
 
@@ -746,7 +746,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.file-manager.document-types` · `shipped` · **Document types** — Per-firm document-type taxonomy attached to files.
     - `documents.file-manager.ui-primitives` · `shipped` · **File UI primitives** — FileIcon, Breadcrumb, ContextMenu, Tree, Dropzone design-system components for file surfaces. _Note: Container VRT baselines and NVDA pass still outstanding per the fragment._
     - `documents.file-manager.matter-files-ui` · `partial` · **Matter Files surface** — The matter's documents on real rows — the list, both creation paths (a file, or a template assembly), saving a new version, the version history, and the editing-session launch. The multi-view browser (collection region + capability detail pane) is the next layer over it. _Note: The Collabora editor needs the deployed magna-carta-edit container; folders, rename, and download are the next additions. The stream that built it (claude/document-surface) has retired; folders, rename and download are the remaining additions._
-    - `documents.file-manager.file-inspector` · `partial` · **File Workbench** — Tools-host for an ephemeral (non-matter) file — one drop, and every file capability addresses it. _Note: Two capabilities answer for real in the browser (file type from the leading bytes, SHA-256/SHA-1); the eight whose engines run in a container render their control disabled and name what they wait on. The firm-scoped scratch object is what unblocks them, and what makes the retention promise real. Not the same body as the matter file manager yet — converging the two is separate work._
+    - `documents.file-manager.file-inspector` · `partial` · **File Workbench** — The host for an ephemeral (non-matter) file — one drop, and every file capability addresses it. _Note: Two capabilities answer for real in the browser (file type from the leading bytes, SHA-256/SHA-1); the eight whose engines run in a container render their control disabled and name what they wait on. The firm-scoped scratch object is what unblocks them, and what makes the retention promise real. Not the same body as the matter file manager yet — converging the two is separate work._
     - `documents.file-manager.content-hash` · `shipped` · **Content hashing at write** — SHA-256 recorded for every stored object at ingest — fixity, duplicate detection, scan-verdict caching, no-op version skip.
     - `documents.file-manager.bulk-download` · `shipped` · **Bulk download (zip)** — Streaming store-mode ZIP64 archive of selected files/folders/matter, version-pinned, RBAC-gated, audit-logged, memory-flat.
       - `documents.file-manager.bulk-download.async` · `shipped` · **Async bulk bundle** — Large bundles run as a tracked background job (Durable Object) building an R2 artifact fetched by signed URL.
@@ -972,7 +972,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Integrations & Plugins
 
-[`roadmap.d/integrations.md`](../roadmap.d/integrations.md) — 41 units of work, 39% shipped. 16 done, 3 part-built, 19 ahead, 3 parked.
+[`roadmap.d/integrations.md`](../roadmap.d/integrations.md) — 42 units of work, 38% shipped. 16 done, 3 part-built, 19 ahead, 4 parked.
 
 - `integrations` · `partial` · **Plugin / add-on system** — Ports-and-adapters integration framework, manifest-driven registration, first-party adapters, the Tools catalog, and the future third-party marketplace. _Note: First-party only today; C seam to a marketplace documented, not built._
   - `integrations.port-framework` · `shipped` · **Integration port framework** — Typed category ports with vendor adapters behind them; canonical types, manifest, registry, dispatch, problem mapping.
@@ -994,13 +994,14 @@ to change a line here, edit the node in its area file and re-run the build.
     - `integrations.shipping.tracking-webhook` · `deferred` · **Push-webhook tracking ingress** — Vendor webhook ingestion replacing pull-on-demand tracking.
     - `integrations.shipping.cost-recovery` · `shipped` · **Postage cost-recovery seam** — shipment.purchased event recording postage against the matter for cost recovery.
     - `integrations.shipping.ui` · `deferred` · **Shipping UI** — Firm-facing surface for drafting, buying, and tracking shipments.
-  - `integrations.tools-area` · `partial` · **Tools area** — One Tools catalog surfacing first-party utilities and integration-backed tools via left-nav and contextual entry points; presentation layer above the plugin framework.
+  - `integrations.tools-area` · `partial` · **Tools area** — One Tools catalog surfacing first-party utilities and integration-backed tools through the global rail and contextual entry points; presentation layer above the plugin framework. _Note: There is no Tools AREA left in the interface sense — the owner retired the two-sided screen and then its index on 2026-09-16, because a tool reached through a screen about tools costs a navigation and a column of the tools you are not using. The catalog, the permissions and the contextual selector are what the node still names._
     - `integrations.tools-area.catalog` · `shipped` · **Tools catalog package** — Single source-of-truth catalog; adding a tool is one manifest entry; reflects connection health without holding credentials.
-    - `integrations.tools-area.listing-page` · `shipped` · **Tools listing page** — /tools page rendering the catalog grouped by subject, tiles or dense list, maturity-stage badges. _Note: toolsByGroup renders only the tools whose permission the member holds, and until 2026-08-19 five manifests were granted to no role - so the property, business-entities, people-licenses and mailing-shipping groups rendered for nobody on any seat. Seeded in packages/database/drizzle/per-firm/20260908T000000_baseline.sql; all nineteen manifests are now reachable by some seat._
+    - `integrations.tools-area.listing-page` · `cut` · **Tools listing page** — A /tools page rendering the catalog grouped by subject, tiles or dense list, maturity-stage badges. _Note: Built, shipped, and retired by the owner on 2026-09-16. It was a stop on the way to work - a member who wants the WHOIS lookup wants the WHOIS lookup, not a page about it - and the two things it carried that were worth keeping, the descriptors and the search, were never the page's: they are the presentation layer's, and the command palette has rendered them all along from one keystroke with no navigation first. Every tool is a top-level ability with a rail row of its own now (integrations.tools-area.rail-rows)._
+    - `integrations.tools-area.rail-rows` · `shipped` · **Tools in the global rail** — Every permitted tool as a top-level row in the rail's Tools group, folded into its subject cluster (Records, Internet, Mailing, Files), alphabetical within a cluster, derived from the catalog. _Note: A cluster is a fold and never a screen — nothing is reached through one, and a cluster holding a single row is seated as a plain row instead. The eight subject groups became four on the same ruling: eight headings over nine tools is a heading per tool, which is no grouping at all._
     - `integrations.tools-area.contextual-entry` · `partial` · **Contextual entry points** — Tools reachable in context — command palette, file-context tags on file-shaped tools; Location/Directory entity entry points.
-    - `integrations.tools-area.diagnostics-group` · `shipped` · **Diagnostics group (firm usage)** — Read-only firm usage snapshot in the Tools area, computed on request — storage by class, matters by type and by location, the file versioning breakdown, Directory and member counts, and the AI meters. _Note: Storage totals read the storage_meter rollup, so they are zero for any firm whose files did not arrive through ingest until the daily reconciliation runs. Custodian holdings report per office through @magna-carta/custodian/usage (external roots on a Held Offsite row); per-firm compute stays a Soon table (waits on the Cloudflare Analytics API credential, the ADR-0103 deferral)._
+    - `integrations.tools-area.diagnostics-group` · `shipped` · **Diagnostics group (firm usage)** — Read-only firm usage snapshot in the Firm group, computed on request — storage by class, matters by type and by location, the file versioning breakdown, Directory and member counts, and the AI meters. _Note: It left the tool catalog on 2026-09-16 and is a Firm destination at /firm-usage beside Reports, keeping the tools:firmUsage key that gates it — a tool is a utility a member RUNS, and this runs nothing; it is the firm reading its own records. Storage totals read the storage_meter rollup, so they are zero for any firm whose files did not arrive through ingest until the daily reconciliation runs. Custodian holdings report per office through @magna-carta/custodian/usage (external roots on a Held Offsite row); per-firm compute stays a Soon table (waits on the Cloudflare Analytics API credential, the ADR-0103 deferral)._
     - `integrations.tools-area.network-speed-test` · `shipped` · **Network speed test** — First tool with its own page: Cloudflare measurement engine, per-direction charts, AIM score, authenticated round-trip probe.
-  - `integrations.tools` · `partial` · **First-party tool set** — The credential-less first-party tools surfaced through the Tools area _Note: Backends shipped across the set; tool UIs ride the design-system shell wave. Measured 2026-08-15 — 19 catalog manifests, 11 backends returning verified-correct answers, 2 with a page a person can open (WHOIS, speed test); the rest read "soon". docs/research/2026-08-15-tools-reality-check.md._
+  - `integrations.tools` · `partial` · **First-party tool set** — The credential-less first-party tools surfaced as top-level abilities in the rail _Note: Backends shipped across the set; tool UIs ride the design-system shell wave. Measured 2026-08-15 — 19 catalog manifests, 11 backends returning verified-correct answers, 2 with a page a person can open (WHOIS, speed test); the rest read "soon". docs/research/2026-08-15-tools-reality-check.md._
     - `integrations.tools.government-links` · `shipped` · **Government & licensing links** — Curated deep-links to government portals, business registries, and attorney-license lookups (renamed from parcels). _Note: Coverage is uneven by domain and that is what a firm feels — business and attorney-licence are all 51 jurisdictions, property is 835 assessor sites across only 22 (Nevada and the Mountain West; no TX/FL/NY/IL/PA/OH/GA/NC/MI/NJ), plus 17 recorder sites and no GIS. Links verified live 2026-08-15, docs/research/2026-08-15-tools-reality-check.md._
     - `integrations.tools.property-links` · `shipped` · **Property external links** — Zillow/Redfin/Maps/Realtor deep-links for a Location; pure link helper, not a plugin. _Note: County-assessor provider has landed (src/providers/county-assessor.ts), so five providers resolve. Redfin/Maps/assessor links verified live 2026-08-15; Zillow and Realtor.com answer bot mitigation to a non-browser client and stay unverified. On a partial address the Zillow/Redfin/Maps links silently drop state and ZIP — the UI must require the structured address. docs/research/2026-08-15-tools-reality-check.md._
     - `integrations.tools.whois` · `shipped` · **WHOIS lookup** — Public domain/IP registration lookup, RDAP-first with legacy port-43 fallback for ccTLDs; firm-internal security hygiene. _Note: Report enrichment in flight on branch whois-report-enrichment. Verified against public record for six targets 2026-08-15; a registry with neither RDAP nor a port-43 host (234 of 1,438 TLDs) now answers 501 rather than 500. The port-43 socket has no read deadline and that path stays unverified. docs/research/2026-08-15-tools-reality-check.md._
@@ -1147,7 +1148,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Platform — Delivery, Architecture, Tenancy & Data Conventions
 
-[`roadmap.d/platform.md`](../roadmap.d/platform.md) — 66 units of work, 47% shipped. 31 done, 7 part-built, 21 ahead, 7 parked.
+[`roadmap.d/platform.md`](../roadmap.d/platform.md) — 68 units of work, 49% shipped. 33 done, 7 part-built, 21 ahead, 7 parked.
 
 - `platform` · `partial` · **Platform** — Delivery model, application architecture, architectural coherence, tenancy and isolation, Cloudflare primitive adoption, and the foundational data and runtime conventions. _Note: Backend foundations largely shipped; web UI shell in build; desktop not started._
   - `platform.workers-api` · `partial` · **Workers REST API** — Cloudflare Workers backend on Hono exposing a REST API documented by OpenAPI 3.1. _Note: First-party same-origin /api surface live; the public token-auth host is reserved, not built._
@@ -1158,7 +1159,9 @@ to change a line here, edit the node in its area file and re-run the build.
     - `platform.workers-api.public-api-host` · `not-started` · **Public API host** — api.magnacarta.esq token-authenticated third-party/SDK surface, separated from cookie-auth first-party calls by host. _Note: Host reserved by design; only the same-origin first-party surface exists._
     - `platform.workers-api.service-bindings` · `shipped` · **Internal Worker RPC** — Plugin/core and heavy-service calls over Cloudflare service bindings, separate from the public REST surface.
   - `platform.web-spa` · `partial` · **Web SPA** — Svelte 5 / SvelteKit SPA (adapter-cloudflare) served as Workers static assets, login-gated, per-route code-splitting. _Note: Skeleton shipped; the app shell and first operable surfaces are on main, and the settings sections are being completed under docs/active-work/claude/settings-implementation-plan-asr0l6.md._
-    - `platform.web-spa.app-shell` · `partial` · **App shell and first surfaces** — Authenticated application shell, navigation, settings surfaces, matter and tools views. _Note: The shell, navigation, matter and tools views are on main; several settings sections are still stubs, which docs/active-work/claude/settings-implementation-plan-asr0l6.md is closing._
+    - `platform.web-spa.app-shell` · `partial` · **App shell and first surfaces** — Authenticated application shell, navigation, settings surfaces, matter and tools views. _Note: The shell, navigation, matter and tool views are on main; several settings sections are still stubs, which docs/active-work/claude/settings-implementation-plan-asr0l6.md is closing._
+    - `platform.web-spa.rail-information-architecture` · `shipped` · **The rail's information architecture** — Five groups, each answering one question — Favorites, My Desk, Workspace, Money, Firm, Tools — with a fold at the group level and a sub-menu cluster inside a group. _Note: The owner's direction of 2026-09-16. Home and Notifications had sat in a fourteen-row Workspace group, which put "your morning" in the same list as "the firm's evidence"; My Desk is what the split says out loud. Firm Usage moved to Firm on the same ruling, and the tools became top-level rows folded into subject clusters._
+    - `platform.web-spa.favorites` · `shipped` · **Favorites** — A member's own shortcuts to any address in the product — a matter, a tool, a record, a section deep inside one — saved from every screen's header and rendered as the rail's first group. _Note: Per browser, like every other sidebar preference; carrying them across a member's devices waits on the member-preferences store. The star is the favourite's mark and the eye is Customize's show/hide, which is the owner's ruling of 2026-09-16 — one symbol had been answering two questions._
     - `platform.web-spa.multi-tab-sync` · `not-started` · **Cross-tab state sync** — BroadcastChannel cache-invalidation broadcast so an edit in one tab updates other tabs and windows.
     - `platform.web-spa.popout-windows` · `not-started` · **Pop-out windows** — Optional pop-out windows for documents and matters with coherent state.
     - `platform.web-spa.app-shell-caching` · `not-started` · **Service-worker asset cache** — Service worker caches app shell/assets only, no client-data caching, cleared on logout; web app deliberately not an installable PWA.

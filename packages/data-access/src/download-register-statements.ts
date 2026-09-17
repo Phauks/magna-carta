@@ -192,6 +192,7 @@ export async function readDownloadItem(
  * racing cannot each write a list that lost the other's entry. A format already present is left
  * alone, so the list stays a set and re-fetching the same format twice does not grow the row.
  */
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function recordDownloadedFormatStatement(
   database: SqlDatabase,
   memberId: string,
@@ -253,6 +254,7 @@ export function markDownloadItemReadyByObjectKeyStatement(
 }
 
 /** A member clearing their own shelf. Member-scoped for the reason the single read is. */
+// fitness:unguarded-write — a member clearing their own shelf; an item already gone is the state they asked for
 export function deleteDownloadItemStatement(
   database: SqlDatabase,
   memberId: string,

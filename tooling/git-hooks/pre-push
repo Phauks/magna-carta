@@ -1,27 +1,27 @@
 #!/bin/sh
-# pre-push — the FAST local gate. The authoritative whole-repo gate (full `pnpm check`, the full
-# test suite, the API-contract drift checks, and the container acceptance suites) now runs in GitHub
-# Actions on every pull request and push to `main` (.github/workflows/gate.yml) and is required by
-# branch protection — so `main` stays green. Since 2026-08-29 `main` is the Workers Builds production
-# branch for the app Worker and the SPA, so a merge to it deploys within minutes (docs/conventions/operations.md).
+# pre-push — the FAST local gate. The authoritative whole-repo gate is `pnpm gate` (tooling/gate/):
+# the full format, governance and dependency-audit passes, the type-check, the API-contract drift
+# checks, the type-aware lint over the affected closure, the Rust and container gates, and the full
+# test suite — run on the machine that made the change, before it merges. Since 2026-08-29 `main` is
+# the Workers Builds production branch for the app Worker and the SPA, so a merge to it deploys within
+# minutes (docs/conventions/operations.md); the gate's result is what a pull request states.
 #
 # This hook keeps the local loop quick: only the checks the current diff can actually break
 # (`pnpm check:scoped`) plus the whole-repo guards that finish in seconds. It is a courtesy tripwire,
-# not the gate of record — CI is. To run the full gate locally before a push: `pnpm check && pnpm test`.
-# Activated by `vp run setup-hooks` (core.hooksPath -> tooling/git-hooks). SKIP_PREPUSH=1 bypasses.
+# not the gate of record. Activated by `vp run setup-hooks` (core.hooksPath -> tooling/git-hooks).
+# SKIP_PREPUSH=1 bypasses.
 [ -n "$SKIP_PREPUSH" ] && { echo "pre-push: skipped (SKIP_PREPUSH set) — fix forward"; exit 0; }
 
 root="$(git rev-parse --show-toplevel)" || exit 1
 cd "$root" || exit 1
 
-fail() { echo "pre-push: FAILED — $1 (the full gate runs in GitHub Actions; run \`pnpm check && vp test\` locally)"; exit 1; }
+fail() { echo "pre-push: FAILED — $1 (the whole-repo gate is \`pnpm gate\`; run it before the merge)"; exit 1; }
 step() { echo "pre-push: $1"; }
 
-# Dependency audit is owned by CI now, not this hook. The gate's `governance` job runs osv-scanner over
-# BOTH supply chains (the npm lockfile + every Rust Cargo.lock) against the OSV database, which the local
-# `pnpm audit` never covered — and `pnpm audit` depends on npm's retiring audit endpoint anyway. Accepted
-# advisories live in osv-scanner.toml. Nothing fast and local replaces it here; the authoritative audit is
-# the gate on the pull request.
+# The dependency audit is the gate's, not this hook's. `pnpm gate` runs osv-scanner over BOTH supply
+# chains (the npm lockfile + every Rust Cargo.lock) against the OSV database; the local `pnpm audit`
+# never covered the Rust side and depends on npm's retiring audit endpoint anyway. Accepted advisories
+# live in osv-scanner.toml. Nothing fast and local replaces it here.
 
 step "scoped quality gate (fmt + lint + tsc + svelte/rust, for the diff)"
 pnpm check:scoped || fail "pnpm check:scoped"
@@ -55,5 +55,5 @@ pnpm run lint:workers-types-import || fail "lint:workers-types-import"
 step "migration integrity (journal/chain/rebuild guards)"
 node tooling/migration-integrity/index.mts || fail "migration integrity"
 
-echo "pre-push: fast local gates passed — the authoritative whole-repo gate runs in GitHub Actions on main"
+echo "pre-push: fast local gates passed — the whole-repo gate is \`pnpm gate\`, run before the merge"
 exit 0

@@ -1,3 +1,4 @@
+import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { RandomSource } from "@magna-carta/identifiers/random";
 import type { UserId } from "@magna-carta/identifiers/types";
@@ -106,7 +107,11 @@ export async function recordJobCompletionNotification(
 
     if (audience.recipientUserIds.length === 0) {
       if (suppression.statements.length > 0)
-        await input.database.batch([...suppression.statements]);
+        await commitEffectBatch(
+          input.database,
+          { statements: suppression.statements, outboxMessages: [] },
+          { now: () => new Date().toISOString() },
+        );
       continue;
     }
 

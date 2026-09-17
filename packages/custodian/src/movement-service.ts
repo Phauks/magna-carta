@@ -1,4 +1,6 @@
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
+import { guarded } from "@magna-carta/data-access/effect-batch";
+import type { EffectStatement } from "@magna-carta/data-access/effect-batch";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { selectMemberStatusStatement } from "@magna-carta/data-access/member-statements";
@@ -173,7 +175,7 @@ export async function recordCustodyMovement(
       const now = options.clock.now();
       const fromLocationId = packet.current_location_id;
       const toLocationId = resolveDestination(packet, input);
-      const statements: SqlStatement[] = [
+      const statements: EffectStatement[] = [
         // First: the precondition fence. Every read-then-write precondition this movement relied on
         // is re-asserted against the row as the batch actually sees it, so a concurrent movement
         // that changed the packet (or the item) under us aborts this whole batch rather than
@@ -209,23 +211,32 @@ export async function recordCustodyMovement(
       ];
       if (packetStatusChanges && nextPacketStatus !== undefined) {
         statements.push(
-          setCustodyPacketStatusStatement(
-            database,
-            packetId,
-            nextPacketStatus,
-            packet.status,
-            toLocationId,
-            now,
+          guarded(
+            setCustodyPacketStatusStatement(
+              database,
+              packetId,
+              nextPacketStatus,
+              packet.status,
+              toLocationId,
+              now,
+            ),
+            "custody-packet.status",
           ),
         );
       } else if (item === undefined && toLocationId !== packet.current_location_id) {
         statements.push(
-          setCustodyPacketLocationStatement(database, packetId, toLocationId, packet.status, now),
+          guarded(
+            setCustodyPacketLocationStatement(database, packetId, toLocationId, packet.status, now),
+            "custody-packet.location",
+          ),
         );
       }
       if (item !== undefined && nextItemStatus !== undefined) {
         statements.push(
-          setCustodyItemStatusStatement(database, item.id, nextItemStatus, item.status, now),
+          guarded(
+            setCustodyItemStatusStatement(database, item.id, nextItemStatus, item.status, now),
+            "custody-item.status",
+          ),
         );
       }
       statements.push(

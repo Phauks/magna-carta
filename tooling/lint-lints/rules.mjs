@@ -10,8 +10,8 @@ export const DOCUMENTATION_ROOTS = ["docs", "CLAUDE.md"];
 /** The subset of those that may cite a runnable `pnpm run lint:…` command (the reverse direction). */
 export const CITATION_ROOTS = ["docs/conventions", "CLAUDE.md"];
 
-/** The workflow that runs the repository-wide fitness sweep, and the configuration file it runs. */
-export const GATE_WORKFLOW = ".github/workflows/gate.yml";
+/** The gate module that runs the repository-wide fitness sweep, and the configuration file it runs. */
+export const GATE_GOVERNANCE = "tooling/gate/governance.mjs";
 export const FITNESS_SWEEP_CONFIGURATION =
   "tooling/check-scoped/vitest.repo-wide-fitness.config.ts";
 
@@ -277,52 +277,27 @@ export function checkEveryCitedCommandExists({ citations, lintNames }) {
 }
 
 /**
- * The environment entries of the workflow step that runs the repository-wide fitness sweep.
+ * The environment of the gate step that runs the repository-wide fitness sweep, read off the gate's
+ * own step list (tooling/gate/governance.mjs exports its steps as data). The step is found by the
+ * configuration file it runs, so renaming the step changes nothing here; a step list that runs the
+ * configuration nowhere reports `found: false`.
  *
- * Hand-parsed rather than through a YAML reader: node builtins only, and the shape wanted is one
- * `env:` block inside one step. The step is found by the configuration file it runs, so renaming the
- * step's title changes nothing here.
- *
+ * @param {readonly {arguments?: readonly string[], env?: Record<string, string>}[]} steps
  * @returns {{found: boolean, variables: [string, string][]}}
  */
-export function fitnessSweepEnvironment(workflowText, configuration = FITNESS_SWEEP_CONFIGURATION) {
-  const lines = workflowText.split("\n");
-  const runIndex = lines.findIndex((line) => line.includes(configuration));
-  if (runIndex === -1) return { found: false, variables: [] };
-
-  let start = runIndex;
-  while (start >= 0 && !/^\s*-\s+\S/.test(lines[start])) start -= 1;
-  if (start < 0) return { found: false, variables: [] };
-
-  const variables = [];
-  // The block ends where the indentation returns to the `env:` key's own level — which is where the
-  // step's `run:` sits, and reading that as a variable named "run" is exactly the mistake to avoid.
-  let environmentIndent = null;
-  for (let index = start; index <= runIndex; index += 1) {
-    const line = lines[index];
-    const indent = line.length - line.trimStart().length;
-    const environmentKey = /^\s*env:\s*$/.test(line);
-    if (environmentKey) {
-      environmentIndent = indent;
-      continue;
-    }
-    if (environmentIndent === null) continue;
-    if (line.trim() !== "" && indent <= environmentIndent) {
-      environmentIndent = null;
-      continue;
-    }
-    const entry = /^\s*([A-Za-z_][\w]*)\s*:\s*(.*\S)\s*$/.exec(line);
-    if (entry !== null) variables.push([entry[1], entry[2]]);
-  }
-  return { found: true, variables };
+export function fitnessSweepEnvironment(steps, configuration = FITNESS_SWEEP_CONFIGURATION) {
+  const step = steps.find((candidate) => (candidate.arguments ?? []).includes(configuration));
+  if (step === undefined) return { found: false, variables: [] };
+  return { found: true, variables: Object.entries(step.env ?? {}) };
 }
 
 /**
  * Rule four: the name of the scope variable the sweep reads is the same string in both places.
  *
  * The sweep configuration reads one environment variable to learn which scopes this run covers. The
- * workflow sets it. Rename either side and nothing breaks loudly — the sweep silently falls back to
- * its default scope and covers half of what the step's own title claims, on a green run.
+ * gate's governance step sets it, as a literal (governance.mjs says why it is not imported). Rename
+ * either side and nothing breaks loudly — the sweep silently falls back to its default scope and
+ * covers half of what the step's own title claims, on a green run.
  *
  * The values are held to the known scope set for the same reason: a typo in `source,schema` is the
  * same silent narrowing, arrived at from the other direction.
@@ -331,7 +306,7 @@ export function compareFitnessScopeVariable({
   environment,
   expectedName,
   knownScopes,
-  workflow = GATE_WORKFLOW,
+  workflow = GATE_GOVERNANCE,
 }) {
   const findings = [];
   if (!environment.found) {

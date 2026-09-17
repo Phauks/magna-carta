@@ -1,3 +1,4 @@
+import { GuardedWriteRefusedError, type BatchOptions } from "@magna-carta/database/guarded-write";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { FirmDatabase } from "./firm-database-object.ts";
 
@@ -31,7 +32,12 @@ export interface ProxySqlStatement {
 // actually sound rather than merely accepted.
 export interface ProxyBatchDatabase {
   prepare(sql: string): ProxySqlStatement;
-  batch(statements: readonly SqlStatement[]): Promise<{ success: boolean }[]>;
+  batch(
+    statements: readonly SqlStatement[],
+    options?: BatchOptions,
+  ): Promise<{ success: boolean }[]>;
+  /** The Durable Object aborts its transaction when a guarded statement affects no rows. */
+  readonly enforcesGuardedWrites: true;
 }
 
 export interface FirmDatabaseMigrationState {
@@ -152,20 +158,31 @@ function firmDatabaseProxy(freshStub: () => DurableObjectStub<FirmDatabase>): Pr
 
   return {
     prepare: (sql: string) => makeStatement(sql, []),
+    enforcesGuardedWrites: true,
 
-    batch: async (statements: readonly SqlStatement[]) => {
+    batch: async (statements: readonly SqlStatement[], options?: BatchOptions) => {
       const outcome = await stub.commitBatch(
-        statements.map((statement) => {
+        statements.map((statement, index) => {
           if (!isProxyStatement(statement)) {
             throw new TypeError(
               "firmDatabaseFor: batch() accepts only statements prepared against this firm database — " +
                 "one carrying no sql/bindings was prepared elsewhere and cannot commit into this firm's Durable Object.",
             );
           }
-          return { sql: statement.sql, bindings: [...statement.bindings] };
+          const guard = options?.guards?.get(index);
+          return {
+            sql: statement.sql,
+            bindings: [...statement.bindings],
+            ...(guard === undefined ? {} : { guard }),
+          };
         }),
       );
       if (!outcome.ok) {
+        // A guarded statement matched no row: the batch rolled back inside the object, and the label
+        // is what the domain service branches on. Rethrown as the same class the adapters raise, so a
+        // caller catches one type whether its database is the object or a local SQLite one.
+        if ("unaffectedGuard" in outcome)
+          throw new GuardedWriteRefusedError(outcome.unaffectedGuard);
         // Reconstruct the SQLite UNIQUE constraint message from the column list the DO parsed, so the
         // data-access detectors' message-based checks (each an .includes on its own column) work
         // unchanged — for every unique constraint, not just one.

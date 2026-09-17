@@ -12,12 +12,12 @@ One file per ADR — the canonical home for each decision. The register in
    contiguous number, renames the file to `NNNN-<slug>.md`, rewrites `ADR-<slug>` references to
    the assigned `ADR-NNNN`, and regenerates the register. Commit the result.
 
-## Fragment format (validated in CI)
+## Fragment format (validated by the gate)
 
 The register bullet is built entirely from the frontmatter plus one line of text, so the shape is
 enforced rather than assumed. Check any time with **`pnpm run lint:decisions`**; the gate's
-governance job runs the same check on every pull request, and `vp run decisions-build` refuses to
-number anything while a fragment is malformed.
+governance dimension and the pre-push hook run the same check on every change, and
+`vp run decisions-build` refuses to number anything while a fragment is malformed.
 
 - The file **opens with the `---` frontmatter fence** — not with a Markdown title. A title where the
   frontmatter belongs is the one shape that used to render a blank register entry.

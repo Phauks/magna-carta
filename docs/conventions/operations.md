@@ -125,9 +125,9 @@ Per ADR-0073, a firm provisioned beyond the pre-declared `DB_FIRM_POOL_*` pool n
 
 ## 5. Dependency audit allowlist (accepted advisories)
 
-The CI dependency-audit gate runs **osv-scanner** over both supply chains — the pnpm lockfile and every first-party `Cargo.lock` — and fails on any remaining **HIGH or CRITICAL** finding (CVSS >= 7.0). It replaced the npm-only `pnpm audit`, and the `package.json` → `pnpm.auditConfig.ignoreGhsas` list it used to read is gone. The invocation lives in [`.github/workflows/gate.yml`](../../.github/workflows/gate.yml).
+The gate's `audit` dimension (`pnpm gate`, [`tooling/gate/audit.mjs`](../../tooling/gate/audit.mjs)) runs **osv-scanner** over both supply chains — the pnpm lockfile and every first-party `Cargo.lock`, derived from disk — and fails on any remaining **HIGH or CRITICAL** finding (CVSS >= 7.0). It replaced the npm-only `pnpm audit`, and the `package.json` → `pnpm.auditConfig.ignoreGhsas` list it used to read is gone. The scanner is pinned by version and per-platform SHA256 and fetched into `node_modules/.cache` when it is not on PATH; a machine that cannot fetch it reports the dimension `NOT RUN`, which is not a pass.
 
-**The accepted-advisory list has exactly one home: [`osv-scanner.toml`](../../osv-scanner.toml) at the repository root.** Do not restate entries here — each one carries its own cause, and the time-boxed ones carry the reachability analysis and the re-check plan alongside the `ignoreUntil` date. Reproduce the gate's answer locally by running the same `osv-scanner scan source --config osv-scanner.toml …` command the workflow runs.
+**The accepted-advisory list has exactly one home: [`osv-scanner.toml`](../../osv-scanner.toml) at the repository root.** Do not restate entries here — each one carries its own cause, and the time-boxed ones carry the reachability analysis and the re-check plan alongside the `ignoreUntil` date. `pnpm gate --only audit` reproduces the gate's answer on its own.
 
 Working rules for that file:
 
@@ -363,7 +363,7 @@ curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
 
 What follows from it, and it is the whole reason this section is read:
 
-- **A merge is a deploy.** A migration, an API-contract change, a binding change or a `wrangler.jsonc` edit reaches real users on the strength of whatever verification ran before it landed — and the gate of record is still blocked account-side (_Quality gates_, below), so that verification is the scoped local gate plus whatever tests the change carries. There is no undeployed queue to catch a mistake in.
+- **A merge is a deploy.** A migration, an API-contract change, a binding change or a `wrangler.jsonc` edit reaches real users on the strength of whatever verification ran before it landed — and that verification is `pnpm gate` on the branch (_Quality gates_, below), which nothing hosted repeats. There is no undeployed queue to catch a mistake in.
 - **There is no "what is live" question separate from the trunk** for those two Workers. `git log release..main` is not the undeployed queue any more; `release` survives as history and is not a deploy target.
 - _Builds for non-production branches_ (`previews_enabled`) stays **off**, so a feature branch still builds nothing. Only the trunk deploys.
 
@@ -596,58 +596,18 @@ Two settings to **enable/set** (the fast-build levers — see [`build-performanc
   - **Scope by _inclusion_ for every Worker rooted at its own `apps/<worker>`** — name its package, the container image it owns, each crate its Dockerfile COPYs, the lockfile and workspace manifest, and `packages/build-identity/*`. Anything omitted is a source the Worker silently stops tracking.
   - Read the live include/exclude lists with the per-`script_tag` Builds call above; do not assume them from this page.
 
-### Quality gates — GitHub Actions is the gate of record; the `pre-push` hook is the fast local subset
+### Quality gates — `pnpm gate` is the gate of record; the `pre-push` hook is the fast local subset
 
 Workers Builds builds and deploys but runs no checks, so the checks live in two places, split by cost:
 
-> **TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes reset.** The push-to-`main` run, the
-> nightly sweep, and the whole-repo lint tier are suspended while the Actions budget is exhausted; the
-> pull-request gate still runs in full. The posture, the merge bar it implies, and the revert checklist
-> are in [`build-performance.md`](build-performance.md) — this note is a pointer, not a second home.
->
-> **The austerity did not go far enough: since 2026-08-05 the account has been unable to start _any_
-> billable job, so the pull-request tier is not running either.** The gate of record has executed no
-> steps since that date. Unblocking it is an owner billing step on the
-> [deploy queue](../deploy-queue.md); the recognition rule immediately below is how to tell that state
-> from a failing build.
+- **The whole-repo gate of record is `pnpm gate`** ([`tooling/gate/`](../../tooling/gate/index.mjs)), run on the branch before it merges. It runs the osv-scanner dependency audit, the full **`pnpm check`** (format, the type-aware lint over the affected closure, the type-check), the governance lints and the repo-wide fitness sweep, migration integrity, all four contract-drift checks (OpenAPI snapshot, generated client, Spectral, design-token), the Rust gate for a changed crate, a changed container's cargo checks and acceptance suite (scan EICAR, recovery, bundle, libreoffice) under Docker, the test-collection floor, and the full **`pnpm test`** — each dimension only when the change can reach it, and named in the summary when it does not. Its design, its flags and why it is a command rather than a workflow are in [`build-performance.md`](build-performance.md) under _The gate — `pnpm gate`, on the machine that made the change_. **Since 2026-08-29 the merge and the deploy are the same event on `main`** (branch control, above), so this gate is the only chance to catch a defect before real users see it, and nothing hosted repeats it: a pull request pastes the gate's summary block into its description, and a pull request without one is a pull request whose verification is unknown.
+- **The local `pre-push` hook** (`tooling/git-hooks/pre-push`) is a fast tripwire, not the gate of record: it runs **`pnpm check:scoped`** (fmt + lint + `tsc -b` + svelte-check/Rust, scoped to the diff), the governance lints, and the migration-integrity check — the checks the current diff can actually break, finishing in seconds rather than the tens of minutes the whole-repo gate takes. It keeps the push loop quick; `pnpm gate` does the exhaustive sweep before the merge. Activate it once per clone with **`vp run setup-hooks`** (the same step that installs the post-merge auto-clean hook; `core.hooksPath` → `tooling/git-hooks`). `SKIP_PREPUSH=1 git push` bypasses it — a skipped hook is caught by the gate before the merge, not shipped.
 
-#### A job that never started is not a job that failed — check `runner_id` before believing a red gate
+#### The hosted gate, 2026-07-13 to 2026-09-16, and how to read what it left behind
 
-The gate spent ten days reporting `failure` while running nothing, and nobody caught it, because a run
-that dies before it starts is **indistinguishable at a glance from a normal red build**: the workflow
-appears in the Actions tab, the checks go red on the pull request, and branch protection blocks the
-merge exactly as it would for a real test failure. The difference is only visible one level down.
+The same checks ran as a GitHub Actions workflow (`gate.yml`) for two months, required on every pull request into `main` through an aggregate `gate` status. The account's Actions minutes ran out on 2026-08-05 and again on 2026-09-03; each time GitHub refused to start any billable job, the required status never reported, and every pull request wedged behind it until an administrator override merged it. That is why the gate is a command now: a required status that depends on a budget fails closed on the budget and open on the code. The workflow and its companions are gone; **the ruleset setting that required the status is not something the repository can remove** — it is the owner step on the [deploy queue](../deploy-queue.md), and until it is done GitHub keeps waiting for a check nothing will report.
 
-**The fingerprint of a job GitHub refused to start:**
-
-- `runner_id: 0` and `runner_name: ""` on the job — the decisive signal. A job that ran always names a
-  runner. This is the one field to check, and it is the one the run's own web page does not show.
-- Wall-clock of a few **seconds**, with `started_at` equal to `created_at`.
-- **No logs at all** — the log endpoint 404s, because no runner ever produced any.
-- No annotation and no failing step, since there were no steps.
-- Typically **every** job in the run, across every label, plus the same shape in unrelated workflows.
-
-`gh api repos/Phauks/magna-carta/actions/runs/<run-id>/jobs --jq '.jobs[] | {name, conclusion, runner_id}'`
-prints the whole run's verdict in one line of output. A `runner_id` of `0` on a job that concluded
-`failure` means **CI did not run**; treat the change as unverified rather than broken, and check the
-deploy queue for the account-side block rather than debugging the diff.
-
-**What this is not.** It is not a runner-label problem. `gate.yml` uses `ubuntu-latest` and
-`ubuntu-slim`, both current GitHub-hosted labels, and the label choice per job is recorded in the
-workflow's own `RUNNERS` header. The 2026-08-05 outage reproduced identically on `ubuntu-latest` and on
-`assemble-docs.yml`, which has no `ubuntu-slim` in it, and it began three hours **before** `ubuntu-slim`
-first entered the repository. Re-litigating the labels costs three times the runner rate and fixes
-nothing.
-
-**The dependency shape makes one dead job look like a dozen.** Nearly every job in `gate.yml` needs
-`changes` for its path filter, so when `changes` cannot start, the rest report `skipped` and the
-aggregate `gate` job is the only other thing that runs. A red `gate` over a field of `skipped` is
-therefore the normal appearance of this failure, not evidence about any particular check. That
-fan-out is deliberate and worth keeping — it is what makes a docs-only push cost two minutes — but it
-does mean the run summary attributes the outage to whichever job happens to sit at the root.
-
-- **The whole-repo gate of record is GitHub Actions** (`.github/workflows/gate.yml`), run on every pull request into `main` (the push-to-`main` tier is suspended under the austerity in [`build-performance.md`](build-performance.md), and a merge queue is not available to a user-owned private repository — the [deploy queue](../deploy-queue.md) records that decision and the serial-merge habit that stands in for it). Its checks run on every pull request; its test battery runs only under the `run-tests` label, per the 2026-09-03 ruling recorded in [`build-performance.md`](build-performance.md), and the branch's own full `pnpm test` is the standing merge bar. It reproduces the full environment (pnpm install, the Docker WASM build restored from the cache `seed-caches.yml` keeps warm on `main`, the Playwright browser the vitest browser runner needs) and runs the osv-scanner dependency audit, the full **`pnpm check`**, the governance lints, migration integrity, the full **`vp test`**, all four contract-drift checks (OpenAPI snapshot, generated client, Spectral, design-token), and — for a changed container — its acceptance suite (scan EICAR, recovery, bundle). It is a **fan-out DAG**, not one serial job: a `classify` job path-filters the diff and computes the dependent closure, a `build-wasm` job builds or restores the Rust→WASM once (cached across runs on the crate sources, seeded on `main`, shared to consumers as an artefact), and the check dimensions run as independent parallel jobs, each skipped when the diff cannot affect it (a docs-only push runs only `format` + `governance`, ~2 min; a change that cannot reach the Workers or Storybook suites skips them). Wall-clock is the tallest single dimension (the type-aware lint pass), not the sum. **Branch protection must require the aggregate `gate` job** — not the individual jobs and not "the gate workflow" — because it is the one status that stays green whether a dimension ran or was path-filtered out; requiring a job that a given diff skips would wedge the merge. The first green run was 2026-07-13. **Since 2026-08-29 the merge and the deploy are the same event on `main`** (branch control, above), so this gate is no longer one of two chances to catch a defect — it is the only one. It executed nothing between 2026-08-05 and 2026-09-01 (the account-side block the recognition rule above describes); it runs again since, and a full battery takes about seventeen minutes with a warm cache.
-- **The local `pre-push` hook** (`tooling/git-hooks/pre-push`) is a fast tripwire, not the gate of record: it runs `pnpm audit`, **`pnpm check:scoped`** (fmt + lint + `tsc -b` + svelte-check/Rust, scoped to the diff), the governance lints, and the migration-integrity test — the checks the current diff can actually break, finishing in seconds rather than the tens of minutes the whole-repo gate takes. It keeps the cloud push loop quick while CI does the exhaustive sweep. Activate it once per clone with **`vp run setup-hooks`** (the same step that installs the post-merge auto-clean hook; `core.hooksPath` → `tooling/git-hooks`). `SKIP_PREPUSH=1 git push` bypasses it — the safety net is CI, so a skipped hook is caught at the merge, not shipped. To run the whole-repo gate locally before a push: `pnpm check && vp test`.
+For reading the history of that period: a run that GitHub refused to start is indistinguishable at a glance from a red build. Its fingerprint is `runner_id: 0` and an empty `runner_name` on every job, a wall-clock of seconds with `started_at` equal to `created_at`, a log endpoint that 404s, and a red aggregate over a field of `skipped`. `gh api repos/Phauks/magna-carta/actions/runs/<run-id>/jobs --jq '.jobs[] | {name, conclusion, runner_id}'` prints a run's verdict in one line. A red check from those windows is not evidence about the code — every merge from 2026-08-05 onward landed on local verification alone, and the deploy queue's entry records which.
 
 `oasdiff` (breaking-change vs. the base) is in neither (it is a review-time / base-branch check); run it in review if needed.
 

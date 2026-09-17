@@ -1,3 +1,4 @@
+import { guarded } from "@magna-carta/data-access/effect-batch";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -654,7 +655,7 @@ export async function voidDraft(
       ...WORK_IN_PROGRESS_KINDS.map((kind) =>
         clearWorkInProgressInvoiceMirrorStatement(database, kind, invoiceId, now),
       ),
-      voidInvoiceStatement(database, invoiceId, reason, voidedBy, now),
+      guarded(voidInvoiceStatement(database, invoiceId, reason, voidedBy, now), "invoice.void"),
     ],
     outboxMessages: [
       {

@@ -1,4 +1,4 @@
-import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
+import type { EffectWrite, EffectStatement } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { OutboxMessage } from "@magna-carta/data-access/outbox-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -328,7 +328,7 @@ export async function issueCreditNote(
   const now = options.clock.now();
   const creditNoteId = newIdentifier("creditNote", options.randomSource);
   // The ledger statements lead, because the note's `entry_id` references the entry they create.
-  const statements: SqlStatement[] = [...posting.effect.statements];
+  const statements: EffectStatement[] = [...posting.effect.statements];
   statements.push(
     insertCreditNoteStatement(database, {
       id: creditNoteId,
@@ -766,7 +766,7 @@ export async function composeApplicationReversal(
     options,
   );
 
-  const statements: SqlStatement[] = [
+  const statements: EffectStatement[] = [
     ...reversal.effect.statements,
     ...application.effect.statements,
   ];

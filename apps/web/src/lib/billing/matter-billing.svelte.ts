@@ -22,6 +22,7 @@
  * support needs to find it. Collapsing them into one sentence throws all of that away.
  */
 import type { ApiOutcome, Failure } from "$lib/api/request.ts";
+import { LatestOnly } from "../api/latest-only.ts";
 import { listMatterParties } from "$lib/matters/party-api.ts";
 import { clientPartyOf } from "./client-party.ts";
 import { listMatterCosts, type CostSummary } from "$lib/matters/cost-api.ts";
@@ -85,8 +86,8 @@ export class MatterBilling {
   unbilledTime = $state<readonly TimeEntrySummary[]>([]);
   unbilledCosts = $state<readonly CostSummary[]>([]);
 
-  /** Bumped on every load; an answer from a stale generation is discarded. */
-  #generation = 0;
+  /** An answer from a superseded load is discarded rather than written under the new subject. */
+  readonly #latest = new LatestOnly();
   #subject: string | null = null;
 
   /** True when this record is already showing (or reading) the given subject. */
@@ -97,7 +98,7 @@ export class MatterBilling {
   /** Adopt a complete, empty record without reading anything: the sample-matter case. */
   settleEmpty(subject: string): void {
     this.#subject = subject;
-    this.#generation += 1;
+    this.#latest.supersede();
     this.rows = [];
     this.nextCursor = null;
     this.failure = null;
@@ -106,12 +107,11 @@ export class MatterBilling {
   /** The whole section's reads, in the order their answers depend on each other. */
   async load(fetchImpl: typeof fetch, matterId: string, subject: string): Promise<void> {
     this.#subject = subject;
-    this.#generation += 1;
-    const generation = this.#generation;
+    const attempt = this.#latest.begin();
     this.rows = null;
     this.failure = null;
 
-    const fresh = (): boolean => generation === this.#generation;
+    const fresh = (): boolean => attempt.current;
 
     // The agreement and the matter's unbilled position do not depend on the client, so they are
     // asked for straight away.

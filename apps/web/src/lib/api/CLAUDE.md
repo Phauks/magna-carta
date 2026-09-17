@@ -36,12 +36,13 @@ lint. **Contract:** [`docs/conventions/api.md`](../../../../../docs/conventions/
   surface reports its own, so none can forget. The request line drops the query string
   (`requestLine`), because that is the one part of a request that can hold what a person typed.
 - **Golden rule 1 — reuse before building.** The contract's 615 operations are generated and
-  diff-gated by CI. A hand-written module mirroring one is a drift surface nothing can keep honest.
+  diff-gated by `pnpm gate`. A hand-written module mirroring one is a drift surface nothing can keep
+  honest.
 
 ## Dependencies & contracts
 
 - `@magna-carta/api-client` — the generated typed client and the `…Options` / `…InfiniteOptions`
-  factories, regenerated from the committed OpenAPI snapshot and diff-gated in `gate.yml`. Its
+  factories, regenerated from the committed OpenAPI snapshot and diff-gated by `pnpm gate`. Its
   `client` instance is reached through `@magna-carta/api-client/client`.
 - `@tanstack/svelte-query` v6 — runes-native: `createQuery(() => options)`, an accessor, not an
   object.

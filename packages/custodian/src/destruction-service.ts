@@ -1,5 +1,6 @@
 import {
   commitEffectBatch,
+  guarded,
   type BatchDatabase,
   type EffectWrite,
 } from "@magna-carta/data-access/effect-batch";
@@ -213,7 +214,10 @@ export async function approveCustodyDestruction(
     packetId: request.packet_id,
     effect: {
       statements: [
-        approveCustodyDestructionRequestStatement(database, destructionRequestId, approver, now),
+        guarded(
+          approveCustodyDestructionRequestStatement(database, destructionRequestId, approver, now),
+          "custody-destruction.decide",
+        ),
         custodyAuditStatement(
           database,
           options,
@@ -248,12 +252,15 @@ export async function refuseCustodyDestruction(
     packetId: request.packet_id,
     effect: {
       statements: [
-        refuseCustodyDestructionRequestStatement(
-          database,
-          destructionRequestId,
-          options.actorUserId,
-          now,
-          reason === undefined || reason.length === 0 ? null : reason,
+        guarded(
+          refuseCustodyDestructionRequestStatement(
+            database,
+            destructionRequestId,
+            options.actorUserId,
+            now,
+            reason === undefined || reason.length === 0 ? null : reason,
+          ),
+          "custody-destruction.decide",
         ),
         custodyAuditStatement(
           database,
@@ -280,7 +287,10 @@ export async function withdrawCustodyDestruction(
     packetId: request.packet_id,
     effect: {
       statements: [
-        withdrawCustodyDestructionRequestStatement(database, destructionRequestId, now),
+        guarded(
+          withdrawCustodyDestructionRequestStatement(database, destructionRequestId, now),
+          "custody-destruction.decide",
+        ),
         custodyAuditStatement(
           database,
           options,
@@ -368,12 +378,15 @@ export async function executeCustodyDestruction(
   const executedAt = options.clock.now();
   const completion: EffectWrite = {
     statements: [
-      executeCustodyDestructionRequestStatement(
-        database,
-        destructionRequestId,
-        options.actorUserId,
-        executedAt,
-        recorded.movementId,
+      guarded(
+        executeCustodyDestructionRequestStatement(
+          database,
+          destructionRequestId,
+          options.actorUserId,
+          executedAt,
+          recorded.movementId,
+        ),
+        "custody-destruction.execute",
       ),
       custodyAuditStatement(
         database,

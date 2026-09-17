@@ -3,7 +3,8 @@
    * Calendar (Tier 4, Bits UI). A month grid; Bits owns the date math, keyboard navigation, and the
    * grid a11y. The day recipe keys its states off Bits' data attributes (data-today, data-selected,
    * data-outside-month, data-disabled, data-unavailable); order matters, so selected sits after the
-   * resting/today rules and the unavailable states sit last.
+   * resting/today rules, the today-and-selected composition sits after selected, and the
+   * unavailable states sit last.
    */
   .mc-calendar {
     display: inline-block;
@@ -125,12 +126,49 @@
     outline-width: var(--mc-focus-ring-width);
     outline-offset: var(--mc-space-0);
   }
+  /*
+   * Outside the month is SHADED, not merely paler. A month picker drawn with fixed weeks shows as
+   * many as eleven days belonging to a neighbouring month, and subtle text against default text did
+   * not separate them — the reader had to count columns to find where the month began. The wash goes
+   * on the CELL rather than the day, so the neighbours read as one continuous band while the day
+   * keeps its own rounded chip for hover and selection on top of it. The band is the same value as
+   * the resting hover wash, so an outside-month day hovers one step darker; otherwise its hover
+   * would land on its own colour and read as nothing happening.
+   */
+  .mc-calendar-cell:has(.mc-calendar-day[data-outside-month]) {
+    background-color: var(--mc-surface-sunken);
+  }
   .mc-calendar-day[data-outside-month] {
     color: var(--mc-text-subtle);
+  }
+  .mc-calendar-day[data-outside-month]:hover {
+    background-color: var(--mc-action-secondary-hover);
+  }
+  /*
+   * Today is a hairline RING and a heavier numeral — never a fill. A marker drawn as a fill cannot
+   * compose with selection, and beside the calendar rail a day that is both today and the window's
+   * anchor is the ordinary case rather than the edge one. The ring is INSET (drawn inside the chip
+   * by a shadow, not on its edge by a border) so a selected day's fill sits behind it and the
+   * hairline can simply change colour below to stay legible on that fill.
+   */
+  .mc-calendar-day[data-today] {
+    box-shadow: inset var(--mc-space-0) var(--mc-space-0) var(--mc-space-0)
+      var(--mc-border-width-default) var(--mc-border-strong);
+    font-weight: var(--mc-weight-semibold);
   }
   .mc-calendar-day[data-selected] {
     background-color: var(--mc-action-primary);
     color: var(--mc-action-primary-foreground);
+  }
+  /*
+   * Today AND selected. This pair is the reason today is a ring: while today painted a fill, a
+   * selected today lost its background and kept selection's near-white foreground, which is white
+   * text on the white surface — the day could not be read at all. Selection now keeps its fill and
+   * today re-draws its hairline in the fill's own foreground colour.
+   */
+  .mc-calendar-day[data-today][data-selected] {
+    box-shadow: inset var(--mc-space-0) var(--mc-space-0) var(--mc-space-0)
+      var(--mc-border-width-default) var(--mc-action-primary-foreground);
   }
   .mc-calendar-day[data-disabled],
   .mc-calendar-day[data-unavailable] {

@@ -1,64 +1,55 @@
 /*
- * The File Workbench is a sidebar destination in its own right, not a screen inside the Tools area.
- * Two registries have to agree about that, and they are in different packages: the destination
- * registry (navigation/destinations.ts) holds the sidebar row, and the tool catalog
- * (@magna-carta/tools) holds the manifest whose `route` keeps every link-builder off /tools/<id>.
- * Nothing in the type system ties the two, so this file does: if one moves, the other fails.
+ * The File Workbench is a TOOL, and is reached as one. Three registries have to agree about that
+ * and they live in three places: the catalog holds the manifest (@magna-carta/tools), the rail
+ * projects its row from there (navigation/tool-sidebar.ts), and the back-link vocabulary spells the
+ * workbench out for the one screen that sits beneath it (screen/screen-header.ts). Nothing in the
+ * type system ties the three, so this file does: if one moves, the others fail.
+ *
+ * It spent a fortnight as a hand-written destination in the Firm group, because a `/tools` area
+ * charged a navigation to reach it and its ten capability tabs read as ten tools. Both reasons are
+ * gone: every tool is a top-level ability now, so the workbench is addressed exactly as it was and
+ * is one row in the Tools group's Files cluster rather than an exception to it.
  */
 import { describe, expect, it } from "vitest";
 import { CATALOG, toolRoute } from "@magna-carta/tools/catalog";
 import { grantedPermissions } from "../src/lib/tools/tool-permissions.ts";
 import { toolSearchKeywords } from "../src/lib/tools/tool-presentation.ts";
 import { CAPABILITIES } from "../src/lib/tools/file-workbench/capabilities.ts";
-import {
-  DESTINATIONS,
-  destinationById,
-  destinationStage,
-  isCurrentDestination,
-} from "../src/lib/navigation/destinations.ts";
+import { DESTINATIONS, isCurrentDestination } from "../src/lib/navigation/destinations.ts";
+import { toolSidebarDestinations } from "../src/lib/navigation/tool-sidebar.ts";
+import { FILE_WORKBENCH_BACK } from "../src/lib/screen/screen-header.ts";
 
-const workbench = destinationById("file-workbench");
 const manifest = CATALOG.find((tool) => tool.id === "file-workbench");
+const row = toolSidebarDestinations().find((candidate) => candidate.id === "tool-file-workbench");
 
-describe("the File Workbench destination", () => {
-  it("is a shipped, default-starred row in the Firm group", () => {
-    expect(workbench).not.toBeNull();
-    expect(workbench?.group).toBe("firm");
-    expect(workbench?.shipped).toBe(true);
-    expect(workbench?.defaultStarred).toBe(true);
-    expect(destinationStage(workbench!)).toBe("alpha");
-  });
-
-  it("keeps its catalog manifest, so the file context tag still has a tool to offer", () => {
+describe("the File Workbench as a tool", () => {
+  it("is a catalog manifest, so the file context tag still has a tool to offer", () => {
     expect(manifest).toBeDefined();
     expect(manifest?.contextTags).toContain("file");
+    expect(manifest?.subjectGroup).toBe("files");
   });
 
-  it("is addressed at the same place by both registries", () => {
-    expect(workbench?.href).toBe("/file-workbench");
-    expect(toolRoute(manifest!)).toBe(workbench?.href);
+  it("is a shipped row in the Tools group's Files cluster, and nothing in the registry", () => {
+    expect(row).toBeDefined();
+    expect(row?.group).toBe("tools");
+    expect(row?.cluster).toBe("files");
+    expect(row?.shipped).toBe(true);
+    expect(row?.stage).toBe("alpha");
+    // No hand-written destination: a second row for the same screen is two rows a reader has to
+    // tell apart, and the registry is not where a tool is declared.
+    expect(DESTINATIONS.some((destination) => destination.href === "/file-workbench")).toBe(false);
   });
 
-  it("is addressed outside the Tools area, so Tools does not light up under it", () => {
-    // Destination currency is a path-prefix match, so a workbench still living at
-    // /tools/file-workbench would mark BOTH rows current on the same screen.
-    const tools = destinationById("tools");
-    expect(tools).not.toBeNull();
-    expect(isCurrentDestination(tools!, workbench!.href)).toBe(false);
-    expect(isCurrentDestination(workbench!, "/file-workbench")).toBe(true);
-    // The recovery job's own screen sits under the workbench and keeps it current.
-    expect(isCurrentDestination(workbench!, "/file-workbench/recovery/job-1")).toBe(true);
+  it("is addressed at the same place by the catalog, the rail and the way back", () => {
+    expect(toolRoute(manifest!)).toBe("/file-workbench");
+    expect(row?.href).toBe("/file-workbench");
+    expect(FILE_WORKBENCH_BACK.href).toBe("/file-workbench");
+    expect(FILE_WORKBENCH_BACK.label).toBe(manifest?.name);
   });
 
-  it("leads the Firm group, and is not in the Tools group at all", () => {
-    // It used to lead Firm "ahead of Tools", which was a statement about a Tools ROW sitting in the
-    // same group. Since the tools were elevated into a group of their own (2026-09-16) that row is
-    // no longer Firm's, so the fact worth pinning is the one that still holds: the workbench leads
-    // its group, and is not one of the tools.
-    const firm = DESTINATIONS.filter((destination) => destination.group === "firm");
-    expect(firm[0]?.id).toBe("file-workbench");
-    expect(firm.some((destination) => destination.id === "tools")).toBe(false);
-    expect(destinationById("tools")?.group).toBe("tools");
+  it("keeps the recovery job beneath it current on its own row", () => {
+    expect(isCurrentDestination(row!, "/file-workbench")).toBe(true);
+    expect(isCurrentDestination(row!, "/file-workbench/recovery/job-1")).toBe(true);
   });
 });
 

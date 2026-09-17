@@ -92,6 +92,7 @@ function painted(
     kind,
     recordId,
     matterId,
+    detailIsMatterNumber: false,
     link: null,
     settled: false,
     sourceKeys: [],

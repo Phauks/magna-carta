@@ -72,10 +72,9 @@ export const HARD_RULES = [
     summary: "a focused test, which silently disables every other test in its file",
     why:
       "A stray `.only` is green, loud in no output, and it takes the rest of the file's coverage with " +
-      "it. This repository is unusually exposed to it: the test battery is ASKED FOR on a pull request " +
-      "(the run-tests label) rather than automatic, so a focused test can sit on a branch through " +
-      "review and only ever run, narrowed, in the merge queue. The tree is clean today, which is what " +
-      "makes a hard zero free.",
+      "it. This repository is exposed to it: the test battery runs on the machine that made the change " +
+      "(`pnpm gate`), never on a runner of its own, so a focused test can sit on a branch through " +
+      "review and only ever run narrowed. The tree is clean today, which is what makes a hard zero free.",
     fixture: {
       "focused.test.ts": 'import { it } from "vitest";\nit.only("focused", () => {});\n',
     },

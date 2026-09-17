@@ -179,17 +179,6 @@ export function browseColumns(context: FileColumnContext): GridColumn<FileManage
       value: (row) => (row.kind === "folder" ? "" : createdBy(row.file)),
     },
     {
-      id: FILE_COLUMN_IDENTIFIERS.location,
-      label: "Location",
-      type: "text",
-      filter: "set",
-      // Derivable from the folder, so it says nothing inside a folder listing and everything in
-      // the results and analysis views. Off here, forced on there.
-      hidden: true,
-      value: (row) =>
-        index.pathText(row.kind === "folder" ? row.folder.parentFolderId : row.file.folderId),
-    },
-    {
       id: FILE_COLUMN_IDENTIFIERS.created,
       label: "Date Created",
       type: "date",
@@ -218,13 +207,31 @@ export function browseColumns(context: FileColumnContext): GridColumn<FileManage
 }
 
 /**
- * The search-results and analysis columns: the browse set with Location forced on, because a row
- * whose neighbours live in different folders is unreadable without saying where each one is.
+ * The search-results and analysis columns: the browse set plus Location, because a row whose
+ * neighbours live in different folders is unreadable without saying where each one is.
+ *
+ * LOCATION EXISTS ONLY HERE (owner ruling, 2026-09-16). A folder listing already answers "where is
+ * this" in the crumb above it and the tree beside it, so in browse the column restated the one fact
+ * the reader could not get away from, once per row, and it had to ship hidden to keep from doing
+ * so. A column whose only honest setting is off in the view a reader spends their time in is not a
+ * column that view has; keeping it there as an option meant the browse table could be switched into
+ * a state where a whole column read the same value top to bottom. These two views are where rows
+ * genuinely come from different folders, so this is where the question is real.
  */
 export function locatedColumns(context: FileColumnContext): GridColumn<FileManagerRow>[] {
-  return browseColumns(context).map((column) =>
-    column.id === FILE_COLUMN_IDENTIFIERS.location ? { ...column, hidden: false } : column,
-  );
+  const columns = browseColumns(context);
+  const location: GridColumn<FileManagerRow> = {
+    id: FILE_COLUMN_IDENTIFIERS.location,
+    label: "Location",
+    type: "text",
+    filter: "set",
+    value: (row) =>
+      context.index.pathText(row.kind === "folder" ? row.folder.parentFolderId : row.file.folderId),
+  };
+  // Seated where it was: after who made the file, ahead of the dates.
+  const before = columns.findIndex((column) => column.id === FILE_COLUMN_IDENTIFIERS.created);
+  const at = before === -1 ? columns.length : before;
+  return [...columns.slice(0, at), location, ...columns.slice(at)];
 }
 
 /**

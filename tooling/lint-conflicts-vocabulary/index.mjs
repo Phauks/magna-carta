@@ -34,8 +34,8 @@ import { fileURLToPath } from "node:url";
 // conclude; the platform may not. So `cleared` is allowed where it is a disposition value and nowhere
 // else, and the allowance is narrow enough to be checked by reading the line.
 //
-// Run: `pnpm run lint:conflicts-vocabulary`. Wired into the governance job of
-// .github/workflows/gate.yml beside lint:custodian-vocabulary.
+// Run: `pnpm run lint:conflicts-vocabulary`. Runs in the gate's governance dimension (every
+// `lint:*` script does, derived from the root package.json) beside lint:custodian-vocabulary.
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 

@@ -3,6 +3,7 @@ import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import type { MatterId, UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
+import { runInterleaved, afterRead } from "@magna-carta/data-access/interleave";
 import { appendRate, createRateCard, reRateUnbilledDrafts } from "../src/rate-service.ts";
 import { RateValidationError } from "../src/rate-validation.ts";
 import { captureTimeEntry } from "../src/time-entry-service.ts";
@@ -483,5 +484,144 @@ describe("reRateUnbilledDrafts", () => {
       amount_minor: 45000,
     });
     expect(await countAudits(database, "time_entry.re_rated")).toBe(2);
+  });
+});
+
+async function bill(database: BatchDatabase, id: string): Promise<void> {
+  await database
+    .prepare("UPDATE time_entry SET status = 'billed', invoice_id = 'invoice_raced' WHERE id = ?1")
+    .bind(id)
+    .run();
+}
+
+// A re-rate has the widest read-to-commit window in the package, and it widens with the size of the
+// firm: it reads its candidate list once, then makes one rate-resolution round trip PER CANDIDATE,
+// then commits every rewrite in a single batch at the end. An entry that was unbilled when the list
+// was read can therefore be invoiced before the rewrite lands, and the money question is whether the
+// rewrite can still reach it — a billed entry whose amount_minor moves no longer matches the invoice
+// the client was sent.
+//
+// The candidate query excludes billed rows, and the test above proves that. It cannot prove this:
+// by the time the batch runs, that query's answer is stale. What has to hold under a race is the
+// rewrite statement's own `AND status IN ('draft','submitted','approved')`, and the only way to ask
+// is to bill the row inside the window.
+describe("reRateUnbilledDrafts racing the invoice run", () => {
+  async function cardWithRetroactiveVersion(database: BatchDatabase) {
+    await seedMatter(database, "matter_1");
+    const { rateCardId, effect: cardEffect } = await createRateCard(
+      database,
+      { name: "Standard" },
+      options,
+    );
+    await commitEffectBatch(database, cardEffect, { now: clock.now });
+    for (const [rateE4, validFrom] of [
+      [4500000, "2026-06-01"],
+      [5000000, "2026-06-15"],
+    ] as const) {
+      await commitEffectBatch(
+        database,
+        (
+          await appendRate(
+            database,
+            {
+              rateCardId,
+              tier: "matter",
+              scopedId: "matter_1",
+              rateE4,
+              currency: "USD",
+              validFrom,
+            },
+            options,
+          )
+        ).effect,
+        { now: clock.now },
+      );
+    }
+    return rateCardId;
+  }
+
+  it("cannot move the amount on an entry billed after the candidates were read", async () => {
+    const database = freshDatabase();
+    const rateCardId = await cardWithRetroactiveVersion(database);
+    const raced = await captureCardEntry(database, rateCardId, "draft");
+    const untouched = await captureCardEntry(database, rateCardId, "draft");
+
+    await runInterleaved({
+      database,
+      // The invoice run lands the moment the candidate list is in hand — before a single rate has
+      // been resolved, which is the widest version of the window and the one worth pinning.
+      point: afterRead("FROM time_entry WHERE rate_card_id = ?1"),
+      concurrentWriter: () => bill(database, raced),
+      operation: async (racing) => {
+        const { effect } = await reRateUnbilledDrafts(
+          racing,
+          { rateCardId, fromDate: "2026-06-01", toDate: "2026-07-01" },
+          options,
+        );
+        await commitEffectBatch(racing, effect, { now: clock.now });
+      },
+    });
+
+    // The billed entry keeps the rate it was invoiced at. Its neighbour, still unbilled, is corrected.
+    expect(await rateOf(database, raced)).toMatchObject({ rate_e4: 4500000, amount_minor: 45000 });
+    expect(await rateOf(database, untouched)).toMatchObject({
+      rate_e4: 5000000,
+      amount_minor: 50000,
+    });
+  });
+
+  it("holds the line when the billing lands mid-loop, after some rates have already resolved", async () => {
+    const database = freshDatabase();
+    const rateCardId = await cardWithRetroactiveVersion(database);
+    const first = await captureCardEntry(database, rateCardId, "draft");
+    const second = await captureCardEntry(database, rateCardId, "draft");
+
+    await runInterleaved({
+      database,
+      // The second rate lookup of the resolve loop — so the race lands with part of the rewrite set
+      // already computed against a state that has since changed.
+      point: afterRead("FROM rate WHERE rate_card_id", 2),
+      concurrentWriter: () => bill(database, first),
+      operation: async (racing) => {
+        const { effect } = await reRateUnbilledDrafts(
+          racing,
+          { rateCardId, fromDate: "2026-06-01", toDate: "2026-07-01" },
+          options,
+        );
+        await commitEffectBatch(racing, effect, { now: clock.now });
+      },
+    });
+
+    expect(await rateOf(database, first)).toMatchObject({ rate_e4: 4500000, amount_minor: 45000 });
+    expect(await rateOf(database, second)).toMatchObject({ rate_e4: 5000000, amount_minor: 50000 });
+  });
+
+  it("reports a count that includes the entry it turned out not to rewrite", async () => {
+    // Same shape as the fee ledger's freeze: the guard protects the invoice, and the caller is told
+    // the pre-race intent. `count` is computed from the candidate list, and the batch that executes
+    // afterwards reports no per-statement row count anyone could reconcile it against. Pinned so the
+    // number's meaning is on the record — it counts entries VISITED, not entries changed.
+    const database = freshDatabase();
+    const rateCardId = await cardWithRetroactiveVersion(database);
+    const raced = await captureCardEntry(database, rateCardId, "draft");
+
+    let reported = -1;
+    await runInterleaved({
+      database,
+      point: afterRead("FROM time_entry WHERE rate_card_id = ?1"),
+      concurrentWriter: () => bill(database, raced),
+      operation: async (racing) => {
+        const { count, effect } = await reRateUnbilledDrafts(
+          racing,
+          { rateCardId, fromDate: "2026-06-01", toDate: "2026-07-01" },
+          options,
+        );
+        reported = count;
+        await commitEffectBatch(racing, effect, { now: clock.now });
+      },
+    });
+
+    expect(reported).toBe(1);
+    expect(await rateOf(database, raced)).toMatchObject({ rate_e4: 4500000 });
   });
 });

@@ -1,4 +1,5 @@
 import type { DirectoryIdentifierContext } from "@magna-carta/directory/identifiers";
+import { guarded } from "@magna-carta/data-access/effect-batch";
 import { DIRECTORY_IDENTIFIER_TABLE } from "@magna-carta/directory/statements";
 import { readMatterParties } from "@magna-carta/directory/party";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -341,8 +342,8 @@ async function search(
   // clean. The key names are the ones rows written under the old hop budgets carry, so one parser
   // reads both.
   const inputs = {
-    subjectEntityIds: [...seedIds].sort(),
-    expandedEntityIds: expanded.map((entity) => entity.entityId).sort(),
+    subjectEntityIds: [...seedIds].toSorted(),
+    expandedEntityIds: expanded.map((entity) => entity.entityId).toSorted(),
     identifierRefs: await readIdentifierReferences(context, [...seedIds]),
     skippedIdentifierTypes: ["dob", "ssn_last_four"],
     // WHAT THE NAME COMPARISON ACTUALLY DID, recorded verbatim beside the traversal and read the same
@@ -436,7 +437,7 @@ async function search(
         }),
       ),
       // The run settles in the same commit as its record, so a completed run always has one.
-      completeRunStatement(context.database, checkId, settledAt),
+      guarded(completeRunStatement(context.database, checkId, settledAt), "conflicts-run.complete"),
       conflictsAuditStatement(context.database, options, "conflicts.check.run", checkId),
     ],
     // The announcement, in the same atomic batch as the check and its hits, so the message exists if

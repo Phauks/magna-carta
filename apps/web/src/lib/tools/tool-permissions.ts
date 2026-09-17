@@ -1,5 +1,6 @@
 /*
- * What the member looking at the Tools area, or at the File Workbench, is allowed to use.
+ * What the member is allowed to run: every tool in the rail, the File Workbench's capability tabs,
+ * and the few destinations gated by a permission of their own.
  *
  * MOCK SEAM. Real grants arrive with role seeding; until then the managing partner sees everything,
  * so this returns every permission the app's tool surfaces declare. It is one function rather than
@@ -26,6 +27,11 @@ import { CATALOG } from "@magna-carta/tools/catalog";
 export function grantedPermissions(): ReadonlySet<Permission> {
   return new Set<Permission>([
     ...CATALOG.map((tool) => tool.permission),
+    // Firm Usage is no longer a tool — it is a Firm destination (navigation/destinations.ts), which
+    // is where a firm reading its own consumption belongs. Its permission did not move with it into
+    // CATALOG's map above, so it is named here: the row is gated exactly as it always was, and a
+    // gate that quietly stopped applying would have been the worst of the two outcomes.
+    assertPermission("tools:firmUsage"),
     // The bench itself, and the firm-wide scan its Malware Scan capability borrows.
     assertPermission("tools:fileWorkbench"),
     assertPermission("firm:scanFile"),

@@ -97,6 +97,42 @@ describe("BundleBuildCoordinator", () => {
     });
   });
 
+  // The single-flight property this object exists for, asked on the one path that can lose it. Every
+  // other decision here is read-then-write across STORAGE awaits, and workerd holds the input gate
+  // across those — a second call is not delivered until the first has written, so it sees the state
+  // and shares. The reaped-artifact path is different: deciding whether to rebuild means a HEAD
+  // against R2, which is not storage, so the gate opens mid-decision and a second request is
+  // delivered while the first is still deciding. Both then read `ready`, both find the object gone,
+  // and both enqueue — a duplicated build of a bundle that can be large.
+  //
+  // Driven through the STUB rather than by calling the method twice on the instance: direct calls
+  // interleave at every await including storage, which is more interleaving than production has, so a
+  // failure there would not prove a reachable race. Two RPCs are gated exactly as two requests are.
+  it("two requests racing on a reaped artifact enqueue one rebuild, not two", async () => {
+    const stub = coordinatorStub("firm_1:hash-reaped-race");
+    const sends = await runInDurableObject(stub, async (instance: BundleBuildCoordinator) => {
+      const recorded = recordSends(instance);
+      await instance.requestBundle(message("hash-reaped-race"));
+      // Completed, then the lifecycle rule expired the object: state survives, artifact does not.
+      await instance.markReady("bundles/hash-reaped-race.zip");
+      recorded.length = 0;
+      return recorded;
+    });
+
+    const [first, second] = await runInDurableObject(
+      stub,
+      async (instance: BundleBuildCoordinator) =>
+        await Promise.all([
+          instance.requestBundle(message("hash-reaped-race")),
+          instance.requestBundle(message("hash-reaped-race")),
+        ]),
+    );
+
+    expect(first.status).toBe("building");
+    expect(second.status).toBe("building");
+    expect(sends).toHaveLength(1);
+  });
+
   it("a ready job whose artifact is still present is shared (no rebuild)", async () => {
     await env.R2.put("bundles/hash-present.zip", "zip bytes");
     const stub = coordinatorStub("firm_1:hash-present");

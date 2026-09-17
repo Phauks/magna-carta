@@ -144,7 +144,7 @@
 {#if import.meta.env.DEV}
   <div class="flex min-h-screen flex-col gap-32 bg-surface-default p-24 text-text-default">
     <header class="flex max-w-prose flex-col gap-8">
-      <ScreenHeader title="Upload states" back={DEVELOPER_CONSOLE_BACK} />
+      <ScreenHeader title="Upload states" favoritable={false} back={DEVELOPER_CONSOLE_BACK} />
       <p class="text-sm text-text-muted">
         The Upload dialog and the top-bar upload tray, over the real upload queue with its network
         replaced by a stand-in that moves each file through its stages on a timer. Two files fail

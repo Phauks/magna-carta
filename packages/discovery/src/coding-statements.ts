@@ -624,6 +624,7 @@ export function applyDocumentTagStatement(
 
 // Removal is a STATE, not a deletion: an actor and an instant land on the row and it stays readable
 // forever. That is what makes the coding history of one document one indexed read years later.
+// fitness:unguarded-write — matches a set rather than one row, so zero is an empty set rather than a refusal
 export function removeDocumentTagStatement(
   database: SqlDatabase,
   target: {
@@ -657,6 +658,7 @@ export function removeDocumentTagStatement(
 // Clearing the previous answer in a single-choice group, so changing one is remove-plus-apply in one
 // batch. Written by group rather than by tag because the caller does not know, and should not have to
 // read, which answer is currently there.
+// fitness:unguarded-write — matches a set rather than one row, so zero is an empty set rather than a refusal
 export function clearSingleChoiceGroupStatement(
   database: SqlDatabase,
   target: {
@@ -839,6 +841,7 @@ export async function readReachableDocumentIds(
 // Undoing an apply removes PRECISELY the rows that event wrote and which are still live. A tag
 // somebody else applied afterwards has its own row and its own event and is untouched; a row already
 // removed keeps its original removal attribution.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function undoAppliedRowsStatement(
   database: SqlDatabase,
   target: { undoneEventId: ReviewTagEventId; undoEventId: ReviewTagEventId; now: string },
@@ -863,6 +866,7 @@ export function undoAppliedRowsStatement(
 // somebody has since re-applied the same tag, or answered the same single-choice group differently,
 // that live row wins and this one stays removed. Guarding in SQL rather than reading first means two
 // concurrent undos cannot both decide the coast is clear.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function undoRemovedRowsStatement(
   database: SqlDatabase,
   target: { undoneEventId: ReviewTagEventId },

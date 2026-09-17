@@ -14,14 +14,17 @@
    * listed twice however they were reached. The draft's key is what decides sameness; this file
    * only refuses to add a key the list already holds.
    *
-   * THE ROLE IS THE CHIP'S OWN SMALL FIELD. "Counsel for the defendant", "Presiding", "Reporter":
-   * a word or two beside the name, optional, and typed after the pick rather than before it,
-   * because the role is a fact about this event and the name is a fact about the person.
+   * THE ROLE IS THE CHIP'S OWN SMALL FIELD. "Appearing counsel", "Judge", "Court reporter": a word
+   * or two beside the name, optional, and answered after the pick rather than before it, because
+   * the role is a fact about this event and the name is a fact about the person. It is
+   * participant-role-field.svelte — the product's dropdown-with-add, not the bare text box it was,
+   * which offered a reader nothing to tell them what belonged in it.
    */
   import * as Combobox from "@magna-carta/design-system/combobox";
   import Button from "@magna-carta/design-system/button";
   import DirectoryEntityPicker from "$lib/directory/directory-entity-picker.svelte";
   import Input from "@magna-carta/design-system/input";
+  import ParticipantRoleField from "./participant-role-field.svelte";
   import { badgeClasses } from "@magna-carta/design-system/badge";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import X from "@lucide/svelte/icons/x";
@@ -148,14 +151,11 @@
             {participant.displayName}
             <X class="size-12" aria-hidden="true" />
           </button>
-          <Input
-            class="w-3xs"
-            aria-label="Role for {participant.displayName}"
-            placeholder={placeholderOf("Role")}
-            autocomplete="off"
+          <ParticipantRoleField
+            accessibleName="Role for {participant.displayName}"
             {disabled}
             value={participant.role}
-            oninput={(event) => setRole(participant.key, event.currentTarget.value)}
+            onSettle={(role) => setRole(participant.key, role)}
           />
         </li>
       {/each}

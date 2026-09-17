@@ -70,6 +70,7 @@ export function recordFeedObjectStatement(
 // Mark one fed object removed. A timestamp rather than a delete: "this text was copied out and has
 // since been deleted" is exactly the question a firm asks on opt-out, and a deleted row answers it
 // with silence.
+// fitness:unguarded-write — matches a set rather than one row, so zero is an empty set rather than a refusal
 export function markFeedObjectRemovedStatement(
   database: SqlDatabase,
   fileId: FileId,

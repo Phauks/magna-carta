@@ -111,7 +111,7 @@
 {#if import.meta.env.DEV}
   <div class="flex min-h-screen flex-col gap-32 bg-surface-default p-24 text-text-default">
     <header class="flex max-w-prose flex-col gap-8">
-      <ScreenHeader title="Sign-in screen states" back={DEVELOPER_CONSOLE_BACK} />
+      <ScreenHeader title="Sign-in screen states" favoritable={false} back={DEVELOPER_CONSOLE_BACK} />
       <p class="text-sm text-text-muted">
         Every signed-out screen and every state it can be in, rendered from the real components. Use
         this instead of a standalone mockup: a mockup is styled by hand and drifts the moment either

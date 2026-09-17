@@ -90,6 +90,9 @@
     class={mergeClasses(
       floatingContentClasses("anchored", PRESENCE_SCALE_FADE),
       "mc-date-picker-content",
+      // The scope every band state in date-range-picker.css hangs off. Without it those rules are
+      // bare `.mc-calendar-day[...]` selectors reaching every calendar in the product.
+      "mc-date-range-calendar",
     )}
   >
       <DateRangePickerPrimitive.Calendar>
