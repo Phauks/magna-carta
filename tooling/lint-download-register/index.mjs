@@ -112,24 +112,22 @@ function stripComments(text) {
 
 const relative = (file) => path.relative(ROOT, file).split(path.sep).join("/");
 
-const problems = [];
-const declaredAndStillNeeded = new Set();
-let deliveryPaths = 0;
+/**
+ * The whole audit, over named sources rather than over the disk.
+ *
+ * Taking `{ name, source }` pairs is what makes the rules testable: the self-test below feeds it
+ * sources that do not exist in the tree, which is the only way to prove the scan still SEES a
+ * delivery path that forgot to register — a gate nobody has watched fail is indistinguishable from
+ * a repository that has never had the defect.
+ */
+export function auditDownloadRegister(files, allowances = NOT_A_MEMBER_DOWNLOAD) {
+  const problems = [];
+  const declaredAndStillNeeded = new Set();
+  let deliveryPaths = 0;
 
-for (const root of SCAN_ROOTS) {
-  const directory = path.join(ROOT, root);
-  let exists = true;
-  try {
-    statSync(directory);
-  } catch {
-    exists = false;
-  }
-  if (!exists) continue;
-
-  for (const file of sourceFilesUnder(directory)) {
-    const name = relative(file);
+  for (const { name, source: raw } of files) {
     if (name.endsWith(".test.ts")) continue;
-    const source = stripComments(readFileSync(file, "utf8"));
+    const source = stripComments(raw);
 
     // Rule 1 — one writer.
     if (source.includes(INSERT_STATEMENT) && name !== CHOKEPOINT) {
@@ -146,7 +144,7 @@ for (const root of SCAN_ROOTS) {
     if (!delivers || name === CHOKEPOINT) continue;
     deliveryPaths += 1;
     if (source.includes(REGISTER_CALL)) continue;
-    if (NOT_A_MEMBER_DOWNLOAD.has(name)) {
+    if (allowances.has(name)) {
       declaredAndStillNeeded.add(name);
       continue;
     }
@@ -158,29 +156,138 @@ for (const root of SCAN_ROOTS) {
         `NOT_A_MEMBER_DOWNLOAD in tooling/lint-download-register/index.mjs with the reason.`,
     );
   }
+
+  for (const [name, reason] of allowances) {
+    if (declaredAndStillNeeded.has(name)) continue;
+    problems.push(
+      `${name}\n    is declared as serving something that is not a member's download — "${reason}" — ` +
+        `but it no longer needs the allowance: it either registers now, or has stopped delivering ` +
+        `bytes. Delete its entry from NOT_A_MEMBER_DOWNLOAD.`,
+    );
+  }
+
+  return { problems, deliveryPaths };
 }
 
-for (const [name, reason] of NOT_A_MEMBER_DOWNLOAD) {
-  if (declaredAndStillNeeded.has(name)) continue;
-  problems.push(
-    `${name}\n    is declared as serving something that is not a member's download — "${reason}" — ` +
-      `but it no longer needs the allowance: it either registers now, or has stopped delivering ` +
-      `bytes. Delete its entry from NOT_A_MEMBER_DOWNLOAD.`,
+/*
+ * The scan proves itself before it scans, the way tooling/lint-control-characters.mjs does. Each
+ * case is a whole tree of named sources and the number of problems it must produce: a gate whose
+ * rules have quietly stopped matching reports a clean repository, which is the one failure nobody
+ * ever notices.
+ */
+const SELF_TEST = [
+  {
+    name: "a delivery path that registers is clean",
+    files: [{ name: "a/deliver.ts", source: "presignGet(key);\nregisterDownload(database, {});" }],
+    allowances: new Map(),
+    expect: 0,
+  },
+  {
+    name: "a delivery path that registers nothing is caught",
+    files: [{ name: "a/deliver.ts", source: "await presignGet(key);" }],
+    allowances: new Map(),
+    expect: 1,
+  },
+  {
+    name: "an archive stream is a delivery path too",
+    files: [{ name: "a/archive.ts", source: "return makeZip(entries);" }],
+    allowances: new Map(),
+    expect: 1,
+  },
+  {
+    name: "a declared allowance excuses one",
+    files: [{ name: "a/deliver.ts", source: "await presignGet(key);" }],
+    allowances: new Map([["a/deliver.ts", "not a member's download"]]),
+    expect: 0,
+  },
+  {
+    name: "an allowance whose path stopped delivering is caught",
+    files: [{ name: "a/deliver.ts", source: "return nothing;" }],
+    allowances: new Map([["a/deliver.ts", "not a member's download"]]),
+    expect: 1,
+  },
+  {
+    name: "a second writer of the insert statement is caught",
+    files: [{ name: "a/writer.ts", source: `import { ${INSERT_STATEMENT} } from "x";` }],
+    allowances: new Map(),
+    expect: 1,
+  },
+  {
+    name: "the chokepoint itself writes and delivers freely",
+    files: [{ name: CHOKEPOINT, source: `${INSERT_STATEMENT}(database);\npresignGet(key);` }],
+    allowances: new Map(),
+    expect: 0,
+  },
+  {
+    name: "a delivery mentioned only in a comment is not a delivery",
+    files: [
+      { name: "a/prose.ts", source: "// presignGet(key) is what the route does\nexport {};" },
+    ],
+    allowances: new Map(),
+    expect: 0,
+  },
+  {
+    name: "a test file is never a delivery path",
+    files: [{ name: "a/deliver.test.ts", source: "await presignGet(key);" }],
+    allowances: new Map(),
+    expect: 0,
+  },
+];
+
+function runSelfTest() {
+  const failures = [];
+  for (const { name, files, allowances, expect } of SELF_TEST) {
+    const { problems } = auditDownloadRegister(files, allowances);
+    if (problems.length !== expect) failures.push({ name, found: problems.length, expect });
+  }
+  return failures;
+}
+
+function sourcesOnDisk() {
+  const files = [];
+  for (const root of SCAN_ROOTS) {
+    const directory = path.join(ROOT, root);
+    try {
+      statSync(directory);
+    } catch {
+      continue;
+    }
+    for (const file of sourceFilesUnder(directory)) {
+      files.push({ name: relative(file), source: readFileSync(file, "utf8") });
+    }
+  }
+  return files;
+}
+
+function main() {
+  const selfTestFailures = runSelfTest();
+  if (selfTestFailures.length > 0) {
+    console.error("\nlint-download-register: the scan no longer sees what it must.\n");
+    for (const failure of selfTestFailures) {
+      console.error(
+        `  ${failure.name}\n    expected ${String(failure.expect)} problem(s), got ${String(failure.found)}`,
+      );
+    }
+    process.exit(1);
+  }
+
+  const { problems, deliveryPaths } = auditDownloadRegister(sourcesOnDisk());
+
+  if (problems.length > 0) {
+    console.error("\nThe download register is not complete:\n");
+    for (const problem of problems) console.error(`  ${problem}\n`);
+    console.error(
+      `${problems.length} problem(s). The register answers "what did I download, and can I have it ` +
+        `again"; every path that hands bytes over owes it an answer.\n`,
+    );
+    process.exit(1);
+  }
+
+  console.log(
+    `Download register: one writer (${CHOKEPOINT}), and ${deliveryPaths} delivery path(s) each ` +
+      `either register or are declared as serving something that is not a member's download ` +
+      `(${NOT_A_MEMBER_DOWNLOAD.size} declared).`,
   );
 }
 
-if (problems.length > 0) {
-  console.error("\nThe download register is not complete:\n");
-  for (const problem of problems) console.error(`  ${problem}\n`);
-  console.error(
-    `${problems.length} problem(s). The register answers "what did I download, and can I have it ` +
-      `again"; every path that hands bytes over owes it an answer.\n`,
-  );
-  process.exit(1);
-}
-
-console.log(
-  `Download register: one writer (${CHOKEPOINT}), and ${deliveryPaths} delivery path(s) each ` +
-    `either register or are declared as serving something that is not a member's download ` +
-    `(${NOT_A_MEMBER_DOWNLOAD.size} declared).`,
-);
+main();

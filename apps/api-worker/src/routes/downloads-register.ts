@@ -18,6 +18,7 @@ import {
 } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
+import { cursorQuery, paginated } from "../contracts/pagination.ts";
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import {
@@ -27,6 +28,7 @@ import {
   shelfExpiry,
   snapshotObjectKey,
 } from "../downloads/download-register.ts";
+import { decodeCursor, encodeCursor } from "@magna-carta/data-access/cursor-pagination";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
 
@@ -57,9 +59,20 @@ const DownloadItemView = z
   })
   .openapi("DownloadItem");
 
-const DownloadShelfResponse = z
-  .object({ items: z.array(DownloadItemView) })
-  .openapi("DownloadShelfResponse");
+/*
+ * The register is paged, on the platform's one list envelope.
+ *
+ * It used to answer `{ items: [...] }` — one bounded read, on the reasoning that a shelf is short-
+ * lived by construction. Two changes took that premise away: every download registers now, not only
+ * what the platform made, and the row outlives the bytes rather than being swept with them. A
+ * member's register therefore grows without bound, and a whole read of it would get slower for the
+ * rest of their time at the firm.
+ *
+ * Naming the array `data` is not cosmetic either. `pnpm run lint:list-pagination` reads the EMITTED
+ * contract for GETs answering `{ data: [...] }` with no `nextCursor` beside them — so a list that
+ * called its array something else was invisible to the gate that exists to catch exactly this.
+ */
+const DownloadShelfPage = paginated(DownloadItemView).openapi("DownloadShelfPage");
 
 // One fetch answers for every kind, because the member performed one act. An artifact hands back a
 // freshly minted presigned URL — the register never proxies bytes, so the browser's own download
@@ -196,12 +209,23 @@ export const downloadSnapshotRoute = defineOpenAPIRoute(downloadSnapshotMeta, {
 export const downloadShelfRoute = defineOpenAPIRoute(downloadShelfMeta, {
   method: "get",
   path: "/api/v1/downloads",
+  request: {
+    // `search` narrows the whole register on the server rather than the page in hand: the register
+    // has no bound, so narrowing what a client already loaded would answer confidently about a
+    // fraction of it. `limit` exists for the same reason from the other end — the top-bar tray shows
+    // the newest four on every screen in the application, and asking for a full page of a register
+    // that now keeps everything would make that chrome cost more than the screen under it.
+    query: cursorQuery.extend({
+      search: z.string().max(200).optional(),
+      limit: z.coerce.number().int().min(1).max(SHELF_READ_LIMIT).optional(),
+    }),
+  },
   description:
-    "The session member's own download shelf: what the platform produced for them, newest first, with what has already been taken and when each item expires. Scoped to the member, never the firm.",
+    "The session member's own register of everything they have downloaded, newest first, with what has already been taken and when each item's bytes expire. Optionally narrowed to titles containing `search`. Scoped to the member, never the firm.",
   responses: {
     200: {
       description: "The member's shelf",
-      content: { "application/json": { schema: DownloadShelfResponse } },
+      content: { "application/json": { schema: DownloadShelfPage } },
     },
     401: {
       description: "No valid session",
@@ -347,10 +371,19 @@ export function registerDownloadRegisterRoutes(
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
-      const rows = await readDownloadShelf(firm.firmDatabase, userId, SHELF_READ_LIMIT);
+      const { cursor, search, limit } = c.req.valid("query");
+      const after = decodeCursor(cursor);
+      const size = limit ?? SHELF_READ_LIMIT;
+      // One more than the page, so "is there another page" is answered by the read rather than by a
+      // second count that could disagree with it.
+      const rows = await readDownloadShelf(firm.firmDatabase, userId, size + 1, after, search);
+      const page = rows.slice(0, size);
+      const last = page.at(-1);
       return c.json(
         {
-          items: rows.map((row) => ({
+          nextCursor:
+            rows.length > size && last !== undefined ? encodeCursor(last.createdAt, last.id) : null,
+          data: page.map((row) => ({
             id: row.id,
             title: row.title,
             kind: row.kind,

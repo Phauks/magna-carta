@@ -2,7 +2,7 @@
 worktree: C:/dev/magna-carta-worktrees/claude/hopeful-carson-halbgv
 area: The download register — every download registers, and the shelf becomes a real table
 status: building
-touches: packages/database/src/per-firm-schema.ts, packages/database/migrations, packages/data-access/src/download-register-statements.ts, apps/api-worker/src/downloads, apps/api-worker/src/routes/downloads.ts, apps/api-worker/src/routes/downloads-register.ts, apps/api-worker/src/routes/files.ts, apps/api-worker/openapi/openapi.json, packages/api-client/src/types.gen.ts, apps/web/src/lib/export, apps/web/src/routes/(app)/downloads, docs/conventions, changelog.d/
+touches: packages/database/src/per-firm-schema.ts, packages/database/migrations, packages/data-access/src/download-register-statements.ts, apps/api-worker/src/downloads, apps/api-worker/src/routes/downloads.ts, apps/api-worker/src/routes/downloads-register.ts, apps/api-worker/src/routes/files.ts, apps/api-worker/openapi/openapi.json, packages/api-client/src/types.gen.ts, apps/web/src/lib/export, apps/web/src/routes/(app)/downloads, tooling/lint-download-register, docs/conventions, docs/user/downloads.md, changelog.d/
 ---
 
 Every download registers, on the owner's ruling of 2026-09-16: `bundle` and `conversion` are

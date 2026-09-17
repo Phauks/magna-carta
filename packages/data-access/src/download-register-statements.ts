@@ -1,5 +1,6 @@
 import type { DownloadItemId } from "@magna-carta/identifiers/types";
 import type { SqlDatabase, SqlStatement } from "./idempotency-statements.ts";
+import { askableTerm, likePattern, LIKE_ESCAPE_CLAUSE } from "./like-search.ts";
 
 // The download register — one member's shelf of what the platform produced for them, held for a
 // short window and swept. Behavior over the table lives here; the structure lives in
@@ -113,7 +114,7 @@ export function insertDownloadItemStatement(
 /** Where a page left off: the (created_at, id) pair of the last row it returned. */
 export interface DownloadShelfCursor {
   readonly createdAt: string;
-  readonly id: DownloadItemId;
+  readonly id: string;
 }
 
 /**
@@ -129,29 +130,42 @@ export interface DownloadShelfCursor {
  * rows written in the same millisecond still have a definite order, so a page boundary landing
  * between them can neither repeat one nor drop it. Comparing the pair as a tuple is the whole
  * mechanism — `created_at < ?` alone would skip every sibling of the last row on the page.
+ *
+ * A `search` narrows the whole register rather than the page in hand, which is the only honest way
+ * to search a paged read: narrowing what was loaded would answer confidently about a fraction of a
+ * register that has no bound.
  */
 export async function readDownloadShelf(
   database: SqlDatabase,
   memberId: string,
   limit: number,
   after?: DownloadShelfCursor,
+  search?: string,
 ): Promise<DownloadItemRow[]> {
-  if (after === undefined) {
-    const { results } = await database
-      .prepare(
-        `SELECT ${COLUMNS} FROM ${DOWNLOAD_ITEM_TABLE} WHERE member_id = ?1 ORDER BY created_at DESC, id DESC LIMIT ?2`,
-      )
-      .bind(memberId, limit)
-      .all();
-    return results.map(toRow);
+  const bindings: (string | number)[] = [memberId];
+  const conditions = ["member_id = ?1"];
+  if (after !== undefined) {
+    bindings.push(after.createdAt, after.id);
+    conditions.push(
+      `(created_at, id) < (?${String(bindings.length - 1)}, ?${String(bindings.length)})`,
+    );
   }
+  // The title is the whole of what is searched, because it is the whole of what a member has to
+  // recognise a row by: everything else on a download is a kind, a state or an instant, each of
+  // which the register's own column filters already narrow on, exactly and without a term.
+  const term = askableTerm(search);
+  if (term !== undefined) {
+    bindings.push(likePattern(term));
+    conditions.push(`title LIKE ?${String(bindings.length)} ${LIKE_ESCAPE_CLAUSE}`);
+  }
+  bindings.push(limit);
   const { results } = await database
     .prepare(
       `SELECT ${COLUMNS} FROM ${DOWNLOAD_ITEM_TABLE}
-         WHERE member_id = ?1 AND (created_at, id) < (?2, ?3)
-         ORDER BY created_at DESC, id DESC LIMIT ?4`,
+         WHERE ${conditions.join(" AND ")}
+         ORDER BY created_at DESC, id DESC LIMIT ?${String(bindings.length)}`,
     )
-    .bind(memberId, after.createdAt, after.id, limit)
+    .bind(...bindings)
     .all();
   return results.map(toRow);
 }
