@@ -957,10 +957,20 @@ is usually the fastest way to understand the rule.
   inside the label the mark inherits the label's overflow, so it is the FIRST thing to disappear on
   exactly the rows long enough to need it — "Property Listing Links" hid its own Soon badge, which is
   the one row where the badge was load-bearing. _(the sidebar rows, 2026-09-16)_
-- **A row that can be dragged says so at rest.** A grab cursor answers only once the pointer is
-  already on the row, which is an answer to a question nobody asked; a grip states the affordance
-  before the hand commits. The grip is decoration, not a second control — the whole row is the
-  handle. _(Customize mode, 2026-09-16)_
+- **A row that can be dragged says so at rest, and the thing that says so must work.** A grab cursor
+  answers only once the pointer is already on the row, which is an answer to a question nobody
+  asked; a grip states the affordance before the hand commits. But a grip drawn beside the gesture
+  rather than inside it is worse than no grip at all: it answers the question WRONGLY, and the
+  reader who takes it at its word finds nothing happens. The press belongs to the whole row — grip,
+  glyph, name and mark alike — with the row's own trailing control let out by target, because that
+  is the one thing on the row somebody presses to act rather than to move. _(Customize mode,
+  2026-09-16; the handle corrected 2026-09-17)_
+- **A nested list is stepped far enough to read as one.** A rail's rows already carry an inset of
+  their own, so a sub-menu indented by less than that inset again puts a child's glyph barely a
+  glyph's width right of its parent's, and the fold reads as one flat list — the hairline down the
+  edge then has to carry the whole relationship by itself. Step the child by more than the row's
+  own inset, and let the rule sit on the step rather than in place of it. _(the rail's sub-menus,
+  2026-09-17)_
 - **Direct manipulation settles; it does not hunt.** A drag that reorders measures the real PITCH
   between two rows (a row's height is short by the gap between them), moves its landing index only
   once the pointer is well past a boundary and needs less travel to come back, and writes its
@@ -1358,6 +1368,19 @@ name, which is every screen outside a matter.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-17 — the second level, read and grasped
+
+The owner on the deployed rail, two items:
+
+- **"The parts under tools such as records should be indented slightly so that they are easier to
+  delineate as subparts."** The sub-menu had a 24px step against rows that already sit 8px in, so a
+  tool under Records landed almost under Records. It is a 32px step now, with the hairline on it.
+  Generalized above.
+- **"The dragging icons should be draggable, not just the text."** The grip was drawn beside the
+  element that took the press rather than inside it, so pressing the one thing on the row that says
+  "move me" did nothing. The row takes the press now. Generalized above, as an amendment to the grip
+  ruling of the day before — the affordance and the gesture are one thing or they are a lie.
 
 ### 2026-09-16 — the rail regrouped, the tools elevated, and favourites
 
