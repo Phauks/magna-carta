@@ -142,3 +142,47 @@ export const PARTICIPANT_KIND_WORDS: Readonly<Record<ParticipantKind, string>> =
   entity: "Directory record",
   external: "External",
 };
+
+/**
+ * The roles a participant is OFFERED — offered, and nothing more than that. The record's column is
+ * free text on purpose (@magna-carta/database's per-firm schema rules it a short firm-supplied
+ * label, because the vocabulary is jurisdiction-specific and nothing downstream reads it), so this
+ * list seeds the control and never constrains what is stored. A firm whose practice needs a role
+ * nobody here thought of types it and keeps it.
+ *
+ * Alphabetical, because a list ordered by whoever happened to think of each entry has no order at
+ * all. Held by a test, so an addition cannot quietly land in the middle.
+ */
+export const PARTICIPANT_ROLE_OPTIONS: readonly string[] = [
+  "Appearing counsel",
+  "Arbitrator",
+  "Clerk of court",
+  "Client",
+  "Co-counsel",
+  "Court reporter",
+  "Deponent",
+  "Expert witness",
+  "Guardian ad litem",
+  "Interpreter",
+  "Judge",
+  "Mediator",
+  "Observer",
+  "Opposing counsel",
+  "Paralegal",
+  "Process server",
+  "Videographer",
+  "Witness",
+];
+
+/**
+ * What a typed role settles to. A role matching an offered spelling in ANY casing settles to the
+ * offered spelling, which is the whole of the drift this control exists to stop: a free-text box
+ * gave one firm "Court reporter", "court reporter" and "Court Reporter" as three different roles,
+ * and a reader narrowing to one of them saw a third of the events. Anything the list does not offer
+ * is kept exactly as written, trimmed — the vocabulary is a suggestion, not a gate.
+ */
+export function settledParticipantRole(typed: string): string {
+  const trimmed = typed.trim();
+  const lowered = trimmed.toLowerCase();
+  return PARTICIPANT_ROLE_OPTIONS.find((role) => role.toLowerCase() === lowered) ?? trimmed;
+}

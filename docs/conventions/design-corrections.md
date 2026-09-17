@@ -2929,3 +2929,41 @@ the month. can you make mock data to simulate this?"
   render, could have caught this: jsdom applies no cross-stylesheet cascade, which is precisely
   what broke. `packages/design-system/test/calendar-day-states.test.ts` reads the stylesheets as
   text and pins the scope, the declaration order, and the import order they depend on.
+
+### 2026-09-17 — a participant's role is offered, not asked for blind
+
+The owner, on the calendar's record form: "Note sure what the write-in role field means. would make
+more sense for a dropdown?" — then, having been given both options: "consider both options for
+participant role field", and "take best option".
+
+- **A blank text box does not ask its question.** The field was labelled Role and was empty, and a
+  label is not a question a reader can answer: "Role" could mean the person's job at the firm, their
+  role on the matter, or their capacity at this one setting. The correction is not a clearer label —
+  ghost text is the field's own name and vanishes at the first keystroke, which is exactly when an
+  example would be wanted — it is that **the answer set is what explains the field.** A reader who
+  sees Appearing counsel, Court reporter and Interpreter offered knows what the field is for without
+  being told.
+- **The closed dropdown was the wrong one of the two, and for a reason worth keeping.** The roles a
+  practice needs do not close: a special master, a Rule 30(b)(6) designee, a parenting coordinator,
+  a check interpreter. A closed list missing the role somebody needs does not stop them — it makes
+  them pick a wrong-but-adjacent one, which corrupts the very consistency the closed list existed to
+  protect, and does it **invisibly**, because an entry chosen from a fixed set looks clean while free
+  text looks obviously rough. Generalizes: **prefer the failure that is visible.** Where a closed
+  set cannot be completed, a control that refuses the missing value is worse than one that records
+  it, because the first hides its own gaps.
+- **The already-standing rule decided this, and the round should have started there.** _A vocabulary
+  that is not closed but is not free either is the product's dropdown-with-add_ (under _Data entry_
+  above, 2026-09-08) already says the combobox with `AddOption` "is the same control in every such
+  field". Two siblings had it — the location field on this same form, and the matter-party role —
+  and this field was simply the one that had not been carried over. **A question that a promoted
+  rule already answers is a question about which fields have not caught up yet.**
+- **What the offered list buys is one spelling, and that is worth a function of its own.** A role
+  matching an offered spelling in any casing settles to the offered spelling
+  (`settledParticipantRole`), so "court reporter" does not found a second role beside "Court
+  reporter". Free text gave one firm three spellings of the same role and a reader narrowing to one
+  of them saw a third of the events. Anything unlisted is kept exactly as typed.
+- **A field's name has to survive being read into a sentence.** "Attending as" is a clearer name for
+  this field than "Role" and was rejected anyway, because `Combobox.AddOption` renders the field's
+  name into a row that reads `Add <name>`: `Add role` is a sentence and `Add attending as` is not.
+  Generalizes: where a control composes the field's name into prose, the name is chosen against that
+  prose, not in isolation.
