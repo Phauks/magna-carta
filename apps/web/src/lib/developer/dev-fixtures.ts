@@ -70,6 +70,11 @@ export const FIXTURE_GROUPS: readonly DevPageGroup[] = [
         href: "/developer-console/loading-states",
         note: "The one loading region, over every shape",
       },
+      {
+        label: "Calendar day states",
+        href: "/developer-console/calendar-day-states",
+        note: "Every month-grid day state, today and selected among them",
+      },
     ],
   },
   {

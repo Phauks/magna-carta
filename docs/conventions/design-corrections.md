@@ -2872,3 +2872,37 @@ The owner, on the file manager: "I don't see the benefit of the 'Location' colum
   reader can switch a table into a state where a whole column reads the same value top to bottom.
 - **One table, one typeface.** A column set in a different face than the columns beside it reads as
   a different kind of data. File Type holds an extension, which is a word.
+
+### 2026-09-17 — a state one stylesheet owns is not a state every stylesheet may set
+
+The owner, on the calendar's month picker: "when a date is selected in the calendar sidebar, and it
+is today, i cannot see the date. use greater shadowing in the small calendar to delineate outside
+the month. can you make mock data to simulate this?"
+
+- **A component's own states are scoped to that component, and a shared recipe is not the place to
+  put them.** The range picker added its band states — endpoints, the muted span, today — as bare
+  `.mc-calendar-day[...]` selectors on the recipe every calendar in the product shares. Same
+  specificity, later in the cascade, so its `background-color: transparent` for today overrode the
+  selected fill everywhere, and selection's near-white foreground was left painting a number onto
+  the white surface. A rule that only makes sense inside one component hangs off a class that
+  component puts on itself.
+- **A state marker is a RING when the state can coincide with another one.** A fill can only be one
+  colour, so marking today with a fill means today and selected are competing for the same
+  property, and whichever declaration wins erases the other. The ring is inset, so the fill sits
+  behind it and the hairline simply changes colour to stay legible on it. Any state that can be
+  true at the same time as selection gets the same treatment.
+- **A boundary is shaded, not merely tinted.** Outside-month days were paler text and nothing else;
+  with six fixed weeks that is up to eleven days, and a reader had to count columns to find where
+  the month began. The wash goes on the CELL so the neighbours read as one continuous band and each
+  day keeps its own chip for hover and selection — and because the band is already the colour an
+  ordinary day hovers to, an outside-month day hovers one step darker.
+- **A state that is only reachable on the right day is a state nobody reviews.** Today-and-selected
+  happens once a month per reader, which is why a defect that made a date invisible survived every
+  round. It has a specimen now — `/developer-console/calendar-day-states`, which selects today
+  deliberately, because `data-today` comes from the clock and the fixture is the SELECTION rather
+  than the date. Generalizes: when a state depends on the clock, the ambient environment, or data a
+  reviewer cannot summon, build the specimen beside the screen rather than describing the state.
+- **A defect that lives in the cascade needs a pin that reads the cascade.** No type, and no jsdom
+  render, could have caught this: jsdom applies no cross-stylesheet cascade, which is precisely
+  what broke. `packages/design-system/test/calendar-day-states.test.ts` reads the stylesheets as
+  text and pins the scope, the declaration order, and the import order they depend on.
