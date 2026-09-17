@@ -267,8 +267,9 @@ Double-click a row, press Enter on it, or choose **Open** from its right-click m
   checks have not cleared.
 
 The tab the editor opens in is its own: leave it open while you go back to the file list, and open
-several documents at once. The editor fills that tab; to return to the matter's files, use the
-browser's Back or the file list's own tab.
+several documents at once. The editor fills that tab. To return to the matter's files, use the
+**Matter** button on the editor's bar, which saves first and then takes you back with the document
+selected; closing the document from the editor's own menu does the same.
 
 ## Saving a new version
 

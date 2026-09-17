@@ -53,3 +53,10 @@ takes over a stale lock, and the image no longer opens the editor's welcome dial
 `packages/design-system` gains one export (`extensionsOfCategory`); `(app)/+layout.svelte` gains
 the shell-less branch — both cross-cutting, both small, `vp run worktrees` shows no other stream
 on them.
+
+Seventh round, from the SDK pages the owner supplied as PDFs (the site itself is behind a bot
+check): the opening wait becomes one centered panel over the frame with the stall sentence and
+Retry inside it; the back-to-matter button goes on the editor's bar through its message protocol
+(`editor-controls.ts`), with the editor's Close routed to the same exit; PutFile answers the
+documented JSON body; CheckFileInfo names the member; the frame allows full screen; the image
+sets `mount_jail_tree=false`. `packages/data-access/src/member-statements.ts` gains one read.

@@ -61,7 +61,9 @@ describe("the host's two other messages", () => {
 describe("hostSignalOf", () => {
   it("reads the click on a host button by its id", () => {
     expect(
-      hostSignalOf(JSON.stringify({ MessageId: "Clicked_Button", Values: { Id: "mc-back-to-matter" } })),
+      hostSignalOf(
+        JSON.stringify({ MessageId: "Clicked_Button", Values: { Id: "mc-back-to-matter" } }),
+      ),
     ).toEqual({ kind: "button-clicked", id: "mc-back-to-matter" });
   });
 
