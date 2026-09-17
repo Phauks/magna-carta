@@ -11,20 +11,43 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  claimedFileCategory,
   extensionOf,
   resolveFileCategory,
+  resolveFileContentCategory,
   resolveFileIconTone,
   resolveFileTypeBadge,
+  sniffedFileCategory,
 } from "../src/lib/components/file-icon/file-types.ts";
 
 describe("resolveFileCategory", () => {
-  it("prefers the content type, which the server set, over an extension a user typed", () => {
+  it("draws what the name claims, not what the server read in the bytes", () => {
+    // The icon states the claim; the file manager's analysis states whether it holds. A row whose
+    // File Type column says "txt" draws a text file, and the disagreement is the verifier's to say.
     expect(resolveFileCategory({ contentType: "application/pdf", fileName: "note.txt" })).toBe(
-      "pdf",
+      "text",
     );
   });
 
-  it("falls back to the extension when the content type is absent or unrecognized", () => {
+  it("reads an extension nobody recognizes as unknown, whatever the bytes are", () => {
+    // A Word document renamed to end in ".do" is a Word document with a name that says otherwise.
+    // The blank sheet is honest about the name; the bytes are reported beside it, not drawn over it.
+    expect(
+      resolveFileCategory({
+        contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        fileName: "Motion.do",
+      }),
+    ).toBe("unknown");
+  });
+
+  it("falls back to the content type only where the name makes no claim", () => {
+    expect(resolveFileCategory({ contentType: "application/pdf", fileName: "Complaint" })).toBe(
+      "pdf",
+    );
+    expect(resolveFileCategory({ contentType: "application/pdf", fileName: ".hidden" })).toBe(
+      "pdf",
+    );
+    expect(resolveFileCategory({ contentType: "application/pdf" })).toBe("pdf");
     expect(resolveFileCategory({ fileName: "Q3.xlsx" })).toBe("excel");
     expect(
       resolveFileCategory({ contentType: "application/octet-stream", fileName: "a.docx" }),
@@ -61,6 +84,44 @@ describe("resolveFileCategory", () => {
     expect(resolveFileCategory({ fileName: ".gitignore" })).toBe("unknown");
     expect(resolveFileCategory({ fileName: "trailing." })).toBe("unknown");
     expect(resolveFileCategory({ contentType: "   " })).toBe("unknown");
+  });
+});
+
+describe("resolveFileContentCategory", () => {
+  it("reads the bytes first, because a decision about handling a file has to", () => {
+    // Drawn as the text file its name claims; opened as the Word document it is.
+    const input = {
+      contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      fileName: "Motion.txt",
+    };
+    expect(resolveFileCategory(input)).toBe("text");
+    expect(resolveFileContentCategory(input)).toBe("word");
+  });
+
+  it("falls back to the name where nothing was sniffed, which is where plain text lands", () => {
+    expect(resolveFileContentCategory({ fileName: "notes.txt" })).toBe("text");
+    expect(
+      resolveFileContentCategory({ contentType: "application/octet-stream", fileName: "a.docx" }),
+    ).toBe("word");
+    expect(resolveFileContentCategory({})).toBe("unknown");
+  });
+});
+
+describe("the claim and the reading, told apart", () => {
+  it("reads no extension as no claim, and an unrecognized one as a claim of unknown", () => {
+    expect(claimedFileCategory("Complaint")).toBeUndefined();
+    expect(claimedFileCategory(".gitignore")).toBeUndefined();
+    expect(claimedFileCategory("Motion.do")).toBe("unknown");
+    expect(claimedFileCategory("Motion.docx")).toBe("word");
+  });
+
+  it("reads a sniff the vocabulary has no kind for as no reading, never as unknown", () => {
+    // Legacy Office files all sniff as one compound-file container the sniffer cannot see inside.
+    expect(sniffedFileCategory("application/x-cfb")).toBeUndefined();
+    expect(sniffedFileCategory("application/octet-stream")).toBeUndefined();
+    expect(sniffedFileCategory("")).toBeUndefined();
+    expect(sniffedFileCategory("image/heic")).toBe("image");
+    expect(sniffedFileCategory("application/pdf; charset=binary")).toBe("pdf");
   });
 });
 
@@ -122,10 +183,25 @@ describe("the badge that rides the glyph", () => {
   });
 
   it("never contradicts the glyph it rides", () => {
-    // Typed as a pdf by the server, named as a Word file: both the glyph and the badge say pdf.
+    // Typed as a pdf by the server, named as a Word file: the glyph draws the name's claim, and
+    // the badge says the same word the File Type column does. Where a caller pins the category
+    // itself, the extension is used only if it names that same kind.
     expect(
       resolveFileTypeBadge({ contentType: "application/pdf", fileName: "Motion.docx" }),
-    ).toEqual({ text: "PDF", tone: "danger" });
+    ).toEqual({ text: "DOCX", tone: "info" });
+    expect(resolveFileTypeBadge({ category: "pdf", fileName: "Motion.docx" })).toEqual({
+      text: "PDF",
+      tone: "danger",
+    });
+  });
+
+  it("carries no badge over a name whose extension nobody recognizes", () => {
+    expect(
+      resolveFileTypeBadge({
+        contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        fileName: "Motion.do",
+      }),
+    ).toBeUndefined();
   });
 
   it("names the format from the content type when there is no file name", () => {

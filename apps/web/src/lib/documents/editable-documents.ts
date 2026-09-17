@@ -14,7 +14,7 @@
  * edited here, in the application itself: its bytes are small, its format is its content, and a
  * new version is cut through the same upload ceremony any other save uses.
  */
-import { resolveFileCategory, extensionOf } from "@magna-carta/design-system/file-icon";
+import { resolveFileContentCategory, extensionOf } from "@magna-carta/design-system/file-icon";
 
 /** The editor a document opens in. */
 export type EditorKind = "office" | "text";
@@ -38,14 +38,16 @@ export const TEXT_EDITOR_MAX_BYTES = 2 * 1024 * 1024;
 /**
  * The editor a file's FORMAT calls for, or null where the format has no editor. Answered from the
  * format alone: whether the file can be opened right now is a separate question (`openDestinationOf`).
- * The content type the ingest gate sniffed wins over the name where it is present, which is the
- * same precedence the file icon uses; plain text sniffs to nothing, so a text file is known by its
- * extension.
+ * The content type the ingest gate sniffed wins over the name where it is present — the OPPOSITE
+ * of the file icon's precedence, on purpose: the icon draws what the name claims and leaves the
+ * file manager's analysis to say whether the claim holds, but an editor is handed the bytes, and a
+ * Word document renamed ".txt" must open as the Word document it is, never in the plain-text
+ * editor its name asks for. Plain text sniffs to nothing, so a text file is known by its extension.
  */
 export function editorKindOf(
   file: Pick<EditableFileFacts, "name" | "sniffedContentType">,
 ): EditorKind | null {
-  const category = resolveFileCategory({
+  const category = resolveFileContentCategory({
     contentType: file.sniffedContentType ?? undefined,
     fileName: file.name,
   });
@@ -62,7 +64,7 @@ export function editorKindOf(
 export function viewerKindOf(
   file: Pick<EditableFileFacts, "name" | "sniffedContentType">,
 ): "pdf" | null {
-  const category = resolveFileCategory({
+  const category = resolveFileContentCategory({
     contentType: file.sniffedContentType ?? undefined,
     fileName: file.name,
   });

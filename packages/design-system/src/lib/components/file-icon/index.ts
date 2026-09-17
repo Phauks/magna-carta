@@ -7,8 +7,11 @@ export {
   type FileIconPresentation,
 } from "./resolve.ts";
 export {
+  claimedFileCategory,
   extensionOf,
   resolveFileCategory,
+  resolveFileContentCategory,
+  sniffedFileCategory,
   resolveFileIconTone,
   resolveFileTypeBadge,
   type FileCategory,
