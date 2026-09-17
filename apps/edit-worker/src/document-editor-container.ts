@@ -35,10 +35,21 @@ export class DocumentEditorContainer extends Container<Bindings> {
   // false). The app worker re-derives firm scope + capability from the access token on every callback
   // (apps/api-worker/src/editing/wopi-guard.ts), so this hop carries no trust of its own: forwarding here
   // is plumbing, and a forged or replayed callback still fails the token check on the far side.
-  static override outboundByHost: Record<
-    string,
-    (request: Request, env: Bindings) => Promise<Response>
-  > = {
-    [WOPI_HOST]: (request, env) => forwardWopiCallback(request, env.APP_WORKER),
-  };
+  //
+  // Registered by ASSIGNMENT, in a static block — never as a static field. `Container` declares
+  // `outboundByHost` as a static accessor pair whose setter files the handlers in a module-level registry
+  // keyed by class name, and that registry, not the class, is what the library's `ContainerProxy` reads
+  // when an intercepted request arrives. A static field is a definition, not an assignment: under the
+  // class-field semantics this repository compiles to (ES2022), it creates an own property on this class
+  // that shadows the inherited setter, which then never runs. That shipped, and it registered exactly half
+  // of the contract — the runtime intercepted the host (that path reads the property) while the proxy
+  // found no handler (that path reads the registry) and answered coolwsd 520 "Origin is disallowed" for
+  // every CheckFileInfo, so no document ever loaded. test/document-editor-container.test.ts runs the
+  // library's real dispatch against this class and holds both halves.
+  static {
+    this.outboundByHost = {
+      [WOPI_HOST]: (request: Request, env: Bindings) =>
+        forwardWopiCallback(request, env.APP_WORKER),
+    };
+  }
 }
