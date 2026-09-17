@@ -1,6 +1,8 @@
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import { GuardedWriteRefusedError } from "@magna-carta/data-access/effect-batch";
+import { runInterleaved } from "@magna-carta/data-access/interleave";
 import type { CostEntryId, MatterId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
 import {
@@ -451,5 +453,87 @@ describe("cost-entry receipt attach/detach", () => {
     await expect(detachReceipt(database, id as never, options)).rejects.toMatchObject({
       code: "frozen-entry",
     });
+  });
+});
+
+async function auditCount(database: BatchDatabase, event: string): Promise<number> {
+  const { results } = await database
+    .prepare("SELECT COUNT(*) AS n FROM audit_log WHERE event = ?1")
+    .bind(event)
+    .all<{ n: number }>();
+  return results[0]?.n ?? 0;
+}
+
+// The billing lock is read before the edit is composed and enforced by the statement that commits it.
+// Those are two round trips, so the read is advisory by the time the write runs and the freeze rests
+// entirely on each statement's `status NOT IN ('billed','void')`. These ask whether it does.
+describe("the billing lock under a race", () => {
+  it("refuses to attach a receipt to an entry invoiced inside the window", async () => {
+    const database = freshDatabase();
+    await seedMatter(database, "matter_1");
+    const id = await captureDraft(database);
+
+    await expect(
+      runInterleaved({
+        database,
+        concurrentWriter: () => billEntry(database, id),
+        operation: async (racing) => {
+          const { effect } = await attachReceipt(
+            racing,
+            id as CostEntryId,
+            "file_receipt",
+            options,
+          );
+          await commitEffectBatch(racing, effect, { now: clock.now });
+        },
+      }),
+    ).rejects.toBeInstanceOf(GuardedWriteRefusedError);
+
+    // The entry was billed with no receipt and stays that way — the statement matched no row.
+    expect(await receiptOf(database, id)).toBeNull();
+  });
+
+  it("refuses to clear a receipt off an entry invoiced inside the window", async () => {
+    const database = freshDatabase();
+    await seedMatter(database, "matter_1");
+    const id = await captureDraft(database);
+    const { effect } = await attachReceipt(database, id as CostEntryId, "file_receipt", options);
+    await commitEffectBatch(database, effect, { now: clock.now });
+
+    await expect(
+      runInterleaved({
+        database,
+        concurrentWriter: () => billEntry(database, id),
+        operation: async (racing) => {
+          const { effect: detach } = await detachReceipt(racing, id as CostEntryId, options);
+          await commitEffectBatch(racing, detach, { now: clock.now });
+        },
+      }),
+    ).rejects.toBeInstanceOf(GuardedWriteRefusedError);
+
+    // The receipt backing an invoiced expense cannot be detached after the fact.
+    expect(await receiptOf(database, id)).toBe("file_receipt");
+  });
+
+  it("leaves no audit row behind for the attach the freeze refused", async () => {
+    // The audit statement rides the same batch as the guarded write and carries no guard of its own,
+    // so this used to record a receipt_attached for an attach that never landed — the ledger honest,
+    // the trail not. The guard aborts the transaction rather than reporting after it commits, which
+    // is what takes the audit row with it.
+    const database = freshDatabase();
+    await seedMatter(database, "matter_1");
+    const id = await captureDraft(database);
+
+    await runInterleaved({
+      database,
+      concurrentWriter: () => billEntry(database, id),
+      operation: async (racing) => {
+        const { effect } = await attachReceipt(racing, id as CostEntryId, "file_receipt", options);
+        await commitEffectBatch(racing, effect, { now: clock.now });
+      },
+    }).catch(() => undefined);
+
+    expect(await receiptOf(database, id)).toBeNull();
+    expect(await auditCount(database, "cost_entry.receipt_attached")).toBe(0);
   });
 });

@@ -97,6 +97,7 @@ export interface CompleteDocumentAssemblyRow {
 // A redelivered queue message must not file a second document, so completion is guarded on the row not
 // already being `done`: the second delivery's update matches zero rows and the consumer's own
 // already-filed check short-circuits before it produces any bytes.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function completeDocumentAssemblyStatement(
   database: SqlDatabase,
   row: CompleteDocumentAssemblyRow,
@@ -121,6 +122,7 @@ export function completeDocumentAssemblyStatement(
 // `failureReason` is an error CODE from a closed set — never a failing value, and never the text of a
 // merge field. A merge failure reports which key failed; the keys go in the same absent-key column,
 // because a key is a field name rather than anything a client supplied.
+// fitness:unguarded-write — failing a job that already finished is a no-op on purpose — a late failure must not overwrite a completed run
 export function failDocumentAssemblyStatement(
   database: SqlDatabase,
   assemblyId: DocumentAssemblyId,

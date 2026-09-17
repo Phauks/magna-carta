@@ -62,6 +62,7 @@ export function insertStepRecordStatement(
 // The FLIP half of append-and-flip: the live record for this step on this matter, if any, is stamped
 // superseded. A statement matching zero rows is fine here — there was nothing live — which is why the
 // service reads first when the absence of a live record is itself the refusal (reopening nothing).
+// fitness:unguarded-write — matches a set rather than one row, so zero is an empty set rather than a refusal
 export function supersedeLiveStepRecordStatement(
   database: SqlDatabase,
   input: {

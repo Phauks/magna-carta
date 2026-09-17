@@ -1,4 +1,5 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
+import type { EffectStatement } from "@magna-carta/data-access/effect-batch";
 import type { OutboxMessage } from "@magna-carta/data-access/outbox-statements";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
@@ -353,7 +354,7 @@ export function registerFoldersRoutes(app: FoldersApp, chokepoint: Chokepoint): 
           key: idempotency.key,
           fingerprint: idempotency.fingerprint,
           effect: async () => {
-            const statements: SqlStatement[] = [];
+            const statements: EffectStatement[] = [];
             const outboxMessages: OutboxMessage[] = [];
             if (patch.name !== undefined) {
               const renamed = await renameFolder(firm.firmDatabase, id, patch.name, {

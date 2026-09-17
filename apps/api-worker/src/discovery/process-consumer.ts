@@ -1,4 +1,8 @@
-import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
+import {
+  commitEffectBatch,
+  type BatchDatabase,
+  guarded,
+} from "@magna-carta/data-access/effect-batch";
 
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import {
@@ -139,7 +143,12 @@ export async function processOne(
   await commitEffectBatch(
     database,
     {
-      statements: [claimReviewDocumentStatement(database, reviewDocumentId, claimedAt)],
+      statements: [
+        guarded(
+          claimReviewDocumentStatement(database, reviewDocumentId, claimedAt),
+          "review-document.claim",
+        ),
+      ],
       outboxMessages: [],
     },
     { now },
@@ -408,27 +417,30 @@ async function writeProcessed(
     database,
     {
       statements: [
-        markReviewDocumentProcessedStatement(
-          database,
-          reviewDocumentId,
-          {
-            textR2Key: textKey,
-            metadataR2Key: metadataKey,
-            formatIdentified: extraction.facts.formatIdentified,
-            pageCount: extraction.facts.pageCount,
-            pagesRecognized: countRecognizedPages(extraction.pages),
-            extractionRoute: route,
-            textFingerprint: extraction.facts.textFingerprint,
-            sortDate: extraction.facts.documentDate,
-            sortDateSource: extraction.facts.documentDateSource,
-            // The legacy-interop digests, from the engine's own pass over the bytes. They exist for
-            // the manifest a firm hands to another party: opposing-party tooling and load-file
-            // specifications still ask for MD5 and SHA-1, and this is the only pass over the bytes
-            // that would ever compute them.
-            contentMd5: extraction.facts.digests?.md5 ?? null,
-            contentSha1: extraction.facts.digests?.sha1 ?? null,
-          },
-          extractedAt,
+        guarded(
+          markReviewDocumentProcessedStatement(
+            database,
+            reviewDocumentId,
+            {
+              textR2Key: textKey,
+              metadataR2Key: metadataKey,
+              formatIdentified: extraction.facts.formatIdentified,
+              pageCount: extraction.facts.pageCount,
+              pagesRecognized: countRecognizedPages(extraction.pages),
+              extractionRoute: route,
+              textFingerprint: extraction.facts.textFingerprint,
+              sortDate: extraction.facts.documentDate,
+              sortDateSource: extraction.facts.documentDateSource,
+              // The legacy-interop digests, from the engine's own pass over the bytes. They exist for
+              // the manifest a firm hands to another party: opposing-party tooling and load-file
+              // specifications still ask for MD5 and SHA-1, and this is the only pass over the bytes
+              // that would ever compute them.
+              contentMd5: extraction.facts.digests?.md5 ?? null,
+              contentSha1: extraction.facts.digests?.sha1 ?? null,
+            },
+            extractedAt,
+          ),
+          "review-document.terminal",
         ),
         // Relative, in the same batch as the state change, so two consumers finishing at once cannot
         // lose each other's document. The counters are what the load's reconciliation CHECK holds.
@@ -606,16 +618,19 @@ async function expandContainer(
     database,
     {
       statements: [
-        markReviewDocumentExpandedStatement(
-          database,
-          reviewDocumentId,
-          {
-            metadataR2Key: metadataKey,
-            formatIdentified: CONTAINER_FORMAT,
-            extractionRoute: DISCOVERY_ENGINE_ROUTE,
-            childCount: childRecords.length,
-          },
-          expandedAt,
+        guarded(
+          markReviewDocumentExpandedStatement(
+            database,
+            reviewDocumentId,
+            {
+              metadataR2Key: metadataKey,
+              formatIdentified: CONTAINER_FORMAT,
+              extractionRoute: DISCOVERY_ENGINE_ROUTE,
+              childCount: childRecords.length,
+            },
+            expandedAt,
+          ),
+          "review-document.terminal",
         ),
         markReviewDocumentFamilyParentStatement(database, reviewDocumentId, expandedAt),
         advanceProcessingCountsStatement(
@@ -764,11 +779,14 @@ async function recordException(
           },
           exceptedAt,
         ),
-        markReviewDocumentExceptedStatement(
-          database,
-          reviewDocumentId,
-          extra.formatIdentified,
-          exceptedAt,
+        guarded(
+          markReviewDocumentExceptedStatement(
+            database,
+            reviewDocumentId,
+            extra.formatIdentified,
+            exceptedAt,
+          ),
+          "review-document.terminal",
         ),
         advanceProcessingCountsStatement(
           database,

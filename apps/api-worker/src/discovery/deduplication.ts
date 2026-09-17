@@ -1,4 +1,9 @@
-import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
+import {
+  commitEffectBatch,
+  type BatchDatabase,
+  guarded,
+} from "@magna-carta/data-access/effect-batch";
+import type { EffectStatement } from "@magna-carta/data-access/effect-batch";
 import { dedupGroupIdentifier } from "@magna-carta/discovery/dedup";
 import {
   claimDedupPrimaryStatement,
@@ -110,7 +115,7 @@ export interface SuppressionInput {
 }
 
 export interface SuppressedTerminal {
-  readonly statements: readonly SqlStatement[];
+  readonly statements: readonly EffectStatement[];
   readonly excepted: boolean;
 }
 
@@ -134,16 +139,19 @@ export function suppressedTerminalEffect(input: SuppressionInput): SuppressedTer
     return {
       excepted: false,
       statements: [
-        markReviewDocumentExpandedStatement(
-          database,
-          document.id,
-          {
-            metadataR2Key: primary.metadata_r2_key ?? "",
-            formatIdentified: primary.format_identified ?? "unknown",
-            extractionRoute: primary.extraction_route ?? "",
-            childCount: 0,
-          },
-          now,
+        guarded(
+          markReviewDocumentExpandedStatement(
+            database,
+            document.id,
+            {
+              metadataR2Key: primary.metadata_r2_key ?? "",
+              formatIdentified: primary.format_identified ?? "unknown",
+              extractionRoute: primary.extraction_route ?? "",
+              childCount: 0,
+            },
+            now,
+          ),
+          "review-document.terminal",
         ),
       ],
     };
@@ -152,25 +160,28 @@ export function suppressedTerminalEffect(input: SuppressionInput): SuppressedTer
     return {
       excepted: false,
       statements: [
-        markReviewDocumentProcessedStatement(
-          database,
-          document.id,
-          {
-            // Both keys are the PRIMARY's. Deriving a second text object for identical bytes would
-            // double the largest derived-storage line in the subsystem to hold a byte-identical copy.
-            textR2Key: primary.text_r2_key ?? "",
-            metadataR2Key: primary.metadata_r2_key ?? "",
-            formatIdentified: primary.format_identified ?? "unknown",
-            pageCount: primary.page_count,
-            pagesRecognized: primary.pages_recognized ?? 0,
-            extractionRoute: primary.extraction_route ?? "",
-            textFingerprint: primary.text_fingerprint,
-            sortDate: primary.sort_date,
-            sortDateSource: primary.sort_date_source,
-            contentMd5: primary.content_md5,
-            contentSha1: primary.content_sha1,
-          },
-          now,
+        guarded(
+          markReviewDocumentProcessedStatement(
+            database,
+            document.id,
+            {
+              // Both keys are the PRIMARY's. Deriving a second text object for identical bytes would
+              // double the largest derived-storage line in the subsystem to hold a byte-identical copy.
+              textR2Key: primary.text_r2_key ?? "",
+              metadataR2Key: primary.metadata_r2_key ?? "",
+              formatIdentified: primary.format_identified ?? "unknown",
+              pageCount: primary.page_count,
+              pagesRecognized: primary.pages_recognized ?? 0,
+              extractionRoute: primary.extraction_route ?? "",
+              textFingerprint: primary.text_fingerprint,
+              sortDate: primary.sort_date,
+              sortDateSource: primary.sort_date_source,
+              contentMd5: primary.content_md5,
+              contentSha1: primary.content_sha1,
+            },
+            now,
+          ),
+          "review-document.terminal",
         ),
       ],
     };
@@ -178,7 +189,10 @@ export function suppressedTerminalEffect(input: SuppressionInput): SuppressedTer
   return {
     excepted: true,
     statements: [
-      markReviewDocumentExceptedStatement(database, document.id, primary.format_identified, now),
+      guarded(
+        markReviewDocumentExceptedStatement(database, document.id, primary.format_identified, now),
+        "review-document.terminal",
+      ),
     ],
   };
 }
@@ -192,7 +206,7 @@ export async function commitSuppression(input: {
   readonly terminal: SuppressedTerminal;
   // The inherited exception rows, when the primary is one nothing could read. Built by the caller,
   // which is where the exception vocabulary is joined to the extraction port's.
-  readonly extraStatements: readonly SqlStatement[];
+  readonly extraStatements: readonly EffectStatement[];
   readonly now: () => string;
 }): Promise<void> {
   const { database, document, primary } = input;
@@ -238,7 +252,7 @@ export async function commitSuppression(input: {
 
 async function commit(
   database: BatchDatabase,
-  statements: readonly SqlStatement[],
+  statements: readonly EffectStatement[],
   now: () => string,
 ): Promise<void> {
   await commitEffectBatch(database, { statements: [...statements], outboxMessages: [] }, { now });

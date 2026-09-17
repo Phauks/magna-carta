@@ -225,6 +225,7 @@ export async function selectReleasableStaleCheckouts(
 
 // Moves an active checkout to 'stale' and schedules its release. Guarded on the active state so an
 // overlapping pass is a no-op.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function markCheckoutStaleStatement(
   database: SqlDatabase,
   checkoutId: DocumentCheckoutId,
@@ -238,6 +239,7 @@ export function markCheckoutStaleStatement(
 }
 
 // Releases a stale checkout. Guarded on the stale state so a replay is a no-op.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function releaseStaleCheckoutStatement(
   database: SqlDatabase,
   checkoutId: DocumentCheckoutId,

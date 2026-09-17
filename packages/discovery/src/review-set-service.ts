@@ -1,4 +1,5 @@
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
+import { guarded } from "@magna-carta/data-access/effect-batch";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -189,7 +190,7 @@ export async function lockReviewSet(
   return {
     effect: {
       statements: [
-        lockReviewSetStatement(database, reviewSetId, now),
+        guarded(lockReviewSetStatement(database, reviewSetId, now), "review-set.lock"),
         domainAuditStatement(database, {
           clock: options.clock,
           actorUserId: options.actorUserId,
@@ -226,7 +227,7 @@ export async function closeReviewSet(
     collectablePrefixes: reviewSetDerivedPrefixes(reviewSetId),
     effect: {
       statements: [
-        closeReviewSetStatement(database, reviewSetId, now),
+        guarded(closeReviewSetStatement(database, reviewSetId, now), "review-set.close"),
         domainAuditStatement(database, {
           clock: options.clock,
           actorUserId: options.actorUserId,
@@ -250,7 +251,12 @@ export function markReviewSetDerivedArtifactsReleased(
 ): EffectWrite {
   const now = options.clock.now();
   return {
-    statements: [markDerivedArtifactsReleasedStatement(database, reviewSetId, now)],
+    statements: [
+      guarded(
+        markDerivedArtifactsReleasedStatement(database, reviewSetId, now),
+        "review-set.release-artifacts",
+      ),
+    ],
     outboxMessages: [],
   };
 }

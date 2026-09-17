@@ -1,3 +1,4 @@
+import { guarded } from "@magna-carta/data-access/effect-batch";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -231,12 +232,15 @@ export async function closeTrustReconciliation(
     frozen,
     effect: {
       statements: [
-        closeTrustReconciliationStatement(
-          database,
-          reconciliationId,
-          frozen,
-          closedBy,
-          options.clock.now(),
+        guarded(
+          closeTrustReconciliationStatement(
+            database,
+            reconciliationId,
+            frozen,
+            closedBy,
+            options.clock.now(),
+          ),
+          "trust-reconciliation.close",
         ),
       ],
       outboxMessages: [],

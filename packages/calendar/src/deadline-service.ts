@@ -1,4 +1,5 @@
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
+import { guarded } from "@magna-carta/data-access/effect-batch";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -191,7 +192,10 @@ export async function updateMatterDeadline(
         // attorney satisfying this deadline in the few hundred milliseconds between the read above
         // and this write aborts the edit rather than letting it rewrite a discharged deadline.
         assertMatterDeadlineOpenStatement(database, deadlineId),
-        updateMatterDeadlineStatement(database, deadlineId, merged, options.clock.now()),
+        guarded(
+          updateMatterDeadlineStatement(database, deadlineId, merged, options.clock.now()),
+          "matter-deadline.update",
+        ),
         domainAuditStatement(database, {
           event: "calendar.deadline.updated",
           subjectId: deadlineId,
@@ -304,16 +308,19 @@ export async function closeMatterDeadline(
   return {
     effect: {
       statements: [
-        closeMatterDeadlineStatement(
-          database,
-          deadlineId,
-          {
-            state,
-            stateReason: input.stateReason,
-            supersededByDeadlineId:
-              state === "superseded" ? (input.supersededByDeadlineId ?? null) : null,
-          },
-          options.clock.now(),
+        guarded(
+          closeMatterDeadlineStatement(
+            database,
+            deadlineId,
+            {
+              state,
+              stateReason: input.stateReason,
+              supersededByDeadlineId:
+                state === "superseded" ? (input.supersededByDeadlineId ?? null) : null,
+            },
+            options.clock.now(),
+          ),
+          "matter-deadline.close",
         ),
         domainAuditStatement(database, {
           event: `calendar.deadline.${state}`,

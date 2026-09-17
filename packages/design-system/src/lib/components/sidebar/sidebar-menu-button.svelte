@@ -8,6 +8,13 @@
    * Bits' `child` snippet, which keeps the anchor/button semantics (no extra wrapping button).
    *
    * A Tooltip.Provider must sit above the sidebar (app root / Storybook decorator).
+   *
+   * THE TRAILING SLOT IS A COLUMN OF ITS OWN, and it exists because a badge inside the label was a
+   * badge nobody saw. The row is a grid, the label column takes the slack and truncates, and the
+   * trailing column is sized to its contents and never shrinks — so "Property Listing Links — Soon"
+   * shows the Soon mark and ellipses the name, rather than the reverse. A badge rendered among the
+   * children rides inside the label's own overflow, which clipped every mark on a long row (owner
+   * report, 2026-09-16). Collapsed, the trailing column goes with the label.
    */
   import type { Snippet } from "svelte";
   import type { HTMLAnchorAttributes, HTMLButtonAttributes } from "svelte/elements";
@@ -28,6 +35,11 @@
       tooltip?: string;
       /** Leading icon (sized by the recipe via the mc-sidebar-icon class). */
       icon?: Snippet;
+      /**
+       * The row's inline-end slot — a maturity badge, a count, a chevron. Its column never shrinks,
+       * so what is put here stays legible however long the label is.
+       */
+      trailing?: Snippet;
       /** A destination URL. When set, the item renders as an `<a href>` instead of a `<button>`. */
       href?: string;
     };
@@ -37,6 +49,7 @@
     isActive = false,
     tooltip,
     icon,
+    trailing,
     href,
     type = "button",
     disabled,
@@ -60,6 +73,7 @@
     >
       {@render icon?.()}
       <span class="mc-sidebar-label">{@render children?.()}</span>
+      {#if trailing}<span class="mc-sidebar-trailing">{@render trailing()}</span>{/if}
     </a>
   {:else}
     <button
@@ -73,6 +87,7 @@
     >
       {@render icon?.()}
       <span class="mc-sidebar-label">{@render children?.()}</span>
+      {#if trailing}<span class="mc-sidebar-trailing">{@render trailing()}</span>{/if}
     </button>
   {/if}
 {/snippet}

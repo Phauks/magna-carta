@@ -82,7 +82,7 @@
      * The list. It receives the density and the class the grid must wear in the current layout,
      * and passes both to its DataTable.Grid.
      */
-    list: Snippet<[{ density: MoneySurfaceDensity; tableClass: string }]>;
+    list: Snippet<[{ density: MoneySurfaceDensity; tableClass: string; frame: "card" | "flush" }]>;
     /** The details beside the list. */
     panel: Snippet;
     /** Directly above the counts strip: a Load more control, an archive line. */
@@ -107,8 +107,12 @@
   /*
    * Flush, the grid gives up its rounded frame and its border: the toolbar's rule above and the
    * counts strip's rule below are the frame, and a second one inside them drew a box within a box.
+   * That is the grid's own `frame` prop rather than two utilities spelling it out here, because
+   * giving up the card changes more than the paint — the last row's hairline goes with it if
+   * nothing says the card is gone. The class is left holding only what it is for: the height.
    */
-  const tableClass = $derived(flush ? "min-h-0 flex-1 rounded-none border-0" : "min-h-0 flex-1");
+  const tableClass = "min-h-0 flex-1";
+  const frame = $derived<"card" | "flush">(flush ? "flush" : "card");
 </script>
 
 {#snippet footerEnd()}
@@ -147,7 +151,7 @@
       {/if}
     {/if}
 
-    {@render list({ density, tableClass })}
+    {@render list({ density, tableClass, frame })}
 
     {#if beneath}
       {#if flush}

@@ -1,3 +1,4 @@
+import { guarded } from "@magna-carta/data-access/effect-batch";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -188,7 +189,10 @@ export async function moveFolder(
   return {
     effect: {
       statements: [
-        moveFolderStatement(database, folderId, newParentFolderId, options.clock.now()),
+        guarded(
+          moveFolderStatement(database, folderId, newParentFolderId, options.clock.now()),
+          "folder.move",
+        ),
         fileAuditStatement(database, options, "folder.moved", folderId),
       ],
       outboxMessages: [],

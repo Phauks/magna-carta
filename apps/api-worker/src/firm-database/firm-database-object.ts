@@ -4,6 +4,7 @@ import { doSqliteBatchDatabase } from "@magna-carta/database/do-sqlite-batch-dat
 import { runPendingMigrations } from "@magna-carta/database/migration-runner";
 import type { Bindings } from "../app.ts";
 import { perFirmMigrations } from "../per-firm-migrations.ts";
+import { GuardedWriteRefusedError } from "@magna-carta/database/guarded-write";
 import { uniqueConstraintColumns, type CommitOutcome, type RpcStatement } from "./rpc-types.ts";
 
 /*
@@ -218,8 +219,12 @@ export class FirmDatabase extends DurableObject<Bindings> {
     await this.serviceable();
     const database = doSqliteBatchDatabase(this.ctx.storage);
     const prepared = statements.map((s) => database.prepare(s.sql).bind(...s.bindings));
+    const guards = new Map<number, string>();
+    for (const [index, statement] of statements.entries()) {
+      if (statement.guard !== undefined) guards.set(index, statement.guard);
+    }
     try {
-      await database.batch(prepared);
+      await database.batch(prepared, guards.size > 0 ? { guards } : undefined);
       return { ok: true };
     } catch (error) {
       // Translate any UNIQUE violation into a typed outcome carrying its column list, so conflict
@@ -227,6 +232,11 @@ export class FirmDatabase extends DurableObject<Bindings> {
       // and must surface as a thrown RPC error (the worker maps it to a 500).
       const columns = uniqueConstraintColumns(error);
       if (columns !== null) return { ok: false, uniqueConstraint: columns };
+      // A guarded statement matched no row. The adapter raised from inside transactionSync, so the
+      // batch is already fully rolled back — this only carries the reason back out.
+      if (error instanceof GuardedWriteRefusedError) {
+        return { ok: false, unaffectedGuard: error.guard };
+      }
       throw error;
     }
   }

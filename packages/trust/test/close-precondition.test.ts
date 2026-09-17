@@ -1,4 +1,5 @@
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
+import { runInterleaved } from "@magna-carta/data-access/interleave";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { UserId } from "@magna-carta/identifiers/types";
 import { ClosePreconditionError } from "@magna-carta/matters/close-preconditions";
@@ -77,26 +78,6 @@ async function countCloseAudits(database: BatchDatabase, matterId: string): Prom
     .bind(matterId)
     .all<{ closes: number }>();
   return results[0]?.closes ?? 0;
-}
-
-// Stands in for a concurrent writer landing between the close's precondition read and its commit.
-// D1 has no interactive transaction, so that window is real; firing at the first batch makes it
-// deterministic instead of dependent on how two promises happen to interleave.
-function depositBeforeFirstCommit(
-  database: BatchDatabase,
-  before: () => Promise<unknown>,
-): BatchDatabase {
-  let fired = false;
-  return {
-    prepare: (sql: string) => database.prepare(sql),
-    batch: async (statements) => {
-      if (!fired) {
-        fired = true;
-        await before();
-      }
-      return database.batch(statements);
-    },
-  };
 }
 
 describe("the matter-close trust precondition", () => {
@@ -207,15 +188,12 @@ describe("the matter-close trust precondition", () => {
     const fixture = await fixtureWithJurisdiction();
     const matterId = await seedMatter(fixture, "Delacroix", "entity_delacroix");
     // The check reads an empty ledger; the deposit commits before the close batch does.
-    const racing = depositBeforeFirstCommit(fixture.database, () =>
-      depositTo(fixture, matterId, "Delacroix", 90_000),
-    );
-
-    const caught = await closeMatter(
-      racing,
-      matterId,
-      closeOptions(fixture.memberUserId as UserId),
-    ).catch((error: unknown) => error);
+    const caught = await runInterleaved({
+      database: fixture.database,
+      concurrentWriter: () => depositTo(fixture, matterId, "Delacroix", 90_000),
+      operation: (racing) =>
+        closeMatter(racing, matterId, closeOptions(fixture.memberUserId as UserId)),
+    }).catch((error: unknown) => error);
 
     expect(caught).toBeInstanceOf(ClosePreconditionError);
     expect((caught as ClosePreconditionError).failures[0]?.code).toBe(TRUST_BALANCE_BLOCKS_CLOSE);

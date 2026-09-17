@@ -585,6 +585,9 @@ importers:
       '@magna-carta/build-identity':
         specifier: workspace:*
         version: link:../../packages/build-identity
+      '@magna-carta/telemetry':
+        specifier: workspace:*
+        version: link:../../packages/telemetry
     devDependencies:
       '@cloudflare/vitest-pool-workers':
         specifier: 'catalog:'

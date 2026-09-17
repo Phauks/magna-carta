@@ -169,3 +169,45 @@ describe("scrubStrings — the handle exemption is derived from the identifier s
     expect(scrubText(`error_${overlongBody.slice(1)}`).tripped).toBe(false);
   });
 });
+
+describe("scrubText — the editor surface's bearer token", () => {
+  // The WOPI access token as the editor worker actually sees it: HS256, base64url, three segments.
+  const TOKEN =
+    "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJmaXh0dXJlIiwiZmlybUlkIjoiZmlybV9maXh0dXJlIiwiY2FwYWJpbGl0eSI6ImVkaXQifQ.fixture-signature-not-a-real-mac-0000000000";
+
+  it("scrubs the token as the query parameter every editor request carries", () => {
+    const { text, tripped } = scrubText(`permission=edit&access_token=${TOKEN}&compat=`);
+    expect(text).not.toContain(TOKEN);
+    expect(text).toContain("permission=edit");
+    expect(tripped).toBe(true);
+  });
+
+  it("scrubs the bare token, which is how a message that unpacked the URL carries it", () => {
+    const { text, tripped } = scrubText(`token ${TOKEN} was refused`);
+    expect(text).toBe("token [scrubbed] was refused");
+    expect(tripped).toBe(true);
+  });
+
+  it("scrubs a whole editor URL and leaves the route readable, which is the shape worth keeping", () => {
+    const line = `WebSocket to wss://286b0ecd.magnacartausercontent.com/cool/ws?WOPISrc=http%3A%2F%2Fwopi.magna-carta.internal%2Fwopi%2Ffiles%2Ffile_abc&access_token=${TOKEN}&permission=edit failed`;
+    const { text, tripped } = scrubText(line);
+    expect(text).not.toContain(TOKEN);
+    expect(text).toContain("/cool/ws");
+    expect(text).toContain("permission=edit");
+    expect(tripped).toBe(true);
+  });
+
+  it("leaves the shapes an editor log line is otherwise made of alone", () => {
+    for (const value of [
+      "/cool/ws",
+      "/browser/dist/cool.html",
+      "container answered 502 on /cool/ws",
+      "UpgradeRefused",
+      "editor.upgrade",
+      "a.b.c", // three segments, nowhere near a token
+      "eyJ.short.one", // opens like a token but is far too short to be one
+    ]) {
+      expect(scrubText(value)).toEqual({ text: value, tripped: false });
+    }
+  });
+});

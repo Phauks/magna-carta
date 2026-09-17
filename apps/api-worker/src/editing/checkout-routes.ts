@@ -1,4 +1,5 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
+import type { EffectStatement } from "@magna-carta/data-access/effect-batch";
 import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
@@ -509,7 +510,7 @@ export function registerDocumentCheckoutRoutes(
       }
 
       const now = () => new Date().toISOString();
-      const statements: SqlStatement[] = [];
+      const statements: EffectStatement[] = [];
       const outboxMessages: OutboxMessage[] = [
         { topic: "document.reconciled", payload: { fileId, versionId: primary.id, keep } },
       ];

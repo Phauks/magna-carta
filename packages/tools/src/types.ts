@@ -1,15 +1,20 @@
 import type { Permission } from "@magna-carta/access-control/registry";
 
-// One subject per group. This order is the fixed render order of the Tools sidebar.
+/*
+ * One subject per group — the clusters the rail folds the tools into. They are named for what a
+ * member is DOING rather than for the technology behind it ("Internet", not "web-domains"), and
+ * they are deliberately few: eight groups over nine tools is a heading per tool, which is no
+ * grouping at all.
+ *
+ * This order is the clusters' order in the rail. Within a cluster the tools sort ALPHABETICALLY by
+ * name (select.ts), because a member looking for a named tool scans for its name — a catalog
+ * insertion order is the author's convenience and nobody else's.
+ */
 export const SUBJECT_GROUP_ORDER = [
-  "property",
-  "business-entities",
-  "people-licenses",
-  "mailing-shipping",
-  "printing",
-  "web-domains", // website/domain subjects — WHOIS lookup, safe website viewer
-  "files", // file utilities — inspect / repair / convert / hash / verify a file, matter-free
-  "diagnostics", // connectivity / system tests — no legal subject (e.g. a network speed test)
+  "records", // public registers and record lookups — property, companies, licenses
+  "internet", // the network and what is on it — WHOIS, an untrusted site, this connection
+  "mailing", // what the firm sends — postage, labels, and printing
+  "files", // a file that belongs to no matter — read, verify, repair, convert
 ] as const;
 
 export type SubjectGroup = (typeof SUBJECT_GROUP_ORDER)[number];
@@ -38,12 +43,4 @@ export interface ToolManifest {
   readonly contextTags: readonly ContextTag[]; // >=1; what the tool accepts
   readonly backing: ToolBacking;
   readonly matterContext: MatterContext;
-  /**
-   * Where the tool's surface lives, when it is not the usual `/tools/<id>`. Almost every tool is
-   * reached inside the Tools area and derives its address from its id; a tool that has outgrown
-   * that area and earned a sidebar destination of its own is addressed at the top level instead,
-   * and says so here. The manifest row stays either way, because the contextual surfacing path
-   * queries this catalog by context tag and a tool absent from it is a tool nothing can offer.
-   */
-  readonly route?: string;
 }

@@ -59,8 +59,8 @@ When every required step is answered, **Complete Intake** on the row makes the m
 consultation and draws its consultation number, which is what you quote back to the caller from
 then on. Until then the control stays but is refused, and says how many required steps are
 outstanding. The same step is reached from the matter's own page: press the status badge, then
-**Change Status**, and choose **Complete Intake** — the outstanding steps are listed beneath it
-under **Requirements To Complete Intake**.
+**Change Status**, and choose **Complete Intake** on the left of the panel — the outstanding steps
+are listed on its right, under **Requirements To Complete Intake**.
 
 Completing an intake is recorded under your name. Steps can no longer be recorded on it afterwards;
 its Intake section keeps the record as it stood.

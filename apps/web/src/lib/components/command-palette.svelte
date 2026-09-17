@@ -36,6 +36,7 @@
     readPaletteEntranceVariant,
   } from "$lib/developer/palette-entrance.ts";
   import { visibleDestinations } from "$lib/navigation/destinations.ts";
+  import { grantedPermissions } from "$lib/tools/tool-permissions.ts";
   import { toolDestinations } from "$lib/navigation/tool-destinations.ts";
   import { SEARCH_PLACEHOLDER } from "$lib/navigation/search.ts";
   import { ECOSYSTEM_SITES } from "$lib/navigation/ecosystem-sites.ts";
@@ -48,8 +49,10 @@
   }: { open?: boolean; sidebarCollapsed?: boolean } = $props();
 
   // Shipped destinations navigate; announced ones surface as disabled "— soon" rows so search
-  // tells the same truth as the sidebar.
-  const destinations = visibleDestinations();
+  // tells the same truth as the sidebar. Gated by permission, never by the member's own show/hide:
+  // a row they hid is still a row they went looking for, and one they may not hold is not theirs to
+  // find.
+  const destinations = visibleDestinations(grantedPermissions());
   // Shipped sections flattened per band — the registry already gates development-only
   // sections out of production builds, so no extra filtering here.
   const settingsBands = bandedSettingsSections().map((band) => ({
@@ -58,8 +61,8 @@
     sections: band.groups.flatMap((group) => group.sections),
   }));
   // Individual tools, derived from the tool catalog + its web presentation layer — the same
-  // registry the Tools listing renders. A built tool navigates to its page; a not-yet-built one
-  // surfaces as a disabled "— soon" row, exactly as an announced destination does.
+  // registry the rail's Tools group renders. A built tool navigates to its page; a not-yet-built
+  // one surfaces as a disabled "— soon" row, exactly as an announced destination does.
   const tools = toolDestinations();
   // Surfaces that OPEN rather than navigate, from their own registry. Read at render rather than
   // held in a constant: an entry decides its own availability, and a permission that arrives after
@@ -234,9 +237,11 @@
             {/if}
           {/each}
           <!-- Individual tools, so "speed" reaches the Network Speed Test and "whois" the WHOIS
-               lookup — not just the Tools destination. Each item's keywords fold in the tool's
-               description, subject, and lay synonyms so it is findable by more than its name
-               ("bandwidth" → speed test, "domain" → WHOIS). A tool with no page yet renders
+               lookup. Each item's keywords fold in the tool's description, its cluster and its lay
+               synonyms so it is findable by more than its name ("bandwidth" → speed test, "domain"
+               → WHOIS, "internet" → all three). This group is also what replaced the /tools index:
+               the descriptions and the search were the only things that screen carried, and they
+               are here from one keystroke with no navigation first. A tool with no page yet renders
                disabled with the same "— soon" voice the destinations group uses. -->
           <Command.Group>
             <Command.GroupHeading>Tools</Command.GroupHeading>

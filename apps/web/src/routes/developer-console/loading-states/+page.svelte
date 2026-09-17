@@ -215,7 +215,7 @@
 {#if import.meta.env.DEV}
   <div class="flex min-h-screen flex-col gap-32 bg-surface-default p-24 text-text-default">
     <header class="flex flex-col gap-4">
-      <ScreenHeader title="Loading states" back={DEVELOPER_CONSOLE_BACK} />
+      <ScreenHeader title="Loading states" favoritable={false} back={DEVELOPER_CONSOLE_BACK} />
       <p class="max-w-prose text-sm text-text-muted">
         The one loading region over every shape a screen takes, each beside its settled state, and
         then every state a read can be in. The placeholder is the component rendered over the sample

@@ -1,23 +1,36 @@
 <script lang="ts">
   /*
    * The assembled App Shell — the only fixed chrome (page-archetypes Layout A): the ink sidebar
-   * (brand corner + the destination registry through the member's STAR layer) and the TopBar
+   * (brand corner + the destination registry through the member's visibility layer) and the TopBar
    * framing a light, calm routed canvas. The design system owns the parts; THIS composition,
    * the registry filtering, and the palette wiring are the app's domain knowledge.
    *
-   * THE SIDEBAR IS THE MEMBER'S: it renders pinned + starred destinations in the member's
-   * per-group order (sidebar-preferences.svelte.ts — stars govern the sidebar ONLY; the palette
+   * THE SIDEBAR IS THE MEMBER'S: it renders pinned + shown destinations in the member's
+   * per-group order (sidebar-preferences.svelte.ts — hiding governs the sidebar ONLY; the palette
    * always carries everything). Customize turns the rail INTO an editing canvas in place: it
-   * widens, forces itself expanded, and reveals every destination grouped — the starred rows
-   * first (draggable to reorder, live-reflow preview) then the hidden ones (a click adds them
-   * back). A destination newly arrived in the sidebar carries a one-time gilt-draw highlight so
-   * the eye catches where reconciliation seated it.
+   * forces itself expanded and reveals every destination grouped — the shown rows first (each
+   * with a grip, draggable to reorder, live-reflow preview) then the hidden ones (a click brings
+   * them back). A destination newly arrived in the sidebar carries a one-time gilt-draw highlight
+   * so the eye catches where reconciliation seated it.
+   *
+   * THREE MARKS, AND EACH ANSWERS A DIFFERENT QUESTION (owner ruling, 2026-09-16). The EYE says
+   * whether a destination the platform ships appears in its group — Customize's own control. The
+   * STAR says the member made this a FAVOURITE, and the favourites lead the rail as their own
+   * group: any address at all, saved from that screen's own header, which is how a matter or a
+   * section deep inside one gets a seat the registry could never have declared. A LOCK says a row
+   * is not the member's to move.
+   *
+   * A GROUP MAY FOLD, AND SO MAY A CLUSTER INSIDE IT. The rail's second level is the cluster
+   * (navigation/clusters.ts): a row with a chevron whose members tuck beneath it, which is how
+   * nine tools read as four. Pressing a cluster opens it — it is never a screen, and nothing is
+   * reached THROUGH one. The collapsed icon rail draws every row flat, folds and all, because a
+   * rail with no labels has nothing to fold by.
    *
    * THE FOOT OF THE RAIL IS THE UTILITY TRAY — a compact icon cluster of the things that are
    * ABOUT the app rather than places in the firm's work. It has two ends (owner-directed): the
    * rail's own controls at the inline start (Settings, then Customize), and the two transfer
    * registers (Downloads and Uploads) leaning to the inline end. Downloads and Uploads live here
-   * rather than in the Workspace group because they run alongside whatever is on screen, often
+   * rather than in the My Desk group because they run alongside whatever is on screen, often
    * both at once; they lean away from the rail's controls because they are the two things in the
    * tray you actually navigate to. The top-bar trays keep their own job — a summary with quick
    * actions; these open the full surfaces. Collapse and Customize remain RAIL CONTROLS, not
@@ -37,6 +50,9 @@
   import * as TopBar from "@magna-carta/design-system/top-bar";
   import { isPaletteChord } from "@magna-carta/design-system/internal/platform";
   import Check from "@lucide/svelte/icons/check";
+  import Eye from "@lucide/svelte/icons/eye";
+  import EyeOff from "@lucide/svelte/icons/eye-off";
+  import GripVertical from "@lucide/svelte/icons/grip-vertical";
   import Lock from "@lucide/svelte/icons/lock";
   import SlidersHorizontal from "@lucide/svelte/icons/sliders-horizontal";
   import Star from "@lucide/svelte/icons/star";
@@ -61,15 +77,20 @@
   import {
     acknowledgeArrival,
     expandSidebarOnHover,
+    isClusterCollapsed,
     isGroupCollapsed,
     isNewArrival,
     moveDestination,
-    setStarred,
+    setShown,
     sidebarEditingGroups,
     sidebarGroups,
+    toggleClusterCollapsed,
     toggleGroupCollapsed,
     type SidebarEditingGroupView,
+    type SidebarGroupView,
+    type SidebarNode,
   } from "$lib/navigation/sidebar-preferences.svelte.ts";
+  import { favoritePathFromRowId } from "$lib/navigation/favorites.svelte.ts";
   import { developerPreferences } from "$lib/settings/developer-preferences.svelte.ts";
   import { applyStaticSkeletons, readStaticSkeletons } from "$lib/developer/static-skeletons.ts";
   import { SETTLED_EVENT, type LoadingSettledDetail } from "@magna-carta/design-system/loading-region";
@@ -120,6 +141,16 @@
   let moveAnnouncement = $state("");
 
   const groups = $derived(sidebarGroups());
+
+  /**
+   * What a group draws. Expanded, its folded tree — rows and clusters. In the collapsed icon rail,
+   * every row flat: the rail has no visible labels, so a cluster there would be a chevron with no
+   * name hiding rows behind it, and the member's folds are waiting when it opens again.
+   */
+  function railNodes(group: SidebarGroupView): readonly SidebarNode[] {
+    if (!railCollapsed) return group.nodes;
+    return group.destinations.map((destination) => ({ kind: "row", destination }) as const);
+  }
   const editingGroups = $derived(sidebarEditingGroups());
   const hoverExpand = $derived(expandSidebarOnHover());
 
@@ -180,7 +211,7 @@
     if (customizing) collapsed = false;
   }
 
-  // The drag operates over the starred tier only — the reorderable rows. Home holds index 0 of
+  // The drag operates over the shown tier only — the reorderable rows. Home holds index 0 of
   // its group and never moves; the controller clamps the drop to keep it there.
   function beginDrag(
     event: PointerEvent,
@@ -188,7 +219,7 @@
     destination: Destination,
   ): void {
     if (destination.id === "home") return; // fixed leader — never dragged
-    const ids = group.starred.map((candidate) => candidate.id);
+    const ids = group.shown.map((candidate) => candidate.id);
     drag.start(
       event,
       destination.id,
@@ -209,14 +240,14 @@
     if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
     if (destination.id === "home") return;
     event.preventDefault();
-    const ids = group.starred.map((candidate) => candidate.id);
+    const ids = group.shown.map((candidate) => candidate.id);
     const fromIndex = ids.indexOf(destination.id);
     moveDestination(group.id, destination.id, fromIndex + (event.key === "ArrowUp" ? -1 : 1));
     const updated = sidebarEditingGroups().find((candidate) => candidate.id === group.id);
     const landedIndex =
-      updated?.starred.findIndex((candidate) => candidate.id === destination.id) ?? -1;
+      updated?.shown.findIndex((candidate) => candidate.id === destination.id) ?? -1;
     if (landedIndex !== -1 && updated !== undefined) {
-      moveAnnouncement = `${destination.label} moved to position ${landedIndex + 1} of ${updated.starred.length}`;
+      moveAnnouncement = `${destination.label} moved to position ${landedIndex + 1} of ${updated.shown.length}`;
     }
   }
 
@@ -230,6 +261,62 @@
 </script>
 
 <svelte:window onkeydown={onKeydown} />
+
+<!--
+  ONE ROW, DRAWN ONCE. A destination renders identically whether it sits directly in a group or
+  inside a cluster's sub-menu, so the snippet is defined here and rendered at both levels rather
+  than the markup existing twice and drifting the first time either is corrected.
+-->
+{#snippet railRow(destination: Destination)}
+  {@const Icon = destination.icon}
+  {@const current = isCurrentDestination(destination, page.url.pathname)}
+  <Sidebar.MenuItem>
+    {#if destination.shipped}
+      <Sidebar.MenuButton
+        href={destination.href}
+        tooltip={destination.label}
+        isActive={current}
+        class="relative"
+        aria-current={current ? "page" : undefined}
+        data-arrived={isNewArrival(destination.id) ? "true" : undefined}
+      >
+        {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
+        {destination.label}
+        <!-- Collapsed icon rail: the badge's label is hidden with the trailing column, so a dot of
+             the same colour carries the stage over the icon. -->
+        {#if collapsed && !peeking}
+          <MaturityDot stage={destinationStage(destination)} class="absolute end-4 top-4" />
+        {/if}
+        <!-- The badge rides the row's own trailing column, which never shrinks: a long label
+             ellipses and the mark stays. Inside the label it was clipped off every long row —
+             "Property Listing Links" hid its Soon mark entirely (owner report, 2026-09-16). -->
+        {#snippet trailing()}
+          <MaturityBadge stage={destinationStage(destination)} />
+        {/snippet}
+      </Sidebar.MenuButton>
+    {:else}
+      <!-- An announced Soon row: no destination yet, so no href and disabled — honest about not
+           existing. The badge rides the trailing slot (both hide in the collapsed rail, where the
+           tooltip carries the truth instead and the un-navigable muted icon is the Soon
+           treatment). -->
+      <Sidebar.MenuButton
+        disabled
+        tooltip="{destination.label} — coming soon"
+        class="relative cursor-default"
+        data-arrived={isNewArrival(destination.id) ? "true" : undefined}
+      >
+        {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
+        {destination.label}
+        {#if collapsed && !peeking}
+          <MaturityDot stage={destinationStage(destination)} class="absolute end-4 top-4" />
+        {/if}
+        {#snippet trailing()}
+          <MaturityBadge stage={destinationStage(destination)} />
+        {/snippet}
+      </Sidebar.MenuButton>
+    {/if}
+  </Sidebar.MenuItem>
+{/snippet}
 
 <div class="flex h-screen overflow-hidden bg-surface-default">
   <Sidebar.Root
@@ -254,36 +341,60 @@
           <Sidebar.Group>
             <Sidebar.GroupLabel>{group.label}</Sidebar.GroupLabel>
             <Sidebar.Menu>
-              <!-- Tier one: what is in your sidebar now — draggable to reorder, with a live
-                   reflow preview (the other rows shift to open the gap at the projected drop).
-                   Pinned rows show a lock; the rest a filled gold star that removes them. -->
-              {#each group.starred as destination (destination.id)}
+              <!-- Tier one: what is in your sidebar now — each row gripped and draggable to
+                   reorder, with a live reflow preview (the other rows shift to open the gap at the
+                   projected drop). Pinned rows show a lock; a favourite shows the gold star that
+                   gives the shortcut back; everything else the open eye that hides it. -->
+              {#each group.shown as destination (destination.id)}
                 {@const Icon = destination.icon}
                 {@const dragging = drag.draggingId === destination.id}
                 {@const shift = dragging ? drag.offsetY : drag.rowShift(destination.id)}
+                {@const fixed = destination.id === "home"}
+                {@const favoritePath = favoritePathFromRowId(destination.id)}
                 <Sidebar.MenuItem>
                   <div
-                    class="mc-sidebar-edit-row flex items-center gap-8 rounded-md {dragging
+                    class="mc-sidebar-edit-row flex items-center gap-4 rounded-md {dragging
                       ? 'relative z-sticky bg-chrome-surface shadow-elevation-2'
                       : 'transition-transform duration-fast ease-standard motion-reduce:transition-none'}"
                     style="transform: translateY({shift}px)"
+                    data-dragging={dragging ? "true" : undefined}
+                    data-reorder-row
                   >
+                    <!-- THE GRIP. Until it existed the row said nothing about being draggable —
+                         the grab cursor only answers once the pointer is already on it, which is
+                         an answer to a question nobody asked (owner report, 2026-09-16). It is
+                         decoration, not a second control: the whole row is the drag handle, so
+                         the grip carries no pointer handlers and no tab stop of its own. -->
+                    <span class="mc-sidebar-grip" data-fixed={fixed ? "true" : undefined} aria-hidden="true">
+                      <GripVertical class="size-16" />
+                    </span>
                     <Sidebar.MenuButton
-                      class="touch-none select-none {destination.id === 'home'
-                        ? 'cursor-not-allowed'
-                        : 'cursor-grab'}"
+                      class="touch-none select-none {fixed ? 'cursor-not-allowed' : 'cursor-grab'}"
                       aria-roledescription="Reorderable sidebar destination"
                       aria-label="{destination.label} — Alt plus Arrow Up or Arrow Down moves it"
-                      aria-disabled={destination.id === "home" ? "true" : undefined}
+                      aria-disabled={fixed ? "true" : undefined}
                       data-arrived={isNewArrival(destination.id) ? "true" : undefined}
                       onpointerdown={(event) => beginDrag(event, group, destination)}
                       onkeydown={(event) => onEditKeydown(event, group, destination)}
                     >
                       {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
                       {destination.label}
-                      <MaturityBadge stage={destinationStage(destination)} class="ms-8" />
+                      {#snippet trailing()}
+                        <MaturityBadge stage={destinationStage(destination)} />
+                      {/snippet}
                     </Sidebar.MenuButton>
-                    {#if destination.pinned === true}
+                    {#if favoritePath !== null}
+                      <button
+                        type="button"
+                        class="mc-sidebar-row-control"
+                        data-starred="true"
+                        aria-pressed="true"
+                        aria-label="Remove {destination.label} from your favorites"
+                        onclick={() => setShown(destination.id, false)}
+                      >
+                        <Star class="size-16 fill-current" aria-hidden="true" />
+                      </button>
+                    {:else if destination.pinned === true}
                       <span
                         class="mc-sidebar-row-control"
                         data-locked="true"
@@ -296,44 +407,49 @@
                       <button
                         type="button"
                         class="mc-sidebar-row-control"
-                        data-starred="true"
+                        data-shown="true"
                         aria-pressed="true"
-                        aria-label="Remove {destination.label} from your sidebar"
-                        onclick={() => setStarred(destination.id, false)}
+                        aria-label="Hide {destination.label} from your sidebar"
+                        onclick={() => setShown(destination.id, false)}
                       >
-                        <Star class="size-16 fill-current" aria-hidden="true" />
+                        <Eye class="size-16" aria-hidden="true" />
                       </button>
                     {/if}
                   </div>
                 </Sidebar.MenuItem>
               {/each}
-              {#if group.starred.length > 0 && group.unstarred.length > 0}
+              {#if group.shown.length > 0 && group.hidden.length > 0}
                 <li class="mc-sidebar-edit-divider" role="presentation"></li>
               {/if}
-              <!-- Tier two: hidden destinations — a click (row or hollow star) adds them back,
-                   where they rise to the starred tier at their canonical position. -->
-              {#each group.unstarred as destination (destination.id)}
+              <!-- Tier two: hidden destinations — a click (row or struck-through eye) brings them
+                   back, where they rise to the shown tier at their canonical position. -->
+              {#each group.hidden as destination (destination.id)}
                 {@const Icon = destination.icon}
                 <Sidebar.MenuItem>
-                  <div class="mc-sidebar-edit-row flex items-center gap-8 rounded-md">
+                  <div class="mc-sidebar-edit-row flex items-center gap-4 rounded-md">
+                    <!-- No grip: a hidden row has no place in the order to be moved within. The
+                         span keeps the two tiers on one leading edge. -->
+                    <span class="mc-sidebar-grip" data-fixed="true" aria-hidden="true"></span>
                     <Sidebar.MenuButton
                       class="cursor-pointer"
-                      aria-label="Add {destination.label} to your sidebar"
-                      onclick={() => setStarred(destination.id, true)}
+                      aria-label="Show {destination.label} in your sidebar"
+                      onclick={() => setShown(destination.id, true)}
                     >
                       {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
                       {destination.label}
-                      <MaturityBadge stage={destinationStage(destination)} class="ms-8" />
+                      {#snippet trailing()}
+                        <MaturityBadge stage={destinationStage(destination)} />
+                      {/snippet}
                     </Sidebar.MenuButton>
                     <button
                       type="button"
                       class="mc-sidebar-row-control"
-                      data-starred="false"
+                      data-shown="false"
                       aria-pressed="false"
-                      aria-label="Add {destination.label} to your sidebar"
-                      onclick={() => setStarred(destination.id, true)}
+                      aria-label="Show {destination.label} in your sidebar"
+                      onclick={() => setShown(destination.id, true)}
                     >
-                      <Star class="size-16" aria-hidden="true" />
+                      <EyeOff class="size-16" aria-hidden="true" />
                     </button>
                   </div>
                 </Sidebar.MenuItem>
@@ -351,7 +467,7 @@
               <!-- The heading folds the group away. It is the heading, not a control beside one:
                    same voice, same seat, a chevron and the whole width as its target. Folding is
                    the sidebar's, never the palette's — every destination in a folded group is
-                   still one Ctrl+K away, the same invariant the star layer keeps. -->
+                   still one Ctrl+K away, the same invariant the visibility layer keeps. -->
               <Sidebar.GroupTrigger
                 expanded={!folded}
                 aria-label={folded ? `Show ${group.label}` : `Hide ${group.label}`}
@@ -361,57 +477,39 @@
               </Sidebar.GroupTrigger>
             {/if}
             {#if !folded}
-            <Sidebar.Menu>
-              {#each group.destinations as destination (destination.id)}
-                {@const Icon = destination.icon}
-                {@const current = isCurrentDestination(destination, page.url.pathname)}
-                <Sidebar.MenuItem>
-                  {#if destination.shipped}
-                    <Sidebar.MenuButton
-                      href={destination.href}
-                      tooltip={destination.label}
-                      isActive={current}
-                      class="relative"
-                      aria-current={current ? "page" : undefined}
-                      data-arrived={isNewArrival(destination.id) ? "true" : undefined}
-                    >
-                      {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
-                      {destination.label}
-                      <!-- Expanded: the labelled badge. Collapsed icon rail: the badge's label is
-                           hidden, so a dot of the same colour carries the stage over the icon. -->
-                      <MaturityBadge stage={destinationStage(destination)} class="ms-8" />
-                      {#if collapsed && !peeking}
-                        <MaturityDot
-                          stage={destinationStage(destination)}
-                          class="absolute end-4 top-4"
-                        />
+              <Sidebar.Menu>
+                <!-- The collapsed icon rail draws every row FLAT — a rail with no labels has
+                     nothing to fold by, so a cluster there would be a chevron with no name and a
+                     column of icons with no way back. The folds are waiting when it opens. -->
+                {#each railNodes(group) as node (node.kind === "cluster" ? `cluster-${node.id}` : node.destination.id)}
+                  {#if node.kind === "cluster"}
+                    {@const ClusterIcon = node.icon}
+                    {@const open = !isClusterCollapsed(node.id)}
+                    {@const holdsCurrent = node.rows.some((row) => isCurrentDestination(row, page.url.pathname))}
+                    <Sidebar.MenuItem>
+                      <Sidebar.MenuTrigger
+                        expanded={open}
+                        tooltip={node.label}
+                        data-holds-current={holdsCurrent ? "true" : undefined}
+                        aria-label={open ? `Hide ${node.label}` : `Show ${node.label}`}
+                        onclick={() => toggleClusterCollapsed(node.id)}
+                      >
+                        {#snippet icon()}<ClusterIcon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
+                        {node.label}
+                      </Sidebar.MenuTrigger>
+                      {#if open}
+                        <Sidebar.MenuSub>
+                          {#each node.rows as destination (destination.id)}
+                            {@render railRow(destination)}
+                          {/each}
+                        </Sidebar.MenuSub>
                       {/if}
-                    </Sidebar.MenuButton>
+                    </Sidebar.MenuItem>
                   {:else}
-                    <!-- An announced Soon row: no destination yet, so no href and disabled —
-                         honest about not existing. The badge rides the label (both hide in the
-                         collapsed rail, where the tooltip carries the truth instead and the
-                         un-navigable muted icon is the Soon treatment). -->
-                    <Sidebar.MenuButton
-                      disabled
-                      tooltip="{destination.label} — coming soon"
-                      class="relative cursor-default"
-                      data-arrived={isNewArrival(destination.id) ? "true" : undefined}
-                    >
-                      {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
-                      {destination.label}
-                      <MaturityBadge stage={destinationStage(destination)} class="ms-8" />
-                      {#if collapsed && !peeking}
-                        <MaturityDot
-                          stage={destinationStage(destination)}
-                          class="absolute end-4 top-4"
-                        />
-                      {/if}
-                    </Sidebar.MenuButton>
+                    {@render railRow(node.destination)}
                   {/if}
-                </Sidebar.MenuItem>
-              {/each}
-            </Sidebar.Menu>
+                {/each}
+              </Sidebar.Menu>
             {/if}
           </Sidebar.Group>
         {/each}

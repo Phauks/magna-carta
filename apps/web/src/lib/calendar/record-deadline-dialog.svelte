@@ -61,6 +61,7 @@
     matterId,
     matters,
     mattersCapped,
+    mattersReading = false,
     preferredTimeZones,
     initialDate,
     supersedes,
@@ -73,6 +74,8 @@
     matters: readonly SheetMatter[];
     /** Whether `matters` is a page of the record rather than all of it. */
     mattersCapped: boolean;
+    /** Whether the firm's matters are still being read, so the picker does not say there are none. */
+    mattersReading?: boolean;
     /** The zones offered first: the reader's own and the firm's offices, in that order. */
     preferredTimeZones: readonly string[];
     /** The date the form opens on, where it was opened from a day. */
@@ -109,7 +112,7 @@
 
   const refusal = $derived.by(() => {
     if (targetMatterId === null) return "A matter is needed.";
-    if (!deadlineDraftReady(draft)) return shortfalls[0];
+    if (!deadlineDraftReady(draft)) return shortfalls[0]?.sentence;
     if (superseding && reason.trim() === "") return "A reason is needed.";
     return undefined;
   });
@@ -247,6 +250,7 @@
             inputId="{idPrefix}-matter"
             {matters}
             capped={mattersCapped}
+            reading={mattersReading}
             value={chosenMatterId}
             disabled={busy}
             onpick={(picked) => (chosenMatterId = picked)}

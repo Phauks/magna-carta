@@ -8,11 +8,11 @@ import {
 // The policy coolwsd actually sends for the editor page, shortened to the directives that matter here.
 // `frame-ancestors` names the editor's own origin and the internal WOPI host and nothing else — the
 // defect this module exists to correct.
-const DOCUMENT_HOST_LABEL = "286b0ecd5380489120b8c0f96e26476bad69f2897c22af02d7d6";
+const DOCUMENT_LABEL = "286b0ecd5380489120b8c0f96e26476bad69f2897c22af02d7d6";
 const COOLWSD_POLICY = [
   "default-src 'none'",
   "script-src 'self' 'unsafe-inline'",
-  `frame-ancestors ${DOCUMENT_HOST_LABEL}.magnacartausercontent.com:* wopi.magna-carta.internal:*`,
+  `frame-ancestors ${DOCUMENT_LABEL}.magnacartausercontent.com:* wopi.magna-carta.internal:*`,
 ].join("; ");
 
 const APP_SOURCES = ["https://magnacarta.esq", "https://*.magnacarta.esq"];
@@ -42,7 +42,7 @@ describe("withAppFrameAncestors", () => {
 
   it("keeps the sources coolwsd put there, because the editor frames pages of its own", () => {
     const merged = withAppFrameAncestors(COOLWSD_POLICY, APP_SOURCES);
-    expect(merged).toContain(`${DOCUMENT_HOST_LABEL}.magnacartausercontent.com:*`);
+    expect(merged).toContain(`${DOCUMENT_LABEL}.magnacartausercontent.com:*`);
     expect(merged).toContain("wopi.magna-carta.internal:*");
   });
 
@@ -104,6 +104,24 @@ describe("allowAppFraming", () => {
     );
     expect(response.status).toBe(404);
     expect(response.statusText).toBe("Not Found");
+  });
+
+  it("hands a WebSocket upgrade back untouched, whatever headers it carries", () => {
+    // The document's editing session rides this socket. The runtime refuses to construct a Response
+    // with status 101, so rebuilding one throws and the editor never connects — and a rebuild would
+    // drop the `webSocket` the upgrade carries even where it did not throw. A 101 cannot be built
+    // here either, which is why the upgrade is stood in for rather than constructed.
+    const socket = {};
+    const upgrade = {
+      status: 101,
+      webSocket: socket,
+      headers: new Headers({ "Content-Security-Policy": COOLWSD_POLICY }),
+    } as unknown as Response;
+
+    const response = allowAppFraming(upgrade, APP_SOURCES);
+
+    expect(response).toBe(upgrade);
+    expect((response as unknown as { webSocket: unknown }).webSocket).toBe(socket);
   });
 
   it("passes a response with no policy straight through, untouched", () => {

@@ -1,4 +1,5 @@
 import type { DirectoryIdentifierContext } from "@magna-carta/directory/identifiers";
+import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import type { ConflictsCheckId } from "@magna-carta/identifiers/types";
 import type { ConflictsWriteOptions } from "./audit.ts";
 import { triggerForCauseTopic } from "./recheck-cause.ts";
@@ -97,14 +98,19 @@ export async function satisfyRecheckRequestsForMatter(
   );
 
   const satisfiedAt = options.clock.now();
-  await context.database.batch(
-    open.map((request) =>
-      markRecheckRequestSatisfiedStatement(context.database, {
-        id: request.id,
-        checkId,
-        satisfiedAt,
-      }),
-    ),
+  await commitEffectBatch(
+    context.database,
+    {
+      statements: open.map((request) =>
+        markRecheckRequestSatisfiedStatement(context.database, {
+          id: request.id,
+          checkId,
+          satisfiedAt,
+        }),
+      ),
+      outboxMessages: [],
+    },
+    { now: () => satisfiedAt },
   );
 
   return { matterId, checkId, causesSatisfied: open.length };

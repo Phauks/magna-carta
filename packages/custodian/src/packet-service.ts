@@ -1,4 +1,5 @@
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
+import { guarded } from "@magna-carta/data-access/effect-batch";
 import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import {
@@ -471,7 +472,7 @@ export async function endCustodyOwner(
   return {
     effect: {
       statements: [
-        endCustodyOwnerStatement(database, ownerId, now),
+        guarded(endCustodyOwnerStatement(database, ownerId, now), "custody-owner.end"),
         custodyAuditStatement(database, options, "custodyOwner.ended", ownerId, { packetId }),
       ],
       outboxMessages: [],

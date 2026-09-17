@@ -1,4 +1,5 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
+import { GuardedWriteRefusedError } from "@magna-carta/database/guarded-write";
 import type { SealPort } from "@magna-carta/signing/port";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import {
@@ -925,6 +926,13 @@ export function createApp(options: CreateAppOptions = {}) {
     app.get("/api/v1/__telemetry-probe/:probeId", (c) => c.json({ ok: true }));
     app.get("/api/v1/__telemetry-throw", () => {
       throw new Error("telemetry probe boom for leak@example.com");
+    });
+    // A guarded write that matched no row reaches the boundary as an ordinary throw from whatever
+    // route committed it. Every route means the same thing by it, so the boundary answers it rather
+    // than each route wiring its own — and this probe is what pins that, because no route can be made
+    // to lose a real race on demand from outside.
+    app.get("/api/v1/__telemetry-guard-refusal", () => {
+      throw new GuardedWriteRefusedError("telemetry-probe.guard");
     });
   }
 

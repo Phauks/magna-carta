@@ -10,6 +10,7 @@
 //     RFC 9457 500 carrying that same Error ID. The middleware then skips request.completed (c.error
 //     is set), so a failed request emits error.captured as its single terminal event.
 import type { Context, MiddlewareHandler } from "hono";
+import { GuardedWriteRefusedError } from "@magna-carta/database/guarded-write";
 import { errorCaptured, requestCompleted } from "@magna-carta/telemetry/events";
 import { newCorrelationId, newErrorId } from "@magna-carta/telemetry/ids";
 import type { Logger } from "@magna-carta/telemetry/logger";
@@ -82,6 +83,22 @@ export function telemetryErrorHandler(
     // retryable 503 saying what is misconfigured — still counted and still carrying an Error ID for
     // the operator to correlate, but never leaving a member who tried to file a document with an
     // Error ID and the impression that their file was the problem.
+    // A guarded write matched no row: the thing the request named moved between its precondition read
+    // and its commit, and the batch rolled back whole. That is a conflict, not a fault — the member can
+    // reload and decide again — so it answers 409 here rather than reaching the 500 below with an Error
+    // ID for something the platform understands perfectly well. Mapped centrally because every guarded
+    // write in every route means the same thing by it; a route with a richer answer (the fee and cost
+    // ledgers reuse their own frozen-entry refusal) catches it first and never reaches here.
+    if (error instanceof GuardedWriteRefusedError) {
+      return problemJson(c, {
+        type: "conflict",
+        status: 409,
+        title: "Something changed while this request was in flight",
+        detail:
+          "the record this request named changed before the change could be applied, so nothing was written — reload and try again",
+        errorId,
+      });
+    }
     if (error instanceof FirmBucketUnavailableError) {
       return problemJson(c, {
         type: "storage-unavailable",

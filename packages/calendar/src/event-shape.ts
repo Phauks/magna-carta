@@ -1,3 +1,4 @@
+import { parseRecurrence } from "@magna-carta/civil-time/recurrence";
 import type { UserId } from "@magna-carta/identifiers/types";
 import type { MatterEventParticipantKind } from "./types.ts";
 import {
@@ -20,6 +21,8 @@ export interface EventShapeInput {
   readonly endsOn?: string | null;
   readonly endsAtTime?: string | null;
   readonly timeZone: string;
+  /** The RFC 5545 rule a repeating setting runs on, or null/absent for a one-off. */
+  readonly recurrenceRule?: string | null;
 }
 
 export function assertEventShape(input: EventShapeInput): void {
@@ -49,6 +52,30 @@ export function assertEventShape(input: EventShapeInput): void {
   // Validated at the WRITE and never at the read: a row whose zone no runtime can resolve is an
   // event nobody can display and nobody can correct without a migration.
   assertTimeZone(input.timeZone);
+  assertRecurrenceRule(input.recurrenceRule);
+}
+
+/**
+ * The rule, refused unless this platform could have written it.
+ *
+ * READ WITH THE SAME GRAMMAR THE FORM WRITES — `@magna-carta/civil-time/recurrence`, which both
+ * sides import — so a rule the record form can produce is a rule this accepts, and a rule it cannot
+ * present is a rule this refuses. Two readings of "valid rule" would disagree the first time either
+ * was corrected, and the disagreement would show up as a setting that saved and then could not be
+ * edited.
+ *
+ * Refused at the WRITE, for the reason the zone is: a stored rule nothing can parse is a series
+ * nobody can see the end of and nobody can correct without a migration.
+ */
+function assertRecurrenceRule(rule: string | null | undefined): void {
+  if (rule === null || rule === undefined) return;
+  if (parseRecurrence(rule) === null) {
+    throw new CalendarValidationError(
+      "calendar-invalid-recurrence",
+      "the repeat rule is not one this platform can read back: it is stored as an RFC 5545 RRULE " +
+        "and only the rules the record form offers are accepted",
+    );
+  }
 }
 
 // The three participant shapes both event scopes share: a firm member, a Directory entity, or

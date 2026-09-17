@@ -1,4 +1,4 @@
-import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
+import type { EffectWrite, EffectStatement } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { OutboxMessage } from "@magna-carta/data-access/outbox-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -367,7 +367,7 @@ export async function ensureMatterTrustLeaf(
   }
 
   const createdAt = options.clock.now();
-  const statements: SqlStatement[] = [];
+  const statements: EffectStatement[] = [];
   const outboxMessages: OutboxMessage[] = [];
 
   const existingClient = await selectTrustClientNodeStatement(

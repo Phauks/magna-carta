@@ -178,6 +178,14 @@ The switch on the right of the strip above the list swaps the rows for tiles. A 
 tile runs onto a second and a third line and then stops with an ellipsis; the whole name is on the
 tile's hover either way, and no tile ever covers the one beside it.
 
+### Making the list bigger or smaller
+
+The two magnifier buttons on the counts strip, with a percentage between them, scale the file area
+from half size to double. They work the same in both views: as tiles they size the tiles, and as
+rows they size the list's text, the height of its rows and the icons beside the names. Everything
+around the list — the folder path above it, the strip the buttons themselves sit on — stays put, so
+scaling up shows you more of the list rather than less of the screen. The setting is remembered.
+
 ### Moving something into a folder
 
 Drag a file or a folder onto the folder you want it in. This works wherever the screen shows you a
@@ -387,7 +395,7 @@ download instead. The file is stored either way, and nothing about it is changed
 
 A password-protected PDF asks for its password right there instead of failing outright — type it
 and the document opens normally. The password is checked in this browser and never sent anywhere.
-If you do not have it, the reader points you to File Unlock & Password Recovery in Tools, which can
+If you do not have it, the reader points you to the File Workbench's Unlock tab, which can
 search for a common or predictable one.
 
 A PDF is read-only here. There is no editing, and nothing you do in the reader changes the document

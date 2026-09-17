@@ -52,7 +52,7 @@
 {#if import.meta.env.DEV}
   <div class="flex min-h-screen flex-col gap-32 bg-surface-default p-24 text-text-default">
     <header class="flex max-w-prose flex-col gap-8">
-      <ScreenHeader title="Pane toggle placements" back={DEVELOPER_CONSOLE_BACK} />
+      <ScreenHeader title="Pane toggle placements" favoritable={false} back={DEVELOPER_CONSOLE_BACK} />
       <p class="text-sm text-text-muted">
         Every candidate home for the show-and-hide-the-pane control, rendered from the real design
         system over one fixture. Each specimen is the same fixed height, so what a placement takes

@@ -36,13 +36,22 @@
  * handed is a promise about what they will see.
  */
 import { replaceState } from "$app/navigation";
+import { LatestOnly } from "../api/latest-only.ts";
 import { page } from "$app/state";
 import type {
   CalendarGridColor,
   CalendarGridConcurrency,
   CalendarGridLane,
 } from "@magna-carta/design-system/calendar-grid";
-import { colored, perLane, type CalendarEntry, type EntryContext } from "./calendar-entries.ts";
+import {
+  colored,
+  numbered,
+  perLane,
+  type CalendarEntry,
+  type CalendarEntryKind,
+  type EntryContext,
+} from "./calendar-entries.ts";
+import { heldBack, isNarrowed, narrowToKinds, toggleKind } from "./schedule-narrowing.ts";
 import { readCalendarWindow, type CalendarReadFailure } from "./calendar-reads.ts";
 import {
   isFirmSideScope,
@@ -54,8 +63,10 @@ import { calendarLayer } from "./calendar-vocabulary.ts";
 import {
   calendarsOn,
   chosenColors,
+  isFolderFolded,
   chosenConcurrency,
   setCalendarColor,
+  setFolderFolded,
   setCalendarsOn,
   setConcurrency,
 } from "./calendar-preferences.svelte.ts";
@@ -229,7 +240,7 @@ function narrowToSearch(
 
 export class CalendarController {
   readonly #host: CalendarHost;
-  #generation = 0;
+  readonly #latest = new LatestOnly();
 
   /** The reader's civil date today, in their own zone. */
   readonly today: string;
@@ -353,6 +364,21 @@ export class CalendarController {
     return folderSelection(folder, this.onKeys);
   }
 
+  /**
+   * Which folders are folded shut, read once so the rail's rows are a derived rather than a call
+   * per folder. A firm with twenty rooms scrolled past all twenty to reach the folder under them
+   * (owner, 2026-09-16); folding costs no capability, because the folder's own three-state control
+   * stays on its head whether it is open or shut.
+   */
+  readonly foldedFolders: ReadonlySet<string> = $derived(
+    new Set(this.folders.map((folder) => folder.key).filter((key) => isFolderFolded(key))),
+  );
+
+  /** Fold a folder shut, or open it. */
+  toggleCalendarFolderFold(folder: CalendarFolder): void {
+    setFolderFolded(folder.key, !this.foldedFolders.has(folder.key));
+  }
+
   /** Turn one calendar on or off. A Soon row does not move. */
   toggleCalendar(source: CalendarSource): void {
     this.#writeSelection(toggleSource(source, this.onKeys));
@@ -456,11 +482,16 @@ export class CalendarController {
       this.view === "agenda" && this.hideSettled
         ? this.entries.filter((entry) => !entry.settled)
         : this.entries;
-    const matching = narrowToSearch(kept, this.search);
+    const ofKind = narrowToKinds(kept, this.narrowedKinds);
+    const matching = narrowToSearch(ofKind, this.search);
     // The colour of the first calendar in the rail's order that this entry is on. The day grid
     // overrides it per lane, because there the column already says which calendar it is.
     const order = this.selectedSources.map((source) => source.key);
-    return matching.map((entry) => colored(entry, this.colors, order));
+    // The matter numbers are filled in HERE rather than at the projection, because they arrive
+    // later than the rows do and the grid no longer waits for them. This derived re-runs when they
+    // land, so the chips take their numbers with no second read.
+    const numbers = this.#host.context().matterNumbers;
+    return matching.map((entry) => colored(numbered(entry, numbers), this.colors, order));
   });
 
   /**
@@ -524,6 +555,18 @@ export class CalendarController {
     this.#host.setAnchor(this.today);
   }
 
+  /**
+   * Move the window to a day, keeping the view.
+   *
+   * What the pinned month picker does. Somebody reading a week who presses a Thursday means that
+   * Thursday's WEEK — the picker is the calendar's own navigation at a second scale, not a request
+   * for a day view — so the view is deliberately untouched. `showDay` is the other gesture, and it
+   * switches deliberately because a day's overflow control is a request to see that day.
+   */
+  goToDay(date: string): void {
+    this.#host.setAnchor(date);
+  }
+
   /** A day's overflow control opens that day in the agenda. */
   showDay(date: string): void {
     this.#host.setAnchor(date);
@@ -546,13 +589,37 @@ export class CalendarController {
   }
 
   /**
+   * Which kinds the reader has narrowed the window to. Empty means every kind, which is what an
+   * untouched control means and what a reader who turned them all off is shown.
+   */
+  narrowedKinds = $state<ReadonlySet<CalendarEntryKind>>(new Set());
+
+  /** Whether anything is being held back — what a Clear control renders on, and nothing else. */
+  readonly narrowed: boolean = $derived(isNarrowed(this.narrowedKinds));
+
+  /** How many of the window's entries the narrowing is holding back, for the line that says so. */
+  readonly narrowedAway: number = $derived.by(() => {
+    if (this.entries === null) return 0;
+    return heldBack(this.entries, this.narrowedKinds);
+  });
+
+  /** Turn one kind on or off. */
+  toggleKind(kind: CalendarEntryKind): void {
+    this.narrowedKinds = toggleKind(this.narrowedKinds, kind);
+  }
+
+  /** Show every kind again. */
+  clearNarrowing(): void {
+    this.narrowedKinds = new Set();
+  }
+
+  /**
    * Read the window. `fresh` blanks the grid first, for a window the reader has moved to; `refresh`
    * keeps what is on screen while the same window is read again, for a record that was just written,
    * so nothing flashes under the reader.
    */
   async read(fetchImpl: typeof fetch, mode: "fresh" | "refresh"): Promise<void> {
-    this.#generation += 1;
-    const generation = this.#generation;
+    const attempt = this.#latest.begin();
     if (mode === "fresh") {
       // A window the reader moved to starts clean: a notice about the last window's read would
       // stand over this one's skeleton and read as a failure of a read that has not happened.
@@ -565,7 +632,7 @@ export class CalendarController {
     const result = await readCalendarWindow(fetchImpl, scope, this.window, this.#host.context(), {
       sources: this.firmSide ? this.selectedSources : undefined,
     });
-    if (generation !== this.#generation) return;
+    if (!attempt.current) return;
     this.entries = result.entries;
     this.failures = result.failures;
     this.truncated = result.truncated;

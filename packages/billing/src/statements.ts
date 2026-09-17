@@ -109,6 +109,7 @@ export interface FinalizeInvoiceInput {
 // aborts nothing in SQLite. The real guarantee is the allocation row this batch also carries, which
 // is unique per invoice: a second finalize of the same invoice loses on
 // invoice_number_allocation_invoice_unique_index and its whole batch rolls back.
+// fitness:unguarded-write — constraint-backed — the invoice_number_allocation row in the same batch is unique per invoice, so a second finalize loses there and the whole batch rolls back
 export function finalizeInvoiceStatement(
   database: SqlDatabase,
   input: FinalizeInvoiceInput,
@@ -293,6 +294,7 @@ export function isClaimConflict(error: unknown): boolean {
 // of its invoice_line_id in the same statement, ahead of the line's DELETE in the same batch. The
 // claim row itself REMAINS, released and readable: "this entry was on a draft that was abandoned on
 // the 3rd" is the history the release is designed to keep.
+// fitness:unguarded-write — releasing a claim already released is the outcome the caller wanted
 export function releaseInvoiceClaimStatement(
   database: SqlDatabase,
   id: InvoiceWipClaimId,
@@ -305,6 +307,7 @@ export function releaseInvoiceClaimStatement(
     .bind(id, now);
 }
 
+// fitness:unguarded-write — matches a set rather than one row, so zero is an empty set rather than a refusal
 export function releaseAllInvoiceClaimsStatement(
   database: SqlDatabase,
   invoiceId: InvoiceId,
@@ -322,6 +325,7 @@ export function releaseAllInvoiceClaimsStatement(
 // the partial unique index on it is what actually stops a second draft taking the same entry. A
 // guarded `UPDATE … WHERE invoice_id IS NULL` looks like it would, and does not: a zero-row UPDATE
 // is not an error in SQLite, so the losing batch would commit happily having changed nothing.
+// fitness:unguarded-write — the mirror, not the guard — the claim row's partial unique index is what stops a second draft taking the entry
 export function setWorkInProgressInvoiceMirrorStatement(
   database: SqlDatabase,
   sourceKind: WorkInProgressKind,
@@ -339,6 +343,7 @@ export function setWorkInProgressInvoiceMirrorStatement(
 // Releasing one claim on a draft returns that entry to unbilled work-in-progress: the mirror is
 // nulled alongside the claim's released_at, in the same batch. Guarded on the invoice it is being
 // released from, so a mirror another draft has since taken is never cleared out from under it.
+// fitness:unguarded-write — zero rows means another draft has since taken the mirror, which is precisely the row this must not clear
 export function clearWorkInProgressInvoiceMirrorForSourceStatement(
   database: SqlDatabase,
   sourceKind: WorkInProgressKind,
@@ -371,6 +376,7 @@ export function clearWorkInProgressInvoiceMirrorStatement(
 // @magna-carta/billing-core already asserted in memory; it is not the guarantee, because a zero-row
 // UPDATE aborts nothing. The guarantee against a concurrent void is
 // refuseFinalizeOnFrozenWorkInProgressStatements below.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function markWorkInProgressBilledStatement(
   database: SqlDatabase,
   sourceKind: WorkInProgressKind,
@@ -394,6 +400,7 @@ export function markWorkInProgressBilledStatement(
 //
 // Chunked at D1's bound-parameter cap: a wide invoice claims more entries than one IN-list can hold,
 // and an over-long list commits fine locally but throws on production D1.
+// fitness:unguarded-write — a probe that matches NOTHING in the happy case: it aims a CHECK-forbidden status at rows that must not exist, so guarding it would refuse every finalize
 export function refuseFinalizeOnFrozenWorkInProgressStatements(
   database: SqlDatabase,
   sourceKind: WorkInProgressKind,
@@ -496,6 +503,7 @@ export function insertInvoiceApplicationStatement(
 // committed beside it. Same arrangement, for the same reason, as the trust leaf's account_balance
 // floor: a domain pre-check that names a refusal a person can act on, standing in front of a
 // database constraint that is the actual guarantee.
+// fitness:unguarded-write — matches a set rather than one row, so zero is an empty set rather than a refusal
 export function applyToInvoiceMatterBalanceStatement(
   database: SqlDatabase,
   invoiceId: InvoiceId,
@@ -945,6 +953,7 @@ export async function readOpenClientCreditsForMatter(
 // batch when one is not. A guarded UPDATE matching zero rows would abort nothing and let the matter
 // close over money the firm has conceded is not its own — which is the condition the block exists
 // for. Same construction, for the same reason, as the trust close guard.
+// fitness:unguarded-write — matches a set rather than one row, so zero is an empty set rather than a refusal
 export function refuseMatterCloseWithOpenClientCreditStatement(
   database: SqlDatabase,
   matterId: MatterId,

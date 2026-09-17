@@ -1,4 +1,8 @@
-import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
+import {
+  commitEffectBatch,
+  type BatchDatabase,
+  guarded,
+} from "@magna-carta/data-access/effect-batch";
 import {
   allocationChunkEffect,
   chunkAllocations,
@@ -102,12 +106,15 @@ export async function runInternalLoadTurn(options: {
       database,
       {
         statements: [
-          transitionDiscoveryLoadStatement(
-            database,
-            context.discoveryLoadId,
-            "loading",
-            "processing",
-            now,
+          guarded(
+            transitionDiscoveryLoadStatement(
+              database,
+              context.discoveryLoadId,
+              "loading",
+              "processing",
+              now,
+            ),
+            "discovery-load.transition",
           ),
         ],
         outboxMessages: [],

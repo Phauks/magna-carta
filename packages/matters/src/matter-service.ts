@@ -1,4 +1,5 @@
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
+import { guarded } from "@magna-carta/data-access/effect-batch";
 import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import {
@@ -862,7 +863,7 @@ export async function holdMatter(
     const now = options.clock.now();
     return {
       statements: [
-        holdMatterStatement(database, matterId, reason, now),
+        guarded(holdMatterStatement(database, matterId, reason, now), "matter.hold"),
         auditStatement(database, options, "matter.held", matterId),
       ],
       outboxMessages: [{ topic: MATTER_HELD_TOPIC, payload: { matterId } }],
@@ -907,7 +908,7 @@ export async function releaseMatter(
     const now = options.clock.now();
     return {
       statements: [
-        releaseMatterStatement(database, matterId, restored, now),
+        guarded(releaseMatterStatement(database, matterId, restored, now), "matter.release"),
         auditStatement(database, options, "matter.released", matterId),
       ],
       outboxMessages: [{ topic: MATTER_RELEASED_TOPIC, payload: { matterId } }],

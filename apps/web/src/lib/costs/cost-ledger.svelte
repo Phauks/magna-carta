@@ -508,7 +508,7 @@
   {/if}
 {/snippet}
 
-{#snippet list({ density, tableClass }: { density: MoneySurfaceDensity; tableClass: string })}
+{#snippet list({ density, tableClass, frame }: { density: MoneySurfaceDensity; tableClass: string; frame: "card" | "flush" })}
   <RecordMenu
     class="flex min-h-0 flex-1 flex-col"
     {menu}
@@ -525,6 +525,7 @@
       <DataTable.Grid
         {grid}
         {cell}
+        {frame}
         class={tableClass}
         {density}
         caption="Costs recorded on this matter"

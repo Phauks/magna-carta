@@ -35,12 +35,22 @@
    * stale when a path moves. `pnpm run lint:back-navigation` refuses a screen that sits under
    * another screen and passes no `back` at all.
    *
+   * EVERY HEADER CARRIES THE FAVOURITE STAR, and that is why the gesture reaches every page of the
+   * product without a screen opting in (owner's direction, 2026-09-16). It sits on the title's row,
+   * beside the name, because that is where it means "this page" — and because a screen with a
+   * trailing column seats its actions between the two columns, which would have left the star
+   * floating mid-band on a matter, the thing somebody most wants to favourite. The screen passes
+   * nothing: the two facts a favourite needs — the address and the name — are the address in the bar
+   * and this header's own title. `favoritable={false}` is for a screen that is not a place a member
+   * can return to: a step in a flow, a dev-only console.
+   *
    * THE TRAILING COLUMN is for a band that shares its height with something else — the matter's
    * search over its section strip. Passing it is what makes the title truncate rather than wrap and
    * the band stretch to one height, because those follow from the two-column arrangement rather
    * than being separate decisions a caller could get inconsistently right.
    */
   import * as Masthead from "@magna-carta/design-system/masthead";
+  import FavoriteControl from "$lib/navigation/favorite-control.svelte";
   import type { MastheadDensity } from "@magna-carta/design-system/masthead";
   import BackLink from "$lib/navigation/back-link.svelte";
   import { resolveBackDestination, type BackTarget } from "$lib/screen/screen-header.ts";
@@ -54,6 +64,7 @@
     meta,
     actions,
     trailing,
+    favoritable = true,
     class: className,
   }: {
     /** The screen's name, in the display serif. Becomes the page's h1. */
@@ -72,6 +83,12 @@
     actions?: Snippet;
     /** A second column sharing the band's height (the matter's search over its section strip). */
     trailing?: Snippet;
+    /**
+     * Whether this screen may be favourited. True everywhere by default — a screen with a title is
+     * a place. False for a screen that is a STEP rather than a place, or one nobody should be
+     * shortcutting to (the developer console).
+     */
+    favoritable?: boolean;
     class?: string;
   } = $props();
 
@@ -105,11 +122,20 @@
       {#if eyebrow !== undefined}
         <Masthead.Eyebrow>{eyebrow}</Masthead.Eyebrow>
       {/if}
-      {#if sharesTheRow}
-        <Masthead.Title class="truncate" title={title}>{title}</Masthead.Title>
-      {:else}
-        <Masthead.Title>{title}</Masthead.Title>
-      {/if}
+      <!-- THE TITLE'S ROW, and the star sits on it rather than in the actions group. A screen with
+           a trailing column (a matter's search over its section strip) seats its actions BETWEEN
+           the two columns, which would have left the star floating in the middle of the band on
+           exactly the screens somebody most wants to favourite. Beside the name it reads as being
+           about this page, which is what it is, and it lands in the same place on every screen
+           whatever else the header carries. -->
+      <div class="flex min-w-0 items-center gap-8">
+        {#if sharesTheRow}
+          <Masthead.Title class="truncate" title={title}>{title}</Masthead.Title>
+        {:else}
+          <Masthead.Title class="min-w-0">{title}</Masthead.Title>
+        {/if}
+        {#if favoritable}<FavoriteControl {title} />{/if}
+      </div>
       {#if meta !== undefined}
         <Masthead.Meta class={sharesTheRow ? "flex-nowrap" : undefined}>{@render meta()}</Masthead.Meta>
       {/if}

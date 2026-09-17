@@ -41,6 +41,7 @@ export function ensureCounterRowStatement(
 // draw that already advanced it makes this match zero rows (meta.changes === 0) — the loser. A
 // zero-row UPDATE is not an error in SQLite, so the loser is caught by the allocation row below,
 // which aborts its whole batch for a retry.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function guardedIncrementStatement(
   database: SqlDatabase,
   tables: SequenceNumberingTables,

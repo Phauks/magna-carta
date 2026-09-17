@@ -34,7 +34,7 @@ at the end of the field, or press Escape.
 
 The two buttons beside the search choose how the index reads: **tiles**, a card per report with its
 question at full length, or **list**, one dense line each. The choice is remembered in this browser.
-It is the same screen the [Tools](tools.md) catalogue uses, and each remembers its own choice. The
+Your choice is remembered in this browser. The
 column on the left is not affected by the view or the search: it always shows every report.
 
 ## Running a report
@@ -90,4 +90,4 @@ somebody the report alone should grant that beside it.
 - [The trust compliance report](trust-compliance-report.md): what each section of that report means
   and when it will not be produced.
 - [Downloads](../downloads.md): where an exported file goes.
-- [Tools](tools.md): the firm's workbench, on the same two-sided screen.
+- [Your sidebar](your-sidebar.md): how you reach Reports, and everything else.

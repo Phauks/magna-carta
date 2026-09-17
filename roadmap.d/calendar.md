@@ -18,10 +18,21 @@
   name: Litigation events and deadlines
   scope: Member-entered hearings, filings, service, orders, depositions and the like, plus first-class deadlines with a stated authority, satisfaction, and a vacate/supersede trail.
   status: shipped
-  surface: screen
   adrs: ADR-0055
   notes: Read on the matter's Calendar section and on the firm calendar; recorded, edited, cancelled, continued, satisfied, vacated and superseded from those screens through the record forms and the entry window.
   evidence: Four per-firm tables (matter_event, matter_event_type, matter_event_participant, matter_deadline) with civil dates, an explicit IANA zone per row, and the platform event-type catalog seeded by 20260806T000000_case-calendar; write paths in packages/calendar; read at apps/web/src/routes/(app)/matters/[id]/calendar/+page.svelte and apps/web/src/routes/(app)/calendar/+page.svelte; written from apps/web/src/lib/calendar/record-event-dialog.svelte, record-deadline-dialog.svelte and entry-window.svelte.
+
+- id: calendar.events.recurrence
+  name: Repeating settings
+  scope: A calendar setting that happens more than once, held as one row carrying an RFC 5545 rule and expanded at read time, on both the matter and the firm scope.
+  status: partial
+  surface: screen
+  spec: docs/specs/2026-09-15-calendar-places-people-and-recurrence-design.md
+  notes: Partial because the rule is stored, returned, shown and edited but the occurrences are not painted on the grid yet; the read-time expansion and the this-occurrence-or-series question an edit has to ask are the next slice. Nothing here computes a deadline — a recurring event is not a docketing rule.
+  evidence: recurrence_rule on matter_event and firm_event (20260916T000000_event-recurrence), threaded through packages/calendar's statement modules, services and event-shape asserts and refused at the write as calendar-invalid-recurrence; the grammar in packages/civil-time/src/recurrence.ts, which the record form and the calendar service both depend on so one reading of a valid rule serves both; edited in apps/web/src/lib/calendar/recurrence-field.svelte and read out in recurrence-sentence.ts.
+  audience: public
+  public-name: Repeating events
+  public-summary: Record a hearing or a firm meeting once and have it repeat — weekly, every second Tuesday, the third Tuesday of the month — with the rule read back to you in words before you save it.
 
 - id: calendar.timeline
   name: Matter timeline (federated)
