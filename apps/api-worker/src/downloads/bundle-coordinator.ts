@@ -64,38 +64,58 @@ export class BundleBuildCoordinator extends DurableObject<Bindings> implements B
   }
 
   async requestBundle(message: BundleBuildMessage): Promise<BundleJobState> {
-    const existing = (await this.ctx.storage.get<BundleJobState>("state")) ?? null;
-    // A build still in flight is always shared — that is the single-flight dedup this DO exists for.
-    if (existing !== null && existing.status === "building") return existing;
-    // A `ready` job is shared only while its artifact is still there. This DO's state is durable but
-    // the artifact is not: the `bundles/` R2 lifecycle rule expires the object, and a bundle whose
-    // object has been reaped would otherwise keep reporting `ready` with a key that no longer resolves
-    // and could never be rebuilt. Treating a missing artifact as rebuildable is what makes the
-    // artifact a regenerable cache rather than a one-shot. A `failed` job always rebuilds.
-    if (
-      existing !== null &&
-      existing.status === "ready" &&
-      (await this.artifactsPresent(
-        existing,
-        resolveFirmBucket(this.env, message.bucketName).bucket,
-      ))
-    ) {
-      return existing;
-    }
-    const state: BundleJobState = {
-      status: "building",
-      manifestHash: message.manifestHash,
-      r2Key: null,
-      error: null,
-    };
-    await this.ctx.storage.put("state", state);
-    await this.ctx.storage.setAlarm(Date.now() + STUCK_DEADLINE_MS);
+    // THE DECISION IS GATED, and it has to be, because deciding requires a round trip that is not
+    // storage. workerd holds the input gate across a storage await, so an ordinary read-then-write in
+    // this object is already single-flight: a second request is not delivered until the first has
+    // written, and it then sees `building` and shares. The reaped-artifact branch breaks that — it
+    // HEADs R2 to find out whether the bundle still exists, and a non-storage await opens the gate
+    // mid-decision. Both requests then read `ready`, both find the object gone, and both enqueue a
+    // rebuild of a bundle that may be very large. blockConcurrencyWhile delivers nothing else while
+    // it runs, which is what makes read-decide-write one act again.
+    //
+    // The enqueue and the push stay OUTSIDE it: they are the consequence of having decided, not part
+    // of deciding, and holding the gate across a queue send would stall every poll on this job behind
+    // it for no benefit — a request delivered after the gate reopens reads `building` and shares.
+    const decision = await this.ctx.blockConcurrencyWhile<
+      { build: false; state: BundleJobState } | { build: true; state: BundleJobState }
+    >(async () => {
+      const existing = (await this.ctx.storage.get<BundleJobState>("state")) ?? null;
+      // A build still in flight is always shared — that is the single-flight dedup this DO exists for.
+      if (existing !== null && existing.status === "building")
+        return { build: false, state: existing };
+      // A `ready` job is shared only while its artifact is still there. This DO's state is durable but
+      // the artifact is not: the `bundles/` R2 lifecycle rule expires the object, and a bundle whose
+      // object has been reaped would otherwise keep reporting `ready` with a key that no longer resolves
+      // and could never be rebuilt. Treating a missing artifact as rebuildable is what makes the
+      // artifact a regenerable cache rather than a one-shot. A `failed` job always rebuilds.
+      if (
+        existing !== null &&
+        existing.status === "ready" &&
+        (await this.artifactsPresent(
+          existing,
+          resolveFirmBucket(this.env, message.bucketName).bucket,
+        ))
+      ) {
+        return { build: false, state: existing };
+      }
+      const state: BundleJobState = {
+        status: "building",
+        manifestHash: message.manifestHash,
+        r2Key: null,
+        error: null,
+      };
+      await this.ctx.storage.put("state", state);
+      await this.ctx.storage.setAlarm(Date.now() + STUCK_DEADLINE_MS);
+      return { build: true, state };
+    });
+
+    if (!decision.build) return decision.state;
     await this.env.BUNDLE_BUILD.send(message);
     // A rebuild of a job someone is already watching (a `failed` retried, or a `ready` whose artifact
-    // was reaped) moves them back to `building` — the early returns above are the shared-build paths,
-    // where nothing transitioned and there is nothing to push.
+    // was reaped) moves them back to `building` — the shared-build paths above transitioned nothing
+    // and have nothing to push.
     await this.progress().broadcast();
-    return state;
+    return decision.state;
   }
 
   // True only when every artifact a `ready` state recorded is still in the firm's bucket. The optioned

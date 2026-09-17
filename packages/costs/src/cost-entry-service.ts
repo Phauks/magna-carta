@@ -1,5 +1,6 @@
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
+import { guarded } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
@@ -187,6 +188,14 @@ export async function captureCost(
   };
 }
 
+// What a refused guard is called when the commit hands it back. Each maps to the same refusal the
+// pre-commit read would have produced had it seen the state that actually won — a member who lost a
+// race and a member who asked for something plainly illegal are in the same position, and the answer
+// should not tell them apart.
+export const COST_DRAFT_EDIT_GUARD = "cost-entry.draft-edit";
+export const COST_STATUS_TRANSITION_GUARD = "cost-entry.status-transition";
+export const COST_RECEIPT_LINK_GUARD = "cost-entry.receipt-link";
+
 // Rewrites the editable draft fields. Refuses a frozen row (billed/void), a non-draft row
 // (draft-only), and an empty patch (empty-patch). Returns an EffectWrite for the route to commit.
 export async function updateDraftCost(
@@ -216,7 +225,7 @@ export async function updateDraftCost(
   return {
     effect: {
       statements: [
-        updateDraftCostStatement(database, id, patch, updatedAt),
+        guarded(updateDraftCostStatement(database, id, patch, updatedAt), COST_DRAFT_EDIT_GUARD),
         audit(database, options, "cost_entry.updated", id),
       ],
       outboxMessages: [],
@@ -240,7 +249,10 @@ export async function submitCost(
   return {
     effect: {
       statements: [
-        transitionCostStatusStatement(database, id, from, "submitted", updatedAt),
+        guarded(
+          transitionCostStatusStatement(database, id, from, "submitted", updatedAt),
+          COST_STATUS_TRANSITION_GUARD,
+        ),
         setCostKickBackReasonStatement(database, id, null, updatedAt),
         audit(database, options, "cost_entry.submitted", id),
       ],
@@ -264,7 +276,10 @@ export async function approveCost(
   return {
     effect: {
       statements: [
-        transitionCostStatusStatement(database, id, from, "approved", updatedAt),
+        guarded(
+          transitionCostStatusStatement(database, id, from, "approved", updatedAt),
+          COST_STATUS_TRANSITION_GUARD,
+        ),
         audit(database, options, "cost_entry.approved", id),
       ],
       outboxMessages: [],
@@ -291,7 +306,10 @@ export async function kickBackCost(
   return {
     effect: {
       statements: [
-        transitionCostStatusStatement(database, id, from, "draft", updatedAt),
+        guarded(
+          transitionCostStatusStatement(database, id, from, "draft", updatedAt),
+          COST_STATUS_TRANSITION_GUARD,
+        ),
         setCostKickBackReasonStatement(database, id, reason, updatedAt),
         domainAuditStatement(database, {
           event: "cost_entry.kicked_back",
@@ -323,7 +341,10 @@ export async function voidCost(
   return {
     effect: {
       statements: [
-        transitionCostStatusStatement(database, id, from, "void", updatedAt),
+        guarded(
+          transitionCostStatusStatement(database, id, from, "void", updatedAt),
+          COST_STATUS_TRANSITION_GUARD,
+        ),
         audit(database, options, "cost_entry.voided", id),
       ],
       outboxMessages: [],
@@ -349,7 +370,7 @@ export async function attachReceipt(
   return {
     effect: {
       statements: [
-        attachReceiptStatement(database, id, fileId, updatedAt),
+        guarded(attachReceiptStatement(database, id, fileId, updatedAt), COST_RECEIPT_LINK_GUARD),
         audit(database, options, "cost_entry.receipt_attached", id),
       ],
       outboxMessages: [],
@@ -372,7 +393,7 @@ export async function detachReceipt(
   return {
     effect: {
       statements: [
-        detachReceiptStatement(database, id, updatedAt),
+        guarded(detachReceiptStatement(database, id, updatedAt), COST_RECEIPT_LINK_GUARD),
         audit(database, options, "cost_entry.receipt_detached", id),
       ],
       outboxMessages: [],

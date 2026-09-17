@@ -160,6 +160,7 @@ export function selectMatterDetailStatement(database: SqlDatabase, id: MatterId)
 // and this commit. Without the predicate the second writer silently rewrites an already-open
 // matter's frozen number and its opened_at. With it the UPDATE matches zero rows instead, and the
 // service confirms after the commit that the row really carries the number this call drew.
+// fitness:unguarded-write — constraint-backed — the matter_number UNIQUE index aborts the batch on a colliding draw
 export function openMatterStatement(
   database: SqlDatabase,
   id: MatterId,
@@ -178,6 +179,7 @@ export function openMatterStatement(
 // graduation (or a close) between the service's read and this commit matches zero rows here rather
 // than rewriting a number already drawn, and the service confirms the row carries the number this
 // call drew.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function graduateMatterStatement(
   database: SqlDatabase,
   id: MatterId,
@@ -218,6 +220,7 @@ export function updateMatterFieldsStatement(
 // closed_at is the instant retention and archival clocks run from, so a re-close must never move it.
 // `status != 'closed'` is the in-batch belt behind the service's already-closed refusal: a close
 // racing another close matches zero rows here instead of stamping a second, later closed_at.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function closeMatterStatement(
   database: SqlDatabase,
   id: MatterId,

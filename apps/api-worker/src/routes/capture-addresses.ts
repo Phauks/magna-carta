@@ -1,4 +1,5 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
+import type { EffectStatement } from "@magna-carta/data-access/effect-batch";
 import type { Context } from "hono";
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
@@ -400,7 +401,7 @@ interface MintAndCommitInput {
   // rotate performs its control-plane revoke. Being inside the effect is what makes a REPLAYED rotate
   // return the same replacement token: the idempotency pre-check answers first, so the second request
   // never re-reads an address the first one already retired and never reports its own work missing.
-  readonly prepareRetirement?: () => Promise<readonly SqlStatement[]>;
+  readonly prepareRetirement?: () => Promise<readonly EffectStatement[]>;
   readonly rotatedFrom?: EmailCaptureAddressId;
 }
 

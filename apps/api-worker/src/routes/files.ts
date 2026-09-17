@@ -1,4 +1,5 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
+import type { EffectStatement } from "@magna-carta/data-access/effect-batch";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
@@ -1298,7 +1299,7 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
           key: idempotency.key,
           fingerprint: idempotency.fingerprint,
           effect: async () => {
-            const statements: SqlStatement[] = [];
+            const statements: EffectStatement[] = [];
             const outboxMessages: OutboxMessage[] = [];
             if (patch.name !== undefined) {
               const renamed = await renameFile(firm.firmDatabase, id, patch.name, {

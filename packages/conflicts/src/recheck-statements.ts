@@ -45,6 +45,7 @@ export function insertRecheckRequestStatement(
 // Stamps the check that answered a request. Guarded on `satisfied_at IS NULL` so a redelivery, or a
 // cron drain racing the queue over the same matter, cannot re-point an already-answered request at a
 // later check and lose the interval the row exists to record.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function markRecheckRequestSatisfiedStatement(
   database: SqlDatabase,
   row: {

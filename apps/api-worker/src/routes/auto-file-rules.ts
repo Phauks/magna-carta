@@ -1,6 +1,6 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import type { Context } from "hono";
-import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import { commitEffectBatch, guarded } from "@magna-carta/data-access/effect-batch";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import {
   createEmailAutoFileRule,
@@ -1112,7 +1112,7 @@ export function registerAutoFileRuleRoutes(
             },
           ];
         })
-        .sort((left, right) => right.lastActedAt.localeCompare(left.lastActedAt));
+        .toSorted((left, right) => right.lastActedAt.localeCompare(left.lastActedAt));
       return c.json({ windowStart, matterScopeCapped: touched.capped, data }, 200);
     },
   );

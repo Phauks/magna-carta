@@ -1,4 +1,4 @@
-import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
+import type { EffectWrite, EffectStatement } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
@@ -118,7 +118,7 @@ export async function submitTrustApplicationRequest(
 
   // The lines ride the request's own batch, so a proposal is never stored half-described. The
   // lines-sum trigger re-proves their total against the request at approval.
-  const statements: SqlStatement[] = [...request.effect.statements];
+  const statements: EffectStatement[] = [...request.effect.statements];
   for (const application of resolution.applications) {
     statements.push(
       insertInvoiceTrustApplicationLineStatement(database, {

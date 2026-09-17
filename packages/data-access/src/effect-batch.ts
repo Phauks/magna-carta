@@ -5,17 +5,58 @@ import {
   type SqlStatement,
 } from "./idempotency-statements.ts";
 import { insertOutboxMessageStatement, type OutboxMessage } from "./outbox-statements.ts";
+import type { BatchOptions } from "@magna-carta/database/guarded-write";
+
+// Re-exported so a domain package catches the refusal from the same module it composes its write
+// through, rather than reaching past the chokepoint into the adapter layer to name it.
+export { GuardedWriteRefusedError } from "@magna-carta/database/guarded-write";
 
 // A database that can commit a batch atomically — D1Database and D1DatabaseSession both satisfy this.
 export interface BatchDatabase extends SqlDatabase {
-  batch(statements: SqlStatement[]): Promise<unknown>;
+  batch(statements: SqlStatement[], options?: BatchOptions): Promise<unknown>;
+  /**
+   * Set by an adapter that aborts the transaction when a guarded statement affects no rows.
+   *
+   * Declared rather than assumed because the failure mode of assuming it is silent: a guarded effect
+   * committed through an adapter that ignores guards commits exactly as it would have without them,
+   * and the only sign is the absence of a refusal nobody was watching for. `commitEffectBatch`
+   * refuses such a pairing outright instead.
+   */
+  readonly enforcesGuardedWrites?: boolean;
+}
+
+/**
+ * A statement whose WHERE repeats the precondition its caller read, paired with the label the caller
+ * matches on when it turns out not to hold.
+ *
+ * THE PRECONDITION READ IS ADVISORY AND THIS IS NOT. There is no interactive transaction here, so a
+ * service reads a row's state in one round trip and commits in another, and anything can happen in
+ * between. What actually holds the line is the `AND status = 'draft'` the statement carries, which
+ * matches nothing once the row has moved. Marking the statement guarded is how the batch learns that
+ * matching nothing means refused rather than done — without it the row is protected and the caller
+ * is told its write landed.
+ */
+export interface GuardedStatement {
+  readonly statement: SqlStatement;
+  readonly guard: string;
+}
+
+export type EffectStatement = SqlStatement | GuardedStatement;
+
+/** Marks a statement whose WHERE carries a precondition, so an unmatched row refuses the batch. */
+export function guarded(statement: SqlStatement, guard: string): GuardedStatement {
+  return { statement, guard };
+}
+
+function isGuarded(statement: EffectStatement): statement is GuardedStatement {
+  return "guard" in statement && typeof statement.guard === "string";
 }
 
 // What a handler's effect produces: prepared business statements plus the outbox messages describing
 // any external consequences. Handlers never call external services directly (the outbox chokepoint) —
 // that is what makes speculative execution safe: a rolled-back batch leaves no trace anywhere.
 export interface EffectWrite {
-  readonly statements: readonly SqlStatement[];
+  readonly statements: readonly EffectStatement[];
   readonly outboxMessages: readonly OutboxMessage[];
 }
 
@@ -69,7 +110,7 @@ export function composeEffectBatch(
   database: BatchDatabase,
   effect: EffectWrite,
   options: { idempotencyRecord?: CompletedIdempotencyRecord; now: () => string },
-): SqlStatement[] {
+): { statements: SqlStatement[]; guards: ReadonlyMap<number, string> } {
   // Counted before anything is built, so an oversized effect costs one addition rather than the
   // construction of the batch it is about to be refused for.
   const statementCount =
@@ -77,17 +118,25 @@ export function composeEffectBatch(
   if (statementCount > MAX_BATCH_STATEMENTS) throw new EffectBatchTooLargeError(statementCount);
 
   const statements: SqlStatement[] = [];
+  // Guards are carried by POSITION rather than on the statement, because the statement handed down is
+  // the port's SqlStatement and an adapter is entitled to expect exactly that — a marker property
+  // riding on it would survive to whichever adapter happened to look for one and be invisible to the
+  // rest. A position is unambiguous to all of them.
+  const guards = new Map<number, string>();
   if (options.idempotencyRecord) {
     statements.push(insertCompletedIdempotencyRecordStatement(database, options.idempotencyRecord));
   }
   // Appended one at a time rather than spread: a spread passes every element as a separate ARGUMENT,
   // which is what put an engine stack limit in the middle of a data path.
-  for (const statement of effect.statements) statements.push(statement);
+  for (const statement of effect.statements) {
+    if (isGuarded(statement)) guards.set(statements.length, statement.guard);
+    statements.push(isGuarded(statement) ? statement.statement : statement);
+  }
   const createdAt = options.now();
   for (const message of effect.outboxMessages) {
     statements.push(insertOutboxMessageStatement(database, message, createdAt));
   }
-  return statements;
+  return { statements, guards };
 }
 
 export async function commitEffectBatch(
@@ -95,7 +144,27 @@ export async function commitEffectBatch(
   effect: EffectWrite,
   options: { idempotencyRecord?: CompletedIdempotencyRecord; now: () => string },
 ): Promise<void> {
-  const statements = composeEffectBatch(database, effect, options);
+  const { statements, guards } = composeEffectBatch(database, effect, options);
   if (statements.length === 0) return; // nothing to commit — skip the roundtrip
-  await database.batch(statements);
+  if (guards.size > 0 && database.enforcesGuardedWrites !== true) {
+    throw new UnenforceableGuardError(guards.size);
+  }
+  await database.batch(statements, guards.size > 0 ? { guards } : undefined);
+}
+
+/**
+ * Raised when a guarded effect is handed to a database that cannot enforce guards.
+ *
+ * Loud on purpose. The alternative — commit it anyway, unguarded — is the exact bug the guard was
+ * added to close, restored silently and only on whichever adapter happens to be in the way.
+ */
+export class UnenforceableGuardError extends Error {
+  constructor(guardCount: number) {
+    super(
+      `this effect carries ${String(guardCount)} guarded statement(s) but the database it was handed cannot enforce them. ` +
+        `A guarded write must abort its transaction when it matches no row, so committing it here would silently drop the guard. ` +
+        `Adapters that enforce guards declare enforcesGuardedWrites — see packages/database/src/guarded-write.ts.`,
+    );
+    this.name = "UnenforceableGuardError";
+  }
 }

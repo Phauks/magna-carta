@@ -119,7 +119,6 @@
     historyColumns,
     locatedColumns,
     safetyKeyOf,
-    fileExtension,
   } from "./file-columns.ts";
   import {
     collidingSibling,
@@ -1483,6 +1482,22 @@
   const dragOver = $derived(dragDepth > 0);
 
   /*
+   * The reader's scale, as the multiplier every list on this surface takes. The footer's control
+   * reads out a percentage; the grid takes a plain factor, and the icon grid takes the percentage
+   * directly for its tiles. Every table here is handed it — the archive's listing included, which
+   * sits on the other side of a branch and would otherwise be the one list the control did not
+   * reach, reading as a setting that had not saved.
+   */
+  const listScale = $derived(manager.scalePercent / 100);
+
+  // The drop ring, drawn INSIDE the region so a drag never moves what it is hovering over.
+  const fileAreaStyle = $derived(
+    dragOver
+      ? "box-shadow: inset var(--mc-space-0) var(--mc-space-0) var(--mc-space-0) var(--mc-focus-ring-width) var(--mc-accent-strong)"
+      : undefined,
+  );
+
+  /*
    * Only a drag that carries files from OUTSIDE the page is an upload. A row being dragged into a
    * folder is the SAME event on the SAME square inch, and the two are told apart by the payload:
    * `carriesExternalFiles` answers false for our own drag by design. See the drag primitive.
@@ -2013,9 +2028,7 @@
           <div
             class="flex min-h-0 flex-1 flex-col"
             role="presentation"
-            style={dragOver
-              ? "box-shadow: inset var(--mc-space-0) var(--mc-space-0) var(--mc-space-0) var(--mc-focus-ring-width) var(--mc-accent-strong)"
-              : undefined}
+            style={fileAreaStyle}
             ondragenter={(event) => {
               if (!carriesFiles(event)) return;
               event.preventDefault();
@@ -2066,8 +2079,9 @@
                     settings={displaySettings}
                     caption="Inside this archive"
                     loading={archiveLoading}
-                    density={manager.scalePercent < 100 ? "compact" : "comfortable"}
-                    class="h-full rounded-none border-0"
+                    frame="flush"
+                    scale={listScale}
+                    class="h-full"
                   />
                   {#if archiveTruncated}
                     <div class="border-t border-border-default px-12 py-4 text-xs text-text-muted">
@@ -2193,8 +2207,9 @@
                       settings={displaySettings}
                       caption="This matter's deleted files"
                       loading={deletedLoading}
-                      density={manager.scalePercent < 100 ? "compact" : "comfortable"}
-                      class="h-full rounded-none border-0"
+                      frame="flush"
+                      scale={listScale}
+                      class="h-full"
                     />
                     {#if deletedCursor !== null}
                       <div class="border-t border-border-default px-12 py-4">
@@ -2211,8 +2226,9 @@
                       settings={displaySettings}
                       caption="This matter's file changelog"
                       loading={historyLoading}
-                      density={manager.scalePercent < 100 ? "compact" : "comfortable"}
-                      class="h-full rounded-none border-0"
+                      frame="flush"
+                      scale={listScale}
+                      class="h-full"
                     />
                     {#if historyCursor !== null}
                       <div class="border-t border-border-default px-12 py-4">
@@ -2240,8 +2256,9 @@
                     settings={displaySettings}
                     caption="This matter's files"
                     {loading}
-                    density={manager.scalePercent < 100 ? "compact" : "comfortable"}
-                    class="h-full rounded-none border-0"
+                    frame="flush"
+                    scale={listScale}
+                    class="h-full"
                   />
                 {/if}
               </div>
@@ -2396,7 +2413,7 @@
       <FileIcon
         contentType={row.sniffedContentType ?? undefined}
         fileName={row.name}
-        class="size-16 shrink-0"
+        class="mc-table-grid-row-glyph"
       />
       <span class="truncate">{text}</span>
     </span>
@@ -2413,9 +2430,9 @@
   {#if column.id === "name"}
     <span class="flex min-w-0 items-center gap-8">
       {#if row.kind === "directory"}
-        <FileIcon folder class="size-16 shrink-0" />
+        <FileIcon folder class="mc-table-grid-row-glyph" />
       {:else}
-        <FileIcon fileName={row.name} class="size-16 shrink-0" />
+        <FileIcon fileName={row.name} class="mc-table-grid-row-glyph" />
       {/if}
       <span class="truncate">{text}</span>
     </span>
@@ -2628,7 +2645,7 @@
         <!-- The folder's own colour and mark, the same glyph the rail draws: a colour that showed
              in one place and not the other read as a colour that had not saved. -->
         <FolderGlyph
-          class="size-16 shrink-0"
+          class="mc-table-grid-row-glyph"
           color={folderAppearance[row.folder.id]?.color}
           icon={folderAppearance[row.folder.id]?.icon}
         />
@@ -2636,7 +2653,7 @@
         <FileIcon
           contentType={row.file.sniffedContentType ?? undefined}
           fileName={row.file.name}
-          class="size-16 shrink-0"
+          class="mc-table-grid-row-glyph"
         />
       {/if}
       {#if manager.renamingKey === row.key}
@@ -2678,8 +2695,6 @@
   {:else if column.id === "version"}
     <!-- A bare number, and NOT tabular: "12" must not read as "1 2". -->
     <span>{text}</span>
-  {:else if column.id === "fileType"}
-    <span class="font-mono text-xs">{row.kind === "folder" ? "" : fileExtension(row.file)}</span>
   {:else if column.id === "modified" || column.id === "created"}
     <span class="whitespace-nowrap">{text}</span>
   {:else}

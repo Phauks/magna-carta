@@ -208,6 +208,7 @@ export function markReviewDocumentExpandedStatement(
 // role, and it is written in the SAME batch as the children it now heads. A family whose parent is
 // still marked standalone is a family the one indexed read cannot recognize, and the two facts
 // becoming true at different instants is the window in which that happens.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function markReviewDocumentFamilyParentStatement(
   database: SqlDatabase,
   id: ReviewDocumentId,

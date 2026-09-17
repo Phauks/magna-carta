@@ -20,6 +20,7 @@
     "./token-usage-statements": "./src/token-usage-statements.ts",
     "./outbox-statements": "./src/outbox-statements.ts",
     "./effect-batch": "./src/effect-batch.ts",
+    "./interleave": "./src/interleave.ts",
     "./run-idempotent-effect": "./src/run-idempotent-effect.ts",
     "./run-domain-effect": "./src/run-domain-effect.ts",
     "./outbox-relay": "./src/outbox-relay.ts",

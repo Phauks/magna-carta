@@ -154,6 +154,7 @@ export function updateMatterDeadlineStatement(
 // Guarded on the state the caller observed: D1 has no interactive transaction, so the state check
 // rides the write itself. A second satisfy against an already-satisfied deadline matches no row and
 // the service refuses it before composing anything.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function satisfyMatterDeadlineStatement(
   database: SqlDatabase,
   id: MatterDeadlineId,

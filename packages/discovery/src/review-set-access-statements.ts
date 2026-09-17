@@ -42,6 +42,7 @@ export function grantReviewSetAccessStatement(
 // now", and a revoked row that lingered would be a row every read had to remember to exclude — the
 // exact shape of mistake the fail-closed posture exists to avoid. How the list came to say what it
 // says is the audit log's job, written in the same batch by the service.
+// fitness:unguarded-write — matches a set rather than one row, so zero is an empty set rather than a refusal
 export function revokeReviewSetAccessStatement(
   database: SqlDatabase,
   reviewSetId: ReviewSetId,

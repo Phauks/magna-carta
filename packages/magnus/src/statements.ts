@@ -168,6 +168,7 @@ export function deleteConversationTurnsStatement(
     .bind(conversationId);
 }
 
+// fitness:unguarded-write — deleting a conversation already deleted is the state the caller asked for
 export function markConversationDeletedStatement(
   database: SqlDatabase,
   options: { readonly id: MagnusConversationId; readonly now: string },
@@ -396,6 +397,7 @@ export function insertAttachmentStatement(
     .bind(row.conversationId, row.fileId, row.attachedAt);
 }
 
+// fitness:unguarded-write — matches a set rather than one row, so zero is an empty set rather than a refusal
 export function deleteAttachmentStatement(
   database: SqlDatabase,
   options: { readonly conversationId: MagnusConversationId; readonly fileId: FileId },
@@ -419,6 +421,7 @@ export function deleteConversationAttachmentsStatement(
 }
 
 // What the consumer records after a question: how much of each attachment's text reached the model.
+// fitness:unguarded-write — matches a set rather than one row, so zero is an empty set rather than a refusal
 export function markAttachmentTextStatement(
   database: SqlDatabase,
   options: {
@@ -595,6 +598,7 @@ export interface CompleteTurnOptions {
 // re-bill stop's second half: a queue redelivery that raced past the pre-call check writes nothing,
 // and because the metering row and the dedup record ride the same batch, the whole redelivery rolls
 // back rather than double-counting.
+// fitness:unguarded-write — a redelivery that raced past the pre-call check writing nothing IS the re-bill stop
 export function completeTurnStatement(
   database: SqlDatabase,
   options: CompleteTurnOptions,
@@ -623,6 +627,7 @@ export interface SettleTurnFailureOptions {
   readonly now: string;
 }
 
+// fitness:unguarded-write — a redelivery that raced past the pre-call check writing nothing IS the re-bill stop
 export function failTurnStatement(
   database: SqlDatabase,
   options: SettleTurnFailureOptions,

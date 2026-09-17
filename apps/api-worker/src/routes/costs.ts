@@ -2,6 +2,7 @@ import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
+import { GuardedWriteRefusedError } from "@magna-carta/data-access/effect-batch";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
 import {
@@ -726,6 +727,22 @@ async function commitCostEffect(
   } catch (caught) {
     if (caught instanceof CostValidationError)
       return { ok: false, problem: costErrorResponse(c, caught) };
+    // A guarded statement matched no row: the entry moved between this request's precondition read
+    // and its commit, and the batch rolled back whole. The member is in exactly the position they
+    // would be in had the read seen the winning state, so they get exactly that answer — the same
+    // 409 the sequential refusal returns, rather than a second vocabulary for the same fact.
+    if (caught instanceof GuardedWriteRefusedError) {
+      return {
+        ok: false,
+        problem: costErrorResponse(
+          c,
+          new CostValidationError(
+            "frozen-entry",
+            "the entry changed while this request was in flight, so the change was not applied — reload and try again",
+          ),
+        ),
+      };
+    }
     throw caught;
   }
   if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
@@ -1096,7 +1113,7 @@ export function registerCostsRoutes(app: CostApp, chokepoint: Chokepoint): void 
       const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       const entryId = id as CostEntryId;
-      const { reason } = c.req.valid("json") as z.infer<typeof CostKickBackRequest>;
+      const { reason } = c.req.valid("json");
       const gateOn = await readFirmSetting(firm.firmDatabase, approvalRequiredDefinition);
       const outcome = await commitCostEffect(c, firm.firmDatabase, idempotency, entryId, () =>
         kickBackCost(

@@ -315,6 +315,7 @@ function setLatestRunStatement(
 
 // Claims a queued run for execution. Guarded on the status, so a replayed request or a second
 // executor finds zero rows changed and runs nothing: exactly one execution per run.
+// fitness:unguarded-write — the caller runs this on its own and branches on the affected-row count, so a refusal is already surfaced there
 export function claimRunStatement(
   database: SqlDatabase,
   runId: ConflictsCheckId,
@@ -327,6 +328,7 @@ export function claimRunStatement(
     .bind(runId, now);
 }
 
+// fitness:unguarded-write — the caller runs this on its own and branches on the affected-row count, so a refusal is already surfaced there
 export function reportRunProgressStatement(
   database: SqlDatabase,
   runId: ConflictsCheckId,
@@ -356,6 +358,7 @@ export function completeRunStatement(
     .bind(runId, now);
 }
 
+// fitness:unguarded-write — the caller runs this on its own and branches on the affected-row count, so a refusal is already surfaced there
 export function failRunStatement(
   database: SqlDatabase,
   runId: ConflictsCheckId,

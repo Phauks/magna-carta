@@ -12,6 +12,7 @@ import { NUMBERING_SCHEME_TABLE, type NumberingPurpose } from "../matter-stateme
 // Clears the currently-active scheme of one purpose, leaving the other purpose's alone. Guarded on
 // active = 1 so a firm with no active scheme for that purpose gets a plain insert (the UPDATE
 // matches no row).
+// fitness:unguarded-write — matches a set rather than one row, so zero is an empty set rather than a refusal
 export function deactivateActiveSchemeStatement(
   database: SqlDatabase,
   purpose: NumberingPurpose,

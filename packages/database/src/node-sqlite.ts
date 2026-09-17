@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { migrationStatementFailure } from "./do-sqlite-migration-target.ts";
+import { assertGuardAffectedRows, type BatchOptions } from "./guarded-write.ts";
 import { migrationsFromJournal, type Migration, type MigrationJournal } from "./migration.ts";
 
 // DEV/TEST ONLY — node-only. A D1-shaped adapter over node:sqlite so the data-access batch write
@@ -25,7 +26,9 @@ export interface NodeBatchDatabase {
   // the same way (its prepared statements are SQL text + params re-sent through whichever binding
   // runs them — workerd's d1-api shim does no identity check), so this is D1-faithful, not a
   // local weakening; the single-database-per-request Worker context is what makes it safe there.
-  batch(statements: NodeSqlStatement[]): Promise<{ success: boolean }[]>;
+  batch(statements: NodeSqlStatement[], options?: BatchOptions): Promise<{ success: boolean }[]>;
+  /** This adapter aborts the transaction when a guarded statement affects no rows. */
+  readonly enforcesGuardedWrites: true;
 }
 
 export function nodeSqliteBatchDatabase(database: DatabaseSync): NodeBatchDatabase {
@@ -50,12 +53,16 @@ export function nodeSqliteBatchDatabase(database: DatabaseSync): NodeBatchDataba
   }
   return {
     prepare: (sql: string) => makeStatement(sql, []),
-    batch: (statements: NodeSqlStatement[]) => {
+    enforcesGuardedWrites: true,
+    batch: (statements: NodeSqlStatement[], options?: BatchOptions) => {
       // D1 batch semantics: one transaction, all-or-nothing, statements run in order.
       database.exec("BEGIN");
       try {
-        for (const statement of statements) {
-          database.prepare(statement.sql).run(...(statement.bindings as SQLInputValue[]));
+        for (const [index, statement] of statements.entries()) {
+          const result = database
+            .prepare(statement.sql)
+            .run(...(statement.bindings as SQLInputValue[]));
+          assertGuardAffectedRows(options, index, Number(result.changes));
         }
         database.exec("COMMIT");
       } catch (error) {

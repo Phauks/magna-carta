@@ -1,4 +1,5 @@
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
+import { guarded } from "@magna-carta/data-access/effect-batch";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -203,7 +204,10 @@ export function composeTemplateArchive(
   const now = options.clock.now();
   return {
     statements: [
-      archiveDocumentTemplateStatement(database, templateId, now),
+      guarded(
+        archiveDocumentTemplateStatement(database, templateId, now),
+        "document-template.archive",
+      ),
       domainAuditStatement(database, {
         event: "documentTemplate.archived",
         subjectId: templateId,
