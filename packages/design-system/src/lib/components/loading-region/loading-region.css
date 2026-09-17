@@ -94,8 +94,10 @@
     background-clip: content-box;
   }
 
-  /* Media becomes its own box; an icon's strokes go, its bone stays. */
-  [data-mc-loading] :is(svg, .mc-avatar) {
+  /* Media becomes its own box; an icon's strokes go, its bone stays. An icon inside a kept
+     subtree (`data-loading-keep`) stays drawn: a staged wait's own markers are the one thing
+     inside a loading region that is real while the region is not. */
+  [data-mc-loading] :is(svg, .mc-avatar):not([data-loading-keep] *) {
     background-color: var(--mc-action-disabled);
     border-radius: var(--mc-radius-sm);
     animation-name: mc-skeleton-pulse;
@@ -107,7 +109,7 @@
   [data-mc-loading] .mc-avatar {
     border-radius: var(--mc-radius-full);
   }
-  [data-mc-loading] svg > * {
+  [data-mc-loading] svg:not([data-loading-keep] *) > * {
     visibility: hidden;
   }
   [data-mc-loading] :is(img, video, canvas) {

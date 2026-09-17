@@ -7,14 +7,30 @@
    *
    * The platform notice sits above every screen because it is the one thing no screen can say for
    * itself: a panel knows its own read failed, and only the shell can see that several did.
+   *
+   * ONE SCREEN DECLINES THE SHELL. A page whose load answers `shell: "none"` renders alone in the
+   * viewport: no rail, no top bar, no notice — today that is the document editor, which the owner
+   * wants to be the whole screen while a document is open. The posture is read off the page's own
+   * data rather than a flag on the shell so the shell keeps a single shape and the decision stays
+   * with the address that made it; the session guard still runs, because the group's load runs
+   * before any page's.
    */
+  import { page } from "$app/state";
   import AppShell from "$lib/components/app-shell.svelte";
   import PlatformNotice from "$lib/diagnostics/platform-notice.svelte";
 
   let { children } = $props();
+
+  const shellless = $derived((page.data as { shell?: string }).shell === "none");
 </script>
 
-<AppShell>
-  <PlatformNotice />
-  {@render children()}
-</AppShell>
+{#if shellless}
+  <div class="flex h-screen flex-col overflow-hidden bg-surface-default">
+    {@render children()}
+  </div>
+{:else}
+  <AppShell>
+    <PlatformNotice />
+    {@render children()}
+  </AppShell>
+{/if}
