@@ -3,9 +3,10 @@
    * One document, open for editing. THE EDITOR IS THE WHOLE SCREEN: the load declares `shell:
    * "none"`, the app layout draws no rail and no top bar, and this page draws no header — no way
    * back, no name, no version line — so the editor takes the viewport and keeps it (the owner's
-   * direction, 2026-09-17). What a member does on the platform from inside the document will be
-   * the editor's own controls, added to its toolbar through its message protocol; until then the
-   * way back is the browser's. Which editor is decided by what the file IS (editable-documents.ts),
+   * direction, 2026-09-17). What a member does on the platform from inside the document is the
+   * editor's own controls, added to its bar through its message protocol: the way back is the
+   * back-to-matter button the office editor inserts, handed the same destination the header used
+   * to carry. Which editor is decided by what the file IS (editable-documents.ts),
    * the same decision the file manager made when it opened this address.
    *
    * Two documents get no editor here and say so instead, with the shell and the header around the
@@ -55,10 +56,10 @@
   />
 {:else if file !== null && data.shell === "none" && editorKind !== null}
   <!-- The editor alone: the layout's shell-less column is the viewport, and the editor fills it.
-       Nothing else is drawn on purpose. -->
+       Nothing else is drawn on purpose; the way back is a button the editor draws for us. -->
   <div class="flex h-full min-h-0 flex-col">
     {#if editorKind === "office"}
-      <OfficeDocumentEditor {file} />
+      <OfficeDocumentEditor {file} back={filesBack} />
     {:else}
       <TextDocumentEditor {file} />
     {/if}

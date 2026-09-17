@@ -209,10 +209,10 @@ describe("openRows and openTrace", () => {
   it("give the seconds to each mark, how long the stopped stage was waited for, and the rest", () => {
     const rows = openRows(stalled, stalledAt);
     expect(rows.map((row) => [row.label, row.value])).toEqual([
-      ["Opening an editing session", "0.4 s"],
-      ["Starting the editor", "28.1 s"],
-      ["Loading the editor", "29.6 s"],
-      ["Asking the host about the document", "not reached after 90 s"],
+      ["Opening an editing session", "0.4 seconds"],
+      ["Starting the editor", "28.1 seconds"],
+      ["Loading the editor", "29.6 seconds"],
+      ["Asking the host about the document", "not reached after 90 seconds"],
       ["Fetching the document", "not reached"],
       ["Showing the document", "not reached"],
       ["Last answer from the host", "none"],
@@ -238,7 +238,7 @@ describe("openRows and openTrace", () => {
     // The block is written to be pasted into a report, so it must never pick up a document's name,
     // a URL or a token. Every value is checked against the closed vocabulary.
     const allowedValue =
-      /^(?:\d+\.\d s|not reached(?: after \d+ s)?|none|None issued|wopi:[a-z-]+ answered \d{3}|error_[A-Za-z0-9]+)$/;
+      /^(?:\d+\.\d seconds?|not reached(?: after \d+ seconds?)?|none|None issued|wopi:[a-z-]+ answered \d{3}|error_[A-Za-z0-9]+)$/;
     const allowedLabel = new Set([
       ...OPEN_STAGES.map((stage) => stage.label),
       "Last answer from the host",
@@ -262,17 +262,17 @@ describe("openRows and openTrace", () => {
     expect(trace.split("\n")).toEqual(
       openRows(stalled, stalledAt).map((row) => `${row.label}: ${row.value}`),
     );
-    expect(trace).toContain("Asking the host about the document: not reached after 90 s");
+    expect(trace).toContain("Asking the host about the document: not reached after 90 seconds");
   });
 });
 
 describe("the elapsed line", () => {
   it("counts whole seconds so far", () => {
-    expect(elapsedLabel(STARTED_AT, at(12.9))).toBe("12 s so far");
-    expect(elapsedLabel(STARTED_AT, STARTED_AT)).toBe("0 s so far");
+    expect(elapsedLabel(STARTED_AT, at(12.9))).toBe("12 seconds so far");
+    expect(elapsedLabel(STARTED_AT, STARTED_AT)).toBe("0 seconds so far");
   });
 
   it("says how long a stopped open ran", () => {
-    expect(stoppedLabel(STARTED_AT, at(90))).toBe("Stopped after 90 s");
+    expect(stoppedLabel(STARTED_AT, at(90))).toBe("Stopped after 90 seconds");
   });
 });

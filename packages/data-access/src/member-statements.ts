@@ -128,6 +128,22 @@ export function selectFirmMembersStatement(database: SqlDatabase): SqlStatement 
 
 // The firm-usage read: how many members can sign in today. Deactivated members keep their row for
 // the record; they are not seats, so they do not count here.
+/**
+ * A member's display name, or null where the firm has no such member. Read by the editing host on
+ * every CheckFileInfo: the editor labels a member's changes and cursor with this name, and without
+ * it shows them as an unknown user with an identifier appended.
+ */
+export async function readMemberDisplayName(
+  database: SqlDatabase,
+  userId: UserId,
+): Promise<string | null> {
+  const row = await database
+    .prepare(`SELECT display_name AS displayName FROM ${MEMBER_TABLE} WHERE user_id = ?1`)
+    .bind(userId)
+    .first<{ displayName: string }>();
+  return row?.displayName ?? null;
+}
+
 export async function readActiveMemberCount(database: SqlDatabase): Promise<number> {
   const { results } = await database
     .prepare(`SELECT COUNT(*) AS c FROM ${MEMBER_TABLE} WHERE status = 'active'`)

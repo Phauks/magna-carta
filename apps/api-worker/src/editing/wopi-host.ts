@@ -1,5 +1,6 @@
 import type { OpenAPIHono } from "@hono/zod-openapi";
-import type { FileId } from "@magna-carta/identifiers/types";
+import { readMemberDisplayName } from "@magna-carta/data-access/member-statements";
+import type { FileId, UserId } from "@magna-carta/identifiers/types";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
@@ -8,7 +9,15 @@ import type { AppVariables } from "../chokepoint/ports.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import { documentSessionStub } from "./document-session.ts";
 import { wopiGuard, WopiGuardError, type FirmDatabaseResolver } from "./wopi-guard.ts";
-import { checkFileInfo, getFile, lockOperation, putFile, runWopiCallback } from "./wopi-routes.ts";
+import {
+  checkFileInfo,
+  getFile,
+  lockOperation,
+  putFile,
+  runWopiCallback,
+  saveKindOf,
+} from "./wopi-routes.ts";
+import { cutVersionFromWorkingCopy } from "./working-copy-version.ts";
 
 // The WOPI host callback surface — the editor's data plane. Collabora replays an opaque access_token
 // (no session cookie) against the WOPISrc the launch handed it, so these routes are token-guarded and
@@ -123,6 +132,7 @@ export function registerWopiHostRoutes(
         bucket,
         currentMeta: state.current,
         liveSessionId: state.sessionId,
+        memberName: await readMemberDisplayName(firmDatabase, claims.memberId as UserId),
       });
       return Response.json(body);
     }),
@@ -164,14 +174,31 @@ export function registerWopiHostRoutes(
     withWopi(
       c,
       "wopi:put-file",
-      async ({ claims, bucket, fileId, state }) => {
+      async ({ claims, firmDatabase, bucket, fileId, state }) => {
         const stub = documentSessionStub(c.env, fileId);
+        const saveKind = saveKindOf(c.req.raw.headers);
+        const now = (): string => new Date().toISOString();
         return putFile(claims, c.req.raw, {
           bucket,
           currentMeta: state.current,
           currentLock: state.wopiLock,
-          recordCurrentMeta: (meta) => stub.setCurrentMeta(meta),
-          now: () => new Date().toISOString(),
+          // The working copy's metadata first, then — for a save the member asked for, or the one
+          // made as the last view leaves — a version cut from it, so the file's history shows the
+          // save the moment it landed rather than at the idle reap half an hour on.
+          recordCurrentMeta: async (meta) => {
+            await stub.setCurrentMeta(meta);
+            if (saveKind !== "autosave") {
+              await cutVersionFromWorkingCopy(
+                firmDatabase,
+                bucket,
+                fileId,
+                meta,
+                claims.memberId as UserId,
+                now,
+              );
+            }
+          },
+          now,
         });
       },
       { requireLiveSession: true },

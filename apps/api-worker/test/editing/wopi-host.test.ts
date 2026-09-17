@@ -103,13 +103,15 @@ const wopi = (path: string, init?: RequestInit) =>
   SELF.fetch(`https://example.com/wopi/files/${path}`, init);
 
 describe("WOPI host surface", () => {
-  it("CheckFileInfo returns the file metadata for a valid edit token", async () => {
+  it("CheckFileInfo returns the file metadata and the member's display name for a valid edit token", async () => {
     const { fileId, versionId } = await seedFile();
     const response = await wopi(
       `${fileId}?access_token=${encodeURIComponent(await token(fileId, versionId, "edit"))}`,
     );
     expect(response.status).toBe(200);
     const body = (await response.json()) as Record<string, unknown>;
+    // The seeded member's display name, read from the firm's own member table on every callback.
+    expect(body.UserFriendlyName).toBe("WOPI");
     expect(body.BaseFileName).toBe("Brief.docx");
     expect(body.Size).toBe(VERSION_BYTES.byteLength);
     expect(body.UserId).toBe(MEMBER);
@@ -135,7 +137,10 @@ describe("WOPI host surface", () => {
       { method: "POST", body: edited },
     );
     expect(response.status).toBe(200);
-    expect(response.headers.get("X-COOL-WOPI-Timestamp")).not.toBeNull();
+    const timestamp = response.headers.get("X-COOL-WOPI-Timestamp");
+    expect(timestamp).not.toBeNull();
+    // The body is the answer the editor reads; the header is the same fact for a trace.
+    expect(await response.json()).toEqual({ LastModifiedTime: timestamp });
 
     const current = await env.R2.get(`files/${fileId}/current`);
     expect(new Uint8Array(await current!.arrayBuffer())).toEqual(edited);
@@ -212,6 +217,48 @@ describe("WOPI host surface", () => {
       { method: "POST", body: new TextEncoder().encode("nope") },
     );
     expect(response.status).toBe(403);
+  });
+
+  it("cuts a version on the member's own save and on the exit save, and never on an autosave", async () => {
+    const { fileId, versionId } = await seedFile();
+    const sessionId = await openSession(fileId, true);
+    const accessToken = encodeURIComponent(await token(fileId, versionId, "edit", sessionId));
+    const versions = async (): Promise<number> =>
+      (
+        await firmDb
+          .prepare("SELECT COUNT(*) AS n FROM file_version WHERE file_id = ?1")
+          .bind(fileId)
+          .first<{ n: number }>()
+      )?.n ?? 0;
+    const save = (body: string, headers: Record<string, string>) =>
+      wopi(`${fileId}/contents?access_token=${accessToken}`, {
+        method: "POST",
+        body: new TextEncoder().encode(body),
+        headers,
+      });
+
+    expect(await versions()).toBe(1);
+    // The member pressed Save: a version, and the file's current pointer moves to it.
+    expect((await save("first draft", { "X-COOL-WOPI-IsAutosave": "false" })).status).toBe(200);
+    expect(await versions()).toBe(2);
+    // The editor's autosave: the working copy keeps up, history does not fill.
+    expect((await save("second draft", { "X-COOL-WOPI-IsAutosave": "true" })).status).toBe(200);
+    expect(await versions()).toBe(2);
+    // The last view leaving: the save the editor makes on the way out is kept.
+    expect(
+      (
+        await save("third draft", {
+          "X-COOL-WOPI-IsAutosave": "true",
+          "X-COOL-WOPI-IsExitSave": "true",
+        })
+      ).status,
+    ).toBe(200);
+    expect(await versions()).toBe(3);
+    const file = await firmDb
+      .prepare("SELECT current_version_id AS currentVersionId FROM file WHERE id = ?1")
+      .bind(fileId)
+      .first<{ currentVersionId: string }>();
+    expect(file?.currentVersionId).not.toBe(versionId);
   });
 
   it("records each callback's answer on the member's open record, refusals included", async () => {

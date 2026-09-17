@@ -46,6 +46,9 @@ export interface WopiFileDeps {
   readonly bucket: R2Bucket;
   readonly currentMeta: CurrentObjectMeta | null;
   readonly liveSessionId: string | null;
+  // The member's display name, resolved by the caller for CheckFileInfo. The editor labels the
+  // member's changes, cursor and seat in the user list with it; absent, it shows an unknown user.
+  readonly memberName?: string | null;
 }
 
 // Whether the token's session owns the live working copy — the one condition under which the mutable
@@ -115,6 +118,10 @@ export interface CheckFileInfoBody {
   readonly Version: string;
   readonly OwnerId: string;
   readonly UserId: string;
+  // The name the editor shows for this member: on their cursor, in the user list, and as the
+  // author of their changes. The editor's own guidance is that it is nominally optional and
+  // strongly recommended, because without it the member is "UnknownUser" with their identifier.
+  readonly UserFriendlyName?: string;
   readonly UserCanWrite: boolean;
   // The host accepts PutFile, which is the editor's capability to save at all.
   readonly SupportsUpdate: boolean;
@@ -124,9 +131,10 @@ export interface CheckFileInfoBody {
   // was changed by another user each time they press save. Advertised because it is enforced.
   // SupportsGetLock is deliberately absent: the lock handler implements no GET_LOCK.
   readonly SupportsLocks: boolean;
-  // No member is an administrator of the editing server. The platform exposes no admin console (the
-  // container image empties `admin_console.username/password`), so the answer is always false; stating
-  // it silences the editor's server-audit warning that the property was left unset.
+  // True for every member. The editor shows its server audit and update check to administrators
+  // only, and the owner's direction is that every seat has the whole editor, audit included, so a
+  // member can read the audit to support when asked. No member administers the editing server
+  // itself (the image exposes no admin console), so the property grants nothing beyond those screens.
   readonly IsAdminUser: boolean;
   readonly LastModifiedTime: string | null;
   // The origin the editor addresses its status messages to (the WOPI PostMessageOrigin property). It is
@@ -165,10 +173,13 @@ export async function checkFileInfo(
     // Distinct from UserId so the editor never treats the current user as the file's owner.
     OwnerId: `file:${fileId}`,
     UserId: claims.memberId,
+    ...(deps.memberName === undefined || deps.memberName === null
+      ? {}
+      : { UserFriendlyName: deps.memberName }),
     UserCanWrite: claims.capability === "edit",
     SupportsUpdate: true,
     SupportsLocks: true,
-    IsAdminUser: false,
+    IsAdminUser: true,
     LastModifiedTime: liveWorkingCopy?.wopiTimestamp ?? null,
     // Only ever the origin the token carries. The property is omitted rather than defaulted when the
     // token has none: a guessed origin would not match the page and the messages would go nowhere, which
@@ -199,6 +210,17 @@ export async function getFile(claims: EditTokenClaims, deps: WopiFileDeps): Prom
   if (object === null) throw new WopiRouteError("not-found");
 
   return new Response(object.body, { status: 200 });
+}
+
+// What kind of save a PutFile is, read off the headers the editor sets on every one. A member's own
+// Save and the save made as the last view leaves are moments to keep as versions; the autosave every
+// few minutes is the working copy keeping up, and is not.
+export type SaveKind = "explicit" | "autosave" | "exit";
+
+export function saveKindOf(headers: Headers): SaveKind {
+  if (headers.get("X-COOL-WOPI-IsExitSave") === "true") return "exit";
+  if (headers.get("X-COOL-WOPI-IsAutosave") === "true") return "autosave";
+  return "explicit";
 }
 
 // The bindings + live-session state a PutFile needs. `recordCurrentMeta` persists the new working-copy
@@ -272,8 +294,15 @@ export async function putFile(
   const wopiTimestamp = deps.now();
   await deps.recordCurrentMeta({ sha256, sizeBytes, wopiTimestamp });
 
-  // Echo the new timestamp so the editor's next save presents a fresh, matching value.
-  return new Response(null, { status: 200, headers: { "X-COOL-WOPI-Timestamp": wopiTimestamp } });
+  // The new timestamp goes back as the body the editor's guidance names: a JSON object carrying
+  // LastModifiedTime, which the editor reads to know the document it holds is the one in storage,
+  // so the next save presents a fresh, matching value. An empty body is logged by the editor as an
+  // invalid answer and its change detection goes without. The header is kept beside it for the
+  // reader of a trace, where a body is not always at hand.
+  return Response.json(
+    { LastModifiedTime: wopiTimestamp },
+    { status: 200, headers: { "X-COOL-WOPI-Timestamp": wopiTimestamp } },
+  );
 }
 
 // The single session lock held in the document's Durable Object. One lock per document: the first

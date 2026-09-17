@@ -2,7 +2,13 @@ import { env } from "cloudflare:test";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FileId, FileVersionId, FirmId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { checkFileInfo, getFile, lockOperation, putFile } from "../../src/editing/wopi-routes.ts";
+import {
+  checkFileInfo,
+  getFile,
+  lockOperation,
+  putFile,
+  saveKindOf,
+} from "../../src/editing/wopi-routes.ts";
 import type { EditTokenClaims } from "../../src/editing/wopi-token.ts";
 import type { CurrentObjectMeta } from "../../src/editing/document-session.ts";
 import { firmDatabaseHandle } from "../support/firm-database-handle.ts";
@@ -110,7 +116,7 @@ describe("WOPI CheckFileInfo", () => {
     expect(info.Version.length).toBeGreaterThan(0);
   });
 
-  it("advertises the lock contract it enforces, and that no member administers the editor", async () => {
+  it("advertises the lock contract it enforces, and gives every member the whole editor", async () => {
     // PutFile refuses a save made without a held lock, and the editor only takes a lock when the host
     // says it supports them — so a host that enforces locks without advertising them refuses every save.
     const { fileId, versionId } = await seedCleanFile("Locked.docx", "hello");
@@ -124,9 +130,33 @@ describe("WOPI CheckFileInfo", () => {
 
     expect(info.SupportsLocks).toBe(true);
     expect(info.SupportsUpdate).toBe(true);
-    expect(info.IsAdminUser).toBe(false);
+    // Every member: the owner wants the whole editor, its server audit included, on every seat.
+    expect(info.IsAdminUser).toBe(true);
     // The lock handler implements no GET_LOCK, so it must not be advertised.
     expect("SupportsGetLock" in info).toBe(false);
+  });
+
+  it("names the member as the editor shows them, and omits the name where the host has none", async () => {
+    // The editor labels the member's cursor, seat and changes with UserFriendlyName; without it the
+    // member is "UnknownUser" with an identifier appended, which is what co-authors would read.
+    const { fileId, versionId } = await seedCleanFile("Named.docx", "hello");
+    const named = await checkFileInfo(claimsFor(fileId, versionId, "edit"), {
+      database: firmDb,
+      bucket: env.R2,
+      currentMeta: null,
+      liveSessionId: null,
+      memberName: "Editor",
+    });
+    expect(named.UserFriendlyName).toBe("Editor");
+
+    const unnamed = await checkFileInfo(claimsFor(fileId, versionId, "edit"), {
+      database: firmDb,
+      bucket: env.R2,
+      currentMeta: null,
+      liveSessionId: null,
+      memberName: null,
+    });
+    expect("UserFriendlyName" in unnamed).toBe(false);
   });
 
   it("hands back the launching origin as PostMessageOrigin, so the editor can report itself up", async () => {
@@ -497,6 +527,10 @@ describe("WOPI PutFile", () => {
     );
 
     expect(response.status).toBe(200);
+    // The answer the editor reads: a JSON body naming the new LastModifiedTime, which it presents on
+    // its next save. The header beside it is the same fact for a trace.
+    expect(await response.json()).toEqual({ LastModifiedTime: HOST_TIMESTAMP });
+    expect(response.headers.get("X-COOL-WOPI-Timestamp")).toBe(HOST_TIMESTAMP);
     const stored = await env.R2.get(`files/${fileId}/current`);
     expect(await stored?.text()).toBe("edited body");
     expect(recordCurrentMeta).toHaveBeenCalledOnce();
@@ -606,6 +640,19 @@ function lockRequest(override: string, lock: string, oldLock?: string): Request 
   if (oldLock !== undefined) headers["X-WOPI-OldLock"] = oldLock;
   return new Request("https://host/wopi/files/x", { method: "POST", headers });
 }
+
+describe("saveKindOf", () => {
+  it("reads the editor's save headers: exit first, then autosave, else the member's own save", () => {
+    expect(saveKindOf(new Headers())).toBe("explicit");
+    expect(saveKindOf(new Headers({ "X-COOL-WOPI-IsAutosave": "false" }))).toBe("explicit");
+    expect(saveKindOf(new Headers({ "X-COOL-WOPI-IsAutosave": "true" }))).toBe("autosave");
+    expect(
+      saveKindOf(
+        new Headers({ "X-COOL-WOPI-IsAutosave": "true", "X-COOL-WOPI-IsExitSave": "true" }),
+      ),
+    ).toBe("exit");
+  });
+});
 
 describe("WOPI lock family", () => {
   it("locks an unlocked document and stores the lock value", async () => {
