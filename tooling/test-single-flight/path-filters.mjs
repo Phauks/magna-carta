@@ -3,11 +3,10 @@
 // A RELATIVE path that names an ancestor of a project's root matches nothing in that project, and the
 // run reports having found no test files. So `tooling` selects nothing — every `tooling/*` project
 // roots at its own directory, and the filter is above all of them — and the same goes for `packages`
-// and `apps`. An ABSOLUTE path takes a different branch and does resolve, which is why every path in
-// the CI test jobs is spelled `"$PWD/tooling"` (.github/workflows/gate.yml). The full matching rule,
+// and `apps`. An ABSOLUTE path takes a different branch and does resolve. The full matching rule,
 // and the other trap that shares its shape, are in docs/conventions/build-performance.md — one home.
 //
-// That spelling was not a style choice in CI: a relative `packages` filter once collected zero of the
+// That spelling was not a style choice: a relative `packages` filter once collected zero of the
 // packages' tests while the gate stayed green. But the root CLAUDE.md tells everyone to filter by PATH
 // rather than by test name, so the short spelling is the one people type, and it was the broken one.
 // Resolving a directory filter to its absolute path before the runner sees it gives every caller the
@@ -109,8 +108,8 @@ export function planPathFilters(argv, inspect) {
       `"${token}" holds no vitest project, so no test file under it can be collected — the filter ` +
         `matched nothing, rather than the directory being empty of tests. The project list in ` +
         `vite.config.ts is CLOSED: a directory is only reachable when a registered project roots at ` +
-        `it, above it, or inside it. If it should have one, register it there and add its path to the ` +
-        `gate's test jobs (.github/workflows/gate.yml) — \`pnpm run lint:test-registration\` audits that.`,
+        `it, above it, or inside it. If it should have one, register it there — ` +
+        `\`pnpm run lint:test-registration\` audits that.`,
     );
   }
   return { arguments: planned, resolved, refusals };

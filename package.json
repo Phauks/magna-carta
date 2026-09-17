@@ -5,6 +5,7 @@
   "scripts": {
     "check": "node tooling/tsconfig-refs/index.mjs --check && pnpm --filter @magna-carta/database run check-snapshots && vp check && vp run typecheck && pnpm --filter @magna-carta/api-client run typecheck && pnpm --filter @magna-carta/web check && pnpm --filter @magna-carta/design-system check && vp run rust-check",
     "check:scoped": "node tooling/check-scoped/index.mjs",
+    "gate": "node tooling/gate/index.mjs",
     "check:file-manager-rulings": "node tooling/file-manager-rulings/index.mjs",
     "check:upload-rulings": "node tooling/upload-rulings/index.mjs",
     "fix:scoped": "node tooling/check-scoped/fix.mjs",
@@ -45,7 +46,6 @@
     "lint:changelog-coverage": "node tooling/lint-changelog-coverage/index.mjs",
     "lint:doc-links": "node tooling/lint-doc-links/index.mjs",
     "lint:active-work": "node tooling/lint-active-work/index.mjs",
-    "lint:cache-keys": "node tooling/lint-cache-keys/index.mjs",
     "lint:list-pagination": "node tooling/lint-list-pagination/index.mjs",
     "lint:one-ui": "node tooling/lint-one-ui/index.mjs",
     "lint:page-inset": "node tooling/lint-page-inset/index.mjs",

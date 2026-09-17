@@ -59,9 +59,9 @@ migrations_ section of [`docs/conventions/operations.md`](../../docs/conventions
   production, so those have deployed and are immutable), appends the rest in the order they were
   integrated, re-stamps each one above the head, renames the `.sql` to match, and regenerates the
   worker bundles. `--dry-run` prints the plan. Both commands are idempotent and both print every
-  rename. `tooling/migration-integrity` refuses the lineage on **every pull request** if the
-  re-stamp is skipped — it used to be a Vitest fitness function only, which the gate runs solely
-  under the `run-tests` label.
+  rename. `tooling/migration-integrity` refuses the lineage on **every change** — in the pre-push
+  hook and in the gate's governance dimension — if the re-stamp is skipped. It used to be a Vitest
+  fitness function only, which the hosted gate of the time ran solely when asked.
 
 - **Never renumber `idx` to fix an ordering complaint.** The snapshots are named for it and describe
   the schema at that point; reordering `idx` makes each one describe a state its name denies. Move

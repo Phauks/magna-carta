@@ -96,7 +96,7 @@ function main() {
     skipped.push(
       "blocked build scripts — node_modules/.modules.yaml is absent, so pnpm has not recorded " +
         "which install scripts it refused in this worktree. Run `pnpm install` and re-run; the " +
-        "gate of record runs after an install, so this half is live in CI.",
+        "gate runs in an installed worktree, so this half is live there.",
     );
   } else {
     let recorded = [];

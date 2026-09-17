@@ -61,7 +61,7 @@ its own compute.
   caught — in public, by other people. It binds the weekly automated upgrades in particular. The
   override for a same-day security fix is in that file's own comment.
 - **Vulnerabilities fail the gate at HIGH and above**, across every lockfile including the Rust ones
-  (the `governance` job's osv-scanner step). An accepted advisory carries a cause and an expiry in
+  (`pnpm gate`'s `audit` dimension, a pinned osv-scanner). An accepted advisory carries a cause and an expiry in
   [`osv-scanner.toml`](../../osv-scanner.toml); acceptance cannot silently become permanent.
 - **A C or C++ dependency arrives only by consent** (golden rule 14 in the root
   [`CLAUDE.md`](../../CLAUDE.md)), and `pnpm run lint:native-builds` is the mechanism: the

@@ -28,7 +28,7 @@
 //     file a reader is already looking at, rather than in a list two directories away.
 //
 // Consumed by tooling/check-scoped/index.mjs (the inner loop), run-repo-wide-lints.mjs (the CLI both
-// that gate and CI call), and vitest.repo-wide-fitness.config.ts (the sweep's include list).
+// that gate and `pnpm gate` call), and vitest.repo-wide-fitness.config.ts (the sweep's include list).
 
 import { closeSync, openSync, readdirSync, readFileSync, readSync } from "node:fs";
 import path from "node:path";
@@ -60,18 +60,19 @@ export const DEFERRED_LINTS = new Map([
       // each rule still fires. Ten times the median lint here, and the fixture half is not optional:
       // it is what stops a wrapper whose plugin flag was renamed from reporting a clean tree forever.
       // Only a source change can move its counts, and the inner loop already lints the diff, so the
-      // CI governance tier (which calls this runner with `--all`) is where it belongs.
-      reason: "6.6 s (two whole-repo linter walks) — the CI governance tier runs it",
+      // gate's governance dimension (which calls this runner with `--all`) is where it belongs.
+      reason: "6.6 s (two whole-repo linter walks) — the gate's governance dimension runs it",
       runWhenDependenciesChange: false,
     },
   ],
   [
     "lint:test-collection",
     {
-      // 26 s — four list-only Vitest collections over ~70 projects. An order of magnitude past what
-      // the inner loop can absorb, and it verifies the SHAPE of the CI test split, which only a CI
-      // change can break. Its home is the dedicated `test-collection` job in the gate workflow.
-      reason: "26 s (four list-only Vitest collections) — CI's test-collection job only",
+      // A list-only Vitest collection over ~70 projects, tens of seconds. An order of magnitude past
+      // what the inner loop can absorb, and only a project registration can move what it measures.
+      // Its home is the gate's own `test-collection` dimension (tooling/gate).
+      reason:
+        "tens of seconds (a list-only Vitest collection) — the gate's test-collection dimension only",
       runWhenDependenciesChange: false,
     },
   ],

@@ -75,14 +75,14 @@ describe("computeAffected", () => {
   });
 
   it("does not force a whole-repo lint for a workflow/action YAML change (it can't move a lint result)", () => {
-    // A .github change is NOT a global trigger: gate.yml alone has nothing lintable → none.
-    expect(computeAffected({ changedFiles: [".github/workflows/gate.yml"], packages }).mode).toBe(
-      "none",
-    );
+    // A .github change is NOT a global trigger: a workflow alone has nothing lintable → none.
+    expect(
+      computeAffected({ changedFiles: [".github/workflows/assemble-docs.yml"], packages }).mode,
+    ).toBe("none");
     // Alongside a package change, it is ignored and the scope is just that package's closure.
     expect(
       computeAffected({
-        changedFiles: [".github/workflows/gate.yml", "apps/web/src/app.ts"],
+        changedFiles: [".github/workflows/assemble-docs.yml", "apps/web/src/app.ts"],
         packages,
       }).paths,
     ).toEqual(["apps/web"]);

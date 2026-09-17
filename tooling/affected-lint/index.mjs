@@ -1,5 +1,5 @@
-// Computes the minimal path set the CI type-aware lint (`vp check --no-fmt <paths>`) must cover for a
-// given change, so the gate lints only what a change can affect instead of the whole repo (~45 min).
+// Computes the minimal path set the gate's type-aware lint (`vp check --no-fmt <paths>`) must cover for
+// a given change, so the gate lints only what a change can affect instead of the whole repo (~45 min).
 // The type-aware pass builds its type program lazily from the passed files' import closure, so linting
 // one package is seconds where the whole repo is minutes — the win is real and needs no upstream cache.
 //
@@ -26,12 +26,12 @@
 // type program the linter has to build, and that program is the package's own files plus everything
 // they import — so `typeProgramWeight` below (the lintable-file count of a package's transitive
 // DEPENDENCY closure) is the cost proxy. One package is a wild outlier on it, and re-linting that one
-// package as a DEPENDENT is most of the merge gate's bill. `--defer-fanout-sinks` drops such a package
-// from the scope when it is merely a dependent — never when it is itself changed, so an author's own
-// code is always linted on their own pull request. The dropped work is not skipped, it MOVES: every
-// trigger other than `pull_request` passes no such flag and lints the full unbounded closure, so the
-// union of the pull-request pass and the post-merge pass still covers everything the unbounded walk
-// covers. Coverage of that union is asserted by scope-fitness.mjs beside this file.
+// package as a DEPENDENT was most of the hosted gate's bill. `--defer-fanout-sinks` drops such a
+// package from the scope when it is merely a dependent — never when it is itself changed, so an
+// author's own code is always linted. `pnpm gate` (tooling/gate) passes no such flag: there is no
+// runner bill to defer, so it lints the full unbounded closure, sinks included. The flag stays as the
+// cheaper pass for a machine that cannot afford the sink, and scope-fitness.mjs beside this file still
+// asserts that a deferred pass plus an undeferred one covers everything the unbounded walk covers.
 //
 // Output (stdout): the literal `ALL` (lint the whole repo), the literal `NONE` (no lintable package
 // affected — skip), or a space-separated list of package directories to pass to `vp check --no-fmt`.
@@ -57,8 +57,8 @@ export const GLOBAL_TRIGGER_PATHS = new Set([
 ]);
 
 // Repo-relative path prefixes whose change re-verifies the whole repo. `.github/` is deliberately NOT
-// here: a workflow or action YAML change (e.g. gate.yml) cannot move a type-aware lint result, so it must
-// not force the ~45-min whole-repo lint. A genuinely lintable file under `.github/` (a JS-based action) is
+// here: a workflow or action YAML change cannot move a type-aware lint result, so it must not force
+// the ~45-min whole-repo lint. A genuinely lintable file under `.github/` (a JS-based action) is
 // still caught below by the "lintable source outside any package" rule, which forces ALL — so dropping the
 // blanket prefix narrows the trigger to real lint inputs without a soundness gap.
 export const GLOBAL_TRIGGER_PREFIXES = [

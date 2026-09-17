@@ -121,8 +121,8 @@ export default defineConfig({
   // Per-package test projects. apps/api-worker and apps/status-worker run their tests inside Miniflare via @cloudflare/vitest-pool-workers, which only activates when their own config (apps/api-worker/vitest.config.ts, apps/status-worker/vitest.config.ts) is loaded, so each is registered as a Vitest project here; otherwise root `vp test` would run the worker test under the default pool and `cloudflare:test` would not resolve.
   // The design-system Storybook story tests (browser-mode Chromium via Playwright + per-story axe) are registered explicitly: Vitest ignores `test.projects` nested inside a config loaded as a project, so the glob entry alone would silently skip them at the root (the package's vitest.config.ts then only contributes its unit tests). Requires the Chromium binary: `pnpm --filter @magna-carta/design-system exec playwright install chromium` (CI too).
   // This list is CLOSED: a project not registered here is invisible to root `vp test` and therefore to
-  // CI — its tests run nowhere and nothing fails. Every app or tooling dir that gains a vitest.config.ts
-  // must be added here (and to the gate's test-node paths, .github/workflows/gate.yml). The standalone
+  // the gate — its tests run nowhere and nothing fails. Every app or tooling dir that gains a
+  // vitest.config.ts must be added here (`pnpm run lint:test-registration` audits that). The standalone
   // sibling workers below run default-pool unit tests (faked container/R2 bindings — no Miniflare).
   test: {
     projects: [
@@ -146,7 +146,7 @@ export default defineConfig({
       "tooling/check-scoped/vitest.config.ts",
       "tooling/doc-fragments/vitest.config.ts",
       "tooling/lint-back-navigation/vitest.config.ts",
-      "tooling/lint-cache-keys/vitest.config.ts",
+      "tooling/gate/vitest.config.ts",
       "tooling/lint-conflicts-vocabulary/vitest.config.ts",
       "tooling/lint-hard-rules/vitest.config.ts",
       "tooling/lint-lints/vitest.config.ts",
@@ -264,8 +264,8 @@ export default defineConfig({
       // Each crate also has its OWN task, because a Worker that imports one of them should not pay to
       // compile the others: `magna-carta-web` (the interface Worker, and so the build that runs most
       // often) needs pdf-core alone, and its build script asks for exactly that. The composite below is
-      // still what the app-worker deploy and CI's wasm job (.github/workflows/gate.yml) ask for, and it
-      // is a chain of nested `vp run`s so each crate keeps its own cache entry rather than one
+      // still what the app-worker deploy asks for, and it is a chain of nested `vp run`s so each
+      // crate keeps its own cache entry rather than one
       // all-or-nothing entry.
       "rust-wasm-build": {
         command: [
@@ -368,6 +368,10 @@ export default defineConfig({
       clean: {
         command: "node tooling/clean/index.mjs",
       },
+      // The whole-repo quality gate is `pnpm gate` (tooling/gate/index.mjs), a package.json script and
+      // deliberately NOT a task here: vp refuses to load a task graph in which a task and a root script
+      // share a name, and that refusal takes every `vp run` down with it — including the ones the gate
+      // itself spawns (`vp run typecheck`, `vp run rust-check`, `vp run bootstrap`).
       // Point git at the tracked hooks directory (pre-push quality gate + post-merge auto-clean).
       // Runs automatically from `postinstall`, because a fresh clone leaves core.hooksPath unset and
       // a cloud session is a fresh clone every time — left manual, those sessions push with the gate

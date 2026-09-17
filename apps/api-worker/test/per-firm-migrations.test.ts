@@ -42,7 +42,7 @@ describe("perFirmMigrations bundle", () => {
     // fresh firm applies it before the migration it was written on top of. Provisioning stamps
     // `schema_version` from the head, so a firm would also record itself at a version it had passed.
     // Re-stamp the merged-in migration above the new head rather than relaxing this —
-    // tooling/migration-integrity now refuses it on every pull request, not only under `run-tests`.
+    // tooling/migration-integrity refuses it in the pre-push hook and the gate, on every change.
     const migrations = perFirmMigrations();
     expect(migrations.at(-1)?.tag).toBe(perFirmHeadSchemaVersion());
     expect(perFirmHeadSchemaVersion()).toMatch(/^\d{8}T\d{6}_/);
