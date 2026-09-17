@@ -50,10 +50,12 @@ async function withWopi(
   options: { readonly requireLiveSession?: boolean } = {},
 ): Promise<Response> {
   const logger = createWorkersLogger(c.env.TELEMETRY);
-  return runWopiCallback(operation, { logger, now: () => new Date().toISOString() }, async () => {
-    const token = c.req.query("access_token") ?? "";
-    const { claims, firmDatabase } = await wopiGuard(token, c.env, firmDatabaseResolverFor(c.env));
-    const fileId = claims.fileId as FileId;
+
+  const verified = async (
+    claims: Awaited<ReturnType<typeof wopiGuard>>["claims"],
+    firmDatabase: ProxyBatchDatabase,
+    fileId: FileId,
+  ): Promise<Response> => {
     const state = await documentSessionStub(c.env, fileId).getState();
     // Session binding for MUTATING edit callbacks: an edit token is bound to the DO session it was
     // minted for, so a leaked-but-unexpired token cannot replay a write/lock once that session is reaped
@@ -71,7 +73,43 @@ async function withWopi(
     // reads and writes the working copy in the firm its token names and in no other.
     const { bucket } = await resolveFirmBucketForFirmId(c.env, claims.firmId);
     return fn({ claims, firmDatabase, bucket, fileId, state });
-  });
+  };
+
+  // Who this callback was for, once the token has said so. It stays unset when the guard refuses the
+  // token: with no verified member there is no open to record against, and a forged token must not
+  // be able to write a mark onto anyone's. (A holder rather than a plain variable, because the
+  // assignment happens inside the callback and a plain `let` reads as never-assigned after it.)
+  const seen: { caller: { readonly memberId: string; readonly fileId: FileId } | null } = {
+    caller: null,
+  };
+  const response = await runWopiCallback(
+    operation,
+    { logger, now: () => new Date().toISOString() },
+    async () => {
+      const token = c.req.query("access_token") ?? "";
+      const { claims, firmDatabase } = await wopiGuard(
+        token,
+        c.env,
+        firmDatabaseResolverFor(c.env),
+      );
+      const fileId = claims.fileId as FileId;
+      seen.caller = { memberId: claims.memberId, fileId };
+      return verified(claims, firmDatabase, fileId);
+    },
+  );
+  // The host's answer, recorded where the screen that launched the editor can read it: which call
+  // the editor made and what it was told, refusals included (the Error ID is the same one the
+  // redacted event carries). This is the only sight the screen has of the editor's side of the open,
+  // and the place every failure on this path so far has been.
+  if (seen.caller !== null) {
+    await documentSessionStub(c.env, seen.caller.fileId).recordCallback(seen.caller.memberId, {
+      operation,
+      status: response.status,
+      errorId: response.headers.get("X-MC-Error-Id"),
+      at: new Date().toISOString(),
+    });
+  }
+  return response;
 }
 
 export function registerWopiHostRoutes(

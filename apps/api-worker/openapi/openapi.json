@@ -8049,6 +8049,64 @@
           "capability"
         ]
       },
+      "EditOpenProgressResponse": {
+        "type": "object",
+        "properties": {
+          "launchedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "checkFileInfoAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "getFileAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastCallback": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "operation": {
+                "type": "string"
+              },
+              "status": {
+                "type": "number"
+              },
+              "errorId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "at": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "operation",
+              "status",
+              "errorId",
+              "at"
+            ]
+          }
+        },
+        "required": [
+          "launchedAt",
+          "checkFileInfoAt",
+          "getFileAt",
+          "lastCallback"
+        ]
+      },
       "CheckoutResponse": {
         "type": "object",
         "properties": {
@@ -52645,6 +52703,81 @@
           },
           "404": {
             "description": "The file does not exist in this firm, or has no committed version to open",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/documents/{fileId}/edit-session/progress": {
+      "get": {
+        "description": "Where the caller's current open of this document has got to as the host saw it: when the launch was answered, when the editor asked for the document's information and bytes, and the editor's most recent call and its answer.",
+        "operationId": "documents.editOpenProgress",
+        "tags": [
+          "documents"
+        ],
+        "x-mc-operationId": "documents.editOpenProgress",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "documents"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^file_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "fileId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The caller's open record; every mark null when no launch is on record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditOpenProgressResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The file does not exist in this firm",
             "content": {
               "application/problem+json": {
                 "schema": {

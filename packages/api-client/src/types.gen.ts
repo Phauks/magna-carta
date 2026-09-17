@@ -1961,6 +1961,18 @@ export type SessionLaunchResponse = {
     capability: 'edit' | 'view';
 };
 
+export type EditOpenProgressResponse = {
+    launchedAt: string | null;
+    checkFileInfoAt: string | null;
+    getFileAt: string | null;
+    lastCallback: {
+        operation: string;
+        status: number;
+        errorId: string | null;
+        at: string;
+    } | null;
+};
+
 export type CheckoutResponse = {
     checkoutId: string;
     presignedGetUrl: string;
@@ -15374,6 +15386,41 @@ export type DocumentsViewSessionResponses = {
 };
 
 export type DocumentsViewSessionResponse = DocumentsViewSessionResponses[keyof DocumentsViewSessionResponses];
+
+export type DocumentsEditOpenProgressData = {
+    body?: never;
+    path: {
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/v1/documents/{fileId}/edit-session/progress';
+};
+
+export type DocumentsEditOpenProgressErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The file does not exist in this firm
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DocumentsEditOpenProgressError = DocumentsEditOpenProgressErrors[keyof DocumentsEditOpenProgressErrors];
+
+export type DocumentsEditOpenProgressResponses = {
+    /**
+     * The caller's open record; every mark null when no launch is on record
+     */
+    200: EditOpenProgressResponse;
+};
+
+export type DocumentsEditOpenProgressResponse = DocumentsEditOpenProgressResponses[keyof DocumentsEditOpenProgressResponses];
 
 export type DocumentsCheckoutData = {
     body?: CheckoutRequest;

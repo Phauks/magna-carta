@@ -261,6 +261,18 @@ export function extensionOf(fileName: string): string {
 }
 
 /**
+ * Every file-name extension this table knows a category by, sorted. The one place the platform's
+ * own extension list can be read from, so a screen that lists what a category covers (Settings ·
+ * Opening Files) renders the same list this resolver decides by, and neither can drift.
+ */
+export function extensionsOfCategory(category: FileCategory): readonly string[] {
+  return Object.entries(EXTENSION_CATEGORY)
+    .filter(([, known]) => known === category)
+    .map(([extension]) => extension)
+    .toSorted();
+}
+
+/**
  * Resolve the file kind from its content type (preferred) and/or name. Returns `unknown` when
  * neither resolves — never throws, so a partial or missing descriptor is always safe.
  */

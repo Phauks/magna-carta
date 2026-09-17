@@ -110,6 +110,25 @@ describe("WOPI CheckFileInfo", () => {
     expect(info.Version.length).toBeGreaterThan(0);
   });
 
+  it("advertises the lock contract it enforces, and that no member administers the editor", async () => {
+    // PutFile refuses a save made without a held lock, and the editor only takes a lock when the host
+    // says it supports them — so a host that enforces locks without advertising them refuses every save.
+    const { fileId, versionId } = await seedCleanFile("Locked.docx", "hello");
+
+    const info = await checkFileInfo(claimsFor(fileId, versionId, "edit"), {
+      database: firmDb,
+      bucket: env.R2,
+      currentMeta: null,
+      liveSessionId: null,
+    });
+
+    expect(info.SupportsLocks).toBe(true);
+    expect(info.SupportsUpdate).toBe(true);
+    expect(info.IsAdminUser).toBe(false);
+    // The lock handler implements no GET_LOCK, so it must not be advertised.
+    expect("SupportsGetLock" in info).toBe(false);
+  });
+
   it("hands back the launching origin as PostMessageOrigin, so the editor can report itself up", async () => {
     // Without it the editor posts nothing, and the screen framing it cannot tell a container that is
     // still starting from a frame the browser refused.
@@ -617,7 +636,10 @@ describe("WOPI lock family", () => {
     expect(setLock).not.toHaveBeenCalled();
   });
 
-  it("returns 409 with the held lock when a Lock value conflicts", async () => {
+  it("lets a successor container instance take over a stale lock with a plain Lock", async () => {
+    // One container serves a document and its coolwsd holds one lock value that every co-editor on it
+    // shares, so a different value can only be a new instance after the previous one slept without
+    // unlocking. Refusing it would hold the document until an unlock that never comes.
     const setLock = vi.fn(async () => {});
 
     const response = await lockOperation(editClaims(), lockRequest("LOCK", "L2"), {
@@ -626,9 +648,9 @@ describe("WOPI lock family", () => {
       clearLock: vi.fn(async () => {}),
     });
 
-    expect(response.status).toBe(409);
-    expect(response.headers.get("X-WOPI-Lock")).toBe("L1");
-    expect(setLock).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(response.headers.get("X-WOPI-Lock")).toBeNull();
+    expect(setLock).toHaveBeenCalledWith("L2");
   });
 
   it("unlocks when the presented lock matches", async () => {

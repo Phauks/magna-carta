@@ -2,7 +2,7 @@
 worktree: /home/user/magna-carta
 area: In-app document editing — the editor frame's embedding policy, the open-a-document waiting state, and the header that screen would carry
 status: review
-touches: apps/edit-worker, containers/collabora, apps/api-worker/src/editing, apps/web/src/lib/documents, apps/web/src/routes/developer-console/document-editor-headers, apps/web/src/lib/developer/dev-fixtures.ts, packages/telemetry/src/scrub.ts, changelog.d
+touches: apps/edit-worker, containers/collabora, apps/api-worker/src/editing, apps/web/src/lib/documents, apps/web/src/routes/(app)/+layout.svelte, apps/web/src/routes/(app)/documents/[id]/edit, apps/web/src/routes/(app)/settings/opening-files, apps/web/src/lib/settings/settings-sections.ts, apps/web/src/routes/developer-console, apps/web/src/lib/developer/dev-fixtures.ts, packages/design-system/src/lib/components/file-icon, packages/telemetry/src/scrub.ts, packages/api-client, docs/user/admin, changelog.d
 ---
 
 Two defects, reported from a real open of a `.docx`, and one design question that arrived with them.
@@ -42,3 +42,14 @@ library's static setter, so the registry its proxy reads was never filled. It is
 static block, and a test runs the library's real proxy dispatch against the class, which answers 520
 for the shipped code and forwards to the app worker for the fix. To run it, the edit worker's suite
 inlines the library and stubs `cloudflare:workers`.
+
+Sixth round, with the document opening: four asks from the first real editing session. The open is
+staged (the host records the editor's callbacks per member and a new progress route serves them;
+the screen names each stage and a stall names where). The editor is the whole screen (the edit
+page declares `shell: "none"`, the app layout honours it). Spreadsheets, presentations and
+drawings open in the editor from one file-type register, rendered at Settings · Opening Files.
+Saving works: CheckFileInfo advertises the lock contract the host enforces, a successor container
+takes over a stale lock, and the image no longer opens the editor's welcome dialog per document.
+`packages/design-system` gains one export (`extensionsOfCategory`); `(app)/+layout.svelte` gains
+the shell-less branch — both cross-cutting, both small, `vp run worktrees` shows no other stream
+on them.
