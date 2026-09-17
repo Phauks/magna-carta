@@ -193,6 +193,20 @@ The 7-angle review is scoped to a slice's diff, so it structurally cannot see ex
 
 **Confidentiality.** Audit artifacts quote source and spell out live attack paths — treat them as privileged. Point the skill's output directory outside the repo (and out of any third-party service); never commit raw reports or `findings.json`. (Golden rule 4.)
 
+### The routine (canonical configuration)
+
+The audit runs weekly as a Claude Code cloud **Routine** — the same shape as the docs-sync routine in [`../maintenance/README.md`](../maintenance/README.md): a clock outside the repo, everything it needs in-repo, so it can be deleted and re-created losslessly from this block. Created 2026-09-17 and enabled.
+
+- **Name:** `MC - Security Audit`
+- **Schedule (cron, UTC):** `0 13 * * 3` (Wednesdays 13:00 UTC — a day apart from the Monday docs and dependency routines, so two proposing runs never open pull requests into the same review window)
+- **Session mode:** fresh session per firing. There is no carried context and no committed report, so the run's **only memory is the remediation pull requests it opened before**: branches named `remediate-<YYYY-MM-DD>-<slug>`, open or merged, read before hunting so effort goes to new ground. A coverage ledger is written per run and never committed, which is a known limit: what a run chose not to check is remembered only in that run's notification.
+- **Notifications:** push + email on completion. The final message is the run's record — source ref, coverage summary, confirmed findings with pull request links, needs-validation leads with their one unresolved fact and a safe validation plan, what the codebase does well, and the run's agent cost.
+- **What it may do:** open one pull request per confirmed finding from a `remediate-` branch, carrying the smallest effective fix, a runnable regression verifier, and a `changelog.d/` fragment (`Security`, `internal`). It never merges, never commits an audit artifact, never opens an issue with the report, and never probes a deployed endpoint or a live Cloudflare resource.
+- **Execution:** the cloud session cannot provide the OS-enforced sandbox the skill requires to run target code, so the routine is source-analysis only, and a lead whose decisive fact needs execution lands as `needs_validation`. That is the correct outcome, not a failure of the run.
+- **Prompt:** the full text is stored on the Routine; it restates the rules above as standalone instructions and points the session at `.claude/skills/security-audit/SKILL.md` on `main` and at this section as the binding policy.
+
+**Changing cadence:** edit the Routine's cron in the Claude Routines UI (or ask a session to `update_trigger`). **Pausing:** disable the Routine. **Running off-schedule:** fire it from the UI, or ask any session on this repo for a full security audit with the same delivery rules. **Reviewing a remediation pull request:** the verifier is the evidence; read it first, then the fix, and treat the description's invariant claim as the thing to check.
+
 ## To detail (Phase 0)
 
 - TDD expectations and the CI gate (what must pass to merge).
