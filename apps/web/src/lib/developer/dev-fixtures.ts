@@ -71,6 +71,11 @@ export const FIXTURE_GROUPS: readonly DevPageGroup[] = [
         note: "The one loading region, over every shape",
       },
       {
+        label: "Document opening stages",
+        href: "/developer-console/document-editor-opening",
+        note: "The staged wait for the browser editor, each stage running and the two ways it stops",
+      },
+      {
         label: "Calendar day states",
         href: "/developer-console/calendar-day-states",
         note: "Every month-grid day state, today and selected among them",

@@ -58,6 +58,30 @@ async function deriveDocumentKey(fileId: FileId): Promise<string> {
     .slice(0, 52);
 }
 
+// Where the caller's current open of a document has got to, as the host saw it. The screen watches
+// the editor come up through the frame; this is the half it cannot see — the editor's own calls back
+// to this host — so a stalled open can name the call that never came, or the answer it got.
+const EditOpenProgressResponse = z
+  .object({
+    // When this member's launch was answered; null when no launch of this document is on record for
+    // them (the session was reaped since, or the open predates the record).
+    launchedAt: z.string().nullable(),
+    // When the editor asked the host what the document is (CheckFileInfo answered 2xx), or null.
+    checkFileInfoAt: z.string().nullable(),
+    // When the editor asked the host for the document's bytes (GetFile answered 2xx), or null.
+    getFileAt: z.string().nullable(),
+    // The most recent call the editor made and what it was told, refusals included, or null.
+    lastCallback: z
+      .object({
+        operation: z.string(),
+        status: z.number(),
+        errorId: z.string().nullable(),
+        at: z.string(),
+      })
+      .nullable(),
+  })
+  .openapi("EditOpenProgressResponse");
+
 const SessionLaunchResponse = z
   .object({
     // The full editor URL to load in an iframe: the discovery urlsrc with the host's WOPISrc appended.
@@ -117,6 +141,12 @@ async function buildLaunch(
   },
 ): Promise<z.infer<typeof SessionLaunchResponse>> {
   const exp = Date.now() + TOKEN_WINDOW_MS;
+  // A fresh open record for this member, whatever the seat: the marks the screen reads while it waits
+  // are those of THIS launch and never of the attempt before it.
+  await documentSessionStub(c.env, input.fileId).beginOpen(
+    input.memberId,
+    new Date().toISOString(),
+  );
   // The origin of the page that asked for this launch — the firm's own branded subdomain. It is carried
   // in the token because the WOPI callbacks have no request of their own to read it from, and it is read
   // from THIS request rather than configured because per-firm subdomains mean there is no one app origin
@@ -242,6 +272,46 @@ export const viewSessionRoute = defineOpenAPIRoute(viewSessionMeta, {
   },
 });
 
+// Reads the caller's own open record for a document. Gated exactly like the viewer launch — matter
+// access, no edit capability — because it reveals nothing of the document, only the timing of the
+// caller's own editor's calls. Polled by the screen while an open is in flight, and only then.
+export const editOpenProgressMeta: RouteMeta = {
+  operationId: "documents.editOpenProgress",
+  surface: "app",
+  authenticated: true,
+  permission: null,
+  resource: "matter",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
+export const editOpenProgressRoute = defineOpenAPIRoute(editOpenProgressMeta, {
+  method: "get",
+  path: "/api/v1/documents/{fileId}/edit-session/progress",
+  request: { params: z.object({ fileId: identifierPathParam("file", "fileId") }) },
+  description:
+    "Where the caller's current open of this document has got to as the host saw it: when the launch was answered, when the editor asked for the document's information and bytes, and the editor's most recent call and its answer.",
+  responses: {
+    200: {
+      description: "The caller's open record; every mark null when no launch is on record",
+      content: { "application/json": { schema: EditOpenProgressResponse } },
+    },
+    401: {
+      description: "No valid session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    404: {
+      description: "The file does not exist in this firm",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
 export function registerDocumentEditingRoutes(
   app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
   chokepoint: Chokepoint,
@@ -350,6 +420,34 @@ export function registerDocumentEditingRoutes(
         sessionId,
       });
       return c.json(launch, 200);
+    },
+  );
+
+  app.openapi(
+    {
+      ...editOpenProgressRoute,
+      middleware: chokepointMiddleware(chokepoint, editOpenProgressRoute),
+    },
+    async (c) => {
+      const firmContext = requireChokepointFirmContext(c);
+      const memberId = requireChokepointUserId(c);
+      const fileId = c.req.param("fileId") as FileId;
+
+      // The same existence check the launches make, so a file outside this firm answers 404 here as
+      // it does there, and never a record.
+      const file = await getFileWithCurrentCleanVersion(firmContext.firmDatabase, fileId);
+      if (file === undefined || file.deletedAt !== null) return launchProblem(c, "not-found");
+
+      const progress = await documentSessionStub(c.env, fileId).openProgressOf(memberId);
+      return c.json(
+        progress ?? {
+          launchedAt: null,
+          checkFileInfoAt: null,
+          getFileAt: null,
+          lastCallback: null,
+        },
+        200,
+      );
     },
   );
 }

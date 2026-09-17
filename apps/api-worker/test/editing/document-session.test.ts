@@ -80,4 +80,97 @@ describe("DocumentSession", () => {
       expect((await instance.getState()).sessionId).toBeNull();
     });
   });
+
+  it("records a member's open from the launch on, marking the two calls that decide it", async () => {
+    const stub = sessionStub("file_open");
+    await runInDurableObject(stub, async (instance: DocumentSession) => {
+      expect(await instance.openProgressOf("usr_a")).toBeNull();
+      await instance.beginOpen("usr_a", "2026-09-17T19:00:00.000Z");
+      expect(await instance.openProgressOf("usr_a")).toEqual({
+        launchedAt: "2026-09-17T19:00:00.000Z",
+        checkFileInfoAt: null,
+        getFileAt: null,
+        lastCallback: null,
+      });
+
+      // The editor asks what the document is, and is told: the first mark.
+      await instance.recordCallback("usr_a", {
+        operation: "wopi:check-file-info",
+        status: 200,
+        errorId: null,
+        at: "2026-09-17T19:00:05.000Z",
+      });
+      // Then asks for its bytes and is refused: no second mark, and the refusal is the last callback.
+      await instance.recordCallback("usr_a", {
+        operation: "wopi:get-file",
+        status: 404,
+        errorId: "error_01",
+        at: "2026-09-17T19:00:06.000Z",
+      });
+      const open = await instance.openProgressOf("usr_a");
+      expect(open?.checkFileInfoAt).toBe("2026-09-17T19:00:05.000Z");
+      expect(open?.getFileAt).toBeNull();
+      expect(open?.lastCallback).toEqual({
+        operation: "wopi:get-file",
+        status: 404,
+        errorId: "error_01",
+        at: "2026-09-17T19:00:06.000Z",
+      });
+      // Another member's open is their own record.
+      expect(await instance.openProgressOf("usr_b")).toBeNull();
+    });
+  });
+
+  it("resets the record at the next launch, so a retry never reads the marks of the attempt before", async () => {
+    const stub = sessionStub("file_reopen");
+    await runInDurableObject(stub, async (instance: DocumentSession) => {
+      await instance.beginOpen("usr_a", "2026-09-17T19:00:00.000Z");
+      await instance.recordCallback("usr_a", {
+        operation: "wopi:check-file-info",
+        status: 200,
+        errorId: null,
+        at: "2026-09-17T19:00:05.000Z",
+      });
+      await instance.beginOpen("usr_a", "2026-09-17T19:10:00.000Z");
+      expect(await instance.openProgressOf("usr_a")).toEqual({
+        launchedAt: "2026-09-17T19:10:00.000Z",
+        checkFileInfoAt: null,
+        getFileAt: null,
+        lastCallback: null,
+      });
+    });
+  });
+
+  it("keeps a callback that arrives with no launch on record, so the editor's answer is never lost", async () => {
+    const stub = sessionStub("file_unlaunched");
+    await runInDurableObject(stub, async (instance: DocumentSession) => {
+      await instance.recordCallback("usr_a", {
+        operation: "wopi:check-file-info",
+        status: 200,
+        errorId: null,
+        at: "2026-09-17T19:00:05.000Z",
+      });
+      const open = await instance.openProgressOf("usr_a");
+      expect(open?.checkFileInfoAt).toBe("2026-09-17T19:00:05.000Z");
+      expect(open?.launchedAt).toBe("2026-09-17T19:00:05.000Z");
+    });
+  });
+
+  it("reads a record persisted before the open record existed as one with no opens", async () => {
+    const stub = sessionStub("file_legacy");
+    await runInDurableObject(stub, async (instance: DocumentSession, state) => {
+      // The shape a session stored before `opens` was a field.
+      await state.storage.put("session-state", {
+        participants: { usr_a: "edit" },
+        current: null,
+        wopiLock: null,
+        sessionId: "session-legacy",
+        fileId: null,
+        bucketName: null,
+      });
+      expect((await instance.getState()).opens).toEqual({});
+      expect((await instance.getState()).sessionId).toBe("session-legacy");
+      expect(await instance.openProgressOf("usr_a")).toBeNull();
+    });
+  });
 });

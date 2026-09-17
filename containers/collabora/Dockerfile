@@ -23,6 +23,17 @@ ENV DONT_GEN_SSL_CERT="true"
 #                             the shipped coolwsd.xml default is 4).
 #   security.capabilities=false — run without the chroot-jail Linux capabilities that Cloudflare
 #                                 Containers do not grant (the kit uses a plain process boundary).
+#   home_mode.enable=true + welcome.enable=false — the editor's own "what's new" dialog is not shown on
+#                          open, and neither is its feedback prompt. The dialog decides whether to show
+#                          itself from a version it remembers in the BROWSER'S storage for the editor's
+#                          origin, and every document here is its own origin, so it would open on every
+#                          document a member ever opened for the first time. This image is the community
+#                          build, which forces the dialog on unless home mode is enabled (wsd/COOLWSD.cpp
+#                          and wsd/FileServer.cpp read `home_mode.enable` before honouring
+#                          `welcome.enable`); home mode also caps one coolwsd at 10 documents and 20
+#                          connections, which one container serving one document never reaches. Help >
+#                          What's New still opens the dialog on request; whether the editor was updated
+#                          is the platform's to say (the version report), not a dialog over the document.
 #   admin_console.username/password empty — the admin console is disabled (no operator surface exposed).
 #                                            They stay LAST: the container gate reads an empty `password=`
 #                                            followed by another token as a password with that value.
@@ -47,7 +58,7 @@ ENV DONT_GEN_SSL_CERT="true"
 #   unquoted, and it stays literal because no file in the entrypoint's working directory can match a
 #   word of that shape. Quoting the expansion in this file is not an option — the entrypoint is the
 #   image's, not ours.
-ENV extra_params="--o:ssl.enable=false --o:ssl.termination=true --o:num_prespawn_children=1 --o:security.capabilities=false --o:storage.wopi.alias_groups[@mode]=groups --o:storage.wopi.alias_groups.group[0].host=http://wopi.magna-carta.internal:80 --o:storage.wopi.alias_groups.group[0].host[@allow]=true --o:admin_console.username= --o:admin_console.password="
+ENV extra_params="--o:ssl.enable=false --o:ssl.termination=true --o:num_prespawn_children=1 --o:security.capabilities=false --o:storage.wopi.alias_groups[@mode]=groups --o:storage.wopi.alias_groups.group[0].host=http://wopi.magna-carta.internal:80 --o:storage.wopi.alias_groups.group[0].host[@allow]=true --o:home_mode.enable=true --o:welcome.enable=false --o:admin_console.username= --o:admin_console.password="
 
 # coolwsd's HTTP + WebSocket port — matches DocumentEditorContainer.defaultPort. The image's own
 # entrypoint (which generates the TLS material when asked to, maps the container's user id, and execs

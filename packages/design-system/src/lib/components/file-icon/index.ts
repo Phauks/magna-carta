@@ -8,6 +8,7 @@ export {
 } from "./resolve.ts";
 export {
   extensionOf,
+  extensionsOfCategory,
   resolveFileCategory,
   resolveFileIconTone,
   resolveFileTypeBadge,
