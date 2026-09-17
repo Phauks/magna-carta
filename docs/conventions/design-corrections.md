@@ -253,6 +253,15 @@ is usually the fastest way to understand the rule.
   press. Absence is still the signal; presence is still unmistakable. _(every list surface,
   2026-08-31)_
 
+- **A column a screen declares is a column the reader sees.** Seven of the Directory's columns
+  started hidden, on the reasoning that the assembled name is what a reader reads and the rest is
+  for a particular day. The owner added them and reported them missing — "it did not populate in,
+  even with blank data" — which is the verdict on that reasoning: the one way to reveal a hidden
+  column is the header's right-click menu, which nothing on the screen advertises, so a column that
+  starts hidden does not exist for anyone who did not write it. Declare what the screen shows, let
+  the table scroll sideways where it must, and let the header menu be where a reader HIDES what
+  they do not need today. _(the Directory, 2026-09-17)_
+
 ### Data entry
 
 - **Creating a record is ONE screen with a left side and a right side.** Not a wizard, not a long
@@ -978,6 +987,15 @@ is usually the fastest way to understand the rule.
   puts the flip where a hand rests while it is deciding, which is what makes a list judder.
   _(reordering, 2026-09-16)_
 
+- **A control whose GLYPH changes with its state is not a pressed toggle, and is not ringed like
+  one.** The ghost recipe draws an accent hairline around an active toggle because a view or pane
+  toggle's icon says nothing about which side is on; a star that fills and turns gold has already
+  said it, and the ring then reads as a box fencing in the mark. Such a control drops `aria-pressed`
+  and carries its state in the glyph, in a label that names the act in both directions, and in a
+  data attribute — never by neutralising the recipe's paint at the call site. _(the screen header's
+  favourite star, 2026-09-17: "only the star should be yellow, there should not be a box around the
+  star")_
+
 ### List screens
 
 - **A list screen is ONE table at the full width, and a rail down its side has to earn the
@@ -1208,6 +1226,27 @@ name, which is every screen outside a matter.
   standing after its screen got a search, and any second implementation of a search box.
   _(Workspace screens, 2026-09-14)_
 
+- **A screen searches the list it already shows; it does not grow a second one to put the answer
+  in.** The Matters docket sends its query to the read and the same grid, with the same columns,
+  shows what matched — while the Directory swapped that grid out for a separate table of hits the
+  moment anything was typed: a second surface to learn, arriving exactly when a reader is
+  mid-thought, and taking the sort, the filters and the columns they had set up with it. The
+  narrowed list keeps the screen's own footer, which is where the count and the "there are more
+  matches than these" sentence belong; a capped answer still says it is capped. The one shape this
+  is not is a screen with no single list to narrow — a matter's search reaches its documents, notes,
+  time and people at once — and that answer already has its home in the `panel` seam that opens
+  downward from the control. `pnpm run lint:workspace-search` refuses a screen that draws a table
+  under the query and another under the else, and names any allowance left standing after the
+  screen began searching in place. _(Workspace screens, 2026-09-17)_
+
+- **Where a query could honestly land on more than one register, the other answers arrive as rows
+  in the same table.** Somebody searching the Directory for "Pemberton" is as often looking for the
+  file as for the person, and sending them to a second screen to find out is the same defect in
+  another form. So a live query on the Directory also lists the firm's matching matters, marked by
+  the Kind column, blank in every contact column, opening the matter — and the resting index stays
+  the book of people and organizations, with its count the directory's own. _(the Directory,
+  2026-09-17)_
+
 ### Layout
 
 - **A panel with a side rail holds ONE size, whichever rail item is chosen.** A modal sized to its
@@ -1336,6 +1375,50 @@ name, which is every screen outside a matter.
   Where the things beneath it are rows of the same rail, prefix-matching lights two rows at once and
   the reader has to work out which one is the answer. _(All Tools, 2026-09-16)_
 
+- **A screen header is its name and its actions, and a control that moves the grid stays over the
+  grid.** The owner named the escape — lifting the calendar's controls into the header — and ruled
+  against it in the same breath, so the action row stays where the 2026-09-16 arrangement put it and
+  is made to FIT instead: the window's name takes the slack the other groups leave rather than a
+  fixed slot, the way back to everything is the Kinds menu's own last item so narrowing can never
+  widen the row, and the glyph controls are the small square the rest of the row already stands at.
+  Wrapping survives only as the fallback below the width the groups themselves need. _(the
+  calendar, 2026-09-17)_
+- **A two-sided screen has two scroll regions, and a column that has one does not nest another.**
+  The rail scrolls and the content column's grid scrolls — that is the layout's design — but under
+  the action row there is exactly one scroller: the region around a month, a week or a day, which
+  are tables that scroll nothing of their own, or the agenda itself, which is already a named
+  focusable scrolling region. A region inside a region offers a reader two bars for one list and no
+  way to tell which moves what. _(the calendar, 2026-09-17)_
+- **A grid that fills its column is sized by a cell MINIMUM, never a fixed cell.** Six weeks at the
+  largest spacing step stood taller than a laptop's work canvas before a single entry was painted,
+  so an empty September scrolled. The month now fills the height it is given and its weeks share
+  the surplus; the region above it scrolls only when the minimum wins. _(the calendar, 2026-09-17)_
+
+- **A two-sided screen shows two scrollbars, never three, and the navigation's is not one of the
+  two.** The settings column stood three bands, eight groups and twenty-four rows open at once —
+  about twice a laptop canvas — so it carried a permanent scrollbar of its own beside the page's,
+  and a viewport-derived height that overshot the canvas by a pixel added the canvas's own on top.
+  Every band and every group folds now, and `NavigationLayout` caps its height against the canvas
+  it actually sits in rather than against the viewport. A height computed from `100dvh` is a guess
+  at a parent's height; where the parent is itself a scroll region, the guess is the defect.
+  _(Settings, 2026-09-17)_
+- **A settings page is the three stories and nothing else — masthead, the one scroll region, the
+  exit.** A page that writes the scroll region's two divs out by hand gets the spacing right by
+  accident and drifts the first time anything is corrected. `SettingsScrollRegion` is the only
+  `overflow-y-auto` under Settings. _(Settings, 2026-09-17)_
+- **The fold is one grammar across the product, and it is the sidebar's: the heading IS the
+  control.** Full width as the hit target, the label's own voice kept, a chevron down while open and
+  toward the inline start while folded, remembered per browser as departures from everything-open so
+  anything shipped later arrives open. It is one component — `NavigationLayout.Group` — for every
+  two-sided screen's column. The rail's own rows are not folded into it: a sub-menu row is a grid
+  with an icon column, a truncating label and a collapsed-rail tooltip, which is a different anatomy
+  wearing the same grammar. What must never drift is the grammar, and a part is the only way to
+  hold that. _(Settings, 2026-09-17)_
+- **The column never folds away the page the reader is standing on.** Arriving inside a folded
+  group opens it, that opening is not remembered, and one press still folds it — a fold is a reading
+  convenience, and the command palette still reaches every section inside one, because hiding must
+  never remove capability. _(Settings, 2026-09-17)_
+
 ### Spacing and rhythm
 
 - **The App Shell draws the page inset, once, for everybody.** A screen rendered into the shell's
@@ -1368,6 +1451,51 @@ name, which is every screen outside a matter.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-17 — a star, the settings column, the Directory's search, and the calendar on a laptop
+
+The owner's round over the deployed site, in one message. What was said, and what each part
+generalizes to:
+
+- **"For the favorites button, only the star should be yellow, there should not be a box around the
+  star."** The ghost button recipe rings a pressed control with an accent hairline, and the star was
+  declaring itself pressed. It no longer does: the filled gold glyph is the state. Generalized above
+  under _Controls and patterns_.
+- **"AI and the assistant setting has multiple scrollbars, make sure to harmonize all setting pages
+  to use the same component."** Two causes. The settings column stood every band and group open —
+  about twice a laptop canvas — so it scrolled beside the page; and the layout's height was a guess
+  from the viewport that could overshoot the canvas by a pixel and wake the canvas's own bar. The
+  column folds now and the layout is capped against the canvas it sits in. Of the twenty-four
+  settings pages, one (Conflicts) had written the scroll region's two divs out by hand; it is on
+  the shared part. Generalized above under _Layout_.
+- **"My settings, firm settings, and platforms should be collapsible menus, with submenus and
+  grouping also being collapsible. Check what we use in the left sidebar, should these be combined
+  in components?"** Yes to the grammar and no to the rows: the heading is the control, folded per
+  browser as departures from everything-open, built once as `NavigationLayout.Group` for every
+  two-sided screen's column. The sidebar's own sub-menu row is a different anatomy (an icon column,
+  a truncating label, a collapsed-rail tooltip) wearing the same grammar, and folding it into the
+  part would have made the part four things. Generalized above under _Layout_.
+- **"I added more columns for directory, but it did not populate in, even with blank data."** They
+  were declared hidden, reachable only by right-clicking a header. Every declared column shows now.
+  Generalized above under _Lists and tables_. What is still open for the owner: the Columns submenu
+  itself is reachable only by that right-click, and nothing on the screen says so.
+- **"We should be able to see matters in the directory search area."** Read as matter rows in the
+  same search answer, marked Matter; the record window's own matters pane answers a different
+  question (what one person is on) and is untouched. Generalized above under _Screen search_.
+- **"Remove 'Every match the firm holds, in its own relevance order' from bottom of search."** Gone,
+  both places; the footer now speaks only when the answer was cut short.
+- **"Search functionality in the matter screen searches the table, while directory generates a new
+  searchable area which I dislike. Identify which places do it this way and swap over. Create lint
+  rule."** The survey of every screen with the search control found the Directory the only one that
+  swapped its table for a second surface; it searches in place now, with the server's relevance
+  order kept until the reader sorts. `lint:workspace-search` gained the `second-results-surface`
+  rule. The one sanctioned other shape is a matter's own search, which reaches everything on the
+  matter through the control's downward panel. Generalized above under _Screen search_.
+- **"Calendar is very tight on my laptop, and has multiple scrollbars. If we move controls up higher
+  in the header area, maybe this would be better, but it would also be against what we really
+  do."** The escape was named and refused in the same sentence, so the controls stay over the grid
+  and were made to fit: one scroll region under the row, a month sized by a cell minimum that fills
+  its column, and a row that fits one line by measure. Generalized above under _Layout_.
 
 ### 2026-09-17 — the second level, read and grasped
 

@@ -731,9 +731,16 @@ const DirectoryEntityListingPage = paginated(DirectoryEntityListing)
       .int()
       .openapi({
         description:
-          "How many records the firm holds under these filters — every page of the walk, not the " +
-          "rows on this one.",
+          "How many records the firm holds under these filters — every page of the walk when the " +
+          "directory is being listed, and the number of records answering when it is being " +
+          "searched, because a ranked answer's size is the answer's and not the book's.",
       }),
+    capped: z.boolean().openapi({
+      description:
+        "True only where a ranked answer (`search`) was cut short: the firm holds more matches " +
+        "than were returned, so narrowing the query reaches the rest. False on every page of " +
+        "the plain index, which is walkable to its end by cursor and never cut.",
+    }),
   })
   .openapi("DirectoryEntityListingPage");
 
@@ -1158,8 +1165,11 @@ const listEntitiesRoute = defineOpenAPIRoute(readMeta("listEntities", null), {
     "ONE sequence: the directory is one book, and `kind` narrows it rather than splitting it. " +
     "Deleted records and records folded into another by a merge are excluded — a folded record " +
     "still answers a search and still resolves to its survivor, but listing it beside that " +
-    "survivor would show one client as two. This is the read that answers 'show me everyone'; the " +
-    "ranked search answers a name and is capped, and neither can stand in for the other.",
+    "survivor would show one client as two. Given `search`, the same read answers a NAME instead: " +
+    "the firm's ranked trigram search chooses the records and they come back as the same listing " +
+    "rows, in the firm's own relevance order. That answer is capped rather than walkable, so " +
+    "`nextCursor` is null, `total` is the size of the answer, and `capped` says whether the firm " +
+    "holds more matches than fitted.",
   request: {
     query: cursorQuery.extend({
       kind: z
@@ -1169,11 +1179,24 @@ const listEntitiesRoute = defineOpenAPIRoute(readMeta("listEntities", null), {
           param: { name: "kind", in: "query" },
           description: "Narrows to one side of the directory. Omitted, both are listed together.",
         }),
+      search: z
+        .string()
+        .optional()
+        .openapi({
+          param: { name: "search", in: "query" },
+          description:
+            "A name to rank the directory against — every name the firm has recorded is matched, " +
+            "former names included, and a misspelling still finds the record. The corpus matches " +
+            "three-character windows, so a shorter query answers with nothing rather than with " +
+            "the whole book. Omitted, the directory is listed in name order.",
+        }),
     }),
   },
   responses: {
     200: {
-      description: "A page of the directory in name order, with the size of the whole record",
+      description:
+        "A page of the directory in name order, with the size of the whole record — or, under " +
+        "`search`, the ranked matches as the same rows",
       content: { "application/json": { schema: DirectoryEntityListingPage } },
     },
     401: authErrors[401],
@@ -2634,8 +2657,12 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
     { ...listEntitiesRoute, middleware: chokepointMiddleware(chokepoint, listEntitiesRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      const { cursor, kind } = c.req.valid("query");
-      const page = await readEntityListing(firm.firmDatabase, { cursor, kind: kind ?? "all" });
+      const { cursor, kind, search } = c.req.valid("query");
+      const page = await readEntityListing(firm.firmDatabase, {
+        cursor,
+        kind: kind ?? "all",
+        search,
+      });
       return c.json(page as unknown as z.infer<typeof DirectoryEntityListingPage>, 200);
     },
   );

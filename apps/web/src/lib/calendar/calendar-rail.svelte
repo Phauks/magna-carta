@@ -162,12 +162,14 @@
               </Label>
               <!-- The colour lives behind the disc that already shows it. The disc is eight
                    pixels and a pointer target is not, so the CONTROL is the ghost icon button
-                   every quiet chrome affordance in the product is, with the disc inside it. -->
+                   every quiet chrome affordance in the product is, with the disc inside it. It is
+                   the SMALL square: the row is a checkbox and a name, and the larger square set the
+                   height of every row in a column a firm with twenty rooms already has to scroll. -->
               <Popover.Root>
                 <!-- The button's own recipe on the trigger, which renders the element itself: the
                      ghost icon register every quiet chrome affordance wears. -->
                 <Popover.Trigger
-                  class={buttonClasses({ variant: "ghost", size: "icon" })}
+                  class={buttonClasses({ variant: "ghost", size: "icon-sm" })}
                   aria-label={colorLabel(source)}
                   title={colorLabel(source)}
                 >

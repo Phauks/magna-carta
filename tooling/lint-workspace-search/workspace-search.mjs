@@ -15,7 +15,7 @@
  * using it, and reached NEITHER of those two. That is the cost, and it is the ordinary cost of a
  * duplicated surface: the fix is applied where somebody remembered to look.
  *
- * THREE RULES, all answered from the sidebar registry and the route tree rather than a list kept
+ * FOUR RULES, all answered from the sidebar registry and the route tree rather than a list kept
  * by hand:
  *
  *   1. COVERAGE. Every shipped destination in the Workspace group renders `ScreenSearch`, or is
@@ -30,6 +30,11 @@
  *   3. NO SECOND IMPLEMENTATION. No Workspace screen hand-rolls a search box: no `type="search"`
  *      field, and no Lucide search glyph, outside `ScreenSearch` itself. This is the rule that
  *      would have caught the Matters docket and the Directory on the day they were written.
+ *   4. NO SECOND RESULTS SURFACE. A screen searches the list it already shows. Where a query is
+ *      live, the SAME table narrows — same columns, same sort, same footer saying how many there
+ *      are and whether the answer is capped. A screen that swaps its list out for a second table
+ *      while a search runs has answered the question somewhere else, in a surface the reader has
+ *      to learn a second time and which drops the columns and the filters they had set up.
  *
  * COVERAGE FOLLOWS THE RENDER, NOT THE FILE. A screen is free to keep its search in the component
  * that owns the list — Tasks hands `TaskList` its header and the list hands the controls back —
@@ -48,6 +53,14 @@
  *   - Placement across the indirection above. Where the control and the header are in DIFFERENT
  *     files the scan cannot see how the two were composed, so rule 2 holds only within one file.
  *     It is the shape that actually drifts.
+ *   - A second surface built out of something other than a table — a list of cards, a rail — or one
+ *     the screen shows by hiding the list in CSS rather than by branching around it. Rule 4 reads
+ *     the shape that shipped: one branch keyed on the query, a table in it and a table in the other
+ *     branch. The judgement it encodes is the ruling; the scan is only the part of it a regular
+ *     expression can hold.
+ *   - A swap written in a file that does not itself hold the search. Rule 4 asks its question of a
+ *     file rendering the control, because the query's state and the branch that reads it are
+ *     written together; a screen that keeps them apart is not a shape that has shipped here.
  */
 
 /** The one control. Anything else claiming to be a screen's search is the defect. */
@@ -115,6 +128,40 @@ export const HAND_ROLLED_PATTERNS = [
     what: "a Lucide search glyph",
   },
 ];
+
+/**
+ * The roots a screen's list is built on. `DataTable.GridFooter` and `DataTable.Row` are parts of
+ * one, not another one, so the trailing character class is load-bearing.
+ */
+export const LIST_ROOT = /<DataTable\.(?:Root|Grid)[\s/>]/u;
+
+/**
+ * Snippet names that draw a PLACEHOLDER of the list rather than a second list: `LoadingRegion`'s
+ * `fixture` seam is the same table with sample rows in it, which is why it is written twice. Rule 4
+ * blanks these before it counts, or every screen with a loading state would read as having two.
+ */
+export const PLACEHOLDER_SNIPPETS = new Set(["fixture"]);
+
+/**
+ * What a condition has to mention for rule 4 to read it as gating on the query. A screen branching
+ * on anything else — a failed read, an empty list, which view is chosen — is branching for a reason
+ * that has nothing to do with searching, and rule 4 says nothing about it.
+ */
+export const SEARCH_STATE = /\b\w*(?:search|query|narrow)\w*\b|\bhits\b/iu;
+
+/*
+ * SECOND SURFACES ALLOWED, keyed by the screen file, with the reason. The shape rule 4 reports is
+ * nearly always the defect, and the one place it is not is a screen with no single list to narrow:
+ * a matter's search reaches its documents, its notes, its time and its people at once, and the
+ * owner's ruling of 2026-09-02 gives that answer its own home — the `panel` seam, which opens
+ * downward from the control and belongs to it. That is not a swap and never trips this rule,
+ * because a panel is not a second table standing where the screen's list was.
+ *
+ * So an entry here is a screen that genuinely cannot narrow one list, whose answer is nonetheless
+ * tabular. Write why the SCREEN has no single list, never that the swap was quicker. An allowance
+ * over a screen that no longer swaps fails, the way a stale decline does.
+ */
+export const SECOND_SURFACE_ALLOWED = new Map([]);
 
 /*
  * Replaces a matched region with spaces, newlines kept, so it occupies the same offsets it did.
@@ -201,36 +248,194 @@ export function searchReachableFrom(entry, read) {
   return false;
 }
 
+/** The index just past the `}` that closes the block tag starting at `at`. */
+function endOfTag(markup, at) {
+  const close = markup.indexOf("}", at);
+  return close === -1 ? markup.length : close + 1;
+}
+
 /**
- * The bodies of every `{#snippet actions()}…{/snippet}` in a file's markup. Nesting is counted
- * rather than matched lazily, because an actions snippet holding an `{#if}` closes with a `{/if}`
- * of its own and a lazy match would stop at the first one.
+ * A block tag's text, keyword and all: `{#if searching`, `{:else if hits === null`. A `}` inside
+ * the expression — an object literal, an arrow with a body — ends it early; markup conditions are
+ * one comparison in practice, and reading to the first brace costs less than parsing Svelte.
  */
-export function actionsSnippets(markup) {
+function tagText(markup, at) {
+  const close = markup.indexOf("}", at);
+  return markup.slice(at, close === -1 ? markup.length : close);
+}
+
+/**
+ * Every Svelte block in a file's markup, as [{ kind, name, tagStart, bodyStart, end, branches }].
+ * An `{#if}` carries its branches — the `{#if}` itself, each `{:else if}` and the `{:else}` — each
+ * with the text of its own condition, or null for the `{:else}`.
+ *
+ * Nesting is counted rather than matched lazily, because a block holding an `{#if}` closes with a
+ * `{/if}` of its own and a lazy match would stop at the first one. Everything rule 2 and rule 4 ask
+ * is a question about which block a thing sits in, so the two share this one walk.
+ */
+export function svelteBlocks(markup) {
   const found = [];
-  const opener = /\{#snippet actions\(\)\}/gu;
-  const token = /\{#(?:if|each|await|key|snippet)\b|\{\/(?:if|each|await|key|snippet)\}/gu;
-  for (const match of markup.matchAll(opener)) {
-    const start = (match.index ?? 0) + match[0].length;
-    let depth = 1;
-    let cursor = -1;
-    token.lastIndex = start;
-    let step;
-    while ((step = token.exec(markup)) !== null) {
-      if (step[0].startsWith("{#")) {
-        depth += 1;
-        continue;
+  const open = [];
+  const token =
+    /\{#(if|each|await|key|snippet)\b|\{\/(if|each|await|key|snippet)\}|\{:else(\s+if\b)?/gu;
+  let step;
+  while ((step = token.exec(markup)) !== null) {
+    const [, opener, closer, elseIf] = step;
+    const at = step.index;
+
+    if (opener !== undefined) {
+      const bodyStart = endOfTag(markup, at);
+      const block = { kind: opener, name: "", tagStart: at, bodyStart, end: markup.length };
+      if (opener === "snippet") {
+        block.name = (/\{#snippet\s+([A-Za-z_$][\w$]*)/u.exec(tagText(markup, at)) ?? ["", ""])[1];
       }
-      depth -= 1;
-      if (depth === 0) {
-        cursor = step.index;
-        break;
+      if (opener === "if") {
+        block.branches = [{ condition: tagText(markup, at), start: bodyStart, end: markup.length }];
       }
+      open.push(block);
+      found.push(block);
+      continue;
     }
-    // An unclosed snippet is a syntax error the compiler reports; here it simply has no body.
-    if (cursor === -1) continue;
-    found.push({ start, end: cursor });
+
+    if (closer !== undefined) {
+      // An unbalanced closer is a syntax error the compiler reports; here it closes nothing, and
+      // whatever it skipped past is dropped rather than left open to swallow the rest of the file.
+      const index = open.findLastIndex((block) => block.kind === closer);
+      if (index === -1) continue;
+      const block = open[index];
+      block.end = at;
+      if (block.branches !== undefined) block.branches.at(-1).end = at;
+      open.length = index;
+      continue;
+    }
+
+    // `{:then}` and `{:catch}` reach here too; only an `{#if}` directly above takes a branch.
+    const block = open.at(-1);
+    if (block === undefined || block.branches === undefined) continue;
+    block.branches.at(-1).end = at;
+    block.branches.push({
+      condition: elseIf === undefined ? null : tagText(markup, at),
+      start: endOfTag(markup, at),
+      end: markup.length,
+    });
   }
+  return found;
+}
+
+/** The bodies of every `{#snippet actions()}…{/snippet}` in a file's markup. */
+export function actionsSnippets(markup) {
+  return svelteBlocks(markup)
+    .filter((block) => block.kind === "snippet" && block.name === "actions")
+    .map((block) => ({ start: block.bodyStart, end: block.end }));
+}
+
+/** Every named snippet's body text, by name. A re-declared name keeps the last, as Svelte does. */
+export function snippetBodies(markup) {
+  const bodies = new Map();
+  for (const block of svelteBlocks(markup)) {
+    if (block.kind !== "snippet" || block.name === "") continue;
+    bodies.set(block.name, markup.slice(block.bodyStart, block.end));
+  }
+  return bodies;
+}
+
+/** Markup with the placeholder snippets' bodies blanked, offsets and lines kept. */
+export function withoutPlaceholderSnippets(markup) {
+  let out = markup;
+  for (const block of svelteBlocks(markup)) {
+    if (block.kind !== "snippet" || !PLACEHOLDER_SNIPPETS.has(block.name)) continue;
+    const body = out.slice(block.bodyStart, block.end);
+    out = out.slice(0, block.bodyStart) + blank(body) + out.slice(block.end);
+  }
+  return out;
+}
+
+/** Markup with every snippet's body blanked: what the file actually RENDERS, not what it defines. */
+export function withoutSnippetBodies(markup) {
+  let out = markup;
+  for (const block of svelteBlocks(markup)) {
+    if (block.kind !== "snippet") continue;
+    const body = out.slice(block.bodyStart, block.end);
+    out = out.slice(0, block.bodyStart) + blank(body) + out.slice(block.end);
+  }
+  return out;
+}
+
+/**
+ * The names of the snippets that draw a list, directly or through another snippet. The Directory's
+ * search table was reached through exactly this indirection — one snippet, rendered twice — so a
+ * scan that read only literal tags would have found the swap it was written for invisible.
+ */
+export function listRootSnippets(markup) {
+  const bodies = snippetBodies(markup);
+  const holding = new Set();
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const [name, body] of bodies) {
+      if (holding.has(name) || !drawsList(body, holding)) continue;
+      holding.add(name);
+      grew = true;
+    }
+  }
+  return holding;
+}
+
+/** Whether a region draws a list: a table of its own, or a render of a snippet that holds one. */
+export function drawsList(region, snippets) {
+  if (LIST_ROOT.test(region)) return true;
+  for (const name of snippets) {
+    if (new RegExp(`\\{@render\\s+${name}\\s*\\(`, "u").test(region)) return true;
+  }
+  return false;
+}
+
+/** Whether a branch's condition is about the query rather than about anything else. */
+export function namesSearchState(condition) {
+  return condition !== null && SEARCH_STATE.test(condition);
+}
+
+/**
+ * Rule 4, over one file: where a screen swaps its list for a second one while a query is live, by
+ * offset. Two shapes, both drawn from the Directory as it stood before the correction:
+ *
+ *   - A list in TWO branches of one `{#if}` chain that asks about the query. That is the swap
+ *     written out: the hits in one branch, the screen's own grid in the other.
+ *   - A list inside a branch gated ON the query, while the file renders another list outside that
+ *     chain. The same swap assembled from two conditionals instead of one.
+ *
+ * A single list under a query-shaped condition is not reported: narrowing between "nothing matches
+ * that" and the table is the in-place shape, and it is how most of these screens are written.
+ */
+export function secondResultsSurfaces(source) {
+  const markup = withoutPlaceholderSnippets(markupOf(source));
+  const snippets = listRootSnippets(markup);
+  const found = [];
+
+  for (const chain of svelteBlocks(markup)) {
+    if (chain.branches === undefined) continue;
+    if (!chain.branches.some((branch) => namesSearchState(branch.condition))) continue;
+
+    const drawing = chain.branches.filter((branch) =>
+      drawsList(markup.slice(branch.start, branch.end), snippets),
+    );
+    if (drawing.length === 0) continue;
+    if (drawing.length > 1) {
+      found.push({ index: chain.tagStart });
+      continue;
+    }
+
+    // One list in the chain. It is a swap only when the query is what put it there AND the screen
+    // draws another list somewhere else — otherwise this is a screen narrowing its own table.
+    if (!namesSearchState(drawing[0].condition)) continue;
+    const rendered = withoutSnippetBodies(markup);
+    const elsewhere =
+      rendered.slice(0, chain.tagStart) +
+      blank(rendered.slice(chain.tagStart, chain.end)) +
+      rendered.slice(chain.end);
+    if (drawsList(elsewhere, snippets)) found.push({ index: chain.tagStart });
+  }
+
   return found;
 }
 
@@ -248,7 +453,7 @@ export function screenSearchTags(markup) {
  *
  * `destinations` is the Workspace group as `workspaceDestinations` reads it; `pageOf` answers a
  * destination's href with the repository-relative path of the route page that serves it, or null;
- * `read` answers a path with its source or null; `screenFiles` is every file rule 3 scans, as
+ * `read` answers a path with its source or null; `screenFiles` is every file rules 3 and 4 scan, as
  * [{ path, source }].
  */
 export function auditWorkspaceSearch({
@@ -257,10 +462,12 @@ export function auditWorkspaceSearch({
   read,
   screenFiles,
   declined = DECLINED,
+  allowedSecondSurface = SECOND_SURFACE_ALLOWED,
 }) {
   const problems = [];
   const covered = [];
   const declining = [];
+  const allowing = [];
 
   for (const destination of destinations) {
     if (!destination.shipped) continue;
@@ -352,7 +559,51 @@ export function auditWorkspaceSearch({
           "`@magna-carta/design-system/screen-search`.",
       });
     }
+
+    // Rule 4 — no second results surface. Asked only of a file that holds the search itself: the
+    // query's state and the swap are written together, and a file with neither says nothing here.
+    if (!rendersScreenSearch(source)) continue;
+    const swaps = secondResultsSurfaces(source);
+    const allowance = allowedSecondSurface.get(file) ?? null;
+
+    if (swaps.length > 0 && allowance !== null) {
+      allowing.push({ file, reason: allowance });
+      continue;
+    }
+
+    if (swaps.length === 0 && allowance !== null) {
+      problems.push({
+        file,
+        line: 1,
+        rule: "stale-second-surface",
+        message:
+          "searches its list in place and is ALSO recorded as allowed a second results surface. " +
+          `Delete the "${file}" entry from SECOND_SURFACE_ALLOWED in ` +
+          "tooling/lint-workspace-search/workspace-search.mjs — an exemption that outlives what " +
+          "it exempted is an exemption nobody re-reads.",
+      });
+      continue;
+    }
+
+    for (const swap of swaps) {
+      problems.push({
+        file,
+        line: lineOf(source, swap.index),
+        rule: "second-results-surface",
+        message:
+          "swaps its list out for a second results surface while a query is live. A screen " +
+          "searches the list it already shows: the query goes to the read — or narrows the rows " +
+          "in the browser where every row is already there — and the SAME table, with the same " +
+          "columns and the same sort, shows what matched, while the footer states how many there " +
+          "are and says so when the answer is capped. A second table is a second surface to " +
+          "learn, and it throws away the columns, the sort and the filters the reader set up. " +
+          "Where a screen has no single list to narrow, the answer is ScreenSearch's `panel` " +
+          "seam, which opens downward from the control and belongs to it, not a table standing " +
+          "where the list was. A screen that must keep one is recorded, with its reason, in " +
+          "SECOND_SURFACE_ALLOWED in tooling/lint-workspace-search/workspace-search.mjs.",
+      });
+    }
   }
 
-  return { problems, covered, declining };
+  return { problems, covered, declining, allowing };
 }

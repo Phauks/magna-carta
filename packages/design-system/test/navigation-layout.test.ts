@@ -200,3 +200,108 @@ describe("the row is registered beside the layout it belongs to", () => {
     expect(index).toContain('export { default } from "./navigation-layout.svelte";');
   });
 });
+
+/*
+ * The group is the column's FOLD, and what a test can hold about it is the shape of the decision:
+ * that the heading is the control rather than a chevron beside a label, that the part remembers
+ * nothing (a member's folds are a preference the app owns, and a part with its own memory would be
+ * a second answer to that), and that the three-level indent stagger is recipe rather than a
+ * utility a screen re-chooses. The chevron's direction and the press are browser facts and are
+ * pinned in the story.
+ */
+const groupRecipe = read(join(HOME, "navigation-layout-group.css"));
+const group = read(join(HOME, "navigation-layout-group.svelte"));
+const groupDeclarations = groupRecipe.replaceAll(/\/\*[\s\S]*?\*\//g, "");
+
+describe("the heading is the control, and it keeps the label's own voice", () => {
+  it("renders a button that spans the heading and says whether it is open", () => {
+    expect(group).toMatch(/<button\b[\s\S]*?type="button"/);
+    expect(group).toContain("aria-expanded={expanded}");
+    expect(group).toContain('data-expanded={expanded ? "true" : "false"}');
+    expect(group).toContain("mc-navigation-layout-group-heading w-full");
+  });
+
+  it("composes the field-label register rather than restating it", () => {
+    expect(group).toContain("mc-field-label mc-navigation-layout-group-heading");
+    expect(groupDeclarations).not.toContain("text-transform:");
+    expect(groupDeclarations).not.toContain("letter-spacing:");
+  });
+
+  it("points at nothing while folded — the rows are absent, not merely hidden", () => {
+    expect(group).toMatch(/\{#if expanded\}[\s\S]*?mc-navigation-layout-group-content/);
+    // The markup alone: the comment above it explains why there is no `aria-controls`, and a test
+    // must not read an explanation as the declaration it is denying.
+    expect(group.slice(group.indexOf("</script>"))).not.toContain("aria-controls");
+  });
+
+  it("holds no fold of its own: the state arrives and the press is reported", () => {
+    expect(group).toMatch(/expanded: boolean;/);
+    expect(group).toMatch(/onToggle: \(\) => void;/);
+    expect(group).not.toContain("$state");
+    expect(group).not.toContain("localStorage");
+  });
+});
+
+describe("the indent stagger is the recipe's, at both levels", () => {
+  it("seats the band on the column's rule and its groups one step in", () => {
+    const heading = declarationsOf(
+      groupRecipe,
+      '.mc-navigation-layout-group[data-level="band"] > .mc-navigation-layout-group-heading',
+    );
+    expect(heading).toContain("padding-inline: var(--mc-space-12)");
+    expect(heading).toContain(
+      "border-block-end: var(--mc-border-width-default) solid var(--mc-border-strong)",
+    );
+    const groupHeading = declarationsOf(
+      groupRecipe,
+      '.mc-navigation-layout-group[data-level="group"] > .mc-navigation-layout-group-heading',
+    );
+    expect(groupHeading).toContain("padding-inline-start: var(--mc-space-24)");
+  });
+
+  it("indents what a group holds one step past the group's own name", () => {
+    expect(
+      declarationsOf(
+        groupRecipe,
+        '.mc-navigation-layout-group[data-level="group"] > .mc-navigation-layout-group-content',
+      ),
+    ).toContain("padding-inline-start: var(--mc-space-24)");
+  });
+
+  it("carries no calc and no literal length", () => {
+    expect(groupDeclarations).not.toContain("calc(");
+    expect(groupDeclarations).not.toMatch(/\b\d+(px|rem|em|%)/);
+  });
+});
+
+describe("the group is registered beside the layout it belongs to", () => {
+  it("the stylesheet imports the group's recipe", () => {
+    expect(read(join(PACKAGE_ROOT, "src/lib/styles/components.css"))).toContain(
+      '@import "../components/navigation-layout/navigation-layout-group.css";',
+    );
+  });
+
+  it("the entry exports the group under both the bare and the prefixed name", () => {
+    const index = read(join(HOME, "index.ts"));
+    expect(index).toContain('export { default as Group } from "./navigation-layout-group.svelte";');
+    expect(index).toContain(
+      'export { default as NavigationLayoutGroup } from "./navigation-layout-group.svelte";',
+    );
+  });
+});
+
+describe("the layout can never outgrow the canvas it was given", () => {
+  it("caps its viewport calc at the canvas's height, inset and all", () => {
+    // The calc is a guess at the canvas height (the top-bar token, and `dvh` agreeing with the
+    // height the shell was sized in). When it overshoots, the canvas — itself a scroll region —
+    // grows a scrollbar beside the two columns, which is how one surface comes to show three.
+    //
+    // The cap bounds the MARGIN box, so it is the parent's content box plus the two inset steps
+    // the negative margin gives back. A plain 100% would cap the border box at the content box and
+    // pull the columns up by the inset, leaving a band of bare canvas beneath them.
+    expect(component).toContain("block-size: calc(100dvh - var(--mc-size-top-bar))");
+    expect(component).toContain("max-block-size: calc(100% + var(--mc-space-48))");
+    expect(component).toContain("-m-24");
+    expect(component).not.toContain("max-h-full");
+  });
+});

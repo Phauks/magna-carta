@@ -5,6 +5,7 @@ import { describe, expect, test } from "vitest";
 import { addAddress } from "../src/contact-address.ts";
 import { addEmail } from "../src/contact-email.ts";
 import { addPhone } from "../src/contact-phone.ts";
+import { addName } from "../src/name-history.ts";
 import { readEntityListing } from "../src/entity-listing.ts";
 import { createOrganization } from "../src/organization.ts";
 import { createPerson } from "../src/person.ts";
@@ -225,5 +226,136 @@ describe("readEntityListing", () => {
     expect(page.data).toEqual([]);
     expect(page.total).toBe(0);
     expect(page.nextCursor).toBeNull();
+    // The index is walkable to its end, so nothing about it was ever cut short.
+    expect(page.capped).toBe(false);
+  });
+});
+
+// The same read, asked a name. What these assert is that a searched answer is still a LISTING row —
+// the whole row, contact summary included — because the screen showing it is the screen showing the
+// index, and a second row shape there is a second table for the reader to learn.
+describe("readEntityListing, searched", () => {
+  test("answers a name with listing rows rather than bare hits", async () => {
+    const database = freshDatabase();
+    const person = await createPerson(
+      database,
+      { given: "Grace", family: "Hopper" },
+      options("2026-06-01T00:00:00.000Z", "searched-a"),
+    );
+    await addEmail(
+      database,
+      { entityId: person, address: "grace@example.test", isPrimary: true },
+      options("2026-06-02T00:00:00.000Z", "searched-b"),
+    );
+    await addPhone(
+      database,
+      { entityId: person, number: "+17755550148", isPrimary: true },
+      options("2026-06-03T00:00:00.000Z", "searched-c"),
+    );
+    await addAddress(
+      database,
+      { entityId: person, city: "Reno", region: "NV", country: "US" },
+      options("2026-06-04T00:00:00.000Z", "searched-d"),
+    );
+
+    const page = await readEntityListing(database, { search: "Hopper" });
+
+    expect(page.data).toHaveLength(1);
+    expect(page.data[0]).toMatchObject({
+      entityId: person,
+      entityKind: "person",
+      displayName: "Grace Hopper",
+      familyName: "Hopper",
+      emailAddress: "grace@example.test",
+      phoneNumber: "+17755550148",
+      city: "Reno",
+    });
+    expect(page.total).toBe(1);
+    // A ranked answer is one page: its order is a score recomputed per query, so there is no key a
+    // walk could resume from.
+    expect(page.nextCursor).toBeNull();
+    expect(page.capped).toBe(false);
+  });
+
+  test("leaves out the records the name does not reach", async () => {
+    const database = freshDatabase();
+    await seedDirectory(database);
+
+    const page = await readEntityListing(database, { search: "Babbage" });
+
+    expect(page.data.map((row) => row.displayName)).toEqual(["Babbage Engines Limited"]);
+    // The count belongs to the answer, never to the book behind it: a searched page that reported
+    // the firm's whole record would read as three matches.
+    expect(page.total).toBe(1);
+  });
+
+  test("lists one record once, however many of its names the query lands on", async () => {
+    const database = freshDatabase();
+    const person = await createPerson(
+      database,
+      { given: "Katherine", family: "Johnson" },
+      options("2026-06-01T00:00:00.000Z", "searched-e"),
+    );
+    await addName(
+      database,
+      person,
+      { nameRole: "maiden", given: "Katherine", family: "Johnston" },
+      options("2026-06-02T00:00:00.000Z", "searched-f"),
+    );
+
+    const page = await readEntityListing(database, { search: "Johnson" });
+
+    // Both name rows answer, and the corpus is right to hold both. A reader is looking at one
+    // person, so the list holds one row for her.
+    expect(page.data.map((row) => row.entityId)).toEqual([person]);
+  });
+
+  test("narrows a searched answer to one side of the book, like the index", async () => {
+    const database = freshDatabase();
+    await createPerson(
+      database,
+      { given: "Pemberton", family: "Reed" },
+      options("2026-06-01T00:00:00.000Z", "searched-g"),
+    );
+    await createOrganization(
+      database,
+      { legalName: "Pemberton Holdings Limited", displayName: null },
+      options("2026-06-02T00:00:00.000Z", "searched-h"),
+    );
+
+    const both = await readEntityListing(database, { search: "Pemberton" });
+    const organizations = await readEntityListing(database, {
+      search: "Pemberton",
+      kind: "organization",
+    });
+
+    expect(both.data).toHaveLength(2);
+    expect(organizations.data.map((row) => row.entityKind)).toEqual(["organization"]);
+  });
+
+  test("says when the firm holds more matches than fitted", async () => {
+    const database = freshDatabase();
+    for (const index of [0, 1, 2]) {
+      await createPerson(
+        database,
+        { given: "Pemberton", family: `Reed${String(index)}` },
+        options("2026-06-01T00:00:00.000Z", `searched-capped-${String(index)}`),
+      );
+    }
+
+    const page = await readEntityListing(database, { search: "Pemberton", pageSize: 2 });
+
+    expect(page.data).toHaveLength(2);
+    expect(page.capped).toBe(true);
+  });
+
+  test("answers nothing to a query too short to cut a trigram, never the whole book", async () => {
+    const database = freshDatabase();
+    await seedDirectory(database);
+
+    const page = await readEntityListing(database, { search: "ad" });
+
+    expect(page.data).toEqual([]);
+    expect(page.total).toBe(0);
   });
 });

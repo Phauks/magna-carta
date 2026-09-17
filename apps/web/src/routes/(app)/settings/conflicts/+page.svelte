@@ -30,6 +30,16 @@
    * TWO CONTROLS ARE DELIBERATELY LOCKED. Party and Current are shown, checked, and disabled with
    * the reason on them, rather than omitted. A firm-wide invariant a reader cannot see reads as an
    * option somebody forgot to offer.
+   *
+   * THE SCROLL IS THE SHARED ONE. Masthead, then SettingsScrollRegion, then the page's content —
+   * the same three-story anatomy every settings page keeps, so the settings surface has ONE scroll
+   * area and one set of edges. This page had a copy of the region's two divs written out by hand,
+   * which is how the outer spacing of one settings page comes to disagree with the rest.
+   *
+   * ITS EXIT IS STILL ITS OWN. Save and Discard sit at the foot of the content rather than in the
+   * pinned SettingsCommitFooter, because that footer commits a SettingsDraft of named definitions
+   * and this page stages a whole policy document. Moving it there is a rewrite of what the page
+   * stages, not a change of frame.
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import * as RadioGroup from "@magna-carta/design-system/radio-group";
@@ -42,6 +52,7 @@
   import { SAMPLE_SENTENCE } from "@magna-carta/design-system/loading-fixtures";
   import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
+  import SettingsScrollRegion from "$lib/settings/components/settings-scroll-region.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { permissionRefusal } from "$lib/access/refusal.ts";
@@ -218,8 +229,7 @@
   showHistory={false}
 />
 
-<div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
-  <div class="flex flex-col gap-24 p-24">
+<SettingsScrollRegion>
     <SettingsDescription>
       What every conflicts check must search, whatever the person running it asks for.
     </SettingsDescription>
@@ -426,5 +436,4 @@
         </div>
       {/if}
     </LoadingRegion>
-  </div>
-</div>
+</SettingsScrollRegion>

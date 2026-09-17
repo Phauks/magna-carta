@@ -18,6 +18,15 @@
    * - PAGE ROW — sentence-case pills, indented one step past the group. The two-step stagger is
    *   the legibility device: access level, category, destination.
    *
+   * EVERY BAND AND EVERY GROUP FOLDS, and the heading is the control — the one disclosure
+   * grammar the rail already uses, drawn by the design system's NavigationLayout.Group so the
+   * two columns cannot answer the same question two ways. It is not decoration: the three bands
+   * open hold better than twenty rows, which on a laptop is a column taller than the screen, and
+   * a navigation with a scrollbar of its own beside a page with one is a surface that looks like
+   * it is made of parts. The band and group holding THIS page are never folded away from the
+   * reader (see the reveal below), and the whole registry is still reachable from the command
+   * palette whatever is folded — hiding must never remove capability.
+   *
    * Firm sections this member can only VIEW carry a quiet hairline chip stating "View" at the
    * row's end — a stated fact, never a lock glyph (locks advertise secrets; a chip states
    * standing). Derived from the permission seam, so it flips with the member's grants.
@@ -25,23 +34,31 @@
    * Each page keeps its own Masthead: the heading belongs to the content, and the nav stays a
    * finding aid, not chrome. Canvas voice throughout — standard tokens, no chrome-* register.
    */
+  import { untrack, type Snippet } from "svelte";
   import { page } from "$app/state";
   import Badge from "@magna-carta/design-system/badge";
   import NavigationLayout, {
+    NavigationLayoutGroup,
     NavigationLayoutRow,
   } from "@magna-carta/design-system/navigation-layout";
-  import FieldLabel from "@magna-carta/design-system/field-label";
   import Building2 from "@lucide/svelte/icons/building-2";
   import Server from "@lucide/svelte/icons/server";
   import UserRound from "@lucide/svelte/icons/user-round";
   import {
     bandedSettingsSections,
     isCurrentSettingsSection,
+    type SettingsBand,
     type SettingsSection,
+    type SettingsSectionGroup,
   } from "$lib/settings/settings-sections.ts";
+  import {
+    isSettingsBandCollapsed,
+    isSettingsGroupCollapsed,
+    setSettingsBandCollapsed,
+    setSettingsGroupCollapsed,
+  } from "$lib/settings/settings-navigation-folds.svelte.ts";
   import { canEditFirmSettings } from "$lib/settings/settings-permissions.ts";
   import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
-  import type { Snippet } from "svelte";
 
   let { children }: { children: Snippet } = $props();
 
@@ -64,6 +81,73 @@
       !canEditFirmSettings(section.editPermissionArea)
     );
   }
+
+  /*
+   * THE FOLD, AND THE ONE THING THAT OVERRIDES IT.
+   *
+   * A member's folds are a per-browser preference (settings-navigation-folds.svelte.ts), stored as
+   * departures from everything-open. On top of that sits a reveal that belongs to WHERE THE READER
+   * IS STANDING rather than to what they chose: arriving at a page inside a folded group opens that
+   * group and its band, because a column that has hidden the very page it is beside is a column
+   * that has stopped being a finding aid.
+   *
+   * The reveal lasts the session and is never written to storage — the member never asked for it —
+   * and pressing the heading clears it, so folding a group that holds the current page folds it and
+   * it stays folded. Bands and groups share a key space here, so each key carries its level: the
+   * "firm" band and the "firm" group are two different things with one name.
+   */
+  const bandKey = (band: SettingsBand): string => `band:${band}`;
+  const groupKey = (group: SettingsSectionGroup): string => `group:${group}`;
+
+  const currentKeys = $derived.by((): readonly string[] => {
+    for (const band of bands) {
+      for (const group of band.groups) {
+        const holdsCurrent = group.sections.some((section) =>
+          isCurrentSettingsSection(section, page.url.pathname),
+        );
+        if (holdsCurrent) return [bandKey(band.id), groupKey(group.id)];
+      }
+    }
+    return [];
+  });
+
+  let revealed = $state<readonly string[]>([]);
+  // What the reveal was last computed for. A plain variable rather than state: it guards the effect
+  // against re-revealing what the member has just folded, and re-running on its own change would be
+  // exactly that.
+  let revealedFor = "";
+
+  $effect(() => {
+    const keys = currentKeys;
+    const signature = keys.join(" ");
+    if (signature === revealedFor) return;
+    revealedFor = signature;
+    const next = new Set(untrack(() => revealed));
+    for (const key of keys) next.add(key);
+    revealed = [...next];
+  });
+
+  function bandExpanded(band: SettingsBand): boolean {
+    return !isSettingsBandCollapsed(band) || revealed.includes(bandKey(band));
+  }
+
+  function groupExpanded(group: SettingsSectionGroup): boolean {
+    return !isSettingsGroupCollapsed(group) || revealed.includes(groupKey(group));
+  }
+
+  // The press acts on what the reader can SEE, which is why it drops the reveal first: a band held
+  // open only because this page is inside it must fold when its heading is pressed.
+  function toggleBand(band: SettingsBand): void {
+    const open = bandExpanded(band);
+    revealed = revealed.filter((key) => key !== bandKey(band));
+    setSettingsBandCollapsed(band, open);
+  }
+
+  function toggleGroup(group: SettingsSectionGroup): void {
+    const open = groupExpanded(group);
+    revealed = revealed.filter((key) => key !== groupKey(group));
+    setSettingsGroupCollapsed(group, open);
+  }
 </script>
 
 <!--
@@ -81,36 +165,32 @@
 <NavigationLayout navigationLabel="Settings sections" navigationWidth="standard" contentScrolls={false}>
   {#snippet navigation()}
     <div class="flex flex-col gap-32">
-    {#each bands as band (band.id)}
-      <div class="flex flex-col gap-16">
-        <!-- The band header. px-12 aligns the cap-line with the group headers' indent origin;
-             one hairline for every band (the firm double rule was owner-rejected). The glyphs
-             are plain symbols in the band's own muted ink — never an avatar or a brand mark
-             (owner-rejected here). -->
-        <div class="flex items-center gap-8 border-b border-border-strong px-12 pb-8">
-          {#if band.id === "user"}
-            <UserRound class="size-16 text-text-muted" aria-hidden="true" />
-          {:else if band.id === "firm"}
-            <Building2 class="size-16 text-text-muted" aria-hidden="true" />
-          {:else}
-            <Server class="size-16 text-text-muted" aria-hidden="true" />
-          {/if}
-          <FieldLabel as="p" class="text-text-default"
-          >
-            {band.label}
-          </FieldLabel>
-        </div>
-
-        <div class="flex flex-col gap-24">
+      {#each bands as band (band.id)}
+        <!-- The band header and its fold are the design system's part: the glyph, the rule, the
+             caps voice, the chevron and the three-level indent stagger all live in one recipe, so
+             this column can never re-choose any of them. -->
+        <NavigationLayoutGroup
+          level="band"
+          label={band.label}
+          expanded={bandExpanded(band.id)}
+          onToggle={() => toggleBand(band.id)}
+        >
+          {#snippet icon()}
+            {#if band.id === "user"}
+              <UserRound aria-hidden="true" />
+            {:else if band.id === "firm"}
+              <Building2 aria-hidden="true" />
+            {:else}
+              <Server aria-hidden="true" />
+            {/if}
+          {/snippet}
           {#each band.groups as group (group.id)}
-            <div class="flex flex-col gap-8">
-              <!-- Group header: one indent step (12) past the band's cap-line at 12. -->
-              <FieldLabel as="p" class="ps-24">
-                {group.label}
-              </FieldLabel>
-              <!-- Page rows: one further step — the pills start at 24 and their own px-12 puts
-                   the row text at 36, completing the three-level stagger. -->
-              <ul class="flex flex-col gap-4" style="padding-inline-start: var(--mc-space-24)">
+            <NavigationLayoutGroup
+              label={group.label}
+              expanded={groupExpanded(group.id)}
+              onToggle={() => toggleGroup(group.id)}
+            >
+              <ul class="flex flex-col gap-4">
                 {#each group.sections as section (section.id)}
                   {@const current = isCurrentSettingsSection(section, page.url.pathname)}
                   <li>
@@ -135,11 +215,10 @@
                   </li>
                 {/each}
               </ul>
-            </div>
+            </NavigationLayoutGroup>
           {/each}
-        </div>
-      </div>
-    {/each}
+        </NavigationLayoutGroup>
+      {/each}
     </div>
   {/snippet}
 

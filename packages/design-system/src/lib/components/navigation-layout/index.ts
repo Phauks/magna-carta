@@ -12,10 +12,16 @@
  * row of this treatment anywhere else would be a different decision. The layout still imposes no
  * structure on what the navigation holds — the bands, the groups and the order are the consumer's
  * — so taking the row is a choice, never a requirement.
+ *
+ * The GROUP is the second such part: a heading that folds what it holds, in the one disclosure
+ * grammar the sidebar settled (the heading is the control, the chevron says which way it goes).
+ * Same offer, same terms — a column that needs no fold renders none.
  */
 export { default } from "./navigation-layout.svelte";
 export { default as Root } from "./navigation-layout.svelte";
 export { default as Row } from "./navigation-layout-row.svelte";
+export { default as Group } from "./navigation-layout-group.svelte";
 export { default as NavigationLayout } from "./navigation-layout.svelte";
 export { default as NavigationLayoutRow } from "./navigation-layout-row.svelte";
+export { default as NavigationLayoutGroup } from "./navigation-layout-group.svelte";
 export type { NavigationWidth } from "./navigation-width.ts";

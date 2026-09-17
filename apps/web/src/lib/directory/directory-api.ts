@@ -6,11 +6,15 @@
  *
  * WHAT THE CONTRACT ANSWERS, AND WHAT IT DOES NOT. Stated here so a caller never goes looking:
  *
- *   - THERE ARE TWO WAYS IN AND THEY ANSWER DIFFERENT QUESTIONS. `listDirectoryEntities` is the
- *     index: every record the firm holds, in name order, cursor-paged, with the size of the whole
- *     record beside the page. `searchDirectory` answers a name: ranked, tolerant of a typo, and
- *     CAPPED. Neither substitutes for the other, and a caller must not present one as the other —
- *     a capped best-of is not an index, and an index is not an answer to "who is this".
+ *   - AN INDEX AND A RANKED ANSWER ARE DIFFERENT OBJECTS, AND THE ROW SHAPE IS NOT WHAT SEPARATES
+ *     THEM. `listDirectoryEntities` is the index — every record, in name order, cursor-paged, with
+ *     the size of the whole record beside the page — and, given a `search`, the firm's ranked
+ *     answer to a name IN THOSE SAME ROWS, because the screen that lists the directory is the
+ *     screen that searches it. What must never blur is the envelope: a ranked answer is capped and
+ *     says so, and a caller must not present a capped best-of as the firm's record.
+ *   - `searchDirectory` is the same ranked search returning HITS rather than rows — which of an
+ *     entity's names the query landed on, and nothing about what the record holds. That is what a
+ *     picker wants and what a list of columns does not.
  *   - Reading an identifier's VALUE is a decrypt: permission-gated and written to the firm's audit
  *     log before any plaintext exists. That is why nothing here reads one eagerly, and why
  *     `readDirectoryIdentifierRecords` — which says what the firm holds without saying what any of
@@ -130,8 +134,16 @@ export interface DirectoryEntityListing {
 export interface DirectoryEntityListingPage {
   data: DirectoryEntityListing[];
   nextCursor: string | null;
-  /** How many records the firm holds under these filters, across every page of the walk. */
+  /**
+   * How many records the firm holds under these filters, across every page of the walk — or, under
+   * a search, how many answered, because a ranked answer's size is the answer's and not the book's.
+   */
   total: number;
+  /**
+   * True only where a ranked answer was cut short: the firm holds more matches than came back. The
+   * plain index is walkable to its end, so it is never capped.
+   */
+  capped: boolean;
 }
 
 /** One hit from the firm's own ranked search. */
@@ -401,7 +413,8 @@ export const MAX_ENTITY_NAME_LOOKUP = 100;
 // ---- reads -----------------------------------------------------------------------------------
 
 /**
- * The firm's directory as an INDEX: everyone it holds, in name order, one page at a time.
+ * The firm's directory as an INDEX: everyone it holds, in name order, one page at a time — or, given
+ * a `search`, the firm's ranked answer to a name in exactly those rows.
  *
  * People and organizations arrive in one sequence, because the directory is one book and a reader
  * looking for a name does not know in advance which side of it the firm filed. `kind` narrows that
@@ -410,15 +423,23 @@ export const MAX_ENTITY_NAME_LOOKUP = 100;
  * Deleted records are out, and so are records folded into another by a merge: a folded record still
  * answers a search and still resolves to its survivor, but listing it beside that survivor would
  * show one client as two.
+ *
+ * ONE ROW SHAPE, TWO QUESTIONS, AND THE ENVELOPE CARRIES THE DIFFERENCE. The screen showing the
+ * answer is the screen showing the index, so a searched answer has to be listing rows — anything
+ * else is a second table for a reader to learn. What the two do not share is on the page: the index
+ * is sorted, walkable (`nextCursor`) and counted over the whole record; the answer is ranked, one
+ * page, and `capped` when the firm holds more than fitted.
  */
 export function listDirectoryEntities(
   fetchImpl: typeof fetch,
-  options: { kind?: DirectoryEntityKind; cursor?: string } = {},
+  options: { kind?: DirectoryEntityKind; cursor?: string; search?: string } = {},
 ): Promise<ApiOutcome<DirectoryEntityListingPage>> {
-  const search = new URLSearchParams();
-  if (options.kind !== undefined) search.set("kind", options.kind);
-  if (options.cursor !== undefined) search.set("cursor", options.cursor);
-  const query = search.toString();
+  const parameters = new URLSearchParams();
+  if (options.kind !== undefined) parameters.set("kind", options.kind);
+  if (options.cursor !== undefined) parameters.set("cursor", options.cursor);
+  const search = options.search?.trim() ?? "";
+  if (search !== "") parameters.set("search", search);
+  const query = parameters.toString();
   return requestJson(fetchImpl, `/api/v1/directory/entities${query === "" ? "" : `?${query}`}`);
 }
 

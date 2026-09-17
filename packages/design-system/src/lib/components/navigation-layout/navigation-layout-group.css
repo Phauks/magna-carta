@@ -1,0 +1,109 @@
+@layer components {
+  /*
+   * NavigationLayout.Group — a heading in the navigation column that FOLDS what it holds.
+   *
+   * THE HEADING IS THE CONTROL, and that is the whole shape: not a chevron beside a label, not a
+   * control in a row of its own. The heading keeps the letterspaced-caps voice it has when it does
+   * not fold (the recipe is composed onto `mc-field-label`, never a second copy of that register),
+   * takes the full width as its hit target, and adds a chevron that points down while the group is
+   * open and toward the inline start while it is folded. A two-word target over a twenty-row group
+   * is a control nobody finds twice.
+   *
+   * TWO LEVELS, AND THE INDENT STAGGER IS THEIRS. A `band` is the column's top level — a glyph
+   * naming whose things these are, firmer ink, seated on a full-width rule. A `group` is a cluster
+   * inside a band, quieter and indented one step; what it holds is indented one step further. The
+   * three-level stagger — band, group, row — is the legibility device that tells the levels apart,
+   * and it lives here so a column cannot re-choose it per screen (it had been hand-written on the
+   * settings nav, in utilities and an inline padding).
+   *
+   * The rotation itself is a utility on the component (a recipe carries no literal, and an angle is
+   * not a token), the way the sidebar's group heading and the accordion do it; only the transition
+   * belongs here.
+   */
+  .mc-navigation-layout-group {
+    display: flex;
+    flex-direction: column;
+  }
+  .mc-navigation-layout-group-heading {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+    border-style: none;
+    background-color: transparent;
+    border-radius: var(--mc-radius-md);
+    text-align: start;
+    cursor: pointer;
+    transition-property: color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-navigation-layout-group-heading:hover {
+    color: var(--mc-text-default);
+  }
+  .mc-navigation-layout-group-heading:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-style: solid;
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  /* The name takes the slack so the chevron rides the trailing edge whatever the heading says. */
+  .mc-navigation-layout-group-heading-label {
+    flex: auto;
+    min-inline-size: var(--mc-space-0);
+  }
+  /*
+   * The glyph that names whose things a band holds. Sized through this wrapper, so a consumer's
+   * `icon` snippet is a bare `<Icon />` — a size class written at the call site is a size class
+   * that can be written wrong, and a Lucide glyph left unsized renders at its own default.
+   */
+  .mc-navigation-layout-group-heading-icon {
+    display: flex;
+    flex: none;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+    /* The glyph is a symbol beside the name, never a second emphasis: it stays a step quieter than
+       the heading it sits in, whatever ink that heading takes. */
+    color: var(--mc-text-muted);
+  }
+  .mc-navigation-layout-group-heading-icon > svg {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+  .mc-navigation-layout-group-chevron {
+    flex: none;
+    transition-property: transform;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-navigation-layout-group-content {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /*
+   * The band: firmer ink on the column's own rule, its cap-line one step in so the group headings
+   * below it read as indented from it rather than from the column's edge. EVERY band takes the SAME
+   * single hairline — a heavier rule under one of them was tried on the settings surface and
+   * rejected; the glyphs and the stagger carry the distinction instead.
+   */
+  .mc-navigation-layout-group[data-level="band"] > .mc-navigation-layout-group-heading {
+    padding-inline: var(--mc-space-12);
+    padding-block-end: var(--mc-space-8);
+    border-block-end: var(--mc-border-width-default) solid var(--mc-border-strong);
+    color: var(--mc-text-default);
+  }
+  .mc-navigation-layout-group[data-level="band"] > .mc-navigation-layout-group-content {
+    gap: var(--mc-space-24);
+    padding-block-start: var(--mc-space-16);
+  }
+
+  /* The group: the band's voice one step quieter and one step in, over rows a step further. */
+  .mc-navigation-layout-group[data-level="group"] > .mc-navigation-layout-group-heading {
+    padding-inline-start: var(--mc-space-24);
+    padding-inline-end: var(--mc-space-12);
+  }
+  .mc-navigation-layout-group[data-level="group"] > .mc-navigation-layout-group-content {
+    padding-block-start: var(--mc-space-8);
+    padding-inline-start: var(--mc-space-24);
+  }
+}

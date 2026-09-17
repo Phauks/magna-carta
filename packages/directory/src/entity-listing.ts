@@ -24,6 +24,14 @@
  * seeking an index. That is honest at a firm's directory size and it is the thing to change first
  * if it ever stops being: the fix is a stored, normalized sort column on each node table, written
  * on the same statements that write the name, and an index over it.
+ *
+ * THE SAME READ ALSO ANSWERS A QUERY, AND THE ANSWER IS STILL A LISTING ROW. Given a `search`, the
+ * firm's ranked name search chooses WHICH records answer and this read says what each of them is —
+ * the whole row, contact summary included. That is deliberate: the screen showing the answer is the
+ * screen showing the index, so the two have to arrive in the same shape or the reader meets a
+ * second table with two columns where they were reading eleven. What stays different is everything
+ * the shapes disagree about, and the envelope carries it: a searched answer is ranked and capped,
+ * so it is one page (`nextCursor` is null) and `capped` says the firm holds more than fitted.
  */
 import {
   DEFAULT_PAGE_SIZE,
@@ -33,6 +41,7 @@ import {
 } from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { displayNameFromRow } from "./entity-display.ts";
+import { NAME_SEARCH_LIMIT, searchNames } from "./search.ts";
 import type { EntityKind } from "./types.ts";
 
 /**
@@ -101,6 +110,13 @@ export interface DirectoryEntityListingPage {
   readonly data: readonly DirectoryEntityListingRow[];
   readonly nextCursor: string | null;
   readonly total: number;
+  /**
+   * True only where a ranked answer was cut short — the firm holds more matches than fitted. The
+   * plain index is never capped: it is walkable to the end, which is what `nextCursor` is for, so
+   * this is false on every page of it. Without the fact on the envelope a reader cannot tell a
+   * short answer from a complete one, and "we stopped" reads as "there is no more".
+   */
+  readonly capped: boolean;
 }
 
 /** Which side of the directory to list, or both. */
@@ -277,8 +293,115 @@ function distinctLegalName(row: ListingRow, displayName: string | null): string 
   return legal === displayName ? null : legal;
 }
 
+/** The columns both branches of this read select — the union's shape, spelled once. */
+const LISTING_PROJECTION =
+  "id, entity_kind, sort_name, display_name, legal_name, name_prefix, name_given, " +
+  "name_middle, name_family, name_suffix, created_at, updated_at";
+
 /**
- * The directory, in name order and cursor-paged, with the size of the whole record.
+ * The rows as a caller reads them: the assembled name, the parts it came from, and the default way
+ * to reach each record, read for the whole set in one bounded query.
+ */
+async function listingRowsFrom(
+  database: SqlDatabase,
+  rows: readonly ListingRow[],
+): Promise<DirectoryEntityListingRow[]> {
+  const contact = await readContactSummaries(
+    database,
+    rows.map((row) => row.id),
+  );
+  return rows.map((row) => {
+    const displayName = displayNameFromRow(row);
+    const reach = contact.get(row.id) ?? NO_CONTACT;
+    return {
+      entityId: row.id,
+      // The literal each branch selects, narrowed back to the domain type it came from.
+      entityKind: row.entity_kind === "organization" ? "organization" : "person",
+      displayName,
+      legalName: distinctLegalName(row, displayName),
+      givenName: row.name_given,
+      middleName: row.name_middle,
+      familyName: row.name_family,
+      emailAddress: reach.emailAddress,
+      phoneNumber: reach.phoneNumber,
+      city: reach.city,
+      region: reach.region,
+      country: reach.country,
+      recordedAt: row.created_at,
+      changedAt: row.updated_at,
+    };
+  });
+}
+
+/**
+ * The ranked answer, as listing rows.
+ *
+ * The search chooses the records; this says what they are. Both halves are bounded by the search's
+ * own limit, so the whole answer is two statements and a contact read — never one read per hit,
+ * which is the shape a list of handles turns into the moment somebody resolves them one at a time.
+ */
+async function readRankedListing(
+  database: SqlDatabase,
+  query: string,
+  kind: DirectoryEntityListingKind,
+  limit: number,
+): Promise<DirectoryEntityListingPage> {
+  const { hits, capped } = await searchNames(database, query, limit);
+
+  // ONE ENTITY, ONE ROW. The corpus holds every name an entity has ever answered to, so a query
+  // landing on both a married and a maiden name returns that person twice; a record folded into
+  // another resolves to its survivor, which may already be here on its own name. The hits arrive
+  // best first, so keeping the first occurrence keeps the firm's own relevance order.
+  const ranked: string[] = [];
+  const seen = new Set<string>();
+  for (const hit of hits) {
+    if (seen.has(hit.entityId)) continue;
+    seen.add(hit.entityId);
+    ranked.push(hit.entityId);
+  }
+
+  const found = await readListingRowsByIdentifier(database, ranked, kind);
+  const byIdentifier = new Map(found.map((row) => [row.id, row]));
+  // Relevance is the order the hits came in; the identifier read answers as a set, so the order is
+  // put back here. A handle the listing holds no live row for — deleted, folded away, or the wrong
+  // side of a `kind` narrowing — simply has no row and drops out.
+  const ordered = ranked
+    .map((identifier) => byIdentifier.get(identifier))
+    .filter((row): row is ListingRow => row !== undefined);
+
+  const data = await listingRowsFrom(database, ordered);
+  return {
+    data,
+    // A ranked answer is one page. Its order is a score recomputed per query rather than a stored
+    // column, so there is no key to resume a walk from — `capped` is what says there is more.
+    nextCursor: null,
+    total: data.length,
+    capped,
+  };
+}
+
+/** The listing rows for a named set of handles, in whatever order the database answers. */
+async function readListingRowsByIdentifier(
+  database: SqlDatabase,
+  identifiers: readonly string[],
+  kind: DirectoryEntityListingKind,
+): Promise<ListingRow[]> {
+  if (identifiers.length === 0) return [];
+  const placeholders = identifiers.map(() => "?").join(", ");
+  const { results } = await database
+    .prepare(
+      `SELECT ${LISTING_PROJECTION}
+         FROM (${unionedRecords(kind)})
+        WHERE id IN (${placeholders})`,
+    )
+    .bind(...identifiers)
+    .all<ListingRow>();
+  return results;
+}
+
+/**
+ * The directory, in name order and cursor-paged, with the size of the whole record — or, given a
+ * `search`, the firm's ranked answer to a name in the same row shape.
  *
  * The cursor is the platform's opaque (sort key, id) token, minted over the computed name rather
  * than over a timestamp — the same encoding every other list uses, so nothing about the wire
@@ -290,9 +413,20 @@ export async function readEntityListing(
     readonly kind?: DirectoryEntityListingKind;
     readonly cursor?: string;
     readonly pageSize?: number;
+    /**
+     * A name to rank the directory against. Given one, the trigram search chooses the records and
+     * the answer is capped rather than walkable. A query too short to cut a trigram matches
+     * nothing, and that is the honest answer to it — never the whole book, which would present an
+     * accident as the firm's reply to what was asked.
+     */
+    readonly search?: string;
   } = {},
 ): Promise<DirectoryEntityListingPage> {
   const kind = options.kind ?? "all";
+  const query = options.search?.trim() ?? "";
+  if (query !== "") {
+    return readRankedListing(database, query, kind, options.pageSize ?? NAME_SEARCH_LIMIT);
+  }
   const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
   const records = unionedRecords(kind);
 
@@ -310,8 +444,7 @@ export async function readEntityListing(
   const [page, count] = await Promise.all([
     database
       .prepare(
-        `SELECT id, entity_kind, sort_name, display_name, legal_name, name_prefix, name_given,
-                name_middle, name_family, name_suffix, created_at, updated_at
+        `SELECT ${LISTING_PROJECTION}
            FROM (${records})
           ${where}ORDER BY sort_name ASC, id ASC
           LIMIT ?`,
@@ -326,34 +459,12 @@ export async function readEntityListing(
   const hasMore = page.results.length > pageSize;
   const rows = hasMore ? page.results.slice(0, pageSize) : page.results;
   const last = rows.at(-1);
-  const contact = await readContactSummaries(
-    database,
-    rows.map((row) => row.id),
-  );
 
   return {
-    data: rows.map((row) => {
-      const displayName = displayNameFromRow(row);
-      const reach = contact.get(row.id) ?? NO_CONTACT;
-      return {
-        entityId: row.id,
-        // The literal each branch selects, narrowed back to the domain type it came from.
-        entityKind: row.entity_kind === "organization" ? "organization" : "person",
-        displayName,
-        legalName: distinctLegalName(row, displayName),
-        givenName: row.name_given,
-        middleName: row.name_middle,
-        familyName: row.name_family,
-        emailAddress: reach.emailAddress,
-        phoneNumber: reach.phoneNumber,
-        city: reach.city,
-        region: reach.region,
-        country: reach.country,
-        recordedAt: row.created_at,
-        changedAt: row.updated_at,
-      };
-    }),
+    data: await listingRowsFrom(database, rows),
     nextCursor: hasMore && last !== undefined ? encodeCursor(last.sort_name, last.id) : null,
     total: count.results[0]?.total ?? 0,
+    // The index is walkable to its end, so nothing about it was cut short.
+    capped: false,
   };
 }

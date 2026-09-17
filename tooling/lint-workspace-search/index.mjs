@@ -1,7 +1,8 @@
 /*
  * The Workspace-search gate. Every screen under the sidebar's Workspace heading searches itself
- * through the one control, in the one place — or says why it does not. The rules, and why each
- * exists, are on workspace-search.mjs.
+ * through the one control, in the one place, and searches its own list in place rather than
+ * swapping a second table in over it — or says why it does not. The rules, and why each exists,
+ * are on workspace-search.mjs.
  *
  * Usage: node tooling/lint-workspace-search/index.mjs
  */
@@ -12,6 +13,7 @@ import {
   auditWorkspaceSearch,
   DECLINED,
   DESTINATIONS_SOURCE,
+  SECOND_SURFACE_ALLOWED,
   workspaceDestinations,
 } from "./workspace-search.mjs";
 
@@ -66,7 +68,7 @@ if (destinations.length === 0) {
 }
 
 /*
- * What rule 3 scans: the route pages of the Workspace screens, and every `$lib` component they
+ * What rules 3 and 4 scan: the route pages of the Workspace screens, and every `$lib` component they
  * reach. That is the surface the ruling binds — a hand-rolled search inside the design system is
  * how ScreenSearch itself is built, and a `type="search"` in a dialog's own field is a field in a
  * form rather than a screen's search.
@@ -86,7 +88,7 @@ const screenFiles = [...screenFilePaths]
   .toSorted((left, right) => left.localeCompare(right))
   .map((file) => ({ path: file, source: read(file) ?? "" }));
 
-const { problems, covered, declining } = auditWorkspaceSearch({
+const { problems, covered, declining, allowing } = auditWorkspaceSearch({
   destinations,
   pageOf,
   read,
@@ -110,8 +112,30 @@ if (problems.length > 0) {
 const shipped = destinations.filter((destination) => destination.shipped).length;
 console.log(
   `Workspace search: ${covered.length} of ${shipped} shipped Workspace screen(s) search through ` +
-    `ScreenSearch, across ${screenFiles.length} screen file(s) with no second implementation.`,
+    `ScreenSearch, across ${screenFiles.length} screen file(s) with no second implementation of ` +
+    "the control and no second surface for its answer.",
 );
+if (allowing.length > 0) {
+  console.log(
+    `\n${allowing.length} screen(s) keep a second results surface, each with its reason:\n`,
+  );
+  for (const { file, reason } of allowing) {
+    console.log(`  ${file}`);
+    console.log(`    ${reason}\n`);
+  }
+}
+if (SECOND_SURFACE_ALLOWED.size !== allowing.length) {
+  // An allowance over a file this scan never reads never runs, so it would sit in the list forever
+  // saying nothing. The same hazard as an idle decline, named the same way.
+  const scanned = new Set(screenFiles.map((file) => file.path));
+  const idle = [...SECOND_SURFACE_ALLOWED.keys()].filter((file) => !scanned.has(file));
+  if (idle.length > 0) {
+    console.log(
+      `Recorded second-surface allowances matching no Workspace screen file: ${idle.join(", ")}. ` +
+        "Each names a file that has moved, been deleted, or left the Workspace group — delete it.",
+    );
+  }
+}
 if (declining.length > 0) {
   console.log(`\n${declining.length} screen(s) decline a search, each with its reason:\n`);
   for (const { destination, reason } of declining) {

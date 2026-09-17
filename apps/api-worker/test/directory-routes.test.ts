@@ -463,6 +463,58 @@ describe("the directory index", () => {
     });
     expect(response.status).toBe(401);
   });
+
+  // The same read, asked a name. The screen showing the answer is the screen showing the index, so
+  // the answer has to arrive as the same rows — a second row shape there is a second table.
+  it("answers a search with the same listing rows, in relevance order and capped", async () => {
+    const created = await post("/api/v1/directory/persons", {
+      given: "Searchable",
+      family: "Pemberton",
+      emails: [{ address: "searchable@example.test", isPrimary: true }],
+    });
+    expect(created.status).toBe(201);
+    const { id } = (await created.json()) as { id: string };
+
+    const response = await get("/api/v1/directory/entities?search=Pemberton");
+    expect(response.status).toBe(200);
+    const page = (await response.json()) as {
+      data: { entityId: string; familyName: string | null; emailAddress: string | null }[];
+      nextCursor: string | null;
+      total: number;
+      capped: boolean;
+    };
+
+    const match = page.data.find((row) => row.entityId === id);
+    expect(match).toBeDefined();
+    // The whole row, contact summary included — not a name and a kind.
+    expect(match?.familyName).toBe("Pemberton");
+    expect(match?.emailAddress).toBe("searchable@example.test");
+    // A ranked answer is one page, and its count is the answer's rather than the book's.
+    expect(page.nextCursor).toBeNull();
+    expect(page.total).toBe(page.data.length);
+    expect(page.capped).toBe(false);
+  });
+
+  it("leaves out the records the name does not reach, and never falls back to the whole book", async () => {
+    // A query sharing no three-letter window with anything the firm holds. Matching is by trigram,
+    // so "no match" has to be built out of windows rather than out of an unlikely-looking word.
+    const response = await get("/api/v1/directory/entities?search=qqqqzzzzjjjj");
+    expect(response.status).toBe(200);
+    const page = (await response.json()) as { data: unknown[]; total: number; capped: boolean };
+
+    expect(page.data).toEqual([]);
+    // Not the firm's whole record. A search that fell back to the index would present an accident
+    // as the answer to what was asked.
+    expect(page.total).toBe(0);
+    expect(page.capped).toBe(false);
+  });
+
+  it("says the index was never cut short", async () => {
+    const response = await get("/api/v1/directory/entities");
+    const page = (await response.json()) as { capped: boolean };
+
+    expect(page.capped).toBe(false);
+  });
 });
 
 describe("directory organization + duplicate-candidate routes", () => {
