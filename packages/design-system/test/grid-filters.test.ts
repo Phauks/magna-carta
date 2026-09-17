@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { GridColumn } from "../src/lib/components/data-table/grid-columns.ts";
 import {
   activeGridFilterLabels,
+  gridColumnFilterKind,
   gridFilterSummary,
   gridFiltersAfterChange,
   gridSetFilterCounts,
@@ -174,5 +175,34 @@ describe("summaries", () => {
     expect(
       gridFilterSummary(dateColumn, { kind: "dateRange", from: "2026-08-01", to: "2026-08-15" }),
     ).toBe("Aug 1, 2026 to Aug 15, 2026");
+  });
+});
+
+/*
+ * Which control a column gets. A text column's filter is the SET — a filter is chosen from what the
+ * column holds, and a box matching typed text is a search — and the contains box is only for the
+ * prose column that declares it.
+ */
+describe("the filter kind a column gets", () => {
+  it("a text column, typed or untyped, gets the set", () => {
+    expect(gridColumnFilterKind({ id: "a", label: "A", type: "text", value: () => "" })).toBe(
+      "set",
+    );
+    expect(gridColumnFilterKind({ id: "a", label: "A", value: () => "" })).toBe("set");
+  });
+
+  it("numbers and money get the range, dates the date range", () => {
+    expect(gridColumnFilterKind(hoursColumn)).toBe("range");
+    expect(gridColumnFilterKind({ ...hoursColumn, type: "money" })).toBe("range");
+    expect(gridColumnFilterKind(dateColumn)).toBe("dateRange");
+  });
+
+  it("a column of prose keeps the contains box only by declaring it", () => {
+    expect(gridColumnFilterKind({ id: "a", label: "A", filter: "text", value: () => "" })).toBe(
+      "text",
+    );
+    expect(gridColumnFilterKind({ id: "a", label: "A", filter: "none", value: () => "" })).toBe(
+      "none",
+    );
   });
 });

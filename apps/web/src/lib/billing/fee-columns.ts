@@ -183,6 +183,9 @@ export function feeLedgerColumns(currency: string): readonly GridColumn<FeeRecor
       id: FEE_COLUMN_IDENTIFIERS.description,
       label: "Description",
       type: "text",
+      // Prose: no two fees share a description, so a checklist of them would be the column read
+      // twice. This is the column that keeps the contains box, and it has to say so.
+      filter: "text",
       value: (fee) => fee.description,
     },
     {

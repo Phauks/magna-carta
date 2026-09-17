@@ -5,20 +5,32 @@
    * is IN PLAY, and everything that sets one is summoned by right-clicking the column, in the same
    * menu as hiding, pinning and the roster. One gesture reaches everything a column can be asked.
    *
-   * What opens is the ONE filter mechanism parameterized by the column's type: contains-text, a
-   * checkbox set with counts, a numeric from/to range with its honest unit note, or a date from/to
-   * range. The clear affordance exists ONLY while the filter is in play — absence is the signal.
+   * What opens is the ONE filter mechanism parameterized by the column's type: a checkbox set with
+   * counts (what a text column gets), a numeric from/to range with its honest unit note, a date
+   * from/to range, or — for the prose column that declares it — a contains-text box. The clear
+   * affordance exists ONLY while the filter is in play — absence is the signal.
    *
-   * Three settled rules shape the set filter in particular, and each was violated once already:
+   * Four settled rules shape the set filter in particular, and each was violated once already:
+   *   - A filter is CHOSEN FROM WHAT THE COLUMN HOLDS. The set lists every value the rows carry,
+   *     each with its count, so a reader has a baseline to choose from. A box that matches typed
+   *     text offers no such baseline — it is a search wearing a filter's name, and the table has a
+   *     search — so it is kept only for prose, where no two rows share a value.
    *   - Every ghost text is the FIELD'S NAME, never a description of what to do. The narrow field
    *     and the contains field both carry the column's own label; a range's two fields carry
    *     "From" and "To", which are their names. The DATE range has no ghost text to carry one —
    *     a segmented field shows its own parts — so From and To are its aria-labels instead, which
    *     is the same rule reaching the same place by the only route open to it.
    *   - The select-all/none affordance is ONE reactive control that says what pressing it will
-   *     DO: everything on reads "Select none", anything off reads "Select all".
+   *     DO, and it acts on the choices LISTED: with the list whole, everything on reads "Select
+   *     none" and anything off reads "Select all"; with the list narrowed by the field above it,
+   *     the same control reads "Select all listed" or "Select none listed" and touches only those,
+   *     which is how a column of hundreds of names is narrowed to the dozen that match a word.
    *   - A set filter with everything selected IS no filter, so a set filter carries NO clear
    *     control at all — the one reactive control already says the same thing.
+   *
+   * The date range's calendar is a popover portaled outside this submenu, and the submenu stays
+   * open while the calendar holds focus (context-menu/menu-field-layer.ts); without that, reaching
+   * for the calendar closed the submenu and unmounted the field that opened it.
    */
   import Funnel from "@lucide/svelte/icons/funnel";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
@@ -34,9 +46,9 @@
   import type { DataTableGridState } from "./data-table-grid-state.svelte.ts";
   import { gridColumnFilterKind } from "./grid-filters.ts";
   import {
+    areFacetsSelected,
     facetSelectionAfterToggle,
-    facetSelectionAfterToggleAll,
-    isAllFacetsSelected,
+    facetSelectionAfterToggleValues,
     isFacetSelected,
     type FacetSelection,
   } from "./facet-selection.ts";
@@ -56,6 +68,7 @@
     grid.filterFor(column.id)?.kind === "set"
       ? (grid.filterFor(column.id) as { values: readonly string[] }).values
       : undefined;
+  const setNarrowed = $derived(setQuery.trim() !== "");
   const visibleSetValues = $derived.by((): string[] => {
     const query = setQuery.trim().toLowerCase();
     return query === ""
@@ -67,13 +80,27 @@
     else grid.setFilter(column.id, { kind: "set", values: selection });
   }
 
-  // ONE control, reading the current state and naming the act it performs.
-  const everythingSelected = $derived(isAllFacetsSelected(setUniverse, setSelection()));
-  const selectAllLabel = $derived(everythingSelected ? "Select none" : "Select all");
+  // ONE control, reading the current state of the choices LISTED and naming the act it performs.
+  const listedSelected = $derived(
+    visibleSetValues.length > 0 && areFacetsSelected(setSelection(), visibleSetValues),
+  );
+  const selectAllLabel = $derived(
+    listedSelected
+      ? setNarrowed
+        ? "Select none listed"
+        : "Select none"
+      : setNarrowed
+        ? "Select all listed"
+        : "Select all",
+  );
   const selectAllTitle = $derived(
-    everythingSelected
-      ? "Uncheck every choice; the list empties until something is chosen"
-      : "Check every choice: everything selected is no filter at all",
+    listedSelected
+      ? setNarrowed
+        ? "Uncheck every listed choice; the rest keep their state"
+        : "Uncheck every choice; the list empties until something is chosen"
+      : setNarrowed
+        ? "Check every listed choice; the rest keep their state"
+        : "Check every choice: everything selected is no filter at all",
   );
 
   const textQuery = (): string => {
@@ -146,8 +173,17 @@
         </div>
         <ContextMenu.Item
           closeOnSelect={false}
+          disabled={visibleSetValues.length === 0}
           title={selectAllTitle}
-          onSelect={() => applySetSelection(facetSelectionAfterToggleAll(!everythingSelected))}
+          onSelect={() =>
+            applySetSelection(
+              facetSelectionAfterToggleValues(
+                setUniverse,
+                setSelection(),
+                visibleSetValues,
+                !listedSelected,
+              ),
+            )}
         >
           {selectAllLabel}
         </ContextMenu.Item>

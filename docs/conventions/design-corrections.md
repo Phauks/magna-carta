@@ -2967,3 +2967,39 @@ participant role field", and "take best option".
   name into a row that reads `Add <name>`: `Add role` is a sentence and `Add attending as` is not.
   Generalizes: where a control composes the field's name into prose, the name is chosen against that
   prose, not in isolation.
+
+### 2026-09-17 — a filter is chosen from what the column holds, and a calendar in a menu stays
+
+The owner, on the tables' per-column filters: "when clicking to filter dates in tables, once, i
+click to add the dates, they disappear and i am unable to set them. also, from, to, file or folder,
+and potentially other fields, filter doesn't provide baseline to go off of, it is more like a search
+than allowing to set filters."
+
+- **A column's filter offers the column's values.** A text column's filter was a box that matched
+  whatever was typed into it, and a box like that gives a reader nothing to choose from: they have
+  to already know what the column holds before they can narrow it, which is a search, and the table
+  has one of those. The filter for a text column is the SET — every distinct value the rows carry,
+  each with a checkbox and its count — because a filter is chosen from a baseline the control
+  itself shows. The grid model's default flipped, so a column now gets the set by saying nothing,
+  and the ones caught were the changelog's From, To and File or Folder, the file Name in every
+  view, the upload's Name and the conflict hit's Party. Generalizes, and is promoted into _Lists
+  and tables_: **a contains box is a search wearing a filter's name.**
+- **Prose keeps the contains box, and has to say so.** Where no two rows share a value — the time
+  ledger's narrative, a fee's description — a checklist of every value is the column read twice,
+  and matching typed text is the only narrowing that means anything. Such a column declares
+  `filter: "text"`; the declaration is the record that somebody decided this column is prose.
+- **The one select control acts on what is listed.** A set of hundreds of names is narrowed by the
+  field above it, and the control under that field now speaks for the listed choices — "Select all
+  listed", "Select none listed" — touching only those, so a reader narrows a long list to the dozen
+  that match a word and takes them in one press. With the list whole it is the same control saying
+  "Select all" or "Select none", as before.
+- **A field's own floating layer is inside the menu that holds the field.** The date range's
+  calendar is a popover portaled outside the filter submenu, and the submenu closed the moment the
+  calendar took focus — Bits keeps a submenu open only for focus in itself, its parent or another
+  submenu — which unmounted the very field whose calendar had just opened: the dates "disappeared"
+  the instant they were reached for. The design system's submenus now keep focus in a popover, a
+  select list or a combobox list as focus inside the field
+  (`context-menu/menu-field-layer.ts`). Bits' documented route — `preventDefault()` in the
+  focus-outside handler — is a no-op on a focus event, which is not cancelable, so the pinned Bits
+  patch now also wraps that event the way Bits already wraps a pointer event. Generalizes: **a
+  field that opens a layer of its own is usable wherever the field is**, and a menu is not exempt.

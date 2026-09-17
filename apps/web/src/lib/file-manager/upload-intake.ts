@@ -633,7 +633,7 @@ export function intakeColumns(context: {
       id: "name",
       label: "Name",
       type: "text",
-      filter: "text",
+      filter: "set",
       anchored: true,
       // Furniture beyond the text: the indent, the twisty and the glyph.
       fitExtra: 72,

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  areFacetsSelected,
   facetSelectionAfterToggle,
   facetSelectionAfterToggleAll,
+  facetSelectionAfterToggleValues,
   isAllFacetsSelected,
   isFacetSelected,
   isSomeFacetsSelected,
@@ -77,5 +79,46 @@ describe("facet selection — toggling Select all", () => {
 
   it("unchecking Select all selects none", () => {
     expect(facetSelectionAfterToggleAll(false)).toEqual([]);
+  });
+});
+
+/*
+ * The one select control acts on the choices LISTED. A narrowed list hands it the values that match
+ * the narrowing, and only those change; the rest keep their state.
+ */
+describe("facet selection — toggling the listed values", () => {
+  it("reads every listed value as selected under the all sentinel, and vacuously for an empty list", () => {
+    expect(areFacetsSelected(undefined, ["Acme Corp"])).toBe(true);
+    expect(areFacetsSelected(["Acme Corp"], ["Acme Corp", "Briar LLP"])).toBe(false);
+    expect(areFacetsSelected([], [])).toBe(true);
+  });
+
+  it("checking the listed values touches only those", () => {
+    expect(facetSelectionAfterToggleValues(UNIVERSE, [], ["Acme Corp", "Briar LLP"], true)).toEqual(
+      ["Acme Corp", "Briar LLP"],
+    );
+  });
+
+  it("unchecking the listed values leaves the rest selected", () => {
+    expect(facetSelectionAfterToggleValues(UNIVERSE, undefined, ["Briar LLP"], false)).toEqual([
+      "Acme Corp",
+      "Crestwood Trust",
+    ]);
+  });
+
+  it("handed the whole universe it is Select all / Select none", () => {
+    expect(facetSelectionAfterToggleValues(UNIVERSE, [], UNIVERSE, true)).toBeUndefined();
+    expect(facetSelectionAfterToggleValues(UNIVERSE, undefined, UNIVERSE, false)).toEqual([]);
+  });
+
+  it("checking the last missing values collapses back to all", () => {
+    expect(
+      facetSelectionAfterToggleValues(
+        UNIVERSE,
+        ["Acme Corp"],
+        ["Briar LLP", "Crestwood Trust"],
+        true,
+      ),
+    ).toBeUndefined();
   });
 });

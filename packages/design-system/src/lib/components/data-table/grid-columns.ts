@@ -12,7 +12,10 @@ import { formatDate, formatMoney, formatNumber } from "./typed-columns.ts";
 export type GridColumnValue = string | number | Date | null | undefined;
 
 export type GridColumnType = "text" | "number" | "money" | "date";
-/** The per-column filter control: contains-text, checkbox set with counts, numeric range, date range. */
+/**
+ * The per-column filter control: a checkbox set with counts, a numeric range, a date range — and a
+ * contains-text box, only for a column of prose that declares it (see `filter`).
+ */
 export type GridColumnFilterKind = "text" | "set" | "range" | "dateRange" | "none";
 export type GridSortDirection = "ascending" | "descending";
 
@@ -23,7 +26,17 @@ export interface GridColumn<TRow> {
   label: string;
   /** The value type — drives sorting, alignment, default formatting, and the default filter kind. */
   type?: GridColumnType;
-  /** The filter control; defaults from `type` (number/money → range, date → dateRange, text → text). */
+  /**
+   * The filter control; defaults from `type` (number/money → range, date → dateRange, everything
+   * else → set).
+   *
+   * A text column's filter is the SET — its distinct values, each with a checkbox and a count —
+   * because a filter is chosen from what the column holds, and a box that matches typed text is a
+   * search wearing a filter's name: it offers no baseline to choose from, and the table already
+   * has a search. The contains box survives only for prose — a narrative, a description — where
+   * no two rows share a value and a checklist would be the column read twice; such a column says
+   * so with `filter: "text"`.
+   */
   filter?: GridColumnFilterKind;
   /**
    * The values a SET filter always offers, whether or not any loaded row carries them.
@@ -97,7 +110,7 @@ export function gridColumnFilterKind<TRow>(column: GridColumn<TRow>): GridColumn
     case "date":
       return "dateRange";
     default:
-      return "text";
+      return "set";
   }
 }
 
