@@ -1,6 +1,7 @@
 import {
   commitEffectBatch,
   type BatchDatabase,
+  type EffectStatement,
   guarded,
 } from "@magna-carta/data-access/effect-batch";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
@@ -398,7 +399,9 @@ export async function generateDocumentAutomationVolume(
   const { faker, clock, randomSource } = context;
   const serviceOptions: TemplateServiceOptions = { clock, actorUserId: null, randomSource };
   const customFieldOptions: CustomFieldWriteOptions = { clock, actorUserId: null, randomSource };
-  const commit = async (statements: readonly SqlStatement[]): Promise<void> => {
+  // The batch's statement type, not the port's: a guarded statement must survive this seam so an
+  // unmatched precondition refuses the batch here exactly as it does under the service.
+  const commit = async (statements: readonly EffectStatement[]): Promise<void> => {
     await commitEffectBatch(
       database,
       { statements: [...statements], outboxMessages: [] },
