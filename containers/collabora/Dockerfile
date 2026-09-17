@@ -8,25 +8,48 @@
 # posture the scan worker takes for ClamAV signatures); `:latest` here is the scaffold default.
 FROM collabora/code:latest
 
-# WOPI host allow-list — coolwsd accepts WOPI storage requests only from trusted hosts. The single
-# trusted host is the internal WOPISrc host that the editor container intercepts and forwards to the app
-# worker (http on the default port 80 — the call is captured inside the Workers runtime and never leaves
-# it). `aliasgroupN` is the collabora/code image's env for the storage.wopi.alias_groups config.
-ENV aliasgroup1="http://wopi.magna-carta.internal:80"
-
 # No TLS inside the container: TLS terminates at the Cloudflare edge and coolwsd trusts that termination,
 # so no self-signed certificate is generated.
 ENV DONT_GEN_SSL_CERT="true"
 
-# coolwsd overrides (the image applies `extra_params` to coolwsd.xml):
+# coolwsd configuration. Every entry is a `--o:<xmlpath>=<value>` override: the image's entrypoint expands
+# `${extra_params}` onto coolwsd's own command line, and coolwsd folds each one into its highest-priority
+# configuration layer (wsd/COOLWSD.cpp, the "override" option). This is the ONE channel this file
+# configures coolwsd through, and it is proven in this deployment — ssl.enable=false below is why the
+# editor serves over plain HTTP behind the edge at all.
+#
 #   ssl.enable=false / ssl.termination=true — coolwsd speaks http behind the edge TLS terminator.
 #   num_prespawn_children=1 — one container serves one document, so one kit (shrinks the memory floor;
 #                             the shipped coolwsd.xml default is 4).
 #   security.capabilities=false — run without the chroot-jail Linux capabilities that Cloudflare
 #                                 Containers do not grant (the kit uses a plain process boundary).
 #   admin_console.username/password empty — the admin console is disabled (no operator surface exposed).
-ENV extra_params="--o:ssl.enable=false --o:ssl.termination=true --o:num_prespawn_children=1 --o:security.capabilities=false --o:admin_console.username= --o:admin_console.password="
+#                                            They stay LAST: the container gate reads an empty `password=`
+#                                            followed by another token as a password with that value.
+#
+#   storage.wopi.alias_groups — the WOPI host allow-list. coolwsd accepts a document only from a WOPI
+#   host it trusts, and the single trusted host is the internal WOPISrc host the container's outbound
+#   interception forwards to the app worker (http on port 80 — the call is captured inside the Workers
+#   runtime and never leaves it). A host it does not trust answers the editor with "Unauthorized WOPI
+#   host". Three overrides state it, and all three are needed: the group's host, the group's allow flag,
+#   and the mode, which must read `groups` for the group to count — wsd/HostUtil.cpp parseAliases
+#   refuses a group defined under the template's default mode `first`.
+#
+#   Deliberately NOT the image's `aliasgroupN` environment variable, which is what an earlier revision
+#   used and what the image documents. That route is read by coolwsd itself, only when the entrypoint
+#   passes `--use-env-vars`, and its mode switch is written to the key `alias_groups[@mode]` — without the
+#   `storage.wopi.` prefix that parseAliases reads (wsd/COOLWSD.cpp initializeEnvOptions). In practice the
+#   variable was set, the WebSocket connected, and the editor still refused the host. The overrides below
+#   name the correctly prefixed key and reach coolwsd through the channel above whether or not the
+#   entrypoint of a given image version reads environment variables at all.
+#
+#   The `[0]` in two of the keys is a bash glob character class when `${extra_params}` is expanded
+#   unquoted, and it stays literal because no file in the entrypoint's working directory can match a
+#   word of that shape. Quoting the expansion in this file is not an option — the entrypoint is the
+#   image's, not ours.
+ENV extra_params="--o:ssl.enable=false --o:ssl.termination=true --o:num_prespawn_children=1 --o:security.capabilities=false --o:storage.wopi.alias_groups[@mode]=groups --o:storage.wopi.alias_groups.group[0].host=http://wopi.magna-carta.internal:80 --o:storage.wopi.alias_groups.group[0].host[@allow]=true --o:admin_console.username= --o:admin_console.password="
 
 # coolwsd's HTTP + WebSocket port — matches DocumentEditorContainer.defaultPort. The image's own
-# entrypoint (which generates coolwsd.xml from the env above and execs coolwsd) is left in place.
+# entrypoint (which generates the TLS material when asked to, maps the container's user id, and execs
+# coolwsd with the overrides above) is left in place.
 EXPOSE 9980

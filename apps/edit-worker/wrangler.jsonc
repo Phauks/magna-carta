@@ -45,6 +45,13 @@
   // Service binding to the main app worker — the target of coolwsd's intercepted WOPI callbacks
   // (/wopi/files/*). This worker holds no R2/D1/secret bindings; all object I/O flows through that host.
   "services": [{ "binding": "APP_WORKER", "service": "magna-carta" }],
+  // The Analytics Engine dataset the telemetry Workers logger mirrors counters to — the same production
+  // dataset the app worker writes to, so this worker's failures land beside the WOPI host's. Optional in
+  // code (a missing binding degrades to console-only structured lines), declared here so a deployment
+  // carries it.
+  "analytics_engine_datasets": [
+    { "binding": "TELEMETRY", "dataset": "magna-carta-production-telemetry" },
+  ],
   // No warm cron: the container scales to zero after sleepAfter, billing only while a document is open.
   // Cold start on first open is accepted; native min_instances pre-warming is the lever if it bites.
   "observability": { "enabled": true, "head_sampling_rate": 1 },
