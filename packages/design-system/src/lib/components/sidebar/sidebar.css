@@ -283,8 +283,14 @@
    * the parent's icon column and its rows, tracking the icon rather than the text.
    */
   .mc-sidebar-menu-sub {
-    margin-inline-start: var(--mc-space-16);
-    padding-inline-start: var(--mc-space-8);
+    /* A 32px step — 20 of margin and 12 of padding — rather than the 24 it shipped with. The
+       shallower one was legible only if you were looking for it: the rail's rows already carry an
+       8px inset of their own, so a 24px step put a child's glyph barely a glyph's width right of
+       its parent's and the fold read as one flat list (owner report, 2026-09-17). The margin is
+       what the hairline sits on and the padding is what separates the rule from the rows, so the
+       two move together. */
+    margin-inline-start: var(--mc-space-20);
+    padding-inline-start: var(--mc-space-12);
     border-inline-start: var(--mc-border-width-default) solid var(--mc-chrome-border);
   }
   /* A cluster trigger is a control, not a destination: its glyph is muted so a group of rows does
@@ -311,6 +317,10 @@
     align-items: center;
     justify-content: center;
     inline-size: var(--mc-space-16);
+    /* The row takes the press, so the grip inherits its cursor rather than declaring one: a grip
+       reading `grab` while the row it cannot start a drag from reads something else is the state
+       this row was actually in until 2026-09-17. */
+    cursor: inherit;
     color: var(--mc-chrome-text-muted);
     transition-property: color;
     transition-duration: var(--mc-duration-fast);
@@ -328,6 +338,11 @@
    * drag across labels from selecting text, which on a long drag turned the rail blue and swallowed
    * the pointer stream.
    */
+  /* Inside a Customize row the whole thing is a drag handle, so the label stops advertising the
+     pointer the recipe gives every other menu button. */
+  .mc-sidebar-edit-row .mc-sidebar-menu-button {
+    cursor: inherit;
+  }
   .mc-sidebar-edit-row[data-dragging="true"] {
     will-change: transform;
     user-select: none;

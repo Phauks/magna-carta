@@ -219,6 +219,12 @@
     destination: Destination,
   ): void {
     if (destination.id === "home") return; // fixed leader — never dragged
+    // The row is the handle, so the press arrives here from anywhere on it — including the eye, the
+    // star and the lock at its end, which are pressed to ACT rather than to move. They are let out
+    // by target rather than by stopping the event on each one, so a control added to the row later
+    // is covered without remembering to.
+    const target = event.target as HTMLElement | null;
+    if (target !== null && target.closest(".mc-sidebar-row-control") !== null) return;
     const ids = group.shown.map((candidate) => candidate.id);
     drag.start(
       event,
@@ -352,29 +358,41 @@
                 {@const fixed = destination.id === "home"}
                 {@const favoritePath = favoritePathFromRowId(destination.id)}
                 <Sidebar.MenuItem>
+                  <!-- THE WHOLE ROW IS THE HANDLE, and the press is caught here rather than on the
+                       label. It sat on the label alone until the owner pressed the grip and nothing
+                       happened (2026-09-17): a row that draws a grip and then ignores it is worse
+                       than one that draws none, because it answers the question wrongly. Catching
+                       the press on the row means the grip, the glyph, the name and the badge all
+                       start the drag; `beginDrag` lets the trailing control out, since that is the
+                       one thing on the row somebody presses to act rather than to move.
+
+                       It is `role="presentation"` because that is what it is: a layout box. The
+                       pointer drag is one of two ways to move a row and the only one a mouse can
+                       take; the accessible path is the button inside, which keeps its own role,
+                       its `aria-roledescription` and the Alt+Arrow it announces. Nothing about the
+                       row is reachable only by dragging it. -->
                   <div
-                    class="mc-sidebar-edit-row flex items-center gap-4 rounded-md {dragging
+                    class="mc-sidebar-edit-row flex touch-none select-none items-center gap-4 rounded-md {fixed
+                      ? 'cursor-not-allowed'
+                      : 'cursor-grab'} {dragging
                       ? 'relative z-sticky bg-chrome-surface shadow-elevation-2'
                       : 'transition-transform duration-fast ease-standard motion-reduce:transition-none'}"
                     style="transform: translateY({shift}px)"
                     data-dragging={dragging ? "true" : undefined}
                     data-reorder-row
+                    onpointerdown={(event) => beginDrag(event, group, destination)}
+                    role="presentation"
                   >
-                    <!-- THE GRIP. Until it existed the row said nothing about being draggable —
-                         the grab cursor only answers once the pointer is already on it, which is
-                         an answer to a question nobody asked (owner report, 2026-09-16). It is
-                         decoration, not a second control: the whole row is the drag handle, so
-                         the grip carries no pointer handlers and no tab stop of its own. -->
+                    <!-- THE GRIP — the affordance, not a second control: it carries no handler and
+                         no tab stop of its own, because the row above it already takes the press. -->
                     <span class="mc-sidebar-grip" data-fixed={fixed ? "true" : undefined} aria-hidden="true">
                       <GripVertical class="size-16" />
                     </span>
                     <Sidebar.MenuButton
-                      class="touch-none select-none {fixed ? 'cursor-not-allowed' : 'cursor-grab'}"
                       aria-roledescription="Reorderable sidebar destination"
                       aria-label="{destination.label} — Alt plus Arrow Up or Arrow Down moves it"
                       aria-disabled={fixed ? "true" : undefined}
                       data-arrived={isNewArrival(destination.id) ? "true" : undefined}
-                      onpointerdown={(event) => beginDrag(event, group, destination)}
                       onkeydown={(event) => onEditKeydown(event, group, destination)}
                     >
                       {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
