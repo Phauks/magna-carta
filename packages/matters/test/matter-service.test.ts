@@ -1,5 +1,6 @@
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
+import { runInterleaved } from "@magna-carta/data-access/interleave";
 import type { MatterId, UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
 import { ClosePreconditionError, type ClosePrecondition } from "../src/close-preconditions.ts";
@@ -45,26 +46,6 @@ const CLIENT_CODE_SCHEME: NumberSegment[] = [
   { kind: "literal", text: "-" },
   { kind: "counter", padWidth: 4 },
 ];
-
-// Stands in for a concurrent writer landing between a service's precondition read and its commit.
-// D1 has no interactive transaction, so that window is real; running `before` at the first batch
-// makes it deterministic instead of dependent on how two promises happen to interleave.
-function interleaveBeforeFirstCommit(
-  database: BatchDatabase,
-  before: () => Promise<unknown>,
-): BatchDatabase {
-  let fired = false;
-  return {
-    prepare: (sql: string) => database.prepare(sql),
-    batch: async (statements) => {
-      if (!fired) {
-        fired = true;
-        await before();
-      }
-      return database.batch(statements);
-    },
-  };
-}
 
 async function readAllocations(database: BatchDatabase) {
   const { results } = await database
@@ -281,12 +262,15 @@ describe("openMatter", () => {
     // The winner opens the same matter while the racing call is mid-flight, after it has already
     // read the matter as consultation and drawn its own number.
     let winner = "";
-    const racing = interleaveBeforeFirstCommit(database, async () => {
-      winner = (await openMatter(database, matterId, {}, options)).matterNumber;
-    });
-    await expect(openMatter(racing, matterId, {}, options)).rejects.toMatchObject({
-      code: "matter-not-consultation",
-    });
+    await expect(
+      runInterleaved({
+        database,
+        concurrentWriter: async () => {
+          winner = (await openMatter(database, matterId, {}, options)).matterNumber;
+        },
+        operation: (racing) => openMatter(racing, matterId, {}, options),
+      }),
+    ).rejects.toMatchObject({ code: "matter-not-consultation" });
     // The winner's number and open instant stand — the loser rewrote nothing.
     expect(await readMatter(database, matterId)).toMatchObject({
       status: "open",
@@ -302,12 +286,13 @@ describe("openMatter", () => {
       { ...baseInput, status: "consultation" },
       options,
     );
-    const racing = interleaveBeforeFirstCommit(database, () =>
-      closeMatter(database, matterId, options),
-    );
-    await expect(openMatter(racing, matterId, {}, options)).rejects.toMatchObject({
-      code: "matter-not-consultation",
-    });
+    await expect(
+      runInterleaved({
+        database,
+        concurrentWriter: () => closeMatter(database, matterId, options),
+        operation: (racing) => openMatter(racing, matterId, {}, options),
+      }),
+    ).rejects.toMatchObject({ code: "matter-not-consultation" });
     // A declined consultation stays closed and unnumbered: the late open neither revived it nor
     // stamped a number on it.
     expect(await readMatter(database, matterId)).toMatchObject({
@@ -618,10 +603,11 @@ describe("closeMatter / reopenMatter", () => {
     const database = await setup();
     const { matterId } = await createMatter(database, { ...baseInput, status: "open" }, options);
     // The racing close read the matter as open; the winner closes before its commit lands.
-    const racing = interleaveBeforeFirstCommit(database, () =>
-      closeMatter(database, matterId, options),
-    );
-    await closeMatter(racing, matterId, { ...options, clock: laterClock });
+    await runInterleaved({
+      database,
+      concurrentWriter: () => closeMatter(database, matterId, options),
+      operation: (racing) => closeMatter(racing, matterId, { ...options, clock: laterClock }),
+    });
     expect((await readMatter(database, matterId))?.closed_at).toBe(clock.now());
   });
 

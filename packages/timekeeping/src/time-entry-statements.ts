@@ -120,6 +120,7 @@ export function selectTimeEntryMatterStatement(
 // row never matches a pre-terminal `from`, so meta.changes === 0 means the row was not in the expected
 // state (frozen, already-transitioned, or missing) and the service refuses. updated_at moves with the
 // status; no business column is touched.
+// fitness:unguarded-write — a repeat is meant to be a no-op — zero rows means the state it moves to was already reached
 export function transitionStatusStatement(
   database: SqlDatabase,
   id: TimeEntryId,
@@ -265,6 +266,7 @@ export function selectTimeEntryStatusStatement(
 // The NOT IN ('billed','void') clause is a defense-in-depth freeze guard: it EXCLUDES frozen rows;
 // the service pre-checks frozen status before composing this statement, but a stale-read race would
 // otherwise silently succeed on a frozen row.
+// fitness:unguarded-write — rides the same batch as the guarded status transition, which refuses for both
 export function setKickBackReasonStatement(
   database: SqlDatabase,
   id: TimeEntryId,
@@ -281,6 +283,7 @@ export function setKickBackReasonStatement(
 
 // The re-rate rewrite: moves rate_e4 + amount_minor on ONE unbilled entry. Guarded to the unbilled set
 // (draft/submitted/approved) so a billed/void row can never be re-rated — the captured rate is frozen.
+// fitness:unguarded-write — partial progress is the design: a re-rate visits many entries, and one billed inside the window must be skipped rather than aborting every other correction in the batch
 export function reRateEntryStatement(
   database: SqlDatabase,
   id: string,

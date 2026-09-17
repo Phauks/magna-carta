@@ -1,3 +1,4 @@
+import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { RandomSource } from "@magna-carta/identifiers/random";
@@ -150,7 +151,12 @@ export async function translateOutboxMessage(options: TranslateOptions): Promise
       // facts, and only one of them is a resolver bug. Counting the second as the first would hide
       // a working preference behind a counter that means "something is broken".
       if (audience.suppressed.length === 0) emptyAudiences++;
-      else await options.database.batch([...suppression.statements]);
+      else
+        await commitEffectBatch(
+          options.database,
+          { statements: suppression.statements, outboxMessages: [] },
+          { now: () => new Date().toISOString() },
+        );
       // No recipients means no feed rows, and an event row nobody can see is a row that only the
       // retention sweep will ever touch. Do not write one.
       continue;

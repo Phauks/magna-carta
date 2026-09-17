@@ -1,4 +1,5 @@
 import { ensureReady, parseMessage } from "@magna-carta/email";
+import type { EffectStatement } from "@magna-carta/data-access/effect-batch";
 import emailWasmModule from "@magna-carta/email/src/pkg/email_core_bg.wasm";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
@@ -162,7 +163,7 @@ export async function handleCaptureMessage(
     now,
     writeCapture: async (plan: CaptureWritePlan) => {
       const timestamp = now();
-      const statements: SqlStatement[] = [];
+      const statements: EffectStatement[] = [];
       if (plan.thread !== null) {
         statements.push(
           insertEmailThreadStatement(
@@ -307,7 +308,7 @@ function autoFileStatements(
   database: ReturnType<typeof firmDatabaseFor>,
   plan: CaptureWritePlan,
   now: string,
-): SqlStatement[] {
+): EffectStatement[] {
   const decision: AutoFileDecision | null = plan.autoFileDecision;
   if (decision === null) return [];
   if (decision.outcome === "noRule" && decision.suppressionReason === null) return [];
@@ -323,7 +324,7 @@ function autoFileStatements(
         : "staged";
   const clock = { now: () => now };
 
-  const statements: SqlStatement[] = [
+  const statements: EffectStatement[] = [
     insertEmailAutoFileDecisionStatement(
       database,
       {

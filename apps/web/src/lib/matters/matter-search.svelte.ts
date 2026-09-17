@@ -7,6 +7,7 @@
  * second timer would make the two surfaces disagree about when a search has settled.
  */
 import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
+import { LatestOnly } from "../api/latest-only.ts";
 import { searchMatter, type MatterSearchAnswer } from "$lib/matters/matter-search-api.ts";
 import { matterSections, type MatterSection } from "$lib/matters/sections.ts";
 
@@ -97,7 +98,7 @@ export class MatterSearch {
    * which is what makes a slow early request unable to overwrite a later one's results, and is also
    * why an aborted request needs no outcome of its own to be handled.
    */
-  #latest = 0;
+  readonly #latest = new LatestOnly();
   #inFlight: AbortController | null = null;
 
   constructor(matterId: string) {
@@ -122,7 +123,7 @@ export class MatterSearch {
   clear(): void {
     this.#inFlight?.abort();
     this.#inFlight = null;
-    this.#latest += 1;
+    this.#latest.supersede();
     this.answer = null;
     this.failure = null;
     this.busy = false;
@@ -141,7 +142,7 @@ export class MatterSearch {
     this.#inFlight?.abort();
     const controller = new AbortController();
     this.#inFlight = controller;
-    const ticket = (this.#latest += 1);
+    const attempt = this.#latest.begin();
     this.busy = true;
     const outcome = await searchMatter(fetchImpl, this.matterId, query, {
       sources,
@@ -150,7 +151,7 @@ export class MatterSearch {
       signal: controller.signal,
     });
     // A superseded search says nothing about the screen, whether it was aborted or merely slow.
-    if (ticket !== this.#latest) return;
+    if (!attempt.current) return;
     this.busy = false;
     this.#inFlight = null;
     if (outcome.kind === "ok") {

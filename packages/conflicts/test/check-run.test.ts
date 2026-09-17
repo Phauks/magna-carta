@@ -266,6 +266,10 @@ test("a search that throws settles its run as failed with a sentence a person ca
         throw new Error("the database is unreachable");
       },
       batch: fixture.database.batch.bind(fixture.database),
+      // Mirrored, not asserted: this observer stands in for the real database, and a stand-in that
+      // drops the capability commits every guarded write unguarded. commitEffectBatch refuses that
+      // outright, which is how this wrapper was found rather than quietly weakening the run.
+      enforcesGuardedWrites: fixture.database.enforcesGuardedWrites,
     } as never,
   };
   await expect(
@@ -324,6 +328,10 @@ test("progress is written onto the run in the engine's own order, and cleared wh
         };
       },
       batch: fixture.database.batch.bind(fixture.database),
+      // Mirrored, not asserted: this observer stands in for the real database, and a stand-in that
+      // drops the capability commits every guarded write unguarded. commitEffectBatch refuses that
+      // outright, which is how this wrapper was found rather than quietly weakening the run.
+      enforcesGuardedWrites: fixture.database.enforcesGuardedWrites,
     } as never,
   };
   const checkId = await runConflictsCheck(

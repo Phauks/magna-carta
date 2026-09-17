@@ -12,6 +12,7 @@
  * skeleton over a table the reader is still looking at.
  */
 import type { ApiOutcome, Failure, Page } from "$lib/api/request.ts";
+import { LatestOnly } from "../api/latest-only.ts";
 import { guidanceFor, type ProblemGuidance } from "$lib/diagnostics/guidance.ts";
 
 /** Fetches one page. `cursor` is absent for the first. */
@@ -37,8 +38,8 @@ export class PagedList<T> {
   readonly #whenUnreadable: string;
   /** Which subject the rows on screen belong to, so a reload is told from a change of subject. */
   #subject: string | null = null;
-  /** Bumped on every reset; a page that resolves against a stale generation is discarded. */
-  #generation = 0;
+  /** A page that resolves after a reset is discarded rather than written over the new subject. */
+  readonly #latest = new LatestOnly();
 
   constructor(whenUnreadable: string) {
     this.#whenUnreadable = whenUnreadable;
@@ -83,7 +84,7 @@ export class PagedList<T> {
   /** Discard everything and adopt a new subject. Call only when the subject actually changed. */
   reset(subject: string): void {
     this.#subject = subject;
-    this.#generation += 1;
+    this.#latest.supersede();
     this.items = null;
     this.nextCursor = null;
     this.failure = null;
@@ -99,9 +100,9 @@ export class PagedList<T> {
 
   /** Read the first page. Rows replace whatever was there. */
   async load(read: PageReader<T>): Promise<void> {
-    const generation = this.#generation;
+    const attempt = this.#latest.attempt();
     const result = await read();
-    if (generation !== this.#generation) return;
+    if (!attempt.current) return;
     this.#absorb(result, []);
   }
 
@@ -113,9 +114,9 @@ export class PagedList<T> {
     const cursor = this.nextCursor;
     if (cursor === null || this.loadingMore) return;
     this.loadingMore = true;
-    const generation = this.#generation;
+    const attempt = this.#latest.attempt();
     const result = await read(cursor);
-    if (generation !== this.#generation) return;
+    if (!attempt.current) return;
     this.loadingMore = false;
     this.#absorb(result, [...(this.items ?? [])]);
   }

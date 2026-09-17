@@ -169,9 +169,9 @@ its order was fixed. A gate you rely on being run by somebody else is not a gate
 
 So `pnpm check:scoped` runs the repo-wide set itself, as two clearly-labelled steps:
 
-| Step                        | When                                             | Measured cost                             |
-| --------------------------- | ------------------------------------------------ | ----------------------------------------- |
-| `repo-wide lints`           | **always**, whatever the diff                    | ~0.7 s (twelve scans, run concurrently)   |
+| Step                        | When                                             | Measured cost                                 |
+| --------------------------- | ------------------------------------------------ | --------------------------------------------- |
+| `repo-wide lints`           | **always**, whatever the diff                    | ~0.7 s (twelve scans, run concurrently)       |
 | `repo-wide fitness sweep`   | any first-party source under `apps/`/`packages/` | ~2.1 s (thirteen Vitest scans in one process) |
 | ... plus the `schema` scope | a `packages/database/` change                    | ~+0.5 s (thirteen more)                       |
 
@@ -231,7 +231,6 @@ learn it. The sweep is now a step of its own in `governance`, both scopes, uncon
 there, which is less than deciding whether to run it would be worth. The derivation is what makes this
 maintainable — neither half has a roster — but a derived set still has to be CALLED, and this one was
 half-called for as long as it existed.
-
 
 Both mechanisms, the two deferrals, and what qualifies as repo-wide live in
 [`tooling/check-scoped/repo-wide.mjs`](../../tooling/check-scoped/repo-wide.mjs). The sweep runs under its

@@ -69,7 +69,8 @@ describe("commitEffectBatch", () => {
       { statements, outboxMessages: [] },
       { now: NOW },
     );
-    expect(composed).toHaveLength(MAX_BATCH_STATEMENTS);
+    expect(composed.statements).toHaveLength(MAX_BATCH_STATEMENTS);
+    expect(composed.guards.size).toBe(0);
   });
 
   it("refuses a batch past the ceiling, and the refusal says what to do instead", () => {

@@ -1,4 +1,5 @@
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
+import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { TimeEntryId, UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
@@ -110,7 +111,7 @@ describe("a time entry names at most one task, and it must be on the entry's own
       { ...CAPTURE, taskId: "matterTask_1" },
       OPTIONS,
     );
-    await database.batch([...captured.effect.statements]);
+    await commitEffectBatch(database, captured.effect, { now: () => OPTIONS.clock.now() });
     const { results } = await database
       .prepare("SELECT task_id FROM time_entry WHERE id = ?1")
       .bind(captured.timeEntryId)
@@ -144,7 +145,7 @@ describe("a time entry names at most one task, and it must be on the entry's own
   it("captures with no link at all, which is what nearly every entry does", async () => {
     const database = await setup();
     const captured = await captureTimeEntry(database, CAPTURE, OPTIONS);
-    await database.batch([...captured.effect.statements]);
+    await commitEffectBatch(database, captured.effect, { now: () => OPTIONS.clock.now() });
     const { results } = await database
       .prepare("SELECT task_id FROM time_entry WHERE id = ?1")
       .bind(captured.timeEntryId)
@@ -168,7 +169,7 @@ describe("editing the link on a draft", () => {
       { taskId: "matterTask_1" },
       OPTIONS,
     );
-    await database.batch([...linked.effect.statements]);
+    await commitEffectBatch(database, linked.effect, { now: () => OPTIONS.clock.now() });
     const afterLink = await database
       .prepare("SELECT task_id FROM time_entry WHERE id = 'timeEntry_1'")
       .all<{ task_id: string | null }>();
@@ -180,7 +181,7 @@ describe("editing the link on a draft", () => {
       { taskId: null },
       OPTIONS,
     );
-    await database.batch([...unlinked.effect.statements]);
+    await commitEffectBatch(database, unlinked.effect, { now: () => OPTIONS.clock.now() });
     const afterUnlink = await database
       .prepare("SELECT task_id FROM time_entry WHERE id = 'timeEntry_1'")
       .all<{ task_id: string | null }>();

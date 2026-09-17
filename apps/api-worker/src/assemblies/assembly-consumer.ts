@@ -1,5 +1,5 @@
 import { type EngineResolver, runConversion } from "@magna-carta/conversion/execute";
-import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import { commitEffectBatch, guarded } from "@magna-carta/data-access/effect-batch";
 import { assemble } from "@magna-carta/document-assembly/assemble";
 import {
   completeDocumentAssemblyStatement,
@@ -296,7 +296,12 @@ async function assembleOne(
   await coordinatorFor(env, message).markRunning();
   await commitEffectBatch(
     firmDatabase,
-    { statements: [markAssemblyRunningStatement(firmDatabase, assemblyId)], outboxMessages: [] },
+    {
+      statements: [
+        guarded(markAssemblyRunningStatement(firmDatabase, assemblyId), "document-assembly.claim"),
+      ],
+      outboxMessages: [],
+    },
     { now },
   );
 
@@ -515,7 +520,7 @@ async function assembleOne(
           ? `${field.fieldName} (a form box of no stated type)`
           : `${field.fieldName} (an unbound form box)`,
       ),
-  ].sort();
+  ].toSorted();
   for (const field of manifest.unconvertedMergeFields) {
     logger.count(documentAssemblyFrozenField.metricName, { form: field.form });
   }

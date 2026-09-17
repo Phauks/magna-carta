@@ -1,4 +1,4 @@
-import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
+import type { EffectWrite, EffectStatement } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { assertTransition, type BillableStatus } from "@magna-carta/billing-core/lifecycle";
 import { IllegalTransitionError } from "@magna-carta/billing-core/lifecycle-error";
@@ -404,7 +404,7 @@ export async function finalizeInvoice(
   const renderShape =
     input.renderShape ?? (await readFirmSetting(database, multiMatterRenderShapeDefinition));
 
-  const statements: SqlStatement[] = [
+  const statements: EffectStatement[] = [
     ensureCounterRowStatement(
       database,
       INVOICE_NUMBERING_TABLES,
