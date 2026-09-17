@@ -34,3 +34,11 @@ Fourth round: with the socket connected, coolwsd refused the WOPI host. The allo
 image's `aliasgroup1` environment variable to `--o:` overrides in `extra_params` — the channel every
 other setting in the Dockerfile already uses and the one this deployment proves works — with the mode
 key spelled the way coolwsd's parser reads it. The edit worker gains its area note.
+
+Fifth round: the host trusted, coolwsd's `CheckFileInfo` came back 520 — the container library's own
+refusal for a host it intercepted but found no handler for. The handler was declared as a static
+class field, which under ES2022 class-field semantics defines an own property that shadows the
+library's static setter, so the registry its proxy reads was never filled. It is now assigned in a
+static block, and a test runs the library's real proxy dispatch against the class, which answers 520
+for the shipped code and forwards to the app worker for the fix. To run it, the edit worker's suite
+inlines the library and stubs `cloudflare:workers`.
