@@ -34,6 +34,13 @@
    * The ruling is recorded in docs/conventions/design-corrections.md; this comment states the
    * reasoning so the next reader does not have to find it.
    *
+   * THE FIELD READS "SEARCH", AND NOTHING MORE. Every screen used to hand in its own hint — "Search
+   * the docket", "Search the firm's fees", "Search this matter's notes" — twenty-three spellings of
+   * one word, and the owner struck them (2026-09-18: "it should just say 'Search'"). The control
+   * sits in the screen's own header, so the screen is already named an inch to the left; the hint
+   * was restating it. The placeholder is therefore not a prop: the one word is the component's, and
+   * a screen names its surface only in `label`, which is the accessible name and never shows.
+   *
    * THE CALLING SHAPE is the same whether the query is answered in the browser or over the network,
    * which is what makes one component serve every screen. A screen hands over `onsearch` and says
    * when to run it: `searchOn="keystroke"` for data already here, `searchOn="pause"` for a request
@@ -75,8 +82,6 @@
     expanded?: boolean;
     /** Accessible name for both the icon and the field. Name the surface: "Search matters". */
     label?: string;
-    /** Hint text shown while the field is empty (not an accessible label). */
-    placeholder?: string;
     /**
      * What the screen does with the query. Return a promise and the control reports itself busy
      * until it settles. The control never touches the results.
@@ -127,7 +132,6 @@
     value = $bindable(""),
     expanded = $bindable(false),
     label = "Search",
-    placeholder = "Search",
     onsearch,
     searchOn = "keystroke",
     onsubmit,
@@ -349,7 +353,7 @@
       aria-label={label}
       aria-busy={busy ? "true" : undefined}
       {value}
-      {placeholder}
+      placeholder="Search"
       {disabled}
       oninput={handleInput}
       onkeydown={handleKeyDown}

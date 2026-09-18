@@ -1247,6 +1247,13 @@ name, which is every screen outside a matter.
   the book of people and organizations, with its count the directory's own. _(the Directory,
   2026-09-17)_
 
+- **The search field reads "Search", and nothing more.** Twenty-three screens each handed the
+  control a hint naming their surface — "Search the docket", "Search the firm's fees" — and the
+  owner struck them: the control sits in the screen's own header, so the screen is already named an
+  inch to the left, and the hint was restating it. The placeholder is no longer a prop of
+  `ScreenSearch`; a screen names its surface only in the accessible label, which never shows.
+  _(Workspace screens, 2026-09-18)_
+
 ### Layout
 
 - **A panel with a side rail holds ONE size, whichever rail item is chosen.** A modal sized to its
@@ -1491,6 +1498,12 @@ generalizes to:
   order kept until the reader sorts. `lint:workspace-search` gained the `second-results-surface`
   rule. The one sanctioned other shape is a matter's own search, which reaches everything on the
   matter through the control's downward panel. Generalized above under _Screen search_.
+- **"For Collabora, I dislike how some settings are nested; to get to paragraph and font settings I
+  have to click into the menu, as opposed to that stuff being right at the top."** (2026-09-18.)
+  The editor was opening in its compact mode by default; the launch form now sends the editor
+  `UIMode=tabbed`, whose Home tab carries those controls. A default, not a lock: the editor's View
+  menu still switches, and a browser remembers the switch. The size of the editor's controls is
+  a separate question, still open (the frame zoom or a branding stylesheet in the container).
 - **"Calendar is very tight on my laptop, and has multiple scrollbars. If we move controls up higher
   in the header area, maybe this would be better, but it would also be against what we really
   do."** The escape was named and refused in the same sentence, so the controls stay over the grid
