@@ -76,7 +76,9 @@
       value: (row) => row.timekeeper,
       fitExtra: 30,
     },
-    { id: "title", label: "Title", value: (row) => row.title },
+    // A title is prose — no two entries share one — so it is the column that keeps the contains
+    // box, by declaring it; every other text column gets the set.
+    { id: "title", label: "Title", filter: "text", value: (row) => row.title },
     {
       id: "hours",
       label: "Hours",

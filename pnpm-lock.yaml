@@ -223,7 +223,7 @@ overrides:
 
 patchedDependencies:
   bits-ui@2.18.1:
-    hash: 7d787af242974593b77e2ecbdd226a8a068590c48722e4eb190ab2a9fd140bd3
+    hash: fcc4fe18ae1ed9a1296ab5c7e4a379bb99a70d8a7a7866468595608502b04525
     path: patches/bits-ui@2.18.1.patch
 
 importers:
@@ -1436,7 +1436,7 @@ importers:
         version: 4.5.0
       bits-ui:
         specifier: 'catalog:'
-        version: 2.18.1(patch_hash=7d787af242974593b77e2ecbdd226a8a068590c48722e4eb190ab2a9fd140bd3)(@internationalized/date@3.12.3)(@sveltejs/kit@2.70.2(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.2)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)))(svelte@5.56.2)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)))(svelte@5.56.2)
+        version: 2.18.1(patch_hash=fcc4fe18ae1ed9a1296ab5c7e4a379bb99a70d8a7a7866468595608502b04525)(@internationalized/date@3.12.3)(@sveltejs/kit@2.70.2(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.2)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)))(svelte@5.56.2)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)))(svelte@5.56.2)
       clsx:
         specifier: 'catalog:'
         version: 2.1.1
@@ -9589,7 +9589,7 @@ snapshots:
     optionalDependencies:
       zod: 4.4.3
 
-  bits-ui@2.18.1(patch_hash=7d787af242974593b77e2ecbdd226a8a068590c48722e4eb190ab2a9fd140bd3)(@internationalized/date@3.12.3)(@sveltejs/kit@2.70.2(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.2)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)))(svelte@5.56.2)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)))(svelte@5.56.2):
+  bits-ui@2.18.1(patch_hash=fcc4fe18ae1ed9a1296ab5c7e4a379bb99a70d8a7a7866468595608502b04525)(@internationalized/date@3.12.3)(@sveltejs/kit@2.70.2(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.2)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)))(svelte@5.56.2)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)))(svelte@5.56.2):
     dependencies:
       '@floating-ui/core': 1.7.5
       '@floating-ui/dom': 1.7.6
