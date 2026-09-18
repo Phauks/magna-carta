@@ -1,7 +1,7 @@
 # Document history — every save, who was there, and who wrote which words
 
 **Status:** Layers 1 and 2 built (every save a version with its kind, the fold, participants per
-version); layer 3 is design, pending the owner's answer to section 3.3. The owner asked on 2026-09-17 for history that matches
+version); layer 3 is design, its one decision (section 3.3) taken: accept on export. The owner asked on 2026-09-17 for history that matches
 what Google Docs shows: every state of the document, grouped in a timeline, and each change
 attributed to the person who made it, with the noise handled by grouping rather than by keeping
 less.
@@ -106,7 +106,8 @@ documents with opposing counsel may decide otherwise and must be able to.
 ### 3.3 The decision: what happens to the marks
 
 A document that records forever accumulates marks, and a copy leaving the firm would carry every
-redline. Two answers; the spec proposes the first and the owner confirms:
+redline. Two answers; the owner chose the first on 2026-09-18 (decision fragment
+`tracked-changes-are-accepted-on-export-never-in-storage`):
 
 - **Accept on the way out.** The stored document keeps recording, so history and attribution stay
   complete for as long as the document lives. Any copy that leaves the platform — download, email,
@@ -116,7 +117,7 @@ redline. Two answers; the spec proposes the first and the owner confirms:
   stored file stays clean. Simpler files; but a member who turns showing on sees nothing older than
   the last save, and the attribution lives only in the platform's history.
 
-Recorded as a pending decision (`docs/decisions/pending/`) when the owner answers.
+Recorded as a pending decision (`docs/decisions/pending/tracked-changes-are-accepted-on-export-never-in-storage.md`).
 
 ### 3.4 Reading the marks into history
 
