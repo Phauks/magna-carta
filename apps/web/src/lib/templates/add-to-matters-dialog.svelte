@@ -227,10 +227,13 @@
           <div class="flex flex-col">
             {#each chosen as target (target.matterId)}
               {@const standing = standings[target.matterId]}
+              <!-- A wrapping row rather than a two-column grid: the label grows, the control or
+                   the standing keeps its own width at the end, and a full-width line wraps under
+                   both. The grid's "1fr auto" template is an arbitrary value the token gate refuses. -->
               <div
-                class="grid grid-cols-[1fr_auto] items-start gap-x-12 gap-y-4 border-b border-border-subtle py-8"
+                class="flex flex-wrap items-start gap-x-12 gap-y-4 border-b border-border-subtle py-8"
               >
-                <span class="text-sm tabular-nums">{target.label}</span>
+                <span class="grow text-sm tabular-nums">{target.label}</span>
                 {#if standing === undefined}
                   {#if !busy && !done}
                     <Button
@@ -254,13 +257,13 @@
                     {standingLine(standing)}
                   </span>
                   {#each blankLines(standing) as line (line)}
-                    <span class="col-span-2 text-xs text-text-muted">{line}</span>
+                    <span class="w-full text-xs text-text-muted">{line}</span>
                   {/each}
                   {#if done}
                     {@const openHref = documentHref(standing)}
                     {@const filesHref = matterFilesHref(target, standing)}
                     {#if openHref !== null || filesHref !== null}
-                      <span class="col-span-2 flex flex-wrap gap-12 text-sm">
+                      <span class="flex w-full flex-wrap gap-12 text-sm">
                         {#if openHref !== null}
                           <a class="underline underline-offset-2" href={openHref}>Open the document</a>
                         {/if}
