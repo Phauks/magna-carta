@@ -91,6 +91,10 @@ describe("practice area and office", () => {
 describe("the table's shape", () => {
   it("anchors the name and dates the two instants", () => {
     expect(column("name").anchored).toBe(true);
+    // Prose is the row's second line, never a column that would truncate it.
+    expect(templateColumns(EMPTY_TEMPLATE_VOCABULARY).some((c) => c.id === "description")).toBe(
+      false,
+    );
     expect(column("updatedAt").type).toBe("date");
     expect(column("createdAt").type).toBe("date");
     expect(column("createdAt").hidden).toBe(true);

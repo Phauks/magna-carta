@@ -13,7 +13,7 @@
  *
  * A DOCUMENT WITH BLANKS READS AS FINISHED AND IS NOT, so an assembly that completed with merge
  * fields the matter could not supply, or with Word merge fields the template still carries, is its
- * own standing rather than being folded into "filed": the row says the document is there AND that
+ * own standing rather than being folded into "landed": the row says the document is there AND that
  * it needs a person's eye before it goes anywhere.
  */
 import { assembliesStatus, assembliesSubmit } from "@magna-carta/api-client";
@@ -35,11 +35,18 @@ export type MatterAssemblyStanding =
   | { readonly kind: "waiting" }
   | { readonly kind: "submitting" }
   | { readonly kind: "assembling"; readonly assemblyId: string }
-  /** The document is on the matter, complete. */
-  | { readonly kind: "filed"; readonly fileId: string; readonly outputFormat: AssemblyOutputFormat }
+  /**
+   * The document is on the matter, complete. "Landed", never "filed": in this product a document
+   * is FILED with a court and nothing else may say the word (docs/conventions/design-corrections.md).
+   */
+  | {
+      readonly kind: "landed";
+      readonly fileId: string;
+      readonly outputFormat: AssemblyOutputFormat;
+    }
   /** The document is on the matter, and has blanks a person must look at. */
   | {
-      readonly kind: "filed-with-blanks";
+      readonly kind: "landed-with-blanks";
       readonly fileId: string;
       readonly outputFormat: AssemblyOutputFormat;
       readonly absentFieldKeys: readonly string[];
@@ -47,7 +54,7 @@ export type MatterAssemblyStanding =
     }
   /** The job ran and did not produce a document. */
   | { readonly kind: "failed"; readonly reason: string | null }
-  /** A request was refused or never answered. Nothing was filed. */
+  /** A request was refused or never answered. Nothing landed. */
   | {
       readonly kind: "refused";
       readonly stage: "submitting" | "assembling";
@@ -103,14 +110,14 @@ export function standingFromStatus(status: AssemblyStatus): MatterAssemblyStandi
   const fileId = status.fileId ?? "";
   if (status.absentFieldKeys.length > 0 || status.frozenMergeFieldNames.length > 0) {
     return {
-      kind: "filed-with-blanks",
+      kind: "landed-with-blanks",
       fileId,
       outputFormat: status.outputFormat,
       absentFieldKeys: status.absentFieldKeys,
       frozenMergeFieldNames: status.frozenMergeFieldNames,
     };
   }
-  return { kind: "filed", fileId, outputFormat: status.outputFormat };
+  return { kind: "landed", fileId, outputFormat: status.outputFormat };
 }
 
 async function addToOneMatter(
@@ -180,7 +187,7 @@ export async function addTemplateToMatters(
 
 /** What a batch came to, counted. */
 export interface AddToMattersSummary {
-  readonly filed: number;
+  readonly landed: number;
   readonly withBlanks: number;
   readonly failed: number;
   readonly stillRunning: number;
@@ -190,16 +197,16 @@ export interface AddToMattersSummary {
 export function summarizeStandings(
   standings: ReadonlyMap<string, MatterAssemblyStanding>,
 ): AddToMattersSummary {
-  let filed = 0;
+  let landed = 0;
   let withBlanks = 0;
   let failed = 0;
   let stillRunning = 0;
   for (const standing of standings.values()) {
     switch (standing.kind) {
-      case "filed":
-        filed += 1;
+      case "landed":
+        landed += 1;
         break;
-      case "filed-with-blanks":
+      case "landed-with-blanks":
         withBlanks += 1;
         break;
       case "failed":
@@ -213,7 +220,7 @@ export function summarizeStandings(
         break;
     }
   }
-  return { filed, withBlanks, failed, stillRunning, total: standings.size };
+  return { landed, withBlanks, failed, stillRunning, total: standings.size };
 }
 
 function matters(count: number): string {
@@ -222,7 +229,7 @@ function matters(count: number): string {
 
 /** The batch's outcome as one sentence, for the panel's done state. */
 export function summarySentence(summary: AddToMattersSummary): string {
-  const landed = summary.filed + summary.withBlanks;
+  const landed = summary.landed + summary.withBlanks;
   const parts: string[] = [];
   if (landed > 0) parts.push(`The document is on ${matters(landed)}`);
   if (summary.withBlanks > 0) {
@@ -243,10 +250,12 @@ export function standingLine(standing: MatterAssemblyStanding): string {
       return "Submitting";
     case "assembling":
       return "Building the document";
-    case "filed":
-      return standing.outputFormat === "pdf" ? "Filed as a PDF" : "Filed as a Word document";
-    case "filed-with-blanks":
-      return "Filed, with blanks to look at";
+    case "landed":
+      return standing.outputFormat === "pdf"
+        ? "On the matter as a PDF"
+        : "On the matter as a Word document";
+    case "landed-with-blanks":
+      return "On the matter, with blanks to look at";
     case "failed":
       return standing.reason ?? "The document could not be built";
     case "refused":
@@ -266,7 +275,7 @@ export function standingLine(standing: MatterAssemblyStanding): string {
 
 /** The lines under a row that landed with blanks — what to look for before the document goes out. */
 export function blankLines(standing: MatterAssemblyStanding): readonly string[] {
-  if (standing.kind !== "filed-with-blanks") return [];
+  if (standing.kind !== "landed-with-blanks") return [];
   const lines: string[] = [];
   if (standing.absentFieldKeys.length > 0) {
     lines.push(`The matter could not supply: ${standing.absentFieldKeys.join(", ")}.`);

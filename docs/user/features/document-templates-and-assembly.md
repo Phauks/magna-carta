@@ -263,7 +263,8 @@ template and a format, and the document is built onto that matter.
 **From the library, onto several matters at once.** Open a template on the Documents screen and choose
 **Add to Matters**. Type to find each matter — by its number or its name — and add as many as you need;
 choose Word or PDF; then build. Each matter gets its own row while the documents are built, and each
-row says what happened to it: **filed**, **filed with blanks to look at** (and which blanks), or why it
+row says what happened to it: **on the matter**, **on the matter with blanks to look at** (and which
+blanks), or why it
 did not get a document. One matter being refused — because you cannot build on it, say — never stops
 the others. When a row has landed, it offers the document itself and the matter's Files page.
 

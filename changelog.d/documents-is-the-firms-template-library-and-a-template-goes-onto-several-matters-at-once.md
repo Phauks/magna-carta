@@ -7,7 +7,7 @@ audience: public
 
 **A template is registered from the browser** (`register-template.ts`): presign, PUT to storage, register — the kind read off the file rather than asked for, because the signed URL covers the content type. The registration report is rendered as findings, so a Word merge field left unconverted, a legacy form field nothing binds, or a box on a form nothing fills is said out loud at the moment somebody can still do something about it.
 
-**One template goes onto several matters at once** (`add-to-matters.ts`). An assembly stays what it is on the server — one job on one matter, behind that matter's own wall — and adding to five matters is five jobs, each under its own idempotency key, each polled to its own standing, none of them stopped by another's refusal. A document that landed with blanks is its own standing rather than "filed": it is on the matter and it needs a person's eye before it goes anywhere.
+**One template goes onto several matters at once** (`add-to-matters.ts`). An assembly stays what it is on the server — one job on one matter, behind that matter's own wall — and adding to five matters is five jobs, each under its own idempotency key, each polled to its own standing, none of them stopped by another's refusal. A document that landed with blanks is its own standing rather than "landed": it is on the matter and it needs a person's eye before it goes anywhere.
 
 Archive is offered to a member holding `templates:manage`. The field inspector and authoring in the browser remain unbuilt.
 

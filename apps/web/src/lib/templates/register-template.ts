@@ -23,6 +23,14 @@ import type { Failure } from "$lib/api/problem.ts";
 
 export type TemplateKind = "wordProcessing" | "pdfForm";
 
+/** The permission that lets a member register a template into the catalogue, or archive one. */
+export const MANAGE_TEMPLATES_PERMISSION = "templates:manage";
+
+/** How each kind reads to the person who chose the file, in the words the dialog says it in. */
+export function templateKindSentence(kind: TemplateKind): string {
+  return kind === "pdfForm" ? "Registers as a fillable-PDF form" : "Registers as a Word template";
+}
+
 /** What a person fills in before pressing Register. */
 export interface RegisterTemplateDraft {
   readonly file: File;
@@ -138,6 +146,20 @@ function names(items: readonly { fieldName: string }[]): string {
   return items.map((item) => item.fieldName).join(", ");
 }
 
+/**
+ * The part of a report that is about what the version BINDS — which a registration answers once,
+ * and which a version's field manifest answers again whenever the template is opened. Both carry
+ * the same four lists and the same warnings, so both read as the same findings.
+ */
+export type BindingReport = Pick<
+  RegisteredTemplate,
+  | "unconvertedMergeFields"
+  | "legacyFormFields"
+  | "unboundContentControls"
+  | "unboundFormFields"
+  | "warnings"
+>;
+
 /** The report as findings. Empty for a document that registered with nothing to remark on. */
 export function registrationFindings(report: RegisteredTemplate): readonly RegistrationFinding[] {
   const findings: RegistrationFinding[] = [];
@@ -156,6 +178,13 @@ export function registrationFindings(report: RegisteredTemplate): readonly Regis
       text: `${report.mergeFieldsDetected.length} Word merge field${report.mergeFieldsDetected.length === 1 ? " was" : "s were"} converted into this system's fields.`,
     });
   }
+  findings.push(...bindingFindings(report));
+  return findings;
+}
+
+/** What a version leaves unbound or frozen, as warnings. Empty for a version that binds cleanly. */
+export function bindingFindings(report: BindingReport): readonly RegistrationFinding[] {
+  const findings: RegistrationFinding[] = [];
   if (report.unconvertedMergeFields.length > 0) {
     findings.push({
       tone: "warning",
@@ -189,7 +218,9 @@ export function registrationFindings(report: RegisteredTemplate): readonly Regis
 }
 
 /** How many merge fields the version binds, said as a sentence. */
-export function fieldCountSentence(report: RegisteredTemplate): string {
+export function fieldCountSentence(
+  report: Pick<RegisteredTemplate, "fieldCount" | "kind">,
+): string {
   if (report.fieldCount === 0) {
     return report.kind === "pdfForm"
       ? "No box on the form is bound to a merge field, so every document built from it is the blank form."

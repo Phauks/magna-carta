@@ -2,7 +2,7 @@
  * Adding a template to several matters, driven against fake ports.
  *
  * What is pinned: every matter gets its own submission under its own key, one matter's refusal does
- * not stop the others, a document that landed with blanks is its own standing rather than "filed",
+ * not stop the others, a document that landed with blanks is its own standing rather than "landed",
  * a job that outlives the wait is reported as still running rather than as failed, and the summary
  * sentence counts what a person would count.
  */
@@ -80,12 +80,12 @@ describe("a status read as a standing", () => {
       reason: "conversion-failed",
     });
     expect(standingFromStatus(status({ outputFormat: "pdf" }))).toEqual({
-      kind: "filed",
+      kind: "landed",
       fileId: "file_1",
       outputFormat: "pdf",
     });
     const blanks = standingFromStatus(status({ absentFieldKeys: ["client.displayName"] }));
-    expect(blanks?.kind).toBe("filed-with-blanks");
+    expect(blanks?.kind).toBe("landed-with-blanks");
     expect(blankLines(blanks as MatterAssemblyStanding)).toEqual([
       "The matter could not supply: client.displayName.",
     ]);
@@ -125,12 +125,12 @@ describe("the batch", () => {
       "matter_c:documentTemplateVersion_1:pdf:key-matter_c",
     ]);
     expect(standings.get("matter_a")).toEqual({
-      kind: "filed",
+      kind: "landed",
       fileId: "file_a",
       outputFormat: "docx",
     });
     expect(standings.get("matter_b")?.kind).toBe("refused");
-    expect(standings.get("matter_c")?.kind).toBe("filed-with-blanks");
+    expect(standings.get("matter_c")?.kind).toBe("landed-with-blanks");
     // Every matter is announced as waiting first, and every move after that is reported.
     expect(changes.slice(0, 3)).toEqual([
       "matter_a:waiting",
@@ -190,11 +190,11 @@ describe("the batch", () => {
 describe("what the batch came to", () => {
   it("counts filed, blanks, failures and the still-running, and says it in one sentence", () => {
     const standings = new Map<string, MatterAssemblyStanding>([
-      ["a", { kind: "filed", fileId: "f", outputFormat: "docx" }],
+      ["a", { kind: "landed", fileId: "f", outputFormat: "docx" }],
       [
         "b",
         {
-          kind: "filed-with-blanks",
+          kind: "landed-with-blanks",
           fileId: "g",
           outputFormat: "docx",
           absentFieldKeys: ["x"],
@@ -206,7 +206,7 @@ describe("what the batch came to", () => {
       ["e", { kind: "still-running", assemblyId: "z" }],
     ]);
     const summary = summarizeStandings(standings);
-    expect(summary).toEqual({ filed: 1, withBlanks: 1, failed: 2, stillRunning: 1, total: 5 });
+    expect(summary).toEqual({ landed: 1, withBlanks: 1, failed: 2, stillRunning: 1, total: 5 });
     expect(summarySentence(summary)).toBe(
       "The document is on 2 matters; 1 of them with blanks to look at; 1 matter still being built; 2 matters did not get one.",
     );
@@ -218,8 +218,8 @@ describe("what the batch came to", () => {
       "You cannot assemble on this matter.",
     );
     expect(standingLine({ kind: "failed", reason: null })).toBe("The document could not be built");
-    expect(standingLine({ kind: "filed", fileId: "f", outputFormat: "pdf" })).toBe(
-      "Filed as a PDF",
+    expect(standingLine({ kind: "landed", fileId: "f", outputFormat: "pdf" })).toBe(
+      "On the matter as a PDF",
     );
   });
 });

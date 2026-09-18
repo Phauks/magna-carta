@@ -11,6 +11,8 @@
  *     handle, and neither alone answers the question a reader has — can I build from this today. A
  *     template whose bytes have not cleared the scan has no current version and cannot be assembled
  *     from, which the matter's Files page already knows and this register has to say out loud.
+ *   - The DESCRIPTION is not a column. Prose is the row's second line (the grid's `rowDetail`),
+ *     never a cell that truncates it; the register renders it beneath the row where it wraps.
  *   - PRACTICE AREA and OFFICE resolve against the firm's own lists, read once per screen and joined
  *     here — never one request per row. A template bound to no matter type is offered to every
  *     matter, and the cell says so rather than standing empty: "any" is a fact about the template,
@@ -149,11 +151,6 @@ export function templateColumns(vocabulary: TemplateVocabulary): GridColumn<Temp
       filter: "set",
       filterValues: [EVERY_OFFICE, ...vocabulary.locationNames.values()],
       value: (template) => templateLocationText(template, vocabulary),
-    },
-    {
-      id: "description",
-      label: "Description",
-      value: (template) => template.description ?? "",
     },
     {
       id: "updatedAt",

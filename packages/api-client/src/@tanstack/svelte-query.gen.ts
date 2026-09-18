@@ -12070,7 +12070,7 @@ export const templatesUploadMutation = (options?: Partial<Options<TemplatesUploa
 export const templatesListQueryKey = (options?: Options<TemplatesListData>) => createQueryKey('templatesList', options);
 
 /**
- * Lists the firm's assembly templates, newest page first by name. Every template is visible to every member who can assemble; a template bound to a matter type is still listed, and the binding narrows which matters offer it. Filter by matter type to see only what a matter of that type would offer.
+ * Lists the firm's assembly templates, newest page first by name. Every template is visible to every member who can assemble; a template bound to a matter type is still listed, and the binding narrows which matters offer it. Filter by matter type to see only what a matter of that type would offer, and pass search to keep only the templates whose name or description contains the text.
  */
 export const templatesListOptions = (options?: Options<TemplatesListData>) => queryOptions<TemplatesListResponse, TemplatesListError, TemplatesListResponse, ReturnType<typeof templatesListQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -12088,7 +12088,7 @@ export const templatesListOptions = (options?: Options<TemplatesListData>) => qu
 export const templatesListInfiniteQueryKey = (options?: Options<TemplatesListData>): QueryKey<Options<TemplatesListData>> => createQueryKey('templatesList', options, true);
 
 /**
- * Lists the firm's assembly templates, newest page first by name. Every template is visible to every member who can assemble; a template bound to a matter type is still listed, and the binding narrows which matters offer it. Filter by matter type to see only what a matter of that type would offer.
+ * Lists the firm's assembly templates, newest page first by name. Every template is visible to every member who can assemble; a template bound to a matter type is still listed, and the binding narrows which matters offer it. Filter by matter type to see only what a matter of that type would offer, and pass search to keep only the templates whose name or description contains the text.
  */
 export const templatesListInfiniteOptions = (options?: Options<TemplatesListData>) => infiniteQueryOptions<TemplatesListResponse, TemplatesListError, InfiniteData<TemplatesListResponse>, QueryKey<Options<TemplatesListData>>, string | Pick<QueryKey<Options<TemplatesListData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
 // @ts-ignore

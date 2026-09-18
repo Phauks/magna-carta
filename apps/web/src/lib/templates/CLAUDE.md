@@ -27,8 +27,10 @@ operations, reached only through `@magna-carta/api-client` (see `$lib/api/CLAUDE
   offered to Add to Matters, which is the same rule the matter's Files page applies in its picker.
 - **A batch never stops at one refusal.** Each matter's standing is its own; the dialog renders a row
   per matter and the summary counts them.
-- **A document with blanks is its own standing** (`filed-with-blanks`), never folded into "filed":
+- **A document with blanks is its own standing** (`landed-with-blanks`), never folded into "landed":
   it is on the matter and it needs a person's eye before it goes anywhere.
+- **Nothing here says "filed".** A document is FILED with a court and nothing else may use the word
+  (`docs/conventions/design-corrections.md`); a built document is "on the matter".
 - **The kind is chosen at presign**, read off the file's name, because the signed URL covers the
   content type. A person never picks "Word or PDF" by hand.
 
