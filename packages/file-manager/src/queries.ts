@@ -752,7 +752,8 @@ export function listCleanVersionsStatement(
         // Everyone in the session when the version was cut, as "id<US>name" pairs joined by the record
         // separator: a name is firm-authored text and a comma inside one would split a person in two.
         // The name is read off the member row at query time, so a renamed member reads under their
-        // current name and a departed one keeps the id and loses only the name.
+        // current name and a departed one keeps the id and loses only the name. The subquery reads the
+        // participant table, not file_version; the version's status is the outer WHERE's. fitness:allow-no-status
         `(SELECT group_concat(p.member_user_id || char(31) || COALESCE(pm.display_name, ''), char(30)) FROM ${FILE_VERSION_PARTICIPANT_TABLE} p LEFT JOIN ${MEMBER_TABLE} pm ON pm.user_id = p.member_user_id WHERE p.version_id = v.id) AS participants ` +
         `FROM ${FILE_VERSION_TABLE} v LEFT JOIN ${MEMBER_TABLE} m ON m.user_id = v.uploaded_by ` +
         `WHERE ${conditions.join(" AND ")} ORDER BY v.version_number DESC, v.id DESC LIMIT ?`,
