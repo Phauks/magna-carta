@@ -50,7 +50,6 @@
   import { page } from "$app/state";
   import { untrack } from "svelte";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import {
     listEveryMatter,
     readSession,
@@ -373,7 +372,6 @@
       <ScreenSearch
         bind:value={typed}
         label="Search the directory"
-        placeholder={placeholderOf("Search the directory")}
         searchOn="pause"
         fieldClass="w-2xs sm:w-xs"
         onsearch={(next) => {

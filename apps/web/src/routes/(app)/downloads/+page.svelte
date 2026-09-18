@@ -7,6 +7,11 @@
    * An export is stored as its DOCUMENT rather than as a file, so one row offers every format and
    * the figures stay frozen at the instant it was taken. The register never proxies bytes — an
    * artifact hands back a short-lived URL the browser downloads directly.
+   *
+   * THE TABLE STANDS WHETHER OR NOT THE SHELF DOES. The header row renders from the first paint and
+   * the empty body carries the one line saying why it is empty — a shelf with nothing on it, or a
+   * query that reaches none of it. A member who has never exported anything meets the shape their
+   * files will arrive in rather than a sentence on the canvas where the table will be.
    */
   import { onMount } from "svelte";
   import { openBeside } from "$lib/navigation/open-beside.ts";
@@ -22,7 +27,6 @@
   import Checkbox from "@magna-carta/design-system/checkbox";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
@@ -44,7 +48,7 @@
     renderStoredExport,
   } from "$lib/export/bulk-download.ts";
   import { exportFilename, saveExport } from "$lib/export/tabular-export.ts";
-  import { formatInstant, placeholderOf } from "@magna-carta/design-system/formatters";
+  import { formatInstant } from "@magna-carta/design-system/formatters";
   import { NO_DOWNLOADS } from "$lib/transfers/transfers.ts";
 
   let items = $state<ShelfItem[] | null>(null);
@@ -81,6 +85,14 @@
   let searchText = $state("");
   let appliedSearch = $state("");
   const shelfSearch = $derived(appliedSearch.trim().toLowerCase());
+  /*
+   * What the shelf's empty body says. The table stands whether or not there is anything on the
+   * shelf, so this line is the only thing that changes: an empty shelf, and a shelf the query
+   * reaches none of, are different facts and the reader needs to know which one they are looking at.
+   */
+  const shelfEmptyTitle = $derived(
+    shelfSearch === "" ? NO_DOWNLOADS : "Nothing Matches That Search",
+  );
   const narrowedItems = $derived(
     items === null
       ? null
@@ -257,9 +269,15 @@
       until: sampleDate(1),
     },
   ] as const;
+
+  /** The columns the header row draws, which is what the empty body spans. */
+  const SHELF_COLUMN_COUNT = 8;
 </script>
 
 {#snippet shelfHead()}
+  <!-- The header row renders from the first paint, whether or not the shelf has anything on it:
+       a reader meets the shape the rows will take rather than a sentence where the table will be.
+       The count below spans the empty body across exactly these columns. -->
   <DataTable.Caption class="sr-only">Your downloads</DataTable.Caption>
   <DataTable.Header>
     <DataTable.Row>
@@ -289,7 +307,6 @@
     <ScreenSearch
       bind:value={searchText}
       label="Search your downloads"
-      placeholder={placeholderOf("Search your downloads")}
       fieldClass="w-2xs sm:w-xs"
       onsearch={(next) => {
         appliedSearch = next;
@@ -320,13 +337,9 @@
   refreshing={reading}
   failed={failure !== null}
   failure={failureNotice}
-  empty={items !== null && items.length === 0}
   label="Reading your downloads"
   onRetry={() => void load()}
 >
-  {#snippet emptyState()}
-    <EmptyState title={NO_DOWNLOADS} />
-  {/snippet}
   {#snippet fixture()}
     <DataTable.Root>
       {@render shelfHead()}
@@ -360,14 +373,6 @@
     </DataTable.Root>
   {/snippet}
   {@const shown = narrowedItems ?? []}
-  {#if shown.length === 0}
-    <!-- The shelf HAS rows (the region's own empty state covers a shelf with none) and the query
-         reaches none of them, so the answer is about the query rather than about the shelf. -->
-    <EmptyState title="Nothing Matches That Search">
-      No download on your shelf matches "{appliedSearch.trim()}". Clear the search to see the whole
-      shelf again.
-    </EmptyState>
-  {:else}
   {#if selectedItems.length > 0}
     <!-- Present only while a selection is in play: its absence is itself the answer to whether
          anything is selected. -->
@@ -465,8 +470,9 @@
             </div>
           </DataTable.Cell>
         </DataTable.Row>
+      {:else}
+        <DataTable.EmptyRow columns={SHELF_COLUMN_COUNT} title={shelfEmptyTitle} />
       {/each}
     </DataTable.Body>
   </DataTable.Root>
-  {/if}
 </LoadingRegion>

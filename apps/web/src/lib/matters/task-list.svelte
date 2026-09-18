@@ -46,7 +46,6 @@
   import { dueLine } from "$lib/matters/task-print-sheet.ts";
   import { SAMPLE_MATTER_REFUSAL } from "$lib/matters/create-action.svelte.ts";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import ArchiveRestore from "@lucide/svelte/icons/archive-restore";
@@ -396,7 +395,6 @@
   <ScreenSearch
     bind:value={searchText}
     label="Search tasks"
-    placeholder={placeholderOf("Search tasks")}
     searchOn="pause"
     fieldClass="w-2xs sm:w-xs"
     disabled={isSample}

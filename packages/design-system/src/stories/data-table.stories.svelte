@@ -177,13 +177,23 @@
   {/snippet}
 </Story>
 
-<!-- Empty state: the toolbar + header stay, the body shows a single spanning "no results" message. -->
+<!--
+  Empty state: the toolbar and the header row stay, and the body carries DataTable.EmptyRow — one
+  row, one cell across every column, one line. A reader meets the shape the rows will take before
+  there are any, which is the whole point of the part; the row itself takes none of a row's
+  treatment, so nothing here lights up under the pointer.
+-->
 <Story
   name="Empty"
-  play={async ({ canvas, step }) => {
+  play={async ({ canvas, canvasElement, step }) => {
     await step("Shows the empty message with the header intact", async () => {
       await expect(canvas.getByText("No matters found.")).toBeVisible();
       await expect(canvas.getByRole("button", { name: "Reference" })).toBeVisible();
+    });
+
+    await step("The empty row is a placeholder, not a row", async () => {
+      const placeholders = canvasElement.querySelectorAll('tr[data-placeholder="true"]');
+      await expect(placeholders.length).toBe(1);
     });
   }}
 >

@@ -36,6 +36,12 @@
    * actions; these open the full surfaces. Collapse and Customize remain RAIL CONTROLS, not
    * destinations.
    *
+   * THE TOP BAR HOLDS ONE OPEN PANEL AT A TIME (owner correction, 2026-09-18). The build report,
+   * the notifications, the two transfer registers and the account menu all open over the same work
+   * canvas from controls a few pixels apart, so pressing one closes whichever other was open. The
+   * rule is the bar's, not each tray's: TopBar.Root declares itself an overlay band and every
+   * popover and menu seated in it hands its place on. The shell wires nothing for it.
+   *
    * Top-bar seams stay seams: +New renders nothing until its slice ships — the Actions region
    * reserves its geometry; the shell never fakes function. The notification bell is live and owns
    * itself ($lib/notifications/notification-tray.svelte): a real unread count and the newest few

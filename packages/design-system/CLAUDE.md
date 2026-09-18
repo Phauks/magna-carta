@@ -290,6 +290,14 @@ opposite reading order, load-more three times in two places — and the drift is
 
 ## The grid's frame, its scale, and its row marks
 
+**A Tooltip is a dismissible layer with behaviour `close`.** An open hover label therefore outranks
+the panel beneath it in Bits' layer stack, and Bits will not dismiss that panel on an outside press
+while the label shows — which is why two top-bar panels could stand open at once. The top bar
+settles it by state rather than by pointer: `TopBar.Root` declares an overlay band
+(`internal/overlay-band.svelte.ts`) and `Popover.Root`, `DropdownMenu.Root` and `Dialog.Root` join
+it where one exists, so opening any panel in the band closes the others. Everywhere else the join
+finds no band and does nothing.
+
 Three things about `DataTable.Grid` that a surface gets wrong by spelling them out itself.
 
 - **A `sortColumnId` of null renders the rows as given.** `initialSort.columnId` accepts null and

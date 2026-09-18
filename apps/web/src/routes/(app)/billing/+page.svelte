@@ -46,7 +46,6 @@
   import Badge from "@magna-carta/design-system/badge";
   import CreateControl from "@magna-carta/design-system/create-control";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import { page } from "$app/state";
@@ -351,7 +350,6 @@
       <ScreenSearch
         bind:value={searchText}
         label="Search the firm's bills"
-        placeholder={placeholderOf("Search the firm's bills")}
         searchOn="pause"
         fieldClass="w-2xs sm:w-xs"
         onsearch={(next) => {

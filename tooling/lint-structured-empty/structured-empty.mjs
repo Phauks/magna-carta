@@ -10,7 +10,7 @@
  * `emptyMessage`, the
  * list's own empty row — never as loose prose beside or beneath it on the canvas.
  *
- * THE TWO SHAPES THIS CATCHES are the two the owner pointed at:
+ * THE THREE SHAPES THIS CATCHES are the ones the owner pointed at:
  *
  *   1. `loose-empty-branch` — a conditional with a structure in one branch and a paragraph in
  *      another: `{#if rows.length === 0}<p>…</p>{:else}<DataTable.Grid …/>{/if}`, and its `{#each}`
@@ -21,12 +21,30 @@
  *      the same block (the messaging History tab: an EventRail and then a paragraph of explanation
  *      beneath it, on the canvas). Words about the structure belong inside it.
  *
+ *   3. `table-behind-absence` — a DATA TABLE gated behind the absence of its own rows, with the
+ *      product's one `EmptyState` standing in its place: `{#if rows.length === 0}<EmptyState …/>
+ *      {:else}<DataTable.Root>…{/if}`, and the same thing one layer in, where a region is handed
+ *      an `emptyState` snippet that replaces the table it would otherwise render. THE RULING
+ *      (2026-09-18), on downloads and uploads: "downloads and upload pages should show the table
+ *      data would populate in, even if there is no data. i want this as a lint and standard rule,
+ *      that data tables will still appear before data is in the area. this prepares users for the
+ *      proper shape." So where a data table will hold the rows, the table renders first — header
+ *      row over an empty body — and the words about the emptiness go in that body:
+ *      `DataTable.EmptyRow` for a hand-composed table, and `DataTable.Grid`, which says its own
+ *      "No Results" without being asked.
+ *
  * WHAT IT DELIBERATELY DOES NOT CATCH, stated plainly, because a lint that cries wolf gets deleted:
  *
- *   - A branch that renders a COMPONENT in place of a structure (`{:else}<EmptyState …/>`). That is
- *     a design question the ledger answers — the words are at least in the product's one empty
- *     state — and reading it here would turn every permission refusal and every FailureNotice into
- *     a finding.
+ *   - A branch that renders a COMPONENT in place of a structure that is NOT a table
+ *     (`{:else}<EmptyState …/>` over an `EventRail`, a `Conversation`, a `FolderTree`). The owner
+ *     has ruled on the table, where the header row is the shape being promised; for the rest the
+ *     words are at least in the product's one empty state and which state is right is review's
+ *     call.
+ *   - A refusal or a failure standing where a table would. A member who may not see the table, and
+ *     a read that broke, are not tables waiting to fill: an empty frame drawn for either promises a
+ *     shape the screen has no intention of producing. A failure is not an absence of data, so a
+ *     branch whose condition is written in the words of permission or of breakage is read as
+ *     neither empty nor this rule's business.
  *   - Prose BEFORE a structure, or prose after a structure that carries no muted tone. A heading
  *     line, a figures strip, a plain sentence stating a fact of the result: none of these is the
  *     shape the owner named, and a rule wide enough to catch them would catch every caption.
@@ -310,7 +328,10 @@ export function parseMarkup(text) {
         closeBlock(kind, end + 1);
       } else if (lead === "@") {
         const kind = /^@(\w+)/.exec(body)?.[1] ?? "";
-        append({ type: "directive", kind, start: index, end: end + 1 });
+        // The body is kept because `{@render …}` carries the only link between a snippet's
+        // definition and the place it renders, and a rule that has to follow that link has
+        // nothing else to read.
+        append({ type: "directive", kind, body, start: index, end: end + 1 });
       } else {
         append({ type: "text", start: index, end: end + 1, value: text.slice(index, end + 1) });
       }
@@ -492,6 +513,182 @@ export function findProseAfterStructures(tree) {
   return problems;
 }
 
+// --- rule 3: a table standing behind an absence ------------------------------------------------
+
+/** The tags that ARE a data table: every part of the one table, and a hand-written `<table>`. */
+function isTableTag(name) {
+  return name.startsWith("DataTable.") || name === "table";
+}
+
+/** The one empty state. A component, which is why the first two rules never looked at it. */
+const EMPTY_STATE_TAG = "EmptyState";
+
+/** The snippets a component is handed to render in place of its content when there is none. */
+const EMPTY_SNIPPETS = new Set(["emptyState", "empty"]);
+
+/** The snippet a component renders as the shape while its read is in flight. */
+const FIXTURE_SNIPPET = "fixture";
+
+/** The name a `{@render name(…)}` calls, or null for any other directive. */
+function renderedSnippetName(node) {
+  if (node.type !== "directive" || node.kind !== "render") return null;
+  return /^@render\s+([A-Za-z_$][\w$]*)/.exec(node.body ?? "")?.[1] ?? null;
+}
+
+/** The name a `{#snippet name(…)}` block declares, or null. */
+function snippetName(block) {
+  if (block.kind !== "snippet") return null;
+  return /^([A-Za-z_$][\w$]*)/.exec(block.branches[0]?.condition ?? "")?.[1] ?? null;
+}
+
+/**
+ * Whether these nodes RENDER something, given the snippet names that are known to render a table.
+ * A `{#snippet}` block is a declaration rather than a render, so the walk does not descend into
+ * one: what a snippet holds counts where it is rendered, which is what `{@render}` says.
+ */
+function rendersSomething(nodes, snippets, wanted) {
+  for (const node of nodes) {
+    if (node.type === "element") {
+      if (wanted(node.name)) return true;
+      if (rendersSomething(node.children, snippets, wanted)) return true;
+    } else if (node.type === "block") {
+      if (node.kind === "snippet") continue;
+      for (const branch of node.branches) {
+        if (rendersSomething(branch.children, snippets, wanted)) return true;
+      }
+    } else {
+      const name = renderedSnippetName(node);
+      if (name !== null && snippets.has(name)) return true;
+    }
+  }
+  return false;
+}
+
+/** True when these nodes put a data table on the screen, through any depth of snippet. */
+export function rendersTable(nodes, snippets = new Set()) {
+  return rendersSomething(nodes, snippets, isTableTag);
+}
+
+/** True when these nodes put the product's one empty state on the screen. */
+export function rendersEmptyState(nodes) {
+  return rendersSomething(nodes, new Set(), (name) => name === EMPTY_STATE_TAG);
+}
+
+/**
+ * The snippets that render a table, directly or through another snippet. The downloads shelf
+ * reaches its header row through exactly this indirection — one `shelfHead` snippet, rendered by
+ * the fixture and by the real table — so a scan reading only literal tags would miss half of it.
+ */
+export function tableSnippets(tree) {
+  const bodies = new Map();
+  for (const block of blocks(tree)) {
+    const name = snippetName(block);
+    if (name === null) continue;
+    bodies.set(
+      name,
+      block.branches.flatMap((branch) => branch.children),
+    );
+  }
+  const holding = new Set();
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const [name, children] of bodies) {
+      if (holding.has(name) || !rendersTable(children, holding)) continue;
+      holding.add(name);
+      grew = true;
+    }
+  }
+  return holding;
+}
+
+/**
+ * The words a branch is written in when what stands there is a REFUSAL or a FAILURE rather than an
+ * absence of data: a member who may not see the table, a read that broke. Neither is a table
+ * waiting to fill, and drawing an empty frame for either would promise a shape the screen has no
+ * intention of producing. A failure is not an absence of data.
+ */
+const NOT_ABSENCE =
+  /\b(?:permission|permitted|denied|forbidden|refused|unauthoris?z?ed|failure|failed|errored?)\w*\b|\b(?:can|may|allow)(?:[A-Z]\w*|ed|s)?\b/i;
+
+/** True when a branch stands in for data that has not arrived — and not for a refusal or a break. */
+function standsInForMissingRows(branch) {
+  const conditions = [
+    branch.condition,
+    ...(branch.condition === "" ? branch.block.branches.map((other) => other.condition) : []),
+  ];
+  if (conditions.some((condition) => NOT_ABSENCE.test(condition))) return false;
+  return standsInForAbsence(branch);
+}
+
+const BEHIND_ABSENCE_DETAIL =
+  "the product's one empty state stands where the table does, so the shape a reader is waiting " +
+  "for only appears once the data has. Where a data table will hold the rows, the table renders " +
+  "first — its header row over an empty body — and the words about the emptiness go in that empty " +
+  'body: DataTable.EmptyRow for a hand-composed table, and DataTable.Grid, which says "No ' +
+  'Results" in its own empty body without being asked';
+
+/**
+ * Rule 3: a data table gated behind the absence of its own rows.
+ *
+ * Two arrangements, both of them the downloads and uploads screens as the owner found them: a
+ * conditional whose absence branch renders `<EmptyState>` where its other branch renders the
+ * table, and a region handed an `emptyState` snippet that does the same thing one layer in.
+ */
+export function findTablesBehindAbsence(tree) {
+  const problems = [];
+  const snippets = tableSnippets(tree);
+  const report = (nodes) => {
+    const [first] = significantChildren(nodes);
+    if (first === undefined) return;
+    problems.push({
+      rule: "table-behind-absence",
+      index: first.start,
+      detail: BEHIND_ABSENCE_DETAIL,
+    });
+  };
+
+  for (const block of blocks(tree)) {
+    if (!["if", "each", "await"].includes(block.kind)) continue;
+    if (block.branches.length < 2) continue;
+    if (!block.branches.some((branch) => rendersTable(branch.children, snippets))) continue;
+    for (const branch of block.branches) {
+      if (rendersTable(branch.children, snippets)) continue;
+      if (!rendersEmptyState(branch.children)) continue;
+      if (!standsInForMissingRows(branch)) continue;
+      report(branch.children);
+    }
+  }
+
+  for (const container of containers(tree)) {
+    if (container.type !== "element") continue;
+    const own = container.children.filter(
+      (child) => !(child.type === "block" && child.kind === "snippet"),
+    );
+    const named = new Map();
+    for (const child of container.children) {
+      const name = child.type === "block" ? snippetName(child) : null;
+      if (name !== null)
+        named.set(
+          name,
+          child.branches.flatMap((branch) => branch.children),
+        );
+    }
+    const shape = [...own, ...(named.get(FIXTURE_SNIPPET) ?? [])];
+    if (!rendersTable(shape, snippets)) continue;
+    for (const [name, children] of named) {
+      if (!EMPTY_SNIPPETS.has(name)) continue;
+      if (rendersTable(children, snippets)) continue;
+      // Prose in an `emptyState` snippet is the same defect one layer in, and the first rule cannot
+      // see it: a snippet handed to a component is not a branch of a conditional.
+      if (!rendersEmptyState(children) && !isLooseProse(children)) continue;
+      report(children);
+    }
+  }
+
+  return problems.sort((a, b) => a.index - b.index);
+}
+
 // --- allowances ------------------------------------------------------------------------------
 
 /**
@@ -554,7 +751,11 @@ export function applyAllowances(problems, allowances) {
 export function auditFile(path, source) {
   const markup = markupOf(source);
   const tree = parseMarkup(markup);
-  const found = [...findLooseEmptyBranches(tree), ...findProseAfterStructures(tree)];
+  const found = [
+    ...findLooseEmptyBranches(tree),
+    ...findProseAfterStructures(tree),
+    ...findTablesBehindAbsence(tree),
+  ];
   const { problems, excused } = applyAllowances(found, allowancesIn(source));
   const place = (problem) => ({ ...problem, file: path, line: lineOf(markup, problem.index) });
   return {

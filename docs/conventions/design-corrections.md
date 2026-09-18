@@ -262,6 +262,22 @@ is usually the fastest way to understand the rule.
   the table scroll sideways where it must, and let the header menu be where a reader HIDES what
   they do not need today. _(the Directory, 2026-09-17)_
 
+- **Where a DATA TABLE will hold the rows, the table renders first — header row over an empty
+  body — and the words about the emptiness go in that body.** The 2026-09-14 ruling reached prose
+  standing where a structure should; a component standing there was left alone, and `EmptyState`
+  walked straight through the gap on fourteen surfaces. It does not any more: the header row is the
+  shape being promised, and a register whose columns only appear once a member has exported
+  something teaches them nothing before their first export. One line, in the table's muted register
+  — `DataTable.EmptyRow` for a hand-composed table, and `DataTable.Grid`, which says its own "No
+  Results" without being asked. _(Downloads and Uploads, 2026-09-18: "data tables will still appear
+  before data is in the area. this prepares users for the proper shape"; held by the
+  `table-behind-absence` rule in `tooling/lint-structured-empty/`)_
+- **A refusal and a failure are not an absence of data, and neither draws a frame.** A member who
+  may not see the table, and a read that broke, are not tables waiting to fill; an empty frame drawn
+  for either promises a shape the screen has no intention of producing. The same goes for a panel
+  with no subject and a report nobody has asked for yet — the allowances stand on exactly those,
+  each carrying its reason beside the code. _(2026-09-18)_
+
 ### Data entry
 
 - **Creating a record is ONE screen with a left side and a right side.** Not a wizard, not a long
@@ -996,6 +1012,27 @@ is usually the fastest way to understand the rule.
   favourite star, 2026-09-17: "only the star should be yellow, there should not be a box around the
   star")_
 
+- **A band of controls holds one open panel, and the band decides it — not the panels.** The top
+  bar's controls sit a few pixels apart and nearly every one opens a panel over the same work
+  canvas; pressing the second control is how a member says they are done with the first, so opening
+  any of them closes the others. Leaving it to the overlay library is not enough and fails
+  intermittently: a hover label is itself a dismissible layer, so a press on a neighbour while its
+  label is showing makes the LABEL the layer responsible for the press, and the panel underneath is
+  never asked to close. `TopBar.Root` declares itself an overlay band and every popover, menu and
+  dialog seated in it hands its place on; the library keeps every deliberate route it already
+  owned. _(the top bar, 2026-09-18)_
+- **A menu in the window's own chrome opens on a press, never on a pointer passing over it.** Hover
+  activation earns its place in a strip a member READS by pointing at — the matter's section strip,
+  the rail's groups — and loses it at the corner of the window, where a pointer lands on its way to
+  somewhere else and the menu opens over whatever was actually being reached for. The account menu
+  is `openOnHover={false}`. _(the account corner, 2026-09-18)_
+- **A seam that names a fact the product already holds is not a seam, it is an omission.** The
+  account corner said "Your name and firm are not shown here yet" while the session bootstrap
+  carrying both was being awaited on every navigation a few files away. Where the data is already
+  read, the surface reads it: through the shared cache, at no new request, as a `LoadingRegion`
+  fixture while it is in flight, and — if the read does not answer — as what is known, or as
+  nothing at all, never as a sentence about our own plumbing. _(the profile menu, 2026-09-18)_
+
 ### List screens
 
 - **A list screen is ONE table at the full width, and a rail down its side has to earn the
@@ -1504,6 +1541,21 @@ generalizes to:
   `UIMode=tabbed`, whose Home tab carries those controls. A default, not a lock: the editor's View
   menu still switches, and a browser remembers the switch. The size of the editor's controls is
   a separate question, still open (the frame zoom or a branding stylesheet in the container).
+- **"Sometimes I press uploads or downloads or other buttons in the header and the other one will
+  stay open."** (2026-09-18.) A hover label outranked the open panel in the overlay library's
+  dismissal order, so the panel was never asked to close. The top bar is an overlay band now: one
+  open panel, and opening the next closes the last. Generalized above under _Controls and
+  patterns_.
+- **"I don't want the top right menu to open just on hover."** The account menu opens on a press
+  only. Generalized above; every other hover-opened menu sits in a strip read by pointing and is
+  unchanged.
+- **"This menu also still says 'Magna Carta / Your name and firm are not shown here yet'."** It
+  shows the member's name over the firm's, from the bootstrap every navigation already reads, and
+  the avatar carries their initials. Generalized above.
+- **"Downloads and upload pages should show the table data would populate in, even if there is no
+  data. I want this as a lint and standard rule, that data tables will still appear before data is
+  in the area."** (2026-09-18.) Built as `DataTable.EmptyRow` and the `table-behind-absence` rule;
+  fourteen surfaces fixed, three allowances stated. Generalized above under _Lists and tables_.
 - **"Calendar is very tight on my laptop, and has multiple scrollbars. If we move controls up higher
   in the header area, maybe this would be better, but it would also be against what we really
   do."** The escape was named and refused in the same sentence, so the controls stay over the grid

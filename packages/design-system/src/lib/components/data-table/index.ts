@@ -20,6 +20,7 @@ import ClearFilters from "./data-table-clear-filters.svelte";
 import LoadMore from "./data-table-load-more.svelte";
 import Header from "./table-header.svelte";
 import Body from "./table-body.svelte";
+import EmptyRow from "./data-table-empty-row.svelte";
 import Row from "./table-row.svelte";
 import Head from "./table-head.svelte";
 import Cell from "./table-cell.svelte";
@@ -127,6 +128,7 @@ export {
   LoadMore,
   Header,
   Body,
+  EmptyRow,
   Row,
   Head,
   Cell,
@@ -144,6 +146,7 @@ export {
   LoadMore as DataTableLoadMore,
   Header as TableHeader,
   Body as TableBody,
+  EmptyRow as TableEmptyRow,
   Row as TableRow,
   Head as TableHead,
   Cell as TableCell,

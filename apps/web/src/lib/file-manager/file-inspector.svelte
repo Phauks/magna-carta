@@ -659,6 +659,10 @@
   aria-label="Details"
 >
   {#if row === null}
+    <!-- structured-empty-allow: nothing is SELECTED, which is not a table waiting to fill. The
+         panel has no subject at all, so there is no header row to promise and no rows that would
+         ever land under it; the tables inside the panel draw their own frames the moment a file is
+         chosen. -->
     <div class="flex h-full items-center justify-center p-16">
       <!-- One line, standing alone: the tail explaining that details live here was saying what the
            panel's own presence already says. -->
@@ -856,7 +860,6 @@
           <LoadingRegion
             loading={versionsLoading}
             failed={versionsFailure !== null}
-            empty={versions === null || versions.length === 0}
             label="Reading this file's versions"
             onRetry={onRetryVersions}
             class="flex flex-col gap-8 p-12"
@@ -877,11 +880,6 @@
                 density="compact"
                 caption="This file's versions"
               />
-            {/snippet}
-            {#snippet emptyState()}
-              <p class="text-sm text-text-muted">
-                No committed version yet: the first check is still running. The bytes are saved.
-              </p>
             {/snippet}
             <DataTable.Grid
               grid={versionGrid}
@@ -1086,7 +1084,6 @@
               loading={scansLoading && scans === null}
               refreshing={scansLoading && scans !== null}
               failed={scansFailure !== null}
-              empty={scans !== null && scans.data.length === 0}
               label="Reading this file's checks"
               onRetry={onRetryScans}
               class="flex flex-col gap-8"
@@ -1107,11 +1104,6 @@
                   density="compact"
                   caption="This file's checks"
                 />
-              {/snippet}
-              {#snippet emptyState()}
-                <p class="text-sm text-text-muted">
-                  No check has been recorded for this file yet.
-                </p>
               {/snippet}
               <DataTable.Grid
                 grid={scanGrid}
