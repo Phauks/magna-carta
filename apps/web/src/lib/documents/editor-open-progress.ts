@@ -11,15 +11,25 @@
  * stall into a finding: the stage it stopped at, how long each earlier one took, and the host's
  * last answer with its Error ID.
  *
+ * THE STAGES ARE TOLD AS THEY HAPPEN, NOT TICKED OFF. The owner's direction of 2026-09-18: a list
+ * of six boxes that go from empty to checked tells a member nothing about what the wait IS, so
+ * the screen streams the open instead — each stage that finishes becomes a line saying what just
+ * happened and when, and the stage under way says what is happening and why it takes the time it
+ * takes. The full sequence with its timings sits behind one control for whoever wants it. That is
+ * `openFeed` here; `openSteps` remains the sequence the details show.
+ *
  * TWO SOURCES FEED THE MARKS, AND THEY ARRIVE OUT OF ORDER. The frame's own messages and the
  * iframe's load event are immediate; the host's record of the editor's callbacks (CheckFileInfo,
  * GetFile) reaches the screen through a poll, so it can lag the frame's later signals. That is why
  * a later mark implies every earlier one: `document-loaded` proves the whole chain ran, whatever
  * the poll has caught up on.
  *
- * NOT A PROGRESS BAR. The stages are of wildly unequal length (a session is minted in a moment; a
- * cold container takes most of a minute), so a bar drawn at a fraction would claim to know how far
- * along the open is, which is the one thing this screen does not know.
+ * THE BAR IS AGAINST TIME, NEVER AGAINST THE STAGES. The stages are of wildly unequal length (a
+ * session is minted in a moment; a cold container takes most of the wait), so a bar drawn at a
+ * fraction of them would claim to know how far along the open is, which is the one thing this
+ * screen does not know. What it does know is how long an open usually takes, so the bar fills over
+ * that time and says so beside it — a member sees the wait against the usual wait, which is what
+ * "is this normal?" actually asks — and past the usual time it stops moving and says that too.
  */
 import type { FailureDetailRow } from "@magna-carta/design-system/failure-details";
 import type { ProgressStep } from "@magna-carta/design-system/progress-steps";
@@ -27,14 +37,54 @@ import type { EditOpenProgress } from "./document-api.ts";
 
 export type OpenStage = "session" | "editor" | "frame" | "information" | "bytes" | "shown";
 
-/** The stages in the order they happen, each with the words the sequence shows while it runs. */
-export const OPEN_STAGES: readonly { id: OpenStage; label: string }[] = [
-  { id: "session", label: "Opening an editing session" },
-  { id: "editor", label: "Starting the editor" },
-  { id: "frame", label: "Loading the editor" },
-  { id: "information", label: "Asking the host about the document" },
-  { id: "bytes", label: "Fetching the document" },
-  { id: "shown", label: "Showing the document" },
+/**
+ * The stages in the order they happen. `label` names the stage in the sequence and the report;
+ * `doing` is what the feed says while the stage runs, in the present; `done` is the one line the
+ * feed keeps once it has happened.
+ */
+export const OPEN_STAGES: readonly {
+  id: OpenStage;
+  label: string;
+  doing: string;
+  done: string;
+}[] = [
+  {
+    id: "session",
+    label: "Opening an editing session",
+    doing: "Opening an editing session for this document.",
+    done: "Editing session opened.",
+  },
+  {
+    id: "editor",
+    label: "Starting the editor",
+    doing:
+      "Starting the editor. Each document runs its own editor, which starts when the document is first opened and is most of the wait.",
+    done: "Editor started.",
+  },
+  {
+    id: "frame",
+    label: "Loading the editor",
+    doing: "Loading the editor's page into the tab.",
+    done: "Editor loaded.",
+  },
+  {
+    id: "information",
+    label: "Asking the host about the document",
+    doing: "The editor is asking about the document: its name, its size, who you are.",
+    done: "The editor was told about the document.",
+  },
+  {
+    id: "bytes",
+    label: "Fetching the document",
+    doing: "The editor is fetching the document's contents.",
+    done: "Document fetched.",
+  },
+  {
+    id: "shown",
+    label: "Showing the document",
+    doing: "Laying the document out on the page.",
+    done: "Document shown.",
+  },
 ];
 
 /** When each stage completed, or null while it has not; plus what the host last told the editor. */
@@ -55,6 +105,21 @@ export interface OpenMarks {
  * few dozen reads, not a few hundred.
  */
 export const OPEN_PROGRESS_POLL_MILLISECONDS = 2500;
+
+/**
+ * How long an open usually takes, from the owner's own opens on 2026-09-18: about half a minute,
+ * nearly all of it the editor's container starting. The bar fills over this and the words beside
+ * it say it is the usual time, not a promise.
+ */
+export const TYPICAL_OPEN_MILLISECONDS = 30_000;
+
+/**
+ * When Retry is offered. Later than the usual open by a clear margin, because Retry shown at the
+ * usual time invites a member to abandon an open that is about to finish, and starting over is the
+ * one thing certain to take longer. Before this the panel says the open is running long; at this
+ * it says so and offers the way out.
+ */
+export const RETRY_AFTER_MILLISECONDS = 45_000;
 
 /** Marks for an open that has just begun: nothing reached, nothing answered. */
 export function freshMarks(startedAt: Date = new Date()): OpenMarks {
@@ -135,8 +200,9 @@ export function refusal(marks: OpenMarks): OpenRefusal | null {
 }
 
 /**
- * The sequence as ProgressSteps shows it. Done stages are done; the failed stage carries the
- * sentence in place of its label; while nothing has failed, the current stage is the active one.
+ * The sequence as ProgressSteps shows it, behind the details control. Done stages are done; the
+ * failed stage carries the sentence in place of its label; while nothing has failed, the current
+ * stage is the active one.
  */
 export function openSteps(
   marks: OpenMarks,
@@ -150,6 +216,120 @@ export function openSteps(
     if (failedStage === null && id === current) return { label, status: "active" };
     return { label, status: "pending" };
   });
+}
+
+/** One line of the streamed open: what happened or is happening, and when, from the start. */
+export interface OpenFeedLine {
+  readonly stage: OpenStage;
+  readonly status: "done" | "active" | "failed";
+  readonly text: string;
+  /** Seconds from the start of the open, as the line shows them: "0.4 s" for a mark, "12 s" for now. */
+  readonly at: string;
+}
+
+// The unit is spelled out in prose: "28.1 seconds", never "28.1 s". A wait is read by a person who
+// is waiting, and an abbreviation is one more thing to decode while they do. The feed's timestamp
+// column is the exception the prose rule allows for, a column of numbers a reader scans rather
+// than reads, and it says "s" once per line where the words would crowd the sentence they belong to.
+function seconds(milliseconds: number): string {
+  const value = (Math.max(0, milliseconds) / 1000).toFixed(1);
+  return `${value} ${value === "1.0" ? "second" : "seconds"}`;
+}
+
+function wholeSeconds(milliseconds: number): string {
+  const value = Math.max(0, Math.floor(milliseconds / 1000));
+  return `${String(value)} ${value === 1 ? "second" : "seconds"}`;
+}
+
+function feedStamp(milliseconds: number, whole: boolean): string {
+  const clamped = Math.max(0, milliseconds) / 1000;
+  return whole ? `${String(Math.floor(clamped))} s` : `${clamped.toFixed(1)} s`;
+}
+
+/**
+ * The open as a stream: every stage behind us as the line it left, then the stage under way as
+ * what it is doing right now, or, once the open has stopped, the sentence it stopped on. Nothing
+ * for the stages still to come — those are the sequence, behind the details control — so the feed
+ * only ever grows, one line per thing that actually happened.
+ */
+export function openFeed(
+  marks: OpenMarks,
+  now: Date,
+  failedStage: OpenStage | null = null,
+  failureSentence?: string,
+): OpenFeedLine[] {
+  const lines: OpenFeedLine[] = [];
+  const current = currentStage(marks);
+  for (const stage of OPEN_STAGES) {
+    if (stageDone(marks, stage.id)) {
+      // A stage the poll never marked but a later signal proved is stamped with the later mark: it
+      // happened no later than that, and a line without a time would read as a line without a fact.
+      const at = markOf(marks, stage.id) ?? firstMarkAfter(marks, stage.id) ?? now;
+      lines.push({
+        stage: stage.id,
+        status: "done",
+        text: stage.done,
+        at: feedStamp(at.getTime() - marks.startedAt.getTime(), false),
+      });
+      continue;
+    }
+    if (stage.id === failedStage) {
+      lines.push({
+        stage: stage.id,
+        status: "failed",
+        text: failureSentence ?? stage.label,
+        at: feedStamp(now.getTime() - marks.startedAt.getTime(), true),
+      });
+      break;
+    }
+    if (failedStage === null && stage.id === current) {
+      lines.push({
+        stage: stage.id,
+        status: "active",
+        text: stage.doing,
+        at: feedStamp(now.getTime() - marks.startedAt.getTime(), true),
+      });
+    }
+    break;
+  }
+  return lines;
+}
+
+function firstMarkAfter(marks: OpenMarks, stage: OpenStage): Date | null {
+  const from = OPEN_STAGES.findIndex((candidate) => candidate.id === stage);
+  for (const later of OPEN_STAGES.slice(from + 1)) {
+    const at = markOf(marks, later.id);
+    if (at !== null) return at;
+  }
+  return null;
+}
+
+/** The wait against the usual wait: how full the bar is, and the sentence beside it. */
+export interface OpenPace {
+  /** The elapsed time, for the bar's value; it is capped at `TYPICAL_OPEN_MILLISECONDS` there. */
+  readonly elapsedMilliseconds: number;
+  readonly sentence: string;
+  /** True once the open has run past the usual time: the bar is full and stays there. */
+  readonly overdue: boolean;
+}
+
+export const USUAL_TIME_SENTENCE = "Usually about half a minute.";
+export const RUNNING_LONG_SENTENCE = "Taking longer than usual. Still working on it.";
+
+/**
+ * What the panel says beside the bar. Under the usual time the bar fills and the words say what
+ * the usual time is; past it the bar is full and the words say so, without yet offering Retry
+ * (`RETRY_AFTER_MILLISECONDS` decides that, and the panel reads it), because an open past the
+ * usual time is far more often about to finish than stuck.
+ */
+export function openPace(startedAt: Date, now: Date): OpenPace {
+  const elapsedMilliseconds = Math.max(0, now.getTime() - startedAt.getTime());
+  const overdue = elapsedMilliseconds >= TYPICAL_OPEN_MILLISECONDS;
+  return {
+    elapsedMilliseconds: Math.min(elapsedMilliseconds, TYPICAL_OPEN_MILLISECONDS),
+    sentence: overdue ? RUNNING_LONG_SENTENCE : USUAL_TIME_SENTENCE,
+    overdue,
+  };
 }
 
 const STALLED_SENTENCES: Record<OpenStage, string> = {
@@ -176,23 +356,11 @@ export function stalledSentence(stage: OpenStage, marks: OpenMarks): string {
   return STALLED_SENTENCES[stage];
 }
 
-// The unit is spelled out: "28.1 seconds", never "28.1 s". A wait is read by a person who is
-// waiting, and an abbreviation is one more thing to decode while they do.
-function seconds(milliseconds: number): string {
-  const value = (Math.max(0, milliseconds) / 1000).toFixed(1);
-  return `${value} ${value === "1.0" ? "second" : "seconds"}`;
-}
-
-function wholeSeconds(milliseconds: number): string {
-  const value = Math.max(0, Math.floor(milliseconds / 1000));
-  return `${String(value)} ${value === 1 ? "second" : "seconds"}`;
-}
-
 /**
- * What the panel says once the open has run past the point a wait stops feeling like progress. The
- * same sentence the design system's loading region says of any read, in the same voice, so a member
- * who has seen one has seen the other; here it is said inside the staged panel, beside Retry, so it
- * arrives without moving anything else on the screen.
+ * What the panel says once the open has run past the point Retry is offered. The same sentence
+ * the design system's loading region says of any read, in the same voice, so a member who has seen
+ * one has seen the other; here it is said inside the streamed panel, beside Retry, so it arrives
+ * without moving anything else on the screen.
  */
 export const TAKING_LONGER_SENTENCE =
   "Still opening this document in the editor. This is taking longer than it should.";
@@ -232,11 +400,6 @@ export function openTrace(marks: OpenMarks, now: Date): string {
   return openRows(marks, now)
     .map((row) => `${row.label}: ${row.value}`)
     .join("\n");
-}
-
-/** "12 seconds so far": how long the open has been running, in whole seconds. */
-export function elapsedLabel(startedAt: Date, now: Date): string {
-  return `${wholeSeconds(now.getTime() - startedAt.getTime())} so far`;
 }
 
 /** "Stopped after 90 seconds": how long the open ran before it was called off. */

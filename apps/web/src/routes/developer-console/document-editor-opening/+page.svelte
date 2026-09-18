@@ -17,16 +17,16 @@
   import { stated } from "$lib/diagnostics/failure-view.ts";
   import DocumentOpeningProgress from "$lib/documents/document-opening-progress.svelte";
   import {
-    elapsedLabel,
     freshMarks,
     marked,
     OPEN_STAGES,
+    openFeed,
+    openPace,
     openRows,
     openSteps,
     openTrace,
     refusal,
     stalledSentence,
-    stoppedLabel,
     type OpenMarks,
     type OpenStage,
   } from "$lib/documents/editor-open-progress.ts";
@@ -66,6 +66,11 @@
       return { stage: id, marks: reached(previous), now: at(from + (id === "editor" ? 6 : 2.5)) };
     },
   );
+
+  // The two long waits: past the usual half minute with the bar full and the words saying so, and
+  // past forty-five seconds, where Retry is offered. Both still on the editor's cold start.
+  const runningLong = { marks: reached("session"), now: at(38) };
+  const pastRetry = { marks: reached("session"), now: at(52) };
 
   // The budget running out while the editor, up and ready, never asked the host about the document.
   const stalledMarks = reached("frame");
@@ -113,12 +118,14 @@
     <header class="flex max-w-prose flex-col gap-8">
       <ScreenHeader title="Document opening stages" back={DEVELOPER_CONSOLE_BACK} />
       <p class="text-sm text-text-muted">
-        The staged wait a member sees while a document opens in the browser editor: six stages,
-        each named as it happens, with the seconds so far beneath them. Every specimen is the
-        shipping panel over a fixed set of marks, worked out by the same module the editor screen
-        uses, so nothing here is a hand-written step list. The first six catch the open a few
-        seconds into each stage; the last two are the two ways an open stops, with the facts a
-        report needs beneath the notice.
+        The wait a member sees while a document opens in the browser editor, told as it happens:
+        a line for each stage as it finishes, the stage under way saying what it is doing, a bar
+        filling over the usual half minute, and the full sequence behind Show details. Every
+        specimen is the shipping panel over a fixed set of marks, worked out by the same module the
+        editor screen uses, so nothing here is a hand-written list. The first six catch the open a
+        few seconds into each stage; then the two long waits, one past the usual time and one past
+        the point Retry is offered; then the two ways an open stops, with the facts a report needs
+        beneath the notice.
       </p>
     </header>
 
@@ -131,11 +138,44 @@
               {OPEN_STAGES.find((stage) => stage.id === specimen.stage)?.label}
             </h3>
             <DocumentOpeningProgress
+              feed={openFeed(specimen.marks, specimen.now)}
               steps={openSteps(specimen.marks, null)}
-              elapsed={elapsedLabel(specimen.marks.startedAt, specimen.now)}
+              pace={openPace(specimen.marks.startedAt, specimen.now)}
             />
           </section>
         {/each}
+      </div>
+    </section>
+
+    <section class="flex flex-col gap-24">
+      <h2 class="text-xl font-semibold">The long waits</h2>
+      <div class="grid gap-24 lg:grid-cols-2">
+        <section class="flex flex-col gap-8">
+          <h3 class="text-sm font-semibold">Past the usual half minute</h3>
+          <p class="text-sm text-text-muted">
+            The bar is full and says the open is running long. Retry is not yet offered: an open
+            past the usual time is far more often about to finish than stuck.
+          </p>
+          <DocumentOpeningProgress
+            feed={openFeed(runningLong.marks, runningLong.now)}
+            steps={openSteps(runningLong.marks, null)}
+            pace={openPace(runningLong.marks.startedAt, runningLong.now)}
+          />
+        </section>
+        <section class="flex flex-col gap-8">
+          <h3 class="text-sm font-semibold">Past forty-five seconds</h3>
+          <p class="text-sm text-text-muted">
+            The sentence and Retry appear inside the panel, beneath the bar, without moving
+            anything above them.
+          </p>
+          <DocumentOpeningProgress
+            feed={openFeed(pastRetry.marks, pastRetry.now)}
+            steps={openSteps(pastRetry.marks, null)}
+            pace={openPace(pastRetry.marks.startedAt, pastRetry.now)}
+            stalled
+            onRetry={() => {}}
+          />
+        </section>
       </div>
     </section>
 
@@ -150,8 +190,8 @@
             how long each earlier one took.
           </p>
           <DocumentOpeningProgress
+            feed={openFeed(stalledMarks, stalledAt, stalledStage, stalledSentenceText)}
             steps={openSteps(stalledMarks, stalledStage, stalledSentenceText)}
-            elapsed={stoppedLabel(stalledMarks.startedAt, stalledAt)}
             rows={openRows(stalledMarks, stalledAt)}
             trace={() => openTrace(stalledMarks, stalledAt)}
           >
@@ -174,8 +214,8 @@
             the host issued, rather than waiting out the budget.
           </p>
           <DocumentOpeningProgress
+            feed={openFeed(refusedMarks, refusedAt, refusedStage, refusedSentenceText)}
             steps={openSteps(refusedMarks, refusedStage, refusedSentenceText)}
-            elapsed={stoppedLabel(refusedMarks.startedAt, refusedAt)}
             rows={openRows(refusedMarks, refusedAt)}
             trace={() => openTrace(refusedMarks, refusedAt)}
           >

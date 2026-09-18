@@ -23,6 +23,18 @@ ENV DONT_GEN_SSL_CERT="true"
 #                             the shipped coolwsd.xml default is 4).
 #   security.capabilities=false — run without the chroot-jail Linux capabilities that Cloudflare
 #                                 Containers do not grant (the kit uses a plain process boundary).
+#                                 This is the line the editor's server audit reports as "Documents
+#                                 are not effectively contained: missing capabilities or
+#                                 namespaces": coolwsd chroots a document's kit only with those
+#                                 capabilities, and with them off it also refuses to try Linux user
+#                                 namespaces instead (wsd/COOLWSD.cpp: "MountNamespaces is not
+#                                 compatible with NoCapsForKit"), so the audit line is the stated
+#                                 consequence of this setting, not a fault beside it. Every document
+#                                 still runs in its own container with no egress, which is the
+#                                 boundary this platform relies on. Turning the setting on is an
+#                                 experiment with one outcome that stops every open: coolforkit
+#                                 exits at startup when it holds neither the file capabilities nor
+#                                 a working namespace, so it wants a deploy somebody is watching.
 #   mount_jail_tree=false — the kit's files are linked or copied into its jail rather than
 #                           bind-mounted. Bind-mounting needs CAP_SYS_ADMIN, which the container
 #                           does not have; left on, coolwsd tries the mount, fails, falls back to

@@ -43,7 +43,6 @@
   import { goto } from "$app/navigation";
   import { onMount, untrack } from "svelte";
   import Badge from "@magna-carta/design-system/badge";
-  import { STALLED_AFTER_MILLISECONDS } from "@magna-carta/design-system/loading-region";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import type { MatterFile } from "$lib/file-manager/matter-file-api.ts";
@@ -60,16 +59,17 @@
   } from "./editor-frame-readiness.ts";
   import {
     currentStage,
-    elapsedLabel,
     freshMarks,
     marked,
     OPEN_PROGRESS_POLL_MILLISECONDS,
+    openFeed,
+    openPace,
     openRows,
     openSteps,
     openTrace,
     refusal,
+    RETRY_AFTER_MILLISECONDS,
     stalledSentence,
-    stoppedLabel,
     type OpenMarks,
     type OpenStage,
   } from "./editor-open-progress.ts";
@@ -102,7 +102,12 @@
      * whole screen, so the way back is a button on the editor's own bar, put there by this
      * component; absent, no button is inserted and the editor's Close stays the editor's.
      */
-    back?: { readonly href: string; readonly label: string } | null;
+    back?: {
+      readonly href: string;
+      readonly label: string;
+      /** The matter's number, the button's own word on the bar; null before a matter has one. */
+      readonly number?: string | null;
+    } | null;
   } = $props();
 
   // One name for the frame and the form that posts into it. Minted once per instance, so two
@@ -133,9 +138,10 @@
   const opening = $derived(!documentShowing && openFailure === null);
   const steps = $derived(openSteps(marks, failedStage, openFailure?.fallback));
   const editorOrigin = $derived(launch?.editorOrigin);
-  // Past the point a wait stops reading as progress, the panel says so and offers Retry, in place.
+  // Past the point Retry is worth offering (well after the usual open), the panel says so and
+  // offers it, in place. Before that the bar and its sentence carry the wait.
   const stalled = $derived(
-    opening && now.getTime() - marks.startedAt.getTime() >= STALLED_AFTER_MILLISECONDS,
+    opening && now.getTime() - marks.startedAt.getTime() >= RETRY_AFTER_MILLISECONDS,
   );
   // True from the moment the member asked to leave until the screen goes: a save has been asked
   // for and its answer, or the budget, decides when.
@@ -333,7 +339,12 @@
 
     const href = destination.href;
     const target = frame?.contentWindow;
-    target?.postMessage(insertButtonMessage(backToMatterButton(destination.label)), origin);
+    target?.postMessage(
+      insertButtonMessage(
+        backToMatterButton({ title: destination.label, number: destination.number ?? null }),
+      ),
+      origin,
+    );
     target?.postMessage(routeCloseThroughHostMessage(), origin);
 
     function onMessage(event: MessageEvent): void {
@@ -392,8 +403,8 @@
                  keeps that request's facts and the rows stay with the notice. Every later stop is
                  the editor's, and the rows say which stage, how long, and what the host answered. -->
             <DocumentOpeningProgress
+              feed={openFeed(marks, failedAt, failedStage, openFailure.fallback)}
               {steps}
-              elapsed={stoppedLabel(marks.startedAt, failedAt)}
               rows={failedStage === "session" ? undefined : openRows(marks, failedAt)}
               trace={failedStage === "session" ? undefined : () => openTrace(marks, failedAt)}
             >
@@ -408,8 +419,9 @@
             </DocumentOpeningProgress>
           {:else}
             <DocumentOpeningProgress
+              feed={openFeed(marks, now)}
               {steps}
-              elapsed={elapsedLabel(marks.startedAt, now)}
+              pace={openPace(marks.startedAt, now)}
               {stalled}
               onRetry={open}
             />

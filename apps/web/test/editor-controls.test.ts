@@ -21,11 +21,13 @@ const parse = (text: string): { MessageId: string; Values: Record<string, unknow
 
 describe("insertButtonMessage", () => {
   it("asks for the button with the fields the editor's shortcuts bar reads", () => {
-    const sent = parse(insertButtonMessage(backToMatterButton("Acme v. Jones")));
+    const sent = parse(
+      insertButtonMessage(backToMatterButton({ title: "Acme v. Jones", number: "2026-0012" })),
+    );
     expect(sent.MessageId).toBe("Insert_Button");
     expect(sent.Values).toMatchObject({
       id: BACK_TO_MATTER_BUTTON_ID,
-      label: "Matter",
+      label: "2026-0012",
       hint: "Back to Acme v. Jones",
       imgurl: BACK_ICON_DATA_URL,
       mobile: true,
@@ -33,6 +35,11 @@ describe("insertButtonMessage", () => {
     });
     // No unoCommand: with one set the editor would run it and never tell the host about the click.
     expect("unoCommand" in sent.Values).toBe(false);
+  });
+
+  it("names a matter that has no number yet by the word, never by a blank", () => {
+    expect(backToMatterButton({ title: "New consultation", number: null }).label).toBe("Matter");
+    expect(backToMatterButton({ title: "New consultation" }).label).toBe("Matter");
   });
 
   it("carries the icon as a data: URL, which is the one image source the editor's page allows", () => {
