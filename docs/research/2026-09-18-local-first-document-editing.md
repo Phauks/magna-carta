@@ -1,0 +1,225 @@
+# Local-first document editing with container escalation — assessment
+
+**Date:** 2026-09-18
+**Scope:** Whether a `.docx` open by a single member should be edited locally in the browser instead of in a Collabora container, escalating to the container only when a second editor arrives — what it would save in cost and open latency, what it would cost in fidelity, security posture and licensing, and how the escalation would work over the Durable Object that already coordinates every document.
+**Owner ruling, 2026-09-18:** "Let's stick to Collabora for now." The local-first option is **declined for now** — not rejected on the merits, and this note stays as the record so the question is not re-derived from scratch. ADR-0010 stands unamended. What survives the ruling is section 2a: the instance cap is removed, and the size stays at `standard-1` until the open-document peak is measured — the "~2.5 GiB" target that stood in the configuration was not a size the platform can express.
+**Purpose:** Research, prompted by the owner ("if this would increase response time, reduce costs, I would consider it"). **This is research, not a spec and not a decision.** Nothing here is built. ADR-0010 (Collabora as the editor host), ADR-0125 (topology, WOPI, auth) and ADR-0126 (concurrency and reconciliation) stand; section 6 names the one posture in ADR-0125 this would amend.
+**Companion:** [`2026-09-18-claude-docs-and-word-assessment.md`](2026-09-18-claude-docs-and-word-assessment.md) — the tracked-change AI edit path, which a local editor would also carry.
+**White-paper context:** _Documents_, _Delivery model_, _Performance & concurrency model_ — binding, not restated.
+
+---
+
+## 1. Summary
+
+**Yes, it is worth doing, and the seam for it is already in the design.** ADR-0125 placed a `getEditorBackend(fileId)` indirection with one implementation so that the editor backend stays swappable — "Collabora today, Office-for-web or a desktop-Word check-out path later" — while forbidding the one thing it must never be used for, pooling documents into one coolwsd. A browser-local backend for `.docx` is a third implementation of that seam, not a new architecture.
+
+Four findings, in the order they matter:
+
+1. **The container is the whole of the open latency and the whole of the cost, and it also sets the fleet ceiling.** A `standard-1` instance reserves 4 GiB for every open document at roughly **$0.04 per document-hour**, scales to zero only after a five-minute tail, is capped at `max_instances: 10` in the deployment today, and at the account's 6 TiB memory limit tops out near **1,500 documents open at once across every firm**. A local open costs one R2 read and parses in the browser. The screen budgets **90 seconds** for a cold open and was given a six-stage progress display because the wait was long enough to need naming.
+2. **Exactly one browser-local `.docx` editor meets the memory-safety rule.** SuperDoc — TypeScript over ProseMirror, JSZip and Yjs, with a V2 model that keeps OOXML authoritative "from open through export" rather than converting to HTML, tracked changes and comments, headless Node/Python/CLI/MCP surfaces, and a provider-agnostic Yjs collaboration layer. It is `.docx`-only, and it is **AGPLv3 or a commercial licence** with no published price. Every alternative is C++ in a container (OnlyOffice), C++ compiled to WASM (Nutrient), an HTML-model editor that cannot round-trip a filing (CKEditor, TinyMCE), or a product we would be writing ourselves (Rust has readers and writers, no editor).
+3. **Escalation is a state and a flush protocol on the Durable Object, not a subsystem.** `DocumentSession` already holds the participant set, the session lock, the working object's hash and host-assigned timestamp, and a staged-open protocol the browser already renders. The addition is a `local` edit state, a save route that is `PutFile` under another name, and a flush-then-spawn transition when a second _editor_ (never a viewer) arrives. Section 5 draws it.
+4. **The binding risk is fidelity, and it has a gate.** A JavaScript editor that re-serialises a document can lose what it does not model, and a filing cannot afford that. The document-engine validation harness (`docs/specs/2026-07-03-document-engine-validation-harness-design.md`) is the apparatus to answer it with numbers before any product code exists.
+
+So the recommendation is a **spike gated on fidelity, then the local backend behind the existing seam for `.docx` alone, with escalation; and only then, on measured numbers, the question of whether co-editing itself leaves the container** (section 3, option C). The container does not go away — it stays the engine for every other office format and the escape hatch for any `.docx` the local editor cannot hold — but it leaves the single-editor path, which is most opens.
+
+---
+
+## 2. What the container costs today
+
+Read from `apps/edit-worker/wrangler.jsonc`, `apps/edit-worker/src/document-editor-container.ts`, `apps/web/src/lib/documents/editor-frame-readiness.ts`, and Cloudflare's published Containers pricing.
+
+| Fact                                | Value                                                                                                                                |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Instance                            | `standard-1`: ½ vCPU, 4 GiB memory, 8 GB disk — "a headroom starting point over the spike's 1.16 GiB idle floor", to be right-sized to ~2.5 GiB |
+| Lifecycle                           | one container per open document, `sleepAfter: "5m"`, no warm cron — scales to zero, cold start on first open accepted                |
+| Deployment cap                      | `max_instances: 10` — ten documents open at once, fleet-wide, until raised                                                           |
+| Account ceiling                     | 6 TiB memory / 1,500 vCPU → **~1,536 concurrent open documents at 4 GiB** (~2,450 at 2.5 GiB) across every firm                       |
+| Open budget                         | `EDITOR_READY_BUDGET_MILLISECONDS = 90_000`; the platform cold start is ~1–3 s before coolwsd boots and loads the document; the spike could not load documents, so first-open is unmeasured |
+| Pricing (Workers Paid)              | memory $0.0000025 / GiB-s on the _provisioned_ size · CPU $0.000020 / vCPU-s on _active_ use · disk $0.00000007 / GB-s; 25 GiB-hours, 375 vCPU-minutes, 200 GB-hours included per month |
+
+**Per document-hour.** Memory 4 GiB × 3,600 s × $0.0000025 = **$0.036**; disk 8 GB × 3,600 × $0.00000007 = $0.002; CPU at a light 10% of ½ vCPU ≈ $0.004. **≈ $0.04 per document-hour**, plus ≈ $0.003 for the five-minute tail after every close. The included allowance covers about six document-hours a month.
+
+**Worked at a plausible firm.** Ten attorneys, three hours a day in documents, twenty-two days: 660 document-hours ≈ **$26 a month, ≈ $2.60 per user**. A hundred such firms ≈ $2,600 a month. Right-sizing to 2.5 GiB takes roughly 40% off. None of this is ruinous; the ceiling is the sharper fact, because a multi-tenant platform whose concurrency limit is set by memory reserved per open document has a scaling curve that bends the wrong way, and the single-editor case — a paralegal drafting alone, which is most opens — pays the full reservation.
+
+### 2a. What the right size is, and what would identify it
+
+Written after the owner asked for the identification and the arithmetic behind "right-size to ~2.5 GiB". The honest opening is a correction: **that figure was not calculated here.** It is the target `wrangler.jsonc` named, and the "~40%" in section 7 was (4 − 2.5) / 4 on the memory line. Read properly, three things are true.
+
+**The one measurement on record is unsourced.** The "1.16 GiB idle floor" entered `wrangler.jsonc` on 2026-09-11 (#599) as a comment. The slice 2·2 implementation plan's Step 3 — "Measure and record in the README: coolwsd RSS — idle baseline, +1 doc, +Nth doc, a heavy doc" — is unchecked, and `containers/collabora/` has no README. Whether 1.16 GiB was taken with the image's default of four prespawned kits or with the one the Dockerfile now sets is unrecorded. It is a plausible floor for coolwsd, forkit and one kit with LibreOffice core mapped, and nothing more can be said of it.
+
+**The number that decides the size has never been measured.** The size is set by the _peak_, not the floor: one document loaded into the kit, N editors on it, a save, and a PDF export, which is where LibreOffice's memory spikes. The failure mode makes the peak the whole question — a container that exceeds its memory is **restarted, with no swap**, so every keystroke since the last autosave is lost and the member is dropped into the successor-instance takeover (#646). Collabora's own guidance sizes a shared server at ~50 MB per user over a ~1 GiB base and ~2 GB per ~20 open documents; it also warns that a large spreadsheet "will spike memory well past typical recommendations". Here a container serves one document, so the kit's document delta and the export spike are the whole variable.
+
+**The menu is shorter than the comment assumed.** Cloudflare's predefined types are `lite` (1/16 vCPU, 256 MiB), `basic` (¼ vCPU, 1 GiB), `standard-1` (½ vCPU, 4 GiB), `standard-2` (1 vCPU, 6 GiB), `standard-3`, `standard-4`. A custom type must have **at least 1 vCPU and at least 3 GiB per vCPU**, at most 4 vCPU and 12 GiB. So:
+
+| Option                     | vCPU | Memory | Memory line, per document-hour | Verdict                                                                                                  |
+| -------------------------- | ---- | ------ | ------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `basic`                    | ¼    | 1 GiB  | $0.009                         | Under the quoted idle floor — would not boot                                                             |
+| **custom, floor**          | 1    | 3 GiB  | **$0.027**                     | The only smaller-memory configuration that exists; the "~2.5 GiB" target cannot be expressed             |
+| **`standard-1` (today)**   | ½    | 4 GiB  | **$0.036**                     | Current                                                                                                  |
+| `standard-2`               | 1    | 6 GiB  | $0.054                         | The step up if a heavy-document peak demands it                                                          |
+
+Memory is billed on the _provisioned_ size and CPU on _active_ use, so the full vCPU of the custom type costs nothing extra while idle and finishes a layout pass sooner when busy. Disk (8 GB today) is $0.002 an hour and the export spike in CPU is the same seconds either way. The saving from `standard-1` to the custom floor is therefore **$0.009 per document-hour — a quarter of the memory line, not 40%** — about $6 a month on the ten-attorney firm of section 2.
+
+**What would identify the right size, in order.**
+
+1. **Measure the peak on the real image against the real WOPI host** — the plan's unchecked Step 3, done properly: cgroup `memory.peak` or `docker stats` on the same image, over the load-profile fixtures plus a deliberately heavy `.docx` (a couple of hundred pages with images) and a large `.xlsx`, with one editor and with five, through open → edit → save → PDF export → thirty minutes idle. Record p50 and p99 of the peak, per scenario.
+2. **Pick the smallest allowed type whose limit sits at ~1.4× the p99 peak.** LibreOffice's memory is spiky, there is no swap, and the cost of a miss is a lost session. If the p99 of a normal `.docx` session lands near 2 GiB, the custom floor at 3 GiB qualifies and `standard-1` is generous; if a heavy document or a spreadsheet reaches 2.5 GiB, `standard-1` is the floor and `standard-2` is the heavy-document type.
+3. **Force one OOM and watch the recovery** — that the successor instance takes over the stale lock, reloads from `current`, and the member sees a notice rather than a blank frame. The size is only as safe as that path.
+4. **Only then change the type**, and the reason to try the custom floor is responsiveness — a full vCPU for layout and tile rendering — more than the nine-tenths of a cent.
+
+Back of the envelope, labelled as such: floor 1.16 GiB + a median `.docx` in the kit (0.1–0.3 GiB) + five editors (~0.25 GiB) + an export spike (0.3–0.5 GiB) ≈ **1.8–2.2 GiB** for an ordinary session, which the custom floor would hold at ~65–75% and `standard-1` at ~50%; a heavy document or a large workbook adds a gigabyte or more and puts the custom floor at the edge. That envelope is an argument for measuring, not for changing anything — which is why section 7's "do it regardless" is withdrawn below and `standard-1` stays until the number exists.
+
+**The instance cap is a separate matter and is gone.** `max_instances: 10` was removed on the owner's ruling of 2026-09-18: a fixed per-class cap is a cliff a growing fleet walks off, and six of the eight container workers already run without one. The bound is the account's 6 TiB / 1,500 vCPU concurrent limit, and the Host-label check keeps an invented label from booting a container.
+
+**Latency.** A local open is bounded by the bytes (a `.docx` is usually well under a megabyte) and a parse; SuperDoc's V2 "reads progressively" and "renders bounded windows". A container open is the platform cold start, coolwsd's boot, the image, the WOPI handshake and the load. The repository has no measured first-open figure; the spike (section 9 of the slice 2·2 design) measured the idle floor and could not load a document. The spike in section 7 below measures both on the same document.
+
+---
+
+## 3. What "local" can mean — three options
+
+**A. Desktop Word check-out.** Already designed and deferred (slice 2·2 design, section 11: "one-click Open in desktop Word — WOPI-desktop + Tauri shell"). Full fidelity, genuinely local, and it already has semantics: the `offline_working_copy` checkout, the check-in through quarantine ingest, conflict-copy-on-divergence, human reconcile. It needs a Word licence and a desktop, so it is the desktop-parity path (golden rule 6: a local acceleration with a server fallback), not an answer for the web. It does not close.
+
+**B. A browser-local editor for `.docx`.** The option the question is about. One editor, one format, escalation to the container when a second editor arrives. Sections 4 to 6.
+
+**C. Browser-local co-editing.** SuperDoc collaborates over Yjs with any provider, and a Durable Object is the natural provider on this platform — `DocumentSession` already is the per-document coordinator. Under C the container leaves the `.docx` path entirely; Collabora becomes the engine for every other format and an "open in the full editor" escape. It is the larger prize and the larger exposure: every keystroke of every editor goes through the JavaScript model, so a fidelity gap costs a firm on every document rather than on the single-editor ones. It is the second step, decided on B's measurements, not before.
+
+---
+
+## 4. The one candidate, honestly
+
+**SuperDoc** ([superdoc.dev](https://www.superdoc.dev/), [docs](https://docs.superdoc.dev/), [source](https://github.com/superdoc-dev/superdoc)), by Harbour.
+
+| Question                     | Answer, from the documentation                                                                                                                                                                                                                                                      |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Language and stack           | TypeScript; ProseMirror, Yjs, JSZip, Vite. Memory-safe throughout as stated (golden rule 14); the dependency tree is checked for C-compiled WASM at adoption — the npm registry refused this session                                                                                    |
+| Model                        | V2 is "OOXML-backed": it "reads, renders, edits, and writes DOCX files through their OOXML parts. It does not convert a DOCX to HTML and reconstruct the file after editing"; "OOXML remains the source of document meaning from open through export"                                    |
+| Formats                      | `.docx` only                                                                                                                                                                                                                                                                       |
+| Tracked changes and comments | Both; `trackChanges.decide()`, `doc.trackChanges.list()`; **open issue #3998: a programmatic tracked change cannot be attributed to a chosen author on 2.x** (1.x could); #3924: a tracked replace rewrites the whole selection rather than a minimal diff                            |
+| Headless                     | Node.js SDK (manages a headless editor process), Python SDK, CLI, MCP server — "the same operation names and data shapes" as the browser. A process, so it runs in a Container here, not a Worker                                                                                    |
+| Collaboration                | Yjs; "provider-agnostic — you create the Yjs provider and SuperDoc plugs into it": y-websocket, Hocuspocus, Liveblocks, or your own — so a Durable Object provider is in scope                                                                                                        |
+| Fidelity caveats             | None enumerated. "Support can vary by runtime, document state, and mutation mode" — `doc.capabilities()` is the documented way to ask. The preservation policy for elements outside its model is **not stated**, which is exactly what the spike must establish                        |
+| Licence                      | **AGPLv3**, or "the SuperDoc Commercial License" for "proprietary and commercial deployments"; no public price, enquiries to sales                                                                                                                                                  |
+
+**The licence is a procurement gate of the same kind as the ZDR artifacts.** Bundling an AGPLv3 library into `apps/web` and serving it to firms is network distribution; the platform would have to release its own source under the AGPL or hold the commercial licence. There is no third reading. The price is unknown and the owner's appetite is open question 1.
+
+### 4a. Can Collabora itself be made local?
+
+Asked by the owner directly, and worth a plain answer because it is the natural first thought. **Collabora Online is not a program that can be relocated.** It is LibreOffice core — C++ — running inside coolwsd on a server, laying out the page there and shipping the result to the browser as **image tiles** over a WebSocket, with every keystroke forwarded back. The browser half is a tile viewer and an input relay; it holds no document model. So "local" can mean exactly three things:
+
+| Meaning                                        | What exists                                                                                                                                                                                                                                                                                                                                                       | Verdict                                                                                                                                                                                                                                                                                                                                                               |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **In the browser, as WebAssembly**             | Two builds of LibreOffice core compiled with Emscripten. **COWASM**, Collabora's own — merged to `master`, built as "a fall-back non-collaborative editing mode for when network connection is lost", no release. **ZetaOffice** (allotropia) — open beta, Writer/Calc/Impress, renders to a canvas in a Web Worker, needs `COOP: same-origin` / `COEP: require-corp` on the page, free tier plus paid CDN and support, `zetajs` wrapper MIT. Neither publishes its download size; a compiled LibreOffice core is on the order of a hundred-plus megabytes before compression, verified only by building it | **Exists, not shippable here.** Both are C++ compiled to WASM, which golden rule 14 permits only with explicit owner consent and no memory-safe alternative — and section 4 shows one exists. Both still draw to a canvas, so the tile latency goes away and "not real text" stays. Neither collaborates. It is the road to take **only if** SuperDoc fails the fidelity gate and the owner would rather consent to C++ in the tab than lose LibreOffice's layout |
+| **On the desktop, through the Tauri shell**    | Collabora Office / LibreOffice installed beside the desktop app — the deferred "open in desktop" path (slice 2·2 design, section 11), which golden rule 6 admits as a local acceleration with the server as fallback                                                                                                                                                | Real, and parity-shaped, but it does nothing for the web, costs a ~300 MB native install, and puts a C++ parser on untrusted bytes outside any sandbox — the posture the container was built to avoid                                                                                                                                                                  |
+| **The container, but nearer or cheaper**       | Containers already run at Cloudflare's edge; pooling is the standing red flag                                                                                                                                                                                                                                                                                     | Nothing here changes the shape: one process per open document is what LibreOffice's co-editing model requires                                                                                                                                                                                                                                                         |
+
+So: **no, not usefully.** The container is the way to run LibreOffice's engine, and local editing means a different engine. That is the whole reason section 4 is about SuperDoc and not about moving Collabora.
+
+### 4b. What each has that the other does not
+
+Read from SuperDoc's published feature matrix ("Word feature support and fidelity": 93 features tracked — 28 fully editable, 29 partial, 1 preserved-only, 35 not editable) and from what the platform ships on Collabora today.
+
+**SuperDoc has, and Collabora does not:**
+
+- **No process per document.** Zero cold start, no 4 GiB reservation, no fleet ceiling, no per-hour cost, and the tab keeps working through a dropped connection.
+- **Real text in the page, not server-rendered tiles.** Typing does not wait for a round trip to the container; the page is crisp at any zoom; selection, find, copy and screen readers work as they do on any web page; it works on a phone. Day to day this is the largest difference a member would feel — on Collabora, input latency _is_ the network.
+- **A memory-safe parser** (golden rule 14): attacker-craftable bytes are parsed by TypeScript in the browser sandbox, not by C++ anywhere.
+- **An embeddable component with an optional toolbar**, so the editor can wear the design system. Today the editor is the one screen in the product that cannot (golden rule 2), because it is Collabora's own UI in a cross-origin iframe reachable only by `postMessage`.
+- **One document API in the browser and headless** (Node, CLI): the same operations that edit on screen can inspect and change a document on the server — which is what an assembly preview or a template check wants.
+- **CRDT collaboration that any provider can host** — a Durable Object included — with offline edits merging on reconnect. Collabora co-edits only inside one shared server process, which is _why_ there is a container per document.
+- **A published fidelity matrix**, which is itself a virtue: what breaks is written down, in Word's own terms, before anyone finds it in a filing.
+- Content controls (block, inline, row and cell, with tag, title and lock) as first-class editable structures.
+
+**Collabora has, and SuperDoc does not:**
+
+- **The LibreOffice layout engine.** Pagination and line breaking close enough to Word's for a court's page limit and for pleading paper with numbered lines. SuperDoc paginates by its own rules; how close they run is exactly what the harness in section 6 measures. This is the risk, and the only one that can end the option.
+- **Thirty-five of ninety-three features that SuperDoc cannot edit** — defining a new paragraph style, splitting or merging table cells, charts, SmartArt, watermarks, text frames and drop caps — and equations that round-trip as inert OMML. Each is a moment a member reaches for something and finds the door shut.
+- **Every office format.** Calc, Impress, Draw, `.doc`, `.odt`, `.rtf`, `.xlsx`, `.pptx` — shipped on the container in #646. SuperDoc is `.docx` alone.
+- **The same engine as the PDF conversion**, so the page a member sees is the page the PDF renders. Under SuperDoc, screen and PDF come from two engines.
+- **Document compare** — a native LibreOffice redline of two versions, which is the "document comparison" the white paper lists as a built-in capability. SuperDoc has nothing of the kind.
+- Spellcheck, autocorrect, hyphenation and thesaurus; a styles editor; field, table-of-contents and cross-reference generation.
+- Maturity and a security track record, and an isolation model already designed, built and shipped here.
+- **A permissive licence** — MPL-2.0 — against AGPLv3 or a commercial contract.
+
+**The honest summary:** SuperDoc is the better _editing experience_ and the better _platform fit_ — cost, latency, memory safety, the design system, scaling — and Collabora is the better _word processor_. That asymmetry is the whole case for keeping both behind one seam: the single-editor `.docx` draft, which is most opens, on SuperDoc; everything else — a second editor, another format, compare, any of the thirty-five — on the container, reached by escalation or by a door the member can open themselves (open question 3).
+
+**Rejected alternatives, so they are not re-derived.** OnlyOffice's editor is a C++ document server — a container by another name, and a C++ one. Nutrient's (PSPDFKit's) Web SDK `.docx` editing is C++ compiled to WASM, which golden rule 14 admits only with explicit consent and no memory-safe alternative — and here one exists. CKEditor 5 and TinyMCE edit an HTML model and import or export `.docx` at the edges, which is not a round trip a filing survives. Rust has `docx-rs` for reading and writing and nothing that edits; writing the editor is a product, not a slice.
+
+---
+
+## 5. The escalation design
+
+The per-document `DocumentSession` Durable Object stays the single authority. `file.edit_state` today is `idle | coediting | checked_out`; this adds **`local`** and an internal **`escalating`**.
+
+| From         | Event                                       | To           | What happens                                                                                                                                                                                                                                                                                                                                                              |
+| ------------ | ------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `idle`       | first **edit** launch, `.docx`               | `local`      | The Durable Object records the participant, takes the session lock on the local client's behalf, mints the same short capability token. The browser fetches the working object (or the latest clean version) by a presigned GET on the content domain — the `files.` origin `FILES_ORIGIN` already reserves for previews and downloads — and opens it in the local editor. |
+| `local`      | autosave                                    | `local`      | A PUT to a host route that **is `PutFile` under another name**: the same streaming SHA-256 into the R2 write, the same host-assigned timestamp, the same 409 on a stale presented timestamp, capability enforced server-side. Debounced to seconds, not minutes, because the tab is the only copy.                                                                          |
+| `local`      | second **edit** launch                      | `escalating` | The second launch is answered "joining — the document is switching to shared editing" and the staged-open screen shows it as a stage. The Durable Object pushes _flush_ to the first client over the live channel; the first client saves and acknowledges. Bounded wait (a few seconds); past it, the Durable Object proceeds on the last autosave — the same loss window a crashed container has today. |
+| `escalating` | flush acknowledged or wait elapsed          | `coediting`  | The Durable Object spawns the Collabora container over `current` exactly as an `idle → coediting` open does today. Both clients launch the Collabora frame. The first client's screen states who joined and reopens at the top of the document — cursor and scroll position are lost, once, and the notice says so.                                                        |
+| `coediting`  | editors leave, down to one                  | `coediting`  | **No de-escalation mid-session.** Hysteresis: a co-author who looks in for a minute would otherwise cost two editor swaps. The container stays until the session closes.                                                                                                                                                                                                  |
+| `coediting`  | last editor leaves                          | `idle`       | Session close, version cut, as today.                                                                                                                                                                                                                                                                                                                                     |
+| `local`      | last editor leaves                          | `idle`       | Session close, version cut from `current`. No container to sleep.                                                                                                                                                                                                                                                                                                         |
+| `local`      | client vanishes (tab closed without a close) | `idle`       | The idle reap, as today — and a shorter window than 30 minutes is right here, since there is no container being kept warm and the autosave record _is_ the state.                                                                                                                                                                                                         |
+| any          | **view** launch                             | unchanged    | **Viewers never escalate and reading is never blocked** (ADR-0126). A viewer of a `local` document gets a read-only local render or the existing preview.                                                                                                                                                                                                                 |
+| any          | non-`.docx` edit launch                     | `coediting`  | Calc, Impress, Draw, `.doc`, `.odt` go to the container directly. The discovery-based file-type register the editor shipped with (#646) already routes by type; this adds one branch.                                                                                                                                                                                      |
+| `checked_out` | any                                        | as today     | A checkout is not a lock (the standing ruling); it composes with `local` exactly as it composes with `coediting`.                                                                                                                                                                                                                                                          |
+
+**What is preserved unchanged.** One container per document, never pooled (the red flag stands, and escalation spawns the per-`fileId` container, not a warm generic one). Tenancy at use — the save route re-derives firm, bucket and key from the token, never from the request. Capability enforced server-side — a view token cannot PUT. The Durable Object is the only writer of `current`, so the tracked-change apply path in the companion note lands on the same lock in either mode.
+
+**The live channel.** The flush needs a push to the first client. The document-presence design (`docs/specs/2026-08-25-document-presence-design.md`) needs the same channel for the same Durable Object, and the push-progress WebSocket protocol exists; until it is wired, the local client's autosave cadence bounds the loss. Building the channel once for presence and escalation is the "build when in the area" case.
+
+---
+
+## 6. What it costs
+
+**Fidelity — the binding risk, and the one with a gate.** Collabora is a full layout engine; a document it saves is the document Word would save, near enough for a court. A JavaScript editor that models a subset can drop the rest on export, silently, and a filing that lost a numbering definition, a field, a section property or a content control is a filing that has to be redone. SuperDoc's V2 claims are the right claims and its preservation policy is unstated, so the answer is measured, not read: extend the validation harness with a `.docx` round-trip operation — open, save with no edit, diff; open, one edit, save, diff against Collabora's result for the same edit — over the load-profile fixtures and a corpus of firm-shaped real documents, with the pass criterion written down before the spike runs. **No product code before the number exists.**
+
+**A security posture change, to be recorded as one.** Today the raw `.docx` bytes never reach the browser: section 3a of the slice 2·2 design makes the editor a trusted derived renderer, and `GetFile` streams R2 to the container, so an attacker-craftable file is parsed only by a least-privilege process with no egress. A local editor parses that file in the member's browser. The mitigations are real and mostly built — only post-quarantine files are openable (ADR-0081), the bytes are served from the cookieless content domain and never carry an app cookie, the parser is memory-safe TypeScript in the app origin, `packages/metadata/src/guards.ts` already shows the zip-bomb guard the same parser needs, and embedded images ride the preview sandbox rules (ADR-0029) — but the posture in ADR-0125 changes and the change must be an amendment ADR, not a side effect.
+
+**Licence.** AGPLv3 or commercial, above. A decision before the spike, not after, because a spike on a library the platform cannot ship is a spike wasted.
+
+**Two editors, two canvases.** A member drafting alone sees SuperDoc; when a colleague joins, Collabora. The design-system shell around both can be one shell; the toolbars, the review pane and the comment margin will not be identical. That is a UX cost to name, and the escalation notice is where it is named.
+
+**Identity across the switch.** Both editors read and write OOXML revisions and comments, but each stamps its author from its own session user. The name-and-email mapping has to be one mapping in both, or a comment changes owner when the document escalates. Small, real, and a fitness function.
+
+**`.docx` only.** Everything else stays on the container. That is fine; it is the majority format and the one every template assembles into.
+
+---
+
+## 7. Recommendation and sequence
+
+1. **Spike, no product code.** (a) The fidelity gate: SuperDoc headless round-trip through the validation harness over the fixture corpus, pass criterion fixed first. (b) `w14:paraId` preservation across a SuperDoc save and across a Collabora save — the companion note's block addressing depends on it. (c) First-open latency, container versus local, on the same document, measured. (d) The commercial-licence quote. (e) The dependency tree, for anything C-compiled.
+2. **If it passes: option B behind `getEditorBackend`, `.docx` only, with escalation** — the `local` state, the save route, the flush protocol over the presence channel, the amendment ADR for the posture, and the identity-mapping fitness function. This is the step where the container leaves the single-editor path.
+3. **Measure, then decide option C on the numbers** — whether co-editing itself leaves the container.
+
+**Independently — revised the same day, see section 2a.** The "right-size to ~2.5 GiB, ~40% off" line that stood here was wrong twice: the platform cannot configure a 2.5 GiB instance (a custom type needs ≥ 1 vCPU and ≥ 3 GiB per vCPU), and the only smaller option saves a quarter of the memory line, not 40%. `standard-1` stays until the open-document peak is measured. `max_instances` is removed on the owner's ruling, not raised.
+
+**Not to do.** Pool containers to save the cost instead (the red flag stands, and the isolation argument has not changed). De-escalate mid-session. Ship local editing on the strength of a demo rather than the harness.
+
+---
+
+## 8. Open questions for the owner
+
+1. **AGPL or commercial** — is either acceptable? A no to both ends the option at section 4, and there is no memory-safe second candidate.
+2. **Is losing cursor and scroll position on escalation acceptable**, stated once in a notice? If the switch has to be invisible, that pushes straight to option C and its larger fidelity exposure.
+3. **Should a member be able to choose the full editor for a `.docx`** — an "open in the full editor" escape? It is one launch parameter and I would say yes; a firm that hits a fidelity edge needs a door that does not require us.
+4. **Does the local mode's shorter idle reap** (against today's 30 minutes) want to be a setting, or a constant?
+
+---
+
+## 9. Sources
+
+- [Cloudflare Containers — Pricing](https://developers.cloudflare.com/containers/pricing/) — instance sizes, per-second rates, the included allowance, memory and disk billed on provisioned size and CPU on active use (section 2).
+- [Cloudflare Containers — Limits](https://developers.cloudflare.com/containers/platform-details/limits/) and [Custom container instance types (changelog, 2026-01-05)](https://developers.cloudflare.com/changelog/post/2026-01-05-custom-instance-types/) — the predefined types, the custom-type floor of 1 vCPU and 3 GiB per vCPU, the account concurrency limits (section 2a).
+- [Cloudflare Containers — FAQ](https://developers.cloudflare.com/containers/faq/) — out-of-memory restarts the instance; no swap (section 2a).
+- [Collabora Online — FAQs](https://www.collaboraonline.com/faqs/) and [System requirements for Collabora Online — Nextcloud community](https://help.nextcloud.com/t/system-requirements-for-collabora-online/30694) — the per-user and per-document sizing guidance (section 2a).
+- [SuperDoc — How SuperDoc works](https://docs.superdoc.dev/resources/how-superdoc-works/) — the V2 OOXML-backed model, headless surfaces, `doc.capabilities()` (section 4).
+- [SuperDoc — Self-hosted collaboration](https://docs.superdoc.dev/guides/collaboration/self-hosted-overview) — the provider-agnostic Yjs layer (sections 3 and 4).
+- [SuperDoc — Licensing](https://docs.superdoc.dev/resources/license/) — AGPLv3 and the commercial licence (section 4).
+- [superdoc-dev/superdoc — README](https://github.com/superdoc-dev/superdoc/blob/main/README.md) — stack, formats, dual licence (section 4).
+- [superdoc/docx-editor#3998](https://github.com/superdoc/docx-editor/issues/3998), [#3924](https://github.com/superdoc/docx-editor/issues/3924), [#3568](https://github.com/superdoc/docx-editor/issues/3568) — the tracked-change attribution and diff gaps on 2.x (section 4).
+- [DOCX Editor — Word feature support and fidelity](https://www.docx-editor.dev/docs/1.x/word-fidelity) — the 93-feature matrix (section 4b).
+- [CollaboraOnline/online — `wasm/README.no-container.md`](https://github.com/CollaboraOnline/online/blob/main/wasm/README.no-container.md) and [Collabora Online and WASM (FOSDEM 2023)](https://av.tib.eu/media/61559) — COWASM's purpose and status (section 4a).
+- [Announcing ZetaOffice](https://blog.allotropia.de/2024/11/08/announcing-zetaoffice-a-new-libreoffice-technology-product-for-web-mobile-desktop/), [Launching ZetaJS](https://blog.allotropia.de/2024/11/08/launching-zetaoffice/), [zetaoffice.net](https://zetaoffice.net/) — the LibreOffice-in-WASM product, its headers and its beta terms (section 4a).
+- [Hocuspocus](https://github.com/ueberdosis/hocuspocus) — a self-hosted Yjs backend, MIT; named as one of the providers SuperDoc accepts (section 3).
+- Repository: `apps/edit-worker/wrangler.jsonc`, `apps/edit-worker/src/document-editor-container.ts`, `apps/api-worker/src/editing/document-session.ts`, `apps/api-worker/src/editing/edit-session-route.ts`, `apps/web/src/lib/documents/office-document-editor.svelte`, `apps/web/src/lib/documents/editor-frame-readiness.ts`, `packages/file-manager/src/checkout-statements.ts`, and the slice 2·2, document-presence and validation-harness designs under `docs/specs/`.
