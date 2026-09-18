@@ -17,7 +17,8 @@ Worker's and are unreachable from here.
 - `src/validation.ts` — every refusal as a code the route maps to a problem type
 - `src/meeting-statements.ts` — the SQL, and **the access gate**: `visibleEventClause` is the one
   place the walled-matter question is answered
-- `src/meeting-service.ts` — create, join, leave, end; each one batch with its audit rows
+- `src/meeting-service.ts` — create, join, leave, end, and the socket-loss close; each one batch
+  with its audit rows
 
 ## A meeting has no visibility rule of its own
 
@@ -61,6 +62,35 @@ without a leave. `MAX_MEETING_PARTICIPANTS` is measured against exactly that cou
 
 A join by somebody who already has an **open** stay returns that stay rather than opening a second
 one, so a reconnecting browser occupies one seat and a leave has one row to close.
+
+**Every read here is a round trip ahead of its write, and the database holds what the read cannot.**
+Both rules that a read-then-write cannot span are in the schema, and both are partial on the open
+stay because the closed ones are the record: a unique index on `(meeting_id, user_id) WHERE left_at
+IS NULL`, and the ceiling as the attendance insert's own `WHERE`, marked `guarded()` so a batch past
+it rolls back whole rather than seating a thirteenth person. The service's own count still runs, and
+still produces the REASON a member reads — it just no longer produces the limit. The route maps the
+guard label (`JOIN_CAPACITY_GUARD`) and the two constraint predicates
+(`isOpenStayConflict`, `isMeetingPerEventConflict`) onto the answers the member wanted, which is the
+open stay, the full room, and the winner's room.
+
+**A stay can also be closed by nobody.** `closeAttendanceAfterSocketLoss` is the room's sweep, not a
+member's act: addressed to the STAY rather than to the meeting-and-member pair, refusing nothing, and
+carrying no visibility predicate — the room is closing its own record rather than answering a reader.
+It writes the same `meetings.meeting.left` event with `reason` from `MEETING_DEPARTURE_REASONS`, so
+how a gathering emptied is one read rather than two event names meaning nearly the same thing.
+
+## The three lists are three orderings, not three filters
+
+`listMeetings` takes a `MeetingListScope` and each scope brings its own sort key: live by how long
+somebody has been in the room, upcoming by when it starts (soonest first — a page of the FIRST ten is
+the answer and the last ten is not), recent by when it ended. One ordering would make two of the
+three pages wrong. The keyset is over the sort key the query itself returns, so a cursor is the same
+opaque pair whichever scope minted it.
+
+**The upcoming scope takes the caller's day as an argument and will not derive one.** A civil date is
+a day in a place; this package reads no clock and the Worker has no zone to read one out of an
+instant with. `since` on the recent scope is an INSTANT and is the caller's to compute, because two
+instants compare the same everywhere. Standard: [`docs/conventions/dates.md`](../../docs/conventions/dates.md).
 
 ## What the audit log carries, and what it never could
 

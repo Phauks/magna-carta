@@ -17,15 +17,21 @@ import {
   closeAttendanceStatement,
   countOpenAttendance,
   endMeetingStatement,
-  insertAttendanceStatement,
+  insertAttendanceUnderCapStatement,
   insertMeetingStatement,
+  readAttendance,
   readMeeting,
   readMeetingEvent,
   readMeetingForEvent,
   readOpenAttendance,
   startMeetingStatement,
 } from "./meeting-statements.ts";
-import { MAX_MEETING_PARTICIPANTS, type MeetingEventKind, type MeetingRow } from "./types.ts";
+import {
+  MAX_MEETING_PARTICIPANTS,
+  type MeetingDepartureReason,
+  type MeetingEventKind,
+  type MeetingRow,
+} from "./types.ts";
 import { refuse } from "./validation.ts";
 
 // The meeting's write paths: start a room on an event, arrive, leave, and close it.
@@ -35,6 +41,21 @@ import { refuse } from "./validation.ts";
 // batch. The routing credentials, the signaling socket and the media itself are the Worker's, and
 // none of them is reachable from this package — what is recorded here is that a gathering happened
 // and who was in it, which is the only part that belongs in the firm's record at all.
+
+/**
+ * The label the attendance insert's guard carries, exported because a caller has to match on it.
+ *
+ * A guard refusal reaches a route as one error type for every guard in the batch, and what separates
+ * "the room filled up while you were joining" from a genuine fault is this string. Naming it here
+ * keeps the two ends from drifting on a literal — a route matching a label nothing raises would
+ * answer every capacity race with an Error ID.
+ */
+export const JOIN_CAPACITY_GUARD = "meeting.join.capacity";
+
+// The two labels the departure audit row carries, named once so the two write paths cannot drift on
+// a string.
+const DEPARTED = "left" satisfies MeetingDepartureReason;
+const SOCKET_LOST = "socket-lost" satisfies MeetingDepartureReason;
 
 export interface MeetingServiceOptions {
   readonly clock: { now(): string };
@@ -154,6 +175,11 @@ export async function joinMeeting(
   // a product decision about what a tile grid can show and hear, not a limit of the routing layer;
   // refusing the thirteenth person with a reason is honest, and a room that admits everybody and
   // degrades for all of them is not.
+  //
+  // This read is what produces the REASON. It cannot produce the limit: it is a round trip earlier
+  // than the write, so a dozen browsers pressing Join together all read eleven and all pass. The
+  // insert carries the same count in its own WHERE and is guarded, which is what actually holds the
+  // ceiling — see insertAttendanceUnderCapStatement.
   const present = await countOpenAttendance(database, meetingId);
   if (present >= MAX_MEETING_PARTICIPANTS) {
     refuse(
@@ -169,12 +195,16 @@ export async function joinMeeting(
     attendanceId,
     effect: {
       statements: [
-        insertAttendanceStatement(database, {
-          id: attendanceId,
-          meetingId,
-          userId: options.actorUserId,
-          now,
-        }),
+        guarded(
+          insertAttendanceUnderCapStatement(database, {
+            id: attendanceId,
+            meetingId,
+            userId: options.actorUserId,
+            capacity: MAX_MEETING_PARTICIPANTS,
+            now,
+          }),
+          JOIN_CAPACITY_GUARD,
+        ),
         ...(firstArrival ? [startMeetingStatement(database, { id: meetingId, now })] : []),
         ...(firstArrival
           ? [
@@ -233,7 +263,78 @@ export async function leaveMeeting(
           actorUserId: options.actorUserId,
           clock: options.clock,
           randomSource: options.randomSource,
-          metadata: { attendanceId: open.id, joinedAt: open.joined_at, leftAt: now },
+          metadata: {
+            attendanceId: open.id,
+            joinedAt: open.joined_at,
+            leftAt: now,
+            reason: DEPARTED,
+          },
+        }),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+/** What the room needs to close a stay nobody is going to close by hand. */
+export interface SocketLossOptions {
+  readonly clock: { now(): string };
+  readonly randomSource?: RandomSource;
+}
+
+/**
+ * A stay closed because the connection went and did not come back.
+ *
+ * WHY THIS IS NOT `leaveMeeting`. Leaving is an act somebody took, and it is refused when the caller
+ * is not in the room, when the meeting has not started and when it has ended — all correct for a
+ * person pressing a button, and all wrong for a sweep tidying up after a closed laptop, which has no
+ * actor to refuse and must never leave a stay open because the meeting moved underneath it. So this
+ * is addressed to the STAY rather than to the meeting-and-member pair, and it takes no visibility
+ * predicate: the room is closing its own record, not answering a reader.
+ *
+ * The audit row says what happened rather than pretending somebody left: the same
+ * `meetings.meeting.left` event, carrying `reason` from a two-value vocabulary, so the record can be
+ * read for how a gathering emptied — people leaving, against connections dropping — without a second
+ * event name meaning almost the same thing. `actorUserId` is the member whose stay it is, because it
+ * is their presence the row records; nobody else acted.
+ *
+ * A stay that is already closed produces NO statements and `closed: false`. That is the ordinary
+ * outcome of a race with the leave route or with the host ending the meeting, and moving an instant
+ * somebody's record already carries would be a worse answer than doing nothing.
+ */
+export async function closeAttendanceAfterSocketLoss(
+  database: SqlDatabase,
+  attendanceId: MeetingAttendanceId,
+  options: SocketLossOptions,
+): Promise<{ closed: boolean; effect: EffectWrite }> {
+  const stay = await readAttendance(database, attendanceId);
+  if (stay === undefined || stay.left_at !== null) {
+    return { closed: false, effect: { statements: [], outboxMessages: [] } };
+  }
+
+  const now = options.clock.now();
+  return {
+    closed: true,
+    effect: {
+      statements: [
+        guarded(
+          closeAttendanceStatement(database, { id: attendanceId, now }),
+          "meeting.socketLoss",
+        ),
+        domainAuditStatement(database, {
+          event: "meetings.meeting.left",
+          subjectId: stay.meeting_id,
+          actorUserId: stay.user_id,
+          clock: options.clock,
+          randomSource: options.randomSource,
+          // Identifiers, instants and one closed-vocabulary label. Nothing about the connection
+          // itself: which network failed is not the firm's record of who was in the room.
+          metadata: {
+            attendanceId,
+            joinedAt: stay.joined_at,
+            leftAt: now,
+            reason: SOCKET_LOST,
+          },
         }),
       ],
       outboxMessages: [],

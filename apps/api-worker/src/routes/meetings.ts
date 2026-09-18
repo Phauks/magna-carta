@@ -1,7 +1,13 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
+import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
-import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
+import { decodeCursor, encodeCursor } from "@magna-carta/data-access/cursor-pagination";
+import {
+  GuardedWriteRefusedError,
+  type BatchDatabase,
+  type EffectWrite,
+} from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
@@ -9,17 +15,27 @@ import type { MeetingId, UserId } from "@magna-carta/identifiers/types";
 import {
   createMeeting,
   endMeeting,
+  JOIN_CAPACITY_GUARD,
   joinMeeting,
   leaveMeeting,
 } from "@magna-carta/meetings/meeting-service";
 import {
+  isMeetingPerEventConflict,
+  isOpenStayConflict,
   listAttendance,
+  listMeetings,
+  MAX_ATTENDANCE_PAGE_SIZE,
   readMeeting,
   readMeetingForEvent,
   readMeetingSummary,
   readOpenAttendance,
 } from "@magna-carta/meetings/meeting-statements";
-import { MEETING_EVENT_KINDS, type MeetingEventKind } from "@magna-carta/meetings/types";
+import {
+  MAX_MEETING_PARTICIPANTS,
+  MEETING_EVENT_KINDS,
+  MEETING_LIST_SCOPES,
+  type MeetingEventKind,
+} from "@magna-carta/meetings/types";
 import { MeetingValidationError } from "@magna-carta/meetings/validation";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
@@ -33,12 +49,15 @@ import {
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierPathParam } from "../contracts/common.ts";
+import { cursorQuery, paginated } from "../contracts/pagination.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
 import { isWebSocketUpgrade } from "../progress/job-progress-sockets.ts";
 import { meetingSocketRequest } from "../meetings/meeting-room.ts";
 import { sfuClientForEnv } from "../meetings/sfu-client.ts";
+import { recordRealtimeFailure } from "../realtime/realtime-failure.ts";
+import { generateIceServers } from "../realtime/turn-credentials.ts";
 
 // The meeting's HTTP surface: start a room on a calendar event, arrive, leave, close it, read who
 // was in it, and upgrade into the room's signaling socket.
@@ -65,6 +84,15 @@ const HOST = "meetings:host" as const;
 // authorization is billed to this account, so it lasts about as long as a meeting rather than
 // indefinitely.
 const RELAY_CREDENTIAL_TTL_SECONDS = 3600;
+
+// One page of the meetings list. A firm's live meetings are a handful, and the recent window is
+// thirty days of them, so this is a walk of a few pages at most rather than a bound anybody meets.
+const MAX_MEETING_PAGE_SIZE = 50;
+
+// How far back "recently ended" reaches. Long enough that a member coming back from a week away
+// still finds the conference they need the attendance of; short enough that the list stays a list of
+// what is happening rather than an archive, which is what the event's own record is for.
+const RECENT_WINDOW_DAYS = 30;
 
 // The public resolution server a browser falls back on when this deployment mints no relay
 // credentials for it. It carries no credential and routes no media — it only tells a browser what
@@ -143,9 +171,19 @@ const MeetingAttendanceEntry = z
   })
   .openapi("MeetingAttendanceEntry");
 
-const MeetingAttendance = z
-  .object({ data: z.array(MeetingAttendanceEntry) })
-  .openapi("MeetingAttendance");
+const MeetingAttendancePage = paginated(MeetingAttendanceEntry).openapi("MeetingAttendancePage");
+
+const MeetingSummaryPage = paginated(MeetingSummaryResponse).openapi("MeetingSummaryPage");
+
+// THE DAY COMES FROM THE CALLER, and that is the whole reason this parameter exists. A civil date is
+// a day in a PLACE: the server holds instants and has no zone to read one out of, so a "today"
+// derived here would be UTC's — and a member in Honolulu asking at nine in the evening would lose
+// the meeting they have at eleven, because the server's day had already turned over. The reader's
+// browser knows its own zone and nothing else does. Standard: docs/conventions/dates.md.
+const listMeetingsQuery = cursorQuery.extend({
+  scope: z.enum(MEETING_LIST_SCOPES),
+  today: z.string().regex(CIVIL_DATE_PATTERN).optional(),
+});
 
 const StartedMeeting = z
   .object({
@@ -225,7 +263,11 @@ function readMeta(action: string): RouteMeta {
   };
 }
 
-function writeMeta(action: string, permission: typeof JOIN | typeof HOST): RouteMeta {
+function writeMeta(
+  action: string,
+  permission: typeof JOIN | typeof HOST,
+  rateLimit: RouteMeta["rateLimit"] = "default",
+): RouteMeta {
   return {
     operationId: `meetings.${action}`,
     surface: "app",
@@ -238,7 +280,7 @@ function writeMeta(action: string, permission: typeof JOIN | typeof HOST): Route
     // meeting twice over without ever having left.
     idempotency: "required",
     idempotencyStore: "firm",
-    rateLimit: "default",
+    rateLimit,
   };
 }
 
@@ -266,6 +308,29 @@ const startRoute = defineOpenAPIRoute(writeMeta("start", HOST), {
       content: { "application/json": { schema: StartedMeeting } },
     },
     ...writeErrors,
+  },
+});
+
+const listRoute = defineOpenAPIRoute(readMeta("list"), {
+  method: "get",
+  path: "/api/v1/meetings",
+  description:
+    "The meetings a member can reach, in one of three scopes: `live` (in progress, longest-running " +
+    "first), `upcoming` (started but not yet joined, soonest first, from the caller's own day " +
+    "onward) and `recent` (ended in the last thirty days, newest first). `today` is the caller's " +
+    "civil date and is required by the upcoming scope — a day is a day in a place and the server " +
+    "has no zone to derive one in.",
+  request: { query: listMeetingsQuery },
+  responses: {
+    200: {
+      description: "One page of meetings in this scope",
+      content: { "application/json": { schema: MeetingSummaryPage } },
+    },
+    ...commonErrors,
+    422: {
+      description: "The upcoming scope was asked for without the caller's own day",
+      content: { "application/problem+json": { schema: Problem } },
+    },
   },
 });
 
@@ -315,6 +380,16 @@ const getForFirmEventRoute = defineOpenAPIRoute(readMeta("getForFirmEvent"), {
   },
 });
 
+// JOIN STAYS ON THE DEFAULT BUCKET, and that is a decision rather than an omission. It is the one
+// costly write here — it mints a relay credential against this account's Realtime key — so the
+// stricter `expensive` bucket looks like its home. It is not: that bucket is ten requests a minute,
+// calibrated for a measurement somebody takes by hand, and a join is what a browser repeats every
+// time a connection drops and comes back. A member reconnecting through a bad stretch of network
+// would be locked out of the meeting by the limiter, which is the failure the whole grace period
+// above exists to prevent. The mint is also not the billed unit — relay TRAFFIC is, and that is
+// bounded by the credential's own short life rather than by how many were minted. A bucket between
+// the two (the default is a hundred a minute) would be the right answer and is a change to the
+// shared bucket table rather than to this route.
 const joinRoute = defineOpenAPIRoute(writeMeta("join", JOIN), {
   method: "post",
   path: "/api/v1/meetings/{meetingId}/join",
@@ -372,12 +447,12 @@ const attendanceRoute = defineOpenAPIRoute(readMeta("attendance"), {
   description:
     "Who was in the room and when, oldest arrival first — the record the meeting exists to leave. " +
     "One row per stay, so somebody whose connection dropped and who came back appears twice, which " +
-    "is what happened.",
-  request: { params: meetingIdParam },
+    "is what happened. Paged from the beginning of the gathering.",
+  request: { params: meetingIdParam, query: cursorQuery },
   responses: {
     200: {
-      description: "Every stay in this meeting",
-      content: { "application/json": { schema: MeetingAttendance } },
+      description: "One page of this meeting's stays",
+      content: { "application/json": { schema: MeetingAttendancePage } },
     },
     ...commonErrors,
   },
@@ -390,7 +465,10 @@ const socketRoute = defineOpenAPIRoute(readMeta("socket"), {
     "Opens the meeting's signaling socket. The server sends a welcome carrying the caller's own " +
     "participant handle and the current roster, then a roster frame on every change; the client " +
     'publishes, subscribes, renegotiates and closes tracks over it, and { "type": "ping" } is a ' +
-    "keepalive. Requires an Upgrade: websocket request and an open stay in the meeting — join first.",
+    "keepalive. Requires an Upgrade: websocket request and an open stay in the meeting — join " +
+    "first. An upgrade carrying another site's Origin is refused: a browser will open a socket " +
+    "cross-origin with the member's cookie, where it would refuse to let that page read any other " +
+    "call here.",
   request: { params: meetingIdParam },
   responses: {
     101: { description: "The signaling socket is open; frames follow" },
@@ -473,6 +551,9 @@ function notFound(c: Context): ProblemResponse<404> {
 
 // ---- helpers ----
 
+/** The request context these handlers actually run in, so a stashed logger reads as one. */
+type MeetingContext = Context<{ Bindings: Bindings; Variables: AppVariables }>;
+
 function serviceOptions(userId: string) {
   return {
     clock: { now: () => new Date().toISOString() },
@@ -515,6 +596,21 @@ async function commitEffect<T>(
     if (caught instanceof MeetingValidationError) {
       return { ok: false, problem: meetingErrorResponse(c, caught) };
     }
+    // THE SAME REFUSAL THE SERVICE'S OWN COUNT PRODUCES, arrived at the other way. The count is a
+    // round trip ahead of the write, so a dozen browsers joining together all read a seat free; the
+    // insert's guard is what refuses the thirteenth, and a member who lost that race is told the
+    // room is full rather than handed an Error ID for a batch they cannot see.
+    if (caught instanceof GuardedWriteRefusedError && caught.guard === JOIN_CAPACITY_GUARD) {
+      return {
+        ok: false,
+        problem: problemJson(c, {
+          type: "meeting-room-full",
+          title: "This meeting is full",
+          status: 409,
+          detail: `This meeting is full; it holds ${String(MAX_MEETING_PARTICIPANTS)} people.`,
+        }),
+      };
+    }
     throw caught;
   }
   if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
@@ -549,58 +645,55 @@ async function displayNameOf(database: SqlDatabase, userId: string): Promise<str
  * alone, never an empty list: a browser handed no servers at all gathers only its local addresses,
  * and one behind a home router would then never learn how it looks from outside.
  */
-async function iceServersFor(env: Bindings): Promise<z.infer<typeof IceServer>[]> {
-  const keyId = env.REALTIME_TURN_TOKEN_ID;
-  const apiToken = env.REALTIME_TURN_TOKEN_SECRET;
-  if (!keyId || !apiToken) return [PUBLIC_RESOLUTION_SERVER];
-
-  try {
-    const upstream = await fetch(
-      `https://rtc.live.cloudflare.com/v1/turn/keys/${keyId}/credentials/generate-ice-servers`,
-      {
-        method: "POST",
-        headers: { authorization: `Bearer ${apiToken}`, "content-type": "application/json" },
-        body: JSON.stringify({ ttl: RELAY_CREDENTIAL_TTL_SECONDS }),
-      },
+async function iceServersFor(c: MeetingContext): Promise<z.infer<typeof IceServer>[]> {
+  const mint = await generateIceServers(c.env, RELAY_CREDENTIAL_TTL_SECONDS);
+  if (mint.kind === "minted") return [...mint.servers];
+  if (mint.kind === "failed") {
+    // Recorded even though the join succeeds. A relay that stopped answering shows up to members as
+    // "some calls do not connect" and to nobody as a failure at all, which is precisely the shape of
+    // fault that runs for weeks; the trace is the only thing that names it. The upstream body never
+    // reaches the record — it can echo the key id.
+    recordRealtimeFailure(
+      c.get("logger"),
+      "realtime.turnCredentials.meetingJoin",
+      new Error(`relay credentials could not be minted (${mint.cause})`),
+      c.get("correlationId"),
     );
-    // Never surfaced and never logged: the body can echo the key id.
-    if (!upstream.ok) return [PUBLIC_RESOLUTION_SERVER];
-    const parsed = iceServersFrom(await upstream.json());
-    return parsed.length === 0 ? [PUBLIC_RESOLUTION_SERVER] : parsed;
-  } catch {
-    return [PUBLIC_RESOLUTION_SERVER];
   }
+  return [PUBLIC_RESOLUTION_SERVER];
 }
 
-// Parsed defensively rather than trusted: the answer crosses a version boundary this Worker does not
-// control, and a malformed entry handed to a browser fails inside its connection machinery, far from
-// anything that could name the cause.
-function iceServersFrom(payload: unknown): z.infer<typeof IceServer>[] {
-  if (payload === null || typeof payload !== "object") return [];
-  const servers = (payload as { iceServers?: unknown }).iceServers;
-  const entries = Array.isArray(servers) ? servers : [servers];
-  const parsed: z.infer<typeof IceServer>[] = [];
-  for (const entry of entries) {
-    if (entry === null || typeof entry !== "object") continue;
-    const { urls, username, credential } = entry as {
-      urls?: unknown;
-      username?: unknown;
-      credential?: unknown;
-    };
-    const addresses =
-      typeof urls === "string"
-        ? urls
-        : Array.isArray(urls) && urls.every((one) => typeof one === "string")
-          ? (urls as string[])
-          : null;
-    if (addresses === null) continue;
-    parsed.push({
-      urls: addresses,
-      ...(typeof username === "string" ? { username } : {}),
-      ...(typeof credential === "string" ? { credential } : {}),
-    });
+/**
+ * Whether this upgrade was asked for by a page this deployment serves.
+ *
+ * A WEBSOCKET UPGRADE IS NOT SUBJECT TO THE SAME-ORIGIN POLICY. A browser will not let another
+ * site's script read a `fetch` of this API, but it will happily let that script open a socket to it
+ * and carry the member's cookie — so the session that protects every other route protects this one
+ * only up to the point where somebody's page decides to open one. What that would buy an attacker is
+ * the roster of a meeting the member is in and the ability to signal inside it, which is exactly the
+ * thing the room exists to keep to the people who are in the room.
+ *
+ * `Origin` ABSENT IS ALLOWED, and that is not a hole: a non-browser client (a test, a tool) sends
+ * none and is not the thing being defended against, while every browser attaches one to a
+ * cross-origin upgrade without exception. Present, it must match — the request's own origin, which
+ * is the per-request derivation the auth layer takes for the same question, or the deployment's
+ * declared origin where one is configured and the two differ because a proxy re-addressed the
+ * request.
+ */
+function isSameOriginUpgrade(c: MeetingContext): boolean {
+  const origin = c.req.header("origin");
+  if (origin === undefined || origin === "") return true;
+  const allowed = new Set([new URL(c.req.url).origin]);
+  const declared = c.env.APP_BASE_URL;
+  if (declared !== undefined && declared !== "") {
+    try {
+      allowed.add(new URL(declared).origin);
+    } catch {
+      // A misconfigured base URL narrows the check to the request's own origin rather than throwing
+      // a member out of a meeting over a deployment value they cannot see.
+    }
   }
-  return parsed;
+  return allowed.has(origin);
 }
 
 function roomFor(env: Bindings, firmId: string, meetingId: string) {
@@ -625,27 +718,93 @@ export function registerMeetingsRoutes(
       const idempotency = requireChokepointIdempotency(c);
       const { eventKind, eventId } = c.req.valid("json");
 
-      const outcome = await commitEffect<z.infer<typeof StartedMeeting>>(
-        c,
-        firm.firmDatabase,
-        idempotency,
-        async () => {
-          const started = await createMeeting(
-            firm.firmDatabase,
-            { eventKind: eventKind as MeetingEventKind, eventId },
-            serviceOptions(userId),
-          );
-          return {
-            value: { id: started.meetingId, created: started.created },
-            // The code carries the answer a caller branches on, and it is stored with the body, so a
-            // retry of the request that opened the room still reads 201.
-            responseCode: started.created ? 201 : 200,
-            effect: started.effect,
-          };
-        },
-      );
+      let outcome;
+      try {
+        outcome = await commitEffect<z.infer<typeof StartedMeeting>>(
+          c,
+          firm.firmDatabase,
+          idempotency,
+          async () => {
+            const started = await createMeeting(
+              firm.firmDatabase,
+              { eventKind: eventKind as MeetingEventKind, eventId },
+              serviceOptions(userId),
+            );
+            return {
+              value: { id: started.meetingId, created: started.created },
+              // The code carries the answer a caller branches on, and it is stored with the body, so a
+              // retry of the request that opened the room still reads 201.
+              responseCode: started.created ? 201 : 200,
+              effect: started.effect,
+            };
+          },
+        );
+      } catch (caught) {
+        // THE OTHER MEMBER WON, in the instant the read-then-insert does not span. One meeting per
+        // event is held by a partial unique index, so the loser's batch aborts on a raw constraint —
+        // which reached the member as a 500 for pressing a button at the same moment as a colleague.
+        // What they asked for was to be in the same room, and they now are: their answer is the
+        // winner's room with `created: false`, exactly as the ordinary second Start reads.
+        if (!isMeetingPerEventConflict(caught)) throw caught;
+        const existing = await readMeetingForEvent(
+          firm.firmDatabase,
+          eventKind as MeetingEventKind,
+          eventId,
+          visibleMatterPredicate(),
+        );
+        // Nothing to hand back means the constraint was not the one this read can see through — the
+        // fault is real and belongs on the error pipeline rather than dressed as a success.
+        if (existing === undefined) throw caught;
+        return c.json({ id: existing.id, created: false }, 200);
+      }
       if (!outcome.ok) return outcome.problem;
       return outcome.responseCode === 201 ? c.json(outcome.value, 201) : c.json(outcome.value, 200);
+    },
+  );
+
+  // GET /api/v1/meetings
+  app.openapi(
+    { ...listRoute, middleware: chokepointMiddleware(chokepoint, listRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { scope, cursor, today } = c.req.valid("query");
+
+      if (scope === "upcoming" && today === undefined) {
+        // REFUSED RATHER THAN GUESSED. Falling back to the server's day would answer a different
+        // question than the one asked — and would answer it wrongly for exactly the member whose
+        // day has not turned over yet, which is the case the parameter exists for.
+        return problemJson(c, {
+          type: "validation",
+          status: 422,
+          title: "The upcoming scope needs the caller's own day",
+          detail: "Send today as a civil date (YYYY-MM-DD) read from the caller's own time zone.",
+        });
+      }
+
+      const found = await listMeetings(firm.firmDatabase, {
+        scope,
+        visibility: visibleMatterPredicate(),
+        limit: MAX_MEETING_PAGE_SIZE,
+        cursor: decodeCursor(cursor),
+        today,
+        // AN INSTANT, which the server may derive and a day is not: two instants compare the same
+        // in every zone, so "ended within the last thirty days" needs no zone to be true.
+        since: new Date(Date.now() - RECENT_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+      });
+      const hasMore = found.length > MAX_MEETING_PAGE_SIZE;
+      const rows = hasMore ? found.slice(0, MAX_MEETING_PAGE_SIZE) : found;
+      const last = rows.at(-1);
+      const configured = sfuClientForEnv(c.env) !== null;
+      return c.json(
+        {
+          data: rows.map((row) => ({ ...row.summary, configured })),
+          // Keyed on the sort key the read itself ordered by, whichever scope minted it, so the
+          // walk cannot skip or repeat.
+          nextCursor:
+            hasMore && last !== undefined ? encodeCursor(last.sortKey, last.summary.id) : null,
+        },
+        200,
+      );
     },
   );
 
@@ -709,23 +868,40 @@ export function registerMeetingsRoutes(
       const idempotency = requireChokepointIdempotency(c);
       const { meetingId } = c.req.valid("param");
 
-      const outcome = await commitEffect<{ participantId: string }>(
-        c,
-        firm.firmDatabase,
-        idempotency,
-        async () => {
-          const joined = await joinMeeting(
-            firm.firmDatabase,
-            meetingId as MeetingId,
-            serviceOptions(userId),
-          );
-          return {
-            value: { participantId: joined.attendanceId },
-            responseCode: 200,
-            effect: joined.effect,
-          };
-        },
-      );
+      let outcome;
+      try {
+        outcome = await commitEffect<{ participantId: string }>(
+          c,
+          firm.firmDatabase,
+          idempotency,
+          async () => {
+            const joined = await joinMeeting(
+              firm.firmDatabase,
+              meetingId as MeetingId,
+              serviceOptions(userId),
+            );
+            return {
+              value: { participantId: joined.attendanceId },
+              responseCode: 200,
+              effect: joined.effect,
+            };
+          },
+        );
+      } catch (caught) {
+        // ONE MEMBER, TWO JOINS IN FLIGHT — a double-clicked button, under two idempotency keys, so
+        // the gate sees two different requests. The service's read finds no open stay on either, and
+        // the partial unique index refuses the second insert. There is nothing to refuse the member
+        // over: the stay the other request opened is theirs, and handing it back is the same answer
+        // the ordinary second join gives.
+        if (!isOpenStayConflict(caught)) throw caught;
+        const open = await readOpenAttendance(
+          firm.firmDatabase,
+          meetingId as MeetingId,
+          userId as UserId,
+        );
+        if (open === undefined) throw caught;
+        outcome = { ok: true as const, value: { participantId: open.id }, responseCode: 200 };
+      }
       if (!outcome.ok) return outcome.problem;
 
       // Both are read AFTER the stay is committed and neither can fail the join: the name is what
@@ -733,7 +909,7 @@ export function registerMeetingsRoutes(
       // uses. A member who is in the meeting stays in it either way.
       const [displayName, iceServers] = await Promise.all([
         displayNameOf(firm.firmDatabase, userId),
-        iceServersFor(c.env),
+        iceServersFor(c),
       ]);
       return c.json({ participantId: outcome.value.participantId, displayName, iceServers }, 200);
     },
@@ -829,7 +1005,16 @@ export function registerMeetingsRoutes(
         visibleMatterPredicate(),
       );
       if (meeting === undefined) return notFound(c);
-      const rows = await listAttendance(firm.firmDatabase, meetingId as MeetingId);
+      const { cursor } = c.req.valid("query");
+      const found = await listAttendance(firm.firmDatabase, meetingId as MeetingId, {
+        cursor: decodeCursor(cursor),
+        limit: MAX_ATTENDANCE_PAGE_SIZE,
+      });
+      // The read asks for one row past the page, and that row is the answer to "is there more"
+      // rather than part of the page.
+      const hasMore = found.length > MAX_ATTENDANCE_PAGE_SIZE;
+      const rows = hasMore ? found.slice(0, MAX_ATTENDANCE_PAGE_SIZE) : found;
+      const last = rows.at(-1);
       return c.json(
         {
           data: rows.map((row) => ({
@@ -838,6 +1023,8 @@ export function registerMeetingsRoutes(
             joinedAt: row.joined_at,
             leftAt: row.left_at,
           })),
+          // Keyed on the same expression the list is ordered by, so the walk cannot skip or repeat.
+          nextCursor: hasMore && last !== undefined ? encodeCursor(last.joined_at, last.id) : null,
         },
         200,
       );
@@ -853,6 +1040,18 @@ export function registerMeetingsRoutes(
       const firmId = requireChokepointFirmId(c);
       const userId = requireChokepointUserId(c);
       const { meetingId } = c.req.valid("param");
+
+      // Asked before anything is read, because it is a question about the REQUEST rather than about
+      // the meeting: an answer that varied with whether the meeting exists would tell a foreign page
+      // that much by timing alone.
+      if (!isSameOriginUpgrade(c)) {
+        return problemJson(c, {
+          type: "permission-denied",
+          status: 403,
+          title: "Cross-origin signaling is refused",
+          detail: "Open the meeting from this application.",
+        });
+      }
 
       const meeting = await readMeeting(
         firm.firmDatabase,

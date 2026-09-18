@@ -3703,6 +3703,11 @@ export type StartMeetingRequest = {
     eventId: string;
 };
 
+export type MeetingSummaryPage = {
+    data: Array<MeetingSummary>;
+    nextCursor: string | null;
+};
+
 export type MeetingSummary = {
     id: string;
     eventKind: 'matter' | 'firm';
@@ -3736,8 +3741,9 @@ export type MeetingAcknowledged = {
     ok: true;
 };
 
-export type MeetingAttendance = {
+export type MeetingAttendancePage = {
     data: Array<MeetingAttendanceEntry>;
+    nextCursor: string | null;
 };
 
 export type MeetingAttendanceEntry = {
@@ -21184,6 +21190,51 @@ export type CommunicationsSetDispositionResponses = {
 
 export type CommunicationsSetDispositionResponse = CommunicationsSetDispositionResponses[keyof CommunicationsSetDispositionResponses];
 
+export type MeetingsListData = {
+    body?: never;
+    path?: never;
+    query: {
+        cursor?: string;
+        scope: 'live' | 'upcoming' | 'recent';
+        today?: string;
+    };
+    url: '/api/v1/meetings';
+};
+
+export type MeetingsListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The upcoming scope was asked for without the caller's own day
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsListError = MeetingsListErrors[keyof MeetingsListErrors];
+
+export type MeetingsListResponses = {
+    /**
+     * One page of meetings in this scope
+     */
+    200: MeetingSummaryPage;
+};
+
+export type MeetingsListResponse = MeetingsListResponses[keyof MeetingsListResponses];
+
 export type MeetingsStartData = {
     body: StartMeetingRequest;
     headers: {
@@ -21540,7 +21591,9 @@ export type MeetingsAttendanceData = {
     path: {
         meetingId: string;
     };
-    query?: never;
+    query?: {
+        cursor?: string;
+    };
     url: '/api/v1/meetings/{meetingId}/attendance';
 };
 
@@ -21567,9 +21620,9 @@ export type MeetingsAttendanceError = MeetingsAttendanceErrors[keyof MeetingsAtt
 
 export type MeetingsAttendanceResponses = {
     /**
-     * Every stay in this meeting
+     * One page of this meeting's stays
      */
-    200: MeetingAttendance;
+    200: MeetingAttendancePage;
 };
 
 export type MeetingsAttendanceResponse = MeetingsAttendanceResponses[keyof MeetingsAttendanceResponses];

@@ -47,15 +47,6 @@ export const BOUNDED_BY_CONSTRUCTION = {
   "calendar.listFirmEventBookings":
     "The same read for a firm event, through the same statement and the same backstop " +
     "(packages/calendar/src/booking-statements.ts, EVENT_BOOKINGS_LIMIT).",
-  // --- Who was in ONE meeting ------------------------------------------------------------------
-  "meetings.attendance":
-    "Every stay in ONE meeting, read through listAttendance in " +
-    "packages/meetings/src/meeting-statements.ts. Bounded by the room rather than by a page: " +
-    "MAX_MEETING_PARTICIPANTS (12, packages/meetings/src/types.ts) is counted over the OPEN stays " +
-    "at every join, and joinMeeting hands a member who already has one their existing stay rather " +
-    "than opening a second — so a row is added only when somebody genuinely leaves and comes back " +
-    "during one meeting. The surface reads it whole because the answer is the record of who was " +
-    "there and when, which a page would cut in half.",
   // --- The firm's own configured vocabularies -------------------------------------------------
   //
   // Six tables with the same shape and the same argument, so the claim is the same one six times:

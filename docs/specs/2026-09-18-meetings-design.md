@@ -187,6 +187,30 @@ Problem types: `meeting-not-found` (404, and the same for an event the member ma
 `meeting-ended` (409), `meeting-room-full` (409), `meetings-not-configured` (503),
 `websocket-upgrade-required` (426).
 
+### Amendments taken during the build
+
+- **`GET /api/v1/meetings`** (`meetings:join`, cursor-paged) — the list the Meetings screen paints,
+  in one of three scopes: `live`, `upcoming` and `recent`. `upcoming` requires `today`, the caller's
+  own civil date, and refuses 422 without it: a day is a day in a place and the server has no zone to
+  derive one in. Items are `MeetingSummary` with `configured`, exactly as the single read.
+- **The attendance read is cursor-paged** like every other list. The room's ceiling bounds who is
+  present at one instant and bounds nothing else — a meeting run over a bad line accumulates stays.
+- **A subscription is checked against the room's own roster.** The whole fleet's meetings share one
+  Realtime application, so the room is the only thing that knows which meeting a session belongs to; a
+  pair that is not on this roster is `refused` with `unknown-track` and never forwarded. A `publish`
+  whose track name is not prefixed with the publisher's own participant handle is `foreign-track-name`,
+  and a participant is capped at eight tracks (`track-limit-reached`). All three leave the socket open.
+- **`subscribed` carries `requiresImmediateRenegotiation`** (boolean, additive), so a null
+  `sessionDescription` is distinguishable from an answer the browser has to act on.
+- **`refused` may carry `errorId`** (optional, additive) — present only where the room actually
+  recorded a failure through the standard pipeline, which today is `sfu-unavailable`.
+- **A dropped socket arms a grace sweep**: sixty seconds, then the room closes the stay through the
+  firm-scoped data-access layer (`meetings.meeting.left`, `reason: socket-lost`), drops the roster
+  entry and closes the participant's tracks at the routing service. It never ends the meeting.
+- **The upgrade is same-origin.** An `Origin` header that is present and is not this application's is
+  refused 403: a browser opens a WebSocket cross-origin with the member's cookie where it would refuse
+  to let that page read any other call here.
+
 ## 8. The screen (`apps/web`)
 
 - `src/lib/meetings/meeting-client.svelte.ts` — the whole WebRTC state machine as a Svelte 5 runes

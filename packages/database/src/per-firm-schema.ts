@@ -7840,6 +7840,16 @@ export const meetingAttendance = sqliteTable(
     // The roster and the participant count: the open rows of one meeting, filtered before anything
     // is read off them.
     index("meeting_attendance_meeting_left_at_index").on(table.meetingId, table.leftAt),
+    // AT MOST ONE OPEN STAY PER MEMBER PER MEETING. The join path reads for an existing open stay
+    // and returns it rather than opening a second, which is right and is a round trip early: a
+    // double-clicked button opens two joins that both read nothing and both insert. Two open rows
+    // for one person are two seats against a room that holds twelve, two tiles for one face, and a
+    // leave that closes one of them and leaves the other running forever. Partial on `left_at IS
+    // NULL`, because the CLOSED rows are the record and a member who genuinely left and came back
+    // must have as many of those as they had stays.
+    uniqueIndex("meeting_attendance_open_stay_unique_index")
+      .on(table.meetingId, table.userId)
+      .where(sql`${table.leftAt} IS NULL`),
     check(
       "meeting_attendance_span_check",
       sql`${table.leftAt} IS NULL OR ${table.leftAt} >= ${table.joinedAt}`,

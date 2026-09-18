@@ -185,6 +185,24 @@ export class SfuClient {
     };
   }
 
+  /**
+   * Stops routing EVERYTHING a session holds, for a participant the room has already let go of.
+   *
+   * The room normally knows the media sections it published and closes those by name. This is the
+   * path for when it does not — a roster entry written before the media sections were recorded, or
+   * a session the room is discarding wholesale — so it reads what the service is holding and closes
+   * that. `force` because the browser is already gone: there is nobody left to answer a
+   * renegotiation, and a graceful close would wait for one.
+   */
+  async closeSession(sessionId: string): Promise<void> {
+    const state = await this.getSession(sessionId);
+    const tracks = state.tracks.flatMap((track) =>
+      track.mid === undefined ? [] : [{ mid: track.mid }],
+    );
+    if (tracks.length === 0) return;
+    await this.closeTracks(sessionId, { tracks, force: true });
+  }
+
   /** What the service currently holds for a session — the read that settles a disagreement about it. */
   async getSession(sessionId: string): Promise<SfuSessionState> {
     const body = await this.call(
@@ -326,6 +344,24 @@ function sessionTracks(source: Record<string, unknown>): SfuSessionTrack[] {
 // put a placeholder secret into an environment file where a real deployment would read it.
 let fakeRoutingServiceFetch: typeof fetch | null = null;
 
+// A module-level override that anything could set is a way to redirect the whole fleet's meetings at
+// a chosen endpoint, so it is inert unless a test runner is what is running this code.
+//
+// UNDER THE WORKERS TEST POOL IT IS `import.meta.env.MODE`, measured rather than assumed:
+// `process.env.VITEST` is undefined there even with the node compatibility flag on. The second
+// reading is kept for a runner that bundles this module without Vite's define pass, where
+// `import.meta.env` is absent and the node-side variable is the only signal. Neither is set in a
+// deployment, and neither read may throw — this runs on the request path.
+function runningUnderTest(): boolean {
+  const mode = (import.meta as { env?: { MODE?: string } }).env?.MODE;
+  if (mode === "test") return true;
+  // Read off `globalThis` rather than as a bare identifier: this Worker's types do not declare
+  // `process`, and a runtime without the node compatibility layer has none.
+  const nodeProcess = (globalThis as { process?: { env?: Record<string, string | undefined> } })
+    .process;
+  return nodeProcess?.env?.["VITEST"] !== undefined;
+}
+
 /** Installs (or, with null, removes) a fake routing service for the duration of a test. */
 export function setSfuFetchForTests(fetchImplementation: typeof fetch | null): void {
   fakeRoutingServiceFetch = fetchImplementation;
@@ -341,15 +377,17 @@ export function setSfuFetchForTests(fetchImplementation: typeof fetch | null): v
  * connection, instead of at the door.
  */
 export function sfuClientForEnv(env: Bindings): SfuClient | null {
-  if (fakeRoutingServiceFetch !== null) {
+  const appId = env.REALTIME_SFU_APP_ID;
+  const appSecret = env.REALTIME_SFU_APP_SECRET;
+  // The environment is read FIRST and the seam only afterwards, so a deployment's answer is never
+  // decided by a module variable: outside a test runner the override is not consulted at all.
+  if (fakeRoutingServiceFetch !== null && runningUnderTest()) {
     return new SfuClient({
       appId: "test-realtime-application",
       appSecret: "test-realtime-secret",
       fetch: fakeRoutingServiceFetch,
     });
   }
-  const appId = env.REALTIME_SFU_APP_ID;
-  const appSecret = env.REALTIME_SFU_APP_SECRET;
   if (!appId || !appSecret) return null;
   return new SfuClient({ appId, appSecret, fetch: fetch.bind(globalThis) });
 }

@@ -34,6 +34,22 @@ export function isMeetingStatus(value: string): value is MeetingStatus {
   return (MEETING_STATUSES as readonly string[]).includes(value);
 }
 
+// THE THREE QUESTIONS A MEETINGS SCREEN ASKS, as a closed vocabulary. Not filters over one list:
+// each wants its own ordering — longest-running first, soonest first, most-recently-finished first —
+// so a single ordering would make two of the three answers wrong. A fourth scope is a fourth
+// ordering and belongs here rather than as a flag on one of these.
+export const MEETING_LIST_SCOPES = Object.freeze(["live", "upcoming", "recent"] as const);
+export type MeetingListScope = (typeof MEETING_LIST_SCOPES)[number];
+
+// HOW A STAY ENDED, as a closed vocabulary on the departure audit row. Two ways and only two: the
+// member said so, or their connection went and did not come back inside the grace the room allows.
+// One event name with a labelled reason rather than two event names, because the question a record is
+// read for is "when did they stop being in the room" and the label is the footnote to it — a second
+// event would split every such read in half. It is a label and never a diagnosis: which network
+// failed is not the firm's record of who was in a meeting.
+export const MEETING_DEPARTURE_REASONS = Object.freeze(["left", "socket-lost"] as const);
+export type MeetingDepartureReason = (typeof MEETING_DEPARTURE_REASONS)[number];
+
 // THE ROOM'S CEILING, counted over the open attendance rows rather than over the sockets.
 //
 // Twelve is a product decision and not a limit of the routing layer: the selective forwarding unit

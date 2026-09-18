@@ -29,6 +29,7 @@ import eventRecurrenceSql from "@magna-carta/database/drizzle/per-firm/20260916T
 import downloadRegisterAdmitsEveryDownloadSql from "@magna-carta/database/drizzle/per-firm/20260916T120000_download-register-admits-every-download.sql";
 import meetingsHangFromACalendarEventSql from "@magna-carta/database/drizzle/per-firm/20260918T182821_meetings-hang-from-a-calendar-event.sql";
 import seedMeetingsPermissionsSql from "@magna-carta/database/drizzle/per-firm/20260918T182822_seed-meetings-permissions.sql";
+import oneOpenStayPerMemberSql from "@magna-carta/database/drizzle/per-firm/20260918T223057_one-open-stay-per-member.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -53,6 +54,7 @@ export function perFirmMigrations(): Migration[] {
       downloadRegisterAdmitsEveryDownloadSql,
     "20260918T182821_meetings-hang-from-a-calendar-event": meetingsHangFromACalendarEventSql,
     "20260918T182822_seed-meetings-permissions": seedMeetingsPermissionsSql,
+    "20260918T223057_one-open-stay-per-member": oneOpenStayPerMemberSql,
   });
 }
 

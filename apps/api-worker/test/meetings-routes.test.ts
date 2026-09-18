@@ -2,6 +2,7 @@ import { env } from "cloudflare:test";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, MatterEventId, MatterId, UserId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
+import { MAX_MEETING_PARTICIPANTS } from "@magna-carta/meetings/types";
 import { createApp } from "../src/app.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
@@ -100,6 +101,20 @@ interface JoinedMeeting {
   displayName: string;
   iceServers: unknown[];
 }
+interface MeetingPage {
+  data: MeetingSummary[];
+  nextCursor: string | null;
+}
+interface AttendanceStay {
+  id: string;
+  userId: string;
+  joinedAt: string;
+  leftAt: string | null;
+}
+interface AttendancePage {
+  data: AttendanceStay[];
+  nextCursor: string | null;
+}
 interface MeetingSummary {
   id: string;
   status: string;
@@ -137,6 +152,32 @@ async function startMeetingOn(eventId: string): Promise<string> {
   });
   expect(response.status).toBe(201);
   return (await readJson<StartedMeeting>(response)).id;
+}
+
+/**
+ * Fills a room with fabricated members' open stays, so the cap can be met without standing up a
+ * dozen sessions. The rows are what the cap is counted over, so this is the same room state a dozen
+ * real joins produce.
+ */
+async function fillRoomTo(meetingId: string, occupants: number): Promise<void> {
+  const now = new Date().toISOString();
+  for (let seat = 0; seat < occupants; seat += 1) {
+    const userId = newIdentifier("user");
+    await firmDatabase
+      .prepare(
+        `INSERT INTO member (user_id, display_name, status, created_at) ` +
+          `VALUES (?1, ?2, 'active', ?3)`,
+      )
+      .bind(userId, `Seat ${String(seat)}`, now)
+      .run();
+    await firmDatabase
+      .prepare(
+        `INSERT INTO meeting_attendance (id, meeting_id, user_id, joined_at, left_at, created_at, ` +
+          `updated_at) VALUES (?1, ?2, ?3, ?4, NULL, ?4, ?4)`,
+      )
+      .bind(newIdentifier("meetingAttendance"), meetingId, userId, now)
+      .run();
+  }
 }
 
 /** A room nobody has been in yet, on an event nothing else in this file touches. */
@@ -242,6 +283,25 @@ describe("starting a meeting on an event", () => {
     expect(response.status).toBe(403);
   });
 
+  it("hands the loser of a simultaneous Start the winner's room, not a server error", async () => {
+    const eventId = await freshEvent("Simultaneous start");
+    // ONE MEETING PER EVENT is held by a partial unique index, and the read-then-insert above it is
+    // a round trip early. Two members pressing Start together both read no meeting and both insert;
+    // the loser's batch aborts on the constraint. That reached the member as a 500 for pressing a
+    // button at the same moment as a colleague — what they asked for was to be in the same room.
+    const [first, second] = await Promise.all([
+      post("/api/v1/meetings", ownerCookie, { eventKind: "matter", eventId }),
+      post("/api/v1/meetings", ownerCookie, { eventKind: "matter", eventId }),
+    ]);
+
+    expect([first.status, second.status].toSorted()).toEqual([200, 201]);
+    const opened = await readJson<StartedMeeting>(first);
+    const found = await readJson<StartedMeeting>(second);
+    // One room, and the pair of answers says which request opened it.
+    expect(opened.id).toBe(found.id);
+    expect([opened.created, found.created].toSorted()).toEqual([false, true]);
+  });
+
   it("reports a walled matter's event as absent rather than as forbidden", async () => {
     const response = await post("/api/v1/meetings", ownerCookie, {
       eventKind: "matter",
@@ -290,16 +350,94 @@ describe("arriving, and leaving a record of it", () => {
     expect((await readJson<JoinedMeeting>(response)).displayName).toBe("Meetings Bookkeeper");
   });
 
+  it("answers the thirteenth arrival with a full room rather than a server error", async () => {
+    const meetingId = await freshMeeting();
+    await fillRoomTo(meetingId, MAX_MEETING_PARTICIPANTS - 1);
+
+    // ONE SEAT, TWO ARRIVALS. Whichever way the two land — both counting eleven and the insert's
+    // guard refusing the loser, or the second counting twelve and refusing itself — the answer the
+    // member gets is the same one, and it is never an Error ID for a batch they cannot see.
+    const [first, second] = await Promise.all([
+      post(`/api/v1/meetings/${meetingId}/join`, ownerCookie),
+      post(`/api/v1/meetings/${meetingId}/join`, billingCookie),
+    ]);
+    expect([first.status, second.status].toSorted()).toEqual([200, 409]);
+    const refused = first.status === 409 ? first : second;
+    expect((await readJson<{ type: string }>(refused)).type).toContain("meeting-room-full");
+
+    // And the room holds exactly its dozen, never a thirteenth.
+    const summary = await readJson<MeetingSummary>(
+      await get(`/api/v1/meetings/${meetingId}`, ownerCookie),
+    );
+    expect(summary.liveCount).toBe(MAX_MEETING_PARTICIPANTS);
+  });
+
   it("records who was in the room and when", async () => {
     const meetingId = await freshMeeting();
     await post(`/api/v1/meetings/${meetingId}/join`, ownerCookie);
     await post(`/api/v1/meetings/${meetingId}/join`, billingCookie);
 
-    const attendance = await readJson<{
-      data: { userId: string; joinedAt: string; leftAt: string | null }[];
-    }>(await get(`/api/v1/meetings/${meetingId}/attendance`, ownerCookie));
+    const attendance = await readJson<AttendancePage>(
+      await get(`/api/v1/meetings/${meetingId}/attendance`, ownerCookie),
+    );
     expect(attendance.data).toHaveLength(2);
     expect(attendance.data.every((stay) => stay.leftAt === null)).toBe(true);
+    // The record is paged like every other list: a handful of stays fits one page, and the cursor
+    // is explicitly null rather than absent so a caller never has to guess whether there is more.
+    expect(attendance.nextCursor).toBeNull();
+  });
+
+  it("pages the record, and the walk neither repeats a stay nor skips one", async () => {
+    const meetingId = await freshMeeting();
+    // Four stays out of two members: each joins, leaves, and comes back, which is exactly what
+    // attendance is a row per stay FOR.
+    for (const cookie of [ownerCookie, billingCookie]) {
+      await post(`/api/v1/meetings/${meetingId}/join`, cookie);
+      await post(`/api/v1/meetings/${meetingId}/leave`, cookie);
+      await post(`/api/v1/meetings/${meetingId}/join`, cookie);
+    }
+
+    const whole = await readJson<AttendancePage>(
+      await get(`/api/v1/meetings/${meetingId}/attendance`, ownerCookie),
+    );
+    expect(whole.data).toHaveLength(4);
+
+    const walked: string[] = [];
+    let cursor: string | null = null;
+    for (let page = 0; page < 6; page += 1) {
+      const query: string = cursor === null ? "" : `?cursor=${encodeURIComponent(cursor)}`;
+      const answer: AttendancePage = await readJson<AttendancePage>(
+        await get(`/api/v1/meetings/${meetingId}/attendance${query}`, ownerCookie),
+      );
+      for (const stay of answer.data) walked.push(stay.id);
+      cursor = answer.nextCursor;
+      if (cursor === null) break;
+    }
+    expect(walked).toEqual(whole.data.map((stay) => stay.id));
+    expect(new Set(walked).size).toBe(4);
+  });
+
+  it("hands a double-clicked join the stay the first click opened, rather than a conflict", async () => {
+    const meetingId = await freshMeeting();
+    // TWO REQUESTS, TWO IDEMPOTENCY KEYS — which is what a double-clicked button actually produces,
+    // and is why the idempotency gate does not settle it. Both read no open stay; the partial
+    // unique index refuses the second insert, and the member is handed the stay that landed.
+    const [first, second] = await Promise.all([
+      post(`/api/v1/meetings/${meetingId}/join`, ownerCookie),
+      post(`/api/v1/meetings/${meetingId}/join`, ownerCookie),
+    ]);
+    expect([first.status, second.status]).toEqual([200, 200]);
+    const stays = [
+      (await readJson<JoinedMeeting>(first)).participantId,
+      (await readJson<JoinedMeeting>(second)).participantId,
+    ];
+    expect(stays[0]).toBe(stays[1]);
+
+    // One seat, one tile, one row to close.
+    const attendance = await readJson<AttendancePage>(
+      await get(`/api/v1/meetings/${meetingId}/attendance`, ownerCookie),
+    );
+    expect(attendance.data).toHaveLength(1);
   });
 });
 
@@ -339,6 +477,71 @@ describe("ending it", () => {
   });
 });
 
+describe("the meetings screen's three lists", () => {
+  it("shows what is live, what is ahead and what has just ended, each in its own list", async () => {
+    // Three rooms in three states, on events of this test's own so no other test's room appears.
+    const liveId = await startMeetingOn(await freshEvent("Live conference"));
+    await post(`/api/v1/meetings/${liveId}/join`, ownerCookie);
+    const endedId = await startMeetingOn(await freshEvent("Finished conference"));
+    await post(`/api/v1/meetings/${endedId}/join`, ownerCookie);
+    await post(`/api/v1/meetings/${endedId}/end`, ownerCookie);
+    const aheadId = await startMeetingOn(await freshEvent("Scheduled conference"));
+
+    const live = await readJson<MeetingPage>(await get("/api/v1/meetings?scope=live", ownerCookie));
+    expect(live.data.map((meeting) => meeting.id)).toContain(liveId);
+    expect(live.data.map((meeting) => meeting.id)).not.toContain(endedId);
+    // The deployment fact rides beside each summary, exactly as it does on a single read.
+    expect(live.data.every((meeting) => meeting.configured)).toBe(true);
+
+    // THE DAY COMES FROM THE CALLER. The fixture's events are on 2026-09-21, so a caller whose own
+    // day is that day or earlier has them ahead of them.
+    const ahead = await readJson<MeetingPage>(
+      await get("/api/v1/meetings?scope=upcoming&today=2026-09-01", ownerCookie),
+    );
+    expect(ahead.data.map((meeting) => meeting.id)).toContain(aheadId);
+    expect(ahead.data.map((meeting) => meeting.id)).not.toContain(liveId);
+
+    // And a caller whose day is already past them sees none of them.
+    const nothingAhead = await readJson<MeetingPage>(
+      await get("/api/v1/meetings?scope=upcoming&today=2026-12-01", ownerCookie),
+    );
+    expect(nothingAhead.data.map((meeting) => meeting.id)).not.toContain(aheadId);
+
+    const recent = await readJson<MeetingPage>(
+      await get("/api/v1/meetings?scope=recent", ownerCookie),
+    );
+    expect(recent.data.map((meeting) => meeting.id)).toContain(endedId);
+    expect(recent.data.map((meeting) => meeting.id)).not.toContain(liveId);
+    expect(recent.nextCursor === null || typeof recent.nextCursor === "string").toBe(true);
+  });
+
+  it("refuses the upcoming scope with no day rather than guessing at one", async () => {
+    // Falling back to the server's day would answer a different question, and would answer it
+    // wrongly for exactly the member whose evening has not turned over yet.
+    const response = await get("/api/v1/meetings?scope=upcoming", ownerCookie);
+    expect(response.status).toBe(422);
+  });
+
+  it("leaves a walled matter's meeting out of every list", async () => {
+    // Started while the matter was reachable — the holding matter is walled from every read, so the
+    // room behind it must be as absent from a list as it is by id.
+    const walledMeeting = newIdentifier("meeting");
+    await firmDatabase
+      .prepare(
+        `INSERT INTO meeting (id, event_kind, matter_event_id, firm_event_id, status, ` +
+          `created_by_user_id, started_at, created_at, updated_at) ` +
+          `VALUES (?1, 'matter', ?2, NULL, 'live', ?3, ?4, ?4, ?4)`,
+      )
+      .bind(walledMeeting, WALLED_EVENT, responsibleUserId, new Date().toISOString())
+      .run();
+
+    const live = await readJson<MeetingPage>(await get("/api/v1/meetings?scope=live", ownerCookie));
+    expect(live.data.map((meeting) => meeting.id)).not.toContain(walledMeeting);
+    // The same answer by the other door, so the pair cannot be used to tell the two apart.
+    expect((await get(`/api/v1/meetings/${walledMeeting}`, ownerCookie)).status).toBe(404);
+  });
+});
+
 describe("the signaling socket", () => {
   it("refuses a member who has not joined, rather than putting them in the room", async () => {
     const meetingId = await freshMeeting();
@@ -349,6 +552,30 @@ describe("the signaling socket", () => {
     });
     expect(response.status).toBe(409);
     expect((await readJson<{ type: string }>(response)).type).toContain("meeting-not-joined");
+  });
+
+  it("refuses an upgrade carrying another site's Origin", async () => {
+    const meetingId = await freshMeeting();
+    await post(`/api/v1/meetings/${meetingId}/join`, ownerCookie);
+
+    // A BROWSER WILL OPEN A SOCKET CROSS-ORIGIN WITH THE MEMBER'S COOKIE, where it would refuse to
+    // let that page read any other call here. What it would buy is the roster of a meeting the
+    // member is in and the ability to signal inside it.
+    const response = await get(`/api/v1/meetings/${meetingId}/socket`, ownerCookie, {
+      upgrade: "websocket",
+      origin: "https://not-this-application.example",
+    });
+    expect(response.status).toBe(403);
+
+    // The application's own origin is the one the request was addressed to, and it is served.
+    const sameOrigin = await get(`/api/v1/meetings/${meetingId}/socket`, ownerCookie, {
+      upgrade: "websocket",
+      origin: base,
+    });
+    expect(sameOrigin.status).toBe(101);
+    // Closed rather than left hanging: the harness's teardown barrier counts open sockets.
+    sameOrigin.webSocket?.accept();
+    sameOrigin.webSocket?.close(1000, "done");
   });
 
   it("refuses a request that did not ask to upgrade", async () => {

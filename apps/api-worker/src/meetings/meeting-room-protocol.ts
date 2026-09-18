@@ -114,7 +114,7 @@ export type MeetingClientFrame = z.infer<typeof MeetingClientFrame>;
 
 /**
  * Why a frame was refused. A CLOSED vocabulary: these are labels a browser branches on, never prose
- * to show somebody. The first four are about the FRAME that arrived and leave the socket open; the
+ * to show somebody. The first seven are about the FRAME that arrived and leave the socket open; the
  * last three are about the room, and the two that name a state the socket cannot recover from are
  * followed by a close.
  */
@@ -123,6 +123,18 @@ export type MeetingRefusalReason =
   | "binary-unsupported"
   | "malformed-frame"
   | "unknown-frame"
+  // A subscription named a (session, track) pair that nobody in THIS room is publishing, or named
+  // the asking participant's own session. The fleet shares one routing application, so a session
+  // handle is only meaningful against the roster it came off — a pair that is not on it is either a
+  // browser working from a roster that has moved on, or an attempt to pull a track out of a meeting
+  // the asker is not in.
+  | "unknown-track"
+  // A publish offered a track name that is not the caller's own. A track name carries the publisher's
+  // participant handle, and every other browser resolves a tile from it, so a name belonging to
+  // somebody else would put one member's media under another member's face.
+  | "foreign-track-name"
+  // This participant already offers as many tracks as the room will carry for one person.
+  | "track-limit-reached"
   // The routing service did not answer, or answered something unreadable. Never carries a word of
   // what it said — see sfu-client.ts, where the reason that text is withheld is written out.
   | "sfu-unavailable"
@@ -214,7 +226,15 @@ export function publishedFrame(
   return frame({ type: "published", sessionDescription: sessionDescriptionValue ?? null, tracks });
 }
 
-/** The routing service's OWN offer for the tracks being forwarded, which the browser answers. */
+/**
+ * The routing service's OWN offer for the tracks being forwarded, which the browser answers.
+ *
+ * `requiresImmediateRenegotiation` is forwarded rather than decided here, for the reason the client
+ * module gives: only the browser's own peer connection knows what it has already applied. It is also
+ * what makes a null description readable — no description AND no renegotiation means the service had
+ * nothing new to say, where no description and a renegotiation flag would be an answer the browser
+ * cannot act on and should report rather than wait on.
+ */
 export function subscribedFrame(
   sessionDescriptionValue: { readonly type: string; readonly sdp: string } | undefined,
   tracks: readonly {
@@ -222,8 +242,14 @@ export function subscribedFrame(
     readonly trackName: string;
     readonly mid: string;
   }[],
+  requiresImmediateRenegotiation: boolean,
 ): string {
-  return frame({ type: "subscribed", sessionDescription: sessionDescriptionValue ?? null, tracks });
+  return frame({
+    type: "subscribed",
+    sessionDescription: sessionDescriptionValue ?? null,
+    tracks,
+    requiresImmediateRenegotiation,
+  });
 }
 
 /** The browser's answer was accepted. Nothing to carry back — the exchange is closed. */
@@ -252,9 +278,14 @@ export function endedFrame(endedAt: string): string {
  * A refusal. Whether the socket survives it is the ROOM's decision and not this frame's: a
  * malformed frame leaves a working socket working, while a state the room cannot serve is followed
  * by a close. Both cases send this first, so a browser always learns why before the socket moves.
+ *
+ * `errorId` rides along only where the room actually recorded a failure — an outage of the routing
+ * service is the case — so the screen can show the handle that joins what the member saw to the
+ * redacted server trace. It is absent on every refusal that is about the frame the browser sent,
+ * because there is no server-side fault to look up.
  */
-export function refusedFrame(reason: MeetingRefusalReason): string {
-  return frame({ type: "refused", reason });
+export function refusedFrame(reason: MeetingRefusalReason, errorId?: string): string {
+  return frame({ type: "refused", reason, ...(errorId === undefined ? {} : { errorId }) });
 }
 
 // The close code for a socket the room cannot serve — an attachment it cannot read, a meeting that

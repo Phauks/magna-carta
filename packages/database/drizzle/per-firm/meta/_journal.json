@@ -134,6 +134,13 @@
       "when": 1789756102000,
       "tag": "20260918T182822_seed-meetings-permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1789770657617,
+      "tag": "20260918T223057_one-open-stay-per-member",
+      "breakpoints": true
     }
   ]
 }
