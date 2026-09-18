@@ -37130,6 +37130,16 @@
               }
             }
           },
+          "422": {
+            "description": "The isolated browser reached the address but the page did not finish rendering (type page-render-failed) — or the request body failed validation (type validation)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Rate limit exceeded",
             "content": {
@@ -37226,6 +37236,16 @@
           },
           "403": {
             "description": "Authenticated, but the member lacks tools:safeBrowse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The isolated browser reached the address but the page did not finish rendering (type page-render-failed) — or the request body failed validation (type validation)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -104983,7 +105003,7 @@
         }
       },
       "get": {
-        "description": "Lists the firm's assembly templates, newest page first by name. Every template is visible to every member who can assemble; a template bound to a matter type is still listed, and the binding narrows which matters offer it. Filter by matter type to see only what a matter of that type would offer.",
+        "description": "Lists the firm's assembly templates, newest page first by name. Every template is visible to every member who can assemble; a template bound to a matter type is still listed, and the binding narrows which matters offer it. Filter by matter type to see only what a matter of that type would offer, and pass search to keep only the templates whose name or description contains the text.",
         "operationId": "templates.list",
         "tags": [
           "templates"
@@ -105028,6 +105048,15 @@
             },
             "required": false,
             "name": "matterTypeId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "required": false,
+            "name": "search",
             "in": "query"
           }
         ],

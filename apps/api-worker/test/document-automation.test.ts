@@ -491,6 +491,23 @@ describe("template registration", () => {
     expect(entry?.currentVersionId).not.toBeNull();
   });
 
+  it("narrows the catalogue by a search over the name, with a reader's wildcard read as text", async () => {
+    const found = await get("/api/v1/templates?search=engage");
+    expect(found.status).toBe(200);
+    const foundBody = (await found.json()) as { data: { name: string }[] };
+    expect(foundBody.data.some((item) => item.name === "Engagement Letter")).toBe(true);
+
+    const missed = await get("/api/v1/templates?search=no-such-template");
+    const missedBody = (await missed.json()) as { data: { name: string }[] };
+    expect(missedBody.data).toEqual([]);
+
+    // `%` is a person's character here, never a match-anything: a search for it finds nothing
+    // rather than everything.
+    const literal = await get(`/api/v1/templates?search=${encodeURIComponent("%")}`);
+    const literalBody = (await literal.json()) as { data: { name: string }[] };
+    expect(literalBody.data).toEqual([]);
+  });
+
   it("refuses a placeholder that names no merge field, pointing at the part and the key", async () => {
     const response = await registerTemplate(
       templateDocx({ body: paragraph("Matter {{matter.numbre}}") }),

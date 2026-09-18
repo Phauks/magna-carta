@@ -2,7 +2,6 @@ import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { captureSafeView, RendererFailure, type CaptureStage } from "@magna-carta/safe-browse";
 import type { BrowserRenderer, RedirectProbe } from "@magna-carta/safe-browse/types";
 import { SsrfRejection, assertPublicTarget } from "@magna-carta/integrations/safe-target";
-import { newErrorId } from "@magna-carta/telemetry/ids";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import { runInBackground } from "../background.ts";
@@ -41,22 +40,95 @@ function rendererFailure(
   return new RendererFailure(httpStatus, typeof code === "number" ? code : null);
 }
 
-// What reaches the log when a capture dies after the stream has begun. A RendererFailure states
-// the service's status and code and provably carries no target, so it is quoted; anything else
-// may have the suspect URL in its message, so only the Error ID crosses and the correlation is
-// made through that. The name is preserved either way — which class failed is the first thing a
-// reader wants, and `logOperationFailed` records it.
-function sanitizedStreamFailure(error: unknown, errorId: string): Error {
+// What reaches the log when a capture dies after the stream has begun. A RendererFailure states the
+// service's status and code and provably carries no target, so it is quoted; anything else may have
+// the suspect URL in its message, so nothing of it crosses but its class. The name is preserved
+// either way — which class failed is the first thing a reader wants, and `logOperationFailed`
+// records it.
+//
+// The Error ID is deliberately NOT written into the message here. It used to be, because the field
+// beside it held a different id and the message was the only place the member's own id survived;
+// `logOperationFailed` now returns the id it minted, so the field is the id, and repeating it in
+// the text would just be a second copy to fall out of step.
+function sanitizedStreamFailure(error: unknown): Error {
   if (error instanceof RendererFailure) {
-    const sanitized = new Error(`${error.message}; errorId=${errorId}`);
+    const sanitized = new Error(error.message);
     sanitized.name = error.name;
     return sanitized;
   }
-  return new Error(`capture failed after the stream began; errorId=${errorId}`);
+  return new Error("capture failed after the stream began");
+}
+
+// The sweep that makes a full-page shot honest: below-the-fold images lazy-load on scroll, so a
+// full-page screenshot without one captures gray placeholders under the first viewport. The script
+// steps to the bottom (bounded, so an infinite-scroll feed cannot hold the capture hostage) and
+// returns to the top; the settle wait after it covers the sweep plus the image loads it triggers.
+const LAZY_LOAD_SWEEP =
+  "(() => { let step = 0; const timer = setInterval(() => { step += 1; window.scrollBy(0, window.innerHeight); const bottom = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight; if (bottom || step >= 30) { clearInterval(timer); window.scrollTo(0, 0); } }, 120); })();";
+
+/*
+ * The two attempts a capture makes, in order.
+ *
+ * FULL is the capture worth having: wait for `load`, sweep for lazy images, settle, then shoot the
+ * whole scrollable page.
+ *
+ * `load` rather than a network-idle condition, and this is the correction that matters. The first
+ * build waited for `networkidle2`, reasoning that a client-rendered page is not worth shooting
+ * before it has painted. But a page with any persistent connection — analytics, a socket, a poll —
+ * never reaches two-connections-idle, so the wait ran to its own timeout and the service answered
+ * 422, which it documents as being unable to complete the action because of an issue with the
+ * site. Every capture against a real commercial page failed that way. `load` fires on a condition
+ * every page reaches; the settle wait afterwards is what covers the painting that idle was there
+ * to wait for, and it is bounded rather than open-ended.
+ *
+ * DEGRADED is what a page that still will not finish gets: no sweep, the earliest ready signal, a
+ * short settle, and the first viewport only. It is a worse screenshot and it is not nothing, which
+ * matters here more than on most surfaces — the pages this tool is pointed at are chosen for being
+ * suspect, and "we could not show you the page" is the answer least useful to someone deciding
+ * whether to trust a link.
+ */
+const FULL_ATTEMPT: Record<string, unknown> = {
+  formats: ["screenshot", "markdown"],
+  gotoOptions: { waitUntil: "load", timeout: 30_000 },
+  addScriptTag: [{ content: LAZY_LOAD_SWEEP }],
+  waitForTimeout: 6_000,
+  screenshotOptions: { fullPage: true },
+};
+
+const DEGRADED_ATTEMPT: Record<string, unknown> = {
+  formats: ["screenshot", "markdown"],
+  gotoOptions: { waitUntil: "domcontentloaded", timeout: 20_000 },
+  waitForTimeout: 2_000,
+  screenshotOptions: { fullPage: false },
+};
+
+interface SnapshotEnvelope {
+  success?: boolean;
+  result?: { content?: string; screenshot?: string; markdown?: string };
+  meta?: { title?: string };
+  errors?: { code?: number }[];
+}
+
+// One attempt: returns the envelope on success, or the failure that describes why it did not.
+async function attemptSnapshot(
+  browser: BrowserRunBinding,
+  url: string,
+  options: Record<string, unknown>,
+): Promise<{ ok: true; body: SnapshotEnvelope } | { ok: false; failure: RendererFailure }> {
+  const response = await browser.quickAction("snapshot", { url, ...options });
+  // A refusal may arrive as a non-2xx, or as a 2xx carrying `success: false`; both shapes put the
+  // reason in `errors`. An unparseable body is a refusal too — the service answered with something
+  // that is not its envelope — so the parse failure resolves to null rather than throwing a
+  // SyntaxError that would reach the member as an unexplained server fault.
+  const body = (await response.json().catch(() => null)) as SnapshotEnvelope | null;
+  if (!response.ok || body === null || body.success !== true) {
+    return { ok: false, failure: rendererFailure(response.status, body) };
+  }
+  return { ok: true, body };
 }
 
 // Production BrowserRenderer: delegates to the Browser Rendering Workers binding via
-// quickAction("snapshot", ...), which returns HTML content + a base64 screenshot in one
+// quickAction("snapshot", ...), which returns page content + a base64 screenshot in one
 // call. Links are extracted with a separate best-effort call — a failed links call must
 // NOT fail the capture (capacity/network errors on links are tolerated).
 //
@@ -69,44 +141,16 @@ function sanitizedStreamFailure(error: unknown, errorId: string): Error {
 export function createBrowserRenderer(browser: BrowserRunBinding): BrowserRenderer {
   return {
     async snapshot(url: string) {
-      const snapshotResponse = await browser.quickAction("snapshot", {
-        url,
-        formats: ["screenshot", "markdown"],
-        // The capture is only useful once the page has actually finished: without these options
-        // the browser shot a client-rendered page mid-load (skeleton placeholders where the
-        // content goes) and only the first viewport of it. networkidle2 rather than networkidle0
-        // because sites with persistent connections (analytics, sockets) never reach zero and
-        // would ride the timeout every time; the settle delay after network-idle gives
-        // lazy-rendered content a beat to paint; fullPage captures the whole scrollable page.
-        gotoOptions: { waitUntil: "networkidle2", timeout: 45_000 },
-        // Sweep the page once before the shot: below-the-fold images lazy-load on scroll, so a
-        // full-page screenshot without a sweep captures gray placeholders under the first
-        // viewport. The injected script steps to the bottom (bounded, so an infinite-scroll feed
-        // cannot hold the capture hostage) and returns to the top; the waitForTimeout after it
-        // covers the sweep plus the image loads it triggers.
-        addScriptTag: [
-          {
-            content:
-              "(() => { let step = 0; const timer = setInterval(() => { step += 1; window.scrollBy(0, window.innerHeight); const bottom = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight; if (bottom || step >= 30) { clearInterval(timer); window.scrollTo(0, 0); } }, 120); })();",
-          },
-        ],
-        waitForTimeout: 6_000,
-        screenshotOptions: { fullPage: true },
-      });
-      // A refusal may arrive as a non-2xx, or as a 2xx carrying `success: false`; both shapes put
-      // the reason in `errors`. An unparseable body is a refusal too — the service answered with
-      // something that is not its envelope — so the parse failure resolves to null rather than
-      // throwing a SyntaxError that would reach the member as an unexplained server fault.
-      const snapshotBody = (await snapshotResponse.json().catch(() => null)) as {
-        success?: boolean;
-        result?: { content?: string; screenshot?: string; markdown?: string };
-        meta?: { title?: string };
-        errors?: { code?: number }[];
-      } | null;
-
-      if (!snapshotResponse.ok || snapshotBody === null || snapshotBody.success !== true) {
-        throw rendererFailure(snapshotResponse.status, snapshotBody);
+      let attempt = await attemptSnapshot(browser, url, FULL_ATTEMPT);
+      // ONLY a page failure earns the second attempt. A transient fault means the service is busy,
+      // and an immediate retry spends another render against the same shortage; a configuration
+      // fault fails identically however the page is asked for. Retrying either would turn one
+      // wasted render into two and delay the honest answer.
+      if (!attempt.ok && attempt.failure.kind === "page") {
+        attempt = await attemptSnapshot(browser, url, DEGRADED_ATTEMPT);
       }
+      if (!attempt.ok) throw attempt.failure;
+      const snapshotBody = attempt.body;
 
       // Links are a best-effort companion call — a failure here must not fail the capture.
       let links: readonly string[] = [];
@@ -250,6 +294,12 @@ export const safeBrowseRoute = defineOpenAPIRoute(safeBrowseMeta, {
       description: "Authenticated, but the member lacks tools:safeBrowse",
       content: { "application/problem+json": { schema: Problem } },
     },
+    422: {
+      description:
+        "The isolated browser reached the address but the page did not finish rendering " +
+        "(type page-render-failed) — or the request body failed validation (type validation)",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     429: {
       description: "Rate limit exceeded",
       content: { "application/problem+json": { schema: Problem } },
@@ -313,6 +363,12 @@ export const safeBrowseStreamRoute = defineOpenAPIRoute(safeBrowseStreamMeta, {
     },
     403: {
       description: "Authenticated, but the member lacks tools:safeBrowse",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    422: {
+      description:
+        "The isolated browser reached the address but the page did not finish rendering " +
+        "(type page-render-failed) — or the request body failed validation (type validation)",
       content: { "application/problem+json": { schema: Problem } },
     },
     429: {
@@ -398,6 +454,16 @@ export function registerSafeBrowseStreamRoute(
           // per sanitizedStreamFailure: the raw error may carry the suspect URL).
           if (error instanceof SsrfRejection) {
             await writeLine({ stage: "failed", problem: { status: 400 } });
+          } else if (error instanceof RendererFailure && error.kind === "page") {
+            logOperationFailed(
+              createWorkersLogger(c.env.TELEMETRY),
+              "route:safeBrowse.stream",
+              error,
+            );
+            await writeLine({
+              stage: "failed",
+              problem: { status: 422, type: "page-render-failed" },
+            });
           } else if (error instanceof RendererFailure && error.kind === "transient") {
             // Logged even though the member is simply told to retry. This path answered and wrote
             // nothing before, which is precisely why a live refusal could not be read; the
@@ -409,11 +475,11 @@ export function registerSafeBrowseStreamRoute(
             );
             await writeLine({ stage: "failed", problem: { status: 502 } });
           } else {
-            const errorId = newErrorId();
-            logOperationFailed(
+            // The id the member is shown IS the id on the record — one mint, from the log call.
+            const errorId = logOperationFailed(
               createWorkersLogger(c.env.TELEMETRY),
               "route:safeBrowse.stream",
-              sanitizedStreamFailure(error, errorId),
+              sanitizedStreamFailure(error),
             );
             await writeLine({ stage: "failed", problem: { status: 500, errorId } });
           }
@@ -503,14 +569,25 @@ export function registerSafeBrowseRoute(
         // and a second line under a second ID is one the member can never quote. Letting a
         // RendererFailure through is safe — it holds a status and a code and provably not the
         // target, so the message the handler records cannot carry the suspect URL.
-        if (error instanceof RendererFailure && error.kind === "transient") {
+        if (error instanceof RendererFailure && error.kind !== "configuration") {
           logOperationFailed(createWorkersLogger(c.env.TELEMETRY), "route:safeBrowse.post", error);
-          return problemJson(c, {
-            type: "internal",
-            status: 502,
-            title: "The remote browser renderer is temporarily unavailable",
-            detail: "The rendering service could not be reached. Please try again shortly.",
-          });
+          return error.kind === "transient"
+            ? problemJson(c, {
+                type: "internal",
+                status: 502,
+                title: "The remote browser renderer is temporarily unavailable",
+                detail: "The rendering service could not be reached. Please try again shortly.",
+              })
+            : problemJson(c, {
+                type: "page-render-failed",
+                status: 422,
+                title: "That page could not be rendered",
+                // Says nothing about the target beyond the fact that it did not finish: this detail
+                // is read by whoever pasted the address, and echoing it back is the thing the
+                // redaction rule on this route exists to prevent.
+                detail:
+                  "The isolated browser reached the address but the page did not finish loading. It may be very slow, very large, or broken.",
+              });
         }
         throw error;
       }

@@ -10,6 +10,7 @@
     "./operation": "./src/operation.ts",
     "./scrub": "./src/scrub.ts",
     "./ids": "./src/ids.ts",
+    "./service-identity": "./src/service-identity.ts",
     "./logger": "./src/logger.ts",
     "./metrics": "./src/metrics.ts",
     "./workers-logger": "./src/workers-logger.ts",

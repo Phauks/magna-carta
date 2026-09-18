@@ -727,12 +727,14 @@ const listRoute = defineOpenAPIRoute(readMeta("list"), {
     "Lists the firm's assembly templates, newest page first by name. Every template is visible to " +
     "every member who can assemble; a template bound to a matter type is still listed, and the " +
     "binding narrows which matters offer it. Filter by matter type to see only what a matter of that " +
-    "type would offer.",
+    "type would offer, and pass search to keep only the templates whose name or description contains " +
+    "the text.",
   request: {
     query: z.object({
       cursor: z.string().optional(),
       status: z.enum(["active", "archived"]).optional(),
       matterTypeId: z.string().optional(),
+      search: z.string().max(200).optional(),
     }),
   },
   responses: {
@@ -1761,6 +1763,7 @@ export function registerTemplatesRoutes(app: TemplatesApp, chokepoint: Chokepoin
       const rows = await listDocumentTemplates(firm.firmDatabase, {
         status: query.status,
         matterTypeId: query.matterTypeId as MatterTypeId | undefined,
+        search: query.search,
         limit: pageSize + 1,
         afterName: after?.name,
         afterId: after?.id,

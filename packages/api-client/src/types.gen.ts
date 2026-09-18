@@ -8859,6 +8859,10 @@ export type SafeBrowsePostErrors = {
      */
     403: Problem;
     /**
+     * The isolated browser reached the address but the page did not finish rendering (type page-render-failed) — or the request body failed validation (type validation)
+     */
+    422: Problem;
+    /**
      * Rate limit exceeded
      */
     429: Problem;
@@ -8901,6 +8905,10 @@ export type SafeBrowseStreamErrors = {
      * Authenticated, but the member lacks tools:safeBrowse
      */
     403: Problem;
+    /**
+     * The isolated browser reached the address but the page did not finish rendering (type page-render-failed) — or the request body failed validation (type validation)
+     */
+    422: Problem;
     /**
      * Rate limit exceeded
      */
@@ -37121,6 +37129,7 @@ export type TemplatesListData = {
         cursor?: string;
         status?: 'active' | 'archived';
         matterTypeId?: string;
+        search?: string;
     };
     url: '/api/v1/templates';
 };
