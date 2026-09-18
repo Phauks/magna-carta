@@ -35,15 +35,19 @@ This is decision **D1**, and it is the one thing in this plan that must be settl
 
 ### D1 — how an operational credential read is authorized
 
-The three candidates, with what each costs:
+Two facts found while building the seam narrow this further than the options first suggested, and both are load-bearing.
 
-- **A — a system read on the member's behalf (recommended).** The decrypt for adapter dispatch runs under a context that satisfies the gate without the member holding it, keeps the audit row, and records the acting member on it. The member never receives the key; the worker uses it and the plaintext never reaches a response body. This is already the stated model — `secret-statements.ts:14` says "the core Worker decrypts and hands plaintext to plugin Workers; plugin Workers never see key material" — and the boundary permission that actually governs the act stays `shipping:manage`, which the route has already checked. The cost is a system affordance inside the protected-field chokepoint, which must be narrow, named, and impossible to reach from a route that has not checked something else first.
-- **B — a second protected-field declaration.** Declare the postage credential as its own protected field gated on `shipping:manage`, separate from the general `firm_secret` value. The gate stays purely declarative and no bypass exists. The cost is that the secret store stops being one declaration and becomes one per purpose, and every future credentialed adapter adds another.
-- **C — split the permission.** Add a right below `firm:manageSecrets` for running a connected integration. Cleanest conceptually; the cost is a new permission on every role definition and a migration for firms that already have roles.
+**A protected column may carry exactly one declaration, and `readProtected` enforces that declaration's permission itself.** `packages/data-access/test/protected-field-registry.test.ts` asserts one declaration per `(table, column)`, and `protected-fields.ts` checks `declaration.permission` inside `readProtected` rather than leaving the gate to the caller. So a second declaration on `firm_secret.ciphertext` gated on `shipping:manage` is structurally forbidden, and a sibling read function that names its own gate cannot work without changing `readProtected` — a change to the one mechanism that gates every encrypted field in the product.
 
-A is recommended because the act being authorized is "buy postage," not "read a secret," and B/C both answer a question the route gate has already answered. If the owner prefers the gate to stay declarative with no bypass at all, B is the fallback and is a contained change.
+**Nothing has ever been stored in `firm_secret`.** Its only production writer is the shipping connect route, which answers 501, so the table is empty in every firm. Whatever this decision chooses, it costs no data migration today and will cost one the moment a firm connects an account.
 
-**Coordinate this with the settings stream.** `claude/settings-implementation-plan-asr0l6` is rebuilding the firm permission model — role assignment, grants, and the client-side check that every firm page's posture reads — and both streams declare `packages/access-control/src/registry.ts`. D1 is a permission question whichever option wins, and C would add a right to the same registry that stream is reshaping. Settle D1 with that stream's model in view rather than beside it.
+That leaves three candidates, re-costed:
+
+- **A — a gate the caller names.** `readProtected` grows a way to run under a permission other than the declaration's, and the credential read passes `shipping:manage`. Keeps the audit and the key derivation exactly as they are. The cost is real and falls in the worst place: the encryption chokepoint gains a parameter whose whole purpose is to not use the declared gate, and it would sit in the module the no-plaintext-escape and encryption-chokepoint fitness scans exist to protect.
+- **B — the credential gets its own protected column (recommended).** An `integration_credential` table with its own `ciphertext` column and its own declaration, gated on a permission that means "may use a connected integration" rather than "may read any firm secret". No bypass, no change to `readProtected`, no lowering of the gate on `firm_secret`, and — because nothing is stored yet — no data to move. The cost is one additive per-firm migration and moving the connect route's write off `putSecret`.
+- **C — lower the gate on `firm_secret` itself.** Change `firmSecretValue.permission` to the narrower right. Cheapest to write and the worst of the three: it lowers the gate on every secret the store will ever hold, not just postage credentials, and the store exists precisely to be the firm's one sealed place for arbitrary secrets.
+
+B is recommended. It is the only one that answers the question without either weakening a shared mechanism or carving an exception into it, and the window in which it is free — an empty table — closes as soon as a firm connects an account.
 
 ## The order, and why
 
