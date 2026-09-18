@@ -1,6 +1,7 @@
 # Document history — every save, who was there, and who wrote which words
 
-**Status:** Design. Nothing here is built. The owner asked on 2026-09-17 for history that matches
+**Status:** Layers 1 and 2 built (every save a version with its kind, the fold, participants per
+version); layer 3 is design, pending the owner's answer to section 3.3. The owner asked on 2026-09-17 for history that matches
 what Google Docs shows: every state of the document, grouped in a timeline, and each change
 attributed to the person who made it, with the noise handled by grouping rather than by keeping
 less.

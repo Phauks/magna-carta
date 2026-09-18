@@ -1816,6 +1816,11 @@ export type FileVersionItem = {
     committedAt: string | null;
     uploadedBy: string | null;
     uploadedByName: string | null;
+    saveKind: 'explicit' | 'autosave' | 'exit' | 'reap' | null;
+    participants: Array<{
+        userId: string;
+        name: string | null;
+    }>;
     scanVerdict: 'unscanned' | 'clean' | 'flagged' | null;
     scanEngineVersion: string | null;
     scanDetail: string | null;

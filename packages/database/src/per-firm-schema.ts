@@ -1080,6 +1080,11 @@ export const fileVersion = sqliteTable(
     // where a document's date came from has an answer. Null for a version that arrived some other
     // way (a live-edit save, an assembled document, a version older than the column).
     sourceModifiedAt: text("source_modified_at"),
+    // What kind of save cut this version, for a version the browser editor cut from the working
+    // copy: the member's own Save (`explicit`), the editor's periodic autosave (`autosave`), the save
+    // made as the last view leaves (`exit`), or the idle reap's cut (`reap`). Null for a version that
+    // arrived by upload, check-in or restore. History folds the autosaves and names the rest.
+    saveKind: text("save_kind", { enum: ["explicit", "autosave", "exit", "reap"] }),
   },
   (table) => [
     uniqueIndex("file_version_r2_key_unique_index").on(table.r2Key),
@@ -1128,6 +1133,23 @@ export const fileVersion = sqliteTable(
 // file, held by one member against a base version. The row tracks the lifecycle (active -> stale ->
 // released, or reconciling while a divergent check-in is resolved). divergence is detected by
 // comparing the file's current_version_id against base_version_id at check-in time.
+
+// Who was in the editing session when a version was cut from the working copy — every member with
+// a view open, editor or reader, by identifier. The version's `uploaded_by` names the one member whose
+// save cut it; this names everyone who could have written the words in it. Not a foreign key to the
+// member row, on the same terms as `uploaded_by`: the fact outlives the member.
+export const fileVersionParticipant = sqliteTable(
+  "file_version_participant",
+  {
+    versionId: text("version_id")
+      .notNull()
+      .$type<FileVersionId>()
+      .references(() => fileVersion.id),
+    memberUserId: text("member_user_id").notNull().$type<UserId>(),
+  },
+  (table) => [primaryKey({ columns: [table.versionId, table.memberUserId] })],
+);
+
 export const documentCheckout = sqliteTable(
   "document_checkout",
   {

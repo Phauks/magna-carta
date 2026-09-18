@@ -432,6 +432,12 @@ time-limited access to that specific version. The editor fills the tab. Saving i
 document's history the way any other save does. Several members can edit the same document at
 once; each sees the others' changes as they are made.
 
+Every save in the editor becomes a version in the file's history: the ones you make with Save,
+the one made when the last person closes the document, and the editor's own autosaves every few
+minutes. **Version History** shows the named saves and folds the autosaves behind one line that
+says how many there are; **Show every save** opens them. Each version names who saved it and
+everyone else who had the document open at the time.
+
 While the document opens, the screen lists each stage as it happens — opening the session,
 starting the editor, loading it, asking for the document, fetching it, showing it — with the time
 so far. A first open can take a little while, because the editor starts for that document on

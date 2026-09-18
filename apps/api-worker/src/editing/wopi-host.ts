@@ -182,21 +182,21 @@ export function registerWopiHostRoutes(
           bucket,
           currentMeta: state.current,
           currentLock: state.wopiLock,
-          // The working copy's metadata first, then — for a save the member asked for, or the one
-          // made as the last view leaves — a version cut from it, so the file's history shows the
-          // save the moment it landed rather than at the idle reap half an hour on.
+          // The working copy's metadata first, then a version cut from it — every save, the autosave
+          // included — so the file's history shows each state the moment it landed, with the kind of
+          // save and everyone in the session on it. A save with unchanged bytes cuts nothing.
           recordCurrentMeta: async (meta) => {
             await stub.setCurrentMeta(meta);
-            if (saveKind !== "autosave") {
-              await cutVersionFromWorkingCopy(
-                firmDatabase,
-                bucket,
-                fileId,
-                meta,
-                claims.memberId as UserId,
-                now,
-              );
-            }
+            await cutVersionFromWorkingCopy(
+              firmDatabase,
+              bucket,
+              fileId,
+              meta,
+              claims.memberId as UserId,
+              saveKind,
+              Object.keys(state.participants) as UserId[],
+              now,
+            );
           },
           now,
         });

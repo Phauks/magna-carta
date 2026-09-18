@@ -120,6 +120,13 @@
       "when": 1789560000000,
       "tag": "20260916T120000_download-register-admits-every-download",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1789755489401,
+      "tag": "20260918T181809_version-save-kind-and-participants",
+      "breakpoints": true
     }
   ]
 }

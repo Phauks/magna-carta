@@ -27,6 +27,7 @@ import matterPhysicalFileOfficeSql from "@magna-carta/database/drizzle/per-firm/
 import intakeNumberSql from "@magna-carta/database/drizzle/per-firm/20260914T191528_intake-number.sql";
 import eventRecurrenceSql from "@magna-carta/database/drizzle/per-firm/20260916T000000_event-recurrence.sql";
 import downloadRegisterAdmitsEveryDownloadSql from "@magna-carta/database/drizzle/per-firm/20260916T120000_download-register-admits-every-download.sql";
+import versionSaveKindAndParticipantsSql from "@magna-carta/database/drizzle/per-firm/20260918T181809_version-save-kind-and-participants.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -49,6 +50,7 @@ export function perFirmMigrations(): Migration[] {
     "20260916T000000_event-recurrence": eventRecurrenceSql,
     "20260916T120000_download-register-admits-every-download":
       downloadRegisterAdmitsEveryDownloadSql,
+    "20260918T181809_version-save-kind-and-participants": versionSaveKindAndParticipantsSql,
   });
 }
 

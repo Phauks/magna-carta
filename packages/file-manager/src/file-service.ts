@@ -59,6 +59,8 @@ import {
   setUploadSessionStatusByIdStatement,
   setUploadSessionStatusStatement,
   softDeleteFileStatement,
+  insertVersionParticipantStatements,
+  type VersionSaveKind,
 } from "./file-statements.ts";
 import { selectFolderStatement } from "./folder-statements.ts";
 import { meterCommitStatements } from "./metering-statements.ts";
@@ -750,6 +752,11 @@ export interface CommitEditedVersionInput {
   readonly contentSha256: string; // current's content hash (computed when it was written)
   readonly sizeBytes: number;
   readonly uploadedBy: UserId; // the session-owning member — the version's author and the audit actor
+  // What kind of save this is (the member's own, the editor's autosave, the exit save, the reap).
+  readonly saveKind: VersionSaveKind;
+  // Every member with a view open when the cut happened, the author included; recorded on the
+  // version so history can say who was there, not only whose save it was.
+  readonly participants: readonly UserId[];
 }
 
 export interface CommittedEditedVersion {
@@ -806,6 +813,7 @@ export async function commitEditedVersion(
           declaredContentType: null,
           uploadedBy: input.uploadedBy,
           createdAt: now,
+          saveKind: input.saveKind,
         }),
         commitVersionStatement(database, {
           versionId,
@@ -817,6 +825,9 @@ export async function commitEditedVersion(
           scanDetail: null,
           committedAt: now,
         }),
+        ...insertVersionParticipantStatements(database, versionId, [
+          ...new Set([input.uploadedBy, ...input.participants]),
+        ]),
         bumpFileCurrentVersionStatement(database, input.fileId, versionId, now),
         ...meterCommitStatements(
           database,

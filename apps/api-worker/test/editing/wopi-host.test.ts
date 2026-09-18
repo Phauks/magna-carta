@@ -219,17 +219,24 @@ describe("WOPI host surface", () => {
     expect(response.status).toBe(403);
   });
 
-  it("cuts a version on the member's own save and on the exit save, and never on an autosave", async () => {
+  it("cuts a version on every save with changed bytes, with its kind and everyone in the session on it", async () => {
     const { fileId, versionId } = await seedFile();
     const sessionId = await openSession(fileId, true);
+    // A second member with a view open: recorded on every version cut while they are there.
+    await documentSessionStub(env, fileId).recordParticipant("user_reader", "view");
     const accessToken = encodeURIComponent(await token(fileId, versionId, "edit", sessionId));
-    const versions = async (): Promise<number> =>
-      (
-        await firmDb
-          .prepare("SELECT COUNT(*) AS n FROM file_version WHERE file_id = ?1")
-          .bind(fileId)
-          .first<{ n: number }>()
-      )?.n ?? 0;
+    const versions = async (): Promise<{ kind: string | null; participants: string[] }[]> => {
+      const { results } = await firmDb
+        .prepare(
+          "SELECT v.id, v.save_kind AS kind, (SELECT group_concat(p.member_user_id, ',') FROM file_version_participant p WHERE p.version_id = v.id) AS participants FROM file_version v WHERE v.file_id = ?1 ORDER BY v.version_number",
+        )
+        .bind(fileId)
+        .all<{ id: string; kind: string | null; participants: string | null }>();
+      return results.map((row) => ({
+        kind: row.kind,
+        participants: row.participants === null ? [] : row.participants.split(",").toSorted(),
+      }));
+    };
     const save = (body: string, headers: Record<string, string>) =>
       wopi(`${fileId}/contents?access_token=${accessToken}`, {
         method: "POST",
@@ -237,14 +244,9 @@ describe("WOPI host surface", () => {
         headers,
       });
 
-    expect(await versions()).toBe(1);
-    // The member pressed Save: a version, and the file's current pointer moves to it.
+    expect(await versions()).toHaveLength(1);
     expect((await save("first draft", { "X-COOL-WOPI-IsAutosave": "false" })).status).toBe(200);
-    expect(await versions()).toBe(2);
-    // The editor's autosave: the working copy keeps up, history does not fill.
     expect((await save("second draft", { "X-COOL-WOPI-IsAutosave": "true" })).status).toBe(200);
-    expect(await versions()).toBe(2);
-    // The last view leaving: the save the editor makes on the way out is kept.
     expect(
       (
         await save("third draft", {
@@ -253,7 +255,12 @@ describe("WOPI host surface", () => {
         })
       ).status,
     ).toBe(200);
-    expect(await versions()).toBe(3);
+    // A save with unchanged bytes cuts nothing.
+    expect((await save("third draft", { "X-COOL-WOPI-IsAutosave": "false" })).status).toBe(200);
+
+    const cut = await versions();
+    expect(cut.map((row) => row.kind)).toEqual([null, "explicit", "autosave", "exit"]);
+    for (const row of cut.slice(1)) expect(row.participants).toEqual([MEMBER, "user_reader"]);
     const file = await firmDb
       .prepare("SELECT current_version_id AS currentVersionId FROM file WHERE id = ?1")
       .bind(fileId)

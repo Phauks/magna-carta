@@ -26,6 +26,8 @@ import {
   FILE_VERSION_TABLE,
   UPLOAD_SESSION_TABLE,
   selectCurrentCleanVersionsBySha256Statement,
+  FILE_VERSION_PARTICIPANT_TABLE,
+  type VersionSaveKind,
 } from "./file-statements.ts";
 import { FOLDER_TABLE } from "./folder-statements.ts";
 
@@ -746,7 +748,12 @@ export function listCleanVersionsStatement(
   bindings.push(options.limit);
   return database
     .prepare(
-      `SELECT v.id, v.version_number, v.r2_key, v.size_bytes, v.sniffed_content_type, v.content_sha256, v.committed_at, v.inline_playable, v.uploaded_by, v.scan_verdict, v.scan_engine_version, v.scan_detail, m.display_name AS uploaded_by_name ` +
+      `SELECT v.id, v.version_number, v.r2_key, v.size_bytes, v.sniffed_content_type, v.content_sha256, v.committed_at, v.inline_playable, v.uploaded_by, v.scan_verdict, v.scan_engine_version, v.scan_detail, v.save_kind, m.display_name AS uploaded_by_name, ` +
+        // Everyone in the session when the version was cut, as "id<US>name" pairs joined by the record
+        // separator: a name is firm-authored text and a comma inside one would split a person in two.
+        // The name is read off the member row at query time, so a renamed member reads under their
+        // current name and a departed one keeps the id and loses only the name.
+        `(SELECT group_concat(p.member_user_id || char(31) || COALESCE(pm.display_name, ''), char(30)) FROM ${FILE_VERSION_PARTICIPANT_TABLE} p LEFT JOIN ${MEMBER_TABLE} pm ON pm.user_id = p.member_user_id WHERE p.version_id = v.id) AS participants ` +
         `FROM ${FILE_VERSION_TABLE} v LEFT JOIN ${MEMBER_TABLE} m ON m.user_id = v.uploaded_by ` +
         `WHERE ${conditions.join(" AND ")} ORDER BY v.version_number DESC, v.id DESC LIMIT ?`,
     )
@@ -772,6 +779,25 @@ export interface CleanVersionListItem {
   readonly scanVerdict: "unscanned" | "clean" | "flagged" | null;
   readonly scanEngineVersion: string | null;
   readonly scanDetail: string | null;
+  /** What kind of save cut this version from the working copy; null for an upload or a restore. */
+  readonly saveKind: VersionSaveKind | null;
+  /** Everyone in the editing session when the version was cut, the author included. */
+  readonly participants: readonly VersionParticipant[];
+}
+
+export interface VersionParticipant {
+  readonly userId: UserId;
+  /** The member's current display name, or null where the member row is gone. */
+  readonly name: string | null;
+}
+
+/** "id<US>name<RS>id<US>name" back into participants; an empty name is a departed member. */
+export function participantsOf(joined: string | null): VersionParticipant[] {
+  if (joined === null || joined === "") return [];
+  return joined.split("\u001E").map((pair) => {
+    const [userId = "", name = ""] = pair.split("\u001F");
+    return { userId: userId as UserId, name: name === "" ? null : name };
+  });
 }
 
 export async function listCleanVersions(
@@ -797,6 +823,8 @@ export async function listCleanVersions(
     scan_verdict: "unscanned" | "clean" | "flagged" | null;
     scan_engine_version: string | null;
     scan_detail: string | null;
+    save_kind: VersionSaveKind | null;
+    participants: string | null;
   }>();
   const hasMore = results.length > pageSize;
   const rows = hasMore ? results.slice(0, pageSize) : results;
@@ -814,6 +842,8 @@ export async function listCleanVersions(
       inlinePlayable: row.inline_playable,
       uploadedBy: row.uploaded_by,
       uploadedByName: row.uploaded_by_name,
+      saveKind: row.save_kind,
+      participants: participantsOf(row.participants),
       scanVerdict: row.scan_verdict,
       scanEngineVersion: row.scan_engine_version,
       scanDetail: row.scan_detail,
