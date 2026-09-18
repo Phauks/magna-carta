@@ -8,16 +8,23 @@ describe("RendererFailure", () => {
     }
   });
 
-  it("treats a refusal about the caller as permanent", () => {
+  it("treats a refusal about the caller as a configuration fault", () => {
     // The entitlement, permission and rejected-parameter shapes. None is fixed by waiting, so
     // none may reach the member as the capacity 502.
-    for (const status of [400, 401, 403, 404, 422]) {
-      expect(new RendererFailure(status, 10000).kind).toBe("permanent");
+    for (const status of [400, 401, 403, 404]) {
+      expect(new RendererFailure(status, 10000).kind).toBe("configuration");
     }
   });
 
-  it("treats a 2xx carrying success:false as permanent", () => {
-    expect(new RendererFailure(200, 1000).kind).toBe("permanent");
+  it("treats a 422 as the page failing, not the caller and not the service", () => {
+    // The service documents 422 as being unable to finish because of an issue with the site. It
+    // is the shape a real capture actually met, and reading it as a configuration fault would
+    // hand the member an Error ID for a page that is merely slow.
+    expect(new RendererFailure(422, 6004).kind).toBe("page");
+  });
+
+  it("treats a 2xx carrying success:false as the page failing", () => {
+    expect(new RendererFailure(200, 1000).kind).toBe("page");
   });
 
   it("states the status and code in a message that holds no target", () => {
