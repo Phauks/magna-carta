@@ -12,6 +12,12 @@
    * THE ACCOUNT IS HELD rather than where the reader is sitting — the day a deposit lands is the
    * bank's day, and a reader three zones away must not record it as the next one.
    *
+   * WHO PAID IT IN COMES FROM THE DIRECTORY. A payer typed by hand gives one firm three spellings
+   * of one insurer and makes its own record undiscoverable; the directory's picker is the one field
+   * a person or an organization is chosen in anywhere in the product, and it records the payer who
+   * is not on the list yet through its own New. What reaches the wire is still the name, because
+   * that is what the contract's `source` carries.
+   *
    * ONE KEY PER OPENING, REUSED ON EVERY RETRY. It is minted when the panel opens rather than when
    * the commit is pressed, so a refusal the reader answers and presses through again is the same
    * submission: a deposit posted twice is a second real movement of a client's money.
@@ -20,13 +26,15 @@
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import { DatePicker } from "@magna-carta/design-system/date-picker";
+  import type { PickableEntity } from "@magna-carta/design-system/entity-picker";
   import Input from "@magna-carta/design-system/input";
   import LabelledField from "@magna-carta/design-system/labelled-field";
-  import Textarea from "@magna-carta/design-system/textarea";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { civilDateTextOrEmpty, civilDateValue } from "$lib/dates";
   import ChoicePicker from "$lib/components/choice-picker.svelte";
   import type { ChoiceOption } from "$lib/components/choice-picker.ts";
+  import DirectoryEntityPicker from "$lib/directory/directory-entity-picker.svelte";
+  import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import {
@@ -62,15 +70,9 @@
   let effectiveDate = $state("");
   let method = $state<TrustBankMovementMethod>("check");
   let reference = $state("");
-  let source = $state("");
+  /** Who paid it in, as the directory holds them. The wire carries their name. */
+  let payer = $state<PickableEntity | null>(null);
   let purpose = $state("");
-  let description = $state("");
-  /*
-   * Whether the ledger line has been written by hand. Until it has, it follows the purpose: the two
-   * are the same sentence on most deposits, and a form that can work an answer out OFFERS it and
-   * never overwrites what somebody typed.
-   */
-  let descriptionWritten = $state(false);
   let failure = $state<StatedFailure | null>(null);
   /** Minted on the gesture that opens the panel, reused on every retry of this one submission. */
   let submissionKey = $state("");
@@ -80,25 +82,21 @@
     label: methodLabel(one),
   }));
 
+  const payerSearch = directoryPickerSearch(fetch);
+  const source = $derived(payer?.name ?? "");
+
   function reset(): void {
     amountText = "";
     effectiveDate = account === null ? "" : defaultEffectiveDate(account.timeZone);
     method = "check";
     reference = "";
-    source = "";
+    payer = null;
     purpose = "";
-    description = "";
-    descriptionWritten = false;
     failure = null;
     submissionKey = crypto.randomUUID();
   }
 
-  function writePurpose(text: string): void {
-    purpose = text;
-    if (!descriptionWritten) description = text;
-  }
-
-  const started = $derived(amountText !== "" || source !== "" || purpose !== "" || reference !== "");
+  const started = $derived(amountText !== "" || payer !== null || purpose !== "" || reference !== "");
 
   const entry = $derived<TrustDepositEntry>({
     trustAccountId: account?.id ?? "",
@@ -109,7 +107,6 @@
     reference,
     source,
     purpose,
-    description,
   });
   const reading = $derived(readTrustDepositRequest(entry));
 
@@ -232,44 +229,27 @@
         error={fieldRefusal(serverProblem, "source")}
       >
         {#snippet children({ props })}
-          <Input
-            {...props}
-            placeholder={placeholderOf("Received From")}
+          <DirectoryEntityPicker
+            search={payerSearch}
+            inputId={props.id}
+            label="Received From"
             disabled={busy}
-            bind:value={source}
-          />
-        {/snippet}
-      </LabelledField>
-
-      <LabelledField label="Purpose" error={fieldRefusal(serverProblem, "purpose")}>
-        {#snippet children({ props })}
-          <Input
-            {...props}
-            placeholder={placeholderOf("Purpose")}
-            disabled={busy}
-            bind:value={() => purpose, (next) => writePurpose(next)}
+            bind:value={payer}
           />
         {/snippet}
       </LabelledField>
 
       <LabelledField
-        label="Description"
-        hint="The line the ledger entry reads. It follows the purpose until you write your own."
-        error={fieldRefusal(serverProblem, "description")}
+        label="Purpose"
+        hint="Why the money was received. It is the line the ledger entry reads."
+        error={fieldRefusal(serverProblem, "purpose")}
       >
         {#snippet children({ props })}
-          <Textarea
+          <Input
             {...props}
-            rows={2}
-            resizable={false}
+            placeholder={placeholderOf("Purpose")}
             disabled={busy}
-            bind:value={
-              () => description,
-              (next) => {
-                description = next;
-                descriptionWritten = true;
-              }
-            }
+            bind:value={purpose}
           />
         {/snippet}
       </LabelledField>

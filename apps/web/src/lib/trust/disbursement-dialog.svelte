@@ -13,6 +13,12 @@
    * over it is refused here with the figure named, because a reader must never press a control that
    * cannot succeed against a client's money.
    *
+   * THE PAYEE COMES FROM THE DIRECTORY. A payee typed by hand gives one firm three spellings of one
+   * court and makes its own record undiscoverable; the directory's picker is the one field a person
+   * or an organization is chosen in anywhere in the product, and it records the payee who is not on
+   * the list yet through its own New. What reaches the wire is still the name, because that is what
+   * the contract's `payee` carries.
+   *
    * ONE KEY PER OPENING, REUSED ON EVERY RETRY: a payment out proposed twice is two requests
    * against one client's money, and the second one is the kind nobody notices until reconciliation.
    */
@@ -21,13 +27,15 @@
   import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import * as DefinitionList from "@magna-carta/design-system/definition-list";
   import { DatePicker } from "@magna-carta/design-system/date-picker";
+  import type { PickableEntity } from "@magna-carta/design-system/entity-picker";
   import Input from "@magna-carta/design-system/input";
   import LabelledField from "@magna-carta/design-system/labelled-field";
-  import Textarea from "@magna-carta/design-system/textarea";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { civilDateTextOrEmpty, civilDateValue } from "$lib/dates";
   import ChoicePicker from "$lib/components/choice-picker.svelte";
   import type { ChoiceOption } from "$lib/components/choice-picker.ts";
+  import DirectoryEntityPicker from "$lib/directory/directory-entity-picker.svelte";
+  import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import {
@@ -68,10 +76,9 @@
   let effectiveDate = $state("");
   let method = $state<TrustBankMovementMethod>("check");
   let reference = $state("");
-  let payee = $state("");
+  /** Who is paid, as the directory holds them. The wire carries their name. */
+  let payeeEntity = $state<PickableEntity | null>(null);
   let purpose = $state("");
-  let description = $state("");
-  let descriptionWritten = $state(false);
   let failure = $state<StatedFailure | null>(null);
   /** Minted on the gesture that opens the panel, reused on every retry of this one submission. */
   let submissionKey = $state("");
@@ -82,26 +89,23 @@
   }));
 
   const availableText = $derived(money(availableMinor));
+  const payeeSearch = directoryPickerSearch(fetch);
+  const payee = $derived(payeeEntity?.name ?? "");
 
   function reset(): void {
     amountText = "";
     effectiveDate = account === null ? "" : defaultEffectiveDate(account.timeZone);
     method = "check";
     reference = "";
-    payee = "";
+    payeeEntity = null;
     purpose = "";
-    description = "";
-    descriptionWritten = false;
     failure = null;
     submissionKey = crypto.randomUUID();
   }
 
-  function writePurpose(text: string): void {
-    purpose = text;
-    if (!descriptionWritten) description = text;
-  }
-
-  const started = $derived(amountText !== "" || payee !== "" || purpose !== "" || reference !== "");
+  const started = $derived(
+    amountText !== "" || payeeEntity !== null || purpose !== "" || reference !== "",
+  );
 
   const entry = $derived<TrustDisbursementEntry>({
     trustAccountId: account?.id ?? "",
@@ -112,7 +116,6 @@
     reference,
     payee,
     purpose,
-    description,
     availableMinor,
     availableText,
   });
@@ -241,44 +244,27 @@
         error={fieldRefusal(serverProblem, "payee")}
       >
         {#snippet children({ props })}
-          <Input
-            {...props}
-            placeholder={placeholderOf("Payee")}
+          <DirectoryEntityPicker
+            search={payeeSearch}
+            inputId={props.id}
+            label="Payee"
             disabled={busy}
-            bind:value={payee}
-          />
-        {/snippet}
-      </LabelledField>
-
-      <LabelledField label="Purpose" error={fieldRefusal(serverProblem, "purpose")}>
-        {#snippet children({ props })}
-          <Input
-            {...props}
-            placeholder={placeholderOf("Purpose")}
-            disabled={busy}
-            bind:value={() => purpose, (next) => writePurpose(next)}
+            bind:value={payeeEntity}
           />
         {/snippet}
       </LabelledField>
 
       <LabelledField
-        label="Description"
-        hint="The line the ledger entry reads. It follows the purpose until you write your own."
-        error={fieldRefusal(serverProblem, "description")}
+        label="Purpose"
+        hint="Why the money is being paid out. It is the line the ledger entry reads."
+        error={fieldRefusal(serverProblem, "purpose")}
       >
         {#snippet children({ props })}
-          <Textarea
+          <Input
             {...props}
-            rows={2}
-            resizable={false}
+            placeholder={placeholderOf("Purpose")}
             disabled={busy}
-            bind:value={
-              () => description,
-              (next) => {
-                description = next;
-                descriptionWritten = true;
-              }
-            }
+            bind:value={purpose}
           />
         {/snippet}
       </LabelledField>

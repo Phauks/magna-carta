@@ -7,6 +7,12 @@
  * reading answers either the request to send or the one sentence to show, and the panels hold no
  * validation of their own.
  *
+ * THE ENTRY LINE IS THE PURPOSE, AND NOBODY IS ASKED FOR IT TWICE. The contract carries both a
+ * `description` and a `purpose`, and the ledger read serves the purpose alone — so a description
+ * somebody wrote by hand was a field the reader could never read back, on the one surface where a
+ * value nobody can check is worst. The panels ask why the money moved and this file writes that
+ * answer into both.
+ *
  * THE AMOUNT IS READ BY THE ONE PARSER THE MONEY SURFACES SHARE ($lib/billing/amount-entry.ts):
  * digits in, whole cents out, never a float. What is trust's own is the CEILING — a payment out
  * cannot exceed what the matter's ledger has available, and the sentence that refuses it names the
@@ -89,7 +95,6 @@ export interface TrustDepositEntry {
   /** Who the money came from. */
   readonly source: string;
   readonly purpose: string;
-  readonly description: string;
 }
 
 export function readTrustDepositRequest(
@@ -106,9 +111,6 @@ export function readTrustDepositRequest(
   if (entry.purpose.trim() === "") {
     return { kind: "refused", reason: "Say why the client's money was received." };
   }
-  if (entry.description.trim() === "") {
-    return { kind: "refused", reason: "Say what the ledger entry should read." };
-  }
   return {
     kind: "request",
     request: {
@@ -117,7 +119,7 @@ export function readTrustDepositRequest(
       amountMinor: amount.request,
       currency: "USD",
       effectiveDate: entry.effectiveDate,
-      description: entry.description.trim(),
+      description: entry.purpose.trim(),
       method: entry.method,
       reference: orNull(entry.reference),
       source: entry.source.trim(),
@@ -139,7 +141,6 @@ export interface TrustDisbursementEntry {
   /** Who is paid. */
   readonly payee: string;
   readonly purpose: string;
-  readonly description: string;
   /** What the ledger says may leave: the balance less anything under a hold. */
   readonly availableMinor: number;
   /** That figure as the reader sees it written, for the sentence that refuses more than it. */
@@ -162,9 +163,6 @@ export function readTrustDisbursementProposal(
   if (entry.purpose.trim() === "") {
     return { kind: "refused", reason: "Say why the client's money is being paid out." };
   }
-  if (entry.description.trim() === "") {
-    return { kind: "refused", reason: "Say what the ledger entry should read." };
-  }
   return {
     kind: "request",
     request: {
@@ -173,7 +171,7 @@ export function readTrustDisbursementProposal(
       amountMinor: amount.request,
       currency: "USD",
       effectiveDate: entry.effectiveDate,
-      description: entry.description.trim(),
+      description: entry.purpose.trim(),
       method: entry.method,
       reference: orNull(entry.reference),
       payee: entry.payee.trim(),
@@ -195,7 +193,6 @@ export interface TrustMatterTransferEntry {
   readonly amountText: string;
   readonly effectiveDate: string;
   readonly purpose: string;
-  readonly description: string;
   readonly availableMinor: number;
   readonly availableText: string;
 }
@@ -224,9 +221,6 @@ export function readTrustMatterTransferRequest(
   if (entry.purpose.trim() === "") {
     return { kind: "refused", reason: "Say why the client's money is moving." };
   }
-  if (entry.description.trim() === "") {
-    return { kind: "refused", reason: "Say what the ledger entry should read." };
-  }
   return {
     kind: "request",
     request: {
@@ -236,7 +230,7 @@ export function readTrustMatterTransferRequest(
       amountMinor: amount.request,
       currency: "USD",
       effectiveDate: entry.effectiveDate,
-      description: entry.description.trim(),
+      description: entry.purpose.trim(),
       purpose: entry.purpose.trim(),
     },
   };

@@ -59,6 +59,7 @@ export const ACT_VERBS = new Set([
   "amend",
   "answer",
   "apply",
+  "approve",
   "archive",
   "assign",
   "attach",
@@ -86,6 +87,7 @@ export const ACT_VERBS = new Set([
   "open",
   "recategorize",
   "record",
+  "reject",
   "relate",
   "remove",
   "report",
@@ -97,10 +99,12 @@ export const ACT_VERBS = new Set([
   "send",
   "set",
   "supersede",
+  "transfer",
   "upload",
   "vacate",
   "void",
   "waive",
+  "withdraw",
   "write",
 ]);
 

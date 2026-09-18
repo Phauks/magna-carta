@@ -28,38 +28,36 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import * as DefinitionList from "@magna-carta/design-system/definition-list";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
-  import { SoonAffordance } from "@magna-carta/design-system/maturity";
+  import { SoonAffordance, soonDependencySentence } from "@magna-carta/design-system/maturity";
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import * as DetailsPanel from "$lib/details-panel/index.ts";
   import type { FirmMemberSummary } from "$lib/members/members-api.ts";
+  import { createPersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
+  import { stringUnionPreference } from "$lib/preferences/persisted-preference.ts";
   import {
     trustAccountLabel,
     type TrustAccountListing,
     type TrustPendingRequest,
   } from "./trust-api.ts";
   import { memberDisplay } from "./trust-member-names.ts";
-  import { methodLabel } from "./trust-vocabulary.ts";
+  import PendingRequest from "./pending-request.svelte";
   import type { FirmTrust } from "./firm-trust.svelte.ts";
   import {
     postureSentence,
     postureVersionText,
     queueInOrder,
     reconciliationRows,
-    requestActions,
     statementsInOrder,
     type TrustQueueViewer,
     type TrustRequestVerb,
   } from "./firm-trust-model.ts";
+  import { firmTrustGapReason, type FirmTrustGapName } from "./firm-trust-gaps.ts";
   import {
-    NOT_SERVED_YET,
-    firmTrustGapReason,
-    firmTrustGapTitle,
-    type FirmTrustGapName,
-  } from "./firm-trust-gaps.ts";
-  import {
-    CUSHION_EXPLANATION,
     CUSHION_NOT_OPENED,
     FROZEN_PROOF_MEANING,
+    IOLTA_MEANING,
+    JURISDICTION_NOT_RECORDED,
+    JURISDICTION_NOT_RECORDED_MEANING,
     NO_CUSHION_MOVEMENTS,
     NO_RECONCILIATIONS,
     NO_STATEMENTS,
@@ -72,8 +70,6 @@
     dayText,
     ioltaLabel,
     reconciliationStandingLabel,
-    requestKindLabel,
-    requestKindMeaning,
     statementPeriodText,
     statementSourceLabel,
   } from "./firm-trust-vocabulary.ts";
@@ -128,6 +124,32 @@
 
   /** One member identifier as a name where the roster can say, and as itself where it cannot. */
   const asMember = (identifier: string) => memberDisplay(identifier, members);
+
+  /** What the Balance row says instead of a figure nothing serves: in the row, not on a hover. */
+  const balanceWaitsOn = soonDependencySentence(firmTrustGapReason("accountBalance"));
+
+  /*
+   * Whether the posture's earlier versions stand open. It defaults to open, because the reason a
+   * history is exhaustive is that omissions read as health, and it is remembered per browser so a
+   * reader who folded it once does not fold it on every visit.
+   */
+  const historyFold = createPersistedPreference(
+    stringUnionPreference(
+      "magna-carta-trust-posture-history",
+      ["open", "closed"] as const,
+      "open",
+    ),
+  );
+  const HISTORY_FOLD_VALUE = "posture-history";
+
+  /*
+   * Why the Change control cannot be pressed, including while the rule itself is still arriving. A
+   * control disabled with nothing to say is a control a reader reads as broken.
+   */
+  const changeRefusal = $derived(
+    postureRefusal ??
+      (trust.policy === null ? "Reading the firm's authorization posture." : undefined),
+  );
 </script>
 
 {#snippet failureLine(sentence: string)}
@@ -168,22 +190,20 @@
   <DetailsPanel.Body>
     {#if account === null}
       <DetailsPanel.Section label="The Roster">
-        <DefinitionList.Root>
-          <DefinitionList.Row term="Accounts">
-            <span class="tabular-nums">{accounts.length}</span>
-          </DefinitionList.Row>
-          <DefinitionList.Row term="Open">
-            <span class="tabular-nums">{openAccounts}</span>
-          </DefinitionList.Row>
-          <DefinitionList.Row term="Closed">
-            <span class="tabular-nums">{accounts.length - openAccounts}</span>
-          </DefinitionList.Row>
-          {#if accounts.length === 0}
-            <DefinitionList.Empty>
-              The firm holds no trust account yet. New Account opens the first one.
+        <!-- Counts are always answerable, so they are facts rather than a list that can be empty:
+             a firm with no account has three zeroes and a sentence, not three blanks. -->
+        <DetailsPanel.Facts>
+          <DetailsPanel.Fact label="Accounts" value={String(accounts.length)} />
+          <DetailsPanel.Fact label="Open" value={String(openAccounts)} />
+          <DetailsPanel.Fact label="Closed" value={String(accounts.length - openAccounts)} />
+        </DetailsPanel.Facts>
+        {#if accounts.length === 0}
+          <DefinitionList.Root>
+            <DefinitionList.Empty term="The Roster">
+              The firm holds no trust account yet.
             </DefinitionList.Empty>
-          {/if}
-        </DefinitionList.Root>
+          </DefinitionList.Root>
+        {/if}
       </DetailsPanel.Section>
     {:else}
       <!-- AWAITING APPROVAL — oldest first: the request that has waited longest is the one
@@ -201,47 +221,10 @@
           {/snippet}
 
           {#each queue as request (request.id)}
-            {@const requester = asMember(request.requestedBy)}
-            <div class="flex flex-col gap-8">
-              <DefinitionList.Root>
-                <DefinitionList.Row term="Kind" title={requestKindMeaning(request.kind)}>
-                  {requestKindLabel(request.kind)}
-                </DefinitionList.Row>
-                <DefinitionList.Row term="Amount">
-                  <span class="tabular-nums">{money(request.amountMinor)}</span>
-                </DefinitionList.Row>
-                <DefinitionList.Row term="Payee">{request.payee}</DefinitionList.Row>
-                <DefinitionList.Row term="Purpose">{request.purpose}</DefinitionList.Row>
-                <DefinitionList.Row term="Method">{methodLabel(request.method)}</DefinitionList.Row>
-                <DefinitionList.Row
-                  term="Matter"
-                  title={firmTrustGapTitle("requestMatter")}
-                  class="break-words"
-                >
-                  {request.trustLedgerNodeId}
-                </DefinitionList.Row>
-                <DefinitionList.Row term="Requested By" title={requester.title}>
-                  {requester.text}
-                </DefinitionList.Row>
-                <DefinitionList.Row term="Requested On">
-                  <span class="tabular-nums">{formatInstant(request.requestedAt)}</span>
-                </DefinitionList.Row>
-              </DefinitionList.Root>
-
-              <div class="flex flex-wrap items-center gap-8">
-                {#each requestActions(request, viewer) as action (action.verb)}
-                  <Button
-                    variant={action.verb === "reject" ? "ghost" : "secondary"}
-                    size="sm"
-                    disabled={action.refusal !== undefined}
-                    title={action.refusal}
-                    onclick={() => onDecide(action.verb, request)}
-                  >
-                    {action.label}
-                  </Button>
-                {/each}
-              </div>
-            </div>
+            <!-- The same component the matter's own Trust section renders, with the Matter row on:
+                 this queue spans the firm, so which matter a payment stands against is the fact a
+                 reader here most needs. -->
+            <PendingRequest {request} {viewer} {members} {money} showMatter {onDecide} />
           {:else}
             <DefinitionList.Root>
               <DefinitionList.Row term="Amount" empty />
@@ -253,27 +236,37 @@
         </LoadingRegion>
       </DetailsPanel.Section>
 
-      <!-- POSITION — the row renders and says it cannot be filled. Nothing serves an account's
-           balance as it stands today, and adding up reconciliations to guess one would put a
-           figure about client money on screen that no route ever stated. -->
+      <!-- POSITION — what the account IS is a run of facts, the way every money details panel
+           states one. The balance stands beneath them as a row that renders and says, in the row,
+           that it cannot be filled: nothing serves an account's balance as it stands today, and
+           adding up reconciliations to guess one would put a figure about client money on screen
+           that no route ever stated. -->
       <DetailsPanel.Section label="Position">
-        <DefinitionList.Root>
-          <DefinitionList.Row term="Balance" title={firmTrustGapTitle("accountBalance")}>
-            {NOT_SERVED_YET}
-          </DefinitionList.Row>
-          <DefinitionList.Row term="Currency">{account.currency}</DefinitionList.Row>
-          <DefinitionList.Row term="Jurisdiction" empty={account.jurisdiction === null}>
-            {account.jurisdiction}
-          </DefinitionList.Row>
-          <DefinitionList.Row term="Office">
-            {officeName(account.locationId) ?? account.locationId}
-          </DefinitionList.Row>
-          <DefinitionList.Row term="IOLTA">{ioltaLabel(account.iolta)}</DefinitionList.Row>
-          <DefinitionList.Row term="Standing">
-            <Badge variant={accountStandingTone(account.status)} title={accountStandingMeaning(account.status)}>
+        <DetailsPanel.Facts>
+          <DetailsPanel.Fact label="Currency" value={account.currency} />
+          <DetailsPanel.Fact
+            label="Jurisdiction"
+            value={account.jurisdiction ?? JURISDICTION_NOT_RECORDED}
+            title={account.jurisdiction === null ? JURISDICTION_NOT_RECORDED_MEANING : undefined}
+          />
+          <DetailsPanel.Fact
+            label="Office"
+            value={officeName(account.locationId) ?? account.locationId}
+          />
+          <DetailsPanel.Fact label="IOLTA" value={ioltaLabel(account.iolta)} title={IOLTA_MEANING} />
+          <DetailsPanel.Fact label="Standing">
+            <Badge
+              variant={accountStandingTone(account.status)}
+              title={accountStandingMeaning(account.status)}
+            >
               {accountStandingLabel(account.status)}
             </Badge>
-          </DefinitionList.Row>
+          </DetailsPanel.Fact>
+        </DetailsPanel.Facts>
+
+        <DefinitionList.Root>
+          <DefinitionList.Row term="Balance" empty />
+          <DefinitionList.Empty term="Balance">{balanceWaitsOn}</DefinitionList.Empty>
         </DefinitionList.Root>
       </DetailsPanel.Section>
 
@@ -428,19 +421,19 @@
               {#each trust.cushion.position.movements as movement (movement.id)}
                 <DefinitionList.Row term={cushionMovementLabel(movement.kind)}>
                   <span class="tabular-nums">{money(movement.amountMinor)}</span>
-                  · {dayText(movement.effectiveDate)}{movement.reference === null
-                    ? ""
-                    : ` · ${movement.reference}`}
+                  <span aria-hidden="true">·</span>
+                  {dayText(movement.effectiveDate)}
+                  {#if movement.reference !== null}
+                    <span aria-hidden="true">·</span>
+                    {movement.reference}
+                  {/if}
                 </DefinitionList.Row>
               {:else}
                 <DefinitionList.Empty>{NO_CUSHION_MOVEMENTS}</DefinitionList.Empty>
               {/each}
             {:else}
               <DefinitionList.Row term="Balance" empty />
-              <DefinitionList.Empty>
-                {CUSHION_NOT_OPENED}
-                {CUSHION_EXPLANATION}
-              </DefinitionList.Empty>
+              <DefinitionList.Empty>{CUSHION_NOT_OPENED}</DefinitionList.Empty>
             {/if}
           </DefinitionList.Root>
         </LoadingRegion>
@@ -492,9 +485,16 @@
         </DefinitionList.Root>
 
         {#if postureHistory.length > 0}
-          <Accordion.Root type="single">
-            <Accordion.Item value="posture-history">
-              <Accordion.Trigger>Earlier versions</Accordion.Trigger>
+          <!-- The fold counts what it hides and opens by default, and the reader's answer is
+               remembered: a history is exhaustive so that an omission reads as health. -->
+          <Accordion.Root
+            type="single"
+            value={historyFold.current === "open" ? HISTORY_FOLD_VALUE : ""}
+            onValueChange={(value) =>
+              historyFold.set(value === HISTORY_FOLD_VALUE ? "open" : "closed")}
+          >
+            <Accordion.Item value={HISTORY_FOLD_VALUE}>
+              <Accordion.Trigger>Earlier Versions ({postureHistory.length})</Accordion.Trigger>
               <Accordion.Content>
                 <DefinitionList.Root>
                   {#each postureHistory as version (version.version)}
@@ -513,8 +513,8 @@
         <Button
           variant="secondary"
           size="sm"
-          disabled={postureRefusal !== undefined || trust.policy === null}
-          title={postureRefusal}
+          disabled={changeRefusal !== undefined}
+          title={changeRefusal}
           onclick={onChangePosture}
         >
           Change

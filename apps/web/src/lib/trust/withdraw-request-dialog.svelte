@@ -10,6 +10,11 @@
    *
    * IT IS A FORM RATHER THAN A QUESTION because there is something to fill in, even though nothing
    * has to be. The shell's own rule: a panel with fields is a Dialog and keeps its corner dismiss.
+   *
+   * ONE PANEL FOR BOTH SURFACES. The firm's Trust screen and a matter's own Trust section show the
+   * same waiting request to the same member, so taking one back is one act with one panel: the
+   * matter's ledger used to post the withdrawal on the press, with no reason offered and nothing to
+   * read before it happened.
    */
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
@@ -73,7 +78,7 @@
 
 <ActionDialog
   bind:open
-  heading="Record a Withdrawal"
+  heading="Withdraw Payment Out"
   {subtitle}
   commitLabel="Withdraw"
   commitBusyLabel="Withdrawing"

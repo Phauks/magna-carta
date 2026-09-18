@@ -11,7 +11,8 @@
  * value in — an account's current balance, the matter behind a queued request. The rest are ACTS
  * whose anatomy renders disabled: reconciling a period, recording or importing a statement, and the
  * three cushion forms. Both answer the same question — what has to arrive before this works — so
- * both are written the same way and read through the same two functions.
+ * both are written the same way and read through one function, and both say their answer IN the row
+ * or beside the control rather than on a hover a touch device never reaches.
  *
  * Each gap is named once, as the noun phrase the Soon composition completes into a sentence and a
  * cell hover states on its own. When one starts being served, its entry comes out of this file and
@@ -77,22 +78,7 @@ export const FIRM_TRUST_GAPS = {
 
 export type FirmTrustGapName = keyof typeof FIRM_TRUST_GAPS;
 
-/**
- * What a field says where its value cannot be read.
- *
- * The same sentence the Soon composition says about a control, because it is the same fact: the
- * row is real, the value is not there yet, and here is what it waits on. A bare blank would read as
- * an account holding nothing rather than as a product that cannot yet say.
- */
-export function firmTrustGapTitle(name: FirmTrustGapName): string {
-  const gap = FIRM_TRUST_GAPS[name];
-  return `${gap.field} is not served yet. Waiting on ${gap.waitsOn}.`;
-}
-
-/** What a control waits on, as the noun phrase the Soon composition takes. */
+/** What a field or a control waits on, as the noun phrase the Soon composition takes. */
 export function firmTrustGapReason(name: FirmTrustGapName): string {
   return FIRM_TRUST_GAPS[name].waitsOn;
 }
-
-/** What a field reads in place of a figure nothing serves. */
-export const NOT_SERVED_YET = "Not served yet";

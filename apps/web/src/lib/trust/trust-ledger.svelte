@@ -29,7 +29,10 @@
    * A PAYMENT OUT MAY NOT BE THIS MEMBER'S TO RELEASE. The firm's authorization posture decides,
    * the server answers, and a request that is waiting stands in the notices band with the two
    * answers it takes — or, where the reader is the one who proposed it, with the way to take it
-   * back.
+   * back. What it looks like, which verbs it offers and what each of them opens are the firm's
+   * Trust screen's too, so all three are shared: pending-request.svelte, trust-request-verbs.ts,
+   * and the three panels beside them. A member must meet one request, one way, wherever they are
+   * standing.
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import * as DataTable from "@magna-carta/design-system/data-table";
@@ -51,14 +54,11 @@
   import type { ChoiceOption } from "$lib/components/choice-picker.ts";
   import { permissionRefusal } from "$lib/access/refusal.ts";
   import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
-  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
-  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { createPersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
   import { stringUnionPreference } from "$lib/preferences/persisted-preference.ts";
   import {
     TRUST_PERMISSIONS,
     trustAccountLabel,
-    withdrawTrustRequest,
     type TrustAccountListing,
     type TrustDisbursementProposalAck,
     type TrustMatterLedger,
@@ -77,10 +77,15 @@
   import MatterTransferDialog from "./matter-transfer-dialog.svelte";
   import ApproveRequestDialog from "./approve-request-dialog.svelte";
   import RejectRequestDialog from "./reject-request-dialog.svelte";
+  import WithdrawRequestDialog from "./withdraw-request-dialog.svelte";
+  import PendingRequest from "./pending-request.svelte";
+  import type { TrustRequestVerb } from "./trust-request-verbs.ts";
   import { footerFigures, ledgerCurrency } from "./trust-figures.ts";
   import { memberDisplay } from "./trust-member-names.ts";
   import { proposalPendingSentence } from "./trust-write-requests.ts";
   import {
+    NO_AMOUNT_ON_THIS_SIDE,
+    ROSTER_CAPPED_WARNING,
     authorizedByText,
     authorizedByTitle,
     counterpartyText,
@@ -139,6 +144,16 @@
   const ownNode = $derived(ledger?.trustLedgerNodeId ?? null);
   const money = (amountMinor: number): string => formatMoney(amountMinor / 100, { currency });
 
+  /** Why a position figure is a dash, in the words of whichever fact is true of this matter now. */
+  const unservedPositionTitle = $derived.by((): string => {
+    if (accounts.length === 0) {
+      return "The firm has not opened a trust account yet, so there is no position to state.";
+    }
+    if (account === null) return "No trust account is chosen, so there is no position to state.";
+    if (noLedgerYet) return `This matter holds no trust ledger in ${account.name} yet.`;
+    return "This matter's trust position has not been read yet.";
+  });
+
   /* The panel's open state is the reader's, and it survives leaving the tab and coming back. */
   const panelPreference = createPersistedPreference(
     stringUnionPreference("magna-carta-trust-details-panel", ["open", "closed"] as const, "closed"),
@@ -148,7 +163,7 @@
   let selectedMovements = $state<readonly TrustMovementRecord[]>([]);
 
   const grid = DataTable.createDataTableGrid<TrustMovementRecord>({
-    columns: () => trustLedgerColumns(currency, ownNode),
+    columns: () => trustLedgerColumns(currency, ownNode, firmRoster.members),
     rows: () => movements,
     rowKey: (movement) => movement.id,
     initialSort: TRUST_LEDGER_INITIAL_SORT,
@@ -166,6 +181,8 @@
   const stripFigures = $derived(
     footerFigures(ledger, grid.isFiltered ? grid.rowsInView : movements, {
       filtered: grid.isFiltered,
+      money,
+      unservedReason: unservedPositionTitle,
     }),
   );
 
@@ -223,7 +240,6 @@
       "Nothing has been paid into this matter's trust ledger yet, so there is nothing to transfer.",
     ),
   );
-  const decisionRefusal = $derived(manageRefusal);
 
   // ---- the panels that write --------------------------------------------------------------------
 
@@ -232,11 +248,11 @@
   let transferOpen = $state(false);
   let approveOpen = $state(false);
   let rejectOpen = $state(false);
+  let withdrawOpen = $state(false);
   let answeringRequest = $state<TrustPendingRequest | null>(null);
   let answerKey = $state("");
   /** What a proposal that did not release came to, until the section is read again. */
   let proposalNotice = $state<string | null>(null);
-  let decisionFailure = $state<StatedFailure | null>(null);
 
   /*
    * The one create action this surface has, exported for the section page: the matter header's
@@ -263,37 +279,19 @@
     return minted;
   }
 
-  function startAnswer(request: TrustPendingRequest, panel: "approve" | "reject"): void {
+  /** A verb was pressed on a waiting request: the panel that asks for it opens. */
+  function decide(verb: TrustRequestVerb, request: TrustPendingRequest): void {
     answeringRequest = request;
     answerKey = keyForAnswer(request.id);
-    decisionFailure = null;
-    if (panel === "approve") approveOpen = true;
-    else rejectOpen = true;
+    approveOpen = verb === "approve";
+    rejectOpen = verb === "reject";
+    withdrawOpen = verb === "withdraw";
   }
 
   function answered(requestId: string): void {
     answerKeys.delete(requestId);
     proposalNotice = null;
     onChanged();
-  }
-
-  async function withdraw(request: TrustPendingRequest): Promise<void> {
-    decisionFailure = null;
-    const outcome = await withdrawTrustRequest(
-      fetch,
-      request.id,
-      null,
-      keyForAnswer(request.id),
-    );
-    if (outcome.kind === "ok") {
-      answered(request.id);
-      return;
-    }
-    decisionFailure = stated(
-      outcome.failure,
-      "The request was not taken back: it is still waiting on a decision.",
-      "Nothing answered, so the request was not taken back. It is still waiting on a decision.",
-    );
   }
 
   function proposed(acknowledgement: TrustDisbursementProposalAck): void {
@@ -325,8 +323,7 @@
       accountsCapped ||
       pendingRequests.length > 0 ||
       pendingRefusal !== null ||
-      proposalNotice !== null ||
-      decisionFailure !== null,
+      proposalNotice !== null,
   );
 
   // ---- the menu ------------------------------------------------------------------------------
@@ -400,18 +397,6 @@
       : `Trust movements on ${matterNumber}, ${matterTitle}`,
   );
 
-  /** A figure the read has not stated yet reads as a dash, never as nothing. */
-  const UNSERVED_FIGURE = "—";
-
-  /** Why a figure is a dash, in the words of whichever fact is true of this matter right now. */
-  const unservedPositionTitle = $derived.by((): string => {
-    if (accounts.length === 0) {
-      return "The firm has not opened a trust account yet, so there is no position to state.";
-    }
-    if (account === null) return "No trust account is chosen, so there is no position to state.";
-    if (noLedgerYet) return `This matter holds no trust ledger in ${account.name} yet.`;
-    return "This matter's trust position has not been read yet.";
-  });
 </script>
 
 {#snippet cell({ row, column, text }: DataTable.GridCellContext<TrustMovementRecord>)}
@@ -421,7 +406,9 @@
     <span title={kindSentence(row.kind)}>{kindLabel(row.kind)}</span>
   {:else if column.id === TRUST_COLUMN_IDENTIFIERS.reference}
     {#if row.reference === null}
-      <span class="text-text-muted">&mdash;</span>
+      <span class="text-text-subtle" title="This movement carries no check or confirmation number.">
+        &mdash;
+      </span>
     {:else}
       <span class="block truncate tabular-nums" title={row.reference}>{row.reference}</span>
     {/if}
@@ -432,7 +419,7 @@
     <span class="block truncate" title={row.purpose}>{row.purpose}</span>
   {:else if column.id === TRUST_COLUMN_IDENTIFIERS.amountIn || column.id === TRUST_COLUMN_IDENTIFIERS.amountOut}
     {#if text === ""}
-      <span class="text-text-subtle">&mdash;</span>
+      <span class="text-text-subtle" title={NO_AMOUNT_ON_THIS_SIDE}>&mdash;</span>
     {:else}
       <span class="whitespace-nowrap tabular-nums">{text}</span>
     {/if}
@@ -460,7 +447,9 @@
      it is waiting for. -->
 {#snippet acts()}
   {#if picksAccount}
-    <div class="w-192">
+    <!-- A width off the generated scale compiles to nothing at all, so the field takes a container
+         width: wide enough for an account's name, narrow enough to leave the row its navigation. -->
+    <div class="w-2xs">
       <ChoicePicker
         label="Trust Account"
         options={accountChoices}
@@ -497,23 +486,9 @@
 {/snippet}
 
 {#snippet notices()}
-  {#if decisionFailure !== null}
-    <FailureNotice
-      failure={decisionFailure.failure}
-      title="Nothing Was Decided"
-      fallback={decisionFailure.fallback}
-      whenSilent={decisionFailure.whenSilent}
-    />
-  {/if}
-
   {#if accounts.length === 0}
     <Alert.Root variant="info">
       <Alert.Title>The firm has not opened a trust account yet.</Alert.Title>
-      <Alert.Description>
-        Client money is held in an account bound to one of the firm's offices, and this matter's
-        ledger begins when one is opened.
-        <Button variant="ghost" size="sm" href="/trust">Open the firm&rsquo;s Trust screen</Button>
-      </Alert.Description>
     </Alert.Root>
   {/if}
 
@@ -522,10 +497,9 @@
   {/if}
 
   {#if accountsCapped}
-    <p class="text-xs text-status-warning-subtle-foreground">
-      The firm has more trust accounts than were read, so this list is a page of them rather than
-      all of them.
-    </p>
+    <Alert.Root variant="warning">
+      <Alert.Description>{ROSTER_CAPPED_WARNING}</Alert.Description>
+    </Alert.Root>
   {/if}
 
   {#if proposalNotice !== null}
@@ -536,54 +510,18 @@
     <p class="text-xs text-status-warning-subtle-foreground">{pendingRefusal}</p>
   {/if}
 
-  {#if pendingRequests.length > 0}
-    <ul class="flex flex-col gap-4">
-      {#each pendingRequests as request (request.id)}
-        <li class="flex flex-wrap items-center gap-8 text-xs text-text-muted">
-          <span class="font-semibold tabular-nums text-text-default">
-            {money(request.amountMinor)}
-          </span>
-          <span>to {request.payee}</span>
-          <span aria-hidden="true">·</span>
-          <span>{request.purpose}</span>
-          <span aria-hidden="true">·</span>
-          <span>requested by {requestedByName(request)}</span>
-          <span aria-hidden="true">·</span>
-          <span class="tabular-nums">{formatDate(request.effectiveDate)}</span>
-          {#if sessionUserId !== null && request.requestedBy === sessionUserId}
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={decisionRefusal !== undefined}
-              title={decisionRefusal ?? "Take this request back. It is recorded, never deleted."}
-              onclick={() => void withdraw(request)}
-            >
-              Withdraw
-            </Button>
-          {:else}
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={decisionRefusal !== undefined}
-              title={decisionRefusal ?? "Release this payment and post the movement."}
-              onclick={() => startAnswer(request, "approve")}
-            >
-              Approve
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={decisionRefusal !== undefined}
-              title={decisionRefusal ?? "Refuse this payment, with the reason the proposer reads."}
-              onclick={() => startAnswer(request, "reject")}
-            >
-              Reject
-            </Button>
-          {/if}
-        </li>
-      {/each}
-    </ul>
-  {/if}
+  <!-- One request reads the same here and on the firm's Trust screen, down to the verbs it offers
+       and the panel each of them opens. The matter already knows which matter it is, so the Matter
+       row stands only on the firm's side. -->
+  {#each pendingRequests as request (request.id)}
+    <PendingRequest
+      {request}
+      viewer={{ sessionUserId, permissions }}
+      members={firmRoster.members}
+      {money}
+      onDecide={decide}
+    />
+  {/each}
 {/snippet}
 
 {#snippet list({ density, tableClass, frame }: { density: MoneySurfaceDensity; tableClass: string; frame: "card" | "flush" })}
@@ -620,23 +558,11 @@
   />
 {/snippet}
 
-<!-- The position is the ledger's and holds still under a filter, so no "In view:" prefix: the
-     figure that IS over the rows in view says so in its own label. -->
+<!-- The shared strip every money ledger states its figures through. The position carries the whole
+     record's scope, so a filter never labels it "In view:"; the net of the rows a filter leaves
+     does narrow, and the strip says so in front of it. -->
 {#snippet figures()}
-  {#each stripFigures as figure, index (figure.identifier)}
-    {#if index > 0}<span aria-hidden="true">·</span>{/if}
-    <span
-      class="inline-flex items-baseline gap-4"
-      title={figure.amountMinor === null ? unservedPositionTitle : figure.caption}
-    >
-      <span class="text-text-subtle">{figure.label}</span>
-      {#if figure.amountMinor === null}
-        <span class="text-text-subtle">{UNSERVED_FIGURE}</span>
-      {:else}
-        <span class="font-semibold tabular-nums">{money(figure.amountMinor)}</span>
-      {/if}
-    </span>
-  {/each}
+  <DataTable.GridFigures {grid} figures={stripFigures} />
 {/snippet}
 
 <MoneySurface
@@ -704,4 +630,12 @@
   {money}
   submissionKey={answerKey}
   onRejected={() => answered(answeringRequest?.id ?? "")}
+/>
+
+<WithdrawRequestDialog
+  bind:open={withdrawOpen}
+  request={answeringRequest}
+  {money}
+  submissionKey={answerKey}
+  onWithdrawn={() => answered(answeringRequest?.id ?? "")}
 />

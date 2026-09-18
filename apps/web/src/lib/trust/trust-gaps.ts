@@ -7,10 +7,11 @@
  * reads against it), every one of those acts writes, and the members on a movement are resolved to
  * names through the firm's own roster (trust-member-names.ts). Those five entries came out.
  *
- * What is left is three genuine holes, each one a route or a capability that does not exist rather
- * than a wire that was not run. Each gap is named once, as the noun phrase the Soon composition
- * completes into a sentence and a cell hover states on its own. When one starts being served, its
- * entry comes out of this file and nothing else changes.
+ * What is left is two genuine holes, each one a route that does not exist rather than a wire that
+ * was not run, and each one RENDERED: a gap nothing on the surface draws is a gap nobody can see,
+ * which is the opposite of what this register is for. Each is named once, as the noun phrase the
+ * Soon composition completes into a sentence and a cell hover states on its own. When one starts
+ * being served, its entry comes out of this file and nothing else changes.
  */
 
 /** A field or an act the surface shows, and what has to arrive before it works. */
@@ -31,10 +32,6 @@ export const TRUST_LEDGER_GAPS = {
   history: {
     field: "History",
     waitsOn: "an endpoint that serves a trust movement's recorded events",
-  },
-  screenshot: {
-    field: "Screenshot",
-    waitsOn: "screenshot capture in the problem report",
   },
 } as const satisfies Readonly<Record<string, TrustLedgerGap>>;
 

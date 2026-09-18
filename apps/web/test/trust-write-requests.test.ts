@@ -10,6 +10,10 @@
  *   - EVERY WRITE CARRIES ITS IDEMPOTENCY KEY. These routes refuse a call without one outright, so
  *     a missing header is not a degraded write, it is no write at all — and a retried deposit that
  *     posted twice would be a second real movement.
+ *
+ * The entry line is the PURPOSE, on all three. The contract carries a `description` beside it and
+ * the ledger read serves only the purpose, so nobody is asked twice for a line they could never
+ * read back; what these assert is that both fields go out carrying the one answer given.
  */
 import { describe, expect, it } from "vitest";
 import { isCivilDate } from "@magna-carta/civil-time/civil-date";
@@ -43,7 +47,6 @@ const DEPOSIT = {
   reference: "  0041  ",
   source: " Pemberton Holdings ",
   purpose: "Retainer",
-  description: "Retainer received",
 };
 
 const PAYMENT_OUT = {
@@ -55,7 +58,6 @@ const PAYMENT_OUT = {
   reference: "",
   payee: "Superior Court of California",
   purpose: "Filing fee",
-  description: "Filing fee paid from trust",
   availableMinor: 250_000,
   availableText: "$2,500.00",
 };
@@ -67,7 +69,6 @@ const TRANSFER = {
   amountText: "500",
   effectiveDate: "2026-09-18",
   purpose: "Moved to the appeal",
-  description: "Balance moved to the appeal",
   availableMinor: 250_000,
   availableText: "$2,500.00",
 };
@@ -83,7 +84,7 @@ describe("the body a deposit composes", () => {
         amountMinor: 250_000,
         currency: "USD",
         effectiveDate: "2026-09-18",
-        description: "Retainer received",
+        description: "Retainer",
         method: "check",
         reference: "0041",
         source: "Pemberton Holdings",
@@ -116,6 +117,15 @@ describe("the body a deposit composes", () => {
     });
   });
 
+  it("writes the entry line from the purpose, so nobody is asked for it twice", () => {
+    // The ledger read serves the purpose and never the description, so a description somebody typed
+    // was a value they could not read back. One answer goes out under both names.
+    const reading = readTrustDepositRequest({ ...DEPOSIT, purpose: "  Retainer on account  " });
+    if (reading.kind !== "request") throw new Error("the deposit was refused");
+    expect(reading.request.description).toBe("Retainer on account");
+    expect(reading.request.description).toBe(reading.request.purpose);
+  });
+
   it("has no ceiling: money coming in is not bounded by what the ledger holds", () => {
     const reading = readTrustDepositRequest({ ...DEPOSIT, amountText: "9000000" });
     expect(reading.kind).toBe("request");
@@ -145,7 +155,7 @@ describe("the body a payment out composes", () => {
         amountMinor: 120_050,
         currency: "USD",
         effectiveDate: "2026-09-18",
-        description: "Filing fee paid from trust",
+        description: "Filing fee",
         method: "wire",
         reference: null,
         payee: "Superior Court of California",
@@ -211,7 +221,7 @@ describe("the body a transfer between two matters composes", () => {
         amountMinor: 50_000,
         currency: "USD",
         effectiveDate: "2026-09-18",
-        description: "Balance moved to the appeal",
+        description: "Moved to the appeal",
         purpose: "Moved to the appeal",
       },
     });

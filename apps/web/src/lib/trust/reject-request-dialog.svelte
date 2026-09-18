@@ -74,7 +74,7 @@
 
 <ActionDialog
   bind:open
-  heading="Record a Rejection"
+  heading="Reject Payment Out"
   {subtitle}
   commitLabel="Reject"
   commitBusyLabel="Rejecting"

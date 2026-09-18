@@ -12,16 +12,23 @@
    * of disabled ones. The one handle that will open somewhere, the disbursement request a payment
    * was approved from, is stated as the handle it is and says what its opening waits on.
    *
+   * HISTORY STANDS EMPTY RATHER THAN BEING ABSENT. What happened to a movement after it was written
+   * down is a question a reader of client money asks, and no route answers it yet — so the section
+   * renders with its own structure and says inside it what it is waiting on, which is how a reader
+   * learns the answer is coming rather than that nobody thought of the question.
+   *
    * SEVERAL SELECTED SAYS WHAT THEY COME TO. No verb acts on a selection, but the sum of what came
    * in and went out across a picked range is a real question, so the selection face answers it.
    */
   import { formatDate } from "@magna-carta/design-system/data-table";
+  import * as DefinitionList from "@magna-carta/design-system/definition-list";
   import { formatInstant } from "@magna-carta/design-system/formatters";
+  import { soonDependencySentence } from "@magna-carta/design-system/maturity";
   import * as DetailsPanel from "$lib/details-panel/index.ts";
   import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
   import type { TrustMatterLedger, TrustMovementRecord } from "./trust-api.ts";
-  import { flow, matterTrustSummary } from "./trust-figures.ts";
-  import { gapCellTitle } from "./trust-gaps.ts";
+  import { UNSERVED_FIGURE, flow, matterTrustSummary } from "./trust-figures.ts";
+  import { gapCellTitle, gapReason } from "./trust-gaps.ts";
   import { memberDisplay } from "./trust-member-names.ts";
   import {
     authorizedByText,
@@ -58,8 +65,8 @@
   const summary = $derived(matterTrustSummary(ledger, movements));
   const selection = $derived(flow(selected, ownNode));
 
-  /** A figure the read has not stated yet reads as a dash, never as nothing. */
-  const UNSERVED_FIGURE = "—";
+  /** What the History section says until an endpoint serves a movement's recorded events. */
+  const historyWaitsOn = soonDependencySentence(gapReason("history"));
 
   function figureText(amountMinor: number | null): string {
     return amountMinor === null ? UNSERVED_FIGURE : money(amountMinor);
@@ -118,6 +125,15 @@
         {/if}
         <DetailsPanel.Fact label="Ledger Entry" value={sole.ledgerEntryId} />
       </DetailsPanel.Facts>
+
+      <DetailsPanel.Section label="History">
+        <DefinitionList.Root>
+          <DefinitionList.Row term="Event" empty />
+          <DefinitionList.Row term="By" empty />
+          <DefinitionList.Row term="On" empty />
+          <DefinitionList.Empty term="History">{historyWaitsOn}</DefinitionList.Empty>
+        </DefinitionList.Root>
+      </DetailsPanel.Section>
     </DetailsPanel.Body>
   {:else if selected.length > 1}
     <DetailsPanel.Header>

@@ -51,10 +51,11 @@
     type TrustPendingRequest,
   } from "$lib/trust/trust-api.ts";
   import { memberDisplay } from "$lib/trust/trust-member-names.ts";
+  import { ROSTER_CAPPED_WARNING } from "$lib/trust/trust-vocabulary.ts";
   import ApproveRequestDialog from "$lib/trust/approve-request-dialog.svelte";
   import RejectRequestDialog from "$lib/trust/reject-request-dialog.svelte";
   import FirmOpenAccountDialog from "$lib/trust/firm-open-account-dialog.svelte";
-  import FirmWithdrawRequestDialog from "$lib/trust/firm-withdraw-request-dialog.svelte";
+  import WithdrawRequestDialog from "$lib/trust/withdraw-request-dialog.svelte";
   import FirmTrustPanel from "$lib/trust/firm-trust-panel.svelte";
   import FirmTrustPostureDialog from "$lib/trust/firm-trust-posture-dialog.svelte";
   import { FirmTrust } from "$lib/trust/firm-trust.svelte.ts";
@@ -333,10 +334,7 @@
       <!-- The walk stopped short of the end, so the search below narrows SOME of the firm's
            accounts rather than all of them, and says so rather than answering quietly. -->
       <Alert.Root variant="warning">
-        <Alert.Description>
-          The roster stopped short of the end, so these are some of the firm's trust accounts rather
-          than all of them. What is searched and narrowed here is what was read.
-        </Alert.Description>
+        <Alert.Description>{ROSTER_CAPPED_WARNING}</Alert.Description>
       </Alert.Root>
     {/if}
 
@@ -447,7 +445,7 @@
   onRejected={decided}
 />
 
-<FirmWithdrawRequestDialog
+<WithdrawRequestDialog
   bind:open={withdrawOpen}
   request={decidingRequest}
   {money}

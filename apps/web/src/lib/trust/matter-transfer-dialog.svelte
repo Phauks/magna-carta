@@ -23,7 +23,6 @@
   import { DatePicker } from "@magna-carta/design-system/date-picker";
   import Input from "@magna-carta/design-system/input";
   import LabelledField from "@magna-carta/design-system/labelled-field";
-  import Textarea from "@magna-carta/design-system/textarea";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { civilDateTextOrEmpty, civilDateValue } from "$lib/dates";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -68,8 +67,6 @@
   let amountText = $state("");
   let effectiveDate = $state("");
   let purpose = $state("");
-  let description = $state("");
-  let descriptionWritten = $state(false);
   let failure = $state<StatedFailure | null>(null);
   /** Minted on the gesture that opens the panel, reused on every retry of this one submission. */
   let submissionKey = $state("");
@@ -86,16 +83,9 @@
     amountText = "";
     effectiveDate = account === null ? "" : defaultEffectiveDate(account.timeZone);
     purpose = "";
-    description = "";
-    descriptionWritten = false;
     failure = null;
     submissionKey = crypto.randomUUID();
     void firmMatters.load(fetch);
-  }
-
-  function writePurpose(text: string): void {
-    purpose = text;
-    if (!descriptionWritten) description = text;
   }
 
   const started = $derived(amountText !== "" || purpose !== "" || toMatterId !== null);
@@ -107,7 +97,6 @@
     amountText,
     effectiveDate,
     purpose,
-    description,
     availableMinor,
     availableText,
   });
@@ -153,10 +142,10 @@
 
 <ActionDialog
   bind:open
-  heading="Move Trust Money to Another Matter"
+  heading="Transfer to Another Matter"
   {subtitle}
-  commitLabel="Move Money"
-  commitBusyLabel="Moving"
+  commitLabel="Transfer"
+  commitBusyLabel="Transferring"
   commitRefusal={refusal}
   unsavedChanges={started}
   onOpen={reset}
@@ -166,7 +155,7 @@
     {#if failure !== null}
       <FailureNotice
         failure={failure.failure}
-        title="Nothing Moved"
+        title="Nothing Was Transferred"
         fallback={failure.fallback}
         whenSilent={failure.whenSilent}
       />
@@ -230,35 +219,17 @@
         </div>
       </div>
 
-      <LabelledField label="Purpose" error={fieldRefusal(serverProblem, "purpose")}>
+      <LabelledField
+        label="Purpose"
+        hint="Why the money is moving. It is the line both matters' ledger entries read."
+        error={fieldRefusal(serverProblem, "purpose")}
+      >
         {#snippet children({ props })}
           <Input
             {...props}
             placeholder={placeholderOf("Purpose")}
             disabled={busy}
-            bind:value={() => purpose, (next) => writePurpose(next)}
-          />
-        {/snippet}
-      </LabelledField>
-
-      <LabelledField
-        label="Description"
-        hint="The line both matters' ledger entries read. It follows the purpose until you write your own."
-        error={fieldRefusal(serverProblem, "description")}
-      >
-        {#snippet children({ props })}
-          <Textarea
-            {...props}
-            rows={2}
-            resizable={false}
-            disabled={busy}
-            bind:value={
-              () => description,
-              (next) => {
-                description = next;
-                descriptionWritten = true;
-              }
-            }
+            bind:value={purpose}
           />
         {/snippet}
       </LabelledField>

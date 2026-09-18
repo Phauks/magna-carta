@@ -136,7 +136,7 @@
 <ActionDialog
   bind:open
   kind="form"
-  heading="Open Trust Account"
+  heading="New Account"
   commitLabel="Open Account"
   commitBusyLabel="Opening"
   {commitRefusal}

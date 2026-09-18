@@ -71,7 +71,7 @@
 <ActionDialog
   bind:open
   kind="confirm"
-  heading="Confirm a Payment Out"
+  heading="Approve Payment Out"
   {subtitle}
   commitLabel="Approve"
   commitBusyLabel="Approving"

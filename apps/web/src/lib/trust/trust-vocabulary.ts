@@ -187,6 +187,25 @@ export function authorizedByTitle(movement: TrustMovementRecord): string {
   return "A deposit takes no second person: it puts money in and pays nothing out.";
 }
 
+/**
+ * What the In or Out cell says where the money went the other way.
+ *
+ * A movement lands on one side of the ledger and the other side is blank; the dash says the cell is
+ * deliberately empty, and the hover says why, the way a cost's unserved cell does.
+ */
+export const NO_AMOUNT_ON_THIS_SIDE =
+  "This movement went the other way, so it carries no amount on this side of the ledger.";
+
+/**
+ * What both Trust surfaces say where the roster read stopped short of the firm's whole record.
+ *
+ * One wording, because it is one fact: a matter reading its ledger against an account and the
+ * firm's own register of accounts are both looking at a page of the roster rather than all of it,
+ * and two sentences for one fact is how a reader learns the two screens are two products.
+ */
+export const ROSTER_CAPPED_WARNING =
+  "The roster stopped short of the end, so these are some of the firm's trust accounts rather than all of them.";
+
 /** The movements a figure is allowed to count. Every movement counts: none is a draft or a void. */
 export function sumAmountMinor(movements: readonly TrustMovementRecord[]): number {
   return movements.reduce((total, movement) => total + movement.amountMinor, 0);

@@ -1,7 +1,7 @@
 ---
 worktree: C:/dev/magna-carta-worktrees/claude/upbeat-darwin-vooof8
 area: Trust, first production round — the matter's Trust section wired to the firm's trust accounts and the movement routes, the firm-level Trust screen behind the sidebar row, and the route that opens a trust account
-status: building
+status: review
 touches: apps/web/src/lib/trust, apps/web/src/routes/(app)/trust, apps/web/src/routes/(app)/matters/[id]/trust, apps/web/src/lib/navigation/destinations.ts, apps/web/src/lib/money/money-sections.ts, apps/web/src/lib/matters/sections.ts, apps/web/src/lib/reports/reports-api.ts, apps/api-worker/src/routes/trust.ts, apps/api-worker/openapi/openapi.json, packages/api-client/src/types.gen.ts, apps/web/test, status.d/3-2-trust-accounting-jurisdiction-compliance.md, roadmap.d/financial.md, changelog.d, docs/user/features
 ---
 

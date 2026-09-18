@@ -129,10 +129,6 @@ export function cushionMovementLabel(kind: TrustFirmFundsMovementKind): string {
 /** What the section says on an account where the carve-out was never opened. */
 export const CUSHION_NOT_OPENED = "The cushion is not open on this account.";
 
-/** Why a firm keeps its own money in a client trust account at all. */
-export const CUSHION_EXPLANATION =
-  "The firm's own money sits in trust only to bear the bank's service charges, so a charge never comes out of a client's funds.";
-
 /** What the cushion's movement list says when the carve-out is open and nothing has moved. */
 export const NO_CUSHION_MOVEMENTS = "Nothing has moved through the cushion.";
 
