@@ -9,7 +9,7 @@
   scope: In-app video conferencing — a meeting started from a calendar event, media browser-to-Cloudflare Realtime SFU, signaling through a per-meeting Durable Object, attendance recorded on the event.
   status: in-build
   spec: docs/specs/2026-09-18-meetings-design.md
-  evidence: Design accepted 2026-09-18; slice 1 under way on claude/focused-edison-ylxfiy (packages/meetings, apps/api-worker/src/meetings, apps/web/src/lib/meetings).
+  evidence: Design accepted 2026-09-18; slice 1 under way on the stream at docs/active-work/claude/focused-edison-ylxfiy.md (packages/meetings, apps/api-worker/src/meetings, apps/web/src/lib/meetings).
   audience: public
   public-summary: Meet your colleagues by video from the calendar, share a screen, and keep a record of who attended — without a separate conferencing subscription.
   notes: The owner's ruling of 2026-09-18 — bundled into the product so a firm runs fewer tools; a Zoom/Teams port may exist later, never as the default.
@@ -20,7 +20,7 @@
   status: in-build
   surface: internal
   spec: docs/specs/2026-09-18-meetings-design.md
-  evidence: packages/meetings (service, statements, validation) and the meeting + meeting_attendance tables in packages/database/src/per-firm-schema.ts.
+  evidence: packages/meetings (service, statements, validation) and the meeting + meeting_attendance tables in packages/database/src/per-firm-schema.ts; stream docs/active-work/claude/focused-edison-ylxfiy.md.
 
 - id: meetings.signaling
   name: Signaling room and SFU client
@@ -28,7 +28,7 @@
   status: in-build
   surface: internal
   spec: docs/specs/2026-09-18-meetings-design.md
-  evidence: apps/api-worker/src/meetings/meeting-room.ts, meeting-room-protocol.ts, sfu-client.ts; MEETING_ROOM binding in apps/api-worker/wrangler.jsonc.
+  evidence: apps/api-worker/src/meetings/meeting-room.ts, meeting-room-protocol.ts, sfu-client.ts; MEETING_ROOM binding in apps/api-worker/wrangler.jsonc; stream docs/active-work/claude/focused-edison-ylxfiy.md.
 
 - id: meetings.api
   name: Meetings API
@@ -36,7 +36,7 @@
   status: in-build
   surface: internal
   spec: docs/specs/2026-09-18-meetings-design.md
-  evidence: apps/api-worker/src/routes/meetings.ts; the two keys in packages/access-control/src/registry.ts.
+  evidence: apps/api-worker/src/routes/meetings.ts; the two keys in packages/access-control/src/registry.ts; stream docs/active-work/claude/focused-edison-ylxfiy.md.
 
 - id: meetings.screen
   name: Meeting screen
@@ -44,7 +44,7 @@
   status: in-build
   surface: screen
   spec: docs/specs/2026-09-18-meetings-design.md
-  evidence: apps/web/src/lib/meetings/meeting-client.svelte.ts and apps/web/src/routes/(app)/meetings/[id]/.
+  evidence: apps/web/src/lib/meetings/meeting-client.svelte.ts and apps/web/src/routes/(app)/meetings/[id]/; stream docs/active-work/claude/focused-edison-ylxfiy.md.
   audience: public
   public-summary: Start a meeting from any calendar event and join it in one click.
 
@@ -54,7 +54,7 @@
   status: in-build
   surface: screen
   spec: docs/specs/2026-09-18-meetings-design.md
-  evidence: shareScreen() in apps/web/src/lib/meetings/meeting-client.svelte.ts.
+  evidence: shareScreen() in apps/web/src/lib/meetings/meeting-client.svelte.ts; stream docs/active-work/claude/focused-edison-ylxfiy.md.
 
 - id: meetings.guests
   name: External guests

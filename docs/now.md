@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 825 nodes of the feature ledger in
+is the complete register rather than a digest: all 836 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,20 +21,20 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**825 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
-below. 143 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **682 that are units of work**, for the reason set out under [What a roll-up is
+**836 capabilities across 32 areas.** Every one of them is listed in [the register](#the-register)
+below. 144 of them are roll-up parents — a node another node sits beneath — and the totals here
+count the **692 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 317 | 47% |
-| Part-built | partial, in-build | 124 | 18% |
-| Ahead | designed, planned, researching, not-started | 199 | 29% |
+| Done | shipped | 317 | 46% |
+| Part-built | partial, in-build | 129 | 19% |
+| Ahead | designed, planned, researching, not-started | 204 | 29% |
 | Parked | deferred, cut | 42 | 6% |
-| **All units of work** | | **682** | **100%** |
+| **All units of work** | | **692** | **100%** |
 
 ### Every status
 
@@ -42,18 +42,18 @@ not](#what-a-roll-up-is-not).
 | --- | ---: | ---: |
 | `shipped` | 317 | 46% |
 | `partial` | 124 | 18% |
-| `in-build` | 0 | 0% |
-| `designed` | 46 | 7% |
+| `in-build` | 5 | 1% |
+| `designed` | 47 | 7% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
-| `not-started` | 133 | 19% |
-| `deferred` | 38 | 6% |
-| `cut` | 4 | 1% |
-| **All statuses** | **682** | **100%** |
+| `not-started` | 137 | 20% |
+| `deferred` | 38 | 5% |
+| `cut` | 4 | 0% |
+| **All statuses** | **692** | **100%** |
 
 ### What a roll-up is not
 
-**143 of the 825 nodes are parents, and 111 of those parents are `partial`.** A parent's status is a
+**144 of the 836 nodes are parents, and 111 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 317 of 682 (46%). Shipped plus partial is 441 (65%).**
+**Shipped alone is 317 of 692 (46%). Shipped plus partial is 441 (64%).**
 
 The 124 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**441 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**446 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 102 | 23% |
+| A person can open it today (`screen`) | 104 | 23% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 158 | 36% |
-| No user surface by nature (`internal`) | 181 | 41% |
+| No user surface by nature (`internal`) | 184 | 41% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **441** | **100%** |
+| **Everything with something built** | **446** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -112,6 +112,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
 | Integrations & Plugins | 16 | 3 | 0 | 1 | 0 | 3 | 15 | 3 | 1 | 42 | 38% |
 | Maintenance Agents | 2 | 3 | 0 | 0 | 0 | 0 | 5 | 0 | 0 | 10 | 20% |
+| Meetings | 0 | 0 | 5 | 1 | 0 | 0 | 4 | 0 | 0 | 10 | 0% |
 | Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 12 | 58% |
 | Notifications | 4 | 6 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 14 | 29% |
 | Observability & Diagnostics | 14 | 0 | 0 | 0 | 0 | 0 | 4 | 2 | 0 | 20 | 70% |
@@ -126,7 +127,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 13 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 20 | 65% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **317** | **124** | **0** | **46** | **15** | **5** | **133** | **38** | **4** | **682** | **46%** |
+| **All areas** | **317** | **124** | **5** | **47** | **15** | **5** | **137** | **38** | **4** | **692** | **46%** |
 
 ## Where we have been
 
@@ -313,7 +314,12 @@ Decisions about a capability only. Account-side steps that no session can perfor
 
 ## Being built now
 
-_No capability is marked `in-build`._
+- `meetings` · **Meetings** — In-app video conferencing — a meeting started from a calendar event, media browser-to-Cloudflare Realtime SFU, signaling through a per-meeting Durable Object, attendance recorded on the event.
+- `meetings.record` · **Meeting record and attendance** — One meeting per calendar event (matter or firm), status scheduled/live/ended, an attendance row per join with joined and left instants, audit rows of identifiers and instants only.
+- `meetings.signaling` · **Signaling room and SFU client** — A MeetingRoom Durable Object per meeting brokering each browser's session with the Cloudflare Realtime SFU over hibernating WebSockets; the app secret never reaches a browser.
+- `meetings.api` · **Meetings API** — Create-or-return for an event, summary, join, leave, end, attendance, and the socket upgrade — under the chokepoint with meetings:host and meetings:join.
+- `meetings.screen` · **Meeting screen** — Tile grid, microphone/camera/screen-share/leave controls, End for a host, a roster rail; Start or Join from the calendar event.
+- `meetings.screen-share` · **Screen sharing** — A second local video track from getDisplayMedia, published to the SFU like any other track.
 
 ## Next up
 
@@ -356,6 +362,7 @@ _No capability is marked `in-build`._
 - `financial.billing.automations.payment-plans` · **Payment plans** — An instalment schedule recorded against a finalized invoice, with the standing derived from what has actually been applied.
 - `financial.billing.automations.replenishment` · **Evergreen below-floor replenishment** — A scheduled comparison of each retainer matter's available trust balance against the agreement's floor, raising the replenishment ask the firm can act on.
 - `integrations.ports.email-calendar` · **Email / calendar adapter** — First planned credentialed vendor port: email filing and calendar sync into matters.
+- `meetings.guests` · **External guests** — A signed one-time join link for a Directory entity on the event (client, opposing counsel, expert) — the tokenized-link assurance tier — ahead of the portal grant model.
 - `notes.search.firm-wide` · **Firm-wide note search** — Searching every matter's notes from one place, under the same visibility predicate the timeline composes, with no snippet.
 - `notes.entity-note` · **Notes on a Directory entity** — The same primitive keyed to a Directory entity, read on the entity's own surface.
 - `payments` · **Payments** — Payment acceptance as a swappable-adapter port, ACH-default with card fallback, structured so processor fees never touch trust.
@@ -1040,6 +1047,22 @@ to change a line here, edit the node in its area file and re-run the build.
     - `maintenance-agents.docs-maintenance.weekly-routine` · `partial` · **Weekly docs-sync routine** — Scheduled fresh-session routine executing .claude/skills/docs-sync/SKILL.md; audits the merge window, opens one docs-sync PR. _Note: Partial rather than in-build: the skill and its trigger configuration exist and the Routine itself is not created, which is an owner decision rather than work in progress._
     - `maintenance-agents.docs-maintenance.run-reports` · `shipped` · **Run-report registry** — One append-only report per run under docs/maintenance/reports/ carrying machine-readable window state. _Note: Was in-build against the branch the registry was written on; the registry is on main and in use._
     - `maintenance-agents.docs-maintenance.ci-doc-hygiene` · `partial` · **Deterministic doc-hygiene CI rules** — CI-side lint for cross-reference violations, process-ref scanning, and fragment validity — the deterministic residue the agent must not own.
+
+### Meetings
+
+[`roadmap.d/meetings.md`](../roadmap.d/meetings.md) — 10 units of work, 0% shipped. 0 done, 5 part-built, 5 ahead, 0 parked.
+
+- `meetings` · `in-build` · **Meetings** — In-app video conferencing — a meeting started from a calendar event, media browser-to-Cloudflare Realtime SFU, signaling through a per-meeting Durable Object, attendance recorded on the event. _Note: The owner's ruling of 2026-09-18 — bundled into the product so a firm runs fewer tools; a Zoom/Teams port may exist later, never as the default._
+  - `meetings.record` · `in-build` · **Meeting record and attendance** — One meeting per calendar event (matter or firm), status scheduled/live/ended, an attendance row per join with joined and left instants, audit rows of identifiers and instants only.
+  - `meetings.signaling` · `in-build` · **Signaling room and SFU client** — A MeetingRoom Durable Object per meeting brokering each browser's session with the Cloudflare Realtime SFU over hibernating WebSockets; the app secret never reaches a browser.
+  - `meetings.api` · `in-build` · **Meetings API** — Create-or-return for an event, summary, join, leave, end, attendance, and the socket upgrade — under the chokepoint with meetings:host and meetings:join.
+  - `meetings.screen` · `in-build` · **Meeting screen** — Tile grid, microphone/camera/screen-share/leave controls, End for a host, a roster rail; Start or Join from the calendar event.
+  - `meetings.screen-share` · `in-build` · **Screen sharing** — A second local video track from getDisplayMedia, published to the SFU like any other track.
+  - `meetings.guests` · `designed` · **External guests** — A signed one-time join link for a Directory entity on the event (client, opposing counsel, expert) — the tokenized-link assurance tier — ahead of the portal grant model.
+  - `meetings.recording` · `not-started` · **Recording** — Server-side capture of a meeting into the matter file, through the untrusted-file pipeline into R2, behind a consent gate on the jurisdiction profile. _Note: Sequenced after guests; a recording of a client meeting is privileged content and gets the full pipeline, not a shortcut._
+  - `meetings.large-rooms` · `not-started` · **Larger rooms** — Active-speaker layout, simulcast layer selection, bandwidth adaptation beyond the slice-1 cap of twelve participants.
+  - `meetings.dial-in` · `not-started` · **Dial-in by phone** — A PSTN leg into a meeting through the telephony port.
+  - `meetings.external-provider-port` · `not-started` · **Conferencing port (Zoom, Teams)** — A ConferencingPort under packages/integrations whose adapter places a vendor's meeting link on a calendar event, for firms that keep a vendor.
 
 ### Matter Notes and Activity
 

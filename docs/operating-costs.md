@@ -24,19 +24,20 @@ The single home for the **money cost of running Magna Carta** — what _we_ pay 
 
 **Cloudflare usage rates (the metered lines under the $5 floor)** — overage after the included allotment:
 
-| Service                                                   | Included (Workers Paid)               | Overage rate                                                                                        |
-| --------------------------------------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Workers requests                                          | 10M / mo                              | ~$0.30 / million                                                                                    |
-| Workers CPU                                               | 30M CPU-ms / mo                       | ~$0.02 / million CPU-ms                                                                             |
-| D1 (per-firm + control-plane)                             | 25B rows read, 50M rows written, 5 GB | reads ~$0.001/M · writes ~$1.00/M · storage ~$0.75/GB-mo                                            |
-| R2 (per-firm files, label/telemetry archives)             | 10 GB, 1M Class A, 10M Class B        | storage ~$0.015/GB-mo · Class A ~$4.50/M · Class B ~$0.36/M · **egress free**                       |
-| Durable Objects (refresh locks, conversion jobs)          | 1M requests, 400K GB-s                | requests ~$0.15/M · duration ~$12.50 / M GB-s · + SQLite storage                                    |
-| Queues (async offload)                                    | —                                     | ~$0.40 / million operations                                                                         |
-| KV                                                        | (free allotment)                      | reads ~$0.50/M · writes/lists/deletes ~$5/M · storage ~$0.50/GB-mo                                  |
-| Vectorize (discovery semantic search)                     | 50M queried dims/mo, 10M stored dims  | queried $0.01/M dimensions · stored $0.05 / 100M dimensions-mo — **read the note below the table**  |
-| Containers (Collabora, Tantivy, OCR, LibreOffice, FFmpeg) | —                                     | per-second memory (GiB-s) + vCPU-s + disk — **verify**                                              |
-| Workers Logs + Logpush → R2                               | Logs included                         | Logpush needs paid plan; archive cost is the R2 storage above                                       |
-| Email Routing / Email Sending                             | free / beta                           | product transactional mail (`no-reply@`, ADR-0074); [`operations.md` §2](conventions/operations.md) |
+| Service                                                   | Included (Workers Paid)               | Overage rate                                                                                                |
+| --------------------------------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Workers requests                                          | 10M / mo                              | ~$0.30 / million                                                                                            |
+| Workers CPU                                               | 30M CPU-ms / mo                       | ~$0.02 / million CPU-ms                                                                                     |
+| D1 (per-firm + control-plane)                             | 25B rows read, 50M rows written, 5 GB | reads ~$0.001/M · writes ~$1.00/M · storage ~$0.75/GB-mo                                                    |
+| R2 (per-firm files, label/telemetry archives)             | 10 GB, 1M Class A, 10M Class B        | storage ~$0.015/GB-mo · Class A ~$4.50/M · Class B ~$0.36/M · **egress free**                               |
+| Durable Objects (refresh locks, conversion jobs)          | 1M requests, 400K GB-s                | requests ~$0.15/M · duration ~$12.50 / M GB-s · + SQLite storage                                            |
+| Queues (async offload)                                    | —                                     | ~$0.40 / million operations                                                                                 |
+| KV                                                        | (free allotment)                      | reads ~$0.50/M · writes/lists/deletes ~$5/M · storage ~$0.50/GB-mo                                          |
+| Vectorize (discovery semantic search)                     | 50M queried dims/mo, 10M stored dims  | queried $0.01/M dimensions · stored $0.05 / 100M dimensions-mo — **read the note below the table**          |
+| Containers (Collabora, Tantivy, OCR, LibreOffice, FFmpeg) | —                                     | per-second memory (GiB-s) + vCPU-s + disk — **verify**                                                      |
+| Realtime — selective forwarding unit + TURN (meetings)    | 1,000 GB / mo                         | ~$0.05 per real-time GB — [developers.cloudflare.com/realtime](https://developers.cloudflare.com/realtime/) |
+| Workers Logs + Logpush → R2                               | Logs included                         | Logpush needs paid plan; archive cost is the R2 storage above                                               |
+| Email Routing / Email Sending                             | free / beta                           | product transactional mail (`no-reply@`, ADR-0074); [`operations.md` §2](conventions/operations.md)         |
 
 **Engine container scaling (folded into the Containers row above).** Scan is the one exception that keeps a warm `standard-1` instance via a periodic poke (~$35–50/mo at MVP scale; see [`operations.md`](conventions/operations.md)). Recovery, file-repair, and **OCR** run with no warm-poke cron and scale to zero at idle, billing only while a job runs. The OCR container's cold start is slower than the others because it loads ~31 MB of baked-in PP-OCRv6 ONNX models at boot.
 
