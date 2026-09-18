@@ -56,6 +56,16 @@
   spec: docs/specs/2026-09-18-meetings-design.md
   evidence: shareScreen() in apps/web/src/lib/meetings/meeting-client.svelte.ts.
 
+- id: meetings.audio-calls
+  name: Audio calls
+  scope: A meeting whose medium is audio alone — chosen at start, enforced by the room (video and screen tracks refused), started from the calendar as Start call, shown on the Meetings page with its own glyph.
+  status: in-build
+  surface: screen
+  spec: docs/specs/2026-09-18-meetings-design.md
+  evidence: The medium column on meeting in packages/database/src/per-firm-schema.ts and the track-kind check in apps/api-worker/src/meetings/meeting-room.ts; stream docs/active-work/claude/focused-edison-ylxfiy.md.
+  audience: public
+  public-summary: Start a voice call from any calendar event when a camera is more than the conversation needs.
+
 - id: meetings.guests
   name: External guests
   scope: A signed one-time join link for a Directory entity on the event (client, opposing counsel, expert) — the tokenized-link assurance tier — ahead of the portal grant model.

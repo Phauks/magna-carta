@@ -204,12 +204,49 @@ Problem types: `meeting-not-found` (404, and the same for an event the member ma
   `sessionDescription` is distinguishable from an answer the browser has to act on.
 - **`refused` may carry `errorId`** (optional, additive) — present only where the room actually
   recorded a failure through the standard pipeline, which today is `sfu-unavailable`.
-- **A dropped socket arms a grace sweep**: sixty seconds, then the room closes the stay through the
-  firm-scoped data-access layer (`meetings.meeting.left`, `reason: socket-lost`), drops the roster
-  entry and closes the participant's tracks at the routing service. It never ends the meeting.
+- **One live socket per stay, newest wins.** An upgrade for a stay that already has one retires the
+  older socket (`refused` with a new reason `superseded`, then a 4000 close), resets the participant
+  to no session and no tracks, broadcasts `roster`, and closes the old session's tracks at the
+  routing service. This is forced by WebRTC rather than chosen: a reconnecting browser brings a new
+  peer connection — new ICE credentials, new DTLS fingerprint — so it cannot resume the session its
+  predecessor opened, and two tabs cannot share one session at all. Carrying the session forward left
+  the returning member publishing where nobody was subscribed while everybody else held a
+  subscription to a session that would never send again — a black tile that never resolves.
+- **A dropped socket arms a grace sweep, timed per person**: the instant is recorded on the
+  participant (`socketLostAt`) and the alarm closes only those whose own sixty seconds have run out,
+  then re-arms for the soonest still running. One deadline for the room was a grace period only for
+  whoever armed it — the second person to drop was swept while twenty seconds into theirs. The sweep
+  closes the stay through the firm-scoped data-access layer (`meetings.meeting.left`,
+  `reason: socket-lost`), drops the roster entry and closes the participant's tracks at the routing
+  service. It never ends the meeting.
 - **The upgrade is same-origin.** An `Origin` header that is present and is not this application's is
   refused 403: a browser opens a WebSocket cross-origin with the member's cookie where it would refuse
   to let that page read any other call here.
+
+## 7b. Audio calls (owner direction, 2026-09-18)
+
+An audio call is a meeting whose medium is sound alone, and it is the same record, the same room
+and the same screen rather than a second subsystem. The owner's direction: the realtime kit is
+built so that a call with no video is a first-class thing a member starts, not a video meeting
+somebody forgot to turn a camera on in.
+
+- **The record.** `meeting.medium` — `'video' | 'audio'` (CHECK), `NOT NULL DEFAULT 'video'`,
+  added by an additive migration; chosen at start (`POST /api/v1/meetings` body gains
+  `medium`, default `video`) and never changed afterwards, because the people already in the room
+  agreed to one thing. `MeetingSummary` carries it.
+- **The room enforces it.** In an audio call a `publish` naming a `video` or `screen` track is
+  refused with `track-kind-refused` (socket kept open), so a modified client cannot turn a call
+  into a video meeting for the people in it. The roster therefore never lists a picture, and no
+  browser is asked to pull one.
+- **The browser.** `join` takes the medium; in an audio call the client captures the microphone
+  only, the controls are microphone and leave (End for a host), and each participant is a tile
+  with their initials and name rather than a picture. Screen share is a video track and is not
+  offered.
+- **The calendar and the Meetings page.** The entry window offers **Start meeting** and **Start
+  call** side by side (one row of two controls, the join key still gates both); Join reads
+  **Join call** or **Join meeting** from the medium. The Meetings page rows carry a glyph for the
+  medium (Lucide `phone` for a call, `video` for a meeting).
+- **The ledger.** `meetings.audio-calls` in `roadmap.d/meetings.md`.
 
 ## 8. The screen (`apps/web`)
 
