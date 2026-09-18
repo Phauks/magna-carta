@@ -28,7 +28,6 @@
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import CreateControl from "@magna-carta/design-system/create-control";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { createQuery } from "@tanstack/svelte-query";
   import {
     locationsListOptions,
@@ -147,7 +146,6 @@
       <ScreenSearch
         bind:value={searchText}
         label="Search the catalogue"
-        placeholder={placeholderOf("Search the catalogue")}
         searchOn="pause"
         fieldClass="w-2xs sm:w-xs"
         onsearch={(next) => {

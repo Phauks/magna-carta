@@ -227,40 +227,45 @@
           <div class="flex flex-col">
             {#each chosen as target (target.matterId)}
               {@const standing = standings[target.matterId]}
-              <div
-                class="grid grid-cols-[1fr_auto] items-start gap-x-12 gap-y-4 border-b border-border-subtle py-8"
-              >
-                <span class="text-sm tabular-nums">{target.label}</span>
-                {#if standing === undefined}
-                  {#if !busy && !done}
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Remove {target.label}"
-                      title="Remove {target.label}"
-                      onclick={() => remove(target.matterId)}
-                    >
-                      <X class="size-16" aria-hidden="true" />
-                    </Button>
+              <!-- A stack, not a two-track grid: the matter and what became of it share the first
+                   line, and everything the standing adds underneath runs the row's full width. The
+                   grid this replaced declared its two tracks as an arbitrary Tailwind value, which
+                   golden rule 2 refuses, and then spent a column span on every line below the first
+                   undoing them. The stack needs neither. -->
+              <div class="flex flex-col gap-y-4 border-b border-border-subtle py-8">
+                <div class="flex items-start gap-x-12">
+                  <span class="flex-1 text-sm tabular-nums">{target.label}</span>
+                  {#if standing === undefined}
+                    {#if !busy && !done}
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="Remove {target.label}"
+                        title="Remove {target.label}"
+                        onclick={() => remove(target.matterId)}
+                      >
+                        <X class="size-16" aria-hidden="true" />
+                      </Button>
+                    {/if}
                   {:else}
-                    <span></span>
+                    <span
+                      class="text-sm text-text-muted"
+                      role="status"
+                      aria-live={isSettled(standing) ? "off" : "polite"}
+                    >
+                      {standingLine(standing)}
+                    </span>
                   {/if}
-                {:else}
-                  <span
-                    class="text-sm text-text-muted"
-                    role="status"
-                    aria-live={isSettled(standing) ? "off" : "polite"}
-                  >
-                    {standingLine(standing)}
-                  </span>
+                </div>
+                {#if standing !== undefined}
                   {#each blankLines(standing) as line (line)}
-                    <span class="col-span-2 text-xs text-text-muted">{line}</span>
+                    <span class="text-xs text-text-muted">{line}</span>
                   {/each}
                   {#if done}
                     {@const openHref = documentHref(standing)}
                     {@const filesHref = matterFilesHref(target, standing)}
                     {#if openHref !== null || filesHref !== null}
-                      <span class="col-span-2 flex flex-wrap gap-12 text-sm">
+                      <span class="flex flex-wrap gap-12 text-sm">
                         {#if openHref !== null}
                           <a class="underline underline-offset-2" href={openHref}>Open the document</a>
                         {/if}
