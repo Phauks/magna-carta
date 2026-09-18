@@ -20,7 +20,8 @@ scope. The second, `docs/research/2026-09-18-local-first-document-editing.md`, a
 single-editor `.docx` locally in the browser (SuperDoc, the one memory-safe candidate) behind the
 `getEditorBackend` seam, escalating to the Collabora container when a second editor arrives — with
 the container's cost and ceiling read from `apps/edit-worker`, the escalation state machine over
-`DocumentSession`, and a fidelity-gated spike as the recommendation. A stream working in
+`DocumentSession`, and a fidelity-gated spike as the recommendation — **declined for now by the owner on 2026-09-18
+("stick to Collabora"), recorded at the top of that note; ADR-0010 stands.** A stream working in
 `packages/document-assembly`, `packages/metadata`, the editing subsystem, the presence design, or
 Magnus may want to read both before drawing that work, but nothing here blocks or touches any of
 them.

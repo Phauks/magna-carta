@@ -2,6 +2,7 @@
 
 **Date:** 2026-09-18
 **Scope:** Whether a `.docx` open by a single member should be edited locally in the browser instead of in a Collabora container, escalating to the container only when a second editor arrives — what it would save in cost and open latency, what it would cost in fidelity, security posture and licensing, and how the escalation would work over the Durable Object that already coordinates every document.
+**Owner ruling, 2026-09-18:** "Let's stick to Collabora for now." The local-first option is **declined for now** — not rejected on the merits, and this note stays as the record so the question is not re-derived from scratch. ADR-0010 stands unamended. What survives the ruling is the pair of container changes in section 7 that never depended on it: right-sizing the instance to ~2.5 GiB and raising `max_instances` before a tenth concurrent document finds it.
 **Purpose:** Research, prompted by the owner ("if this would increase response time, reduce costs, I would consider it"). **This is research, not a spec and not a decision.** Nothing here is built. ADR-0010 (Collabora as the editor host), ADR-0125 (topology, WOPI, auth) and ADR-0126 (concurrency and reconciliation) stand; section 6 names the one posture in ADR-0125 this would amend.
 **Companion:** [`2026-09-18-claude-docs-and-word-assessment.md`](2026-09-18-claude-docs-and-word-assessment.md) — the tracked-change AI edit path, which a local editor would also carry.
 **White-paper context:** _Documents_, _Delivery model_, _Performance & concurrency model_ — binding, not restated.
