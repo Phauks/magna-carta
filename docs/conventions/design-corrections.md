@@ -1473,6 +1473,14 @@ name, which is every screen outside a matter.
   convenience, and the command palette still reaches every section inside one, because hiding must
   never remove capability. _(Settings, 2026-09-17)_
 
+- **The canvas lays its children out; a screen that takes the whole height may shrink.** A
+  two-sided screen sizes itself to the canvas, and as a block child it kept that height whatever
+  stood above it — so the platform notice, which the shell renders over every page, pushed it past
+  the bottom edge by exactly the notice's height and the canvas grew a third scrollbar. The work
+  canvas is a flex column now and the layout is a shrinkable item with no minimum, so the notice
+  takes its room and the layout keeps its bottom edge on the canvas's. Ordinary pages stack in the
+  column exactly as they stacked as blocks. _(the shell, 2026-09-18)_
+
 ### Spacing and rhythm
 
 - **The App Shell draws the page inset, once, for everybody.** A screen rendered into the shell's

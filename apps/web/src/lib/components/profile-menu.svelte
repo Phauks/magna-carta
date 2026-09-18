@@ -34,7 +34,7 @@
   import { createQuery } from "@tanstack/svelte-query";
   import { meGetOptions } from "@magna-carta/api-client";
   import { SESSION_STABLE } from "$lib/api/screen-data.ts";
-  import { personInitials } from "$lib/time/time-columns.ts";
+  import { personInitials } from "@magna-carta/design-system/formatters";
   import Bug from "@lucide/svelte/icons/bug";
   import Earth from "@lucide/svelte/icons/earth";
   import ExternalLink from "@lucide/svelte/icons/external-link";

@@ -692,10 +692,18 @@
          without it a screen-reader-only element (Tailwind's sr-only is position: absolute) deep
          in a tall page resolves against the document instead, lands at its table's document-y
          coordinate past the shell's height, and stretches the WINDOW scrollable — a second
-         scrollbar outside the canvas with bare page background beneath the shell. -->
+         scrollbar outside the canvas with bare page background beneath the shell.
+         `flex flex-col` because the canvas LAYS ITS CHILDREN OUT rather than stacking them as
+         blocks: a two-sided screen (settings, the calendar, Magnus) sizes itself to the whole
+         canvas, and as a block child it kept that height whatever stood above it — so the
+         platform notice, rendered above every page, pushed it past the bottom edge by exactly the
+         notice's height and the canvas grew a third scrollbar beside the layout's two. As a flex
+         item with no minimum it shrinks under the notice instead. Ordinary pages stack in the
+         column exactly as they stacked as blocks; the page-inset lint reads this class list and
+         keeps its rules honest to it. -->
     <main
       bind:this={canvas}
-      class="mc-scrollbar relative grow overflow-x-hidden overflow-y-auto rounded-ss-lg bg-surface-default p-24 [scrollbar-gutter:stable]"
+      class="mc-scrollbar relative flex grow flex-col overflow-x-hidden overflow-y-auto rounded-ss-lg bg-surface-default p-24 [scrollbar-gutter:stable]"
     >
       {@render children()}
     </main>

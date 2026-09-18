@@ -60,9 +60,9 @@
     chargeAmount,
     durationParts,
     firmTimeColumns,
-    personInitials,
     timekeeperOf,
   } from "$lib/time/time-columns.ts";
+  import { personInitials } from "@magna-carta/design-system/formatters";
   import { ledgerCurrency, periodTotals } from "$lib/time/time-figures.ts";
   import { matterDisplay } from "$lib/time/time-sheet-model.ts";
   import { listTimeEntriesInPeriod, type TimePeriodQuery } from "$lib/time/time-operations.ts";
