@@ -30,24 +30,24 @@ not](#what-a-roll-up-is-not).
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 317 | 47% |
+| Done | shipped | 318 | 47% |
 | Part-built | partial, in-build | 124 | 18% |
 | Ahead | designed, planned, researching, not-started | 199 | 29% |
-| Parked | deferred, cut | 42 | 6% |
+| Parked | deferred, cut | 41 | 6% |
 | **All units of work** | | **682** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 317 | 46% |
+| `shipped` | 318 | 47% |
 | `partial` | 124 | 18% |
 | `in-build` | 0 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
 | `not-started` | 133 | 19% |
-| `deferred` | 38 | 6% |
+| `deferred` | 37 | 5% |
 | `cut` | 4 | 1% |
 | **All statuses** | **682** | **100%** |
 
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 317 of 682 (46%). Shipped plus partial is 441 (65%).**
+**Shipped alone is 318 of 682 (47%). Shipped plus partial is 442 (65%).**
 
 The 124 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**441 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**442 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 102 | 23% |
+| A person can open it today (`screen`) | 103 | 23% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 158 | 36% |
 | No user surface by nature (`internal`) | 181 | 41% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **441** | **100%** |
+| **Everything with something built** | **442** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -110,7 +110,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
 | Financial Core | 21 | 19 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 62 | 34% |
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
-| Integrations & Plugins | 16 | 3 | 0 | 1 | 0 | 3 | 15 | 3 | 1 | 42 | 38% |
+| Integrations & Plugins | 17 | 3 | 0 | 1 | 0 | 3 | 15 | 2 | 1 | 42 | 40% |
 | Maintenance Agents | 2 | 3 | 0 | 0 | 0 | 0 | 5 | 0 | 0 | 10 | 20% |
 | Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 12 | 58% |
 | Notifications | 4 | 6 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 14 | 29% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 13 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 20 | 65% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **317** | **124** | **0** | **46** | **15** | **5** | **133** | **38** | **4** | **682** | **46%** |
+| **All areas** | **318** | **124** | **0** | **46** | **15** | **5** | **133** | **37** | **4** | **682** | **47%** |
 
 ## Where we have been
 
@@ -972,7 +972,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Integrations & Plugins
 
-[`roadmap.d/integrations.md`](../roadmap.d/integrations.md) — 42 units of work, 38% shipped. 16 done, 3 part-built, 19 ahead, 4 parked.
+[`roadmap.d/integrations.md`](../roadmap.d/integrations.md) — 42 units of work, 40% shipped. 17 done, 3 part-built, 19 ahead, 3 parked.
 
 - `integrations` · `partial` · **Plugin / add-on system** — Ports-and-adapters integration framework, manifest-driven registration, first-party adapters, the Tools catalog, and the future third-party marketplace. _Note: First-party only today; C seam to a marketplace documented, not built._
   - `integrations.port-framework` · `shipped` · **Integration port framework** — Typed category ports with vendor adapters behind them; canonical types, manifest, registry, dispatch, problem mapping.
@@ -993,7 +993,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `integrations.shipping.certified-mail` · `shipped` · **Certified mail** — USPS Certified Mail with return receipt and signature as a first-class shipment option.
     - `integrations.shipping.tracking-webhook` · `deferred` · **Push-webhook tracking ingress** — Vendor webhook ingestion replacing pull-on-demand tracking.
     - `integrations.shipping.cost-recovery` · `shipped` · **Postage cost-recovery seam** — shipment.purchased event recording postage against the matter for cost recovery.
-    - `integrations.shipping.ui` · `deferred` · **Shipping UI** — Firm-facing surface for drafting, buying, and tracking shipments.
+    - `integrations.shipping.ui` · `shipped` · **Shipping UI** — Firm-facing surface for drafting, buying, and tracking shipments. _Note: Four surfaces. The register is the product's grid over declared columns, so one set of rows answers both "where is the letter I sent" and "what has this firm spent on postage". A shipment opens in a record window OVER the register rather than on a page of its own, on the directory's ruling that a record opened in place needs no way back; /shipping/[id] survives as its address and redirects into it, and is registered as declining a back affordance for the same reason the directory's is. The buy flow is a stepped wizard because its middle is a live carrier call rather than a form, and postage and the service fee are separate lines at the confirm step. The postage account is a settings page under the integrations group — the first section that group has ever held — because connecting an account is an administrative act with a different audience from buying a label._
   - `integrations.tools-area` · `partial` · **Tools area** — One Tools catalog surfacing first-party utilities and integration-backed tools through the global rail and contextual entry points; presentation layer above the plugin framework. _Note: There is no Tools AREA left in the interface sense — the owner retired the two-sided screen and then its index on 2026-09-16, because a tool reached through a screen about tools costs a navigation and a column of the tools you are not using. The catalog, the permissions and the contextual selector are what the node still names._
     - `integrations.tools-area.catalog` · `shipped` · **Tools catalog package** — Single source-of-truth catalog; adding a tool is one manifest entry; reflects connection health without holding credentials.
     - `integrations.tools-area.listing-page` · `cut` · **Tools listing page** — A /tools page rendering the catalog grouped by subject, tiles or dense list, maturity-stage badges. _Note: Built, shipped, and retired by the owner on 2026-09-16. It was a stop on the way to work - a member who wants the WHOIS lookup wants the WHOIS lookup, not a page about it - and the two things it carried that were worth keeping, the descriptors and the search, were never the page's: they are the presentation layer's, and the command palette has rendered them all along from one keystroke with no navigation first. Every tool is a top-level ability with a rail row of its own now (integrations.tools-area.rail-rows)._

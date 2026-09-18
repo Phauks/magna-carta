@@ -119,7 +119,7 @@
   slices: shipping-postage-backend
   adrs: ADR-0094, ADR-0095
   spec: docs/specs/2026-06-16-shipping-easypost-design.md
-  evidence: packages/shipping + apps/api-worker/src/routes/shipping.ts on main; credential read built 2026-09-18; UI and webhook ingress deferred.
+  evidence: packages/shipping + apps/api-worker/src/routes/shipping.ts on main; credential read and the four surfaces built 2026-09-18; webhook ingress deferred.
   audience: public
   public-name: Postage and shipping
   public-summary: Buy a label, track the package, and have the cost land on the matter.
@@ -158,8 +158,10 @@
 - id: integrations.shipping.ui
   name: Shipping UI
   scope: Firm-facing surface for drafting, buying, and tracking shipments.
-  status: deferred
-  evidence: status.d/shipping-postage-backend.md marks UI deferred; no shipping pages in apps/web.
+  status: shipped
+  surface: screen
+  evidence: apps/web/src/routes/(app)/shipping/ (register, buy flow, the shipment's redirecting address), apps/web/src/lib/shipping/shipment-window.svelte, and (app)/settings/shipping/; tool stage alpha in tool-presentation.ts.
+  notes: Four surfaces. The register is the product's grid over declared columns, so one set of rows answers both "where is the letter I sent" and "what has this firm spent on postage". A shipment opens in a record window OVER the register rather than on a page of its own, on the directory's ruling that a record opened in place needs no way back; /shipping/[id] survives as its address and redirects into it, and is registered as declining a back affordance for the same reason the directory's is. The buy flow is a stepped wizard because its middle is a live carrier call rather than a form, and postage and the service fee are separate lines at the confirm step. The postage account is a settings page under the integrations group — the first section that group has ever held — because connecting an account is an administrative act with a different audience from buying a label.
 
 - id: integrations.tools-area
   name: Tools area

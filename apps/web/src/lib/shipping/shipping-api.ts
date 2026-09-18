@@ -23,9 +23,12 @@ import {
   shippingConnect,
   shippingCreateShipment,
   shippingDisconnectCarrier,
+  shippingLabel,
   shippingListShipments,
   shippingPurchase,
   shippingRateShipment,
+  shippingRefund,
+  shippingTracking,
 } from "@magna-carta/api-client";
 
 /** What a failure is filed under when the client could not even build a request to name. */
@@ -144,4 +147,38 @@ export function purchaseLabel(
     body: choice,
     ...idempotently(idempotencyKey),
   });
+}
+
+/*
+ * A shipment's tracking history.
+ *
+ * A POST rather than a read because it is a LIVE call to the carrier — the platform holds the events
+ * it has been told about, and asking refreshes them. It carries no idempotency key: the contract
+ * makes one optional here, and re-asking where a parcel is has no effect to collapse.
+ */
+export function readTracking(shipmentId: string) {
+  return shippingTracking({ path: { id: shipmentId } });
+}
+
+/** Void an unused label and reclaim its postage. */
+export function refundShipment(shipmentId: string, idempotencyKey: string) {
+  return shippingRefund({ path: { id: shipmentId }, ...idempotently(idempotencyKey) });
+}
+
+/*
+ * The label's bytes, as something a browser can open.
+ *
+ * Fetched through the generated function rather than linked to by address, for two reasons that
+ * happen to agree. The contract's paths live in the generated client and a literal here would be one
+ * more copy of one (`pnpm run lint:screen-data`). And the bytes come from the firm's own storage
+ * behind the session, so a blob the browser already holds opens without a second authenticated
+ * navigation that a pop-up blocker or an expired tab could lose.
+ *
+ * The caller revokes the URL when it is done with it; an object URL lives until the document goes.
+ */
+export async function readLabelObjectUrl(shipmentId: string): Promise<string | null> {
+  const answer = await shippingLabel({ path: { id: shipmentId } });
+  const response = answer.response;
+  if (answer.error !== undefined || response === undefined || !response.ok) return null;
+  return URL.createObjectURL(await response.blob());
 }

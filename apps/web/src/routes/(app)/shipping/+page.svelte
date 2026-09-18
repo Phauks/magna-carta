@@ -26,7 +26,14 @@
   import EmptyState from "@magna-carta/design-system/empty-state";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { goto } from "$app/navigation";
+  import { page } from "$app/state";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
+  import ShipmentWindow from "$lib/shipping/shipment-window.svelte";
+  import {
+    shipmentWindowHref,
+    SHIPMENT_WINDOW_PARAMETER,
+  } from "$lib/shipping/shipment-window-href.ts";
   import { readShipments, type ShipmentListRow } from "$lib/shipping/shipping-api.ts";
   import {
     shipmentRegisterColumns,
@@ -48,12 +55,29 @@
     void list.load(read);
   });
 
+  /*
+   * Which shipment is open comes from the ADDRESS, not from a local variable the row click sets.
+   * That is what makes /shipping/[id] work — it redirects here with the parameter set — and what
+   * lets the reader use the browser's own back button to close the window, which is the gesture they
+   * will reach for whether or not the window offers one.
+   */
+  const openShipmentId = $derived(page.url.searchParams.get(SHIPMENT_WINDOW_PARAMETER));
+
+  function openShipment(row: ShipmentListRow): void {
+    void goto(shipmentWindowHref(row.id), { noScroll: true, keepFocus: true });
+  }
+
+  function closeShipment(): void {
+    void goto("/shipping", { noScroll: true, keepFocus: true, replaceState: true });
+  }
+
   const grid = DataTable.createDataTableGrid<ShipmentListRow>({
     columns: () => shipmentRegisterColumns(),
     rows: () => rows ?? [],
     rowKey: (row) => row.id,
     initialSort: SHIPMENT_REGISTER_INITIAL_SORT,
     itemNoun: { singular: "shipment", plural: "shipments" },
+    onActivate: openShipment,
   });
 </script>
 
@@ -118,3 +142,13 @@
     </DataTable.GridFooter>
   {/if}
 </div>
+
+<!-- Opened by the address rather than by this markup, so the window survives a reload and a link
+     into it from anywhere else in the product. A refund changes the row behind it, so the register
+     re-reads rather than leaving a voided label reading as bought. -->
+<ShipmentWindow
+  shipmentId={openShipmentId}
+  open={openShipmentId !== null}
+  onClosed={closeShipment}
+  onRefunded={() => void list.load(read)}
+/>

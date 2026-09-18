@@ -70,6 +70,10 @@ export const STANDING_EXEMPTIONS = new Map([
     "a directory record has no screen: this is its former address, whose loader redirects to the directory with that record's window open, so nothing renders here",
   ],
   [
+    "/shipping/[id]",
+    "a shipment has no screen: this is its former address, whose loader redirects to the register with that shipment's window open, so nothing renders here",
+  ],
+  [
     "/discovery/review-sets/[reviewSetId]/documents/[reviewDocumentId]",
     "the reviewer's way back has to carry the narrowing it was opened from, and a registry back target cannot: its href is a literal, so it would land a reader on the whole corpus after they opened one document out of forty. The reviewer carries its own Back to the list link, built from the criteria set in the address; the workspace layout above it holds the header, and its way back is the Discovery register",
   ],
