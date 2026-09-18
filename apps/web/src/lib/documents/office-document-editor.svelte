@@ -77,6 +77,7 @@
   import {
     BACK_TO_MATTER_BUTTON_ID,
     backToMatterButton,
+    hideTrackedChangesMessage,
     hostSignalOf,
     insertButtonMessage,
     LEAVE_SAVE_BUDGET_MILLISECONDS,
@@ -312,6 +313,18 @@
     }
     setTimeout(() => void goto(back.href), LEAVE_SAVE_BUDGET_MILLISECONDS);
   }
+
+  /*
+   * Under the firm's policy the document records its changes (the host keeps recording on and the
+   * control withheld), and the marks are shown to nobody by default: the page reads the way it
+   * always did, and the editor's Review tab shows them to anybody who asks. Sent once the document
+   * is showing, because a command sent before then reaches no document.
+   */
+  $effect(() => {
+    const origin = editorOrigin;
+    if (origin === undefined || !documentShowing || launch?.recordsChanges !== true) return;
+    frame?.contentWindow?.postMessage(hideTrackedChangesMessage(), origin);
+  });
 
   $effect(() => {
     const origin = editorOrigin;

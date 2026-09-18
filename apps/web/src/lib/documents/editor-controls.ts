@@ -88,6 +88,20 @@ export function saveBeforeLeavingMessage(): string {
   });
 }
 
+/**
+ * Turns the showing of tracked changes off, once the document is up. Under the firm's policy every
+ * document records its changes (the host keeps the recording control out of reach), and a page a
+ * member types on should look the way it always did: the marks are there, and the editor's own
+ * Review tab shows them to anybody who asks. `Send_UNO_Command` carries the editor's command with
+ * its argument in the editor's typed form.
+ */
+export function hideTrackedChangesMessage(): string {
+  return message("Send_UNO_Command", {
+    Command: ".uno:ShowTrackedChanges",
+    Args: { ShowTrackedChanges: { type: "boolean", value: false } },
+  });
+}
+
 /** What the editor told the host that this screen acts on. */
 export type HostSignal =
   | { readonly kind: "button-clicked"; readonly id: string }

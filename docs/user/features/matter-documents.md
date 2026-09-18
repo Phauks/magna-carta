@@ -438,6 +438,12 @@ minutes. **Version History** shows the named saves and folds the autosaves behin
 says how many there are; **Show every save** opens them. Each version names who saved it and
 everyone else who had the document open at the time.
 
+Unless your firm has decided otherwise, every document you open in the editor records who changed
+what, from the first edit, and the control for turning that off is not offered. The marks are
+hidden, so the page reads and types the way it always did; to see them, open the editor's
+**Review** tab and turn **Show Track Changes** on. What that setting is and who decides it:
+[Editing](../admin/editing.md).
+
 While the document opens, the screen lists each stage as it happens — opening the session,
 starting the editor, loading it, asking for the document, fetching it, showing it — with the time
 so far. A first open can take a little while, because the editor starts for that document on

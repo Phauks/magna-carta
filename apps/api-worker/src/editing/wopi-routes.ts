@@ -49,6 +49,9 @@ export interface WopiFileDeps {
   // The member's display name, resolved by the caller for CheckFileInfo. The editor labels the
   // member's changes, cursor and seat in the user list with it; absent, it shows an unknown user.
   readonly memberName?: string | null;
+  // The firm's editing policy, resolved by the caller: whether every document opened in the editor
+  // records its changes. Absent is read as the policy's own default (on).
+  readonly recordChanges?: boolean;
 }
 
 // Whether the token's session owns the live working copy — the one condition under which the mutable
@@ -136,6 +139,13 @@ export interface CheckFileInfoBody {
   // member can read the audit to support when asked. No member administers the editing server
   // itself (the image exposes no admin console), so the property grants nothing beyond those screens.
   readonly IsAdminUser: boolean;
+  // The editor's change-recording control, and it reads INVERTED: the property is tri-state on the
+  // editor's side, where an explicit `false` forces recording ON and takes the control out of the
+  // member's reach, an explicit `true` forces it off the same way, and absence leaves the document
+  // and the member to decide. So the firm's "record changes" policy is stated as `false` here, and
+  // a firm that switched the policy off gets the property omitted rather than `true`: switching
+  // off means the firm stops insisting, not that it forbids a member from recording a document.
+  readonly DisableChangeTrackingRecord?: boolean;
   readonly LastModifiedTime: string | null;
   // The origin the editor addresses its status messages to (the WOPI PostMessageOrigin property). It is
   // the app origin that launched this session, carried in the token because this call has no request of
@@ -180,6 +190,9 @@ export async function checkFileInfo(
     SupportsUpdate: true,
     SupportsLocks: true,
     IsAdminUser: true,
+    // Explicit false is "recording on, control withheld" (see the field). The policy defaults on,
+    // so a caller that resolved nothing is treated as a firm that has not decided otherwise.
+    ...(deps.recordChanges === false ? {} : { DisableChangeTrackingRecord: false }),
     LastModifiedTime: liveWorkingCopy?.wopiTimestamp ?? null,
     // Only ever the origin the token carries. The property is omitted rather than defaulted when the
     // token has none: a guessed origin would not match the page and the messages would go nowhere, which

@@ -3,6 +3,7 @@ import {
   BACK_ICON_DATA_URL,
   BACK_TO_MATTER_BUTTON_ID,
   backToMatterButton,
+  hideTrackedChangesMessage,
   hostSignalOf,
   insertButtonMessage,
   routeCloseThroughHostMessage,
@@ -45,6 +46,15 @@ describe("the host's two other messages", () => {
     const sent = parse(routeCloseThroughHostMessage());
     expect(sent.MessageId).toBe("Disable_Default_UIAction");
     expect(sent.Values).toEqual({ action: "UI_Close", disable: true });
+  });
+
+  it("turns the showing of tracked changes off with the editor's own command, typed the way it reads arguments", () => {
+    const sent = parse(hideTrackedChangesMessage());
+    expect(sent.MessageId).toBe("Send_UNO_Command");
+    expect(sent.Values).toEqual({
+      Command: ".uno:ShowTrackedChanges",
+      Args: { ShowTrackedChanges: { type: "boolean", value: false } },
+    });
   });
 
   it("asks for a save that reports back, skips an unmodified document and keeps the edit open", () => {
