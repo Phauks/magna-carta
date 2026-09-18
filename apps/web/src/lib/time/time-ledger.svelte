@@ -52,11 +52,11 @@
     chargeAmount,
     durationParts,
     isUnservedColumn,
-    personInitials,
     timeLedgerColumns,
     timekeeperOf,
     unservedCellTitle,
   } from "./time-columns.ts";
+  import { personInitials } from "@magna-carta/design-system/formatters";
   import { footerFigures, ledgerCurrency } from "./time-figures.ts";
   import TimeDetailsPanel from "./time-details-panel.svelte";
   import TimeRecordWindow from "./time-record-window.svelte";

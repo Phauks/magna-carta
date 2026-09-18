@@ -118,11 +118,18 @@
   margin gives back — which is exactly the height the calc is aiming at, arrived at from the canvas
   rather than from the viewport. Where the parent has no definite height (a catalog story's box) the
   percentage cannot resolve, the max-block-size behaves as `none`, and the calc stands alone.
+
+  `min-h-0 shrink` is for the one thing neither the calc nor the cap can see: something standing
+  ABOVE this layout inside the canvas — the platform notice the shell renders over every page. The
+  canvas lays its children out as a column, so a flex item that may shrink below its stated height
+  gives that notice its room and keeps its own bottom edge on the canvas's; a block child, or a
+  flex item with the default `min-height: auto`, kept the full height and pushed past the edge by
+  exactly the notice's height, and the canvas grew a third scrollbar.
 -->
 <div
   bind:this={ref}
   class={mergeClasses(
-    "mc-navigation-layout mc-scrollbar -m-24 flex flex-col max-lg:overflow-y-auto",
+    "mc-navigation-layout mc-scrollbar -m-24 flex min-h-0 shrink flex-col max-lg:overflow-y-auto",
     className,
   )}
   style="block-size: calc(100dvh - var(--mc-size-top-bar)); max-block-size: calc(100% + var(--mc-space-48))"
