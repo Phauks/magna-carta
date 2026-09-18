@@ -5,16 +5,22 @@ status: review
 touches: docs/research/
 ---
 
-Adds one research note, `docs/research/2026-09-18-claude-docs-and-word-assessment.md`, and nothing
-else. It records what Anthropic shipped as Claude Docs and Slides (2026-09-16) and as the Claude for
+Adds two research notes and nothing else. The first,
+`docs/research/2026-09-18-claude-docs-and-word-assessment.md`, records what Anthropic shipped as Claude Docs and Slides (2026-09-16) and as the Claude for
 Word add-in (2026-04-10), maps each advertised capability onto the node that already owns it here,
 and reaches a recommendation: adopt nothing — Claude Docs is unavailable to customers running zero
 data retention, which is the posture ADR-0110 pins this platform to, so the product and the firm's
 confidentiality obligation are mutually exclusive as shipped.
 
-Nothing is built, no decision is recorded, and no ADR changes. The note names four candidates for
-later work, of which one is substantive: the tracked-change AI edit path, proposed as the shape the
-already-roadmapped slice 2·6 merge-intelligence consumer should take rather than as new scope. A
-stream working in `packages/document-assembly`, `packages/metadata`, the editing subsystem, or
-Magnus may want to read section 4 before drawing that slice, but nothing here blocks or touches any
-of them.
+Nothing is built, no decision is recorded, and no ADR changes. The first note names four candidates
+for later work and its second pass examines each against the code: the tracked-change AI edit path
+resolves to a host-side OOXML revision writer applied through the Durable Object, proposed as the
+shape the already-roadmapped slice 2·6 merge-intelligence consumer should take rather than as new
+scope. The second, `docs/research/2026-09-18-local-first-document-editing.md`, assesses editing a
+single-editor `.docx` locally in the browser (SuperDoc, the one memory-safe candidate) behind the
+`getEditorBackend` seam, escalating to the Collabora container when a second editor arrives — with
+the container's cost and ceiling read from `apps/edit-worker`, the escalation state machine over
+`DocumentSession`, and a fidelity-gated spike as the recommendation. A stream working in
+`packages/document-assembly`, `packages/metadata`, the editing subsystem, the presence design, or
+Magnus may want to read both before drawing that work, but nothing here blocks or touches any of
+them.

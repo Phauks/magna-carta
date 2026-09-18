@@ -1,6 +1,6 @@
 # Claude Docs and Claude for Word — assessment
 
-**Date:** 2026-09-18
+**Date:** 2026-09-18 · **Revised:** 2026-09-18 (second pass — section 5 examines each candidate action against the code and the vendors)
 **Scope:** What Anthropic shipped as Claude Docs and Claude Slides (2026-09-16) and as the Claude for Word add-in (2026-04-10), what each actually is, and an honest fit assessment against Magna Carta's built documents-and-automation subsystem.
 **Purpose:** Research, prompted by the owner. **This is research, not a spec and not a decision.** Nothing here is built or committed; everything labelled a recommendation is a recommendation only. The binding decisions in this area are already recorded — ADR-0010 and ADR-0125/ADR-0126 (the editor and its concurrency model), ADR-0011 (document automation), ADR-0109 through ADR-0113 (AI / inference) — and nothing in this document changes them.
 **White-paper context:** _Documents_, _Document Automation_, _AI / inference_ — binding, not restated here.
@@ -124,7 +124,43 @@ Recommendation: **no new work from this document.** It sharpens the case for the
 
 ---
 
-## 5. Open questions for the owner
+## 5. Second pass — what each candidate action actually takes
+
+Written the same day, after the owner asked for the candidates to be looked into. Each is examined against the code and against the vendors' documented behaviour, and each ends in a shape rather than a recommendation to think further.
+
+### 5a. Ratifying the exclusion — one fragment, and the sentence it should carry
+
+The shape is a `docs/decisions/pending/` fragment, status **Proposed**, area _Documents_, so it is numbered at merge and the owner's acceptance is the decision rather than this note. The sentence it should carry:
+
+> Privileged client documents are drafted in the platform's own editor. The third-party document workspaces — Claude Docs today, and any successor on the same terms — are unavailable under customer-managed keys and zero data retention, which is the configuration ADR-0110 binds this platform to. The choice is therefore made by the firm's confidentiality obligation, not by a product comparison, and it does not decay when the product improves.
+
+Not written here, because a Proposed fragment on a branch the owner has not read is a decision by default. It is a five-minute act once the owner says yes.
+
+### 5b. The tracked-change AI edit — the path that works, and the two that do not
+
+There are three ways to get a revision authored by Magnus into a document. Examined against the editing code, one survives.
+
+**Through the live Collabora session, by `postMessage`.** Collabora's `Send_UNO_Command` (22.05.13 and later) lets the host page drive the editor — turn on `.uno:TrackChanges`, run a find-and-replace — so a proposal _could_ be applied inside the open session. It fails on the one thing the feature exists for: **every revision is attributed to the session's user**, because coolwsd takes the author from `CheckFileInfo`'s `UserFriendlyName`. The change would carry the attorney's name. A second WOPI session under a service identity would fix attribution, but a WOPI session needs a Collabora _client_ — a browser — and coolwsd has no headless UNO-over-WOPI. **Rejected.**
+
+**Host-side, into the working object.** The Worker writes `w:ins` and `w:del` elements — `w:author="Magnus"`, a `w:date`, the `w:id` sequence — into the `current` object, through the same package code `@magna-carta/document-assembly/src/ooxml/` already reads and re-emits, under the `DocumentSession` Durable Object's serialization, bumping the host-assigned timestamp exactly as a `PutFile` does. With no session live, the next open shows the revisions in Collabora's review pane and nothing else changes. With a session live, Collabora's next save presents the stale `X-COOL-WOPI-Timestamp`, the host answers `409` with `COOLStatusCode 1010` — **already built**, the timestamp-guarded write path of the slice 2·2 design — and Collabora's documented behaviour takes over: it prompts the editor to reload or keep their unsaved changes, and **if there are no unsaved changes it reloads silently**. So a proposal applied while the editor is idle simply appears. **This is the path.** The two-writers problem of section 4b resolves the same way: the Durable Object is the only writer of `current`, the apply is one more method on it that takes the same lock and performs the same bump, and the editor experiences it as the external-modification case it already handles.
+
+What is missing is narrower than it looked. `packages/metadata/src/ooxml/walk.ts` classifies the whole revision vocabulary and can accept or strip it; **nothing in the tree writes a revision.** The work is an OOXML revision writer (insert-at, delete-range, replace-as-delete-plus-insert, each producing well-formed `w:ins`/`w:del` around runs), the addressing in 5c, and an apply verb on the Durable Object. The proposal's life before that: Magnus, over a context grant (`ai.magnus.context` — a grant is a document, which is the shape this needs), produces a **proposal set stored as a firm record and not applied**; the member reviews it as a list; "Apply as tracked changes" is the audited act; acceptance then happens where it should, in the review pane, and the version cut on Save records the result.
+
+**Through a browser-local editor.** The companion note (`2026-09-18-local-first-document-editing.md`) examines SuperDoc, which has an agent surface and tracked changes. Its 2.x has an open issue that a programmatic tracked change **cannot be attributed to a chosen author** (superdoc/docx-editor#3998 — 1.x could, 2.x cannot), and attaching an agent to a live collaboration room with attributed changes is a second open issue (#3568). So today even that route ends at the same OOXML writer. It is not a reason against the local editor; it is a reason the writer is ours to build either way.
+
+### 5c. Block addressing — the format already has the block identifier
+
+The stable per-block identifier the Claude Docs contract relies on is **native to OOXML**: Word writes `w14:paraId` — eight hex characters, unique within a part — on every paragraph, and LibreOffice's DOCX export writes it too (`sw/source/filter/ww8/docxattributeoutput.cxx`), with round-trip cases in its test suite. So an edit can be addressed to a paragraph by an identifier the document already carries, and the guard is a hash of that paragraph's run text — the block-level version of the content-hash-on-write discipline ADR-0078 applies to the file.
+
+Two things to verify on our own container before relying on it, and neither is a blocker: that Collabora preserves the _imported_ `paraId` of a paragraph it did not touch across a save rather than regenerating it, and what identifier a paragraph Collabora splits ends up with. A paragraph that has lost its identifier degrades to the second addressing mode — a quoted phrase whose words are their own guard — which needs no identifier at all. The contract therefore has a fallback that is never worse than what a whole-document rewrite offers.
+
+### 5d. Ingest and provenance — smaller than the section above implied
+
+The AI-detection seam is one wiring job, not a feature: the Pangram design names "document text-extraction" as a later seam, and `@magna-carta/metadata` already extracts document text to inspect it, so the seam joins two packages that exist. The outbound scrub is not work now for a plainer reason: `documents.metadata.ooxml` is shipped and stateless, `documents.metadata.ui` is not started, and **there is no outbound chokepoint to hang a default scrub on** — no portal share and no email-send-with-attachment path exist yet. It is a line against the client-portal and email slices, to be built when they are.
+
+---
+
+## 6. Open questions for the owner
 
 1. **May a model author into a filed document at all**, or only into a draft a human then files through the ingest chokepoint? The tracked-change design works either way; the answer changes where the gate sits.
 2. **Whose name is on an AI revision** — one platform identity, or the requesting member with a marker? The first is more honest and more defensible; the second is what opposing counsel will see and may invite a question the firm would rather not answer in that forum.
@@ -133,7 +169,7 @@ Recommendation: **no new work from this document.** It sharpens the case for the
 
 ---
 
-## 6. Sources
+## 7. Sources
 
 - [Get started with Claude Docs — Claude Help Center](https://support.claude.com/en/articles/16923645-get-started-with-claude-docs) — plan availability, default state per plan, the stated limitations, and the CMEK/ZDR/HIPAA exclusion.
 - [Anthropic tries to make Claude stickier with launch of Docs and Slides — Computerworld](https://www.computerworld.com/article/4223177/anthropic-tries-to-make-claude-stickier-with-launch-of-docs-and-slides.html) — launch date, the rich-text editor, export formats, consumption billing.
@@ -142,3 +178,7 @@ Recommendation: **no new work from this document.** It sharpens the case for the
 - [Claude for Word Gives Lawyers Native Redlines From AI — Smith Stephen](https://www.smithstephen.com/p/claude-for-word-gives-lawyers-native) — the tracked-changes review model.
 - [Claude for Word: What It Does and Misses for Legal Work — GC AI](https://gc.ai/blog/claude-for-word) — the confidentiality guidance and the prompt-injection warning.
 - The block-addressable editing contract in section 2 and 4c was read directly from the Claude Docs agent-facing surface on 2026-09-18, not from a published document.
+- [Collabora Online 22.05 release notes](https://www.collaboraonline.com/collabora-online-22-05-release-notes/) and [Send UNO command using postMessage — Collabora forum](https://forum.collaboraonline.com/t/send-uno-command-using-postmessage/1711) — the `Send_UNO_Command` host message (5b).
+- [Collabora Online SDK — How to integrate](https://sdk.collaboraonline.com/docs/How_to_integrate.html) — `X-COOL-WOPI-Timestamp`, the 409 on mismatch, and the reload-or-overwrite behaviour on external modification (5b).
+- [No supported way to set the author of a tracked change on 2.x — superdoc/docx-editor#3998](https://github.com/superdoc/docx-editor/issues/3998) and [MCP: attach to live Yjs collaboration rooms — #3568](https://github.com/superdoc/docx-editor/issues/3568) — the attribution gap (5b).
+- [LibreOffice `docxattributeoutput.cxx`](https://docs.libreoffice.org/sw/html/docxattributeoutput_8cxx_source.html) and [W14.paraId — Microsoft Learn](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.linq.w14.paraid?view=openxml-3.0.1) — the paragraph identifier (5c).
