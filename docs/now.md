@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 826 nodes of the feature ledger in
+is the complete register rather than a digest: all 827 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,9 +21,9 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**826 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**827 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 143 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **683 that are units of work**, for the reason set out under [What a roll-up is
+count the **684 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
@@ -32,9 +32,9 @@ not](#what-a-roll-up-is-not).
 | --- | --- | ---: | ---: |
 | Done | shipped | 318 | 47% |
 | Part-built | partial, in-build | 124 | 18% |
-| Ahead | designed, planned, researching, not-started | 199 | 29% |
+| Ahead | designed, planned, researching, not-started | 200 | 29% |
 | Parked | deferred, cut | 42 | 6% |
-| **All units of work** | | **683** | **100%** |
+| **All units of work** | | **684** | **100%** |
 
 ### Every status
 
@@ -43,17 +43,17 @@ not](#what-a-roll-up-is-not).
 | `shipped` | 318 | 46% |
 | `partial` | 124 | 18% |
 | `in-build` | 0 | 0% |
-| `designed` | 46 | 7% |
+| `designed` | 47 | 7% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
 | `not-started` | 133 | 19% |
 | `deferred` | 38 | 6% |
 | `cut` | 4 | 1% |
-| **All statuses** | **683** | **100%** |
+| **All statuses** | **684** | **100%** |
 
 ### What a roll-up is not
 
-**143 of the 826 nodes are parents, and 111 of those parents are `partial`.** A parent's status is a
+**143 of the 827 nodes are parents, and 111 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 318 of 683 (47%). Shipped plus partial is 442 (65%).**
+**Shipped alone is 318 of 684 (46%). Shipped plus partial is 442 (65%).**
 
 The 124 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -117,7 +117,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Observability & Diagnostics | 14 | 0 | 0 | 0 | 0 | 0 | 4 | 2 | 0 | 20 | 70% |
 | Payments | 0 | 0 | 0 | 6 | 0 | 0 | 3 | 0 | 0 | 9 | 0% |
 | Performance & Concurrency | 6 | 2 | 0 | 0 | 0 | 0 | 1 | 2 | 0 | 11 | 55% |
-| Platform — Delivery, Architecture, Tenancy & Data Conventions | 33 | 7 | 0 | 1 | 0 | 0 | 20 | 6 | 1 | 68 | 49% |
+| Platform — Delivery, Architecture, Tenancy & Data Conventions | 33 | 7 | 0 | 2 | 0 | 0 | 20 | 6 | 1 | 69 | 48% |
 | Client Portal | 0 | 0 | 0 | 0 | 0 | 0 | 13 | 1 | 0 | 14 | 0% |
 | Product Updates & User-Facing Documentation | 2 | 4 | 0 | 0 | 0 | 0 | 8 | 0 | 0 | 14 | 14% |
 | Release Channels | 7 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 8 | 88% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 13 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 20 | 65% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **318** | **124** | **0** | **46** | **15** | **5** | **133** | **38** | **4** | **683** | **47%** |
+| **All areas** | **318** | **124** | **0** | **47** | **15** | **5** | **133** | **38** | **4** | **684** | **46%** |
 
 ## Where we have been
 
@@ -365,6 +365,7 @@ _No capability is marked `in-build`._
 - `payments.card` · **Card rail (fallback)** — Card acceptance as the convenience fallback.
 - `payments.trust-separation` · **Fees never touch trust** — Trust/IOLTA deposits land gross; card fees debit operating only, enforced by separate deposit destinations per rail.
 - `payments.pci-scope` · **PCI scope minimization** — Card capture exclusively via the processor's hosted payment modal returning a cardToken; store token plus last-four/brand only; script-clean payment page; SAQ A.
+- `platform.workers-api.domain-modules` · **Domain-module route tree** — The route surface as about twenty domain modules behind a manifest, contract shapes in the domain packages, an HTTP-versus-background import boundary, and the fitness tests that hold the shape.
 - `platform.scan-capture.inbound-email` · **Inbound email capture** — Receiving scan-to-email / inbound mail on Cloudflare via an Email Worker into the ingest pipeline (25 MiB ceiling noted).
 - `release-channels.frontend` · **Channel frontend (Plan 2)** — Settings surface for the beta opt-in/consent flow plus stage-labeled Alpha/Beta markers and feedback affordances on pre-stable features, disappearing on graduation.
 - `reports.financial` · **Financial reports** — WIP, A/R aging, realization, and profitability reports.
@@ -1149,7 +1150,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Platform — Delivery, Architecture, Tenancy & Data Conventions
 
-[`roadmap.d/platform.md`](../roadmap.d/platform.md) — 68 units of work, 49% shipped. 33 done, 7 part-built, 21 ahead, 7 parked.
+[`roadmap.d/platform.md`](../roadmap.d/platform.md) — 69 units of work, 48% shipped. 33 done, 7 part-built, 22 ahead, 7 parked.
 
 - `platform` · `partial` · **Platform** — Delivery model, application architecture, architectural coherence, tenancy and isolation, Cloudflare primitive adoption, and the foundational data and runtime conventions. _Note: Backend foundations largely shipped; web UI shell in build; desktop not started._
   - `platform.workers-api` · `partial` · **Workers REST API** — Cloudflare Workers backend on Hono exposing a REST API documented by OpenAPI 3.1. _Note: First-party same-origin /api surface live; the public token-auth host is reserved, not built._
@@ -1157,6 +1158,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `platform.workers-api.contract-toolchain` · `shipped` · **Spec CI toolchain** — Spectral linting, oasdiff breaking-change detection, and snapshot drift gates over the emitted spec; the Prism mock server runs on demand rather than as a dependency. _Note: Spectral duplicated-entry-in-enum rule disabled (crash on null-valued extensions), recorded as an ADR-0066 amendment._
     - `platform.workers-api.typed-client` · `shipped` · **Generated typed client** — Committed Hey API plus Svelte Query v6 client generated from the emitted spec, operationId-keyed factories.
     - `platform.workers-api.route-chokepoint` · `shipped` · **Route metadata chokepoint** — Ordered enforcement chain (tenancy, authn, RBAC, idempotency, rate limit) driven by per-route declared metadata, with a conformance fitness suite.
+    - `platform.workers-api.domain-modules` · `designed` · **Domain-module route tree** — The route surface as about twenty domain modules behind a manifest, contract shapes in the domain packages, an HTTP-versus-background import boundary, and the fitness tests that hold the shape. _Note: Lazy per-domain loading deferred pending a recorded startup trend; the background orchestration stays in this Worker per the extraction rubric._
     - `platform.workers-api.public-api-host` · `not-started` · **Public API host** — api.magnacarta.esq token-authenticated third-party/SDK surface, separated from cookie-auth first-party calls by host. _Note: Host reserved by design; only the same-origin first-party surface exists._
     - `platform.workers-api.service-bindings` · `shipped` · **Internal Worker RPC** — Plugin/core and heavy-service calls over Cloudflare service bindings, separate from the public REST surface.
   - `platform.web-spa` · `partial` · **Web SPA** — Svelte 5 / SvelteKit SPA (adapter-cloudflare) served as Workers static assets, login-gated, per-route code-splitting. _Note: Skeleton shipped; the app shell and first operable surfaces are on main, and the settings sections are being completed under docs/active-work/claude/settings-implementation-plan-asr0l6.md._

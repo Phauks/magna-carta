@@ -741,6 +741,7 @@ the offset is coalesced to one write per frame. The rows carry a **grip** now, b
 cursor only answers once the pointer is already on the row. And the Soon badge on an unbuilt tool was
 invisible: it rode inside the label, which carries the row's overflow, so every long row clipped it —
 the row is a three-track grid now and the trailing column never shrinks. |
+| API worker domain modules | [x] | [x] | [~] | [ ] | [-] | [-] | [ ] | The worker's 99 flat route files become about twenty domain modules behind a manifest; contract shapes move to the domain packages; an HTTP-versus-background seam and four fitness tests hold the shape. Design proposed 2026-09-18; the migration plan is section 10 of the spec. |
 
 ## Phase 3 — Financial Core (slice map firmed up; per-slice rows as cycles open)
 

@@ -57,6 +57,15 @@
   adrs: ADR-0067
   evidence: apps/api-worker/src/chokepoint/chokepoint.ts
 
+- id: platform.workers-api.domain-modules
+  name: Domain-module route tree
+  scope: The route surface as about twenty domain modules behind a manifest, contract shapes in the domain packages, an HTTP-versus-background import boundary, and the fitness tests that hold the shape.
+  status: designed
+  slices: api-worker-domain-modules
+  spec: docs/specs/2026-09-18-api-worker-domain-modules-design.md
+  evidence: docs/specs/2026-09-18-api-worker-domain-modules-design.md; the worker today is 99 flat route files behind a 1,019-line app.ts
+  notes: Lazy per-domain loading deferred pending a recorded startup trend; the background orchestration stays in this Worker per the extraction rubric.
+
 - id: platform.workers-api.public-api-host
   name: Public API host
   scope: api.magnacarta.esq token-authenticated third-party/SDK surface, separated from cookie-auth first-party calls by host.
