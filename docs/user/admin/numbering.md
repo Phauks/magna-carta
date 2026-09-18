@@ -23,7 +23,7 @@ Each sequence has its own plate on the page, in this order:
   shape. Checks are the busiest run a firm has, since every intake, every new party and every
   automatic re-check opens one, which is why the built-in shape restarts each year and carries five
   digits.
-- **Custody Numbers**: drawn when a packet is logged into custody, unless a number carried in from a
+- **Custody Packet Numbers**: drawn when a packet is logged into custody, unless a number carried in from a
   paper register is recorded instead. `CUS-00001` and so on, firm-wide, until the firm sets its own
   shape.
 - **Invoice Numbers**, **Time Entry Numbers** and **Call and Text Numbers** have a fixed shape and
@@ -69,8 +69,8 @@ choosing one loads it into the parts below, and every part is then yours to chan
 The parts are a table, one row per part. The arrows at the start of a row move it up or down; the
 **Part** column chooses what kind of part it is; **Text**, **Digits**, **Starts At** and **Restarts
 The Count** hold the facts that kind takes, and a column a part has no fact for is greyed with the
-reason shown when you hover it; the control at the end of the row removes it. **Add Part** adds a
-row at the end.
+reason shown when you hover it; the control at the end of the row removes it. **Add Part**, the
+list's last row, adds a part above it.
 
 The **Preview** row is rendered by the same machinery that draws real numbers, against a sample
 record whose values are printed under it, so what you see is what the next record will get. **Save
@@ -93,7 +93,9 @@ The control is offered only on a matter that has been active. An intake or a con
 given a matter number by hand any more than by the counter: no matter number exists before a matter
 is active. A custody packet takes a carried-in number the same way, when it is logged.
 
-## Who can change it
+## Who can see and change it
 
-Reading and changing the schemes needs the `matters:manageNumbering` permission. Setting a matter's
-number by hand needs `matters:renumber`. Both are granted to the Owner/Admin role.
+Every member sees the page: what is in force for each sequence, stated as a fact, with **Request a
+change** beside it (`matters:viewNumbering`, granted to every role). Changing a scheme needs the
+`matters:manageNumbering` permission, and setting a matter's number by hand needs
+`matters:renumber`; both are granted to the Owner/Admin role.

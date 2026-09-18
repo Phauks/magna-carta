@@ -180,6 +180,25 @@ Move-down and Remove; M3 moves the two arrows to the front of the row. The page 
 shared settings parts, which is the same finding as G1 seen from the other end: a page with a real
 editor in it had nowhere standard to put one.
 
+### Numbering — every sequence on one screen (2026-09-18)
+
+The Matter Numbering screen became Numbering when every sequence the firm draws joined one
+register (`docs/decisions/pending/every-number-the-firm-issues-is-drawn-from-one-register.md`).
+The design review of the new screen left four judgment calls; the owner ruled on 2026-09-18.
+
+| #   | Ruling                                                                                                                                                                                                                                   | Status  |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| N1  | **A fixed sequence is its own plate.** Invoice, time entry and call numbers are three different structures, so three plates, not one "Fixed Shapes" plate with a row each.                                                              | settled |
+| N2  | **"Custody Packet Numbers".** The plate is named for the record the number is on, as the register's subject is.                                                                                                                          | settled |
+| N3  | **Every member sees the inventory read-only.** A member without `matters:manageNumbering` sees what is in force for every sequence with Request a change beside it, never a refusal; reading rides `matters:viewNumbering`, seeded to every role. | settled |
+| N4  | **Add Part is the list's last row**, under the entry-row ruling in `design-corrections.md`; the owner left the placement to the rule.                                                                                                     | settled |
+
+**What the code says today.** `apps/web/src/routes/(app)/settings/numbering/+page.svelte` lists
+every purpose from `GET /api/v1/numbering-schemes`; a scheme-shaped purpose renders
+`numbering-scheme-editor.svelte` with the parts its purpose allows, a fixed one an In Force row in
+the value posture. The loading fixture is the settled anatomy (eight plates), a failed read is the
+region's own state, and the page asks the shared `sessionPermissions` reader for its posture.
+
 ### Notes recorded this round
 
 Decisions taken in building G1–G3, P1–P4, S1–S2 and M1–M4, and the seams left. G4/G5 (the

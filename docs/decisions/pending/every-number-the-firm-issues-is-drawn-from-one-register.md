@@ -52,6 +52,9 @@ layers, and every consumer composes rather than copies.
    only the parts and starters that purpose may use; the fixed shape and the reason for a fixed
    one. The sample every example and preview renders against travels with the listing, so the
    screen keeps no second copy of the register or the sample. `/settings/matter-numbering` redirects.
+   Every member sees the inventory read-only (the owner's ruling of the same day): the two reads
+   ride a new `matters:viewNumbering`, seeded to every default role, while changing a scheme stays
+   `matters:manageNumbering`.
 
 **Conflicts checks** gain `conflicts_check_number_counter` and `conflicts_check_number_allocation`,
 the unique index on `check_sequence` is dropped (a sequence restarting per year draws a 1 twice; the

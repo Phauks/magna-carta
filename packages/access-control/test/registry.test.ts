@@ -70,6 +70,7 @@ describe("permission registry", () => {
       "matters:renumber",
       "matters:manageTypes",
       "matters:manageNumbering",
+      "matters:viewNumbering",
     ]);
   });
 

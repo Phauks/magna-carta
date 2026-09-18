@@ -203,12 +203,15 @@ function sampleContext(): z.infer<typeof SampleContextSchema> {
 }
 
 const PERMISSION = "matters:manageNumbering" as const;
+// Reading the register is every member's: how the firm's numbers are shaped is a fact they read off
+// every record, so the two reads ride a key seeded to every default role (owner ruling, 2026-09-18).
+const VIEW_PERMISSION = "matters:viewNumbering" as const;
 
 export const listNumberingSchemesMeta: RouteMeta = {
   operationId: "numbering.list",
   surface: "app",
   authenticated: true,
-  permission: PERMISSION,
+  permission: VIEW_PERMISSION,
   resource: "matter",
   audited: false,
   idempotency: "optional",
@@ -234,7 +237,7 @@ export const listNumberingSchemesRoute = defineOpenAPIRoute(listNumberingSchemes
       content: { "application/problem+json": { schema: Problem } },
     },
     403: {
-      description: "The session member lacks matters:manageNumbering",
+      description: "The session member lacks matters:viewNumbering",
       content: { "application/problem+json": { schema: Problem } },
     },
     404: {
@@ -252,7 +255,7 @@ export const getNumberingSchemeMeta: RouteMeta = {
   operationId: "numbering.get",
   surface: "app",
   authenticated: true,
-  permission: PERMISSION,
+  permission: VIEW_PERMISSION,
   resource: "matter",
   audited: false,
   idempotency: "optional",
@@ -280,7 +283,7 @@ export const getNumberingSchemeRoute = defineOpenAPIRoute(getNumberingSchemeMeta
       content: { "application/problem+json": { schema: Problem } },
     },
     403: {
-      description: "The session member lacks matters:manageNumbering",
+      description: "The session member lacks matters:viewNumbering",
       content: { "application/problem+json": { schema: Problem } },
     },
     404: {

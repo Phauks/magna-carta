@@ -78,6 +78,7 @@
     record,
     sample,
     canManage,
+    onRequestChange,
   }: {
     /** The purpose as the listing describes it, with what is in force at the time of the read. */
     record: NumberingPurposeRecord & { purpose: SchemeNumberingPurpose };
@@ -85,6 +86,8 @@
     sample: NumberingSampleContext;
     /** Whether the session may replace the scheme. Without it the scheme is read and stated. */
     canManage: boolean;
+    /** Read-only only: mounts the per-row Request a change affordance on the In Force row. */
+    onRequestChange?: (definition: SettingDefinition) => void;
   } = $props();
 
   const identifier = $props.id();
@@ -295,7 +298,11 @@
 
 <div class="flex flex-col divide-y divide-border-default">
   <!-- What is in force, stated before anything is edited: a value engraved, never a control. -->
-  <SettingsRow definition={IN_FORCE_DEFINITION} value={example ?? "Not set"} />
+  <SettingsRow
+    definition={IN_FORCE_DEFINITION}
+    value={example ?? "Not set"}
+    onRequestChange={canManage ? undefined : onRequestChange}
+  />
 
   {#if canManage}
     <SettingsRow definition={SCHEME_DEFINITION}>
@@ -310,14 +317,9 @@
       {/snippet}
     </SettingsRow>
 
-    <!-- The parts, as a table. The row above it holds the one act that adds a row. -->
-    <div class="flex flex-col gap-12 py-12">
-      <div class="flex items-center justify-end">
-        <Button variant="secondary" size="sm" disabled={saving} onclick={addPart}>
-          <Plus class="size-16" aria-hidden="true" />
-          Add Part
-        </Button>
-      </div>
+    <!-- The parts, as a table whose last row is the one that adds a part: an entry row is the last
+         row of its list, under the same rule as every other row (docs/conventions/design-corrections.md). -->
+    <div class="py-12">
       <DataTable.Root>
         <DataTable.Caption class="sr-only">The parts of the {numberingSchemeLabel(record)}</DataTable.Caption>
         <DataTable.Header>
@@ -471,6 +473,14 @@
               </DataTable.Cell>
             </DataTable.Row>
           {/each}
+          <DataTable.Row>
+            <DataTable.Cell colspan={7}>
+              <Button variant="ghost" size="sm" disabled={saving} onclick={addPart}>
+                <Plus class="size-16" aria-hidden="true" />
+                Add Part
+              </Button>
+            </DataTable.Cell>
+          </DataTable.Row>
         </DataTable.Body>
       </DataTable.Root>
     </div>

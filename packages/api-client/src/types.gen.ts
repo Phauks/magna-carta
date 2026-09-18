@@ -14493,7 +14493,7 @@ export type NumberingListErrors = {
      */
     401: Problem;
     /**
-     * The session member lacks matters:manageNumbering
+     * The session member lacks matters:viewNumbering
      */
     403: Problem;
     /**
@@ -14532,7 +14532,7 @@ export type NumberingGetErrors = {
      */
     401: Problem;
     /**
-     * The session member lacks matters:manageNumbering
+     * The session member lacks matters:viewNumbering
      */
     403: Problem;
     /**

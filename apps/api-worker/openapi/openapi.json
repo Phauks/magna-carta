@@ -50733,7 +50733,7 @@
         "x-mc-operationId": "numbering.list",
         "x-mc-surface": "app",
         "x-mc-authenticated": true,
-        "x-mc-permission": "matters:manageNumbering",
+        "x-mc-permission": "matters:viewNumbering",
         "x-mc-resource": "matter",
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
@@ -50765,7 +50765,7 @@
             }
           },
           "403": {
-            "description": "The session member lacks matters:manageNumbering",
+            "description": "The session member lacks matters:viewNumbering",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -50807,7 +50807,7 @@
         "x-mc-operationId": "numbering.get",
         "x-mc-surface": "app",
         "x-mc-authenticated": true,
-        "x-mc-permission": "matters:manageNumbering",
+        "x-mc-permission": "matters:viewNumbering",
         "x-mc-resource": "matter",
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
@@ -50857,7 +50857,7 @@
             }
           },
           "403": {
-            "description": "The session member lacks matters:manageNumbering",
+            "description": "The session member lacks matters:viewNumbering",
             "content": {
               "application/problem+json": {
                 "schema": {

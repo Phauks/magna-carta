@@ -225,7 +225,7 @@ const DEFINITIONS: readonly NumberingPurposeDefinition[] = [
   {
     purpose: "custody_packet",
     formulation: "scheme",
-    title: "Custody Numbers",
+    title: "Custody Packet Numbers",
     label: "custody number",
     subject: "custody packet",
     subjects: "custody packets",

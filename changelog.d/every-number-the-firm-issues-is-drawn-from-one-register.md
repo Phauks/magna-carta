@@ -25,5 +25,7 @@ shapes. `GET /api/v1/numbering-schemes` lists the register; `Settings › Practi
 - Conflicts check numbers are now drawn from a scheme your firm can change. The built-in shape is
   `CC2026-00001`, restarting each year with five digits, so the busiest sequence a firm has keeps
   the width you expect; checks numbered before this keep the numbers they had.
-- Custody numbers are yours to shape as well. Nothing already labelled changes: the built-in shape
+- Every member can see the page. What is in force for each sequence is stated as a fact, with
+  Request a change beside it; only an administrator changes a scheme.
+- Custody packet numbers are yours to shape as well. Nothing already labelled changes: the built-in shape
   is the `CUS-00001` your labels already carry.

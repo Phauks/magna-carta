@@ -39,20 +39,29 @@
     type NumberingPurposeRecord,
     type SchemeNumberingPurpose,
   } from "$lib/matters/numbering-scheme.ts";
-  import { permissionRefusal } from "$lib/access/refusal.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
-  import SettingsPlateNote from "$lib/settings/components/settings-plate-note.svelte";
+  import RequestChangeDialog from "$lib/settings/components/request-change-dialog.svelte";
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
   import SettingsScrollRegion from "$lib/settings/components/settings-scroll-region.svelte";
   import type { SettingDefinition } from "$lib/settings/settings-definitions.ts";
 
   // The one shared answer to "may this member edit": false until the session read lands, so the
-  // page errs read-only for a moment rather than offering an edit it then refuses.
+  // page errs read-only for a moment rather than offering an edit it then refuses. Every member
+  // sees the inventory (owner ruling, 2026-09-18); only a member holding the key edits it, and the
+  // rest carry the Request a change affordance every read-only settings page carries.
   const mayManage = $derived(sessionPermissions.holds(MANAGE_NUMBERING_PERMISSION));
+  const readOnly = $derived(sessionPermissions.settled && !mayManage);
+
+  let requestOpen = $state(false);
+  let requestDefinition = $state<SettingDefinition | null>(null);
+  function openRequest(definition: SettingDefinition): void {
+    requestDefinition = definition;
+    requestOpen = true;
+  }
 
   /** The register as the server listed it. Null until the read lands. */
   let listing = $state<NumberingSchemesListing | null>(null);
@@ -73,7 +82,7 @@
   });
 
   $effect(() => {
-    if (mayManage) void load();
+    void load();
   });
 
   /** A scheme-shaped record, narrowed so the editor's prop type says what it takes. */
@@ -113,7 +122,7 @@
     "Consultation Numbers",
     "Intake Numbers",
     "Conflicts Check Numbers",
-    "Custody Numbers",
+    "Custody Packet Numbers",
     "Invoice Numbers",
     "Time Entry Numbers",
     "Call and Text Numbers",
@@ -138,7 +147,11 @@
 
 {#snippet fixedPlate(plate: FixedPlate)}
   <SettingsPlate heading={plate.title}>
-    <SettingsRow definition={fixedDefinition(plate)} value={plate.example ?? ""} />
+    <SettingsRow
+      definition={fixedDefinition(plate)}
+      value={plate.example ?? ""}
+      onRequestChange={readOnly ? openRequest : undefined}
+    />
   </SettingsPlate>
 {/snippet}
 
@@ -149,7 +162,7 @@
 <SettingsMasthead
   sectionId="numbering"
   title="Numbering"
-  posture={sessionPermissions.settled && !mayManage ? "readOnly" : "draft"}
+  posture={readOnly ? "readOnly" : "draft"}
   showHistory={false}
 />
 
@@ -159,13 +172,7 @@
     custody numbers as the firm writes them, and the numbers whose shape is fixed.
   </SettingsDescription>
 
-  {#if sessionPermissions.settled && !mayManage}
-    <!-- A refusal is not an absence of data, so it draws no frame. -->
-    <SettingsPlateNote>
-      {permissionRefusal("Reading and changing the firm's numbering", MANAGE_NUMBERING_PERMISSION)}
-    </SettingsPlateNote>
-  {:else}
-    <LoadingRegion
+  <LoadingRegion
       loading={listing === null && readFailure === null}
       failed={readFailure !== null}
       label="Reading the firm's numbering"
@@ -191,7 +198,12 @@
           {@const scheme = schemeRecord(record)}
           {#if scheme !== null}
             <SettingsPlate heading={record.title}>
-              <NumberingSchemeEditor record={scheme} sample={listing.sample} canManage />
+              <NumberingSchemeEditor
+                record={scheme}
+                sample={listing.sample}
+                canManage={mayManage}
+                onRequestChange={readOnly ? openRequest : undefined}
+              />
             </SettingsPlate>
           {:else}
             {@render fixedPlate(fixedPlateOf(record))}
@@ -199,5 +211,8 @@
         {/each}
       {/if}
     </LoadingRegion>
-  {/if}
 </SettingsScrollRegion>
+
+{#if requestDefinition !== null}
+  <RequestChangeDialog bind:open={requestOpen} definition={requestDefinition} />
+{/if}
