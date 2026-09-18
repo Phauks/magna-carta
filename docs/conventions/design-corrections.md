@@ -278,6 +278,16 @@ is usually the fastest way to understand the rule.
   with no subject and a report nobody has asked for yet — the allowances stand on exactly those,
   each carrying its reason beside the code. _(2026-09-18)_
 
+- **Folders sort separately from files, and the boundary is not a sort key.** Wherever a list
+  carries places and the things inside them, the folders form their own run above the files and the
+  reader's chosen column orders each run on its own, in the chosen direction — so sorting by name
+  descending reverses the names within each run and never lifts a file over a folder, and the same
+  holds on size, on a date, and on a column added next year. The ordering is one pure function
+  handed the grid's own comparator through its `orderRows` seam, never a special case in the name
+  column, because a second comparison rule inside the list is a rule that will one day disagree
+  with the header it is sorted by. _(the matter file manager, 2026-09-18: "regardless of how files
+  are sorted, folders should always sort separately from files")_
+
 ### Data entry
 
 - **Creating a record is ONE screen with a left side and a right side.** Not a wizard, not a long
@@ -1556,6 +1566,11 @@ generalizes to:
   data. I want this as a lint and standard rule, that data tables will still appear before data is
   in the area."** (2026-09-18.) Built as `DataTable.EmptyRow` and the `table-behind-absence` rule;
   fourteen surfaces fixed, three allowances stated. Generalized above under _Lists and tables_.
+- **"In file manager area, regardless of how files are sorted (by name), folders should always
+  sort separately from files."** (2026-09-18.) One pure function on the grid's `orderRows` seam,
+  reaching the browse table, the icon grid, the inside of an archive and the upload intake's
+  hierarchy. Ledger row L59 in `file-manager-rulings.md`. Generalized above under _Lists and
+  tables_.
 - **"Calendar is very tight on my laptop, and has multiple scrollbars. If we move controls up higher
   in the header area, maybe this would be better, but it would also be against what we really
   do."** The escape was named and refused in the same sentence, so the controls stay over the grid
