@@ -238,6 +238,7 @@ export function setDownloadItemStateStatement(
  * Idempotent on purpose: the poll runs repeatedly, so setting a ready row ready again is a no-op
  * rather than something the caller has to guard.
  */
+// fitness:unguarded-write — the poll is repeated by design, so matching no row means an earlier poll already marked it ready
 export function markDownloadItemReadyByObjectKeyStatement(
   database: SqlDatabase,
   memberId: string,
