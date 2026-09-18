@@ -205,6 +205,9 @@ export function timeLedgerColumns(currency: string): readonly GridColumn<TimeEnt
       id: TIME_COLUMN_IDENTIFIERS.description,
       label: "Description",
       type: "text",
+      // Prose: no two entries share a narrative, so a checklist of them would be the column read
+      // twice. This is the column that keeps the contains box, and it has to say so.
+      filter: "text",
       value: (entry) => entry.narrative,
     },
     /*

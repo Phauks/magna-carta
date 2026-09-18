@@ -25,6 +25,7 @@ import SubTrigger from "./context-menu-sub-trigger.svelte";
 import SubContent from "./context-menu-sub-content.svelte";
 
 export { keepMenuFieldKeys } from "./menu-field-keys.ts";
+export { keepMenuFieldLayer } from "./menu-field-layer.ts";
 
 export {
   Root,
