@@ -19,6 +19,10 @@ const ALLOWED_EXTERNALS: ReadonlySet<string> = new Set([
   "@magna-carta/data-access/audit-statements",
   "@magna-carta/data-access/effect-batch",
   "@magna-carta/data-access/idempotency-statements",
+  // The one LIKE-escaping helper, so a template search spells its pattern the way every other
+  // search in the platform does; a copy here would be the second answer to how a wildcard is
+  // escaped. Pure statement text, like the statement modules above it.
+  "@magna-carta/data-access/like-search",
   // A protected merge field resolves through the protected-field chokepoint's own permission gate and
   // its own decrypt-audit row, so the refusal this package turns into an absence is that module's
   // ProtectedReadForbiddenError, caught by identity. Restating the gate here instead would be a second

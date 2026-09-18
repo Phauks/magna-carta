@@ -26,15 +26,18 @@ export {
 } from "./duration.ts";
 export { formatMoney, formatNumber, type MoneyOptions, type NumberOptions } from "./money.ts";
 export {
+  describeTimeZone,
   formatInstant,
   formatInstantDate,
   formatTimeOfDay,
+  formatTimeZone,
   formatTimeZoneAbbreviation,
   instantAttribute,
   readInstant,
   type Instant,
   type InstantDateLength,
   type InstantOptions,
+  type TimeZoneDescription,
 } from "./instant.ts";
 export {
   personName,
