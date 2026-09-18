@@ -1,8 +1,16 @@
 /*
- * The download register's retention sweep — the half that makes the shelf a shelf.
+ * The download register's retention sweep — the half that releases the bytes.
  *
  * Every row carries the expiry its producer wrote, and this pass takes the ones whose window has
  * closed. It runs on the daily per-firm cron beside the other storage passes.
+ *
+ * IT RELEASES THE BYTES AND KEEPS THE ROW, on the owner's ruling of 2026-09-16, and the two halves
+ * are worth separating because they are not the same kind of thing. The bytes are privileged client
+ * content held in a SECOND place — a bundle is a frozen copy of a matter's files — so a schedule
+ * that destroys them is a posture rather than a chore. The row is a title, a producer and two
+ * instants; destroying it costs a member their own history and protects nobody. So this marks
+ * `expired` where it used to delete, and the register answers "you took this, and the copy we were
+ * holding has gone" instead of answering nothing at all.
  *
  * The ORDER is the whole correctness argument, and it is the opposite of the template-orphan sweep's.
  * There, deleting is refused because an object nothing names might still be a firm's live template.
@@ -12,11 +20,14 @@
  * bytes nothing will ever name again — an orphan the firm pays for forever.
  *
  * An ARTIFACT's bytes are never touched. They belong to their producer's prefix and its own lifecycle
- * rule, and a content-addressed bundle may still be named by a colleague's row; the register drops its
- * pointer and leaves the object to the rule that owns it.
+ * rule, and a content-addressed bundle may still be named by a colleague's row; the register marks
+ * its row and leaves the object to the rule that owns it.
+ *
+ * A REFERENCE is never reached at all. Its expiry is null — there are no bytes of the register's to
+ * release, the file is the matter's — and null never satisfies the sweep's range.
  */
 import {
-  deleteDownloadItemByIdStatement,
+  expireDownloadItemStatement,
   readExpiredDownloadItems,
 } from "@magna-carta/data-access/download-register-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
@@ -47,7 +58,7 @@ export async function runDownloadShelfRetentionSweep(env: Bindings): Promise<num
       const bucket =
         firm.bucketName === null ? undefined : resolveFirmBucket(env, firm.bucketName).bucket;
       for (const row of expired) {
-        if (row.kind === "snapshot" && bucket !== undefined) {
+        if (row.kind === "snapshot" && bucket !== undefined && row.objectKey !== null) {
           // Object first: see the ordering argument above. A delete of an object that is already
           // gone is a no-op, so a half-finished pass is safe to repeat.
           await bucket.delete(row.objectKey);
@@ -57,7 +68,7 @@ export async function runDownloadShelfRetentionSweep(env: Bindings): Promise<num
       await commitEffectBatch(
         firm.database,
         {
-          statements: expired.map((row) => deleteDownloadItemByIdStatement(firm.database, row.id)),
+          statements: expired.map((row) => expireDownloadItemStatement(firm.database, row.id)),
           outboxMessages: [],
         },
         { now: () => now },

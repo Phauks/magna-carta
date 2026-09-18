@@ -10008,16 +10008,46 @@ export const downloadItem = sqliteTable(
     // tabular DOCUMENT rather than a rendered file — this platform holds that an export is a
     // document and formats are renderers, so one row serves every format and the figures stay frozen
     // at the instant of the export rather than being recomputed into a different answer.
-    kind: text("kind", { enum: ["artifact", "snapshot"] }).notNull(),
-    // WHICH PRODUCER made it. Closed now rather than later: SQLite cannot widen a table CHECK without
-    // a destructive rebuild. `bundle` and `conversion` are here with no client able to create one yet
-    // — both producers exist server-side and neither has a screen — because the alternative is
-    // rebuilding this table on the day one lands.
-    producer: text("producer", { enum: ["export", "bundle", "conversion"] }).notNull(),
+    // THREE KINDS, and the distinction decides what "download again" does — and, for the third, what
+    // it is allowed to do at all.
+    //   artifact — bytes the platform built that cannot be re-derived (a bundle, a conversion).
+    //     `object_key` points at them and a re-download mints a fresh short-TTL presigned GET.
+    //   snapshot — an export, stored as the tabular DOCUMENT rather than a rendered file, so one row
+    //     serves every format and the figures stay frozen at the instant it was taken.
+    //   reference — a file that lives on a MATTER and was never the register's to hold. It carries
+    //     no object key, and a re-download resolves through the files route so the matter's own
+    //     access check runs again at fetch time.
+    //   record — a download that happened and left nothing to come back to: a bundle streamed
+    //     inline, whose bytes were assembled for one response and never retained. It is here so the
+    //     register can be COMPLETE without lying — the alternative was either omitting those
+    //     downloads, which is the gap this work exists to close, or filing them as an artifact
+    //     whose object never existed, which would report "expired" for something that was never
+    //     stored. A record offers no download, and the screen says so rather than showing a
+    //     control that cannot work.
+    //
+    // THE THIRD KIND EXISTS TO MAKE A MISTAKE UNREPRESENTABLE. An artifact fetch presigns the stored
+    // key with no further check, which is right for a frozen bundle the member already had and wrong
+    // for a live matter file: a member screened off a matter afterwards would keep a working handle
+    // to it. Modelling the file as an artifact would have put that one `if` away from being a
+    // standing hole; modelling it as its own kind means the presigning branch cannot be reached with
+    // a matter file at all.
+    kind: text("kind", { enum: ["artifact", "snapshot", "reference", "record"] }).notNull(),
+    // WHICH PRODUCER made it — or, for `file`, handed it over. `bundle` and `conversion` were named
+    // here from the start with no client able to create one, precisely so that naming them later
+    // would not cost a rebuild; `file` was not foreseen and did cost one.
+    producer: text("producer", {
+      enum: ["export", "bundle", "conversion", "file", "discovery"],
+    }).notNull(),
     // For an artifact, the producer's own key under the producer's own prefix, which is what keeps
     // this table a catalog rather than a second store. For a snapshot, this register's own object
-    // holding the stored document, swept with the row.
-    objectKey: text("object_key").notNull(),
+    // holding the stored document, swept with the row. NULL for a reference, which holds no bytes of
+    // its own — the CHECK below is what stops that null reaching the other two kinds.
+    objectKey: text("object_key"),
+    // The matter file a reference points at. Deliberately NOT a foreign key: a register row is a
+    // record of something that happened, and a file deleted afterwards must not be able to block or
+    // cascade into the member's own history. An unresolvable id is reported at fetch time as gone,
+    // which is the same answer the member would get from the matter.
+    subjectFileId: text("subject_file_id"),
     // Bytes where the producer knows them. Null on a snapshot, whose size is a property of a
     // rendering nobody has asked for yet rather than of the row.
     byteSize: integer("byte_size"),
@@ -10032,9 +10062,16 @@ export const downloadItem = sqliteTable(
     requestedFormat: text("requested_format"),
     downloadedFormatsJson: text("downloaded_formats_json").notNull().default("[]"),
     createdAt: text("created_at").notNull(),
-    // When the shelf lets go, written by the producer from one constant so a row and the lifecycle
-    // rule over its prefix cannot drift into the register outliving the bytes it points at.
-    expiresAt: text("expires_at").notNull(),
+    // WHEN THE BYTES LET GO — not when the row does. Written by the producer from one constant so a
+    // row and the lifecycle rule over its prefix cannot drift into the register outliving the bytes
+    // it points at. NULL on a reference, which has no bytes of the register's to release, and null
+    // is what keeps the sweep's range scan from ever selecting one.
+    //
+    // THE ROW OUTLIVES ITS BYTES, on the owner's ruling of 2026-09-16. The bytes are privileged
+    // content in a second place and are worth destroying on a schedule; the row is a title, a
+    // producer and two instants, and destroying it only loses the member their own history. So the
+    // sweep marks `expired` and takes the object, and the row stays.
+    expiresAt: text("expires_at"),
     // `building` is why this is a column rather than a derivation: a bundle is enqueued before its
     // bytes exist, and a member watching a large archive build should see it here rather than wonder
     // whether the request was taken. `failed` is terminal and keeps the row so the outcome is learned
@@ -10050,17 +10087,37 @@ export const downloadItem = sqliteTable(
     // The sweep's read, across the firm rather than one member. Leading with the expiry is what keeps
     // the daily pass a range scan over the tail rather than a walk of every shelf in the firm.
     index("download_item_expiry_index").on(table.expiresAt, table.state),
-    check("download_item_kind_check", sql`${table.kind} IN ('artifact', 'snapshot')`),
+    check(
+      "download_item_kind_check",
+      sql`${table.kind} IN ('artifact', 'snapshot', 'reference', 'record')`,
+    ),
     check(
       "download_item_producer_check",
-      sql`${table.producer} IN ('export', 'bundle', 'conversion')`,
+      sql`${table.producer} IN ('export', 'bundle', 'conversion', 'file', 'discovery')`,
+    ),
+    // The two halves of the third kind, stated as constraints rather than trusted to the writers: a
+    // reference names a file and holds no key, and everything else holds a key and names no file.
+    // A row that got this wrong would either presign nothing or, far worse, presign a matter file.
+    check(
+      "download_item_reference_shape_check",
+      sql`(${table.kind} = 'reference') = (${table.subjectFileId} IS NOT NULL)`,
+    ),
+    // Only the two kinds that HOLD bytes may name them. A reference points at a matter file and a
+    // record at nothing at all, and neither may carry a key — which is what makes it structurally
+    // impossible for either to reach the presigning branch an artifact takes.
+    check(
+      "download_item_object_key_presence_check",
+      sql`(${table.kind} IN ('artifact', 'snapshot')) = (${table.objectKey} IS NOT NULL)`,
     ),
     check(
       "download_item_state_check",
       sql`${table.state} IN ('building', 'ready', 'failed', 'expired')`,
     ),
     check("download_item_title_nonempty_check", sql`length(trim(${table.title})) > 0`),
-    check("download_item_object_key_nonempty_check", sql`length(trim(${table.objectKey})) > 0`),
+    check(
+      "download_item_object_key_nonempty_check",
+      sql`${table.objectKey} IS NULL OR length(trim(${table.objectKey})) > 0`,
+    ),
     // A snapshot has no byte size and an artifact's is never negative; zero is a real answer (an
     // empty archive) and stays representable.
     check(

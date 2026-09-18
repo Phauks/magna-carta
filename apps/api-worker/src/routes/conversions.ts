@@ -1,4 +1,6 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
+import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import { markDownloadItemReadyByObjectKeyStatement } from "@magna-carta/data-access/download-register-statements";
 import { findPath } from "@magna-carta/conversion/pathfinding";
 import { getFormat } from "@magna-carta/conversion/registry";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -8,8 +10,10 @@ import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
   requireChokepointFirmId,
+  requireChokepointUserId,
 } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
+import { registerDownload } from "../downloads/download-register.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
@@ -311,6 +315,30 @@ export function registerConversionRoutes(app: ConversionsApp, chokepoint: Chokep
         c.env.CONVERSION_JOB.idFromName(`${firmId}:${jobId}`),
       );
       await coordinator.start({ firmId, bucketName, jobId, sourceKey, resultKey, from, to });
+      // The register learns about the work when it is SUBMITTED, not when it finishes: the result
+      // key is already pinned above, and a member who asked for a conversion should see it on their
+      // shelf while it runs rather than only once it lands. The poll below advances it to ready.
+      const now = new Date();
+      await commitEffectBatch(
+        firm.firmDatabase,
+        {
+          statements: [
+            registerDownload(firm.firmDatabase, {
+              memberId: requireChokepointUserId(c),
+              now,
+              registration: {
+                producer: "conversion",
+                title: `Converted file (${from.toUpperCase()} to ${to.toUpperCase()})`,
+                objectKey: resultKey,
+                byteSize: null,
+                building: true,
+              },
+            }).statement,
+          ],
+          outboxMessages: [],
+        },
+        { now: () => now.toISOString() },
+      );
       return c.json({ jobId, status: "queued" as const }, 202);
     },
   );
@@ -335,6 +363,27 @@ export function registerConversionRoutes(app: ConversionsApp, chokepoint: Chokep
         firmBucket,
         await coordinator.status(),
       );
+      // The first poll that sees the job done is what moves its register row off `building`. Keyed
+      // on the result object rather than on a row id, so nothing has to travel through the Durable
+      // Object's state; the update matches only a row still building, so later polls are no-ops.
+      if (progress.status === "done") {
+        const now = new Date().toISOString();
+        await commitEffectBatch(
+          firm.firmDatabase,
+          {
+            statements: [
+              markDownloadItemReadyByObjectKeyStatement(
+                firm.firmDatabase,
+                requireChokepointUserId(c),
+                `conversions/${firmId}/${jobId}/result`,
+                null,
+              ),
+            ],
+            outboxMessages: [],
+          },
+          { now: () => now },
+        );
+      }
       return c.json(progress, 200);
     },
   );

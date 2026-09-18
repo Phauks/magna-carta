@@ -13,33 +13,65 @@ import {
   requestLine,
   transportOutcome,
   type ApiOutcome,
+  type Page,
 } from "$lib/api/request.ts";
 import type { TabularExportCell, TabularExportDocument } from "./tabular-export.ts";
 
-export type ShelfItemKind = "artifact" | "snapshot";
-export type ShelfItemProducer = "export" | "bundle" | "conversion";
+export type ShelfItemKind = "artifact" | "snapshot" | "reference" | "record";
+export type ShelfItemProducer = "export" | "bundle" | "conversion" | "file" | "discovery";
 export type ShelfItemState = "building" | "ready" | "failed" | "expired";
 
 export interface ShelfItem {
   readonly id: string;
   readonly title: string;
   readonly kind: ShelfItemKind;
+  /** The matter file a reference names, so the screen can offer the way back to it. */
+  readonly subjectFileId: string | null;
   readonly producer: ShelfItemProducer;
   readonly byteSize: number | null;
   /** The format it was made for; null on rows written before exports recorded one. */
   readonly requestedFormat: string | null;
   readonly downloadedFormats: readonly string[];
   readonly createdAt: string;
-  readonly expiresAt: string;
+  /** When the BYTES let go, not the row. Null on a reference or a record, which hold none. */
+  readonly expiresAt: string | null;
   readonly state: ShelfItemState;
 }
 
-export interface ShelfResponse {
-  readonly items: readonly ShelfItem[];
-}
+/**
+ * One page of the register — the platform's uniform list envelope, not a shape of this screen's own.
+ * Being `Page` is what lets the screen drive it with the same cursor-paging state every other
+ * register uses, so "load the next page" is not written a tenth time here.
+ */
+export type ShelfPage = Page<ShelfItem>;
 
-export function readShelf(fetchImpl: typeof fetch): Promise<ApiOutcome<ShelfResponse>> {
-  return requestJson<ShelfResponse>(fetchImpl, "/api/v1/downloads");
+/**
+ * One page of the member's register, newest first.
+ *
+ * It is paged because the register now keeps every download and keeps the row after the bytes go,
+ * so it grows for as long as somebody works here. A caller that wants more passes the cursor the
+ * previous page returned.
+ *
+ * A term narrows on the SERVER, which is why it is a parameter here rather than a filter the screen
+ * applies to the rows it holds: the register has no bound, so searching what happens to be loaded
+ * would answer confidently about a fraction of it.
+ */
+export function readShelf(
+  fetchImpl: typeof fetch,
+  options: {
+    readonly cursor?: string;
+    readonly search?: string;
+    /** How many rows to ask for, for a caller that shows a handful rather than a page. */
+    readonly limit?: number;
+  } = {},
+): Promise<ApiOutcome<ShelfPage>> {
+  const query = new URLSearchParams();
+  if (options.cursor !== undefined) query.set("cursor", options.cursor);
+  const term = options.search?.trim() ?? "";
+  if (term !== "") query.set("search", term);
+  if (options.limit !== undefined) query.set("limit", String(options.limit));
+  const suffix = query.size === 0 ? "" : `?${query.toString()}`;
+  return requestJson<ShelfPage>(fetchImpl, `/api/v1/downloads${suffix}`);
 }
 
 /*
