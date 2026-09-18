@@ -2619,7 +2619,8 @@
           "state": "n/a"
         },
         "tested": {
-          "state": "in-progress"
+          "state": "done",
+          "by": "Claude"
         }
       },
       "branch": "claude/focused-edison-ylxfiy",

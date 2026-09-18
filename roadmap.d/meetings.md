@@ -9,7 +9,7 @@
   scope: In-app video conferencing — a meeting started from a calendar event, media browser-to-Cloudflare Realtime SFU, signaling through a per-meeting Durable Object, attendance recorded on the event.
   status: partial
   spec: docs/specs/2026-09-18-meetings-design.md
-  evidence: Slice 1 built — packages/meetings, apps/api-worker/src/meetings, apps/api-worker/src/routes/meetings.ts, apps/web/src/lib/meetings and apps/web/src/routes/(app)/meetings; guests, recording, dial-in and larger rooms are ahead.
+  evidence: Slice 1 built and reviewed — packages/meetings, apps/api-worker/src/meetings, apps/api-worker/src/routes/meetings.ts, apps/web/src/lib/meetings, apps/web/src/routes/(app)/meetings (the Meetings page and the room), and a Communications group in the sidebar; guests, recording, dial-in and larger rooms are ahead.
   audience: public
   public-summary: Meet your colleagues by video from the calendar, share a screen, and keep a record of who attended — without a separate conferencing subscription.
   notes: The owner's ruling of 2026-09-18 — bundled into the product so a firm runs fewer tools; a Zoom/Teams port may exist later, never as the default.
@@ -32,7 +32,7 @@
 
 - id: meetings.api
   name: Meetings API
-  scope: Create-or-return for an event, summary, join, leave, end, attendance, and the socket upgrade — under the chokepoint with meetings:host and meetings:join.
+  scope: Create-or-return for an event, summary, the live/upcoming/recent list, join, leave, end, paged attendance, and the socket upgrade — under the chokepoint with meetings:host and meetings:join.
   status: shipped
   surface: internal
   spec: docs/specs/2026-09-18-meetings-design.md
@@ -40,11 +40,11 @@
 
 - id: meetings.screen
   name: Meeting screen
-  scope: Tile grid, microphone/camera/screen-share/leave controls, End for a host, a roster rail; Start or Join from the calendar event.
+  scope: Tile grid, microphone/camera/screen-share/leave controls, End for a host, a roster rail; Start or Join from the calendar event; the Meetings page under the sidebar's Communications group listing what is live, ahead and recently ended.
   status: shipped
   surface: screen
   spec: docs/specs/2026-09-18-meetings-design.md
-  evidence: apps/web/src/lib/meetings/meeting-client.svelte.ts and apps/web/src/routes/(app)/meetings/[id]/.
+  evidence: apps/web/src/lib/meetings/meeting-client.svelte.ts, apps/web/src/routes/(app)/meetings/+page.svelte and apps/web/src/routes/(app)/meetings/[id]/.
   audience: public
   public-summary: Start a meeting from any calendar event and join it in one click.
 
