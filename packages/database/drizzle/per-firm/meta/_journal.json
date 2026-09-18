@@ -113,6 +113,13 @@
       "when": 1789516800000,
       "tag": "20260916T000000_event-recurrence",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1789560000000,
+      "tag": "20260916T120000_download-register-admits-every-download",
+      "breakpoints": true
     }
   ]
 }

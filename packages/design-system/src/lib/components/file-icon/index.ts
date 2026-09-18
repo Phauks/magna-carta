@@ -9,6 +9,7 @@ export {
 export {
   claimedFileCategory,
   extensionOf,
+  extensionsOfCategory,
   resolveFileCategory,
   resolveFileContentCategory,
   sniffedFileCategory,

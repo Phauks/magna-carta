@@ -27,6 +27,7 @@ import { buildBundleManifest } from "@magna-carta/file-manager/bundle-manifest";
 import type { ManifestEntry } from "@magna-carta/file-manager/contents-manifest";
 import type { FileId, FolderId, MatterId } from "@magna-carta/identifiers/types";
 import { makeZip } from "client-zip";
+import { registerDownload, type DownloadRegistration } from "../downloads/download-register.ts";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
@@ -261,11 +262,20 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
       // failure prevented. Bundle-option flags (counts and booleans only — never password or content)
       // are included when options are present so the audit trail reflects what format was requested.
       const now = new Date().toISOString();
-      const recordExport = (delivery: string) =>
+      // The audit entry and the register row ride ONE batch, so a bundle cannot be audited without
+      // being registered or the reverse. `registration` is what the member actually received — the
+      // chokepoint (../downloads/download-register.ts) turns that into a kind, and this route never
+      // chooses one, which is what stops a lane filing a matter file as presignable bytes.
+      const recordExport = (delivery: string, registration: DownloadRegistration) =>
         commitEffectBatch(
           firm.firmDatabase,
           {
             statements: [
+              registerDownload(firm.firmDatabase, {
+                memberId: userId,
+                now: new Date(now),
+                registration,
+              }).statement,
               insertAuditLogStatement(firm.firmDatabase, {
                 id: newIdentifier("auditLog"),
                 event: "files.bulkDownloaded",
@@ -349,7 +359,11 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
           ? sanitizedOutputName
           : "download.zip";
 
-        await recordExport("stream");
+        await recordExport("stream", {
+          producer: "bundle",
+          title: safeOutputName,
+          bytes: { retained: false },
+        });
         return new Response(containerResponse.body, {
           status: 200,
           headers: {
@@ -410,7 +424,11 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
               outputKeyPrefix,
               DOWNLOAD_TTL_SECONDS,
             );
-            await recordExport("async");
+            await recordExport("async", {
+              producer: "bundle",
+              title: options.outputName,
+              bytes: { retained: true, objectKey: outputKeyPrefix, byteSize: existing.size },
+            });
             return c.json({ url }, 200);
           }
         }
@@ -426,7 +444,12 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
           options,
           manifest: bundleManifest,
         });
-        await recordExport("async");
+        await recordExport("async", {
+          producer: "bundle",
+          title: options.outputName,
+          bytes: { retained: true, objectKey: outputKeyPrefix, byteSize: null },
+          building: true,
+        });
         return c.json({ jobId: cacheKey, status: state.status }, 202);
       }
 
@@ -449,7 +472,12 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
           only.r2Key,
           DOWNLOAD_TTL_SECONDS,
         );
-        await recordExport(delivery);
+        await recordExport(delivery, {
+          producer: "file",
+          title: only.path,
+          fileId: only.fileId,
+          byteSize: only.sizeBytes,
+        });
         return c.redirect(url, 302);
       }
 
@@ -467,7 +495,11 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
             artifactKey,
             DOWNLOAD_TTL_SECONDS,
           );
-          await recordExport(delivery);
+          await recordExport(delivery, {
+            producer: "bundle",
+            title: archiveFileName(matterId),
+            bytes: { retained: true, objectKey: artifactKey, byteSize: existing.size },
+          });
           return c.json({ url }, 200);
         }
         const coordinator = c.env.BUNDLE_COORDINATOR.get(
@@ -479,7 +511,12 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
           manifestHash,
           entries,
         });
-        await recordExport(delivery);
+        await recordExport(delivery, {
+          producer: "bundle",
+          title: archiveFileName(matterId),
+          bytes: { retained: true, objectKey: artifactKey, byteSize: null },
+          building: true,
+        });
         return c.json({ jobId: manifestHash, status: state.status }, 202);
       }
 
@@ -487,7 +524,11 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
       // Each entry's input is the R2 object stream — never buffered into memory — so a large bundle
       // streams within the Worker's limits. A missing object (reaped between resolve and stream) is
       // skipped rather than aborting the whole archive (zipEntriesFromR2, shared with the async build).
-      await recordExport(delivery);
+      await recordExport(delivery, {
+        producer: "bundle",
+        title: archiveFileName(matterId),
+        bytes: { retained: false },
+      });
       const zipStream = makeZip(zipEntriesFromR2(firmBucket.bucket, resolved.entries));
       return new Response(zipStream, {
         status: 200,

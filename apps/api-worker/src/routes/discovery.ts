@@ -61,6 +61,7 @@ import {
   requireChokepointUserId,
 } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
+import { registerDownload } from "../downloads/download-register.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../contracts/common.ts";
 import { cursorQuery, paginated } from "../contracts/pagination.ts";
@@ -967,6 +968,19 @@ export function registerDiscoveryRoutes(app: DiscoveryApp, chokepoint: Chokepoin
         firm.firmDatabase,
         {
           statements: [
+            // The member's own register, beside the firm's audit entry and in the same batch. A
+            // production's manifest and its exception report are court-facing documents somebody
+            // comes back for, and before this they were audited and then unfindable.
+            registerDownload(firm.firmDatabase, {
+              memberId: userId,
+              now: new Date(now),
+              registration: {
+                producer: "discovery",
+                title: `${artifact === "manifest" ? "Load manifest" : "Exception report"} (${format.toUpperCase()})`,
+                objectKey: key,
+                byteSize: null,
+              },
+            }).statement,
             insertAuditLogStatement(firm.firmDatabase, {
               id: newIdentifier("auditLog"),
               event: "discovery.loadArtifactExported",

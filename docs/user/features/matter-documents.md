@@ -253,7 +253,10 @@ Select a document's row and the details panel describes it: its details, its pre
 its hashes, and its safety. **Open** is one gesture, and what it does depends on the document.
 Double-click a row, press Enter on it, or choose **Open** from its right-click menu:
 
-- A **Word document** (`.docx`, `.doc`, `.odt`, `.rtf`) opens in the browser editor, in a new tab.
+- An **office document** — a Word document (`.docx`, `.doc`, `.odt`, `.rtf`), a spreadsheet
+  (`.xlsx`, `.xls`, `.ods`, `.csv`), a presentation (`.pptx`, `.ppt`, `.odp`) or a drawing — opens
+  in the browser editor, in a new tab. The full list of formats, older ones included, is under
+  **Settings › Documents › Opening Files**.
 - A **text document** (`.txt`, `.md`, `.log`, and other plain-text files such as `.json` or
   `.html`) opens in the text editor, in a new tab.
 - A **PDF** opens in the reader, in a new tab.
@@ -264,8 +267,8 @@ Double-click a row, press Enter on it, or choose **Open** from its right-click m
   checks have not cleared.
 
 The tab the editor opens in is its own: leave it open while you go back to the file list, and open
-several documents at once. The link at the top of the editor leads back to the matter's Files page
-with the document selected.
+several documents at once. The editor fills that tab; to return to the matter's files, use the
+browser's Back or the file list's own tab.
 
 ## Saving a new version
 
@@ -420,12 +423,19 @@ or adds a version.
 
 ## Editing in the browser
 
-### Word documents
+### Office documents
 
-Opening a Word document starts a real editing session: the document is marked as being edited,
-the fact that you opened it is recorded, and you are given time-limited access to that specific
-version. The editor fills the tab. Saving inside it keeps the document's history the way any
-other save does.
+Opening a Word document, a spreadsheet or a presentation starts a real editing session: the
+document is marked as being edited, the fact that you opened it is recorded, and you are given
+time-limited access to that specific version. The editor fills the tab. Saving inside it keeps the
+document's history the way any other save does. Several members can edit the same document at
+once; each sees the others' changes as they are made.
+
+While the document opens, the screen lists each stage as it happens — opening the session,
+starting the editor, loading it, asking for the document, fetching it, showing it — with the time
+so far. A first open can take a little while, because the editor starts for that document on
+demand. If the open stops, the screen says at which stage, and the details beneath the message are
+what to send to support.
 
 If a colleague holds the document under an exclusive lock, your tab opens **read-only** and says
 so at the top. You can read along, including their live changes, but cannot take the lock from

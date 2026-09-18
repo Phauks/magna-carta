@@ -7,13 +7,14 @@
   scope: Scheduled propose-only Claude agents plus CI tooling (open PRs/reports, never auto-merge; trust/ledger/conflicts paths always human-reviewed).
   status: partial
   adrs: ADR-0016, ADR-0058
-  evidence: The docs-maintenance system is on main (.claude/skills/docs-sync/, .github/workflows/assemble-docs.yml, docs/maintenance/) and has produced dated run branches since 2026-07-20. Of the other six, only the security agent has any artifact at all — a vendored on-demand skill and the CI dependency-audit step, neither of them a proposing agent; the remaining five have none.
+  evidence: The docs-maintenance system is on main (.claude/skills/docs-sync/, .github/workflows/assemble-docs.yml, docs/maintenance/) and has produced dated run branches since 2026-07-20. The security agent is the second scheduled one: a weekly Routine runs the vendored security-audit skill over main and opens one remediation pull request per confirmed finding (canonical configuration in docs/conventions/testing.md, Whole-repo security audit). The remaining five have no agent artifact.
 
 - id: maintenance-agents.security
   name: Security agent
   scope: pnpm/cargo audit, CVE triage, secret scanning on a schedule.
-  status: not-started
-  evidence: No scheduled agent or routine. What exists is gate-side and on-demand rather than a proposing agent — the `audit` dimension of the local quality gate (`pnpm gate`) runs a pinned osv-scanner over both supply chains before every merge, with the accepted-advisory register at osv-scanner.toml, and .claude/skills/security-audit/ is a vendored on-demand audit skill rather than a scheduled one. Dependency security batches still land as manual branches.
+  status: partial
+  surface: internal
+  evidence: A weekly Claude Code Routine (`MC - Security Audit`, Wednesdays 13:00 UTC, fresh session per firing, created 2026-09-17) runs the vendored .claude/skills/security-audit/ skill in full audit mode over main and opens one `remediate-` pull request per confirmed finding, each carrying a regression verifier; needs-validation leads reach the owner in the run's notification. Its canonical configuration and delivery rules live in docs/conventions/testing.md (Whole-repo security audit). Still gate-side rather than scheduled: the `audit` dimension of `pnpm gate` runs a pinned osv-scanner over both supply chains before every merge, with the accepted-advisory register at osv-scanner.toml. Not yet covered by any agent: CVE triage of new advisories against the unchanged lockfile (they surface only when a branch runs the gate), and scheduled secret scanning beyond `lint:secrets` on the tracked tree. The first firing is 2026-09-23; the node moves to shipped once a run has delivered.
 
 - id: maintenance-agents.dependency-upgrade
   name: Dependency & framework upgrade agent
