@@ -37107,6 +37107,16 @@
               }
             }
           },
+          "422": {
+            "description": "The isolated browser reached the address but the page did not finish rendering (type page-render-failed) — or the request body failed validation (type validation)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Rate limit exceeded",
             "content": {
@@ -37203,6 +37213,16 @@
           },
           "403": {
             "description": "Authenticated, but the member lacks tools:safeBrowse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The isolated browser reached the address but the page did not finish rendering (type page-render-failed) — or the request body failed validation (type validation)",
             "content": {
               "application/problem+json": {
                 "schema": {
