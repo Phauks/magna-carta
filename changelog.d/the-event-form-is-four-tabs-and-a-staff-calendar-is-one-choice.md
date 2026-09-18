@@ -20,6 +20,8 @@ directory's organizations through `directoryPickerSearch`. `participantsBySource
 chips. `calendar-menu.svelte` is the rail's selection as a dropdown, drawn by `CalendarView` on
 `calendarMenu` for the day pane. Every self-clearing picker passes `allowDeselect={false}`, which
 is what emptied the matter field on a re-pick. `DISCARD_SENTENCE` is gone from the action dialog.
+The design system's `Tooltip.Provider` defaults `ignoreNonKeyboardFocus` on, so the focus a
+closing popover hands back to the header's button no longer opens its tooltip.
 
 ## Public
 
@@ -36,4 +38,5 @@ organizations in your directory, and keeps an address you type. The people on an
 under Staff, Directory and Other. The day shown beside the form has a Calendars menu, so you can
 check one attorney's afternoon or one room's day before choosing a time. Picking the matter already
 chosen no longer empties the field, and a form asks "Discard Your Changes?" with nothing more under
-it.
+it. Closing a header panel by pressing its button again no longer leaves the button's hover text
+showing.
