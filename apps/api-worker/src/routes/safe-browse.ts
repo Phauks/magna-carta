@@ -1,5 +1,5 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
-import { captureSafeView, type CaptureStage } from "@magna-carta/safe-browse";
+import { captureSafeView, RendererFailure, type CaptureStage } from "@magna-carta/safe-browse";
 import type { BrowserRenderer, RedirectProbe } from "@magna-carta/safe-browse/types";
 import { SsrfRejection, assertPublicTarget } from "@magna-carta/integrations/safe-target";
 import { newErrorId } from "@magna-carta/telemetry/ids";
@@ -30,6 +30,31 @@ interface BrowserRunBinding {
   quickAction(action: string, options: Record<string, unknown>): Promise<Response>;
 }
 
+// The service names its refusal in an `errors` array; the first entry's code is the actionable
+// one. ONLY the code crosses into the failure — the message beside it can quote the target back,
+// and RendererFailure exists to be loggable, which it can only be if it cannot hold a URL.
+function rendererFailure(
+  httpStatus: number,
+  body: { errors?: { code?: number }[] } | null,
+): RendererFailure {
+  const code = body?.errors?.[0]?.code;
+  return new RendererFailure(httpStatus, typeof code === "number" ? code : null);
+}
+
+// What reaches the log when a capture dies after the stream has begun. A RendererFailure states
+// the service's status and code and provably carries no target, so it is quoted; anything else
+// may have the suspect URL in its message, so only the Error ID crosses and the correlation is
+// made through that. The name is preserved either way — which class failed is the first thing a
+// reader wants, and `logOperationFailed` records it.
+function sanitizedStreamFailure(error: unknown, errorId: string): Error {
+  if (error instanceof RendererFailure) {
+    const sanitized = new Error(`${error.message}; errorId=${errorId}`);
+    sanitized.name = error.name;
+    return sanitized;
+  }
+  return new Error(`capture failed after the stream began; errorId=${errorId}`);
+}
+
 // Production BrowserRenderer: delegates to the Browser Rendering Workers binding via
 // quickAction("snapshot", ...), which returns HTML content + a base64 screenshot in one
 // call. Links are extracted with a separate best-effort call — a failed links call must
@@ -37,6 +62,8 @@ interface BrowserRunBinding {
 //
 // Snapshot result envelope (BrowserRunSnapshotSuccessResponse):
 //   { success: true, result: { content: string; screenshot: string }, meta: { status: number; title: string } }
+// Failure envelope: { success: false, errors: [{ code: number, message: string }] } — the message
+//   is never read, per rendererFailure above.
 // Links result envelope (BrowserRunLinksSuccessResponse):
 //   { success: true, result: string[] }
 export function createBrowserRenderer(browser: BrowserRunBinding): BrowserRenderer {
@@ -66,17 +93,19 @@ export function createBrowserRenderer(browser: BrowserRunBinding): BrowserRender
         waitForTimeout: 6_000,
         screenshotOptions: { fullPage: true },
       });
-      const snapshotBody = (await snapshotResponse.json()) as {
-        success: boolean;
+      // A refusal may arrive as a non-2xx, or as a 2xx carrying `success: false`; both shapes put
+      // the reason in `errors`. An unparseable body is a refusal too — the service answered with
+      // something that is not its envelope — so the parse failure resolves to null rather than
+      // throwing a SyntaxError that would reach the member as an unexplained server fault.
+      const snapshotBody = (await snapshotResponse.json().catch(() => null)) as {
+        success?: boolean;
         result?: { content?: string; screenshot?: string; markdown?: string };
         meta?: { title?: string };
-      };
+        errors?: { code?: number }[];
+      } | null;
 
-      // A non-throwing failure response (capacity / limit) must be treated as an error so the
-      // caller's catch block can map it to a 502. The thrown message contains "capacity" so the
-      // 502 predicate below matches it.
-      if (!snapshotBody.success) {
-        throw new Error("Browser renderer returned a failure response (capacity or limit).");
+      if (!snapshotResponse.ok || snapshotBody === null || snapshotBody.success !== true) {
+        throw rendererFailure(snapshotResponse.status, snapshotBody);
       }
 
       // Links are a best-effort companion call — a failure here must not fail the capture.
@@ -363,30 +392,30 @@ export function registerSafeBrowseStreamRoute(
         } catch (error) {
           // The same mapping as the non-streaming route, delivered as the terminal line because
           // the 200 has already begun. A mid-chain SSRF rejection (a redirect to a private host)
-          // is an input-class refusal; the renderer's capacity/limit shapes are the transient 502;
-          // anything else is a server fault carrying a freshly minted Error ID that is ALSO logged
-          // (sanitized — the raw error may carry the suspect URL, which never reaches a log).
+          // is an input-class refusal; a renderer refusal the service called momentary is the
+          // transient 502; anything else — a renderer refusal about our configuration included —
+          // is a server fault carrying a freshly minted Error ID that is ALSO logged (sanitized,
+          // per sanitizedStreamFailure: the raw error may carry the suspect URL).
           if (error instanceof SsrfRejection) {
             await writeLine({ stage: "failed", problem: { status: 400 } });
+          } else if (error instanceof RendererFailure && error.kind === "transient") {
+            // Logged even though the member is simply told to retry. This path answered and wrote
+            // nothing before, which is precisely why a live refusal could not be read; the
+            // message names the status and code the service gave and can hold nothing else.
+            logOperationFailed(
+              createWorkersLogger(c.env.TELEMETRY),
+              "route:safeBrowse.stream",
+              error,
+            );
+            await writeLine({ stage: "failed", problem: { status: 502 } });
           } else {
-            const errorText = error instanceof Error ? error.message : String(error);
-            if (
-              errorText.includes("429") ||
-              errorText.includes("503") ||
-              errorText.includes("capacity") ||
-              errorText.includes("unavailable") ||
-              errorText.includes("limit")
-            ) {
-              await writeLine({ stage: "failed", problem: { status: 502 } });
-            } else {
-              const errorId = newErrorId();
-              logOperationFailed(
-                createWorkersLogger(c.env.TELEMETRY),
-                "route:safeBrowse.stream",
-                new Error(`capture failed after the stream began; errorId=${errorId}`),
-              );
-              await writeLine({ stage: "failed", problem: { status: 500, errorId } });
-            }
+            const errorId = newErrorId();
+            logOperationFailed(
+              createWorkersLogger(c.env.TELEMETRY),
+              "route:safeBrowse.stream",
+              sanitizedStreamFailure(error, errorId),
+            );
+            await writeLine({ stage: "failed", problem: { status: 500, errorId } });
           }
         } finally {
           await writer.close().catch(() => {});
@@ -461,20 +490,21 @@ export function registerSafeBrowseRoute(
             detail: "The supplied URL did not resolve to a publicly routable address.",
           });
         }
-        // Browser renderer capacity/limit/unavailable errors → 502 (redacted, correlated).
-        // Only errors that clearly indicate a renderer failure are caught here; everything
-        // else propagates to the standard telemetry error pipeline (→ 500 with Error ID).
+        // A renderer refusal the service said is momentary → 502 and "try again shortly", which is
+        // now only said when it is true. It is logged HERE because this is the one failure that
+        // answers without reaching the global handler, and answering silently is what left the
+        // first live refusal with no trace at all.
         //
-        // errorText feeds the 502 predicate only — MUST NOT be logged or echoed; it may
-        // contain the suspect URL/host from upstream error messages.
-        const errorText = error instanceof Error ? error.message : String(error);
-        if (
-          errorText.includes("429") ||
-          errorText.includes("503") ||
-          errorText.includes("capacity") ||
-          errorText.includes("unavailable") ||
-          errorText.includes("limit")
-        ) {
+        // Every other refusal — an entitlement that is not enabled, a credential without the
+        // permission, a rejected parameter — is a fault in how this worker is calling the service.
+        // Waiting cannot fix it and the member cannot act on it, so it falls through to the global
+        // handler and reaches them as a 500 with an Error ID to quote. It is deliberately NOT
+        // logged here as well: that handler logs it against the very Error ID the member is shown,
+        // and a second line under a second ID is one the member can never quote. Letting a
+        // RendererFailure through is safe — it holds a status and a code and provably not the
+        // target, so the message the handler records cannot carry the suspect URL.
+        if (error instanceof RendererFailure && error.kind === "transient") {
+          logOperationFailed(createWorkersLogger(c.env.TELEMETRY), "route:safeBrowse.post", error);
           return problemJson(c, {
             type: "internal",
             status: 502,

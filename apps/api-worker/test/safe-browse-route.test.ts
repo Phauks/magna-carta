@@ -2,6 +2,7 @@ import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import type { BrowserRenderer, RedirectProbe } from "@magna-carta/safe-browse/types";
+import { RendererFailure } from "@magna-carta/safe-browse";
 import { SsrfRejection } from "@magna-carta/integrations/safe-target";
 import { createApp } from "../src/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
@@ -49,11 +50,23 @@ function ssrfProbe(): RedirectProbe {
   };
 }
 
-// A BrowserRenderer whose snapshot throws with "unavailable", simulating a capacity/limit failure.
+// A BrowserRenderer whose snapshot throws the refusal the service makes when it is momentarily
+// unable to serve a render — a 503 with no code. This is the only shape that still answers 502.
 function unavailableRenderer(): BrowserRenderer {
   return {
     async snapshot(_url: string) {
-      throw new Error("Browser rendering service unavailable — at capacity.");
+      throw new RendererFailure(503, null);
+    },
+  };
+}
+
+// A BrowserRenderer whose snapshot throws the refusal the service makes about the CALLER rather
+// than its own capacity — the 401 an account without the entitlement draws. Waiting does not fix
+// it, so it must not be reported as capacity.
+function refusingRenderer(): BrowserRenderer {
+  return {
+    async snapshot(_url: string) {
+      throw new RendererFailure(401, 10000);
     },
   };
 }
@@ -67,9 +80,14 @@ const ssrfApp = createApp({
   safeBrowseDeps: { renderer: fakeRenderer(), probe: ssrfProbe() },
 });
 
-// A third app instance whose renderer throws a capacity/limit error for the 502 case.
+// A third app instance whose renderer reports a momentary failure, for the 502 case.
 const rendererFailureApp = createApp({
   safeBrowseDeps: { renderer: unavailableRenderer(), probe: fakeProbe() },
+});
+
+// A fourth whose renderer refuses on configuration grounds, for the non-transient case.
+const rendererRefusalApp = createApp({
+  safeBrowseDeps: { renderer: refusingRenderer(), probe: fakeProbe() },
 });
 
 let poolFirmId: FirmId;
@@ -217,6 +235,32 @@ describe("POST /api/v1/safe-browse", () => {
     expect(body).not.toContain("suspect.example.com");
     expect(body).not.toContain(targetUrl);
   });
+
+  it("answers a configuration refusal with 500, not the capacity 502", async () => {
+    const { userId } = await seedCredentialedUser("safebrowse-refusal@example.com", {
+      userName: "Renderer Refusal",
+      firmId: poolFirmId,
+    });
+    await mirrorMemberWithOwnerRole(userId, "Renderer Refusal", poolFirmId);
+    const cookie = await signInForSessionCookie("safebrowse-refusal@example.com");
+    const targetUrl = "https://suspect.example.com/page";
+    const response = await rendererRefusalApp.request(
+      "https://example.com/api/v1/safe-browse",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: "https://example.com", cookie },
+        body: JSON.stringify({ url: targetUrl }),
+      },
+      env,
+    );
+    // An entitlement that is not enabled is not capacity: saying "try again shortly" would send
+    // the member back to a control that can never succeed.
+    expect(response.status).toBe(500);
+    // Redaction holds on the path that now propagates the failure to the global pipeline.
+    const body = await response.text();
+    expect(body).not.toContain("suspect.example.com");
+    expect(body).not.toContain(targetUrl);
+  });
 });
 
 describe("POST /api/v1/safe-browse/stream", () => {
@@ -297,5 +341,32 @@ describe("POST /api/v1/safe-browse/stream", () => {
     expect(terminal).toEqual({ stage: "failed", problem: { status: 502 } });
     // Redaction holds inside the stream too.
     expect(text).not.toContain("suspect");
+  });
+
+  it("does not report a configuration refusal as capacity, and carries an Error ID", async () => {
+    const { userId } = await seedCredentialedUser("safebrowse-stream-refusal@example.com", {
+      userName: "Stream Renderer Refusal",
+      firmId: poolFirmId,
+    });
+    await mirrorMemberWithOwnerRole(userId, "Stream Renderer Refusal", poolFirmId);
+    const cookie = await signInForSessionCookie("safebrowse-stream-refusal@example.com");
+    const response = await rendererRefusalApp.request(
+      "https://example.com/api/v1/safe-browse/stream",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: "https://example.com", cookie },
+        body: JSON.stringify({ url: "http://example.com" }),
+      },
+      env,
+    );
+    expect(response.status).toBe(200);
+    const text = await response.text();
+    const terminal = JSON.parse(text.trim().split("\n").at(-1) ?? "{}") as {
+      stage: string;
+      problem?: { status: number; errorId?: string };
+    };
+    // 502 would tell the member to wait for a fault that waiting cannot clear.
+    expect(terminal.problem?.status).toBe(500);
+    expect(terminal.problem?.errorId).toBeTypeOf("string");
   });
 });

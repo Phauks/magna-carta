@@ -7,3 +7,4 @@ export type {
 } from "./types.ts";
 
 export { captureSafeView, type CaptureStage } from "./capture.ts";
+export { RendererFailure, type RendererFaultKind } from "./renderer-failure.ts";
