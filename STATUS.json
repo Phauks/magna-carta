@@ -2608,10 +2608,12 @@
           "state": "done"
         },
         "built": {
-          "state": "in-progress"
+          "state": "done",
+          "by": "Claude"
         },
         "ui": {
-          "state": "in-progress"
+          "state": "done",
+          "by": "Claude"
         },
         "load-profile": {
           "state": "n/a"

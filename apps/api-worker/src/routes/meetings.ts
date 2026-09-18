@@ -545,13 +545,14 @@ async function displayNameOf(database: SqlDatabase, userId: string): Promise<str
  * answer degrades to the public resolution server, which carries no credential and routes nothing —
  * it only tells a browser what its address looks like from outside.
  *
- * A deployment that mints no relay credentials at all answers with an empty list, which is a
- * different statement: nothing was attempted, so the browser uses whatever it is configured with.
+ * A deployment that mints no relay credentials at all answers with the public resolution server
+ * alone, never an empty list: a browser handed no servers at all gathers only its local addresses,
+ * and one behind a home router would then never learn how it looks from outside.
  */
 async function iceServersFor(env: Bindings): Promise<z.infer<typeof IceServer>[]> {
   const keyId = env.REALTIME_TURN_TOKEN_ID;
   const apiToken = env.REALTIME_TURN_TOKEN_SECRET;
-  if (!keyId || !apiToken) return [];
+  if (!keyId || !apiToken) return [PUBLIC_RESOLUTION_SERVER];
 
   try {
     const upstream = await fetch(

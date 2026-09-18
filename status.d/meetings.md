@@ -5,8 +5,8 @@ order: 45
 research: n/a
 spec: done by="Claude"
 plan: done
-built: in-progress
-ui: in-progress
+built: done by="Claude"
+ui: done by="Claude"
 load-profile: n/a
 tested: in-progress
 branch: claude/focused-edison-ylxfiy

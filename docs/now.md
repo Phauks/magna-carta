@@ -30,8 +30,8 @@ not](#what-a-roll-up-is-not).
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 317 | 46% |
-| Part-built | partial, in-build | 129 | 19% |
+| Done | shipped | 322 | 47% |
+| Part-built | partial, in-build | 124 | 18% |
 | Ahead | designed, planned, researching, not-started | 204 | 29% |
 | Parked | deferred, cut | 42 | 6% |
 | **All units of work** | | **692** | **100%** |
@@ -40,20 +40,20 @@ not](#what-a-roll-up-is-not).
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 317 | 46% |
+| `shipped` | 322 | 46% |
 | `partial` | 124 | 18% |
-| `in-build` | 5 | 1% |
+| `in-build` | 0 | 0% |
 | `designed` | 47 | 7% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
 | `not-started` | 137 | 20% |
 | `deferred` | 38 | 5% |
-| `cut` | 4 | 0% |
+| `cut` | 4 | 1% |
 | **All statuses** | **692** | **100%** |
 
 ### What a roll-up is not
 
-**144 of the 836 nodes are parents, and 111 of those parents are `partial`.** A parent's status is a
+**144 of the 836 nodes are parents, and 112 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 317 of 692 (46%). Shipped plus partial is 441 (64%).**
+**Shipped alone is 322 of 692 (47%). Shipped plus partial is 446 (64%).**
 
 The 124 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -112,7 +112,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
 | Integrations & Plugins | 16 | 3 | 0 | 1 | 0 | 3 | 15 | 3 | 1 | 42 | 38% |
 | Maintenance Agents | 2 | 3 | 0 | 0 | 0 | 0 | 5 | 0 | 0 | 10 | 20% |
-| Meetings | 0 | 0 | 5 | 1 | 0 | 0 | 4 | 0 | 0 | 10 | 0% |
+| Meetings | 5 | 0 | 0 | 1 | 0 | 0 | 4 | 0 | 0 | 10 | 50% |
 | Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 12 | 58% |
 | Notifications | 4 | 6 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 14 | 29% |
 | Observability & Diagnostics | 14 | 0 | 0 | 0 | 0 | 0 | 4 | 2 | 0 | 20 | 70% |
@@ -127,7 +127,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 13 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 20 | 65% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **317** | **124** | **5** | **47** | **15** | **5** | **137** | **38** | **4** | **692** | **46%** |
+| **All areas** | **322** | **124** | **0** | **47** | **15** | **5** | **137** | **38** | **4** | **692** | **47%** |
 
 ## Where we have been
 
@@ -314,12 +314,7 @@ Decisions about a capability only. Account-side steps that no session can perfor
 
 ## Being built now
 
-- `meetings` · **Meetings** — In-app video conferencing — a meeting started from a calendar event, media browser-to-Cloudflare Realtime SFU, signaling through a per-meeting Durable Object, attendance recorded on the event.
-- `meetings.record` · **Meeting record and attendance** — One meeting per calendar event (matter or firm), status scheduled/live/ended, an attendance row per join with joined and left instants, audit rows of identifiers and instants only.
-- `meetings.signaling` · **Signaling room and SFU client** — A MeetingRoom Durable Object per meeting brokering each browser's session with the Cloudflare Realtime SFU over hibernating WebSockets; the app secret never reaches a browser.
-- `meetings.api` · **Meetings API** — Create-or-return for an event, summary, join, leave, end, attendance, and the socket upgrade — under the chokepoint with meetings:host and meetings:join.
-- `meetings.screen` · **Meeting screen** — Tile grid, microphone/camera/screen-share/leave controls, End for a host, a roster rail; Start or Join from the calendar event.
-- `meetings.screen-share` · **Screen sharing** — A second local video track from getDisplayMedia, published to the SFU like any other track.
+_No capability is marked `in-build`._
 
 ## Next up
 
@@ -1050,14 +1045,14 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Meetings
 
-[`roadmap.d/meetings.md`](../roadmap.d/meetings.md) — 10 units of work, 0% shipped. 0 done, 5 part-built, 5 ahead, 0 parked.
+[`roadmap.d/meetings.md`](../roadmap.d/meetings.md) — 10 units of work, 50% shipped. 5 done, 0 part-built, 5 ahead, 0 parked.
 
-- `meetings` · `in-build` · **Meetings** — In-app video conferencing — a meeting started from a calendar event, media browser-to-Cloudflare Realtime SFU, signaling through a per-meeting Durable Object, attendance recorded on the event. _Note: The owner's ruling of 2026-09-18 — bundled into the product so a firm runs fewer tools; a Zoom/Teams port may exist later, never as the default._
-  - `meetings.record` · `in-build` · **Meeting record and attendance** — One meeting per calendar event (matter or firm), status scheduled/live/ended, an attendance row per join with joined and left instants, audit rows of identifiers and instants only.
-  - `meetings.signaling` · `in-build` · **Signaling room and SFU client** — A MeetingRoom Durable Object per meeting brokering each browser's session with the Cloudflare Realtime SFU over hibernating WebSockets; the app secret never reaches a browser.
-  - `meetings.api` · `in-build` · **Meetings API** — Create-or-return for an event, summary, join, leave, end, attendance, and the socket upgrade — under the chokepoint with meetings:host and meetings:join.
-  - `meetings.screen` · `in-build` · **Meeting screen** — Tile grid, microphone/camera/screen-share/leave controls, End for a host, a roster rail; Start or Join from the calendar event.
-  - `meetings.screen-share` · `in-build` · **Screen sharing** — A second local video track from getDisplayMedia, published to the SFU like any other track.
+- `meetings` · `partial` · **Meetings** — In-app video conferencing — a meeting started from a calendar event, media browser-to-Cloudflare Realtime SFU, signaling through a per-meeting Durable Object, attendance recorded on the event. _Note: The owner's ruling of 2026-09-18 — bundled into the product so a firm runs fewer tools; a Zoom/Teams port may exist later, never as the default._
+  - `meetings.record` · `shipped` · **Meeting record and attendance** — One meeting per calendar event (matter or firm), status scheduled/live/ended, an attendance row per join with joined and left instants, audit rows of identifiers and instants only.
+  - `meetings.signaling` · `shipped` · **Signaling room and SFU client** — A MeetingRoom Durable Object per meeting brokering each browser's session with the Cloudflare Realtime SFU over hibernating WebSockets; the app secret never reaches a browser.
+  - `meetings.api` · `shipped` · **Meetings API** — Create-or-return for an event, summary, join, leave, end, attendance, and the socket upgrade — under the chokepoint with meetings:host and meetings:join.
+  - `meetings.screen` · `shipped` · **Meeting screen** — Tile grid, microphone/camera/screen-share/leave controls, End for a host, a roster rail; Start or Join from the calendar event.
+  - `meetings.screen-share` · `shipped` · **Screen sharing** — A second local video track from getDisplayMedia, published to the SFU like any other track.
   - `meetings.guests` · `designed` · **External guests** — A signed one-time join link for a Directory entity on the event (client, opposing counsel, expert) — the tokenized-link assurance tier — ahead of the portal grant model.
   - `meetings.recording` · `not-started` · **Recording** — Server-side capture of a meeting into the matter file, through the untrusted-file pipeline into R2, behind a consent gate on the jurisdiction profile. _Note: Sequenced after guests; a recording of a client meeting is privileged content and gets the full pipeline, not a shortcut._
   - `meetings.large-rooms` · `not-started` · **Larger rooms** — Active-speaker layout, simulcast layer selection, bandwidth adaptation beyond the slice-1 cap of twelve participants.

@@ -268,9 +268,9 @@ describe("arriving, and leaving a record of it", () => {
     const joined = await readJson<JoinedMeeting>(response);
     expect(joined.participantId).toMatch(/^meetingAttendance_/);
     expect(joined.displayName).toBe("Meetings Owner");
-    // This deployment mints no relay credentials, which is a different statement from a relay that
-    // refused: nothing was attempted, so the browser uses whatever it is configured with.
-    expect(joined.iceServers).toEqual([]);
+    // This deployment mints no relay credentials, so the browser is handed the public resolution
+    // server alone: a list with nothing in it would leave it gathering only its local addresses.
+    expect(joined.iceServers).toEqual([{ urls: "stun:stun.cloudflare.com:3478" }]);
 
     const summary = await readJson<MeetingSummary>(
       await get(`/api/v1/meetings/${meetingId}`, ownerCookie),
