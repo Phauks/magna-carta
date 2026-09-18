@@ -1966,6 +1966,7 @@ export type SessionLaunchResponse = {
     accessToken: string;
     accessTokenTtl: number;
     capability: 'edit' | 'view';
+    recordsChanges: boolean;
 };
 
 export type EditOpenProgressResponse = {
@@ -2106,6 +2107,14 @@ export type PatchScanPolicyRequest = {
     };
     flaggedTreatment?: 'block' | 'informed-access' | 'allow-and-flag';
     stepUpReauthOnFlagged?: boolean;
+};
+
+export type EditingPolicyResponse = {
+    recordChanges: boolean;
+};
+
+export type PatchEditingPolicyRequest = {
+    recordChanges?: boolean;
 };
 
 export type BundleStatus = {
@@ -15903,6 +15912,95 @@ export type ScanPolicyScoreHistogramResponses = {
 };
 
 export type ScanPolicyScoreHistogramResponse = ScanPolicyScoreHistogramResponses[keyof ScanPolicyScoreHistogramResponses];
+
+export type EditingPolicyGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/editing-policy';
+};
+
+export type EditingPolicyGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageEditingPolicy
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EditingPolicyGetError = EditingPolicyGetErrors[keyof EditingPolicyGetErrors];
+
+export type EditingPolicyGetResponses = {
+    /**
+     * The firm's editing policy, resolved with its defaults
+     */
+    200: EditingPolicyResponse;
+};
+
+export type EditingPolicyGetResponse = EditingPolicyGetResponses[keyof EditingPolicyGetResponses];
+
+export type EditingPolicyUpdateData = {
+    body: PatchEditingPolicyRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/editing-policy';
+};
+
+export type EditingPolicyUpdateErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageEditingPolicy
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EditingPolicyUpdateError = EditingPolicyUpdateErrors[keyof EditingPolicyUpdateErrors];
+
+export type EditingPolicyUpdateResponses = {
+    /**
+     * The firm's editing policy after the change
+     */
+    200: EditingPolicyResponse;
+};
+
+export type EditingPolicyUpdateResponse = EditingPolicyUpdateResponses[keyof EditingPolicyUpdateResponses];
 
 export type DownloadsBundleStatusData = {
     body?: never;
