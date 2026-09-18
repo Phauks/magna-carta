@@ -109,7 +109,7 @@ and every transfer between this client's matters, with who recorded and who auth
 The counts strip carries the balance, the amount under hold, and what is available.
 
 A matter's ledger lives in one of the firm's trust accounts. With one open account the section
-reads it; with several, the account control on the top row picks the one to read, and the choice
+reads it; with several, the account control above the ledger picks the one to read, and the choice
 is remembered on this device. A matter that has never received money into that account has no
 ledger there yet, and the section says so: the ledger is created by the first deposit.
 
@@ -125,9 +125,10 @@ full; a bank or processor fee is never taken out of it.
 your firm's policy ([trust money-out approvals](../admin/trust-disbursement-approvals.md)): if you
 hold the authority to release client money and the amount needs no second person, the payment is
 made there and then; otherwise nothing moves, the proposal waits, and the section names who can
-approve it. A waiting proposal shows above the ledger with its amount, payee and purpose. The
-person who raised it can **Withdraw** it; anybody else who may decide it can **Approve** or
-**Reject** it, and a rejection asks for a reason the proposer can answer. A payment can never take
+approve it. A line above the ledger says how many payments are waiting; press it and the details
+panel opens on them, each with its amount, payee and purpose. The person who raised one can
+**Withdraw** it; anybody else who may decide it can **Approve** or **Reject** it, and a rejection
+asks for a reason the proposer can answer. A payment can never take
 more than what is available, which is the balance less anything under hold.
 
 ### Moving money between the client's matters

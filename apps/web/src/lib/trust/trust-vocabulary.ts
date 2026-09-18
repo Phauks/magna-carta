@@ -206,6 +206,20 @@ export const NO_AMOUNT_ON_THIS_SIDE =
 export const ROSTER_CAPPED_WARNING =
   "The roster stopped short of the end, so these are some of the firm's trust accounts rather than all of them.";
 
+/**
+ * What the notices band says about payments nobody has decided yet.
+ *
+ * The queue itself lives in the details panel, where a request states its whole terms; the band
+ * carries the COUNT alone, because a reader passing the ledger needs to know somebody is owed an
+ * answer without the ledger giving its room up to a list of requests. One sentence, in the count's
+ * own grammar, so the line never reads "1 payments".
+ */
+export function waitingOnApprovalSentence(count: number): string {
+  return count === 1
+    ? "1 payment is waiting on approval."
+    : `${count} payments are waiting on approval.`;
+}
+
 /** The movements a figure is allowed to count. Every movement counts: none is a draft or a void. */
 export function sumAmountMinor(movements: readonly TrustMovementRecord[]): number {
   return movements.reduce((total, movement) => total + movement.amountMinor, 0);

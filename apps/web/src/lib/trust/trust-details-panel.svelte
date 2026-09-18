@@ -19,6 +19,14 @@
    *
    * SEVERAL SELECTED SAYS WHAT THEY COME TO. No verb acts on a selection, but the sum of what came
    * in and went out across a picked range is a real question, so the selection face answers it.
+   *
+   * THE APPROVAL QUEUE IS A FACE OF THIS PANEL, NOT A BAND ABOVE THE LIST. A payment out that
+   * nobody has decided yet is a record with terms — amount, payee, purpose, method, who raised it —
+   * and reading it is the panel's job on every other record this surface holds. So the
+   * no-selection face carries the queue, in the same card and under the same verb policy as the
+   * firm's own Trust screen (pending-request.svelte, trust-request-verbs.ts), and the ledger's
+   * notices band keeps only the count and the way here. The dialogs each verb opens stay with the
+   * ledger, which is where one answer's idempotency key is held.
    */
   import { formatDate } from "@magna-carta/design-system/data-table";
   import * as DefinitionList from "@magna-carta/design-system/definition-list";
@@ -26,10 +34,20 @@
   import { soonDependencySentence } from "@magna-carta/design-system/maturity";
   import * as DetailsPanel from "$lib/details-panel/index.ts";
   import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
-  import type { TrustMatterLedger, TrustMovementRecord } from "./trust-api.ts";
+  import type { FirmMemberSummary } from "$lib/members/members-api.ts";
+  import {
+    trustAccountLabel,
+    type TrustAccountListing,
+    type TrustMatterLedger,
+    type TrustMovementRecord,
+    type TrustPendingRequest,
+  } from "./trust-api.ts";
   import { UNSERVED_FIGURE, flow, matterTrustSummary } from "./trust-figures.ts";
+  import { QUEUE_EMPTY } from "./firm-trust-vocabulary.ts";
   import { gapCellTitle, gapReason } from "./trust-gaps.ts";
   import { memberDisplay } from "./trust-member-names.ts";
+  import PendingRequest from "./pending-request.svelte";
+  import type { TrustQueueViewer, TrustRequestVerb } from "./trust-request-verbs.ts";
   import {
     authorizedByText,
     authorizedByTitle,
@@ -43,20 +61,38 @@
 
   let {
     ledger,
+    account,
     movements,
     selected,
     money,
     unservedPositionTitle,
+    pendingRequests,
+    pendingRefusal = null,
+    viewer,
+    members,
+    onDecide,
     onLetGo,
   }: {
     /** The ledger read, for the position the panel states with nothing selected. Null until served. */
     ledger: TrustMatterLedger | null;
+    /** The account this section is reading against, which the no-selection face names. */
+    account: TrustAccountListing | null;
     /** Every movement on the matter, for the face the panel shows with nothing selected. */
     movements: readonly TrustMovementRecord[];
     selected: readonly TrustMovementRecord[];
     money: (amountMinor: number) => string;
     /** Why a figure is a dash: which of "no account", "none chosen" or "no ledger yet" is true. */
     unservedPositionTitle: string;
+    /** The payments out of this matter's ledger that nobody has decided yet. */
+    pendingRequests: readonly TrustPendingRequest[];
+    /** What to say where the queue itself could not be read. */
+    pendingRefusal?: string | null;
+    /** Who is reading, so their own request offers Withdraw rather than Approve and Reject. */
+    viewer: TrustQueueViewer;
+    /** The firm's roster, for turning a user identifier into a name. Null while it is being read. */
+    members: readonly FirmMemberSummary[] | null;
+    /** A verb was pressed: the ledger opens the panel that asks for it. */
+    onDecide: (verb: TrustRequestVerb, request: TrustPendingRequest) => void;
     onLetGo: () => void;
   } = $props();
 
@@ -160,6 +196,14 @@
     </DetailsPanel.Header>
     <DetailsPanel.Body>
       <DetailsPanel.Facts>
+        <!-- Which account this ledger is being read against. It stands here rather than in the
+             chrome above the list, so a firm holding one account never spends a control saying a
+             thing that has one answer, and a reader can still check it. -->
+        <DetailsPanel.Fact
+          label="Trust Account"
+          value={account === null ? UNSERVED_FIGURE : account.name}
+          title={account === null ? unservedPositionTitle : trustAccountLabel(account)}
+        />
         <DetailsPanel.Fact label="Movements" value={String(summary.movementCount)} />
         <DetailsPanel.Fact
           label="Balance"
@@ -183,6 +227,26 @@
             : "The balance less what is held: what a payment out or a transfer may take."}
         />
       </DetailsPanel.Facts>
+
+      <!-- AWAITING APPROVAL — oldest first, as the server hands them over: the request that has
+           waited longest is the one somebody owes an answer. The same card the firm's Trust screen
+           renders, without the Matter row: this matter already knows which matter it is. -->
+      <DetailsPanel.Section label="Awaiting Approval">
+        {#if pendingRefusal !== null}
+          <p class="text-xs text-status-warning-subtle-foreground">{pendingRefusal}</p>
+        {:else}
+          {#each pendingRequests as request (request.id)}
+            <PendingRequest {request} {viewer} {members} {money} {onDecide} />
+          {:else}
+            <DefinitionList.Root>
+              <DefinitionList.Row term="Amount" empty />
+              <DefinitionList.Row term="Payee" empty />
+              <DefinitionList.Row term="Requested By" empty />
+              <DefinitionList.Empty>{QUEUE_EMPTY}</DefinitionList.Empty>
+            </DefinitionList.Root>
+          {/each}
+        {/if}
+      </DetailsPanel.Section>
     </DetailsPanel.Body>
   {/if}
 </DetailsPanel.Root>

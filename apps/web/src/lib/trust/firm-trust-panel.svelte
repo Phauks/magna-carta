@@ -449,10 +449,6 @@
     <!-- AUTHORIZATION POSTURE — the FIRM's rule, not this account's. It is the last section
          because it is the one a reader visits rarely and reads whole when they do. -->
     <DetailsPanel.Section label="Authorization Posture">
-      <p class="text-xs text-text-muted">
-        One rule for every trust account the firm holds, not this account's own.
-      </p>
-
       <LoadingRegion
         loading={trust.policy === null && trust.policyFailure === null}
         label="Reading the firm's authorization posture"

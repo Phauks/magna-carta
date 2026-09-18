@@ -19,26 +19,30 @@
    * nothing else. There is no record window, because there is nothing about one movement that the
    * panel cannot state and nothing about it anybody may change.
    *
-   * EVERY READ AND WRITE NAMES A TRUST ACCOUNT, AND THE TOOLBAR IS WHERE THAT IS ANSWERED. A firm
-   * holding one account never sees a control — the account's name stands as a quiet fact with its
-   * bank on the hover — and a firm holding several picks, once, and is remembered. The three acts
-   * that move money live beside it: the header's create control records a deposit, and Pay Out and
-   * Transfer stand here. Each of them is DISABLED WITH ITS REASON rather than absent, because a
-   * control that vanishes teaches nothing about why it is gone.
+   * EVERY READ AND WRITE NAMES A TRUST ACCOUNT, AND THAT IS SCOPE RATHER THAN AN ACT. Which
+   * account this surface is reading against changes what every figure on it MEANS, so it leads the
+   * notices band — the first line, above whatever else the band has to say — and never stands among
+   * the verbs. A firm holding one open account is asked nothing at all: there is no choice to make,
+   * and the account's name is a fact the details panel states. The acts that move money are the
+   * toolbar's: the header's create control records a deposit, and Pay Out and Transfer stand
+   * there. Each of them is DISABLED WITH ITS REASON rather than absent, because a control that
+   * vanishes teaches nothing about why it is gone.
    *
-   * A PAYMENT OUT MAY NOT BE THIS MEMBER'S TO RELEASE. The firm's authorization posture decides,
-   * the server answers, and a request that is waiting stands in the notices band with the two
-   * answers it takes — or, where the reader is the one who proposed it, with the way to take it
-   * back. What it looks like, which verbs it offers and what each of them opens are the firm's
-   * Trust screen's too, so all three are shared: pending-request.svelte, trust-request-verbs.ts,
-   * and the three panels beside them. A member must meet one request, one way, wherever they are
-   * standing.
+   * A PAYMENT OUT MAY NOT BE THIS MEMBER'S TO RELEASE. The firm's authorization posture decides and
+   * the server answers. A request that is waiting is a RECORD with terms, so it is read in the
+   * details panel beside the list, where this surface reads every other record; the notices band
+   * carries the count alone and the way there. What it looks like, which verbs it offers and what
+   * each of them opens are the firm's Trust screen's too, so all three are shared:
+   * pending-request.svelte, trust-request-verbs.ts, and the three panels beside them. A member must
+   * meet one request, one way, wherever they are standing. The panels themselves stay mounted here,
+   * where the key one answer is sent under is held.
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import Button from "@magna-carta/design-system/button";
+  import Label from "@magna-carta/design-system/label";
   import Copy from "@lucide/svelte/icons/copy";
   import ArrowUpFromLine from "@lucide/svelte/icons/arrow-up-from-line";
   import ArrowLeftRight from "@lucide/svelte/icons/arrow-left-right";
@@ -78,7 +82,6 @@
   import ApproveRequestDialog from "./approve-request-dialog.svelte";
   import RejectRequestDialog from "./reject-request-dialog.svelte";
   import WithdrawRequestDialog from "./withdraw-request-dialog.svelte";
-  import PendingRequest from "./pending-request.svelte";
   import type { TrustRequestVerb } from "./trust-request-verbs.ts";
   import { footerFigures, ledgerCurrency } from "./trust-figures.ts";
   import { memberDisplay } from "./trust-member-names.ts";
@@ -91,6 +94,7 @@
     counterpartyText,
     kindLabel,
     kindSentence,
+    waitingOnApprovalSentence,
   } from "./trust-vocabulary.ts";
 
   let {
@@ -318,13 +322,28 @@
   );
 
   const hasNotice = $derived(
-    accounts.length === 0 ||
+    picksAccount ||
+      accounts.length === 0 ||
       noLedgerSentence !== null ||
       accountsCapped ||
       pendingRequests.length > 0 ||
-      pendingRefusal !== null ||
       proposalNotice !== null,
   );
+
+  /** The field the band's first line names, so the label and the picker are one control. */
+  const accountFieldIdentifier = $props.id();
+
+  /**
+   * Show what is waiting on an answer.
+   *
+   * The queue is a face of the details panel rather than a section of it, so reaching it is two
+   * gestures in one: open the panel, and let go of whatever row is selected — a selected movement
+   * would otherwise keep its own face on screen and the press would appear to do nothing.
+   */
+  function showAwaitingApproval(): void {
+    grid.clearSelection();
+    panelPreference.set("open");
+  }
 
   // ---- the menu ------------------------------------------------------------------------------
 
@@ -442,27 +461,10 @@
   {/if}
 {/snippet}
 
-<!-- The account this surface reads against, then the two acts that move money out of it. Each act
-     is disabled carrying its reason rather than removed: the reader learns the act exists and what
-     it is waiting for. -->
+<!-- The two acts that move money out of this matter's ledger, and nothing else: which account the
+     surface reads against is scope, and scope leads the notices band. Each act is disabled carrying
+     its reason rather than removed, so the reader learns the act exists and what it is waiting for. -->
 {#snippet acts()}
-  {#if picksAccount}
-    <!-- A width off the generated scale compiles to nothing at all, so the field takes a container
-         width: wide enough for an account's name, narrow enough to leave the row its navigation. -->
-    <div class="w-2xs">
-      <ChoicePicker
-        label="Trust Account"
-        options={accountChoices}
-        value={account?.id ?? ""}
-        onchange={(chosen) => onChooseAccount(chosen)}
-      />
-    </div>
-  {:else if account !== null}
-    <span class="whitespace-nowrap text-xs text-text-muted" title={trustAccountLabel(account)}>
-      {account.name}
-    </span>
-  {/if}
-
   <Button
     variant="secondary"
     size="sm"
@@ -486,6 +488,27 @@
 {/snippet}
 
 {#snippet notices()}
+  <!-- SCOPE FIRST. Which account is being read decides what every figure beneath it means, so the
+       line that changes it leads the band: the field's name, the field, and nothing else. It stands
+       only where there is a choice to make. -->
+  {#if picksAccount}
+    <div class="flex flex-wrap items-center gap-8">
+      <Label for={accountFieldIdentifier}>Trust Account</Label>
+      <!-- A width off the generated scale compiles to nothing at all, so the field takes a
+           container width: wide enough for an account's name, narrow enough to leave the line to
+           the fact it is stating. -->
+      <div class="w-2xs">
+        <ChoicePicker
+          inputId={accountFieldIdentifier}
+          label="Trust Account"
+          options={accountChoices}
+          value={account?.id ?? ""}
+          onchange={(chosen) => onChooseAccount(chosen)}
+        />
+      </div>
+    </div>
+  {/if}
+
   {#if accounts.length === 0}
     <Alert.Root variant="info">
       <Alert.Title>The firm has not opened a trust account yet.</Alert.Title>
@@ -506,22 +529,15 @@
     <p class="text-xs text-text-muted">{proposalNotice}</p>
   {/if}
 
-  {#if pendingRefusal !== null}
-    <p class="text-xs text-status-warning-subtle-foreground">{pendingRefusal}</p>
+  <!-- The queue itself is read in the details panel, where a request states its whole terms. What
+       the band owes a reader passing the ledger is that somebody is owed an answer, and the way
+       there: the press opens the panel and lets go of the selection, so the face carrying the queue
+       is the one that shows. -->
+  {#if pendingRequests.length > 0}
+    <Button variant="ghost" size="sm" onclick={showAwaitingApproval}>
+      {waitingOnApprovalSentence(pendingRequests.length)}
+    </Button>
   {/if}
-
-  <!-- One request reads the same here and on the firm's Trust screen, down to the verbs it offers
-       and the panel each of them opens. The matter already knows which matter it is, so the Matter
-       row stands only on the firm's side. -->
-  {#each pendingRequests as request (request.id)}
-    <PendingRequest
-      {request}
-      viewer={{ sessionUserId, permissions }}
-      members={firmRoster.members}
-      {money}
-      onDecide={decide}
-    />
-  {/each}
 {/snippet}
 
 {#snippet list({ density, tableClass, frame }: { density: MoneySurfaceDensity; tableClass: string; frame: "card" | "flush" })}
@@ -550,10 +566,16 @@
 {#snippet panel()}
   <TrustDetailsPanel
     {ledger}
+    {account}
     {movements}
     selected={selectedMovements}
     {money}
     {unservedPositionTitle}
+    {pendingRequests}
+    {pendingRefusal}
+    viewer={{ sessionUserId, permissions }}
+    members={firmRoster.members}
+    onDecide={decide}
     onLetGo={() => grid.clearSelection()}
   />
 {/snippet}
