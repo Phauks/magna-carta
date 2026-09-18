@@ -49,6 +49,7 @@ import { registerDirectoryRoutes } from "./routes/directory.ts";
 import { registerCalendarRoutes } from "./routes/calendar.ts";
 import { registerMatterSearchRoutes } from "./routes/matter-search.ts";
 import { registerCommunicationsRoutes } from "./routes/communications.ts";
+import { registerMeetingsRoutes } from "./routes/meetings.ts";
 import { registerNotesRoutes } from "./routes/notes.ts";
 import { registerTasksRoutes } from "./routes/tasks.ts";
 import { registerMatterPlanRoutes } from "./routes/matter-plans.ts";
@@ -446,6 +447,20 @@ export type Bindings = {
   // logged, and never echoed back to a caller.
   REALTIME_TURN_TOKEN_ID?: string;
   REALTIME_TURN_TOKEN_SECRET?: string;
+  // Cloudflare Realtime SFU (selective forwarding unit) application credentials — the routing
+  // service every meeting's audio, video and screen share flows between browsers through. The media
+  // never touches this Worker; what these authorize is the signaling the meeting room brokers on a
+  // participant's behalf. Optional: absent in tests and until the owner provisions a Realtime
+  // application, in which case the create and join routes answer 503 and the calendar offers no way
+  // to start a meeting. Production sets both with `wrangler secret put`. Never logged, never echoed
+  // back to a caller, and never sent to a browser — a participant talks to the routing service over
+  // the session the room opens for it, holding no credential of its own.
+  REALTIME_SFU_APP_ID?: string;
+  REALTIME_SFU_APP_SECRET?: string;
+  // One meeting's signaling room, keyed `${firmId}:${meetingId}`. It brokers each browser's session
+  // with the routing service and keeps the roster; it holds no media and stores nothing anybody
+  // said. Addressed by the SESSION firm id at the route, never a path value.
+  MEETING_ROOM: DurableObjectNamespace<import("./meetings/meeting-room.ts").MeetingRoom>;
 };
 
 // One Better Auth instance per worker env: the env object is stable across requests within an
@@ -805,6 +820,12 @@ export function createApp(options: CreateAppOptions = {}) {
   // because there is no delete path anywhere in the subsystem.
   registerNotesRoutes(app, chokepoint);
   registerCommunicationsRoutes(app, chokepoint);
+  // Meetings — the room a member opens on a calendar event, who was in it, and when each of them
+  // arrived and left. Beside the call and text log because it is the same question about a
+  // different channel: what contact happened, recorded as identifiers and instants. The media is
+  // routed between browsers and never reaches this platform; these routes are the record plus the
+  // upgrade into the signaling room.
+  registerMeetingsRoutes(app, chokepoint);
   registerMatterSearchRoutes(app, chokepoint);
   registerTasksRoutes(app, chokepoint);
   registerMatterPlanRoutes(app, chokepoint);
