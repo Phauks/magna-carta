@@ -44,7 +44,11 @@ export interface FileIdentityInput {
   readonly documentTypeName: string | null;
 }
 
-/** The file's type, in words: its document type where the firm set one, else what the bytes say. */
+/**
+ * The file's type, in words: its document type where the firm set one, else what the name claims —
+ * the same reading the icon draws and the File Type column prints, so one row never says three
+ * things. Whether the claim holds is the analysis's finding, stated beside the name, not here.
+ */
 export function fileTypeLabel(input: FileIdentityInput): string {
   if (input.documentTypeName !== null && input.documentTypeName.length > 0) {
     return input.documentTypeName;
