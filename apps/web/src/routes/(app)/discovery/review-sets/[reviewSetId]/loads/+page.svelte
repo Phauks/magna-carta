@@ -39,7 +39,6 @@
   import CreateControl from "@magna-carta/design-system/create-control";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { MaturityBadge, soonDependencySentence } from "@magna-carta/design-system/maturity";
   import Download from "@lucide/svelte/icons/download";
   import Import from "@lucide/svelte/icons/import";
@@ -240,7 +239,6 @@
     <ScreenSearch
       bind:value={searchText}
       label="Search the loads"
-      placeholder={placeholderOf("Search the loads")}
       searchOn="pause"
       fieldClass="w-2xs sm:w-xs"
       class="ms-auto"

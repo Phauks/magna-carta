@@ -32,7 +32,6 @@
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import LabelledField from "@magna-carta/design-system/labelled-field";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import Plus from "@lucide/svelte/icons/plus";
@@ -280,7 +279,6 @@
     loading={carried === null}
     {refreshing}
     failed={readFailure !== null}
-    empty={carried !== null && carried.length === 0}
     label="Reading this record's categories"
     onRetry={retry}
     class="flex flex-col gap-8"
@@ -299,18 +297,12 @@
     {#snippet fixture()}
       {@render categoryTable(CATEGORY_FIXTURE)}
     {/snippet}
-    {#snippet emptyState()}
-      <EmptyState title="Filed Under Nothing">
-        The firm has not filed this record under any of its own categories. Categories are the
-        firm's words for the kinds of people and organizations it deals with, and a record without
-        one is simply unlabelled.
-      </EmptyState>
-    {/snippet}
     {@render categoryTable(carried ?? [])}
   </LoadingRegion>
 </section>
 
-<!-- One table for the rows and for the shape they take while they are read, so the two cannot drift. -->
+<!-- One table for the rows, for the shape they take while they are read, and for the empty body
+     they leave behind when there are none, so the three cannot drift. -->
 {#snippet categoryTable(rows: readonly DirectoryCategory[])}
   <DataTable.Root>
     <DataTable.Caption class="sr-only">How the firm files this record</DataTable.Caption>
@@ -337,6 +329,8 @@
             </span>
           </DataTable.Cell>
         </DataTable.Row>
+      {:else}
+        <DataTable.EmptyRow columns={2} title="Filed Under Nothing" />
       {/each}
     </DataTable.Body>
   </DataTable.Root>

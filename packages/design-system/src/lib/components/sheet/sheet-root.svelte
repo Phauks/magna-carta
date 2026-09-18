@@ -6,7 +6,21 @@
      two-way bind in Svelte 5, so a controlled sheet would silently fail without the `$bindable`. */
   import { Dialog as DialogPrimitive } from "bits-ui";
 
-  let { open = $bindable(false), ...restProps }: DialogPrimitive.RootProps = $props();
+  import { joinOverlayBand } from "../../internal/overlay-band.svelte.ts";
+
+  let { open = $bindable(false), onOpenChange, ...restProps }: DialogPrimitive.RootProps = $props();
+
+  // A dialog raised from a control seated in an overlay band — the Time Sheet from its top-bar
+  // chip — takes the band's one open place like a popover would, so the tray beside it goes as
+  // the sheet arrives rather than floating over it. Everywhere else the call finds no band.
+  joinOverlayBand(
+    () => open,
+    () => {
+      if (!open) return;
+      open = false;
+      onOpenChange?.(false);
+    },
+  );
 </script>
 
-<DialogPrimitive.Root bind:open {...restProps} />
+<DialogPrimitive.Root bind:open {onOpenChange} {...restProps} />

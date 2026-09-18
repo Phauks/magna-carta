@@ -8,8 +8,15 @@
      opens the menu, which then follows the pointer between the Trigger, the Content, and any
      SubContent, and closes a beat after the pointer has left them all. On by default for every
      menu; `openOnHover={false}` keeps a menu click-only. Bits still owns every deliberate route
-     (press, keyboard, touch), which hover adds to and never replaces. */
+     (press, keyboard, touch), which hover adds to and never replaces.
+
+     Root also joins the OVERLAY BAND it stands in, where it stands in one
+     (../../internal/overlay-band.svelte.ts): in a strip of controls that share one open panel — the
+     top bar — opening this menu closes whichever neighbour was open, deliberately, rather than
+     hoping Bits' outside-press dismissal reaches it. Everywhere else the call finds no band and
+     does nothing, so nothing outside such a strip changes. */
   import { DropdownMenu as DropdownMenuPrimitive } from "bits-ui";
+  import { joinOverlayBand } from "../../internal/overlay-band.svelte.ts";
   import { HoverOpenController, setHoverOpenContext } from "./hover-open.ts";
 
   let {
@@ -33,6 +40,16 @@
         onOpenChange?.(next);
       },
     }),
+  );
+
+  joinOverlayBand(
+    () => open,
+    () => {
+      if (!open) return;
+      open = false;
+      // Bits reports only the changes it makes itself; a close the band asked for is ours to report.
+      onOpenChange?.(false);
+    },
   );
 
   // Every change of `open`, whichever route made it, reaches the controller: a selection, Escape,

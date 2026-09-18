@@ -26,7 +26,7 @@ import type { DroppedEntry } from "@magna-carta/design-system/dropzone";
 import type { GridColumn } from "@magna-carta/design-system/data-table";
 import { folderPathOf } from "@magna-carta/design-system/dropzone";
 import { formatInstant } from "@magna-carta/design-system/formatters";
-import { formatBytes } from "./file-rows.ts";
+import { formatBytes, orderFolderRowsFirst } from "./file-rows.ts";
 import { countPhrase } from "./file-manager-vocabulary.ts";
 import { UPLOAD_STAGE_NARRATION, type UploadStage } from "./file-upload.ts";
 
@@ -463,10 +463,11 @@ export function intakeFolderPaths(entries: readonly DroppedEntry[]): string[] {
 
 /**
  * The grid's ordering for these rows: siblings sorted by the grid's own comparator, every child
- * kept under its parent, folders ahead of files at each level (a folder is a place, and places
- * lead the things in them in every file listing the product draws). A row whose parent is not
- * among the rows — filtered out, or collapsed — sits under the nearest ancestor that is, or at the
- * root, so nothing is ever dropped by the arrangement.
+ * kept under its parent, and folders ahead of files at each level through the one rule the flat
+ * list uses (`orderFolderRowsFirst`), so a nested listing and a flat one cannot disagree about
+ * where a folder sits. A row whose parent is not among the rows — filtered out, or collapsed —
+ * sits under the nearest ancestor that is, or at the root, so nothing is ever dropped by the
+ * arrangement.
  */
 export function orderIntakeRows(
   rows: readonly IntakeRow[],
@@ -487,14 +488,10 @@ export function orderIntakeRows(
   }
   const ordered: IntakeRow[] = [];
   const emit = (parent: string): void => {
-    const siblings = childrenOf.get(parent) ?? [];
-    const folders = siblings.filter((row) => row.kind === "folder").toSorted(compare);
-    const files = siblings.filter((row) => row.kind === "file").toSorted(compare);
-    for (const folder of folders) {
-      ordered.push(folder);
-      if (folder.kind === "folder") emit(folder.path);
+    for (const row of orderFolderRowsFirst(childrenOf.get(parent) ?? [], compare)) {
+      ordered.push(row);
+      if (row.kind === "folder") emit(row.path);
     }
-    ordered.push(...files);
   };
   emit("");
   return ordered;

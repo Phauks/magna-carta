@@ -2363,9 +2363,13 @@ export type DirectoryEntityListingPage = {
     data: Array<DirectoryEntityListing>;
     nextCursor: string | null;
     /**
-     * How many records the firm holds under these filters — every page of the walk, not the rows on this one.
+     * How many records the firm holds under these filters — every page of the walk when the directory is being listed, and the number of records answering when it is being searched, because a ranked answer's size is the answer's and not the book's.
      */
     total: number;
+    /**
+     * True only where a ranked answer (`search`) was cut short: the firm holds more matches than were returned, so narrowing the query reaches the rest. False on every page of the plain index, which is walkable to its end by cursor and never cut.
+     */
+    capped: boolean;
 };
 
 export type DirectoryEntityListing = {
@@ -16346,6 +16350,10 @@ export type DirectoryListEntitiesData = {
          * Narrows to one side of the directory. Omitted, both are listed together.
          */
         kind?: 'person' | 'organization';
+        /**
+         * A name to rank the directory against — every name the firm has recorded is matched, former names included, and a misspelling still finds the record. The corpus matches three-character windows, so a shorter query answers with nothing rather than with the whole book. Omitted, the directory is listed in name order.
+         */
+        search?: string;
     };
     url: '/api/v1/directory/entities';
 };
@@ -16369,7 +16377,7 @@ export type DirectoryListEntitiesError = DirectoryListEntitiesErrors[keyof Direc
 
 export type DirectoryListEntitiesResponses = {
     /**
-     * A page of the directory in name order, with the size of the whole record
+     * A page of the directory in name order, with the size of the whole record — or, under `search`, the ranked matches as the same rows
      */
     200: DirectoryEntityListingPage;
 };

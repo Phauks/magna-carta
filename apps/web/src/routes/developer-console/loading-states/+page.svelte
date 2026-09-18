@@ -286,6 +286,9 @@
           <p class="pb-8 text-xs text-text-muted">Empty</p>
           <LoadingRegion loading={false} empty label="Reading the matters on this record">
             {#snippet emptyState()}
+              <!-- structured-empty-allow: this is the gallery that demonstrates the loading
+                   region's five postures side by side, and the empty posture is the thing being
+                   shown. A table drawn in its place would demonstrate nothing. -->
               <EmptyState title="On no matter yet">
                 This record has not been made a party to any matter.
               </EmptyState>
