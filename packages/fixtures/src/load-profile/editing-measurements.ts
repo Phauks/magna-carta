@@ -95,6 +95,8 @@ export const editingMeasurements: readonly Measurement<EditingMeasurementHandle,
           }),
           sizeBytes: handle.context.faker.number.int({ min: 20_000, max: 2_000_000 }),
           uploadedBy: editingProbes.versionCutMemberId,
+          saveKind: "explicit",
+          participants: [],
         },
         {
           clock: handle.context.clock,

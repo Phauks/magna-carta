@@ -11,6 +11,7 @@
 - `src/document-editor-container.ts` — the `Container` class: one coolwsd on 9980, `enableInternet = false`, `sleepAfter`, and `outboundByHost`, which intercepts coolwsd's calls to `WOPI_HOST` and forwards them over `APP_WORKER`. The handler is registered by assignment in a static block, never as a static field (Gotchas).
 - `src/document-routing.ts` — `documentKeyFromHost` (the Host's first label, validated against `DOCUMENT_KEY_PATTERN` before it can name a container) and `forwardWopiCallback`. Pure; importable by the node test pool.
 - `src/embedding-policy.ts` — adds the app origins to the `frame-ancestors` coolwsd sends, and hands a WebSocket upgrade back untouched. Pure.
+- `src/editor-branding.ts` — switches off the editor page's logo field on the way out (the editor hides its logo when that field reads `none`; this image offers no setting for it). Pure; the runtime rewriter is injected.
 - `src/diagnostics.ts` — the error boundary: a throw becomes a 500 with `X-MC-Error-Id` and one `error.captured`; an upgrade the container declines is recorded as `operation.failed` naming the status. Pure.
 - `wrangler.jsonc` — the wildcard route on the content domain, the container, the Durable Object, the `APP_WORKER` service binding, the `TELEMETRY` dataset.
 - `../../containers/collabora/Dockerfile` — the image and the whole of coolwsd's configuration.

@@ -63,6 +63,14 @@ export interface MatterFileVersion {
   committedAt: string | null;
   uploadedBy: string | null;
   uploadedByName: string | null;
+  /**
+   * What kind of save cut this version from the browser editor's working copy: the member's own
+   * Save, the editor's autosave, the save as the last view left, or the idle reap. Null for a
+   * version that arrived by upload, check-in or restore. History folds the autosaves.
+   */
+  saveKind: "explicit" | "autosave" | "exit" | "reap" | null;
+  /** Everyone in the editing session when the version was cut, the author included. */
+  participants: readonly { userId: string; name: string | null }[];
   /** The version's standing verdict, the engine that reached it, and the engine's own detail. */
   scanVerdict: "unscanned" | "clean" | "flagged" | null;
   scanEngineVersion: string | null;

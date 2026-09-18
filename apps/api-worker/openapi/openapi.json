@@ -7408,6 +7408,40 @@
               "null"
             ]
           },
+          "saveKind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "explicit",
+              "autosave",
+              "exit",
+              "reap",
+              null
+            ]
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "userId": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "userId",
+                "name"
+              ]
+            }
+          },
           "scanVerdict": {
             "type": [
               "string",
@@ -7442,6 +7476,8 @@
           "committedAt",
           "uploadedBy",
           "uploadedByName",
+          "saveKind",
+          "participants",
           "scanVerdict",
           "scanEngineVersion",
           "scanDetail"

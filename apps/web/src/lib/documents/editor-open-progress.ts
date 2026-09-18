@@ -176,13 +176,26 @@ export function stalledSentence(stage: OpenStage, marks: OpenMarks): string {
   return STALLED_SENTENCES[stage];
 }
 
+// The unit is spelled out: "28.1 seconds", never "28.1 s". A wait is read by a person who is
+// waiting, and an abbreviation is one more thing to decode while they do.
 function seconds(milliseconds: number): string {
-  return `${(Math.max(0, milliseconds) / 1000).toFixed(1)} s`;
+  const value = (Math.max(0, milliseconds) / 1000).toFixed(1);
+  return `${value} ${value === "1.0" ? "second" : "seconds"}`;
 }
 
 function wholeSeconds(milliseconds: number): string {
-  return `${String(Math.max(0, Math.floor(milliseconds / 1000)))} s`;
+  const value = Math.max(0, Math.floor(milliseconds / 1000));
+  return `${String(value)} ${value === 1 ? "second" : "seconds"}`;
 }
+
+/**
+ * What the panel says once the open has run past the point a wait stops feeling like progress. The
+ * same sentence the design system's loading region says of any read, in the same voice, so a member
+ * who has seen one has seen the other; here it is said inside the staged panel, beside Retry, so it
+ * arrives without moving anything else on the screen.
+ */
+export const TAKING_LONGER_SENTENCE =
+  "Still opening this document in the editor. This is taking longer than it should.";
 
 /**
  * The facts a stalled open hands over, one row per stage and then the host's side of it. A stage
@@ -221,12 +234,12 @@ export function openTrace(marks: OpenMarks, now: Date): string {
     .join("\n");
 }
 
-/** "12 s so far": how long the open has been running, in whole seconds. */
+/** "12 seconds so far": how long the open has been running, in whole seconds. */
 export function elapsedLabel(startedAt: Date, now: Date): string {
   return `${wholeSeconds(now.getTime() - startedAt.getTime())} so far`;
 }
 
-/** "Stopped after 90 s": how long the open ran before it was called off. */
+/** "Stopped after 90 seconds": how long the open ran before it was called off. */
 export function stoppedLabel(startedAt: Date, failedAt: Date): string {
   return `Stopped after ${wholeSeconds(failedAt.getTime() - startedAt.getTime())}`;
 }

@@ -21,7 +21,7 @@ export function applyBundleLayout(
         options.layout === "flatten" ? (entry.path.split("/").pop() ?? entry.path) : entry.path;
       return { entry, path: sanitizeArchivePath(`${wrapperPrefix}${base}`) };
     })
-    .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
+    .toSorted((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
     .map(({ entry, path }) => ({ ...entry, path: disambiguate(path, taken) }));
 
   return { entries, fileCount: entries.length, totalBytes: resolved.totalBytes };

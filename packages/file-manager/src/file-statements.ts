@@ -66,6 +66,9 @@ export interface InsertFileVersionRow {
   readonly declaredContentType: string | null;
   readonly uploadedBy: UserId | null;
   readonly createdAt: string;
+  // What kind of save cut this version, for one the browser editor cut from the working copy; null
+  // for an upload, a check-in or a restore. History folds the autosaves and names the rest.
+  readonly saveKind?: VersionSaveKind | null;
   // Set only for the return leg of an offline checkout: the checkout this version came back through.
   // The ingest gate reads it to route a cleared check-in into divergence resolution. Null otherwise.
   readonly checkoutId?: DocumentCheckoutId | null;
@@ -84,9 +87,9 @@ export function insertFileVersionStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${FILE_VERSION_TABLE} (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, scan_verdict, scan_engine_version, status, uploaded_by, checkout_id, created_at, committed_at, source_modified_at) ` +
+      `INSERT INTO ${FILE_VERSION_TABLE} (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, scan_verdict, scan_engine_version, status, uploaded_by, checkout_id, created_at, committed_at, source_modified_at, save_kind) ` +
         // the version-number subquery spans ALL statuses by design (numbers never reuse a slot) — fitness:allow-no-status
-        `VALUES (?1, ?2, (SELECT COALESCE(MAX(version_number), 0) + 1 FROM ${FILE_VERSION_TABLE} WHERE file_id = ?2), ?3, NULL, ?4, NULL, NULL, NULL, NULL, 'pending', ?5, ?6, ?7, NULL, ?8)`,
+        `VALUES (?1, ?2, (SELECT COALESCE(MAX(version_number), 0) + 1 FROM ${FILE_VERSION_TABLE} WHERE file_id = ?2), ?3, NULL, ?4, NULL, NULL, NULL, NULL, 'pending', ?5, ?6, ?7, NULL, ?8, ?9)`,
     )
     .bind(
       row.id,
@@ -97,7 +100,32 @@ export function insertFileVersionStatement(
       row.checkoutId ?? null,
       row.createdAt,
       row.sourceModifiedAt ?? null,
+      row.saveKind ?? null,
     );
+}
+
+/** What kind of save cut a version from the working copy. The editor names the first three. */
+export type VersionSaveKind = "explicit" | "autosave" | "exit" | "reap";
+
+export const FILE_VERSION_PARTICIPANT_TABLE = "file_version_participant";
+
+/**
+ * Who was in the editing session when a version was cut: one row per member with a view open. The
+ * version's uploaded_by is the member whose save cut it; these are everyone who could have written
+ * the words in it. One statement per participant, so the batch that cuts the version carries them.
+ */
+export function insertVersionParticipantStatements(
+  database: SqlDatabase,
+  versionId: FileVersionId,
+  memberUserIds: readonly UserId[],
+): SqlStatement[] {
+  return memberUserIds.map((memberUserId) =>
+    database
+      .prepare(
+        `INSERT INTO ${FILE_VERSION_PARTICIPANT_TABLE} (version_id, member_user_id) VALUES (?1, ?2) ON CONFLICT DO NOTHING`,
+      )
+      .bind(versionId, memberUserId),
+  );
 }
 
 export interface InsertUploadSessionRow {

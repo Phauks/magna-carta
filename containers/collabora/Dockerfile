@@ -23,6 +23,11 @@ ENV DONT_GEN_SSL_CERT="true"
 #                             the shipped coolwsd.xml default is 4).
 #   security.capabilities=false — run without the chroot-jail Linux capabilities that Cloudflare
 #                                 Containers do not grant (the kit uses a plain process boundary).
+#   mount_jail_tree=false — the kit's files are linked or copied into its jail rather than
+#                           bind-mounted. Bind-mounting needs CAP_SYS_ADMIN, which the container
+#                           does not have; left on, coolwsd tries the mount, fails, falls back to
+#                           copying anyway and reports the failed mount in its server audit. Off,
+#                           the same copying happens and the audit reads it as a recommendation.
 #   home_mode.enable=true + welcome.enable=false — the editor's own "what's new" dialog is not shown on
 #                          open, and neither is its feedback prompt. The dialog decides whether to show
 #                          itself from a version it remembers in the BROWSER'S storage for the editor's
@@ -58,7 +63,7 @@ ENV DONT_GEN_SSL_CERT="true"
 #   unquoted, and it stays literal because no file in the entrypoint's working directory can match a
 #   word of that shape. Quoting the expansion in this file is not an option — the entrypoint is the
 #   image's, not ours.
-ENV extra_params="--o:ssl.enable=false --o:ssl.termination=true --o:num_prespawn_children=1 --o:security.capabilities=false --o:storage.wopi.alias_groups[@mode]=groups --o:storage.wopi.alias_groups.group[0].host=http://wopi.magna-carta.internal:80 --o:storage.wopi.alias_groups.group[0].host[@allow]=true --o:home_mode.enable=true --o:welcome.enable=false --o:admin_console.username= --o:admin_console.password="
+ENV extra_params="--o:ssl.enable=false --o:ssl.termination=true --o:num_prespawn_children=1 --o:security.capabilities=false --o:mount_jail_tree=false --o:storage.wopi.alias_groups[@mode]=groups --o:storage.wopi.alias_groups.group[0].host=http://wopi.magna-carta.internal:80 --o:storage.wopi.alias_groups.group[0].host[@allow]=true --o:home_mode.enable=true --o:welcome.enable=false --o:admin_console.username= --o:admin_console.password="
 
 # coolwsd's HTTP + WebSocket port — matches DocumentEditorContainer.defaultPort. The image's own
 # entrypoint (which generates the TLS material when asked to, maps the container's user id, and execs

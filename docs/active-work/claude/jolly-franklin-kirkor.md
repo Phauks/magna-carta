@@ -2,7 +2,7 @@
 worktree: /home/user/magna-carta
 area: In-app document editing — the editor frame's embedding policy, the open-a-document waiting state, and the header that screen would carry
 status: review
-touches: apps/edit-worker, containers/collabora, apps/api-worker/src/editing, apps/web/src/lib/documents, apps/web/src/routes/(app)/+layout.svelte, apps/web/src/routes/(app)/documents/[id]/edit, apps/web/src/routes/(app)/settings/opening-files, apps/web/src/lib/settings/settings-sections.ts, apps/web/src/routes/developer-console, apps/web/src/lib/developer/dev-fixtures.ts, packages/design-system/src/lib/components/file-icon, packages/telemetry/src/scrub.ts, packages/api-client, docs/user/admin, changelog.d
+touches: apps/edit-worker, containers/collabora, apps/api-worker/src/editing, apps/api-worker/src/routes/files.ts, packages/database, packages/file-manager, packages/data-access/src/member-statements.ts, packages/data-access/src/pii-registry.ts, apps/web/src/lib/file-manager, docs/specs, docs/decisions/pending, docs/operating-costs.md, apps/web/src/lib/documents, apps/web/src/routes/(app)/+layout.svelte, apps/web/src/routes/(app)/documents/[id]/edit, apps/web/src/routes/(app)/settings/opening-files, apps/web/src/lib/settings/settings-sections.ts, apps/web/src/routes/developer-console, apps/web/src/lib/developer/dev-fixtures.ts, packages/design-system/src/lib/components/file-icon, packages/telemetry/src/scrub.ts, packages/api-client, docs/user/admin, changelog.d
 ---
 
 Two defects, reported from a real open of a `.docx`, and one design question that arrived with them.
@@ -53,3 +53,10 @@ takes over a stale lock, and the image no longer opens the editor's welcome dial
 `packages/design-system` gains one export (`extensionsOfCategory`); `(app)/+layout.svelte` gains
 the shell-less branch — both cross-cutting, both small, `vp run worktrees` shows no other stream
 on them.
+
+Seventh round, from the SDK pages the owner supplied as PDFs (the site itself is behind a bot
+check): the opening wait becomes one centered panel over the frame with the stall sentence and
+Retry inside it; the back-to-matter button goes on the editor's bar through its message protocol
+(`editor-controls.ts`), with the editor's Close routed to the same exit; PutFile answers the
+documented JSON body; CheckFileInfo names the member; the frame allows full screen; the image
+sets `mount_jail_tree=false`. `packages/data-access/src/member-statements.ts` gains one read.
