@@ -126,6 +126,13 @@ and to the member the author name resolves to. The reader is Rust in the shared 
 `w:author` and `w:date`), compiled to WASM for the worker as the other document readers are. Only
 the marks are read; the platform never holds the document's text outside object storage.
 
+A mark carries the author's name as text, not a member identifier — that is what the document
+format holds — so the reader resolves the name to a member at the moment of the cut, against the
+session's participants first (two members sharing a display name are told apart by who was in the
+document) and the firm's roster second. The change row then carries the member's identifier, so a
+member's later renames follow them in history, and a mark whose name resolves to nobody is kept
+with the name it carries rather than dropped.
+
 History then shows, for any version or fold, the per-author summary ("Ana: 3 paragraphs added, 2
 sentences removed · Trevor: 1 sentence changed") and, on opening it, the diff coloured by author,
 rendered from the marks rather than from a text comparison.
