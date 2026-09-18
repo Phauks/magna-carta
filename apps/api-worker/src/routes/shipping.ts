@@ -47,6 +47,7 @@ import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
 import { buildIntegrationRegistry } from "../plugins/registry.ts";
+import { protectedReadContext } from "../protected-read-context.ts";
 import type { PluginRuntime } from "../plugins/runtime.ts";
 
 // Shipping & postage: connect the firm's EasyPost postage account, then create/rate/buy/track/refund
@@ -422,7 +423,7 @@ export function registerShippingRoutes(
       // the first thing that has to answer honestly: with no per-firm credential read there is
       // nowhere to put the key, and recording a connection row over a key that was never stored
       // would leave the firm believing it had connected an account it had not.
-      const secrets = runtime.secretStoreForFirm(firm.firmDatabase);
+      const secrets = runtime.secretStoreForFirm(protectedReadContext(c));
       if (secrets === null) return credentialReadNotImplementedProblem(c);
       const descriptor = createEasyPostAdapter({ http: runtime.httpClient }).descriptor;
 
@@ -581,7 +582,7 @@ export function registerShippingRoutes(
       const firm = requireChokepointFirmContext(c);
       const firmId = requireChokepointFirmId(c);
       const id = c.req.valid("param").id as ShipmentId;
-      const registry = buildIntegrationRegistry(firm.firmDatabase, runtime);
+      const registry = buildIntegrationRegistry(protectedReadContext(c), runtime);
       const resolved = await registry.resolve<ShippingPort>("shipping", { firmId });
       if (!resolved.ok) return shippingDispatchProblem(c, resolved);
       const { results } = await selectShipmentStatement(firm.firmDatabase, id).all<{
@@ -639,7 +640,7 @@ export function registerShippingRoutes(
       const id = c.req.valid("param").id as ShipmentId;
       const body = c.req.valid("json");
       const now = () => new Date().toISOString();
-      const registry = buildIntegrationRegistry(firm.firmDatabase, runtime);
+      const registry = buildIntegrationRegistry(protectedReadContext(c), runtime);
       const resolved = await registry.resolve<ShippingPort>("shipping", { firmId });
       if (!resolved.ok) return shippingDispatchProblem(c, resolved);
 
@@ -837,7 +838,7 @@ export function registerShippingRoutes(
       }>();
       const shipmentRow = results[0];
       if (shipmentRow?.tracking_code == null) return notFoundProblem(c);
-      const registry = buildIntegrationRegistry(firm.firmDatabase, runtime);
+      const registry = buildIntegrationRegistry(protectedReadContext(c), runtime);
       const resolved = await registry.resolve<ShippingPort>("shipping", { firmId });
       if (!resolved.ok) return shippingDispatchProblem(c, resolved);
       const tracked = await resolved.value.port.getTracking(shipmentRow.tracking_code);
@@ -891,7 +892,7 @@ export function registerShippingRoutes(
       }>();
       const remote = results[0]?.remote_shipment_id;
       if (remote == null) return notFoundProblem(c);
-      const registry = buildIntegrationRegistry(firm.firmDatabase, runtime);
+      const registry = buildIntegrationRegistry(protectedReadContext(c), runtime);
       const resolved = await registry.resolve<ShippingPort>("shipping", { firmId });
       if (!resolved.ok) return shippingDispatchProblem(c, resolved);
       const refunded = await resolved.value.port.refundLabel(remote);
