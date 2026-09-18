@@ -29,7 +29,6 @@
    * Save says so.
    */
   import { untrack } from "svelte";
-  import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Input from "@magna-carta/design-system/input";
@@ -55,15 +54,15 @@
     moveNumberSegment,
     newNumberSegment,
     numberingFrozenSentence,
-    numberingNothingInForceSentence,
+    numberingInForceDescriptor,
     numberingSampleSentence,
+    numberingSampleYear,
     numberingSavedSentence,
     numberingSchemeLabel,
     numberingSchemeRefusal,
     numberingSchemesEqual,
     numberingStartersFor,
     numberSegmentCellRefusal,
-    numberSegmentSummary,
     numberSegmentVocabulary,
     numberSegmentVocabularyFor,
     removeNumberSegment,
@@ -100,6 +99,8 @@
   const initial = untrack(() => record);
   let committed = $state<readonly NumberSegment[] | null>(initial.segments);
   let usingDefault = $state(initial.usingDefault === true);
+  /** The first number the sample renders under what is in force, as the server rendered it. */
+  let example = $state<string | null>(initial.example);
   /** The list under edit. Starts as the committed scheme and is returned to it by Discard. */
   let draft = $state<readonly NumberSegment[]>(initial.segments ?? []);
   let saving = $state(false);
@@ -216,6 +217,9 @@
     committed = outcome.value.segments;
     usingDefault = false;
     draft = outcome.value.segments;
+    // The preview rendered the saved list against the sample at its first value, which is exactly
+    // what the In Force row shows; the server rendered it, so nothing is composed here.
+    if (preview !== null) example = preview.number;
     savedSentence = numberingSavedSentence(record);
   }
 
@@ -226,17 +230,20 @@
       meaning: entry.description,
     })),
   );
+  // Every year these choices name is the sample's, which the server sets to today: a starter's
+  // example and the digits picker never disagree with the preview beneath them in January.
+  const sampleYear = $derived(numberingSampleYear(sample));
   const STARTER_CHOICES = $derived(
     starters.map((starter) => ({
       value: starter.key,
       label: starter.label,
-      aside: starter.example,
+      aside: starter.exampleFor(sampleYear),
     })),
   );
-  const YEAR_DIGIT_CHOICES = [
-    { value: "4", label: "Four (2026)" },
-    { value: "2", label: "Two (26)" },
-  ];
+  const YEAR_DIGIT_CHOICES = $derived([
+    { value: "4", label: `Four (${sampleYear})` },
+    { value: "2", label: `Two (${sampleYear.slice(2)})` },
+  ]);
 
   function numberOf(value: string, fallback: number): number {
     const parsed = Number.parseInt(value, 10);
@@ -252,14 +259,13 @@
 
   // ---- the rows of the plate, as settings definitions ----------------------------------------
 
+  // In Force answers with the number the sample renders, as the fixed sequences' rows do, and its
+  // one line under it is the parts that render it — the built-in ones said to be so.
   const IN_FORCE_DEFINITION = $derived<SettingDefinition>({
     id: `numbering.${purpose}.in-force`,
     sectionId: "numbering",
     label: "In Force",
-    description:
-      committed === null
-        ? numberingNothingInForceSentence(record)
-        : `What the firm is numbering under today. ${record.drawnWhen}`,
+    description: numberingInForceDescriptor(record, committed, usingDefault),
     kind: "text",
     defaultValue: "",
     sensitivity: "open",
@@ -285,36 +291,18 @@
     sensitivity: "open",
   });
 
-  const inForceSummary = $derived(
-    committed === null ? "Not set" : committed.map(numberSegmentSummary).join(" · "),
-  );
 </script>
 
-{#snippet inForceRow(summary: string, badge: "not-set" | "built-in" | null)}
-  <SettingsRow definition={IN_FORCE_DEFINITION}>
-    {#snippet control()}
-      <div class="flex flex-col items-end gap-4">
-        {#if badge === "not-set"}
-          <Badge variant="warning">Not set</Badge>
-        {:else if badge === "built-in"}
-          <Badge variant="neutral">Built-in sequence</Badge>
-        {/if}
-        <p class="text-end text-sm font-medium tabular-nums">{summary}</p>
-      </div>
-    {/snippet}
-  </SettingsRow>
-{/snippet}
-
 <div class="flex flex-col divide-y divide-border-default">
-  <!-- What is in force, stated before anything is edited. -->
-  {@render inForceRow(inForceSummary, committed === null ? "not-set" : usingDefault ? "built-in" : null)}
+  <!-- What is in force, stated before anything is edited: a value engraved, never a control. -->
+  <SettingsRow definition={IN_FORCE_DEFINITION} value={example ?? "Not set"} />
 
   {#if canManage}
     <SettingsRow definition={SCHEME_DEFINITION}>
       {#snippet control()}
         <ChoicePicker
           options={STARTER_CHOICES}
-          inputId="{identifier}-scheme"
+          inputId="settings-{SCHEME_DEFINITION.id}"
           label={SCHEME_DEFINITION.label}
           disabled={saving}
           bind:value={() => starterChoice, chooseStarter}
@@ -339,18 +327,13 @@
             <DataTable.Head>Text</DataTable.Head>
             <DataTable.Head>Digits</DataTable.Head>
             <DataTable.Head>Starts At</DataTable.Head>
-            <DataTable.Head>Restarts The Count</DataTable.Head>
+            <DataTable.Head>Restarts the Count</DataTable.Head>
             <DataTable.Head class="sr-only">Remove</DataTable.Head>
           </DataTable.Row>
         </DataTable.Header>
         <DataTable.Body>
           {#if draft.length === 0}
-            <!-- Not a row: nothing here can be selected, so it takes none of a row's treatment. -->
-            <DataTable.Row data-placeholder="true">
-              <DataTable.Cell colspan={7} class="text-sm text-text-muted">
-                No parts yet. Choose a scheme above, or add a part.
-              </DataTable.Cell>
-            </DataTable.Row>
+            <DataTable.EmptyRow columns={7} title="No parts yet" />
           {/if}
           {#each draft as segment, index (index)}
             {@const vocabulary = numberSegmentVocabulary(segment.kind)}
@@ -416,7 +399,7 @@
                     <ChoicePicker
                       options={YEAR_DIGIT_CHOICES}
                       inputId="{identifier}-digits-{index}"
-                      label="Digits"
+                      label="Digits of part {index + 1}"
                       disabled={saving}
                       bind:value={
                         () => String(segment.digits),
@@ -516,7 +499,10 @@
               <p class="text-end text-xs text-text-muted">One count across the whole firm.</p>
             {/snippet}
             {#if preview !== null}
-              <p class="text-lg tabular-nums">{preview.number}</p>
+              <!-- An output, so the row's label names the number it labels. -->
+              <output id="settings-{PREVIEW_DEFINITION.id}" class="text-lg tabular-nums">
+                {preview.number}
+              </output>
               <p class="text-end text-xs text-text-muted">
                 {preview.scopeKey === ""
                   ? "One count across the whole firm."

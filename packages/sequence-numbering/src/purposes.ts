@@ -90,7 +90,10 @@ export interface SchemeNumberingPurposeDefinition extends PurposeCommon {
 /** A purpose whose shape is fixed by ruling: listed so the inventory is complete, never edited. */
 export interface FixedNumberingPurposeDefinition extends PurposeCommon {
   readonly formulation: "fixed";
-  /** What renders, and why the firm does not choose it. */
+  /**
+   * What renders, in one sentence a settings row can carry as its descriptor. WHY the firm does not
+   * choose it is the user guide's to explain (docs/user/admin/numbering.md), not the screen's.
+   */
   readonly fixedShape: string;
   /** What the first record of 2026 renders as. */
   readonly example: string;
@@ -241,7 +244,7 @@ const DEFINITIONS: readonly NumberingPurposeDefinition[] = [
     subjects: "invoices",
     drawnWhen: "Drawn when a bill is finalized, never at draft.",
     fixedShape:
-      "A five-digit count that never restarts, firm-wide or under the letterhead scope chosen when the bill is finalized. A tax invoice's number is a run its auditors read, so it takes no template.",
+      "A five-digit count that never restarts, firm-wide or under the letterhead scope chosen when the bill is finalized.",
     example: "00001",
   },
   {
@@ -252,8 +255,7 @@ const DEFINITIONS: readonly NumberingPurposeDefinition[] = [
     subject: "time entry",
     subjects: "time entries",
     drawnWhen: "Drawn when an entry is captured, in capture order on its matter.",
-    fixedShape:
-      "The matter's own number, a dot, and a four-digit count per matter. It is read against the matter it belongs to, so it carries that matter's number rather than a shape of its own.",
+    fixedShape: "The matter's own number, a dot, and a four-digit count per matter.",
     example: "2026-0001.0001",
   },
   {
@@ -264,8 +266,7 @@ const DEFINITIONS: readonly NumberingPurposeDefinition[] = [
     subject: "call or text",
     subjects: "calls and texts",
     drawnWhen: "Drawn when a call or text is recorded.",
-    fixedShape:
-      "The day it happened, then a four-digit count for that day. The day is in the number so a reader knows when the call was without a lookup, and a firm-wide run would reach five digits inside a year.",
+    fixedShape: "The day it happened, then a four-digit count for that day.",
     example: "2026-01-01-0001",
   },
 ];

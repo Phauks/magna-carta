@@ -28,8 +28,11 @@ Each sequence has its own plate on the page, in this order:
   shape.
 - **Invoice Numbers**, **Time Entry Numbers** and **Call and Text Numbers** have a fixed shape and
   are stated on the page for completeness: a five-digit count per letterhead scope, the matter's own
-  number with a four-digit count, and the day with a four-digit count. They are listed so the page
-  is the whole inventory; the plate says why each shape is fixed.
+  number with a four-digit count, and the day with a four-digit count. An invoice number is a run
+  the firm's auditors read, so it takes no template; a time entry is read against the matter it
+  belongs to, so it carries that matter's number; a call's number carries the day so a reader
+  knows when it happened without a lookup, and a firm-wide run would reach five digits inside a
+  year. They are listed so the page is the whole inventory.
 
 The first five are the firm's to shape. Until the firm has set a matter numbering scheme, a
 consultation cannot be opened as a matter: there is no shape to draw its number in. Every other
@@ -45,7 +48,7 @@ A scheme is an ordered list of parts. Each part is one of:
 - **Counter**: the part that ticks up with each number drawn. Every scheme has exactly one. Choose
   how many digits it is padded to and what it starts at. The digits are a floor, not a ceiling: a
   run that passes its width grows a digit rather than stopping, so no sequence ever runs out.
-- **Year**, as four digits or two, or **Date Opened** as eight digits, taken from the day the
+- **Year**, as four digits or two, or **Date Numbered** as eight digits, taken from the day the
   record was numbered.
 - **Office Code**, **Practice Area Code**, **Client Code**, **Attorney Initials** or **Client
   Name**, taken from the matter. Only the matter, consultation and intake sequences offer these: a

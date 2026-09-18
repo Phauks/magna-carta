@@ -12,8 +12,10 @@ import {
   NUMBER_SEGMENT_VOCABULARY,
   NUMBERING_STARTERS,
   numberingFrozenSentence,
+  numberingInForceDescriptor,
   numberingNothingInForceSentence,
   numberingSampleSentence,
+  numberingSampleYear,
   numberingSavedSentence,
   numberingSchemeLabel,
   numberingSchemeRefusal,
@@ -204,10 +206,26 @@ describe("a purpose's vocabulary", () => {
 
   it("names in the sample sentence only the facts the purpose's parts can use", () => {
     expect(numberingSampleSentence(SAMPLE, CONFLICTS_CHECK)).toBe(
-      "Previewed for a conflicts check numbered 2026-09-18.",
+      "Previewed for a conflicts check numbered Sep 18, 2026.",
     );
     expect(numberingSampleSentence(SAMPLE, MATTER)).toBe(
-      "Previewed for a matter numbered 2026-09-18 at office RNO, practice area LIT, client code ASH, attorney EV, client Ashcombe Mercantile.",
+      "Previewed for a matter numbered Sep 18, 2026 at office RNO, practice area LIT, client code ASH, attorney EV, client Ashcombe Mercantile.",
+    );
+  });
+
+  it("names the sample's year, never a hard-coded one, in a starter's example", () => {
+    expect(numberingSampleYear(SAMPLE)).toBe("2026");
+    const yearCounter = NUMBERING_STARTERS.find((starter) => starter.key === "year-counter");
+    expect(yearCounter?.exampleFor("2027")).toBe("2027-0001");
+  });
+
+  it("describes what is in force under the number: the parts, the built-in sequence, or nothing", () => {
+    expect(numberingInForceDescriptor(MATTER, null, false)).toMatch(/cannot open/);
+    expect(numberingInForceDescriptor(CONFLICTS_CHECK, CONFLICTS_CHECK.segments, true)).toBe(
+      'The built-in sequence: "CC" · Year, 4 digits, restarts the count · "-" · Counter, 5 digits',
+    );
+    expect(numberingInForceDescriptor(MATTER, YEAR_COUNTER, false)).toBe(
+      'Year, 4 digits, restarts the count · "-" · Counter, 4 digits',
     );
   });
 });

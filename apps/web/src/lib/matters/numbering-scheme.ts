@@ -21,6 +21,8 @@
  * That is the matters package's rule, restated on the screen so nobody expects a renumbering.
  */
 
+import { formatDate } from "@magna-carta/design-system/formatters";
+
 /** Every number the firm issues, as the register names them. */
 export type NumberingPurpose =
   | "matter"
@@ -123,13 +125,13 @@ export const NUMBER_SEGMENT_VOCABULARY: readonly NumberSegmentVocabularyEntry[] 
   {
     kind: "year",
     label: "Year",
-    description: "The year the matter opened, as two or four digits.",
+    description: "The year the record was numbered, as two or four digits.",
     valued: true,
   },
   {
     kind: "date_opened",
-    label: "Date Opened",
-    description: "The date the matter opened, as eight digits (YYYYMMDD).",
+    label: "Date Numbered",
+    description: "The date the record was numbered, as eight digits (YYYYMMDD).",
     valued: true,
   },
   {
@@ -298,21 +300,22 @@ export function numberingSchemesEqual(
 export interface NumberingStarter {
   readonly key: string;
   readonly label: string;
-  /** What it renders as, for a matter opened in 2026 at the first draw. */
-  readonly example: string;
+  /** What it renders as at the first draw, given the year of the sample the server supplied. */
+  readonly exampleFor: (year: string) => string;
   readonly segments: readonly NumberSegment[];
 }
 
 /**
  * The shapes a firm most often begins from. Each is a complete scheme the editor loads into the
  * list; every part is then the firm's to change. The examples are what the renderer produces for
- * the first number drawn in 2026, so a starter can be chosen by what it looks like.
+ * the first number drawn in the sample's year, so a starter can be chosen by what it looks like
+ * and never disagrees with the preview it loads.
  */
 export const NUMBERING_STARTERS: readonly NumberingStarter[] = [
   {
     key: "year-counter",
     label: "Year and counter",
-    example: "2026-0001",
+    exampleFor: (year) => `${year}-0001`,
     segments: [
       { kind: "year", digits: 4, scoping: true },
       { kind: "literal", text: "-" },
@@ -322,13 +325,13 @@ export const NUMBERING_STARTERS: readonly NumberingStarter[] = [
   {
     key: "counter",
     label: "A running count",
-    example: "00001",
+    exampleFor: () => "00001",
     segments: [{ kind: "counter", padWidth: 5, start: 1 }],
   },
   {
     key: "type-year-counter",
     label: "Practice area, year and counter",
-    example: "LIT-2026-0001",
+    exampleFor: (year) => `LIT-${year}-0001`,
     segments: [
       { kind: "matter_type_code", scoping: true },
       { kind: "literal", text: "-" },
@@ -340,7 +343,7 @@ export const NUMBERING_STARTERS: readonly NumberingStarter[] = [
   {
     key: "client-counter",
     label: "Client code and counter",
-    example: "ASH-001",
+    exampleFor: () => "ASH-001",
     segments: [
       { kind: "client_code", scoping: true },
       { kind: "literal", text: "-" },
@@ -373,9 +376,15 @@ export interface NumberingSampleContext {
   readonly clientName: string;
 }
 
+/** The year of the sample, for the copy that names one: the digits picker and the starters. */
+export function numberingSampleYear(context: Pick<NumberingSampleContext, "openedDate">): string {
+  return context.openedDate.slice(0, 4);
+}
+
 /**
  * How the sample reads beside the preview, so a rendered code is never mistaken for the firm's.
  * Only the facts the purpose's parts can use are named: a conflicts check has no office or client.
+ * The day is formatted the way every recorded day on the product is, never as the wire form.
  */
 export function numberingSampleSentence(
   context: NumberingSampleContext,
@@ -388,8 +397,22 @@ export function numberingSampleSentence(
   if (kinds.includes("client_code")) facts.push(`client code ${context.clientCode}`);
   if (kinds.includes("staff_initials")) facts.push(`attorney ${context.staffInitials}`);
   if (kinds.includes("client_name")) facts.push(`client ${context.clientName}`);
-  const opened = `Previewed for a ${record.subject} numbered ${context.openedDate}`;
+  const opened = `Previewed for a ${record.subject} numbered ${formatDate(context.openedDate)}`;
   return facts.length === 0 ? `${opened}.` : `${opened} ${facts.join(", ")}.`;
+}
+
+/**
+ * What the In Force row says under its value: the parts of the scheme in force, said to be the
+ * built-in sequence where it is, or the consequence of nothing being in force.
+ */
+export function numberingInForceDescriptor(
+  record: Pick<NumberingPurposeRecord, "purpose" | "subjects">,
+  committed: readonly NumberSegment[] | null,
+  usingDefault: boolean,
+): string {
+  if (committed === null) return numberingNothingInForceSentence(record);
+  const recipe = committed.map(numberSegmentSummary).join(" · ");
+  return usingDefault ? `The built-in sequence: ${recipe}` : recipe;
 }
 
 /**
