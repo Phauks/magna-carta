@@ -14,6 +14,7 @@ import {
   dayLanes,
   hourOf,
   hourSlots,
+  inAllDayBand,
   laneOf,
   placeDayEntries,
   wallClockMinutes,
@@ -54,6 +55,16 @@ describe("the hours a day draws", () => {
     expect(dayHours([toEight]).last).toBe(19);
     const pastEight = entry({ id: "b", startMinute: 14 * 60, endMinute: 20 * 60 + 1 });
     expect(dayHours([pastEight]).last).toBe(20);
+  });
+
+  it("never widens for a run of days: a span's hours are the band's, not the axis's", () => {
+    const trial = entry({
+      id: "trial",
+      endDate: "2026-09-17",
+      startMinute: 2 * 60,
+      endMinute: 23 * 60,
+    });
+    expect(dayHours([trial])).toEqual({ first: DEFAULT_FIRST_HOUR, last: DEFAULT_LAST_HOUR });
   });
 
   it("leaves an all-day entry out of the range entirely", () => {
@@ -97,6 +108,14 @@ describe("where a day's entries land", () => {
     expect(placed.allDay.get("ada")).toEqual([]);
   });
 
+  it("puts a run of days in the band too, hours or no hours", () => {
+    // A three-day trial is a fact about days; drawn on the axis it was three full columns.
+    const trial = entry({ id: "trial", lane: "ada", endDate: "2026-09-17", startMinute: 9 * 60 });
+    const placedTrial = placeDayEntries([trial], LANES);
+    expect(placedTrial.allDay.get("ada")).toEqual([trial]);
+    expect(placedTrial.timed.get("ada")).toEqual([]);
+  });
+
   it("keeps a timed entry in its own column, for the axis to place", () => {
     // WHERE on the axis it lands is time-placement.ts's answer; this module only says which
     // column holds it and that the hours hold it at all.
@@ -133,5 +152,27 @@ describe("a wall clock as minutes", () => {
   it("clamps an hour to a real one", () => {
     expect(hourOf(-30)).toBe(0);
     expect(hourOf(60 * 30)).toBe(23);
+  });
+});
+
+describe("what the band above the hours holds", () => {
+  it("is anything with no hour", () => {
+    expect(inAllDayBand(entry({ id: "filing" }))).toBe(true);
+  });
+
+  it("is anything that runs past its day, whatever its hours", () => {
+    expect(inAllDayBand(entry({ id: "trial", endDate: "2026-09-17", startMinute: 540 }))).toBe(
+      true,
+    );
+  });
+
+  it("is not a timed entry that ends on its own day, or one whose end reads before its start", () => {
+    expect(inAllDayBand(entry({ id: "hearing", startMinute: 540 }))).toBe(false);
+    expect(inAllDayBand(entry({ id: "same", endDate: "2026-09-15", startMinute: 540 }))).toBe(
+      false,
+    );
+    expect(inAllDayBand(entry({ id: "muddled", endDate: "2026-09-01", startMinute: 540 }))).toBe(
+      false,
+    );
   });
 });

@@ -10,7 +10,6 @@ export { default as ActionDialog } from "./action-dialog.svelte";
 export {
   traitsOf,
   widthClass,
-  DISCARD_SENTENCE,
   DISMISS_LABEL,
   LEAVE_LABEL,
   type KindTraits,

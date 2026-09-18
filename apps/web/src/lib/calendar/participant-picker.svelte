@@ -19,6 +19,12 @@
    * the role is a fact about this event and the name is a fact about the person. It is
    * participant-role-field.svelte — the product's dropdown-with-add, not the bare text box it was,
    * which offered a reader nothing to tell them what belonged in it.
+   *
+   * THE CHIPS ARE BUNDLED BY WHERE THEY CAME FROM. One list of names said nothing about which were
+   * colleagues, which were the firm's records and which were typed once (owner, 2026-09-18: "added
+   * participants should be bundled into their source, so that people can tell if they were other,
+   * staff, or directory related"). The bundles wear the picker's own words — Staff, Directory,
+   * Other — and a bundle with nobody in it is not drawn (event-draft.ts, `participantsBySource`).
    */
   import * as Combobox from "@magna-carta/design-system/combobox";
   import Button from "@magna-carta/design-system/button";
@@ -30,20 +36,21 @@
   import X from "@lucide/svelte/icons/x";
   import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
   import { memberRoleLine, type FirmMemberSummary } from "$lib/members/members-api.ts";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import {
     entityParticipant,
     externalParticipant,
     memberParticipant,
+    participantsBySource,
+    PARTICIPANT_SOURCES,
     type ParticipantDraft,
   } from "./event-draft.ts";
+  import type { ParticipantKind } from "./calendar-api.ts";
 
-  type ParticipantSource = "member" | "entity" | "external";
-
-  const SOURCES: readonly { value: ParticipantSource; label: string }[] = [
-    { value: "member", label: "Firm member" },
-    { value: "entity", label: "Directory" },
-    { value: "external", label: "Someone else" },
-  ];
+  /** The three places a name comes from, in the draft's own words: Staff, Directory, Other. */
+  const SOURCES: readonly { value: ParticipantKind; label: string }[] = PARTICIPANT_SOURCES.map(
+    (source) => ({ value: source.kind, label: source.label }),
+  );
 
   let {
     participants = $bindable(),
@@ -60,7 +67,10 @@
     disabled?: boolean;
   } = $props();
 
-  let source = $state<ParticipantSource>("member");
+  let source = $state<ParticipantKind>("member");
+
+  /** The chips, bundled under the source each came from. */
+  const bundles = $derived(participantsBySource(participants));
 
   /** The keys already on the list, joined; also what remounts the pickers after a pick. */
   const listedKeys = $derived(participants.map((participant) => participant.key));
@@ -135,32 +145,36 @@
 </script>
 
 <div class="flex flex-col gap-8">
-  {#if participants.length > 0}
-    <ul class="flex flex-col gap-8">
-      {#each participants as participant (participant.key)}
-        <li class="flex flex-wrap items-center gap-8">
-          <!-- A button wearing the badge recipe: a badge labels, and the removal needs a real
-               control. Same device as $lib/components/recipient-picker.svelte. -->
-          <button
-            type="button"
-            class={badgeClasses({ variant: "neutral" })}
-            aria-label="Remove {participant.displayName}"
-            {disabled}
-            onclick={() => remove(participant.key)}
-          >
-            {participant.displayName}
-            <X class="size-12" aria-hidden="true" />
-          </button>
-          <ParticipantRoleField
-            accessibleName="Role for {participant.displayName}"
-            {disabled}
-            value={participant.role}
-            onSettle={(role) => setRole(participant.key, role)}
-          />
-        </li>
-      {/each}
-    </ul>
-  {/if}
+  {#each bundles as bundle (bundle.kind)}
+    <!-- One bundle per source with somebody in it, headed by the source's own word. -->
+    <div class="flex flex-col gap-4">
+      <FieldLabel as="p">{bundle.label}</FieldLabel>
+      <ul class="flex flex-col gap-8" aria-label="{bundle.label} participants">
+        {#each bundle.participants as participant (participant.key)}
+          <li class="flex flex-wrap items-center gap-8">
+            <!-- A button wearing the badge recipe: a badge labels, and the removal needs a real
+                 control. Same device as $lib/components/recipient-picker.svelte. -->
+            <button
+              type="button"
+              class={badgeClasses({ variant: "neutral" })}
+              aria-label="Remove {participant.displayName}"
+              {disabled}
+              onclick={() => remove(participant.key)}
+            >
+              {participant.displayName}
+              <X class="size-12" aria-hidden="true" />
+            </button>
+            <ParticipantRoleField
+              accessibleName="Role for {participant.displayName}"
+              {disabled}
+              value={participant.role}
+              onSettle={(role) => setRole(participant.key, role)}
+            />
+          </li>
+        {/each}
+      </ul>
+    </div>
+  {/each}
 
   <div class="flex items-center gap-4" role="group" aria-label="Where the next name comes from">
     {#each SOURCES as option (option.value)}
@@ -184,6 +198,7 @@
     {#if source === "member"}
       <Combobox.Root
         type="single"
+        allowDeselect={false}
         {disabled}
         items={offeredMembers.map((member) => ({
           value: member.userId,
@@ -194,7 +209,7 @@
       >
         <Combobox.Input
           id={inputId}
-          fieldName="Firm member"
+          fieldName="Staff"
           autocomplete="off"
           oninput={(event) => (memberQuery = event.currentTarget.value)}
         />

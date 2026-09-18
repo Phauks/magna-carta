@@ -64,7 +64,7 @@
    * top-bar upload tray keeps showing them, and the file list re-reads when they land.
    */
   import { beforeNavigate, goto } from "$app/navigation";
-  import ActionDialog, { DISCARD_SENTENCE } from "@magna-carta/design-system/action-dialog";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
@@ -813,8 +813,4 @@
     discardAndLeave();
     return Promise.resolve("committed");
   }}
->
-  {#snippet fields()}
-    <p class="text-sm">{DISCARD_SENTENCE}</p>
-  {/snippet}
-</ActionDialog>
+/>

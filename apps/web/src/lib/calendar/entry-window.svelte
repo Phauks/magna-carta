@@ -775,7 +775,7 @@
           // standard one, which is a per-sheet choice; the instant half is the shared answer.
           date: longDate,
           instantDate: formatInstantDate,
-          time: (time, timeZone) => formatWallClock(time, timeZone, context.readerTimeZone),
+          time: (time, timeZone, on) => formatWallClock(time, timeZone, context.readerTimeZone, on),
           printedAt: formatInstant(new Date()),
         }),
   );

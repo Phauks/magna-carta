@@ -55,6 +55,7 @@
   import { entryId, recordKeyOf } from "./calendar-entries.ts";
   import { describeReadFailure, readFailureKey, readFailureTitle } from "./calendar-reads.ts";
   import CalendarRail from "./calendar-rail.svelte";
+  import CalendarMenu from "./calendar-menu.svelte";
   import CalendarMonthPicker from "./calendar-month-picker.svelte";
   import {
     calendarLabel,
@@ -89,6 +90,7 @@
     limit = null,
     search = "",
     rail = false,
+    calendarMenu = false,
     onCreate,
     header,
     class: className,
@@ -128,6 +130,13 @@
      * true; a matter's section and an embedded card have one calendar each and pass nothing.
      */
     rail?: boolean;
+    /**
+     * Whether a Calendars menu — the rail's folders and rows as a dropdown — is drawn over the
+     * grid. For a calendar with no room for a rail that still has to answer "who is busy":
+     * the day being booked beside a record form. It reads and writes the same selection the rail
+     * does, so the two never disagree.
+     */
+    calendarMenu?: boolean;
     /**
      * A double-click landed on an empty day or hour: the civil day, and the minute past midnight
      * where a day grid named one. The host opens its own record form on it — this component owns
@@ -354,6 +363,15 @@
        draw. -->
   {#if toolbar}
     <CalendarToolbar {controller} {viewSwitch} />
+  {/if}
+
+  <!-- Where there is no rail and no toolbar but the reader still has to choose whose calendars
+       they are looking at: the menu, on its own short row over the grid. Firm side only, like the
+       rail: a matter's calendar has one calendar and nothing to choose. -->
+  {#if calendarMenu && !toolbar && controller.firmSide}
+    <div class="flex items-center">
+      <CalendarMenu {controller} />
+    </div>
   {/if}
 
   {#each controller.failures as failed (readFailureKey(failed))}

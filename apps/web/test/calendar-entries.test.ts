@@ -236,9 +236,8 @@ describe("entryFromDeadline", () => {
   });
 
   it("shows the zone on the time only where it is not the reader's", () => {
-    expect(entryFromDeadline(deadline({}), context, firmScope).time).toBe(
-      "5:00 PM (America/Los_Angeles)",
-    );
+    // The zone by its code ON THE DAY: the tenth of September is daylight time in Los Angeles.
+    expect(entryFromDeadline(deadline({}), context, firmScope).time).toBe("5:00 PM PDT");
     expect(
       entryFromDeadline(deadline({ timeZone: "America/New_York" }), context, firmScope).time,
     ).toBe("5:00 PM");
