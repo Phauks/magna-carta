@@ -10,6 +10,7 @@ import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-eff
 import {
   claimShipmentPurchaseStatement,
   insertTrackingEventStatement,
+  listShipmentsStatement,
   markShipmentRatedStatement,
   releaseShipmentPurchaseClaimStatement,
   selectShipmentLabelsStatement,
@@ -331,6 +332,151 @@ const TrackingResponse = z
   })
   .openapi("TrackingResponse");
 const RefundAck = z.object({ id: z.string(), status: z.string() }).openapi("RefundAck");
+
+// --- Reads: the register, one shipment, and whether an account is connected ---
+
+const ShipmentListItem = z
+  .object({
+    id: z.string(),
+    matterRef: z.string().nullable(),
+    status: z.string(),
+    // The recipient's name only. A register row names who a parcel went to; the rest of the address
+    // is read when one shipment is opened, so a list of a firm's mail does not carry every
+    // recipient's street address to the browser.
+    recipientName: z.string().nullable(),
+    carrier: z.string().nullable(),
+    service: z.string().nullable(),
+    trackingCode: z.string().nullable(),
+    postageCostMinor: z.number().int().nullable(),
+    serviceFeeMinor: z.number().int().nullable(),
+    currency: z.string().nullable(),
+    createdAt: z.string(),
+  })
+  .openapi("ShipmentListItem");
+
+const ShipmentListResponse = z
+  .object({ data: z.array(ShipmentListItem), nextCursor: z.string().nullable() })
+  .openapi("ShipmentListResponse");
+
+const ShipmentDetail = z
+  .object({
+    id: z.string(),
+    matterRef: z.string().nullable(),
+    status: z.string(),
+    fromAddress: z.unknown(),
+    toAddress: z.unknown(),
+    parcel: z.unknown(),
+    options: z.unknown(),
+    carrier: z.string().nullable(),
+    service: z.string().nullable(),
+    trackingCode: z.string().nullable(),
+    postageCostMinor: z.number().int().nullable(),
+    serviceFeeMinor: z.number().int().nullable(),
+    currency: z.string().nullable(),
+    hasLabel: z.boolean(),
+  })
+  .openapi("ShipmentDetail");
+
+const ShippingConnectionState = z
+  .object({
+    connected: z.boolean(),
+    // The connection's health as the framework records it, or null when nothing is connected. A
+    // surface needs the difference: "no account" sends a member to connect one, "needs_reauth" sends
+    // them to re-enter a key, and reporting either as the other wastes the trip.
+    status: z.string().nullable(),
+    adapterId: z.string().nullable(),
+  })
+  .openapi("ShippingConnectionState");
+
+// The register's cursor, opaque to the caller and cheap to read: the last row's (created_at, id),
+// which is exactly the keyset the statement pages on. Base64url so it survives a query string
+// unescaped, and parsed defensively — a malformed cursor is a caller's problem to be told about,
+// never a silent first page (which would look like the register had reset).
+function encodeShipmentCursor(cursor: { createdAt: string; id: string }): string {
+  return btoa(JSON.stringify(cursor)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+}
+
+function decodeShipmentCursor(raw: string): { createdAt: string; id: string } | null {
+  try {
+    const padded = raw.replaceAll("-", "+").replaceAll("_", "/");
+    const parsed: unknown = JSON.parse(atob(padded));
+    if (typeof parsed !== "object" || parsed === null) return null;
+    const { createdAt, id } = parsed as Record<string, unknown>;
+    if (typeof createdAt !== "string" || typeof id !== "string") return null;
+    return { createdAt, id };
+  } catch {
+    return null;
+  }
+}
+
+const SHIPMENT_PAGE_SIZE_DEFAULT = 50;
+const SHIPMENT_PAGE_SIZE_MAX = 200;
+
+function readMeta(operationId: string): RouteMeta {
+  return {
+    operationId,
+    surface: "app",
+    authenticated: true,
+    permission: MANAGE,
+    resource: "firm",
+    audited: false,
+    idempotency: "optional",
+    rateLimit: "default",
+  };
+}
+
+const listShipmentsRoute = defineOpenAPIRoute(readMeta("shipping.listShipments"), {
+  method: "get",
+  path: "/api/v1/shipments",
+  description: "The firm's shipments, newest first.",
+  request: {
+    query: z.object({
+      cursor: z.string().optional(),
+      pageSize: z.coerce.number().int().min(1).max(SHIPMENT_PAGE_SIZE_MAX).optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Shipments",
+      content: { "application/json": { schema: ShipmentListResponse } },
+    },
+    401: errorResponses[401],
+    403: errorResponses[403],
+    404: errorResponses[404],
+    422: errorResponses[422],
+    429: errorResponses[429],
+  },
+});
+
+const readShipmentRoute = defineOpenAPIRoute(readMeta("shipping.readShipment"), {
+  method: "get",
+  path: "/api/v1/shipments/{id}",
+  description: "One shipment: addresses, package, options, carrier and costs.",
+  request: { params: z.object({ id: z.string() }) },
+  responses: {
+    200: { description: "Shipment", content: { "application/json": { schema: ShipmentDetail } } },
+    401: errorResponses[401],
+    403: errorResponses[403],
+    404: errorResponses[404],
+    429: errorResponses[429],
+  },
+});
+
+const readConnectionRoute = defineOpenAPIRoute(readMeta("shipping.readConnection"), {
+  method: "get",
+  path: "/api/v1/integrations/shipping/connection",
+  description: "Whether the firm has a postage account connected, and its health.",
+  responses: {
+    200: {
+      description: "Connection state",
+      content: { "application/json": { schema: ShippingConnectionState } },
+    },
+    401: errorResponses[401],
+    403: errorResponses[403],
+    404: errorResponses[404],
+    429: errorResponses[429],
+  },
+});
 
 // GET label PDF — streamed from per-firm R2.
 const labelRoute = defineOpenAPIRoute(
@@ -812,6 +958,130 @@ export function registerShippingRoutes(
     },
   );
 
+  // GET /api/v1/shipments — the register
+  app.openapi(
+    { ...listShipmentsRoute, middleware: chokepointMiddleware(chokepoint, listShipmentsRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { cursor: rawCursor, pageSize } = c.req.valid("query");
+      const cursor = rawCursor === undefined ? null : decodeShipmentCursor(rawCursor);
+      if (rawCursor !== undefined && cursor === null) {
+        return problemJson(c, {
+          type: "validation",
+          title: "Unprocessable",
+          status: 422,
+          detail: "The cursor is not one this register issued.",
+        });
+      }
+      const limit = pageSize ?? SHIPMENT_PAGE_SIZE_DEFAULT;
+      // One more than asked for, so whether another page exists is answered by the read itself
+      // rather than by a second count query that could disagree with it.
+      const { results } = await listShipmentsStatement(firm.firmDatabase, {
+        limit: limit + 1,
+        cursor,
+      }).all<ShipmentListRow>();
+      const page = results.slice(0, limit);
+      const last = page.at(-1);
+      const nextCursor =
+        results.length > limit && last !== undefined
+          ? encodeShipmentCursor({ createdAt: last.created_at, id: last.id })
+          : null;
+      return c.json(
+        {
+          data: page.map((row) => ({
+            id: row.id,
+            matterRef: row.matter_ref,
+            status: row.status,
+            recipientName: recipientNameOf(row.to_address),
+            carrier: row.carrier,
+            service: row.service,
+            trackingCode: row.tracking_code,
+            postageCostMinor: row.postage_cost_minor,
+            serviceFeeMinor: row.service_fee_minor,
+            currency: row.currency,
+            createdAt: row.created_at,
+          })),
+          nextCursor,
+        },
+        200,
+      );
+    },
+  );
+
+  // GET /api/v1/shipments/{id} — one shipment, for the window the register opens
+  app.openapi(
+    { ...readShipmentRoute, middleware: chokepointMiddleware(chokepoint, readShipmentRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const id = c.req.valid("param").id as ShipmentId;
+      const { results } = await selectShipmentStatement(firm.firmDatabase, id).all<{
+        id: string;
+        matter_ref: string | null;
+        status: string;
+        from_address: string;
+        to_address: string;
+        parcel: string;
+        options: string;
+        carrier: string | null;
+        service: string | null;
+        tracking_code: string | null;
+        label_ref: string | null;
+        postage_cost_minor: number | null;
+        service_fee_minor: number | null;
+        currency: string | null;
+      }>();
+      const row = results[0];
+      // The read is scoped to THIS firm's own database, so an unknown id and another firm's id are
+      // the same answer here — which is the point: a 404 discloses nothing about whether it exists.
+      if (row === undefined) return notFoundProblem(c);
+      return c.json(
+        {
+          id: row.id,
+          matterRef: row.matter_ref,
+          status: row.status,
+          fromAddress: parseStoredJson(row.from_address),
+          toAddress: parseStoredJson(row.to_address),
+          parcel: parseStoredJson(row.parcel),
+          options: parseStoredJson(row.options),
+          carrier: row.carrier,
+          service: row.service,
+          trackingCode: row.tracking_code,
+          postageCostMinor: row.postage_cost_minor,
+          serviceFeeMinor: row.service_fee_minor,
+          currency: row.currency,
+          // Whether a label can be fetched, rather than the storage key it lives at. The key is
+          // server-recorded and stays server-side; a surface only needs to know whether to offer it.
+          hasLabel: row.label_ref !== null,
+        },
+        200,
+      );
+    },
+  );
+
+  // GET /api/v1/integrations/shipping/connection — is an account connected, and is it healthy
+  app.openapi(
+    { ...readConnectionRoute, middleware: chokepointMiddleware(chokepoint, readConnectionRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const firmId = requireChokepointFirmId(c);
+      const connection = await selectConnectionStatement(
+        firm.firmDatabase,
+        "shipping",
+        firmId,
+      ).first<{ status: string; adapter_id: string }>();
+      // Nothing about the credential is read here, and nothing about it is returned. Whether an
+      // account is connected is not a secret; the key it was connected with is.
+      return c.json(
+        {
+          connected: connection !== null,
+          status: connection?.status ?? null,
+          adapterId: connection?.adapter_id ?? null,
+        },
+        200,
+      );
+    },
+  );
+
   // GET /api/v1/shipments/{id}/label — stream the label PDF from per-firm R2
   app.openapi(
     { ...labelRoute, middleware: chokepointMiddleware(chokepoint, labelRoute) },
@@ -1053,4 +1323,39 @@ function notFoundProblem(c: Context): ProblemResponse<404> {
     status: 404,
     detail: "No such shipment in this firm.",
   });
+}
+
+// The shape listShipmentsStatement projects. Declared here beside its only reader rather than in
+// data-access, because it describes this route's projection rather than the table.
+interface ShipmentListRow {
+  readonly id: string;
+  readonly matter_ref: string | null;
+  readonly status: string;
+  readonly to_address: string;
+  readonly carrier: string | null;
+  readonly service: string | null;
+  readonly tracking_code: string | null;
+  readonly postage_cost_minor: number | null;
+  readonly service_fee_minor: number | null;
+  readonly currency: string | null;
+  readonly created_at: string;
+}
+
+// A stored address/parcel/options column, back to the object it was written from. These are written
+// by this worker through JSON.stringify and never by a caller, so a parse failure is a corrupted row
+// rather than untrusted input — returned as null so one damaged shipment renders as a shipment with
+// a missing part, instead of failing the whole read.
+function parseStoredJson(raw: string): unknown {
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function recipientNameOf(storedToAddress: string): string | null {
+  const parsed = parseStoredJson(storedToAddress);
+  if (typeof parsed !== "object" || parsed === null) return null;
+  const { name } = parsed as Record<string, unknown>;
+  return typeof name === "string" ? name : null;
 }
