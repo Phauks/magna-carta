@@ -37023,6 +37023,7 @@ export type TemplatesListData = {
         cursor?: string;
         status?: 'active' | 'archived';
         matterTypeId?: string;
+        search?: string;
     };
     url: '/api/v1/templates';
 };

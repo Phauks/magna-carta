@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 825 nodes of the feature ledger in
+is the complete register rather than a digest: all 826 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,9 +21,9 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**825 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**826 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 143 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **682 that are units of work**, for the reason set out under [What a roll-up is
+count the **683 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
@@ -31,17 +31,17 @@ not](#what-a-roll-up-is-not).
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
 | Done | shipped | 317 | 47% |
-| Part-built | partial, in-build | 124 | 18% |
+| Part-built | partial, in-build | 125 | 18% |
 | Ahead | designed, planned, researching, not-started | 199 | 29% |
 | Parked | deferred, cut | 42 | 6% |
-| **All units of work** | | **682** | **100%** |
+| **All units of work** | | **683** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
 | `shipped` | 317 | 46% |
-| `partial` | 124 | 18% |
+| `partial` | 125 | 18% |
 | `in-build` | 0 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 15 | 2% |
@@ -49,11 +49,11 @@ not](#what-a-roll-up-is-not).
 | `not-started` | 133 | 19% |
 | `deferred` | 38 | 6% |
 | `cut` | 4 | 1% |
-| **All statuses** | **682** | **100%** |
+| **All statuses** | **683** | **100%** |
 
 ### What a roll-up is not
 
-**143 of the 825 nodes are parents, and 111 of those parents are `partial`.** A parent's status is a
+**143 of the 826 nodes are parents, and 111 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 317 of 682 (46%). Shipped plus partial is 441 (65%).**
+**Shipped alone is 317 of 683 (46%). Shipped plus partial is 442 (65%).**
 
-The 124 units between those two numbers are work that is engineered and paid for and is not
+The 125 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**441 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**442 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 102 | 23% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 158 | 36% |
+| A person can open it today (`screen`) | 104 | 24% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 157 | 35% |
 | No user surface by nature (`internal`) | 181 | 41% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **441** | **100%** |
+| **Everything with something built** | **442** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -105,7 +105,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Custodian (Safe Custody) | 6 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 11 | 55% |
 | Design System, UI Consistency & Design Quality | 12 | 6 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 19 | 63% |
 | Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
-| Document Automation | 3 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 33% |
+| Document Automation | 3 | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 10 | 30% |
 | Documents | 67 | 11 | 0 | 2 | 0 | 0 | 16 | 3 | 1 | 100 | 67% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
 | Financial Core | 21 | 19 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 62 | 34% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 13 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 20 | 65% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **317** | **124** | **0** | **46** | **15** | **5** | **133** | **38** | **4** | **682** | **46%** |
+| **All areas** | **317** | **125** | **0** | **46** | **15** | **5** | **133** | **38** | **4** | **683** | **46%** |
 
 ## Where we have been
 
@@ -723,11 +723,12 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Document Automation
 
-[`roadmap.d/document-automation.md`](../roadmap.d/document-automation.md) — 9 units of work, 33% shipped. 3 done, 6 part-built, 0 ahead, 0 parked.
+[`roadmap.d/document-automation.md`](../roadmap.d/document-automation.md) — 10 units of work, 30% shipped. 3 done, 7 part-built, 0 ahead, 0 parked.
 
-- `document-automation` · `partial` · **Document Automation** — Conditional assembly of .docx templates from matter data, with a data dictionary and dedicated PDF form filling. _Note: A firm can register a .docx template and assemble it onto a matter today; the output is filed through the existing ingest chokepoint. One browser surface exists and no node below claims it — a field-input scaffold under the app's forms section, over apps/web/src/lib/document-assembly/ and the design system's merge-field picker, chip and review list. Its interaction shape is real; its data is not, since every template, field and proposal comes from an in-repo fixture catalog through a mock provider, and choosing Assemble reports the collected values rather than starting a job. The submit route is not the gap — it exists; what the surface lacks is a matter to submit against and a catalog read from the server._
+- `document-automation` · `partial` · **Document Automation** — Conditional assembly of .docx templates from matter data, with a data dictionary and dedicated PDF form filling. _Note: The template library is a screen (see document-automation.template-library), so a firm registers a template and adds it to matters from the browser; the output is filed through the existing ingest chokepoint. A second browser surface predates it and no node claims it — a field-input scaffold under the app's forms section, over apps/web/src/lib/document-assembly/ and the design system's merge-field picker, chip and review list. Its interaction shape is real; its data is not, since every template, field and proposal comes from an in-repo fixture catalog through a mock provider, and choosing Assemble reports the collected values rather than starting a job._
   - `document-automation.conditional-assembly` · `shipped` · **Conditional document assembly** — Merge fields plus conditional clauses/sections driven by matter data. _Note: Aggregates over a repeat collection are built — sum, minimum, and maximum over a literal field path of a list-valued key, bounded exactly as a repeat is. An aggregate over an empty collection is an absence rather than a zero._
-  - `document-automation.docx-templates` · `partial` · **DOCX template authoring** — Templates authored as .docx for formatting control, bound to the data dictionary. _Note: Word MERGEFIELD conversion is detected always and applied only on explicit opt-in. The two constructs nothing binds — legacy Word form fields, and content controls showing a placeholder or bound to the template's own data — are reported on their own manifest lists at registration, in the field list, on a refusal, and by every assembly, which lands on succeeded_with_absences._
+  - `document-automation.docx-templates` · `partial` · **DOCX template authoring** — Templates authored as .docx for formatting control, bound to the data dictionary. _Note: Registration, versions aside, is a screen — the New Template panel on /documents presigns, uploads and registers a .docx or a fillable PDF and renders the report as findings; adding a version and authoring in the browser are still API-only. Word MERGEFIELD conversion is detected always and applied only on explicit opt-in. The two constructs nothing binds — legacy Word form fields, and content controls showing a placeholder or bound to the template's own data — are reported on their own manifest lists at registration, in the field list, on a refusal, and by every assembly, which lands on succeeded_with_absences._
+  - `document-automation.template-library` · `partial` · **Template library** — The Documents destination — the firm's template catalogue on the one table, registering a template from the browser, adding one template to several matters at once, and archiving. _Note: Standing is derived from the listing's status and current-version handle rather than served. What is partial is the rest of the authoring seam — the field inspector over a version's manifest, adding a version to an existing template, and the mapping library's screen — which stay API-only._
   - `document-automation.data-dictionary` · `partial` · **Data dictionary** — Directory/Matter/Location/custom/financial fields exposed as a merge-field dictionary.
   - `document-automation.location-identity` · `partial` · **Location-resolved office identity** — Office name, address, letterhead, remit-to, and jurisdiction resolve from the matter's home Location so generated documents carry the correct office identity.
   - `document-automation.generation-engine` · `partial` · **Generation engine** — In-house TypeScript OOXML merge in a Worker queue consumer; heavy DOCX-to-PDF via the office engine in a Container.

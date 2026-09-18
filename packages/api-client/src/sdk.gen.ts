@@ -5096,7 +5096,7 @@ export const conversionsEvents = <ThrowOnError extends boolean = false>(options:
 export const templatesUpload = <ThrowOnError extends boolean = false>(options?: Options<TemplatesUploadData, ThrowOnError>): RequestResult<TemplatesUploadResponses, TemplatesUploadErrors, ThrowOnError> => (options?.client ?? client).post<TemplatesUploadResponses, TemplatesUploadErrors, ThrowOnError>({ url: '/api/v1/templates/upload', ...options });
 
 /**
- * Lists the firm's assembly templates, newest page first by name. Every template is visible to every member who can assemble; a template bound to a matter type is still listed, and the binding narrows which matters offer it. Filter by matter type to see only what a matter of that type would offer.
+ * Lists the firm's assembly templates, newest page first by name. Every template is visible to every member who can assemble; a template bound to a matter type is still listed, and the binding narrows which matters offer it. Filter by matter type to see only what a matter of that type would offer, and pass search to keep only the templates whose name or description contains the text.
  */
 export const templatesList = <ThrowOnError extends boolean = false>(options?: Options<TemplatesListData, ThrowOnError>): RequestResult<TemplatesListResponses, TemplatesListErrors, ThrowOnError> => (options?.client ?? client).get<TemplatesListResponses, TemplatesListErrors, ThrowOnError>({ url: '/api/v1/templates', ...options });
 

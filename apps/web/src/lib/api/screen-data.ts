@@ -32,7 +32,6 @@
 import {
   QueryClient,
   type FetchQueryOptions,
-  type InfiniteData,
   type CreateInfiniteQueryOptions,
 } from "@tanstack/svelte-query";
 
@@ -147,13 +146,22 @@ interface CursorPage {
  * listing whose last page answered a null cursor has no next page, which is what stops the reader's
  * scroll asking for one.
  */
-export function paged<TPage extends CursorPage, TError, TKey extends readonly unknown[]>(
-  options: CreateInfiniteQueryOptions<TPage, TError, InfiniteData<TPage>, TKey>,
-): CreateInfiniteQueryOptions<TPage, TError, InfiniteData<TPage>, TKey> {
+export function paged<
+  TPage extends CursorPage,
+  TError,
+  TData,
+  TKey extends readonly unknown[],
+  TPageParam,
+>(
+  options: CreateInfiniteQueryOptions<TPage, TError, TData, TKey, TPageParam>,
+): CreateInfiniteQueryOptions<TPage, TError, TData, TKey, TPageParam> {
   return {
     ...options,
-    initialPageParam: undefined,
-    getNextPageParam: (last: TPage) => last.nextCursor ?? undefined,
+    // The generated page parameter is the cursor, or a whole request for a page — never "no page
+    // yet", so the first page is asserted. The generated queryFn reads an undefined parameter as a
+    // request with no cursor (svelte-query.gen.ts), which is exactly what the first page is.
+    initialPageParam: undefined as TPageParam,
+    getNextPageParam: (last: TPage) => (last.nextCursor ?? undefined) as TPageParam | undefined,
   };
 }
 
@@ -161,9 +169,15 @@ export function paged<TPage extends CursorPage, TError, TKey extends readonly un
  * Warm a paged listing's FIRST page from a `+page.ts`. Only the first: the pages after it are what
  * the reader asks for by scrolling, and reading ahead on a hover would spend a firm's request budget
  * on rows nobody has looked at.
+ *
+ * Widened the same way `warm` is, for the same reason: `prefetchInfiniteQuery`'s parameter is
+ * invariant in the operation's own types, so the generated options for one listing are not
+ * assignable to it without the widening, and nothing downstream reads a result.
  */
-export function warmPaged(
-  ...reads: readonly Parameters<QueryClient["prefetchInfiniteQuery"]>[0][]
-): void {
-  for (const read of reads) void queryClient.prefetchInfiniteQuery(read);
+export function warmPaged(...reads: readonly AnyRead[]): void {
+  for (const read of reads) {
+    void queryClient.prefetchInfiniteQuery(
+      read as Parameters<QueryClient["prefetchInfiniteQuery"]>[0],
+    );
+  }
 }
