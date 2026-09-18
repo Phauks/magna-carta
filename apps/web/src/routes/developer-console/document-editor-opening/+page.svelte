@@ -23,7 +23,6 @@
     openFeed,
     openPace,
     openRows,
-    openSteps,
     openTrace,
     refusal,
     stalledSentence,
@@ -116,7 +115,11 @@
 {#if import.meta.env.DEV}
   <div class="flex min-h-screen flex-col gap-32 bg-surface-default p-24 text-text-default">
     <header class="flex max-w-prose flex-col gap-8">
-      <ScreenHeader title="Document opening stages" back={DEVELOPER_CONSOLE_BACK} />
+      <ScreenHeader
+        title="Document opening stages"
+        favoritable={false}
+        back={DEVELOPER_CONSOLE_BACK}
+      />
       <p class="text-sm text-text-muted">
         The wait a member sees while a document opens in the browser editor, told as it happens:
         a line for each stage as it finishes, the stage under way saying what it is doing, a bar
@@ -139,8 +142,9 @@
             </h3>
             <DocumentOpeningProgress
               feed={openFeed(specimen.marks, specimen.now)}
-              steps={openSteps(specimen.marks, null)}
               pace={openPace(specimen.marks.startedAt, specimen.now)}
+              rows={openRows(specimen.marks, specimen.now)}
+              trace={() => openTrace(specimen.marks, specimen.now)}
             />
           </section>
         {/each}
@@ -158,8 +162,9 @@
           </p>
           <DocumentOpeningProgress
             feed={openFeed(runningLong.marks, runningLong.now)}
-            steps={openSteps(runningLong.marks, null)}
             pace={openPace(runningLong.marks.startedAt, runningLong.now)}
+            rows={openRows(runningLong.marks, runningLong.now)}
+            trace={() => openTrace(runningLong.marks, runningLong.now)}
           />
         </section>
         <section class="flex flex-col gap-8">
@@ -170,10 +175,11 @@
           </p>
           <DocumentOpeningProgress
             feed={openFeed(pastRetry.marks, pastRetry.now)}
-            steps={openSteps(pastRetry.marks, null)}
             pace={openPace(pastRetry.marks.startedAt, pastRetry.now)}
             stalled
             onRetry={() => {}}
+            rows={openRows(pastRetry.marks, pastRetry.now)}
+            trace={() => openTrace(pastRetry.marks, pastRetry.now)}
           />
         </section>
       </div>
@@ -190,15 +196,15 @@
             how long each earlier one took.
           </p>
           <DocumentOpeningProgress
-            feed={openFeed(stalledMarks, stalledAt, stalledStage, stalledSentenceText)}
-            steps={openSteps(stalledMarks, stalledStage, stalledSentenceText)}
+            feed={openFeed(stalledMarks, stalledAt, stalledStage)}
             rows={openRows(stalledMarks, stalledAt)}
             trace={() => openTrace(stalledMarks, stalledAt)}
+            stopped
           >
             <FailureNotice
               failure={stalledFailure.failure}
               subject="The editor"
-              title="The document did not open"
+              title="The Document Did Not Open"
               fallback={stalledFailure.fallback}
               whenSilent={stalledFailure.whenSilent}
               onRetry={() => {}}
@@ -214,15 +220,15 @@
             the host issued, rather than waiting out the budget.
           </p>
           <DocumentOpeningProgress
-            feed={openFeed(refusedMarks, refusedAt, refusedStage, refusedSentenceText)}
-            steps={openSteps(refusedMarks, refusedStage, refusedSentenceText)}
+            feed={openFeed(refusedMarks, refusedAt, refusedStage)}
             rows={openRows(refusedMarks, refusedAt)}
             trace={() => openTrace(refusedMarks, refusedAt)}
+            stopped
           >
             <FailureNotice
               failure={refusedFailure.failure}
               subject="The editor"
-              title="The document did not open"
+              title="The Document Did Not Open"
               fallback={refusedFailure.fallback}
               whenSilent={refusedFailure.whenSilent}
               onRetry={() => {}}

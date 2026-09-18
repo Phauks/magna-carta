@@ -43,6 +43,7 @@
   import { goto } from "$app/navigation";
   import { onMount, untrack } from "svelte";
   import Badge from "@magna-carta/design-system/badge";
+  import Button from "@magna-carta/design-system/button";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import type { MatterFile } from "$lib/file-manager/matter-file-api.ts";
@@ -65,7 +66,6 @@
     openFeed,
     openPace,
     openRows,
-    openSteps,
     openTrace,
     refusal,
     RETRY_AFTER_MILLISECONDS,
@@ -136,7 +136,6 @@
   let now = $state(new Date());
 
   const opening = $derived(!documentShowing && openFailure === null);
-  const steps = $derived(openSteps(marks, failedStage, openFailure?.fallback));
   const editorOrigin = $derived(launch?.editorOrigin);
   // Past the point Retry is worth offering (well after the usual open), the panel says so and
   // offers it, in place. Before that the bar and its sentence carry the wait.
@@ -403,27 +402,35 @@
                  keeps that request's facts and the rows stay with the notice. Every later stop is
                  the editor's, and the rows say which stage, how long, and what the host answered. -->
             <DocumentOpeningProgress
-              feed={openFeed(marks, failedAt, failedStage, openFailure.fallback)}
-              {steps}
+              feed={openFeed(marks, failedAt, failedStage)}
               rows={failedStage === "session" ? undefined : openRows(marks, failedAt)}
               trace={failedStage === "session" ? undefined : () => openTrace(marks, failedAt)}
+              stopped
             >
               <FailureNotice
                 failure={openFailure.failure}
                 subject="The editor"
-                title={failedStage === "session" ? undefined : "The document did not open"}
+                title={failedStage === "session" ? undefined : "The Document Did Not Open"}
                 fallback={openFailure.fallback}
                 whenSilent={openFailure.whenSilent}
                 onRetry={open}
               />
+              <!-- A way out that is not trying again: the editor never drew its bar, so the back
+                   button it would have carried is offered here instead. -->
+              {#if back !== null}
+                <div>
+                  <Button variant="secondary" size="sm" href={back.href}>Back to {back.label}</Button>
+                </div>
+              {/if}
             </DocumentOpeningProgress>
           {:else}
             <DocumentOpeningProgress
               feed={openFeed(marks, now)}
-              {steps}
               pace={openPace(marks.startedAt, now)}
               {stalled}
               onRetry={open}
+              rows={openRows(marks, now)}
+              trace={() => openTrace(marks, new Date())}
             />
           {/if}
         </div>

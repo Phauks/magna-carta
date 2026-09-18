@@ -5,6 +5,7 @@ import {
   marked,
   OPEN_PROGRESS_POLL_MILLISECONDS,
   OPEN_STAGES,
+  feedSteps,
   openFeed,
   openPace,
   openRows,
@@ -17,7 +18,8 @@ import {
   stalledSentence,
   stoppedLabel,
   TYPICAL_OPEN_MILLISECONDS,
-  USUAL_TIME_SENTENCE,
+  usualTimeSentence,
+  usualTimeWords,
   type OpenMarks,
   type OpenStage,
 } from "../src/lib/documents/editor-open-progress.ts";
@@ -281,15 +283,21 @@ describe("openFeed", () => {
       [
         "active",
         "The editor is asking about the document: its name, its size, who you are.",
-        "31 s",
+        "31.0 s",
       ],
     ]);
+    // As ProgressSteps draws it: the words as the label, the stamp as the note.
+    expect(feedSteps(lines)[0]).toEqual({
+      label: "Editing session opened.",
+      status: "done",
+      note: "0.4 s",
+    });
   });
 
   it("says nothing of the stages still to come, so the feed only ever grows", () => {
     const fresh = openFeed(freshMarks(STARTED_AT), at(2));
     expect(fresh).toHaveLength(1);
-    expect(fresh[0]).toMatchObject({ stage: "session", status: "active", at: "2 s" });
+    expect(fresh[0]).toMatchObject({ stage: "session", status: "active", at: "2.0 s" });
     expect(openFeed(reached("shown"), at(34))).toHaveLength(OPEN_STAGES.length);
     expect(openFeed(reached("shown"), at(34)).every((line) => line.status === "done")).toBe(true);
   });
@@ -302,14 +310,14 @@ describe("openFeed", () => {
     expect(lines[1]).toMatchObject({ stage: "editor", status: "done", at: "29.6 s" });
   });
 
-  it("ends on the stopped stage's sentence once the open has been called off", () => {
-    const marks = reached("frame");
-    const lines = openFeed(marks, at(90), "information", stalledSentence("information", marks));
+  it("ends on the stopped stage's name once the open has been called off, never the sentence", () => {
+    // The notice beneath the feed says what went wrong, once; the feed says where.
+    const lines = openFeed(reached("frame"), at(90), "information");
     expect(lines.at(-1)).toEqual({
       stage: "information",
       status: "failed",
-      text: "The editor came up but never asked the host about the document.",
-      at: "90 s",
+      text: "Asking the host about the document",
+      at: "90.0 s",
     });
     expect(lines.some((line) => line.status === "active")).toBe(false);
   });
@@ -320,10 +328,14 @@ describe("openPace", () => {
     const pace = openPace(STARTED_AT, at(12));
     expect(pace).toEqual({
       elapsedMilliseconds: 12_000,
-      sentence: USUAL_TIME_SENTENCE,
+      sentence: "Usually about half a minute.",
       overdue: false,
     });
     expect(TYPICAL_OPEN_MILLISECONDS).toBe(30_000);
+    // The words are read off the constant, so retuning it retunes the sentence.
+    expect(usualTimeSentence()).toBe(`Usually ${usualTimeWords(TYPICAL_OPEN_MILLISECONDS)}.`);
+    expect(usualTimeWords(60_000)).toBe("about a minute");
+    expect(usualTimeWords(45_000)).toBe("about 45 seconds");
   });
 
   it("stops at full past the usual time and says the open is running long", () => {

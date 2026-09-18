@@ -15,8 +15,9 @@
  * of six boxes that go from empty to checked tells a member nothing about what the wait IS, so
  * the screen streams the open instead — each stage that finishes becomes a line saying what just
  * happened and when, and the stage under way says what is happening and why it takes the time it
- * takes. The full sequence with its timings sits behind one control for whoever wants it. That is
- * `openFeed` here; `openSteps` remains the sequence the details show.
+ * takes. The timings and the host's last answer sit behind one control for whoever wants them.
+ * That is `openFeed` here (drawn through ProgressSteps, with the stamps as notes) and `openRows`;
+ * `openSteps` remains the whole sequence as a step list, for a surface that wants it that way.
  *
  * TWO SOURCES FEED THE MARKS, AND THEY ARRIVE OUT OF ORDER. The frame's own messages and the
  * iframe's load event are immediate; the host's record of the editor's callbacks (CheckFileInfo,
@@ -223,7 +224,7 @@ export interface OpenFeedLine {
   readonly stage: OpenStage;
   readonly status: "done" | "active" | "failed";
   readonly text: string;
-  /** Seconds from the start of the open, as the line shows them: "0.4 s" for a mark, "12 s" for now. */
+  /** Seconds from the start of the open, as the line shows them: "0.4 s", "31.0 s". */
   readonly at: string;
 }
 
@@ -241,22 +242,23 @@ function wholeSeconds(milliseconds: number): string {
   return `${String(value)} ${value === 1 ? "second" : "seconds"}`;
 }
 
-function feedStamp(milliseconds: number, whole: boolean): string {
-  const clamped = Math.max(0, milliseconds) / 1000;
-  return whole ? `${String(Math.floor(clamped))} s` : `${clamped.toFixed(1)} s`;
+// One precision for the whole column, so the decimals line up down it.
+function feedStamp(milliseconds: number): string {
+  return `${(Math.max(0, milliseconds) / 1000).toFixed(1)} s`;
 }
 
 /**
  * The open as a stream: every stage behind us as the line it left, then the stage under way as
- * what it is doing right now, or, once the open has stopped, the sentence it stopped on. Nothing
- * for the stages still to come — those are the sequence, behind the details control — so the feed
- * only ever grows, one line per thing that actually happened.
+ * what it is doing right now, or, once the open has stopped, the stage it stopped on. Nothing for
+ * the stages still to come — those are the timings, behind the details control — so the feed only
+ * ever grows, one line per thing that actually happened. The stopped line carries the stage's
+ * name and not the sentence: the notice beneath the feed says what went wrong, once, with the way
+ * out beside it.
  */
 export function openFeed(
   marks: OpenMarks,
   now: Date,
   failedStage: OpenStage | null = null,
-  failureSentence?: string,
 ): OpenFeedLine[] {
   const lines: OpenFeedLine[] = [];
   const current = currentStage(marks);
@@ -269,7 +271,7 @@ export function openFeed(
         stage: stage.id,
         status: "done",
         text: stage.done,
-        at: feedStamp(at.getTime() - marks.startedAt.getTime(), false),
+        at: feedStamp(at.getTime() - marks.startedAt.getTime()),
       });
       continue;
     }
@@ -277,8 +279,8 @@ export function openFeed(
       lines.push({
         stage: stage.id,
         status: "failed",
-        text: failureSentence ?? stage.label,
-        at: feedStamp(now.getTime() - marks.startedAt.getTime(), true),
+        text: stage.label,
+        at: feedStamp(now.getTime() - marks.startedAt.getTime()),
       });
       break;
     }
@@ -287,12 +289,17 @@ export function openFeed(
         stage: stage.id,
         status: "active",
         text: stage.doing,
-        at: feedStamp(now.getTime() - marks.startedAt.getTime(), true),
+        at: feedStamp(now.getTime() - marks.startedAt.getTime()),
       });
     }
     break;
   }
   return lines;
+}
+
+/** The feed as ProgressSteps draws it: the line's words as the label, its stamp as the note. */
+export function feedSteps(lines: readonly OpenFeedLine[]): ProgressStep[] {
+  return lines.map((line) => ({ label: line.text, status: line.status, note: line.at }));
 }
 
 function firstMarkAfter(marks: OpenMarks, stage: OpenStage): Date | null {
@@ -313,7 +320,21 @@ export interface OpenPace {
   readonly overdue: boolean;
 }
 
-export const USUAL_TIME_SENTENCE = "Usually about half a minute.";
+/**
+ * The usual time in words, read off the constant so the bar, the sentence and the label can never
+ * disagree: "about half a minute" at thirty seconds, "about a minute" at sixty, else the seconds.
+ */
+export function usualTimeWords(milliseconds: number = TYPICAL_OPEN_MILLISECONDS): string {
+  const seconds = Math.round(milliseconds / 1000);
+  if (seconds === 30) return "about half a minute";
+  if (seconds === 60) return "about a minute";
+  return `about ${String(seconds)} seconds`;
+}
+
+export function usualTimeSentence(): string {
+  return `Usually ${usualTimeWords()}.`;
+}
+
 export const RUNNING_LONG_SENTENCE = "Taking longer than usual. Still working on it.";
 
 /**
@@ -327,7 +348,7 @@ export function openPace(startedAt: Date, now: Date): OpenPace {
   const overdue = elapsedMilliseconds >= TYPICAL_OPEN_MILLISECONDS;
   return {
     elapsedMilliseconds: Math.min(elapsedMilliseconds, TYPICAL_OPEN_MILLISECONDS),
-    sentence: overdue ? RUNNING_LONG_SENTENCE : USUAL_TIME_SENTENCE,
+    sentence: overdue ? RUNNING_LONG_SENTENCE : usualTimeSentence(),
     overdue,
   };
 }
