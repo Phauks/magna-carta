@@ -11,10 +11,16 @@ import type { IntegrationProblem } from "./problem.ts";
 // door that cannot open. It is the same first-class deferred-seam state the conversion and search
 // ports name (`engine-not-implemented` in packages/conversion/src/port.ts), for the same reason:
 // an unbuilt backing is a fact about the platform, and stating it beats throwing at the seam.
+// `credential-forbidden` is likewise its own outcome rather than a flavour of `not-connected`. The
+// firm HAS connected the account and the credential is sitting there sealed; what failed is that this
+// principal may not have it decrypted. Telling them to connect an account would be false, and telling
+// them nothing is connected would send an administrator looking for a fault that does not exist. The
+// remedy is a grant, so the outcome has to say so.
 export type DispatchFailureReason =
   | "not-connected"
   | "capability-unsupported"
   | "credential-store-not-implemented"
+  | "credential-forbidden"
   | "adapter-error";
 
 export type Dispatch<T> =
@@ -39,6 +45,10 @@ export function capabilityUnsupported<T = never>(): Dispatch<T> {
 
 export function credentialStoreNotImplemented<T = never>(): Dispatch<T> {
   return { ok: false, reason: "credential-store-not-implemented" };
+}
+
+export function credentialForbidden<T = never>(): Dispatch<T> {
+  return { ok: false, reason: "credential-forbidden" };
 }
 
 export function adapterError<T = never>(problem: IntegrationProblem): Dispatch<T> {

@@ -86,6 +86,15 @@ export const PERMISSIONS = [
   "locations:manage", // create/update/close locations, addresses, staff assignment
   // Shipping & postage — connect the firm's postage account and create/rate/buy/track/refund shipments.
   "shipping:manage",
+  // Integrations — decrypting a connected integration's stored credential so the worker can act with
+  // it. Deliberately NOT firm:manageSecrets: that key means "may read anything this firm has sealed",
+  // which is the right gate for an administrator opening the vault and far too much to hand somebody
+  // whose actual act is buying a postage label. It is also not independently useful — holding it
+  // decrypts nothing on its own, because a credential is only ever reached through a route that has
+  // already enforced its own integration's key (shipping:manage for postage). So it is the floor under
+  // those keys rather than an alternative to them, and a firm granting an integration to a new role
+  // grants this beside it.
+  "integrations:useConnection", // decrypt a connected integration's credential for use by the worker
   // Files — the File Manager's upload, organization, and document-type configuration.
   "files:upload", // initiate uploads and commit versions
   "files:organize", // create/rename/move folders and files

@@ -28,8 +28,8 @@
   status: partial
   surface: internal
   adrs: ADR-0092, ADR-0095
-  evidence: packages/integrations/src/connection.ts + credentials.ts; apps/api-worker/src/plugins/secret-store.ts; API-key kind live for EasyPost.
-  notes: OAuth connection flow deferred to the first OAuth adapter, gated on Google CASA / Microsoft verification. The per-firm credential READ is still unbuilt and now says so — unbuiltCredentialStore resolves to the credential-store-not-implemented dispatch outcome instead of throwing.
+  evidence: packages/integrations/src/connection.ts + credentials.ts; apps/api-worker/src/plugins/credential-store.ts; packages/data-access/src/integration-credential-store.ts; API-key kind live for EasyPost.
+  notes: OAuth connection flow deferred to the first OAuth adapter, gated on Google CASA / Microsoft verification. The per-firm credential read is BUILT — a credential lives in its own per-firm integration_credential table, sealed under the firm key and decrypted through the protected-field chokepoint under integrations:useConnection. It is deliberately not firm_secret: a protected column carries one declaration and that declaration's permission is the gate, so sharing the column would have meant gating a member buying postage on firm:manageSecrets, which is read access to everything the firm has sealed.
 
 - id: integrations.platform-foundation
   name: Manifest-driven registration
@@ -119,7 +119,7 @@
   slices: shipping-postage-backend
   adrs: ADR-0094, ADR-0095
   spec: docs/specs/2026-06-16-shipping-easypost-design.md
-  evidence: packages/shipping + apps/api-worker/src/routes/shipping.ts on main; UI, webhook ingress, and live firm secret deferred.
+  evidence: packages/shipping + apps/api-worker/src/routes/shipping.ts on main; credential read built 2026-09-18; UI and webhook ingress deferred.
   audience: public
   public-name: Postage and shipping
   public-summary: Buy a label, track the package, and have the cost land on the matter.
@@ -132,7 +132,7 @@
   slices: shipping-postage-backend
   adrs: ADR-0094
   evidence: packages/shipping/src/easypost/ + shipment routes; per status.d fragment built done, tests todo.
-  notes: The firm-secret credential read is still an unbuilt seam (firmSecretStoreNotYetAvailable), so no postage account can be connected and no label can be rated or bought — but the seam now REFUSES rather than throws. Connect, rate-shop, purchase, track and refund answer 501 not-implemented from the credential-store-not-implemented dispatch outcome; before 2026-08-15 all five answered 500. Draft creation succeeds by design (a draft needs no carrier). Verified 2026-08-15, docs/research/2026-08-15-tools-reality-check.md.
+  notes: Connect, rate-shop, purchase, track and refund all operate as of 2026-09-18 — the credential read that made all five answer 501 is built, and the end-to-end test drives the real store rather than a fake. What remains before a firm can buy real postage is commercial, not engineering: the EasyPost Forge contract that makes per-firm child users and centralized billing possible. Between 2026-08-15 and this change the five answered 501 from the credential-store-not-implemented dispatch outcome, and before 2026-08-15 they answered 500.
 
 - id: integrations.shipping.certified-mail
   name: Certified mail

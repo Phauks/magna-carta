@@ -21,7 +21,12 @@ import {
   recordRefund,
 } from "@magna-carta/data-access/shipment-service";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { IntegrationConnectionId, MatterId, ShipmentId } from "@magna-carta/identifiers/types";
+import type {
+  FirmId,
+  IntegrationConnectionId,
+  MatterId,
+  ShipmentId,
+} from "@magna-carta/identifiers/types";
 import type { Dispatch } from "@magna-carta/integrations/dispatch";
 import {
   firmScopedObjectDimensions,
@@ -48,6 +53,7 @@ import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
 import { buildIntegrationRegistry } from "../plugins/registry.ts";
 import { protectedReadContext } from "../protected-read-context.ts";
+import { deleteIntegrationCredentialStatement } from "@magna-carta/data-access/integration-credential-statements";
 import type { PluginRuntime } from "../plugins/runtime.ts";
 
 // Shipping & postage: connect the firm's EasyPost postage account, then create/rate/buy/track/refund
@@ -57,6 +63,13 @@ import type { PluginRuntime } from "../plugins/runtime.ts";
 
 type ShippingApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 const MANAGE = "shipping:manage" as const;
+
+// Where a firm's postage credential is addressed. A firm has at most one postage connection, so the
+// ref is derived from the firm rather than minted — which is what makes a reconnect a rotation in
+// place and lets the disconnect find the credential it has to clear.
+function credentialRefForFirm(firmId: FirmId): string {
+  return `integration:shipping:${firmId}`;
+}
 
 const errorResponses = {
   400: {
@@ -91,7 +104,7 @@ const errorResponses = {
   },
   501: {
     description:
-      "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+      "This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run",
     content: { "application/problem+json": { schema: Problem } },
   },
   502: {
@@ -419,18 +432,13 @@ export function registerShippingRoutes(
       const idempotency = requireChokepointIdempotency(c);
       const { apiKey } = c.req.valid("json");
       const now = () => new Date().toISOString();
-      // Refuse BEFORE anything is written. Connecting is the first thing a member does, so it is
-      // the first thing that has to answer honestly: with no per-firm credential read there is
-      // nowhere to put the key, and recording a connection row over a key that was never stored
-      // would leave the firm believing it had connected an account it had not.
-      const secrets = runtime.secretStoreForFirm(protectedReadContext(c));
-      if (secrets === null) return credentialReadNotImplementedProblem(c);
+      const credentials = runtime.credentialStoreForFirm(protectedReadContext(c));
       const descriptor = createEasyPostAdapter({ http: runtime.httpClient }).descriptor;
 
-      // A firm has at most one postage connection, so the connection row and its secret are both
+      // A firm has at most one postage connection, so the connection row and its credential are both
       // addressed by (category, firm) rather than by a freshly minted id. That makes a reconnect a
       // rotation in place: the new key overwrites the old one at the same ref instead of leaving the
-      // revoked key sitting in the secret store under an orphaned reference.
+      // revoked key sitting in the credential store under an orphaned reference.
       const existing = await selectConnectionStatement(
         firm.firmDatabase,
         "shipping",
@@ -440,9 +448,12 @@ export function registerShippingRoutes(
         existing === null
           ? newIdentifier("integrationConnection")
           : (existing.id as IntegrationConnectionId);
-      const credentialRef = `integration:shipping:${firmId}`;
-      // Store the secret first (idempotent by ref), then commit the connection row in the effect batch.
-      await secrets.putSecret(credentialRef, JSON.stringify({ kind: "apiKey", apiKey }));
+      const credentialRef = credentialRefForFirm(firmId);
+      // Store the credential first (idempotent by ref), then commit the connection row in the effect
+      // batch. This order is deliberate: a connection row over a key that was never stored would
+      // leave the firm believing it had connected an account it had not, while a stored credential
+      // with no connection row is inert — nothing resolves it, and the next connect overwrites it.
+      await credentials.put(credentialRef, { kind: "apiKey", apiKey });
 
       const result = await runIdempotentEffect({
         database: firm.firmDatabase,
@@ -516,10 +527,15 @@ export function registerShippingRoutes(
         effect: async () => ({
           // Deleting the row is what actually severs the integration: resolution reads the
           // connection first, so with no row every shipping operation answers not-connected. The
-          // stored credential is left addressed by (category, firm) — a later reconnect overwrites
-          // that same entry rather than accumulating a second one.
+          // credential goes with it, in the same batch — a member who disconnects an account has
+          // usually just revoked the key at the provider, and a revoked bearer secret that outlives
+          // the only row pointing at it is sealed material nothing can reach and nothing will clear.
+          // A reconnect writes a fresh one at the same ref.
           write: {
-            statements: [deleteConnectionStatement(firm.firmDatabase, connectionId)],
+            statements: [
+              deleteConnectionStatement(firm.firmDatabase, connectionId),
+              deleteIntegrationCredentialStatement(firm.firmDatabase, credentialRefForFirm(firmId)),
+            ],
             outboxMessages: [],
           },
           responseCode: 200,
@@ -927,8 +943,7 @@ export function registerShippingRoutes(
 // purchased and nothing was billed. `auth`, `validation`, and `rate_limit` are all rejections the
 // provider made before doing any work; `not-connected`, `capability-unsupported` and
 // `credential-store-not-implemented` never reached it at all — the last of those cannot even
-// resolve a port, so the claim is always handed back and the draft stays buyable once the seam
-// exists. `upstream` (a provider 5xx) and `network` (no answer at all) are the indeterminate
+// resolve a port, so the claim is always handed back and the draft stays buyable. `upstream` (a provider 5xx) and `network` (no answer at all) are the indeterminate
 // ones — the purchase may well have succeeded on the far side — and must be treated as spent.
 function purchaseDefinitelyNotCharged(
   dispatch: Extract<Dispatch<unknown>, { ok: false }>,
@@ -945,36 +960,53 @@ class ShippingDispatchError extends Error {
   }
 }
 
-// The per-firm credential read is a seam this deployment has not built. No postage account can be
-// connected, so nothing can be rated, bought, tracked or refunded either. Answered by name rather
-// than as a 500: nobody in the firm can act on it, and the "connect your account" wording next door
-// would send a member at the one door that is shut. Nothing is charged and nothing is written.
-function credentialReadNotImplementedProblem(c: Context): ProblemResponse<501> {
+// The integration framework can report that a deployment has no credential store at all. This worker
+// always builds one (plugins/credential-store.ts), so the outcome is not reachable from here — but it
+// is a member of the Dispatch union the framework returns, and a mapping that silently fell through
+// to a 500 would turn a stated condition into an Error ID. Answered by name: nobody in the firm can
+// act on it, and the "connect your account" wording next door would send a member at a door that is
+// not the shut one. Nothing is charged and nothing is written.
+function credentialStoreUnavailableProblem(c: Context): ProblemResponse<501> {
   return problemJson(c, {
     type: "not-implemented",
-    title: "Postage accounts cannot be connected yet",
+    title: "Postage is unavailable in this deployment",
     status: 501,
     detail:
-      "Storing and reading a firm's postage credentials is not wired yet, so no carrier account can be connected and no label can be rated or bought. Drafting a shipment still works, and nothing has been charged.",
+      "This deployment cannot read stored integration credentials, so no carrier account can be connected and no label can be rated or bought. Drafting a shipment still works, and nothing has been charged.",
   });
 }
 
 // Maps a non-ok shipping Dispatch onto the worker's problem taxonomy. not-connected → 409 (the firm
-// must connect/reconnect its account); credential-store-not-implemented → 501 (nobody can connect
-// one yet); capability-unsupported → 422; an adapter-error maps by its category — a transient
+// must connect/reconnect its account); credential-store-not-implemented → 501 (the deployment has no
+// credential store); credential-forbidden → 403 (this member may not decrypt it);
+// capability-unsupported → 422; an adapter-error maps by its category — a transient
 // provider failure (auth/upstream/network) is a 502 the firm did not cause, rate_limit is 429, and a
 // provider validation rejection is 422.
 function shippingDispatchProblem(
   c: Context,
   dispatch: Extract<Dispatch<unknown>, { ok: false }>,
 ):
+  | ProblemResponse<403>
   | ProblemResponse<409>
   | ProblemResponse<422>
   | ProblemResponse<429>
   | ProblemResponse<501>
   | ProblemResponse<502> {
   if (dispatch.reason === "credential-store-not-implemented") {
-    return credentialReadNotImplementedProblem(c);
+    return credentialStoreUnavailableProblem(c);
+  }
+  // The firm HAS a postage account; this member may not have its credential decrypted. Said as a
+  // permission answer rather than "not connected", which would send them — or the administrator they
+  // ask — looking for a connection fault that does not exist. The remedy is a grant.
+  if (dispatch.reason === "credential-forbidden") {
+    return problemJson(c, {
+      type: "permission-denied",
+      title: "Forbidden",
+      status: 403,
+      detail:
+        "Your role may create shipments but may not use the firm's stored postage credential. An administrator can grant integrations:useConnection.",
+      requestAccess: true,
+    });
   }
   if (dispatch.reason === "not-connected") {
     return problemJson(c, {

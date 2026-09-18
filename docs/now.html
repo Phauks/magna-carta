@@ -3075,7 +3075,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Connection &amp; credential model</span>
 <code>integrations.port-framework.connections-credentials</code>
 <p>Per-functionality connection persistence and credential storage for adapters; API-key credential kind; OAuth lifecycle.</p>
-<p class="note">OAuth connection flow deferred to the first OAuth adapter, gated on Google CASA / Microsoft verification. The per-firm credential READ is still unbuilt and now says so — unbuiltCredentialStore resolves to the credential-store-not-implemented dispatch outcome instead of throwing.</p>
+<p class="note">OAuth connection flow deferred to the first OAuth adapter, gated on Google CASA / Microsoft verification. The per-firm credential read is BUILT — a credential lives in its own per-firm integration_credential table, sealed under the firm key and decrypted through the protected-field chokepoint under integrations:useConnection. It is deliberately not firm_secret: a protected column carries one declaration and that declaration's permission is the gate, so sharing the column would have meant gating a member buying postage on firm:manageSecrets, which is read access to everything the firm has sealed.</p>
 </li><li class="n d1" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Manifest-driven registration</span>
@@ -3143,7 +3143,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">EasyPost adapter &amp; firm routes</span>
 <code>integrations.shipping.easypost-adapter</code>
 <p>Draft shipment, rate-shop, buy label (PDF copied to firm storage), track, refund; idempotent purchase; shipment/label/tracking tables.</p>
-<p class="note">The firm-secret credential read is still an unbuilt seam (firmSecretStoreNotYetAvailable), so no postage account can be connected and no label can be rated or bought — but the seam now REFUSES rather than throws. Connect, rate-shop, purchase, track and refund answer 501 not-implemented from the credential-store-not-implemented dispatch outcome; before 2026-08-15 all five answered 500. Draft creation succeeds by design (a draft needs no carrier). Verified 2026-08-15, docs/research/2026-08-15-tools-reality-check.md.</p>
+<p class="note">Connect, rate-shop, purchase, track and refund all operate as of 2026-09-18 — the credential read that made all five answer 501 is built, and the end-to-end test drives the real store rather than a fake. What remains before a firm can buy real postage is commercial, not engineering: the EasyPost Forge contract that makes per-firm child users and centralized billing possible. Between 2026-08-15 and this change the five answered 501 from the credential-store-not-implemented dispatch outcome, and before 2026-08-15 they answered 500.</p>
 </li><li class="n d2" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Certified mail</span>

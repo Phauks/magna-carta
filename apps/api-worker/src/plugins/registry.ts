@@ -1,7 +1,5 @@
-import { createFirmSecretCredentialStore } from "@magna-carta/data-access/firm-secret-credential-store";
 import type { ProtectedReadContext } from "@magna-carta/data-access/protected-fields";
 import { createConnectionStore } from "@magna-carta/data-access/integration-connection-store";
-import { unbuiltCredentialStore } from "@magna-carta/integrations/credentials";
 import type { IntegrationManifest } from "@magna-carta/integrations/manifest";
 import {
   createIntegrationRegistry,
@@ -39,22 +37,19 @@ export function listManifests(): readonly IntegrationManifest[] {
   return workerPlugins.map((plugin) => plugin.manifest);
 }
 
-// One integration registry per request, over the firm's database (ConnectionStore) + its firm_secret
-// CredentialStore, with every plugin's adapter registered. Replaces the shipping-specific builder.
-// A deployment whose per-firm secret read is not wired yet hands the registry the framework's
-// unbuilt-store value, so every credentialed operation refuses by name instead of the construction
-// blowing up on the first request that needed one.
+// One integration registry per request, over the firm's connection rows and its integration_credential
+// store, with every plugin's adapter registered.
+// Both stores resolve from the one per-request context, so a connection and the credential it names
+// can never address different firms.
 export function buildIntegrationRegistry(
   context: ProtectedReadContext,
   runtime: PluginRuntime,
 ): IntegrationRegistry {
-  const secrets = runtime.secretStoreForFirm(context);
   const registry = createIntegrationRegistry({
     // The same per-firm handle the credential read is scoped to: BatchDatabase extends SqlDatabase,
     // so one context addresses both stores and they cannot drift onto different firms.
     connectionStore: createConnectionStore(context.database),
-    credentialStore:
-      secrets === null ? unbuiltCredentialStore : createFirmSecretCredentialStore(secrets),
+    credentialStore: runtime.credentialStoreForFirm(context),
   });
   for (const plugin of workerPlugins) plugin.registerAdapter?.(registry, runtime);
   return registry;

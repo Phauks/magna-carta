@@ -37795,7 +37795,7 @@ export type ShippingConnectErrors = {
      */
     429: Problem;
     /**
-     * The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run
+     * This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run
      */
     501: Problem;
 };
@@ -37898,7 +37898,7 @@ export type ShippingRateShipmentErrors = {
      */
     429: Problem;
     /**
-     * The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run
+     * This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run
      */
     501: Problem;
     /**
@@ -37960,7 +37960,7 @@ export type ShippingPurchaseErrors = {
      */
     429: Problem;
     /**
-     * The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run
+     * This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run
      */
     501: Problem;
     /**
@@ -38054,7 +38054,7 @@ export type ShippingTrackingErrors = {
      */
     429: Problem;
     /**
-     * The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run
+     * This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run
      */
     501: Problem;
     /**
@@ -38116,7 +38116,7 @@ export type ShippingRefundErrors = {
      */
     429: Problem;
     /**
-     * The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run
+     * This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run
      */
     501: Problem;
     /**

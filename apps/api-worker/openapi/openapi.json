@@ -106308,7 +106308,7 @@
             }
           },
           "501": {
-            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+            "description": "This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -106664,7 +106664,7 @@
             }
           },
           "501": {
-            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+            "description": "This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -106817,7 +106817,7 @@
             }
           },
           "501": {
-            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+            "description": "This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -107025,7 +107025,7 @@
             }
           },
           "501": {
-            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+            "description": "This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -107168,7 +107168,7 @@
             }
           },
           "501": {
-            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+            "description": "This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run",
             "content": {
               "application/problem+json": {
                 "schema": {
