@@ -123,7 +123,9 @@ export function entryFromTimelineRow(
       date,
       label: eventTypeNameForCode(row.label, context.eventTypesByCode),
       detail: matterLine(row.matterId, context),
-      time: formatWallClock(row.timeOfDay, row.timeZone ?? "", context.readerTimeZone) ?? undefined,
+      time:
+        formatWallClock(row.timeOfDay, row.timeZone ?? "", context.readerTimeZone, date) ??
+        undefined,
       startMinute: minutesOf(row.timeOfDay),
       tone: cancelled ? "warning" : eventTypeTone(row.label),
       struck: cancelled,
@@ -141,7 +143,8 @@ export function entryFromTimelineRow(
     sourceKeys: [],
     date,
     label: layeredKindLabel(row.kind),
-    time: formatWallClock(row.timeOfDay, row.timeZone ?? "", context.readerTimeZone) ?? undefined,
+    time:
+      formatWallClock(row.timeOfDay, row.timeZone ?? "", context.readerTimeZone, date) ?? undefined,
     startMinute: minutesOf(row.timeOfDay),
     detail:
       [matter, row.label].filter((part): part is string => part != null).join(" · ") || undefined,
@@ -169,7 +172,12 @@ export function entryFromDeadline(
     label: deadline.title,
     detail: isMatterScope(scope) ? undefined : matterLine(deadline.matterId, context),
     time:
-      formatWallClock(deadline.dueAtTime, deadline.timeZone, context.readerTimeZone) ?? undefined,
+      formatWallClock(
+        deadline.dueAtTime,
+        deadline.timeZone,
+        context.readerTimeZone,
+        deadline.dueOn,
+      ) ?? undefined,
     startMinute: minutesOf(deadline.dueAtTime),
     tone: deadlineTone(deadline),
     struck,
@@ -200,7 +208,9 @@ export function entryFromMatterEvent(
     endDate: event.endsOn ?? undefined,
     label: event.title,
     detail,
-    time: formatWallClock(event.startsAtTime, event.timeZone, context.readerTimeZone) ?? undefined,
+    time:
+      formatWallClock(event.startsAtTime, event.timeZone, context.readerTimeZone, event.startsOn) ??
+      undefined,
     startMinute: minutesOf(event.startsAtTime),
     endMinute: minutesOf(event.endsAtTime),
     tone: event.status === "cancelled" ? "warning" : eventTypeTone(typeCodeOf(event, context)),
@@ -233,7 +243,9 @@ export function entryFromFirmEvent(event: FirmEvent, context: EntryContext): Cal
     endDate: event.endsOn ?? undefined,
     label: event.title,
     detail: [typeName, firmEventAudienceLabel(event.audience)].join(" · "),
-    time: formatWallClock(event.startsAtTime, event.timeZone, context.readerTimeZone) ?? undefined,
+    time:
+      formatWallClock(event.startsAtTime, event.timeZone, context.readerTimeZone, event.startsOn) ??
+      undefined,
     startMinute: minutesOf(event.startsAtTime),
     endMinute: minutesOf(event.endsAtTime),
     tone: event.status === "cancelled" ? "warning" : "accent",
@@ -272,7 +284,9 @@ export function entryFromAvailability(
     endDate: entry.endsOn ?? undefined,
     label,
     detail: doubleBooked ? DOUBLE_BOOKED_LABEL : undefined,
-    time: formatWallClock(entry.startsAtTime, entry.timeZone, context.readerTimeZone) ?? undefined,
+    time:
+      formatWallClock(entry.startsAtTime, entry.timeZone, context.readerTimeZone, entry.startsOn) ??
+      undefined,
     startMinute: minutesOf(entry.startsAtTime),
     endMinute: minutesOf(entry.endsAtTime),
     tone: doubleBooked ? "danger" : entry.eventKind === "firmEvent" ? "accent" : "info",

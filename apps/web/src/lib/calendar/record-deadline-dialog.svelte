@@ -130,7 +130,12 @@
   /** The replaced deadline, named once in the subtitle. */
   const supersededLine = $derived.by(() => {
     if (supersedes === null) return "";
-    const clock = formatWallClock(supersedes.dueAtTime, supersedes.timeZone);
+    const clock = formatWallClock(
+      supersedes.dueAtTime,
+      supersedes.timeZone,
+      undefined,
+      supersedes.dueOn,
+    );
     const due = formatDate(supersedes.dueOn);
     return `Replacing "${supersedes.title}", due ${clock === null ? due : `${due}, ${clock}`}.`;
   });

@@ -33,12 +33,13 @@ properties; off-token values are machine-rejected.
   browser: `time-placement.ts` (the span an entry occupies, floored at `MINIMUM_BLOCK_MINUTES` so a
   fifteen-minute call can still hold its label, and the share of the column it takes) and
   `time-blocks.ts` (which cell it renders in, and the inline style that draws it), and
-  `day-segments.ts` (a timed entry that runs past midnight, cut into the piece it occupies on each
-  day it covers — the first day from its start hour to midnight, a day in the middle the whole
-  column, the last day midnight to its end hour). The month never needed that last one, because
-  `placeEntries` walks every day of a span; a span on an HOUR axis is not the same entry repeated,
-  which is why the time grids could not use it. Each piece carries its own id, because two pieces of
-  one record are two things to render and a grid keyed on a repeated id drops all but one. **How concurrent
+  `day-segments.ts` (the timed entries a day's axis holds: the ones that begin and end on it).
+  **A run of days reads in the band above the hours, never on the axis** (`inAllDayBand`,
+  `day-axis.ts`; owner, 2026-09-18): a Monday-to-Wednesday trial spans the band the way it spans
+  the month, with its hours on the chip as text. It used to be cut into a piece per day — the start
+  hour to midnight, a whole column, midnight to the end — which drew it as three full columns and,
+  where the day drew only working hours, as blocks reaching above and below the grid. A span's hours
+  never widen the axis either. **How concurrent
   entries are drawn is the READER's** (`concurrency`: `side-by-side` divides the column,
   `overlap` steps them over one another) — a closed set, never a length or a flag at a call site.
   The month and the agenda have no hour axis and take no such prop. The calendar's own arithmetic,

@@ -168,3 +168,157 @@ export function formatTimeZoneAbbreviation(
     return timeZone;
   }
 }
+
+/**
+ * A ZONE, DESCRIBED — every word a surface could print about one, worked out once.
+ *
+ * The record forms, the record panes, the print sheets and the offices table each printed a zone
+ * in a shape of their own: "PST · America / Los Angeles" in one list beside "GMT+5:30 · Asia /
+ * Kolkata" in the same list, "America / Los Angeles" at rest in the field that offered them, and a
+ * bare identifier on a sheet (owner, 2026-09-18: "time zone formattings seem all different and
+ * unstandardized"). A zone is one fact with four faces, and they are all here so no surface has to
+ * assemble its own.
+ *
+ * ON A DAY, like the abbreviation above: the offset and the name are facts about a zone AT A MOMENT
+ * — Los Angeles is eight hours behind UTC in January and seven in July, and its name changes with
+ * them — so the caller passes the day its record falls on.
+ *
+ * The `offset` is stated against UTC rather than GMT, in the form every operating system's own
+ * zone list uses ("UTC-08:00"), because "relative to the standard" is the one thing a person
+ * choosing between three Central zones can check against a court's notice. The `place` is the
+ * zone's own last segment, which is the city the identifier names and the word a person actually
+ * types. The `abbreviation` is the short form the chips print, where the zone has letters of its
+ * own, and the offset where it does not.
+ */
+export interface TimeZoneDescription {
+  /** The IANA identifier, as stored. */
+  readonly zone: string;
+  /** "UTC-08:00", "UTC+05:30", "UTC+00:00": the offset from UTC on the day, always in this shape. */
+  readonly offset: string;
+  /** The same offset as minutes east of UTC, for ordering a list west to east. */
+  readonly offsetMinutes: number;
+  /** "PST", "EDT" — or the offset where the zone has no letters of its own. */
+  readonly abbreviation: string;
+  /** "Pacific Standard Time", "India Standard Time": the zone's own long name on the day. */
+  readonly name: string;
+  /** "Pacific Time": the name without its standard-or-daylight half, for finding a zone by. */
+  readonly genericName: string;
+  /** "Los Angeles", "Kolkata": the city the identifier names. */
+  readonly place: string;
+}
+
+const MILLISECONDS_IN_DAY = 86_400_000;
+const descriptionsByKey = new Map<string, TimeZoneDescription>();
+
+/**
+ * Describe a zone on a day. Cached per zone, day and locale: a list of every zone the runtime
+ * knows is four hundred entries, and building four formatters for each on every keystroke is what
+ * makes a field feel broken. The cache is bounded by the zones a surface actually lists.
+ */
+export function describeTimeZone(
+  timeZone: string,
+  on: Instant = new Date(),
+  locale?: string,
+): TimeZoneDescription {
+  const date = readInstant(on) ?? new Date();
+  // Keyed on the UTC day as a count of days, which is all that can change the answer.
+  const day = Math.floor(date.getTime() / MILLISECONDS_IN_DAY);
+  const key = `${locale ?? ""}|${timeZone}|${String(day)}`;
+  const cached = descriptionsByKey.get(key);
+  if (cached !== undefined) return cached;
+  const described = buildTimeZoneDescription(timeZone, date, locale ?? "en-US");
+  descriptionsByKey.set(key, described);
+  return described;
+}
+
+function timeZoneNamePart(
+  timeZone: string,
+  date: Date,
+  locale: string,
+  style: "short" | "long" | "longGeneric" | "longOffset",
+): string | null {
+  try {
+    const parts = new Intl.DateTimeFormat(locale, { timeZone, timeZoneName: style }).formatToParts(
+      date,
+    );
+    return parts.find((part) => part.type === "timeZoneName")?.value ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** "GMT-08:00", "GMT+5:30", "GMT" or "UTC" as the runtime prints it, read back as minutes east. */
+function offsetMinutesOf(printed: string | null): number | null {
+  if (printed === null) return null;
+  if (/^(GMT|UTC)$/.test(printed)) return 0;
+  const match = /^(?:GMT|UTC)([+-])(\d{1,2})(?::(\d{2}))?$/.exec(printed);
+  if (match === null) return null;
+  const sign = match[1] === "-" ? -1 : 1;
+  return sign * (Number(match[2]) * 60 + Number(match[3] ?? "0"));
+}
+
+function offsetText(minutes: number): string {
+  const sign = minutes < 0 ? "-" : "+";
+  const magnitude = Math.abs(minutes);
+  const hours = String(Math.floor(magnitude / 60)).padStart(2, "0");
+  const rest = String(magnitude % 60).padStart(2, "0");
+  return `UTC${sign}${hours}:${rest}`;
+}
+
+/** The city an identifier names: its last segment, spaces for underscores. "UTC" names itself. */
+function placeOf(timeZone: string): string {
+  const last = timeZone.split("/").at(-1) ?? timeZone;
+  return last.replaceAll("_", " ");
+}
+
+function buildTimeZoneDescription(
+  timeZone: string,
+  date: Date,
+  locale: string,
+): TimeZoneDescription {
+  const offsetMinutes = offsetMinutesOf(timeZoneNamePart(timeZone, date, locale, "longOffset"));
+  const place = placeOf(timeZone);
+  if (offsetMinutes === null) {
+    // A zone this runtime cannot resolve is shown as what it is, rather than as nothing.
+    return {
+      zone: timeZone,
+      offset: "",
+      offsetMinutes: 0,
+      abbreviation: timeZone,
+      name: timeZone,
+      genericName: timeZone,
+      place,
+    };
+  }
+  const offset = offsetText(offsetMinutes);
+  const short = timeZoneNamePart(timeZone, date, locale, "short");
+  // A short form the runtime spells as an offset ("GMT+5:30") is not letters of the zone's own,
+  // so the standard offset stands in for it — one shape for every zone without a code.
+  const abbreviation = short === null || offsetMinutesOf(short) !== null ? offset : short;
+  const name = timeZoneNamePart(timeZone, date, locale, "long") ?? place;
+  const generic = timeZoneNamePart(timeZone, date, locale, "longGeneric");
+  return {
+    zone: timeZone,
+    offset,
+    offsetMinutes,
+    abbreviation,
+    name: offsetMinutesOf(name) === null ? name : place,
+    genericName: generic === null || offsetMinutesOf(generic) !== null ? name : generic,
+    place,
+  };
+}
+
+/**
+ * THE ONE LINE A ZONE READS AS wherever it is printed in full: "(UTC-08:00) Pacific Standard Time ·
+ * Los Angeles". The same shape for every zone on earth — offset, name, place — which is what lets
+ * a list of them be read down, and what a field holding one shows at rest.
+ */
+export function formatTimeZone(
+  timeZone: string,
+  on: Instant = new Date(),
+  locale?: string,
+): string {
+  const described = describeTimeZone(timeZone, on, locale);
+  if (described.offset === "") return timeZone;
+  return `(${described.offset}) ${described.name} · ${described.place}`;
+}

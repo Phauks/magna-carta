@@ -89,7 +89,6 @@
   import { subjectIsEmpty } from "../record-reference/record-reference-model.ts";
   import type { RecordSubject } from "../record-reference/types.ts";
   import {
-    DISCARD_SENTENCE,
     DISMISS_LABEL,
     LEAVE_LABEL,
     traitsOf,
@@ -629,4 +628,8 @@
   </Dialog.Root>
 {/if}
 
-<DiscardQuestion {guard} description={DISCARD_SENTENCE} onDiscard={discardAndClose} />
+<!-- The question stands on its heading alone here. The sentence under it — that entries would be
+     thrown away and nothing else had changed — restated what "Discard Your Changes?" already asks,
+     and the owner struck it (2026-09-18). The record window keeps its own line, because a record
+     being changed is a different stake from a form being filled. -->
+<DiscardQuestion {guard} onDiscard={discardAndClose} />

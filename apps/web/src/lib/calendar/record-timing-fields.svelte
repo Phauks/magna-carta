@@ -51,17 +51,24 @@
  * Nothing is marked before a save was ASKED for: a form that opens with every unanswered field
  * already marked has told the reader they are wrong for not having typed yet.
  *
- * AN EMPTY TIME IS ALL DAY. A filing has no hour, and a form that made somebody tick "all day"
-   * before it would accept a date without a time is a form that asks a question the blank already
-   * answers. So there is no checkbox: leaving the time empty is what all day means.
+ * AN EMPTY TIME IS ALL DAY, AND THERE IS A CONTROL THAT SAYS SO. A filing has no hour, so the
+   * record stores no time for it and a date with no time has always meant all day. What was missing
+   * was the way to SAY it: a person recording a three-day trial typed hours into both ends because
+   * the form offered nothing else, and the grid then drew the trial across the hours (owner,
+   * 2026-09-18: "allow setting events as All Day to put them there, rather than by timing"). The
+   * All Day switch is a reading of the two time fields (event-draft.ts, `readsAsAllDay`): choosing
+   * it clears them and holds them disabled, so the record still stores what it always stored. The
+   * time fields stay in place rather than vanishing, because a control that disappears moves the
+   * fields under it.
    */
+  import Checkbox from "@magna-carta/design-system/checkbox";
   import FieldRow from "@magna-carta/design-system/field-row";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import { DatePicker } from "@magna-carta/design-system/date-picker";
   import type { DateValue } from "@internationalized/date";
   import { civilDateValue } from "./draft-text.ts";
-  import { TIMING_FIELDS, type EventTimingDraft } from "./event-draft.ts";
+  import { asAllDay, readsAsAllDay, TIMING_FIELDS, type EventTimingDraft } from "./event-draft.ts";
   import { shortfallFor, type Shortfall } from "./shortfall.ts";
   import FieldRefusal from "./field-refusal.svelte";
   import TimeZonePicker from "./time-zone-picker.svelte";
@@ -94,6 +101,20 @@
   const endsOnRefusal = $derived(shortfallFor(shortfalls, TIMING_FIELDS.endsOn));
   const endsAtTimeRefusal = $derived(shortfallFor(shortfalls, TIMING_FIELDS.endsAtTime));
   const timeZoneRefusal = $derived(shortfallFor(shortfalls, TIMING_FIELDS.timeZone));
+
+  /*
+   * Whether the hours are switched off. Read from the draft ONCE, when the fields mount: a record
+   * opened with no hours is all day, a form opened from an hour on the grid is not. It is not a
+   * derived, because a blank form whose date has just been chosen has no hours yet either, and a
+   * switch that flipped itself on at that moment would disable the time field the reader was about
+   * to reach for.
+   */
+  let allDay = $state(readsAsAllDay(draft));
+
+  function chooseAllDay(next: boolean): void {
+    allDay = next;
+    if (next) draft = { ...draft, ...asAllDay(draft) };
+  }
 
   const startsOnValue = $derived(civilDateValue(draft.startsOn));
   const endsOnValue = $derived(civilDateValue(draft.endsOn));
@@ -137,7 +158,7 @@
         type="time"
         autocomplete="off"
         aria-invalid={startsAtTimeRefusal === undefined ? undefined : "true"}
-        {disabled}
+        disabled={disabled || allDay}
         bind:value={draft.startsAtTime}
       />
       <FieldRefusal refusal={startsAtTimeRefusal} />
@@ -163,19 +184,31 @@
         type="time"
         autocomplete="off"
         aria-invalid={endsAtTimeRefusal === undefined ? undefined : "true"}
-        {disabled}
+        disabled={disabled || allDay}
         bind:value={draft.endsAtTime}
       />
       <FieldRefusal refusal={endsAtTimeRefusal} />
     </div>
   </FieldRow>
 
-  <!-- The zone both moments are read in, asked once, at a measure that can show the list. -->
+  <!-- All day: the hours switched off and cleared. The record stores an empty time for it. -->
+  <div class="flex items-center gap-8">
+    <Checkbox
+      id="{idPrefix}-all-day"
+      checked={allDay}
+      {disabled}
+      onCheckedChange={(checked) => chooseAllDay(checked === true)}
+    />
+    <Label for="{idPrefix}-all-day" class="font-normal">All day</Label>
+  </div>
+
+  <!-- The zone both moments are read in, asked once, at a measure that can show the list. Named in
+       full: "Zone" alone read as a question about a place (owner, 2026-09-18). -->
   <div class="flex flex-col gap-8">
-    <Label for="{idPrefix}-time-zone">Zone</Label>
+    <Label for="{idPrefix}-time-zone">Time zone</Label>
     <TimeZonePicker
       inputId="{idPrefix}-time-zone"
-      label="Zone"
+      label="Time zone"
       on={shortCodeDay}
       {preferred}
       {disabled}

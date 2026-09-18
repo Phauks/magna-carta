@@ -15,6 +15,11 @@
    * IT FOLLOWS THE DATE FIELD, and says so when there is no date yet: a day grid anchored on today
    * while the form is being filled in for a Thursday three weeks out would be worse than nothing,
    * because it would look like an answer.
+   *
+   * WHOSE DAY IT IS CAN BE CHOSEN HERE. Availability is a question about particular calendars — this
+   * attorney's, that room's — so the pane carries the Calendars menu (calendar-menu.svelte), which
+   * is the rail's own selection in a dropdown: turn a colleague on here and their day appears in its
+   * own column, and the rail says the same when the form closes (owner, 2026-09-18).
    */
   import FieldLabel from "@magna-carta/design-system/field-label";
   import CalendarView from "./calendar-view.svelte";
@@ -46,6 +51,7 @@
         view="day"
         anchor={day}
         toolbar={false}
+        calendarMenu
         class="min-h-0 flex-1"
       />
     {/key}
