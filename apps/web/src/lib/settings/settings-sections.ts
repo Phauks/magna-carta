@@ -447,6 +447,23 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     shipped: true,
   },
   {
+    // The firm's own account with the carrier platform, and the first occupant of the integrations
+    // group — which has been declared in SettingsSectionGroup since the group list was written and
+    // held nothing. It sits here rather than inside /shipping because connecting an account is an
+    // administrative act with a different audience from buying a label: the register needs
+    // shipping:manage, this needs firm rights, and a member who mails things daily should not
+    // navigate an area containing a page they cannot open. Instant rather than draft: connecting an
+    // account is one act against one route, with nothing to stage beside it.
+    id: "shipping",
+    label: "Postage Account",
+    href: "/settings/shipping",
+    group: "integrations",
+    scope: "firm",
+    commitMode: "instant",
+    editPermissionArea: "integrations",
+    shipped: true,
+  },
+  {
     // How each kind of file opens: the register the file manager decides the one Open gesture from,
     // rendered as a routing table. Read-only today — every family has one way of opening and the
     // table states it — and a firm section because the ways are the firm's, so that when a family

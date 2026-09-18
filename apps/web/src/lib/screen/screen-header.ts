@@ -16,6 +16,7 @@ import type { Component } from "svelte";
 import Terminal from "@lucide/svelte/icons/terminal";
 import FolderOpen from "@lucide/svelte/icons/folder-open";
 import Microscope from "@lucide/svelte/icons/microscope";
+import Package from "@lucide/svelte/icons/package";
 import { destinationById, type DestinationId } from "$lib/navigation/destinations.ts";
 
 /** A screen the way back leads to, spelled out — for destinations outside the sidebar registry. */
@@ -53,6 +54,18 @@ export const FILE_WORKBENCH_BACK: BackDestination = {
   href: "/file-workbench",
   label: "File Workbench",
   icon: Microscope,
+};
+
+/**
+ * Shipping & Postage — a tool with a sub-screen (drafting a shipment), spelled out for exactly the
+ * reason the workbench above is: a tool's identity lives in the catalog (@magna-carta/tools) and the
+ * rail projects its row from there, so the destination registry does not hold one. A test pins this
+ * to the manifest, so the two cannot drift.
+ */
+export const SHIPPING_BACK: BackDestination = {
+  href: "/shipping",
+  label: "Shipping & Postage",
+  icon: Package,
 };
 
 /** The developer console — a real screen with sub-screens, deliberately outside the sidebar. */

@@ -65,7 +65,7 @@ export const TOOL_PRESENTATION: Record<string, ToolPresentation> = {
     description: "Open the official register where a lawyer's standing is verified.",
     stage: "alpha",
   },
-  shipping: { description: "Rate and buy postage for a mailing.", stage: "soon" },
+  shipping: { description: "Rate and buy postage for a mailing.", stage: "alpha" },
   "network-speed-test": {
     description: "Measure this connection's download, upload, latency, and quality.",
     stage: "alpha",
