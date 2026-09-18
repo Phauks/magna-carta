@@ -25,6 +25,7 @@
   import { meetingsGetOptions } from "@magna-carta/api-client";
   import * as Alert from "@magna-carta/design-system/alert";
   import Button from "@magna-carta/design-system/button";
+  import FailureBand from "@magna-carta/design-system/failure-band";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { formatDate, formatTimeZoneAbbreviation } from "@magna-carta/design-system/formatters";
@@ -33,11 +34,13 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { failureOf } from "$lib/api/api-client.ts";
   import { meetingSocketUrl } from "$lib/api/socket-url.ts";
+  import { leaveMeetingOnDeparture } from "$lib/api/departure-write.ts";
   import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
   import { formatWallClock } from "$lib/calendar/calendar-api.ts";
   import {
     MeetingClient,
     browserMeetingSeams,
+    refusalStatement,
   } from "$lib/meetings/meeting-client.svelte.ts";
   import { meetingTiles, sharedScreenTile } from "$lib/meetings/meeting-tiles.ts";
   import MeetingGrid from "$lib/meetings/meeting-grid.svelte";
@@ -144,8 +147,8 @@
 
   /*
    * The same act on the way out of the page, best effort. A navigation cannot be held open for a
-   * round trip, so the write is fired and the member is let go; the room also drops the socket,
-   * and the sweep on the server is what closes an attendance this never reached.
+   * round trip, so the write is fired and the member is let go; the room also drops the socket, and
+   * a stay this never reached is closed by the server about a minute after the socket is lost.
    */
   function depart(): void {
     const id = joinedMeetingId;
@@ -153,6 +156,25 @@
     joinedMeetingId = null;
     client.dispose();
     void leaveMeeting(id);
+  }
+
+  /*
+   * Closing the tab, which reaches neither of the two above: `beforeNavigate` is about navigation
+   * inside the app and `onDestroy` never runs on a document being torn down. Without this the member
+   * stays in the room until the server's grace period closes them out, which is a minute of a tile
+   * nobody is behind — so the write goes out on the way down, on the one transport that survives the
+   * page (`$lib/api/departure-write.ts` says why it is not the generated client).
+   *
+   * BOTH EVENTS, AND NEITHER TWICE. `pagehide` is the one that fires in every case, the back/forward
+   * cache included; `beforeunload` is the fallback where a browser gives only that. Clearing the
+   * meeting first is what makes the second of the two a no-op, so one departure is sent, not two.
+   */
+  function departOnUnload(): void {
+    const id = joinedMeetingId;
+    if (id === null) return;
+    joinedMeetingId = null;
+    client.dispose();
+    leaveMeetingOnDeparture(id);
   }
 
   /*
@@ -251,6 +273,8 @@
 
 <svelte:head><title>{title} · Magna Carta</title></svelte:head>
 
+<svelte:window onpagehide={departOnUnload} onbeforeunload={departOnUnload} />
+
 <div class="flex h-full min-h-0 flex-col gap-16">
   <ScreenHeader {title}>
     {#snippet meta()}
@@ -323,6 +347,26 @@
         <Alert.Root variant="info">
           <Alert.Title>Nothing Is Being Sent</Alert.Title>
           <Alert.Description>{client.captureRefusal}</Alert.Description>
+        </Alert.Root>
+      {/if}
+
+      <!-- A refusal the meeting SURVIVED, which is most of them: the room said no to one frame and
+           stayed open, so this states what did not happen without taking anybody out of the room.
+           The Error ID rides with it where the room issued one, the way every other surface carries
+           one — it is what support is quoted. -->
+      {#if client.lastRefusal !== null}
+        <FailureBand
+          variant="warning"
+          title="Something Did Not Reach the Room"
+          message={refusalStatement(client.lastRefusal)}
+          errorId={client.lastRefusal.errorId}
+        />
+      {/if}
+
+      {#if client.lastProblem !== null}
+        <Alert.Root variant="warning">
+          <Alert.Title>Something Did Not Finish</Alert.Title>
+          <Alert.Description>{client.lastProblem}</Alert.Description>
         </Alert.Root>
       {/if}
 

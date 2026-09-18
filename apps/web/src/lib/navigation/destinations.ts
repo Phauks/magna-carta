@@ -395,7 +395,7 @@ const DESTINATION_LIST = [
     shipped: true,
     stage: "alpha",
     defaultShown: true,
-    permission: "meetings:join",
+    permission: assertPermission("meetings:join"),
   },
   {
     id: "documents",

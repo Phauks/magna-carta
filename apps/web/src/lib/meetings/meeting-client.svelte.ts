@@ -23,6 +23,11 @@
  * ended is a failure with the reason `socket-closed`, and the screen offers the way back in. A
  * client that silently re-dialled would re-open an attendance row nobody asked for, and attendance
  * is a record of who was actually in the room.
+ *
+ * SOMEBODY ELSE RECONNECTING IS ORDINARY, THOUGH, and this browser has to follow it. They come back
+ * with the same attendance and the same track names on a NEW unit session, so what is already coming
+ * in is counted by session AND name (`pulledTrackKey`), and a roster that stops naming a session is
+ * what drops the tracks and the stream that went with it.
  */
 
 /*
@@ -56,6 +61,21 @@ const MISSED_PONGS_BEFORE_FAILURE = 2;
 /** The reason recorded when the signaling socket goes away without the meeting having ended. */
 export const SOCKET_CLOSED_REASON = "socket-closed";
 
+/**
+ * The refusals that END this browser's meeting. Everything else the room refuses is a setback: it
+ * keeps the socket open, the roster keeps arriving, and the member is still in the room. Treating a
+ * malformed frame or an unreachable unit as the end of a meeting throws somebody out of a room they
+ * are still in, over a frame they never saw.
+ */
+const FATAL_REFUSAL_REASONS = new Set(["not-a-participant", "meeting-ended"]);
+
+/**
+ * The refusals that mean the tracks just asked for are not coming: the unit could not be reached, or
+ * it does not know a track under the name it was asked for. Those tracks stop counting as pulled, so
+ * the next roster asks for them again rather than waiting on media that was never sent.
+ */
+const REFUSALS_THAT_LOSE_A_SUBSCRIPTION = new Set(["sfu-unavailable", "unknown-track"]);
+
 /** Where a meeting stands from this browser's point of view. */
 export type MeetingState = "idle" | "joining" | "live" | "ended" | "failed";
 
@@ -76,6 +96,18 @@ export interface MeetingParticipant {
   /** The unit's session this participant publishes through. Null before they have published. */
   readonly sfuSessionId: string | null;
   readonly tracks: readonly MeetingTrack[];
+}
+
+/**
+ * A refusal the meeting SURVIVES: the room said no to one frame and stayed open.
+ *
+ * The Error ID is the room's own correlation handle where its failure reached the logging pipeline,
+ * and it is the one thing worth quoting to support — so it travels with the reason rather than being
+ * squeezed into a sentence.
+ */
+export interface MeetingRefusal {
+  readonly reason: string;
+  readonly errorId: string | null;
 }
 
 /** What the join route answered with, plus where the room's socket lives. */
@@ -138,6 +170,31 @@ function readSessionDescription(value: unknown): SessionDescription | null {
   return { type: type as RTCSdpType, sdp };
 }
 
+/** One track of a `subscribed` frame, as the room states it. */
+interface SubscribedTrack {
+  readonly trackName: string;
+  /** The media section the track arrives on. Null where the room named none. */
+  readonly mid: string | null;
+  /** The unit session the track is pulled from. Null where the room named none. */
+  readonly sessionId: string | null;
+}
+
+function readSubscribedTracks(value: unknown): readonly SubscribedTrack[] {
+  if (!Array.isArray(value)) return [];
+  const tracks: SubscribedTrack[] = [];
+  for (const entry of value) {
+    if (!isRecord(entry)) continue;
+    const trackName = readString(entry, "trackName");
+    if (trackName === null) continue;
+    tracks.push({
+      trackName,
+      mid: readString(entry, "mid"),
+      sessionId: readString(entry, "sessionId"),
+    });
+  }
+  return tracks;
+}
+
 function readTrackKind(value: unknown): MeetingTrackKind {
   return value === "audio" || value === "screen" ? value : "video";
 }
@@ -179,6 +236,41 @@ function namesAScreen(trackName: string): boolean {
   return trackName.endsWith(":screen");
 }
 
+/**
+ * How a pulled track is keyed: the unit session it comes from, and then its name.
+ *
+ * The name on its own is not enough to say what is already coming in. A participant who drops and
+ * comes back keeps their attendance, so their tracks keep their names, while the unit gives them a
+ * NEW session — and a set keyed on the name alone reports those tracks as already pulled, never asks
+ * for them, and leaves that person's tile black for as long as they stay in the room.
+ */
+function pulledTrackKey(sessionId: string, trackName: string): string {
+  return `${sessionId}:${trackName}`;
+}
+
+/**
+ * What a refusal the meeting survived reads as, in words a member can act on.
+ *
+ * The reasons themselves are the room's own vocabulary — a member should never be shown
+ * `malformed-frame` — and they group by what the reader can do about it: wait, because it will be
+ * asked for again; or report it, because the Error ID beside the sentence is what support needs.
+ */
+export function refusalStatement(refusal: MeetingRefusal): string {
+  switch (refusal.reason) {
+    case "sfu-unavailable":
+      return "The service that carries the pictures and sound could not be reached. What was asked for will be asked for again.";
+    case "unknown-track":
+    case "foreign-track-name":
+      return "Somebody's picture or sound was asked for under a name the room no longer holds. It will be asked for again.";
+    case "malformed-frame":
+    case "frame-too-large":
+    case "unknown-frame":
+      return "The room did not understand something this page sent, and ignored it.";
+    default:
+      return "The room refused something this page asked for, and carried on without it.";
+  }
+}
+
 export class MeetingClient {
   /** Where the meeting stands. The screen renders from this and nothing else. */
   state = $state<MeetingState>("idle");
@@ -215,6 +307,19 @@ export class MeetingClient {
    * still see and hear everybody else, and the screen says what is missing.
    */
   captureRefusal = $state<string | null>(null);
+  /**
+   * The room's last refusal that the meeting survived, for the screen to state. A refusal here is
+   * about one frame, not about the meeting: the socket is open, the roster is still arriving, and
+   * whatever was asked for can be asked for again.
+   */
+  lastRefusal = $state<MeetingRefusal | null>(null);
+  /**
+   * The last negotiation step that did not finish, in the words a member reads. Nothing here ends
+   * the meeting either — the connection is where the failed step left it and the next frame is
+   * still worth applying — but a step that fails silently is a picture that never arrives with
+   * nothing on the screen saying so.
+   */
+  lastProblem = $state<string | null>(null);
 
   /** This browser's own participant, as the room named it. */
   participantId = $state<string | null>(null);
@@ -238,17 +343,23 @@ export class MeetingClient {
   /** True once this browser asked to leave, so the socket closing is expected rather than a fault. */
   #leaving = false;
 
-  /** Track names already asked for, so a repeated roster does not pull the same track twice. */
+  /**
+   * The tracks already asked for, keyed by session and name (`pulledTrackKey`), so a repeated roster
+   * does not pull the same track twice and a reconnected participant's new session is pulled afresh.
+   */
   readonly #pulledTracks = new Set<string>();
-  /** Which participant each pulled track name belongs to. */
+  /** The same keys, for the subscriptions the room has not answered yet. */
+  readonly #pendingSubscriptions = new Set<string>();
+  /** Which participant each pulled track belongs to, under the same key. */
   readonly #trackOwners = new Map<string, string>();
   /** The screen share's transceiver mid, which is what closing it names. */
   #screenMid: string | null = null;
 
   /**
-   * Every frame that renegotiates runs here, one after another. Two session descriptions applied
-   * concurrently is an invalid-state error the browser reports from whichever one lost, so the
-   * ordering is made explicit rather than left to the order frames happen to arrive in.
+   * Everything that renegotiates runs here, one after another: the frames that arrive, and this
+   * browser's own publishes. Two session descriptions applied concurrently is an invalid-state error
+   * the browser reports from whichever one lost, so the ordering is made explicit rather than left
+   * to the order frames happen to arrive in.
    */
   #work: Promise<void> = Promise.resolve();
 
@@ -275,6 +386,12 @@ export class MeetingClient {
    * The mids are read AFTER the local description is set, because that is when the browser assigns
    * them; read before, every track would be named with a null mid and the unit would have nothing
    * to match the offer's media sections against.
+   *
+   * THE OFFER IS MADE IN THE NEGOTIATION QUEUE, not beside it. Capturing is slow and an incoming
+   * offer from the unit can land in the middle of it; two session descriptions applied at once is an
+   * invalid-state error the browser raises from whichever one lost, and the one that loses is
+   * usually this one — a member who publishes as somebody else joins is then in the room seeing
+   * everybody while nobody sees them.
    */
   async publish(): Promise<void> {
     const peerConnection = this.#peerConnection;
@@ -289,24 +406,26 @@ export class MeetingClient {
     }
     this.localStream = stream;
     this.captureRefusal = null;
-
-    const published: PublishedTrack[] = [];
-    for (const track of stream.getTracks()) {
-      const transceiver = peerConnection.addTransceiver(track, { direction: "sendonly" });
-      published.push({ transceiver, kind: track.kind === "audio" ? "audio" : "video" });
-    }
     this.microphoneOn = stream.getAudioTracks().length > 0;
     this.cameraOn = stream.getVideoTracks().length > 0;
 
-    const sessionDescription = await this.#offer(peerConnection);
-    this.#send({
-      type: "publish",
-      sessionDescription,
-      tracks: published.map((entry) => ({
-        trackName: this.#trackName(entry.kind),
-        mid: entry.transceiver.mid,
-        kind: entry.kind,
-      })),
+    await this.#enqueue("Your camera and microphone were not offered to the room.", async () => {
+      const published: PublishedTrack[] = [];
+      for (const track of stream.getTracks()) {
+        const transceiver = peerConnection.addTransceiver(track, { direction: "sendonly" });
+        published.push({ transceiver, kind: track.kind === "audio" ? "audio" : "video" });
+      }
+
+      const sessionDescription = await this.#offer(peerConnection);
+      this.#send({
+        type: "publish",
+        sessionDescription,
+        tracks: published.map((entry) => ({
+          trackName: this.#trackName(entry.kind),
+          mid: entry.transceiver.mid,
+          kind: entry.kind,
+        })),
+      });
     });
   }
 
@@ -319,11 +438,15 @@ export class MeetingClient {
     const sessionId = participant.sfuSessionId;
     if (sessionId === null) return;
     if (participant.participantId === this.participantId) return;
-    const wanted = participant.tracks.filter((track) => !this.#pulledTracks.has(track.trackName));
+    const wanted = participant.tracks.filter(
+      (track) => !this.#pulledTracks.has(pulledTrackKey(sessionId, track.trackName)),
+    );
     if (wanted.length === 0) return;
     for (const track of wanted) {
-      this.#pulledTracks.add(track.trackName);
-      this.#trackOwners.set(track.trackName, participant.participantId);
+      const key = pulledTrackKey(sessionId, track.trackName);
+      this.#pulledTracks.add(key);
+      this.#pendingSubscriptions.add(key);
+      this.#trackOwners.set(key, participant.participantId);
     }
     this.#send({
       type: "subscribe",
@@ -356,13 +479,18 @@ export class MeetingClient {
       void this.stopSharing();
     });
 
-    const transceiver = peerConnection.addTransceiver(track, { direction: "sendonly" });
-    const sessionDescription = await this.#offer(peerConnection);
-    this.#screenMid = transceiver.mid;
-    this.#send({
-      type: "publish",
-      sessionDescription,
-      tracks: [{ trackName: this.#trackName("screen"), mid: transceiver.mid, kind: "screen" }],
+    // In the queue for the reason `publish` is: the picker is open for as long as the member takes
+    // to choose a window, and whatever the room sends in the meantime is a description this would
+    // otherwise collide with.
+    await this.#enqueue("Your screen was not offered to the room.", async () => {
+      const transceiver = peerConnection.addTransceiver(track, { direction: "sendonly" });
+      const sessionDescription = await this.#offer(peerConnection);
+      this.#screenMid = transceiver.mid;
+      this.#send({
+        type: "publish",
+        sessionDescription,
+        tracks: [{ trackName: this.#trackName("screen"), mid: transceiver.mid, kind: "screen" }],
+      });
     });
   }
 
@@ -480,13 +608,17 @@ export class MeetingClient {
         this.#adoptRoster(readParticipants(parsed.participants));
         return;
       case "published":
-        this.#enqueue(() => this.#applyRemote(readSessionDescription(parsed.sessionDescription)));
+        void this.#enqueue("The room's answer to what you are sending was not applied.", () =>
+          this.#applyRemote(readSessionDescription(parsed.sessionDescription)),
+        );
         return;
       case "subscribed":
-        this.#enqueue(() => this.#handleSubscribed(parsed));
+        void this.#enqueue("Somebody else's picture and sound did not come in.", () =>
+          this.#handleSubscribed(parsed),
+        );
         return;
       case "closed":
-        this.#enqueue(() =>
+        void this.#enqueue("The room's change to what is being sent was not applied.", () =>
           this.#answerIfOffered(readSessionDescription(parsed.sessionDescription)),
         );
         return;
@@ -496,7 +628,7 @@ export class MeetingClient {
         this.#teardown();
         return;
       case "refused":
-        this.#fail(readString(parsed, "reason") ?? "refused");
+        this.#handleRefused(parsed);
         return;
       default:
         return;
@@ -510,41 +642,152 @@ export class MeetingClient {
     this.#adoptRoster(readParticipants(frame.roster));
   }
 
-  /** Take the roster as stated and pull whatever it names that is not already coming in. */
+  /** Take the roster as stated, forget what it no longer names, and pull whatever is new. */
   #adoptRoster(participants: readonly MeetingParticipant[]): void {
     this.participants = participants;
+    this.#forgetWhatTheRosterNoLongerNames(participants);
     for (const participant of participants) this.subscribeTo(participant);
+  }
+
+  /**
+   * Drop what the roster has stopped naming: a track under a session that is no longer its
+   * participant's, and everything held for somebody who has left the room.
+   *
+   * A forgotten track is asked for again as soon as the roster names it under its new session, which
+   * is what puts a reconnected participant's picture back. Their old stream goes with it, because a
+   * video element plays the first video track it was given and a dead one left in the stream is the
+   * black tile the fresh subscription was supposed to end.
+   */
+  #forgetWhatTheRosterNoLongerNames(participants: readonly MeetingParticipant[]): void {
+    const named = new Set<string>();
+    const present = new Set<string>();
+    for (const participant of participants) {
+      present.add(participant.participantId);
+      const sessionId = participant.sfuSessionId;
+      if (sessionId === null) continue;
+      for (const track of participant.tracks) {
+        named.add(pulledTrackKey(sessionId, track.trackName));
+      }
+    }
+    // Forgetting the key currently being visited is what this loop does on almost every pass, and
+    // that is defined: a set drops it from behind the iterator rather than from in front of it.
+    for (const key of this.#pulledTracks) {
+      if (named.has(key)) continue;
+      const owner = this.#trackOwners.get(key);
+      this.#forgetTrack(key);
+      if (owner !== undefined) this.#releaseRemote(owner, namesAScreen(key));
+    }
+    // The two below walk the map as it stands NOW; releasing replaces the field with a new map, and
+    // the walk is over the one this loop started on, which is the whole set to be judged.
+    for (const participantId of this.remoteStreams.keys()) {
+      if (!present.has(participantId)) this.#releaseRemote(participantId, false);
+    }
+    for (const participantId of this.remoteScreens.keys()) {
+      if (!present.has(participantId)) this.#releaseRemote(participantId, true);
+    }
+  }
+
+  /** Stop counting a track as coming in, so the next roster naming it asks for it again. */
+  #forgetTrack(key: string): void {
+    this.#pulledTracks.delete(key);
+    this.#pendingSubscriptions.delete(key);
+    this.#trackOwners.delete(key);
+  }
+
+  /** Forget every track asked for that the room has not answered for yet. */
+  #forgetPendingSubscriptions(): void {
+    for (const key of this.#pendingSubscriptions) this.#forgetTrack(key);
+  }
+
+  /** Stop holding a participant's incoming media, and stop the tracks it was made of. */
+  #releaseRemote(participantId: string, screen: boolean): void {
+    const held = screen ? this.remoteScreens : this.remoteStreams;
+    const stream = held.get(participantId);
+    if (stream === undefined) return;
+    for (const track of stream.getTracks()) track.stop();
+    const next = new Map(held);
+    next.delete(participantId);
+    if (screen) this.remoteScreens = next;
+    else this.remoteStreams = next;
   }
 
   async #handleSubscribed(frame: Record<string, unknown>): Promise<void> {
     const peerConnection = this.#peerConnection;
     const offer = readSessionDescription(frame.sessionDescription);
-    if (peerConnection === null || offer === null) return;
+    const tracks = readSubscribedTracks(frame.tracks);
+
+    /*
+     * A pull the unit could not serve comes back with no description at all, and one that needed no
+     * renegotiation says so in the flag. Either way no media arrives on this frame, so the tracks
+     * stop counting as pulled: left marked, they would never be asked for again and the tile they
+     * belong to would stay black for the rest of the meeting.
+     */
+    if (
+      peerConnection === null ||
+      offer === null ||
+      frame.requiresImmediateRenegotiation === false
+    ) {
+      this.#forgetSubscribed(tracks);
+      return;
+    }
     await peerConnection.setRemoteDescription(offer);
 
     // The mids are only meaningful once the offer is applied: before it, the transceivers the
     // unit's media sections map onto do not exist on this connection at all.
-    const tracks = Array.isArray(frame.tracks) ? frame.tracks : [];
     for (const entry of tracks) {
-      if (!isRecord(entry)) continue;
-      const trackName = readString(entry, "trackName");
-      const mid = readString(entry, "mid");
-      if (trackName === null || mid === null) continue;
-      const owner = this.#trackOwners.get(trackName) ?? ownerOfTrackName(trackName);
+      if (entry.mid === null) continue;
+      const key =
+        entry.sessionId === null ? null : pulledTrackKey(entry.sessionId, entry.trackName);
+      if (key !== null) this.#pendingSubscriptions.delete(key);
+      const owner =
+        (key === null ? undefined : this.#trackOwners.get(key)) ??
+        ownerOfTrackName(entry.trackName);
       const transceiver = peerConnection
         .getTransceivers()
-        .find((candidate) => candidate.mid === mid);
+        .find((candidate) => candidate.mid === entry.mid);
       const track = transceiver?.receiver.track;
       if (track === undefined || track === null) continue;
-      this.#attachRemoteTrack(owner, trackName, track);
+      this.#attachRemoteTrack(owner, entry.trackName, track);
     }
 
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
     this.#send({
       type: "renegotiate",
-      sessionDescription: this.#describeLocal(peerConnection, answer),
+      sessionDescription: this.#describeLocal(peerConnection),
     });
+  }
+
+  /**
+   * Forget the tracks a `subscribed` frame was about. A frame that names none of them — or names
+   * them without their session — is about whatever was outstanding, so everything still waiting is
+   * forgotten rather than left marked for the rest of the meeting.
+   */
+  #forgetSubscribed(tracks: readonly SubscribedTrack[]): void {
+    const keys = tracks
+      .map((track) =>
+        track.sessionId === null ? null : pulledTrackKey(track.sessionId, track.trackName),
+      )
+      .filter((key): key is string => key !== null);
+    if (keys.length === 0) {
+      this.#forgetPendingSubscriptions();
+      return;
+    }
+    for (const key of keys) this.#forgetTrack(key);
+  }
+
+  /**
+   * What a refusal means: the end of this browser's meeting for the two reasons that are, and a
+   * statement on the screen for every other one, because the room kept the socket open.
+   */
+  #handleRefused(frame: Record<string, unknown>): void {
+    const reason = readString(frame, "reason") ?? "refused";
+    if (FATAL_REFUSAL_REASONS.has(reason)) {
+      this.#fail(reason);
+      return;
+    }
+    this.lastRefusal = { reason, errorId: readString(frame, "errorId") };
+    if (REFUSALS_THAT_LOSE_A_SUBSCRIPTION.has(reason)) this.#forgetPendingSubscriptions();
   }
 
   /** Apply an answer the room sent back. Nothing is owed in return. */
@@ -563,7 +806,7 @@ export class MeetingClient {
     await peerConnection.setLocalDescription(answer);
     this.#send({
       type: "renegotiate",
-      sessionDescription: this.#describeLocal(peerConnection, answer),
+      sessionDescription: this.#describeLocal(peerConnection),
     });
   }
 
@@ -581,25 +824,39 @@ export class MeetingClient {
   async #offer(peerConnection: RTCPeerConnection): Promise<SessionDescription> {
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
-    return this.#describeLocal(peerConnection, offer);
+    return this.#describeLocal(peerConnection);
   }
 
-  #describeLocal(
-    peerConnection: RTCPeerConnection,
-    fallback: RTCSessionDescriptionInit,
-  ): SessionDescription {
+  /**
+   * What this browser has just put on its own connection, as a frame carries it.
+   *
+   * THE TYPE IS READ, NEVER ASSUMED. It used to fall back to "offer" where the browser had no local
+   * description — which is a lie on every answering path, and the unit given an answer labelled as
+   * an offer refuses the whole renegotiation. A connection that cannot describe itself has nothing
+   * true to send, so it fails the step it is in and the reason reaches the screen.
+   */
+  #describeLocal(peerConnection: RTCPeerConnection): SessionDescription {
     const local = peerConnection.localDescription;
-    return {
-      type: local?.type ?? fallback.type ?? "offer",
-      sdp: local?.sdp ?? fallback.sdp ?? "",
-    };
+    if (local === null) {
+      throw new Error("The browser did not describe its own connection.");
+    }
+    return { type: local.type, sdp: local.sdp };
   }
 
-  #enqueue(task: () => Promise<void>): void {
-    this.#work = this.#work.then(task).catch(() => {
-      // A negotiation step that throws leaves the connection where it was; the room is still there
-      // and the next frame is still worth applying, so the chain is kept alive rather than broken.
+  /**
+   * Run a negotiation step after every step already queued, and record it where one does not finish.
+   *
+   * A step that throws leaves the connection where it was — the room is still there and the next
+   * frame is still worth applying — so the chain is kept alive rather than broken. What it must not
+   * do is vanish: a swallowed invalid-state error is a member sitting in front of a picture that
+   * never arrives with nothing on the screen saying why.
+   */
+  #enqueue(problem: string, task: () => Promise<void>): Promise<void> {
+    const step = this.#work.then(task).catch(() => {
+      this.lastProblem = problem;
     });
+    this.#work = step;
+    return step;
   }
 
   #send(frame: Record<string, unknown>): void {
@@ -651,6 +908,8 @@ export class MeetingClient {
   #reset(): void {
     this.failureReason = null;
     this.captureRefusal = null;
+    this.lastRefusal = null;
+    this.lastProblem = null;
     this.participants = [];
     this.remoteStreams = new Map();
     this.remoteScreens = new Map();
@@ -660,6 +919,7 @@ export class MeetingClient {
     this.#leaving = false;
     this.#missedPongs = 0;
     this.#pulledTracks.clear();
+    this.#pendingSubscriptions.clear();
     this.#trackOwners.clear();
     this.#screenMid = null;
     this.#outbox = [];

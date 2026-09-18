@@ -66,7 +66,9 @@ are showing. Down the side is the list of who is in the room. Along the bottom a
 - **Leave** — takes you out of the room. The meeting carries on without you and the record notes the
   time you left. Pressing **Join meeting** again puts you back in, and the record shows both stretches.
 
-Closing the tab is the same as leaving, so you cannot get stuck in a room by walking away from it.
+If you close the tab, or your connection drops, you are shown as having left within about a minute.
+So you cannot get stuck in a room by walking away from it, and nobody is left looking at a tile with
+nobody behind it for long.
 
 ## Ending a meeting
 
@@ -75,8 +77,9 @@ everybody: the room closes, every tile goes, and everyone still in it is returne
 
 **Leave** and **End meeting** are different acts and it is worth keeping them apart. Leaving takes you
 out of a meeting that carries on; ending closes it for the room. If the person who started the meeting
-simply leaves, the others can keep talking — the meeting is over when somebody ends it, or when the
-last person leaves.
+simply leaves, the others can keep talking — a meeting stays open until a host ends it, even when
+everybody has stepped out of it, and the event on the calendar shows how many people are in it,
+including none.
 
 ## What the attendance record shows
 

@@ -8,9 +8,17 @@
  * is set; that a roster naming somebody else's tracks turns into exactly one pull; that a pulled
  * track lands on a stream keyed by the participant who owns it; and that leaving stops the camera
  * rather than only telling the room about it.
+ *
+ * The second half of the file is the same question asked of what GOES WRONG, because every one of
+ * these fails silently in a browser and looks identical from the outside — a tile that stays black.
+ * A participant who comes back on a new unit session is pulled again; a pull the unit did not serve
+ * stops counting as pulled; a refusal the room survives does not end the meeting and does not vanish
+ * either; a publish cannot land inside somebody else's negotiation; and a connection that cannot
+ * describe itself fails its step instead of sending an answer labelled as an offer.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MeetingClient, type MeetingClientSeams } from "$lib/meetings/meeting-client.svelte.ts";
+import { leaveMeetingOnDeparture } from "$lib/api/departure-write.ts";
 
 /** Lets every queued negotiation step settle; each one is a handful of microtasks deep. */
 async function settle(remaining = 20): Promise<void> {
@@ -76,6 +84,16 @@ class FakePeerConnection {
   localDescription: { type: string; sdp: string } | null = null;
   remoteDescription: { type: string; sdp: string } | null = null;
   closed = false;
+  /**
+   * Every description applied, in the order it was applied. Two negotiations running at once
+   * interleave here, which is the only way a test can see the collision the real browser reports as
+   * an invalid-state error from whichever one lost.
+   */
+  readonly steps: string[] = [];
+  /** The browser refusing the next local description — a step that fails mid-negotiation. */
+  failNextLocalDescription = false;
+  /** A connection that never reports a local description, as one that failed to set one does. */
+  forgetsLocalDescription = false;
   #nextMid = 0;
 
   addTransceiver(track: FakeTrack, init: { direction: string }): FakeTransceiver {
@@ -98,7 +116,12 @@ class FakePeerConnection {
   }
 
   setLocalDescription(description: { type: string; sdp: string }): Promise<void> {
-    this.localDescription = description;
+    if (this.failNextLocalDescription) {
+      this.failNextLocalDescription = false;
+      return Promise.reject(new Error("InvalidStateError"));
+    }
+    this.steps.push(`local:${description.type}`);
+    if (!this.forgetsLocalDescription) this.localDescription = description;
     for (const transceiver of this.transceivers) {
       if (transceiver.mid === null) {
         transceiver.mid = String(this.#nextMid);
@@ -109,6 +132,7 @@ class FakePeerConnection {
   }
 
   setRemoteDescription(description: { type: string; sdp: string }): Promise<void> {
+    this.steps.push(`remote:${description.type}`);
     this.remoteDescription = description;
     if (description.type === "offer") {
       const declared = /mids=([\w,]+)/u.exec(description.sdp);
@@ -186,7 +210,7 @@ interface Harness {
  */
 const opened: MeetingClient[] = [];
 
-function harness(): Harness {
+function harness(participantId = "attendance_1"): Harness {
   const socket = new FakeSocket();
   const peerConnection = new FakePeerConnection();
   const captured = new FakeStream([new FakeTrack("audio"), new FakeTrack("video")]);
@@ -204,12 +228,12 @@ function harness(): Harness {
   opened.push(client);
   client.join({
     meetingId: "meeting_1",
-    participantId: "attendance_1",
+    participantId,
     iceServers: [],
     socketUrl: "wss://example.test/api/v1/meetings/meeting_1/socket",
   });
   socket.accept();
-  socket.deliver({ v: 1, type: "welcome", participantId: "attendance_1", roster: [] });
+  socket.deliver({ v: 1, type: "welcome", participantId, roster: [] });
 
   return { client, socket, peerConnection, captured, displayed };
 }
@@ -247,6 +271,52 @@ describe("publishing", () => {
       { trackName: "attendance_1:audio", mid: "0", kind: "audio" },
       { trackName: "attendance_1:video", mid: "1", kind: "video" },
     ]);
+  });
+
+  it("names every track for the participant the join returned, whatever that is", async () => {
+    // The room REFUSES a published track whose name does not begin with the caller's own
+    // participant id, so this naming is a wire contract and not a convention: a rename here that
+    // looked harmless would stop every publish, and nothing else in the browser would say why.
+    const { client, socket } = harness("attendance_99");
+    await client.publish();
+
+    const [publish] = socket.framesOfType("publish");
+    expect(publish).toBeDefined();
+    const published = (publish?.tracks ?? []) as { trackName: string }[];
+    const names = published.map((track) => track.trackName);
+    expect(names).toEqual(["attendance_99:audio", "attendance_99:video"]);
+    for (const name of names) expect(name.startsWith("attendance_99:")).toBe(true);
+  });
+
+  it("offers in the negotiation queue, so an incoming offer cannot land inside the publish", async () => {
+    const { client, socket, peerConnection } = harness();
+    // Delivered while the capture is still settling: this is the race the serialization exists for.
+    const publishing = client.publish();
+    socket.deliver({
+      v: 1,
+      type: "subscribed",
+      sessionDescription: { type: "offer", sdp: "unit-offer mids=7" },
+      tracks: [{ sessionId: "session_2", trackName: "attendance_2:video", mid: "7" }],
+    });
+    await publishing;
+    await settle();
+
+    // One negotiation, then the next — never a local description applied between the two halves of
+    // the other, which is the invalid-state error the browser used to raise into a silent catch.
+    expect(peerConnection.steps).toEqual(["remote:offer", "local:answer", "local:offer"]);
+  });
+
+  it("says a negotiation step did not finish rather than swallowing it", async () => {
+    const { client, socket, peerConnection } = harness();
+    peerConnection.failNextLocalDescription = true;
+
+    await client.publish();
+
+    expect(client.lastProblem).toBe("Your camera and microphone were not offered to the room.");
+    expect(socket.framesOfType("publish")).toHaveLength(0);
+    // A failed step is not the end of the meeting: the member is still in the room and the next
+    // frame is still worth applying.
+    expect(client.state).toBe("live");
   });
 
   it("applies the answer the room sends back", async () => {
@@ -361,6 +431,151 @@ describe("subscribing", () => {
   });
 });
 
+/** A roster naming one other participant, with whichever unit session and tracks a case needs. */
+function rosterOf(
+  sfuSessionId: string | null,
+  tracks: { trackName: string; kind: string }[],
+): Record<string, unknown> {
+  return {
+    v: 1,
+    type: "roster",
+    participants: [
+      {
+        participantId: "attendance_2",
+        userId: "user_2",
+        displayName: "Rosalind Chase",
+        sfuSessionId,
+        tracks,
+      },
+    ],
+  };
+}
+
+const HER_TRACKS = [
+  { trackName: "attendance_2:audio", kind: "audio" },
+  { trackName: "attendance_2:video", kind: "video" },
+];
+
+/** The unit answering a pull: an offer, and the media section each track arrives on. */
+function subscribedFrame(sessionId: string, extra: Record<string, unknown> = {}) {
+  return {
+    v: 1,
+    type: "subscribed",
+    sessionDescription: { type: "offer", sdp: "unit-offer mids=7,8" },
+    tracks: [
+      { sessionId, trackName: "attendance_2:audio", mid: "7" },
+      { sessionId, trackName: "attendance_2:video", mid: "8" },
+    ],
+    ...extra,
+  };
+}
+
+describe("a participant who leaves and comes back", () => {
+  it("is pulled again when the roster gives them a new unit session", async () => {
+    const { client, socket } = harness();
+    socket.deliver(rosterOf("session_2", HER_TRACKS));
+    socket.deliver(subscribedFrame("session_2"));
+    await settle();
+    expect(client.remoteStreams.get("attendance_2")?.getTracks()).toHaveLength(2);
+
+    // Same person, same attendance, same track NAMES — and a session that is not the one those
+    // tracks were pulled from. Keyed on the name alone this is silently "already coming in", and
+    // their tile is black for the rest of the meeting.
+    socket.deliver(rosterOf("session_3", HER_TRACKS));
+
+    const subscribes = socket.framesOfType("subscribe");
+    expect(subscribes).toHaveLength(2);
+    expect(subscribes[1]?.tracks).toEqual([
+      { sessionId: "session_3", trackName: "attendance_2:audio" },
+      { sessionId: "session_3", trackName: "attendance_2:video" },
+    ]);
+    // The stream the dead session fed is let go, so the fresh tracks land on a stream whose first
+    // video track is one that is actually arriving.
+    expect(client.remoteStreams.has("attendance_2")).toBe(false);
+  });
+
+  it("stops holding the media of somebody the roster no longer names", async () => {
+    const { client, socket } = harness();
+    socket.deliver(
+      rosterOf("session_2", [...HER_TRACKS, { trackName: "attendance_2:screen", kind: "screen" }]),
+    );
+    socket.deliver(subscribedFrame("session_2"));
+    await settle();
+    // The fake behind the typed stream, so the case can ask what a MediaStreamTrack cannot be
+    // asked: whether the track was actually stopped rather than merely dropped.
+    const held = client.remoteStreams.get("attendance_2") as unknown as FakeStream | undefined;
+    expect(held?.getTracks()).toHaveLength(2);
+
+    socket.deliver({ v: 1, type: "roster", participants: [] });
+
+    expect(client.remoteStreams.size).toBe(0);
+    expect(client.remoteScreens.size).toBe(0);
+    expect(held?.getTracks().every((track) => track.stopped)).toBe(true);
+  });
+});
+
+describe("a pull the unit did not serve", () => {
+  it("un-marks the tracks when the room sends no offer at all", async () => {
+    const { socket } = harness();
+    socket.deliver(rosterOf("session_2", HER_TRACKS));
+    socket.deliver({
+      v: 1,
+      type: "subscribed",
+      sessionDescription: null,
+      tracks: [
+        { sessionId: "session_2", trackName: "attendance_2:audio", mid: null },
+        { sessionId: "session_2", trackName: "attendance_2:video", mid: null },
+      ],
+    });
+    await settle();
+
+    // The same roster again: the tracks are asked for a second time rather than being counted as
+    // already coming in for the rest of the meeting.
+    socket.deliver(rosterOf("session_2", HER_TRACKS));
+    expect(socket.framesOfType("subscribe")).toHaveLength(2);
+  });
+
+  it("un-marks them when the room says the pull needed no renegotiation", async () => {
+    const { socket } = harness();
+    socket.deliver(rosterOf("session_2", HER_TRACKS));
+    socket.deliver(subscribedFrame("session_2", { requiresImmediateRenegotiation: false }));
+    await settle();
+
+    socket.deliver(rosterOf("session_2", HER_TRACKS));
+    expect(socket.framesOfType("subscribe")).toHaveLength(2);
+  });
+});
+
+describe("what the room refuses", () => {
+  it("stays in the room, and states the refusal with the Error ID it carried", () => {
+    const { client, socket } = harness();
+    socket.deliver({ v: 1, type: "refused", reason: "malformed-frame", errorId: "err_7f3a" });
+
+    expect(client.state).toBe("live");
+    expect(client.lastRefusal).toEqual({ reason: "malformed-frame", errorId: "err_7f3a" });
+  });
+
+  it("ends the meeting for the two refusals that are the end of it", () => {
+    const { client, socket } = harness();
+    socket.deliver({ v: 1, type: "refused", reason: "not-a-participant" });
+
+    expect(client.state).toBe("failed");
+    expect(client.failureReason).toBe("not-a-participant");
+  });
+
+  it("asks again for the tracks a refused subscribe lost", () => {
+    const { client, socket } = harness();
+    socket.deliver(rosterOf("session_2", HER_TRACKS));
+    expect(socket.framesOfType("subscribe")).toHaveLength(1);
+
+    socket.deliver({ v: 1, type: "refused", reason: "sfu-unavailable" });
+    expect(client.state).toBe("live");
+
+    socket.deliver(rosterOf("session_2", HER_TRACKS));
+    expect(socket.framesOfType("subscribe")).toHaveLength(2);
+  });
+});
+
 describe("the local controls", () => {
   it("mutes and unmutes the captured audio without recapturing", async () => {
     const { client, captured } = harness();
@@ -421,11 +636,79 @@ describe("leaving", () => {
     expect(peerConnection.closed).toBe(true);
   });
 
-  it("fails with the room's reason when it refuses", () => {
+  it("fails with the room's reason when it refuses the member's own standing", () => {
     const { client, socket } = harness();
-    socket.deliver({ v: 1, type: "refused", reason: "meeting-room-full" });
+    socket.deliver({ v: 1, type: "refused", reason: "meeting-ended" });
     expect(client.state).toBe("failed");
-    expect(client.failureReason).toBe("meeting-room-full");
+    expect(client.failureReason).toBe("meeting-ended");
+  });
+});
+
+describe("answering the unit", () => {
+  it("sends the description the connection actually holds", async () => {
+    const { socket } = harness();
+    socket.deliver({
+      v: 1,
+      type: "subscribed",
+      sessionDescription: { type: "offer", sdp: "unit-offer mids=7" },
+      tracks: [{ sessionId: "session_2", trackName: "attendance_2:video", mid: "7" }],
+    });
+    await settle();
+
+    // An answer sent under the type "offer" is refused by the unit and takes the whole
+    // renegotiation with it, so the type is read off the connection rather than assumed.
+    expect(socket.framesOfType("renegotiate")[0]?.sessionDescription).toEqual({
+      type: "answer",
+      sdp: "local-answer",
+    });
+  });
+
+  it("treats a connection that cannot describe itself as a failed step", async () => {
+    const { client, socket, peerConnection } = harness();
+    peerConnection.forgetsLocalDescription = true;
+
+    socket.deliver({
+      v: 1,
+      type: "subscribed",
+      sessionDescription: { type: "offer", sdp: "unit-offer mids=7" },
+      tracks: [{ sessionId: "session_2", trackName: "attendance_2:video", mid: "7" }],
+    });
+    await settle();
+
+    expect(socket.framesOfType("renegotiate")).toHaveLength(0);
+    expect(client.lastProblem).toBe("Somebody else's picture and sound did not come in.");
+  });
+});
+
+describe("closing the tab", () => {
+  it("closes the stay on a transport that survives the page, with the header a write needs", () => {
+    const calls: { url: string; init: RequestInit }[] = [];
+    const send = ((url: string, init: RequestInit) => {
+      calls.push({ url, init });
+      return Promise.resolve(new Response(null, { status: 200 }));
+    }) as unknown as typeof fetch;
+
+    leaveMeetingOnDeparture("meeting_1", send);
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.url).toBe("/api/v1/meetings/meeting_1/leave");
+    expect(calls[0]?.init.method).toBe("POST");
+    // Without this the request is abandoned with the document, which is the whole reason a beacon
+    // is not used — and a beacon could not carry the key below at all.
+    expect(calls[0]?.init.keepalive).toBe(true);
+    const headers = calls[0]?.init.headers as Record<string, string>;
+    expect(headers["idempotency-key"]).toMatch(/^[0-9a-f-]{36}$/u);
+  });
+
+  it("names the meeting in the path rather than letting it shape one", () => {
+    const calls: string[] = [];
+    const send = ((url: string) => {
+      calls.push(url);
+      return Promise.resolve(new Response(null, { status: 200 }));
+    }) as unknown as typeof fetch;
+
+    leaveMeetingOnDeparture("a/b", send);
+    expect(calls[0]).toBe("/api/v1/meetings/a%2Fb/leave");
   });
 });
 

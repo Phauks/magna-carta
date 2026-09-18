@@ -14,7 +14,10 @@
    * nothing for the member to be refused FROM and nothing anybody here can turn on — and a
    * permanently disabled button on every entry in the calendar is chrome that never becomes
    * anything. The same holds for a member who may join but not host, on an entry with no meeting:
-   * there is nothing to join yet and nothing they could start.
+   * there is nothing to join yet and nothing they could start. And for a member who may not join
+   * meetings at all: the control has nothing to offer them, so it neither renders NOR asks the
+   * server — the entry's meeting is read behind that same permission, and asking anyway bought them
+   * a refusal on every entry window they opened.
    */
   import Video from "@lucide/svelte/icons/video";
   import Button from "@magna-carta/design-system/button";
@@ -51,6 +54,14 @@
   });
 
   const canHost = $derived(sessionPermissions.holds("meetings:host"));
+  /*
+   * Whether this member may be in a meeting at all — and therefore whether the entry's meeting is
+   * read at all. The read is behind `meetings:join`, so a member without it was being refused once
+   * per entry they opened: a 403 on every window, on a control that would then render nothing
+   * anyway. It also errs the right way while the session is still being read, because `holds`
+   * answers false until it lands.
+   */
+  const canJoin = $derived(sessionPermissions.holds("meetings:join"));
 
   /*
    * The entry's meeting, or a 404 saying it has none. The 404 is the ordinary answer rather than a
@@ -59,11 +70,11 @@
    */
   const matterEventRead = createQuery(() => ({
     ...meetingsGetForEventOptions({ path: { eventId } }),
-    enabled: eventKind === "matter",
+    enabled: canJoin && eventKind === "matter",
   }));
   const firmEventRead = createQuery(() => ({
     ...meetingsGetForFirmEventOptions({ path: { firmEventId: eventId } }),
-    enabled: eventKind === "firm",
+    enabled: canJoin && eventKind === "firm",
   }));
   // Two reads rather than one over a ternary: the two operations have different path shapes, so a
   // single accessor returning either is a type the query cannot be given. Only one of them is ever
@@ -96,7 +107,7 @@
   }
 </script>
 
-{#if configured}
+{#if canJoin && configured}
   {#if running !== null}
     <Button
       variant="secondary"
@@ -104,7 +115,10 @@
       onclick={() => void goto(`/meetings/${running.id}`)}
     >
       <Video class="size-16" aria-hidden="true" />
-      Join Meeting{running.liveCount > 0 ? ` (${running.liveCount})` : ""}
+      <!-- The count is stated even when it is none: a meeting stays open until a host ends it, so an
+           empty room is an ordinary standing, and "Join Meeting" with nothing beside it reads as a
+           room somebody is in. -->
+      Join Meeting ({running.liveCount})
     </Button>
   {:else if canHost && startable && !meetingRead.isPending}
     <!-- The control and whatever came of pressing it stack, so a refusal states itself where the
