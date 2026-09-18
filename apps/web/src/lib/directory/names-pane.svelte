@@ -26,7 +26,6 @@
   import * as Select from "@magna-carta/design-system/select";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import FieldRow from "@magna-carta/design-system/field-row";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
@@ -403,7 +402,6 @@
     loading={names === null}
     {refreshing}
     failed={readFailure !== null}
-    empty={names !== null && names.length === 0}
     label="Reading the names on this record"
     onRetry={retry}
     class="flex flex-col gap-8"
@@ -422,17 +420,12 @@
     {#snippet fixture()}
       {@render nameTable(NAME_FIXTURE)}
     {/snippet}
-    {#snippet emptyState()}
-      <EmptyState title="No Names On This Record">
-        Every record carries at least the name it was created under, so an empty list here means
-        the record's name rows could not be found.
-      </EmptyState>
-    {/snippet}
     {@render nameTable(names ?? [])}
   </LoadingRegion>
 </section>
 
-<!-- One table for the rows and for the shape they take while they are read, so the two cannot drift. -->
+<!-- One table for the rows, for the shape they take while they are read, and for the empty body
+     they leave behind when there are none, so the three cannot drift. -->
 {#snippet nameTable(rows: readonly DirectoryNameEntry[])}
   <DataTable.Root>
     <DataTable.Caption class="sr-only">The names this record carries</DataTable.Caption>
@@ -456,6 +449,8 @@
             <span class="text-text-muted">{period(entry)}</span>
           </DataTable.Cell>
         </DataTable.Row>
+      {:else}
+        <DataTable.EmptyRow columns={3} title="No Names On This Record" />
       {/each}
     </DataTable.Body>
   </DataTable.Root>

@@ -31,6 +31,13 @@
    * A launch that comes back `view` is a read-only seat: another member holds the document's
    * exclusive lock, and the editor opens on the document without the ability to change it. That
    * is stated once, above the frame, and never as a blocked screen — reading is never refused.
+   *
+   * THE EDITOR OPENS IN ITS TABBED INTERFACE. The same form carries `ui_defaults`, which is the
+   * editor's own channel for how it first draws itself. Left unset it fell to the compact mode — a
+   * menubar over one toolbar — where the paragraph and character settings sit behind the Format
+   * menu, and the owner asked for them at the top (2026-09-18). The tabbed interface's Home tab is
+   * where they are. It is a DEFAULT, not a lock: the editor's own View menu still switches modes,
+   * and a switch made there is remembered by that browser and wins over this line thereafter.
    */
   import { dev } from "$app/environment";
   import { goto } from "$app/navigation";
@@ -76,6 +83,13 @@
     routeCloseThroughHostMessage,
     saveBeforeLeavingMessage,
   } from "./editor-controls.ts";
+
+  /**
+   * How the editor first draws itself: the tabbed interface, whose Home tab carries the font and
+   * paragraph controls the compact mode keeps behind a menu. `tabbed` is the editor's current name
+   * for it (`notebookbar` is the older one it still accepts).
+   */
+  const EDITOR_INTERFACE_DEFAULTS = "UIMode=tabbed";
 
   let {
     file,
@@ -334,6 +348,7 @@
     <form method="post" action={launch.editorUrl} target={frameName} hidden bind:this={launchForm}>
       <input type="hidden" name="access_token" value={launch.accessToken} />
       <input type="hidden" name="access_token_ttl" value={String(launch.accessTokenTtl)} />
+      <input type="hidden" name="ui_defaults" value={EDITOR_INTERFACE_DEFAULTS} />
     </form>
   {/if}
 

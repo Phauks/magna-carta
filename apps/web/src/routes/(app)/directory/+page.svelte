@@ -9,25 +9,27 @@
    * the size of the whole record stated beside it. This screen previously answered that with an
    * instruction to start typing, which told a working person their records were not there.
    *
-   * THE INDEX AND THE SEARCH ARE DIFFERENT OBJECTS AND THE SCREEN SHOWS THAT. The distinction the
-   * old resting state was protecting is real and is kept: a ranked search returns its best matches,
-   * not all of them, so it must never be dressed as an index — and a listing faked by searching for
-   * a common letter would be exactly that, an accident presented as the firm's record. What changes
-   * is that the two are now built as the two things they are:
+   * THE INDEX AND THE SEARCH ANSWER ARE STILL DIFFERENT OBJECTS, AND THEY ARE NO LONGER DIFFERENT
+   * SURFACES. The distinction is real and is kept: an index is sorted, walkable and counted, where a
+   * ranked answer returns its best matches, in the firm's own relevance order, and stops. What was
+   * wrong was WHERE that difference was shown. Typing used to swap the reader's table — eleven
+   * columns, their own sorting, their own narrowing — out for a two-column list of hits, so the act
+   * of searching cost them the surface they were reading. Now the query narrows the table in place,
+   * exactly as the matters docket narrows its docket, and the difference between the two questions
+   * is carried where it belongs: in the footer's own sentence, which says when the answer was cut
+   * short, and in the order, which is the server's until the reader sorts it themselves.
    *
-   *   - The INDEX is sorted, filterable, paged, and counted. It is the platform's one table, so its
-   *     columns sort and narrow the way every other list on the product does — INCLUDING the
-   *     narrowing to people or to organizations, which was a popover of its own above the table
-   *     until the Kind column's set filter made it a second control over one question. What the
-   *     table can do, the table does; the screen adds no filter of its own.
-   *   - The SEARCH ANSWER is in the firm's own relevance order, is NOT re-sorted here, and says so
-   *     when it is capped. Sorting a capped answer would put the best of an arbitrary slice at the
-   *     top and read as the best of the firm's record. It takes three characters to ask, because the
-   *     corpus matches three-character windows and a shorter query can match nothing at all.
+   * WHILE A QUERY IS LIVE THE ANSWER ALSO HOLDS MATTERS. Somebody searching the firm's directory for
+   * "Pemberton" is as often looking for the file as for the person, and sending them to a second
+   * screen to find out is the same defect in another form. A matter is not dressed as a directory
+   * record: its Kind says Matter, every contact column on it is blank, and opening it opens the
+   * matter. The RESTING index stays the book of people and organizations, and its count stays the
+   * directory's own — a screen that quietly counted matters into "in the firm's directory" would be
+   * lying about the one number on it.
    *
-   * Both kinds sit in ONE listing. A person and an organization are two entries in the same book,
-   * and a reader looking for "Pemberton" does not know in advance which the firm filed. Kind is a
-   * column and a filter, never a second screen.
+   * Both directory kinds sit in ONE listing. A person and an organization are two entries in the
+   * same book, and a reader looking for "Pemberton" does not know in advance which the firm filed.
+   * Kind is a column and a filter, never a second screen.
    *
    * TWO HONEST LIMITS. The index is cursor-paged, so the column sort and the column filters run over
    * what has been loaded rather than over the whole firm; the count beside the table is what keeps
@@ -41,8 +43,6 @@
   import * as DataTable from "@magna-carta/design-system/data-table";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import EmptyState from "@magna-carta/design-system/empty-state";
-  import LoadingRegion from "@magna-carta/design-system/loading-region";
-  import { sampleOrganization, samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import Building2 from "@lucide/svelte/icons/building-2";
   import CreateControl from "@magna-carta/design-system/create-control";
   import UserPlus from "@lucide/svelte/icons/user-plus";
@@ -50,27 +50,33 @@
   import { page } from "$app/state";
   import { untrack } from "svelte";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
-  import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
+  import {
+    listEveryMatter,
+    readSession,
+    type SessionBootstrap,
+  } from "$lib/matters/matters-api.ts";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import {
     listDirectoryEntities,
-    searchDirectory,
     DIRECTORY_EDIT_PERMISSION,
     type DirectoryEntityKind,
     type DirectoryEntityListing,
-    type DirectorySearchHit,
   } from "$lib/directory/directory-api.ts";
   import { isAskableQuery, MINIMUM_QUERY_LENGTH } from "$lib/directory/directory-search.ts";
   import {
     directoryListingColumns,
+    isMatterListing,
     listingName,
+    listingRowKey,
+    matterListingRow,
     DIRECTORY_LISTING_INITIAL_SORT,
+    DIRECTORY_SEARCH_INITIAL_SORT,
+    type DirectoryListingRow,
+    type MatterListing,
   } from "$lib/directory/directory-listing.ts";
   import {
     entityRecordFromAddress,
     entityRecordHref,
-    searchHitKindLabel,
     RECORD_PARAMETER,
   } from "$lib/directory/entity-presentation.ts";
   import EntityIdentity from "@magna-carta/design-system/entity-identity";
@@ -107,51 +113,64 @@
   let typed = $state("");
   let asked = $state("");
 
-  const searching = $derived(isAskableQuery(asked));
+  const query = $derived(asked.trim());
+  const searching = $derived(isAskableQuery(query));
   // Typed, but not yet enough to ask. The index stays on screen and one line says what is missing,
   // rather than the screen silently doing nothing while somebody types.
   const tooShortToAsk = $derived(!searching && typed.trim() !== "");
 
-  // ---- the index -------------------------------------------------------------------------------
+  // ---- the listing, asked one way or the other -------------------------------------------------
 
   const list = new PagedList<DirectoryEntityListing>("The firm's directory could not be read.");
   const records = $derived(list.items);
   const listFailure = $derived(list.failure);
   let total = $state(0);
+  let capped = $state(false);
   let reloadToken = $state(0);
 
   // The whole book is read, both kinds in one sequence; narrowing to one of them is the Kind
-  // column's set filter, over the rows in hand, and never a second question to the server.
-  const listSubject = $derived(String(reloadToken));
+  // column's set filter, over the rows in hand, and never a second question to the server. The
+  // QUERY is the one thing the server is asked, because a ranked answer over the firm's whole
+  // record is not something a browser holding fifty rows can work out for itself.
+  const listSubject = $derived(`${String(reloadToken)}:${searching ? query : ""}`);
 
-  function readPage(cursor?: string) {
-    return listDirectoryEntities(fetch, { cursor });
+  function readPage(asking: string | null, cursor?: string) {
+    return listDirectoryEntities(fetch, { cursor, search: asking ?? undefined });
   }
 
-  // The whole-record count travels on every page, so it is taken from whichever page last landed
-  // rather than cached from the first: a record created while somebody is on page three is counted.
-  async function readFirstPage(): Promise<void> {
+  // The count travels on every page, so it is taken from whichever page last landed rather than
+  // cached from the first: a record created while somebody is on page three is counted.
+  async function readFirstPage(asking: string | null): Promise<void> {
     await list.load(async (cursor) => {
-      const outcome = await readPage(cursor);
-      if (outcome.kind === "ok") total = outcome.value.total;
+      const outcome = await readPage(asking, cursor);
+      if (outcome.kind === "ok") {
+        total = outcome.value.total;
+        capped = outcome.value.capped;
+      }
       return outcome;
     });
   }
 
   $effect(() => {
     const subject = listSubject;
+    const asking = searching ? query : null;
     if (list.showing(subject)) return;
     list.reset(subject);
     // The count belongs to the question that was asked, so a re-read starts from no count rather
     // than printing the previous answer's total beside the new one's first page.
     total = 0;
-    void readFirstPage();
+    capped = false;
+    void readFirstPage(asking);
   });
 
   function loadMore(): void {
+    const asking = searching ? query : null;
     void list.loadMore(async (cursor) => {
-      const outcome = await readPage(cursor);
-      if (outcome.kind === "ok") total = outcome.value.total;
+      const outcome = await readPage(asking, cursor);
+      if (outcome.kind === "ok") {
+        total = outcome.value.total;
+        capped = outcome.value.capped;
+      }
       return outcome;
     });
   }
@@ -160,93 +179,99 @@
     reloadToken += 1;
   }
 
-  const grid = DataTable.createDataTableGrid<DirectoryEntityListing>({
-    columns: () => directoryListingColumns(),
-    rows: () => records ?? [],
-    rowKey: (row) => row.entityId,
-    initialSort: DIRECTORY_LISTING_INITIAL_SORT,
-    itemNoun: { singular: "record", plural: "records" },
-    // Double-click and Enter open the record. The name stays a real link beside it, so the
-    // browser's own gestures still work; nobody has to hit the link precisely.
-    onActivate: (row) => void goto(entityRecordHref(row.entityId)),
-  });
+  // ---- the firm's matters, while a query is live -----------------------------------------------
 
-  // The count only needs stating while the page on screen is not the whole record.
-  const moreThanLoaded = $derived(total > (records?.length ?? 0));
-
-  // ---- the search answer -----------------------------------------------------------------------
-
-  let hits = $state<readonly DirectorySearchHit[] | null>(null);
-  let capped = $state(false);
-  let searchFailure = $state<StatedFailure | null>(null);
+  /*
+   * A SECOND READ THAT FAILS ON ITS OWN. The matters are a different register behind a different
+   * endpoint, so a firm whose docket is unreadable must still get its directory answer — the
+   * alternative is one subsystem's outage blanking another's. The failure is stated in a line of
+   * its own and the rows below it are still the truth.
+   *
+   * The two answers are not interleaved. Each is ranked by its own server against its own corpus,
+   * and the two scores mean nothing against each other, so the directory's answer leads and the
+   * matters follow it. A reader who wants them in one order sorts by a column, which is a question
+   * the table can answer honestly.
+   */
+  let matters = $state<readonly MatterListing[] | null>(null);
+  let matterFailure = $state<StatedFailure | null>(null);
   let searchToken = $state(0);
 
-  /**
-   * The shape the answer takes while the directory is being searched: the same rows the real
-   * answer renders, over the sample vocabulary, both kinds. Not anybody the firm holds.
-   */
-  const HIT_FIXTURE: readonly DirectorySearchHit[] = [
-    {
-      entityId: "fixture-1",
-      entityKind: "person",
-      displayName: samplePerson(0).name,
-      matchedName: samplePerson(0).name,
-      matchedNameRole: "current",
-      matchedNameIsCurrent: true,
-      relevance: 0,
-    },
-    {
-      entityId: "fixture-2",
-      entityKind: "organization",
-      displayName: sampleOrganization(1).name,
-      matchedName: sampleOrganization(1).name,
-      matchedNameRole: "current",
-      matchedNameIsCurrent: true,
-      relevance: 0,
-    },
-    {
-      entityId: "fixture-3",
-      entityKind: "person",
-      displayName: samplePerson(1).name,
-      matchedName: samplePerson(1).name,
-      matchedNameRole: "current",
-      matchedNameIsCurrent: true,
-      relevance: 0,
-    },
-  ];
-
-  function searchAgain(): void {
-    searchToken += 1;
-  }
-
   $effect(() => {
-    const query = asked.trim();
+    const asking = searching ? query : "";
     void searchToken;
-    if (!isAskableQuery(query)) {
-      hits = null;
-      capped = false;
-      searchFailure = null;
+    if (asking === "") {
+      matters = null;
+      matterFailure = null;
       return;
     }
     let cancelled = false;
-    hits = null;
-    searchFailure = null;
+    matters = null;
+    matterFailure = null;
     void (async () => {
-      const outcome = await searchDirectory(fetch, query);
+      const outcome = await listEveryMatter(fetch, { search: asking });
       if (cancelled) return;
       if (outcome.kind === "ok") {
-        hits = outcome.value.data;
-        capped = outcome.value.capped;
+        matters = outcome.value.data.map(matterListingRow);
         return;
       }
-      hits = [];
-      capped = false;
-      searchFailure = stated(outcome.failure, "The directory could not be searched.");
+      matters = [];
+      matterFailure = stated(outcome.failure, "The firm's matters could not be searched.");
     })();
     return () => {
       cancelled = true;
     };
   });
+
+  function searchAgain(): void {
+    searchToken += 1;
+  }
+
+  // ---- the one table ---------------------------------------------------------------------------
+
+  const rows = $derived<readonly DirectoryListingRow[]>([
+    ...(records ?? []),
+    ...(searching ? (matters ?? []) : []),
+  ]);
+  const holdsMatters = $derived(searching && (matters?.length ?? 0) > 0);
+
+  const grid = DataTable.createDataTableGrid<DirectoryListingRow>({
+    columns: () => directoryListingColumns({ withMatters: holdsMatters }),
+    rows: () => rows,
+    rowKey: listingRowKey,
+    initialSort: DIRECTORY_LISTING_INITIAL_SORT,
+    itemNoun: { singular: "record", plural: "records" },
+    // Double-click and Enter open the record. The name stays a real link beside it, so the
+    // browser's own gestures still work; nobody has to hit the link precisely.
+    onActivate: (row) =>
+      void goto(isMatterListing(row) ? `/matters/${row.matterId}` : entityRecordHref(row.entityId)),
+  });
+
+  /*
+   * THE ORDER FOLLOWS THE QUESTION. The index is a book of names and opens in name order; a ranked
+   * answer arrives in the firm's own relevance order and opens as it arrived, because sorting a
+   * capped best-of by a column puts the best of an arbitrary slice at the top and reads as the best
+   * of the firm's record. Either way the reader may sort by clicking a header — that is them asking
+   * something else, and the table answers it over the rows it holds.
+   */
+  let sortedAs = $state<"index" | "search">("index");
+  $effect(() => {
+    const wanted = searching ? "search" : "index";
+    untrack(() => {
+      if (sortedAs === wanted) return;
+      sortedAs = wanted;
+      const sort =
+        wanted === "search" ? DIRECTORY_SEARCH_INITIAL_SORT : DIRECTORY_LISTING_INITIAL_SORT;
+      grid.setSort(sort.columnId, sort.direction);
+    });
+  });
+
+  // The count only needs stating while the page on screen is not the whole record.
+  const moreThanLoaded = $derived(total > (records?.length ?? 0));
+  // Both reads have landed and neither found anything. Asked before the matters answer settles, a
+  // directory with no match would flash the empty state over an answer that was still coming.
+  const answeredNothing = $derived(
+    searching && records !== null && matters !== null && rows.length === 0,
+  );
 
   // ---- the open record -------------------------------------------------------------------------
 
@@ -313,37 +338,18 @@
   <title>Directory · Magna Carta</title>
 </svelte:head>
 
-<!-- One table for the answer and for the shape it takes while it is asked, so the two cannot drift. -->
-{#snippet hitTable(rows: readonly DirectorySearchHit[])}
-  <DataTable.Root>
-    <DataTable.Caption class="sr-only">
-      Directory records matching the search, in the firm's own relevance order
-    </DataTable.Caption>
-    <DataTable.Header>
-      <DataTable.Row>
-        <DataTable.Head>Name</DataTable.Head>
-        <DataTable.Head>Kind</DataTable.Head>
-      </DataTable.Row>
-    </DataTable.Header>
-    <DataTable.Body>
-      {#each rows as hit (hit.entityId)}
-        <DataTable.Row ondblclick={() => void goto(entityRecordHref(hit.entityId))}>
-          <DataTable.Cell>
-            <EntityIdentity
-              kind={hit.entityKind === "organization" ? "organization" : "person"}
-              name={hit.displayName}
-              href={entityRecordHref(hit.entityId)}
-            />
-          </DataTable.Cell>
-          <DataTable.Cell>{searchHitKindLabel(hit.entityKind)}</DataTable.Cell>
-        </DataTable.Row>
-      {/each}
-    </DataTable.Body>
-  </DataTable.Root>
-{/snippet}
-
-{#snippet directoryCell({ row, column, text }: DataTable.GridCellContext<DirectoryEntityListing>)}
-  {#if column.id === "name"}
+{#snippet directoryCell({ row, column, text }: DataTable.GridCellContext<DirectoryListingRow>)}
+  {#if column.id === "name" && isMatterListing(row)}
+    <!-- A matter is named as a matter: the title, with the number the file is quoted under
+         beneath it. Not an EntityIdentity — that mark says which side of the DIRECTORY a record
+         is, and a matter is on neither side of it. -->
+    <span class="flex flex-col">
+      <a class="underline underline-offset-2" href="/matters/{row.matterId}">{listingName(row)}</a>
+      {#if row.matterNumber !== ""}
+        <span class="text-xs text-text-muted">{row.matterNumber}</span>
+      {/if}
+    </span>
+  {:else if column.id === "name" && !isMatterListing(row)}
     <EntityIdentity
       kind={row.entityKind}
       name={listingName(row)}
@@ -366,7 +372,6 @@
       <ScreenSearch
         bind:value={typed}
         label="Search the directory"
-        placeholder={placeholderOf("Search the directory")}
         searchOn="pause"
         fieldClass="w-2xs sm:w-xs"
         onsearch={(next) => {
@@ -378,9 +383,7 @@
            It renders only while something is actually holding rows back, so an unfiltered screen
            carries no control for a state it is not in. Every narrowing itself is set in a column's
            own header menu — including which kind of record is listed. -->
-      {#if !searching}
-        <DataTable.ClearFilters {grid} />
-      {/if}
+      <DataTable.ClearFilters {grid} />
       <!-- The one create control (the design system's), LAST on the row: the search grows toward
            the inline start as it opens, so the control after it is the one place that growth cannot
            reach — the same order as the matter header and the custody register. -->
@@ -413,55 +416,19 @@
     </p>
   {/if}
 
-  {#if searching}
-    <!-- The firm's own ranked answer. Not a table the reader can re-sort, because the rows are the
-         best of a capped set and re-ordering them would read as the best of the firm's record. -->
-    <LoadingRegion
-      loading={hits === null}
-      failed={searchFailure !== null}
-      empty={hits !== null && hits.length === 0}
-      label="Searching the directory"
+  <!-- The firm's matters answer beside the directory's own records, and the two reads fail apart:
+       a docket that cannot be read costs the reader the matter rows and nothing else. -->
+  {#if matterFailure !== null}
+    <FailureNotice
+      failure={matterFailure.failure}
+      title="The Firm's Matters Could Not Be Searched"
+      fallback={matterFailure.fallback}
+      whenSilent={matterFailure.whenSilent}
       onRetry={searchAgain}
-      class="flex min-h-0 flex-1 flex-col gap-8"
-    >
-      {#snippet failure()}
-        {#if searchFailure !== null}
-          <FailureNotice
-            failure={searchFailure.failure}
-            title="The Directory Could Not Be Searched"
-            fallback={searchFailure.fallback}
-            whenSilent={searchFailure.whenSilent}
-            onRetry={searchAgain}
-          />
-        {/if}
-      {/snippet}
-      {#snippet fixture()}
-        <div class="mc-scrollbar min-h-0 flex-1 overflow-auto">
-          {@render hitTable(HIT_FIXTURE)}
-        </div>
-        <p class="text-xs text-text-muted">Every match the firm holds, in its own relevance order.</p>
-      {/snippet}
-      {#snippet emptyState()}
-        <div class="min-h-0 flex-1">
-          <EmptyState title="Nothing Matches That Search">
-            No name on the firm's record answers to that, current or former. Recording them, with
-            New at the top of the screen, is what puts them in front of the next conflicts check.
-          </EmptyState>
-        </div>
-      {/snippet}
-      <div class="mc-scrollbar min-h-0 flex-1 overflow-auto">
-        {@render hitTable(hits ?? [])}
-      </div>
-      <p class="text-xs text-text-muted">
-        {#if capped}
-          The firm holds more matches than are shown. These are the closest; narrowing the
-          search reaches the rest.
-        {:else}
-          Every match the firm holds, in its own relevance order.
-        {/if}
-      </p>
-    </LoadingRegion>
-  {:else if listFailure !== null}
+    />
+  {/if}
+
+  {#if listFailure !== null}
     <!-- Through the standard failure surface. The Alert here interpolated the failure RECORD, so a
          reader got "[object Object]" where the sentence belonged, and no Error ID to report. -->
     <FailureNotice
@@ -471,21 +438,40 @@
       whenSilent="Nothing answered when the directory was asked for."
       onRetry={rereadIndex}
     />
+  {:else if answeredNothing}
+    <!-- A question the record cannot answer is not an empty table; it is an answer, and it says
+         what to do next. -->
+    <div class="min-h-0 flex-1">
+      <EmptyState title="Nothing Matches That Search">
+        No name on the firm's record answers to that, current or former. Recording them, with New at
+        the top of the screen, is what puts them in front of the next conflicts check.
+      </EmptyState>
+    </div>
   {:else}
     <!-- The table holds the height it would hold when full, so the screen does not reflow as the
          directory grows or a filter narrows it. -->
     <DataTable.Grid
       {grid}
       class="min-h-0 flex-1"
-      caption="The firm's directory, in name order"
+      caption={searching
+        ? "The firm's records and matters matching the search, in its own relevance order"
+        : "The firm's directory, in name order"}
       cell={directoryCell}
       loading={records === null}
-    >
-    </DataTable.Grid>
+    ></DataTable.Grid>
 
     <DataTable.GridFooter {grid}>
       {#snippet end()}
-        {#if moreThanLoaded}
+        {#if searching}
+          <!-- What a ranked answer owes the reader: whether this is all of it. The index's own
+               count has no place here — the rows are a best-of, not a slice of a known total. -->
+          {#if capped}
+            <span>
+              The firm holds more matches than are shown. These are the closest; narrowing the
+              search reaches the rest.
+            </span>
+          {/if}
+        {:else if moreThanLoaded}
           <span>{total} in the firm's directory</span>
         {/if}
         <!-- The way to the rest of the list belongs beside the count that says there is more, not
@@ -498,8 +484,6 @@
         />
       {/snippet}
     </DataTable.GridFooter>
-
-
   {/if}
 </div>
 

@@ -1067,3 +1067,40 @@ tables_ because neither is about files.
 | --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
 | L59 | **A text column's filter is the SET of its values, each with its count.** The changelog's From, To and File or Folder, and the Name column in every view, offered a box that matched typed text, which gives a reader nothing to choose from. Every text column on the surface now lists what it holds; the narrow field above the list keeps the column's own name as its ghost text, and the one select control acts on the choices listed. Supersedes the contains-text half of **L36**: the mechanism is still one, parameterized per column type, but a text column's control is the set, and the contains box survives only for a column of prose that declares it — none of which this surface has. | settled |
 | L60 | **A date filter's calendar opens and stays inside the column's menu.** Clicking the calendar closed the filter submenu, which unmounted the date field with it, so no date could be set except by typing the segments blind. The design system's submenus now hold while a field's own floating layer has focus; the fix is the platform's, and the file manager's tables take it with every other.                                                                                                                                                                                                                                                                                                        | settled |
+
+## R27 — round twenty-four: folders sort separately from files
+
+The owner's note of 2026-09-18, in full: "in file manager area, regardless of how files are sorted
+(by name), folders should always sort separately from files." One ruling, and its whole difficulty
+is in the word "regardless": the obvious reading is a tweak to the name column, and the right
+reading is that the kind of a row was never a sort key at all.
+
+| #   | Ruling                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Status  |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| L59 | **Folders form their own run ABOVE the files, in every view that lists the two together, under every column and in both directions.** A folder is a place and a file is a thing inside it, so which kind a row is is a fact about the list rather than a value in one of its columns — which is why sorting by name descending reverses the names within each run and never lifts a file over a folder, and why the rule holds identically on size, on a date, on the type, and on a column added next year. The active sort orders the folders among themselves and the files among themselves, by exactly the comparator the header says it is sorting by. Pinning is untouched: it is the reader's own arranging, applied above the runs as it always was. | settled |
+
+**Notes recorded this round:**
+
+- **There is one function and one seam.** `orderFolderRowsFirst` in
+  `apps/web/src/lib/file-manager/file-rows.ts` partitions the rows and applies the grid's OWN
+  comparator inside each partition; it is handed to the grid through the `orderRows` option the
+  hierarchy already uses (the seam recorded with A22), so no view reimplements a column comparison and no
+  column is special-cased. Special-casing the name column is the shape this correction is most
+  easily read down to, and it would have given the list a second ordering rule to disagree with the
+  header it is sorted by.
+- **Which views it reaches, and why the others are not exceptions.** The browse list and its Search
+  Results and File Analysis views take it through the one grid, and the icon layout is the same
+  grid's `rowsInView`, so the tiles and the rows cannot disagree. The inside of an archive takes it
+  too — that format's word for a place is "directory", which is the same list of places and things.
+  The upload intake already ordered folders ahead of files within each parent and now does it by
+  calling the same function, so the nested listing and the flat one share one rule. Deleted Files
+  holds documents alone (there is no route that brings a folder back — A30b), the changelog is not a
+  listing of rows of either kind, and the folder rail is folders only: none of the three has a
+  boundary to draw.
+- **Harness: `tooling/file-manager-rulings/` pins the retired mockup and cannot see this.** It is
+  handed an HTML file and reads the mockup's own element ids, so it has no way to reach the built
+  screen's table. L59 is pinned by unit test instead —
+  `apps/web/test/file-manager-order.test.ts` for the rule itself (both directions, on the name and
+  on a second column, the empty partition, and pinning's precedence), and
+  `apps/web/test/upload-intake.test.ts` for the nested half. The check is added to a harness the day
+  one targets the built app.

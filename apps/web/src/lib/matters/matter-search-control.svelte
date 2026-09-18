@@ -25,7 +25,6 @@
   import { page } from "$app/state";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import { buttonClasses } from "@magna-carta/design-system/button";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import ArrowRight from "@lucide/svelte/icons/arrow-right";
   import MatterSearchResults from "$lib/matters/matter-search-results.svelte";
   import MatterSearchSettings from "$lib/matters/matter-search-settings.svelte";
@@ -119,7 +118,6 @@
     bind:expanded
     bind:busy={search.busy}
     label="Search this matter"
-    placeholder={placeholderOf("Search this matter")}
     searchOn="pause"
     fieldClass="w-2xs sm:w-xs"
     matchSummary={search.answer === null ? undefined : String(totalHits(search.answer))}

@@ -60,8 +60,8 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   as a server-backed draft the settings page at `(app)/settings/calendar` renders through the
   shared settings rows and footer; the one draft on that surface with no local-storage copy
 - `calendar-view.svelte`, `calendar-toolbar.svelte` — the component and its one action row. The row
-  is handed UP to a host's header through the `header` snippet, so the firm screen seats the view
-  switch and the window navigation beside its create control rather than in a band under it
+  sits at the top of the CONTENT column, over the grid it moves, in every arrangement; the `header`
+  snippet carries the host's masthead DOWN into the layout and never carries the row up
 - `matter-calendar-list.svelte` — the matter section's List view: the two tables (deadlines lead,
   then events), each walked to its end by its own read
 - `entry-window.svelte` — the `RecordWindow` an event, a firm event or a deadline opens in: the
@@ -106,6 +106,21 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   2026-09-14 ruling seated them in the masthead's actions beside New, which was right while the
   masthead sat over the grid's own column and wrong the moment it spanned both. `CalendarView`'s
   `header` prop is therefore a plain `Snippet` and hands nothing back.
+- **ONE SCROLL REGION UNDER THE ACTION ROW, AND THE ROW HOLDS ONE LINE.** The owner read the screen
+  on a laptop (2026-09-17: "calendar is very tight on my laptop, and has multiple scrollbars") and
+  ruled AGAINST moving the controls into the screen header in the same breath — a header is a
+  screen's name and its actions, and these controls move the grid they stand over, so they stay and
+  they fit. What that costs the content column: the region around the grid is the one scroller for
+  a month, a week and a day, which are tables that scroll nothing of their own; the AGENDA is
+  already a named, focusable scrolling region by its own recipe, so there the wrapper stands aside
+  rather than nesting a second bar around it. The month fills the height it is given (`h-full`) over
+  a cell MINIMUM rather than a fixed cell, so six weeks share the column and only a short screen
+  makes it scroll. The row fits by measure rather than by wrapping: the window's name takes the
+  slack the other groups leave up to its old cap, Show Everything is the Kinds menu's own last item
+  so narrowing cannot widen the row, and the glyph controls are the small square the rest of the row
+  already stands at. `flex-wrap` survives as the fallback below the width the groups themselves
+  need. The RAIL's own scrollbar is not one of these: the two columns scroll independently by the
+  layout's design, and what is ours there is the row height, not the bar.
 - **A folder in the rail FOLDS, and the month picker under it does not scroll.** A firm with twenty
   rooms scrolled past all twenty to reach the folder beneath them. The disclosure is the folder's
   name — chevron and name are one button — and it is not the Accordion component, because that

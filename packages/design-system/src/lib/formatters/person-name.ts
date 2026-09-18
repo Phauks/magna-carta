@@ -49,3 +49,16 @@ export function personName(
   if (name === "") return unrecorded;
   return FIRST_PERSON_STAND_INS.has(name.toLowerCase()) ? unrecorded : name;
 }
+
+/**
+ * A person's initials, as an avatar's fallback draws them: the first letter of the first word and
+ * of the last, upper-cased; one letter for a one-word name; nothing for no name at all. Two letters
+ * at most, because a monogram is read at a glance and "JRRT" is not.
+ */
+export function personInitials(name: string): string {
+  const words = name.split(/\s+/).filter((word) => word !== "");
+  if (words.length === 0) return "";
+  const first = words[0]?.[0] ?? "";
+  const last = words.length > 1 ? (words.at(-1)?.[0] ?? "") : "";
+  return (first + last).toUpperCase();
+}

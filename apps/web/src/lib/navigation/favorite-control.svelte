@@ -15,6 +15,14 @@
    *
    * A STAR, not a bookmark or a pin, and the mark is the point. Customize mode's show/hide gave the
    * star up for an eye on the same ruling, precisely so one symbol stopped answering two questions.
+   *
+   * THE STAR CARRIES THE STATE ALONE (owner's correction, 2026-09-17: "only the star should be
+   * yellow, there should not be a box around the star"). So this is not a pressed toggle: the ghost
+   * recipe rings a pressed control with an accent hairline, which is right for a view or pane toggle
+   * whose glyph does not change, and here it drew a box around the one mark already doing the
+   * talking. The state is the glyph — filled and gold when saved, an outline in the header's muted
+   * ink when not — with the label saying it in words for a reader who cannot see the fill, and
+   * `data-favorite` carrying it for anything scripted.
    */
   import Star from "@lucide/svelte/icons/star";
   import Button from "@magna-carta/design-system/button";
@@ -36,7 +44,6 @@
         {...props}
         variant="ghost"
         size="icon-sm"
-        aria-pressed={saved}
         aria-label={label}
         data-favorite={saved ? "true" : "false"}
         onclick={() => toggleFavorite(path, title)}

@@ -173,3 +173,36 @@ export function folderSizeText(aggregate: FolderAggregate): string {
   if (aggregate.totalBytes === null) return count;
   return `${formatBytes(aggregate.totalBytes)} · ${count}`;
 }
+
+/**
+ * The kind words this surface's row models use for a PLACE. The browse list, the search results
+ * and the upload intake say "folder"; inside an archive the format's own word is "directory", and
+ * an archive listing is a list of places and the things in them exactly like the others.
+ */
+type PlaceKind = "folder" | "directory";
+
+/**
+ * Folders lead, files follow, and the reader's sort orders each run on its own.
+ *
+ * Which kind a row is is a fact about the LIST rather than a value in one of its columns: a folder
+ * is a place and a file is a thing inside it, so they are two runs with a boundary between them,
+ * not two values that a sort direction can interleave. Sorting by name backwards reverses the
+ * names WITHIN each run and never lifts a file over a folder; the same holds for size, for a date,
+ * and for a column added next year.
+ *
+ * The comparator is the grid's own, handed straight through, which is why no column is named here.
+ * Reimplementing the column comparison — or special-casing the name column, which is the shape
+ * this rule is usually asked for in — would give the list a second ordering rule to disagree with
+ * the header it is sorted by.
+ *
+ * Pinning is untouched: it is the reader's own arranging and the grid applies it after this, so a
+ * pinned file still leads the list from above the folders.
+ */
+export function orderFolderRowsFirst<TRow extends { readonly kind: PlaceKind | "file" }>(
+  rows: readonly TRow[],
+  compare: (left: TRow, right: TRow) => number,
+): TRow[] {
+  const folders = rows.filter((row) => row.kind !== "file").toSorted(compare);
+  const files = rows.filter((row) => row.kind === "file").toSorted(compare);
+  return [...folders, ...files];
+}

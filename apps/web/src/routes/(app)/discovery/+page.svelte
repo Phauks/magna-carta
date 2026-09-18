@@ -40,7 +40,6 @@
   import * as DataTable from "@magna-carta/design-system/data-table";
   import CreateControl from "@magna-carta/design-system/create-control";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import { goto } from "$app/navigation";
   import { permissionRefusal } from "$lib/access/refusal.ts";
@@ -148,7 +147,6 @@
       <ScreenSearch
         bind:value={searchText}
         label="Search the review sets"
-        placeholder={placeholderOf("Search the review sets")}
         searchOn="pause"
         fieldClass="w-2xs sm:w-xs"
         onsearch={(next) => {

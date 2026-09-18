@@ -45,8 +45,16 @@ export interface DataTableGridOptions<TRow> {
   rows: () => readonly TRow[];
   /** Stable row identity — keys selection and the stable-sort tiebreak. */
   rowKey: (row: TRow) => string;
-  /** Initial sort; defaults to the first column, ascending. */
-  initialSort?: { columnId: string; direction: GridSortDirection };
+  /**
+   * Initial sort; defaults to the first column, ascending.
+   *
+   * A `columnId` of null opens the table UNSORTED — the rows render in the order the surface handed
+   * them over. That is what a ranked answer needs: its order is the server's, and re-ordering a
+   * capped best-of by a column would put the best of an arbitrary slice at the top and read as the
+   * best of the whole record. The reader can still sort by clicking a header, which is them asking
+   * a different question.
+   */
+  initialSort?: { columnId: string | null; direction: GridSortDirection };
   /** Which rows count toward the totals row (e.g. voids never count). Defaults to all. */
   totalIncludes?: (row: TRow) => boolean;
   /** What a row is called in the footer and the filtered-empty copy ("entry"/"entries"). */
@@ -115,6 +123,8 @@ export class DataTableGridState<TRow> {
         .filter((column) => column.pinned && column.pinnedEnd !== true)
         .map((column) => column.id),
     );
+    // A null (or unknown) sort column leaves `sortColumnId` null, and the rows then render in the
+    // order the surface gave them — the shape a ranked answer arrives in.
     const initialSortColumn = options.initialSort
       ? columns.find((column) => column.id === options.initialSort?.columnId)
       : columns[0];
@@ -146,6 +156,7 @@ export class DataTableGridState<TRow> {
   sortedRows = $derived.by((): readonly TRow[] => {
     const column = this.sortColumnId === null ? undefined : this.columnById(this.sortColumnId);
     const arrange = this.options.orderRows;
+    // No sort column is not a missing answer: it is "as given", the order the surface handed over.
     if (!column) {
       return arrange ? arrange(this.filteredRows, () => 0) : this.filteredRows;
     }
@@ -217,6 +228,20 @@ export class DataTableGridState<TRow> {
     }
     this.sortColumnId = columnId;
     this.sortDirection = defaultDirection(this.columnById(columnId));
+  }
+
+  /**
+   * Put the table in an order, as `initialSort` does — including null for "as given".
+   *
+   * The seam for a surface whose rows change their MEANING under it: the directory lists its book in
+   * name order and answers a query in the firm's relevance order, and the order has to follow the
+   * question rather than the reader's last click. Not a way to sort on the reader's behalf between
+   * times; that is `toggleSort`, which is the header.
+   */
+  setSort(columnId: string | null, direction?: GridSortDirection): void {
+    const column = columnId === null ? undefined : this.columnById(columnId);
+    this.sortColumnId = column?.id ?? null;
+    this.sortDirection = direction ?? defaultDirection(column);
   }
 
   // ---- filtering -----------------------------------------------------------------------------

@@ -16,7 +16,6 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import MatterSearchResults from "$lib/matters/matter-search-results.svelte";
   import MatterSearchSettings from "$lib/matters/matter-search-settings.svelte";
   import {
@@ -110,7 +109,6 @@
       expanded
       busy={search.busy}
       label="Search this matter"
-      placeholder={placeholderOf("Search this matter")}
       searchOn="pause"
       fieldClass="w-xs sm:w-sm"
       onsearch={submit}

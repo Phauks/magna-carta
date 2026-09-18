@@ -29,7 +29,6 @@
   import Button from "@magna-carta/design-system/button";
   import CreateControl from "@magna-carta/design-system/create-control";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import CalendarPlus from "@lucide/svelte/icons/calendar-plus";
   import ClipboardCheck from "@lucide/svelte/icons/clipboard-check";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
@@ -256,7 +255,6 @@
       <ScreenSearch
         bind:value={searchText}
         label="Search the desk"
-        placeholder={placeholderOf("Search the desk")}
         searchOn="pause"
         fieldClass="w-2xs sm:w-xs"
         onsearch={(next) => {

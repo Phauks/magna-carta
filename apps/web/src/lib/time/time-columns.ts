@@ -100,15 +100,6 @@ export function chargeAmount(entry: TimeEntrySummary): number | null {
   return entry.amountMinor / 100;
 }
 
-/** The initials that ride beside a timekeeper's name — never instead of it. */
-export function personInitials(name: string): string {
-  const words = name.split(/\s+/).filter((word) => word !== "");
-  if (words.length === 0) return "";
-  const first = words[0]?.[0] ?? "";
-  const last = words.length > 1 ? (words.at(-1)?.[0] ?? "") : "";
-  return (first + last).toUpperCase();
-}
-
 /** Whose work an entry records, as the record itself captured it. */
 export function timekeeperOf(entry: TimeEntrySummary): string {
   return personName(entry.timekeeperName);
