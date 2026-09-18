@@ -23,11 +23,11 @@ So the recommendation is: **adopt nothing, ratify the exclusion in writing, and 
 
 ## 2. What actually shipped
 
-| Product                     | Date       | What it is                                                              | Where it runs                                 |
-| --------------------------- | ---------- | ----------------------------------------------------------------------- | --------------------------------------------- |
-| **Claude Docs** (beta)      | 2026-09-16 | A rich-text editor inside Claude; documents live in the Artifacts tab   | Anthropic's product, browser                  |
-| **Claude Slides** (beta)    | 2026-09-16 | The same, for presentations                                             | Anthropic's product, browser                  |
-| **Claude for Word** (beta)  | 2026-04-10 | A sidebar add-in for Microsoft Word on Mac and Windows                  | The user's own Word install, over their files |
+| Product                    | Date       | What it is                                                            | Where it runs                                 |
+| -------------------------- | ---------- | --------------------------------------------------------------------- | --------------------------------------------- |
+| **Claude Docs** (beta)     | 2026-09-16 | A rich-text editor inside Claude; documents live in the Artifacts tab | Anthropic's product, browser                  |
+| **Claude Slides** (beta)   | 2026-09-16 | The same, for presentations                                           | Anthropic's product, browser                  |
+| **Claude for Word** (beta) | 2026-04-10 | A sidebar add-in for Microsoft Word on Mac and Windows                | The user's own Word install, over their files |
 
 **Claude Docs, as documented by Anthropic.**
 
@@ -51,18 +51,18 @@ So the recommendation is: **adopt nothing, ratify the exclusion in writing, and 
 
 Every row is read from the build register (`docs/now.md`) and the feature ledger, not inferred.
 
-| Claude Docs capability          | Magna Carta's home                                                                       | Status                                                                                |
-| ------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Browser `.docx` editing         | Collabora per open document, per-document Durable Object, our own WOPI host               | **Built** (ADR-0010, ADR-0125)                                                        |
-| Real-time co-editing            | The same live session; one WOPI lock, co-editors join it                                  | **Built**; the presence layer over it is designed, not built                          |
-| Who has it open, live           | `docs/specs/2026-08-25-document-presence-design.md`                                       | **Designed only** — ledger item P16                                                   |
-| Comments in the document        | Collabora carries OOXML comments; `@magna-carta/metadata` detects them                    | Editor-level only; no platform surface over them                                      |
-| Version history                 | App-managed immutable version objects, content hash on write, Standard→IA tiering         | **Built, and ahead** — Claude Docs has none at all (ADR-0035, ADR-0077, ADR-0078)     |
-| Templates and assembly          | `@magna-carta/document-assembly`, the expression language, the merge-field dictionary     | **Backend built** 2026-08-11; the interface is the gap                                |
-| Export to PDF                   | The conversion format registry and the LibreOffice engine                                 | **Built** (ADR-0030)                                                                  |
-| Sharing outside the firm        | The client portal                                                                         | Unbuilt here — but Claude Docs forbids it outright on Team and Enterprise             |
-| The model **inside** a document | `ai.consumer-seams`; "document-automation merge intelligence" as a slice 2·6 consumer     | **Not started** — the one genuine gap this comparison exposes                          |
-| Confidentiality posture         | ZDR-on fail-closed, curated ZDR-only catalog, two fail-closed consent gates               | **Built** — and it is precisely what disqualifies Claude Docs                          |
+| Claude Docs capability          | Magna Carta's home                                                                    | Status                                                                            |
+| ------------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Browser `.docx` editing         | Collabora per open document, per-document Durable Object, our own WOPI host           | **Built** (ADR-0010, ADR-0125)                                                    |
+| Real-time co-editing            | The same live session; one WOPI lock, co-editors join it                              | **Built**; the presence layer over it is designed, not built                      |
+| Who has it open, live           | `docs/specs/2026-08-25-document-presence-design.md`                                   | **Designed only** — ledger item P16                                               |
+| Comments in the document        | Collabora carries OOXML comments; `@magna-carta/metadata` detects them                | Editor-level only; no platform surface over them                                  |
+| Version history                 | App-managed immutable version objects, content hash on write, Standard→IA tiering     | **Built, and ahead** — Claude Docs has none at all (ADR-0035, ADR-0077, ADR-0078) |
+| Templates and assembly          | `@magna-carta/document-assembly`, the expression language, the merge-field dictionary | **Backend built** 2026-08-11; the interface is the gap                            |
+| Export to PDF                   | The conversion format registry and the LibreOffice engine                             | **Built** (ADR-0030)                                                              |
+| Sharing outside the firm        | The client portal                                                                     | Unbuilt here — but Claude Docs forbids it outright on Team and Enterprise         |
+| The model **inside** a document | `ai.consumer-seams`; "document-automation merge intelligence" as a slice 2·6 consumer | **Not started** — the one genuine gap this comparison exposes                     |
+| Confidentiality posture         | ZDR-on fail-closed, curated ZDR-only catalog, two fail-closed consent gates           | **Built** — and it is precisely what disqualifies Claude Docs                     |
 
 The table says the thing plainly: **Claude Docs is not a capability we lack.** It is a competitor to a surface we already ship, minus version history, minus external sharing, and minus the configuration a law firm is obliged to run under. The only row that reads "not started" is the one Claude Docs is genuinely good at and the one the roadmap already owns.
 

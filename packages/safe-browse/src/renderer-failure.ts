@@ -17,16 +17,27 @@
  * has to survive the throw, so it travels as a field.
  */
 
-export type RendererFaultKind = "transient" | "permanent";
+export type RendererFaultKind = "transient" | "page" | "configuration";
 
 /*
  * Classification is on the HTTP status, not the error code: the status is the axis the service
- * documents, and its codes are not enumerated anywhere that can be pinned. These are the statuses
- * meaning "ask again later" — the service is rate-limiting, restarting, or timed out. Every other
- * status describes our request rather than the service's capacity, and no amount of waiting fixes
+ * documents, and its codes are not enumerated anywhere that can be pinned.
+ *
+ * `transient` — the service was momentarily unable to serve the render: rate-limited, restarting,
+ * timed out on its own side. Asking again may work.
+ *
+ * `page` — a 422, which the service documents as being unable to complete the action "because of
+ * an issue with the site": the page crashed, ate too much memory, or took longer to load than the
+ * wait allowed. Nothing about our account or our call is wrong, and nothing about the member's
+ * input is either. This is the common outcome on exactly the pages this tool exists to look at, so
+ * it gets its own answer rather than borrowing one of the others.
+ *
+ * `configuration` — anything else: an entitlement that is not enabled, a credential without the
+ * permission, a parameter the action rejects. Waiting cannot fix it and the member cannot act on
  * it, so it has to reach someone who can change the account or the call.
  */
 const TRANSIENT_STATUSES: ReadonlySet<number> = new Set([408, 429, 500, 502, 503, 504]);
+const PAGE_FAILURE_STATUS = 422;
 
 export class RendererFailure extends Error {
   readonly httpStatus: number;
@@ -34,17 +45,20 @@ export class RendererFailure extends Error {
   readonly kind: RendererFaultKind;
 
   constructor(httpStatus: number, code: number | null) {
-    // Synthesized from the two safe fields, never from the upstream text.
-    super(`the rendering service refused the capture (http=${httpStatus}, code=${code ?? "none"})`);
+    // Synthesized from the two safe fields, never from the upstream text. Neutral about whose
+    // fault it is, because `kind` answers that and the three answers are not the same.
+    super(
+      `the rendering service did not complete the capture (http=${httpStatus}, code=${code ?? "none"})`,
+    );
     this.name = "RendererFailure";
     this.httpStatus = httpStatus;
     this.code = code;
-    // A 2xx carrying `success: false` is the service reporting that the RENDER failed rather than
-    // that it refused us, and it lands here as `permanent` — which surfaces an Error ID rather
-    // than a "try again". That is the loud outcome on purpose while the real codes are unknown:
-    // nothing in this tool has ever observed a live refusal, so the first ones should be
-    // conspicuous and logged. If page-render failures turn out to be common on hostile targets,
-    // they deserve a state of their own rather than either of the two here.
-    this.kind = TRANSIENT_STATUSES.has(httpStatus) ? "transient" : "permanent";
+    // A 2xx carrying `success: false` is the service reporting on the render rather than refusing
+    // us, so it reads as a page failure on the same terms as the 422 that usually carries it.
+    this.kind = TRANSIENT_STATUSES.has(httpStatus)
+      ? "transient"
+      : httpStatus === PAGE_FAILURE_STATUS || (httpStatus >= 200 && httpStatus < 300)
+        ? "page"
+        : "configuration";
   }
 }

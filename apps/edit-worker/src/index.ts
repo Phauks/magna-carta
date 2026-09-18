@@ -1,5 +1,6 @@
 import { getContainer } from "@cloudflare/containers";
 import { isVersionRequest, versionResponse } from "@magna-carta/build-identity/version-route";
+import { setServiceIdentity } from "@magna-carta/telemetry/service-identity";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import { withEditorDiagnostics } from "./diagnostics.ts";
 import { DocumentEditorContainer } from "./document-editor-container.ts";
@@ -14,6 +15,11 @@ import { allowAppFraming, appFrameAncestors } from "./embedding-policy.ts";
 //              this worker checks, so the proxy only routes to the right per-document container.
 //   outbound — coolwsd's WOPI callbacks are intercepted by DocumentEditorContainer.outboundByHost and
 //              forwarded to the app worker over APP_WORKER; enableInternet stays false.
+// This Worker mints Error IDs of its own (diagnostics.ts), so it says which Worker it is before
+// any of them are minted. Unlike the API Worker's entrypoint there is no startup budget to protect
+// here — this module's import graph is already small.
+setServiceIdentity("edt");
+
 export type Bindings = {
   // The per-document coolwsd Container (Container-backed Durable Object). Named in wrangler.jsonc's
   // durable_objects.bindings + migrations; re-exported below so the runtime can instantiate it.

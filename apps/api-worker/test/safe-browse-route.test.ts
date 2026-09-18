@@ -5,6 +5,7 @@ import type { BrowserRenderer, RedirectProbe } from "@magna-carta/safe-browse/ty
 import { RendererFailure } from "@magna-carta/safe-browse";
 import { SsrfRejection } from "@magna-carta/integrations/safe-target";
 import { createApp } from "../src/app.ts";
+import { createBrowserRenderer } from "../src/routes/safe-browse.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
@@ -24,6 +25,16 @@ function fakeRenderer(): BrowserRenderer {
         title: "X",
         links: ["https://x.example/"],
       };
+    },
+  };
+}
+
+// A BrowserRenderer whose snapshot reports the PAGE failing to render — the 422 a real capture
+// against a live site actually met.
+function pageFailureRenderer(): BrowserRenderer {
+  return {
+    async snapshot(_url: string) {
+      throw new RendererFailure(422, 6004);
     },
   };
 }
@@ -89,6 +100,38 @@ const rendererFailureApp = createApp({
 const rendererRefusalApp = createApp({
   safeBrowseDeps: { renderer: refusingRenderer(), probe: fakeProbe() },
 });
+
+// A fifth whose renderer reports the page failing to render.
+const pageFailureApp = createApp({
+  safeBrowseDeps: { renderer: pageFailureRenderer(), probe: fakeProbe() },
+});
+
+// A quickAction binding recording every call, answering from a scripted queue of responses. Used
+// to drive createBrowserRenderer directly — the retry lives there, below every route.
+function scriptedBrowser(responses: { status: number; body: unknown }[]): {
+  binding: { quickAction(action: string, options: Record<string, unknown>): Promise<Response> };
+  calls: { action: string; options: Record<string, unknown> }[];
+} {
+  const calls: { action: string; options: Record<string, unknown> }[] = [];
+  let next = 0;
+  return {
+    calls,
+    binding: {
+      async quickAction(action: string, options: Record<string, unknown>) {
+        calls.push({ action, options });
+        // The links companion call is not what these tests drive; answer it emptily.
+        if (action !== "snapshot") {
+          return new Response(JSON.stringify({ success: true, result: [] }), { status: 200 });
+        }
+        const scripted = responses[next] ?? responses.at(-1);
+        next += 1;
+        return new Response(JSON.stringify(scripted?.body ?? {}), {
+          status: scripted?.status ?? 500,
+        });
+      },
+    },
+  };
+}
 
 let poolFirmId: FirmId;
 
@@ -236,6 +279,31 @@ describe("POST /api/v1/safe-browse", () => {
     expect(body).not.toContain(targetUrl);
   });
 
+  it("answers a failed render with 422 page-render-failed, not an Error ID", async () => {
+    const { userId } = await seedCredentialedUser("safebrowse-page@example.com", {
+      userName: "Page Failure",
+      firmId: poolFirmId,
+    });
+    await mirrorMemberWithOwnerRole(userId, "Page Failure", poolFirmId);
+    const cookie = await signInForSessionCookie("safebrowse-page@example.com");
+    const targetUrl = "https://suspect.example.com/slow";
+    const response = await pageFailureApp.request(
+      "https://example.com/api/v1/safe-browse",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: "https://example.com", cookie },
+        body: JSON.stringify({ url: targetUrl }),
+      },
+      env,
+    );
+    // A page that would not load is neither the member's address nor our outage.
+    expect(response.status).toBe(422);
+    const body = await response.text();
+    expect(body).toContain("page-render-failed");
+    expect(body).not.toContain("suspect.example.com");
+    expect(body).not.toContain(targetUrl);
+  });
+
   it("answers a configuration refusal with 500, not the capacity 502", async () => {
     const { userId } = await seedCredentialedUser("safebrowse-refusal@example.com", {
       userName: "Renderer Refusal",
@@ -368,5 +436,55 @@ describe("POST /api/v1/safe-browse/stream", () => {
     // 502 would tell the member to wait for a fault that waiting cannot clear.
     expect(terminal.problem?.status).toBe(500);
     expect(terminal.problem?.errorId).toBeTypeOf("string");
+  });
+});
+
+describe("createBrowserRenderer", () => {
+  const ok = {
+    status: 200,
+    body: { success: true, result: { screenshot: "aGk=", markdown: "# x" }, meta: { title: "X" } },
+  };
+  const pageFailure = { status: 422, body: { success: false, errors: [{ code: 6004 }] } };
+
+  it("waits for load rather than a network-idle condition", async () => {
+    const { binding, calls } = scriptedBrowser([ok]);
+    await createBrowserRenderer(binding).snapshot("https://example.com/");
+    const goto = calls[0]?.options.gotoOptions as { waitUntil?: string } | undefined;
+    // networkidle2 never settles on a page holding a socket or a poll, so the wait ran to its own
+    // timeout and every capture against a live commercial page came back 422.
+    expect(goto?.waitUntil).toBe("load");
+  });
+
+  it("retries a failed render once with everything expensive turned off", async () => {
+    const { binding, calls } = scriptedBrowser([pageFailure, ok]);
+    const view = await createBrowserRenderer(binding).snapshot("https://example.com/");
+    expect(view.screenshotBase64).toBe("aGk=");
+    const snapshots = calls.filter((call) => call.action === "snapshot");
+    expect(snapshots).toHaveLength(2);
+    const second = snapshots[1]?.options as Record<string, unknown>;
+    expect(second.addScriptTag).toBeUndefined();
+    expect(second.screenshotOptions).toEqual({ fullPage: false });
+  });
+
+  it("gives up after the second attempt rather than retrying forever", async () => {
+    const { binding, calls } = scriptedBrowser([pageFailure, pageFailure]);
+    await expect(createBrowserRenderer(binding).snapshot("https://example.com/")).rejects.toThrow(
+      RendererFailure,
+    );
+    expect(calls.filter((call) => call.action === "snapshot")).toHaveLength(2);
+  });
+
+  it("does not retry a fault that would fail the same way twice", async () => {
+    // A configuration refusal and a capacity shortage are identical on a second ask; retrying
+    // spends a second render to learn nothing.
+    for (const status of [401, 503]) {
+      const { binding, calls } = scriptedBrowser([
+        { status, body: { success: false, errors: [{ code: 10000 }] } },
+      ]);
+      await expect(createBrowserRenderer(binding).snapshot("https://example.com/")).rejects.toThrow(
+        RendererFailure,
+      );
+      expect(calls.filter((call) => call.action === "snapshot")).toHaveLength(1);
+    }
   });
 });
