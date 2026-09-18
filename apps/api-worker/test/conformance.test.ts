@@ -1369,6 +1369,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "trust.listReconciliations",
       "trust.listTrustAccounts",
       "trust.matterLedger",
+      "trust.openAccount",
       "trust.openFirmFunds",
       "trust.openReconciliation",
       "trust.openUnclaimedFundsReview",
