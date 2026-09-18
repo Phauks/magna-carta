@@ -286,11 +286,14 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   },
   // Practice
   {
-    // Real routes exist (numbering-scheme read/update + preview, audited); the real page is a
-    // segment-template editor with live preview — this section reserves its home.
-    id: "matter-numbering",
-    label: "Matter Numbering",
-    href: "/settings/matter-numbering",
+    // Every number the firm issues, from the one numbering register: matter, consultation, intake,
+    // conflicts check and custody numbers are each a segment-template editor with live preview
+    // (numbering-scheme read/update + preview, audited); invoice, time entry and call numbers are
+    // stated with their fixed shape. It was "Matter Numbering" while matters were the only
+    // sequence with a screen; /settings/matter-numbering still resolves here.
+    id: "numbering",
+    label: "Numbering",
+    href: "/settings/numbering",
     group: "practice",
     scope: "firm",
     commitMode: "draft",

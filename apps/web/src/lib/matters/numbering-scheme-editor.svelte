@@ -1,9 +1,11 @@
 <script lang="ts">
   /*
-   * The editor for one of the firm's two numbering schemes: the template its matter numbers
-   * follow, or the one its consultation numbers follow. It renders INSIDE a settings plate, as
-   * rows of the settings anatomy plus one table, so the page it sits on reads like every other
-   * settings page rather than a form parked on one.
+   * The editor for one of the firm's numbering schemes: the template one of its sequences follows
+   * — matter, consultation, intake, conflicts check or custody numbers, whichever purpose the page
+   * hands it. It renders INSIDE a settings plate, as rows of the settings anatomy plus one table,
+   * so the page it sits on reads like every other settings page rather than a form parked on one.
+   * What the purpose IS — its title, its parts, what is in force — arrives on the listing record;
+   * the editor keeps no second copy of the register.
    *
    * ONE LIST, ONE PREVIEW, ONE SAVE. The scheme is an ordered list of parts, and BUILDING IT IS A
    * TABLE (owner ruling, 2026-09-11): one row per part, its fields in columns, edited the way every
@@ -12,9 +14,9 @@
    * holds its control refused, with the reason on its hover, rather than removed — so changing a
    * part's kind never moves the columns under the hand.
    *
-   * Beneath the list the server renders the list against a sample matter as the reader types, so
+   * Beneath the list the server renders the list against the sample record as the reader types, so
    * the number a scheme produces is seen before it is saved rather than discovered on the first
-   * matter opened under it. Save replaces the firm's scheme in one audited write.
+   * record numbered under it. Save replaces the firm's scheme in one audited write.
    *
    * THE PREVIEW IS THE SERVER'S. The same renderer that draws real numbers renders the sample; this
    * component never composes a number itself, so what it shows is what a matter will get. It asks
@@ -26,6 +28,7 @@
    * the list to it. A number already drawn is frozen whatever is saved here, and the line beside
    * Save says so.
    */
+  import { untrack } from "svelte";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import * as DataTable from "@magna-carta/design-system/data-table";
@@ -44,7 +47,6 @@
   import type { SettingDefinition } from "$lib/settings/settings-definitions.ts";
   import {
     previewNumberingScheme,
-    readNumberingScheme,
     setNumberingScheme,
     type NumberingPreview,
   } from "./numbering-api.ts";
@@ -52,48 +54,54 @@
     isScoping,
     moveNumberSegment,
     newNumberSegment,
-    NUMBER_SEGMENT_VOCABULARY,
-    NUMBERING_STARTERS,
+    numberingFrozenSentence,
     numberingNothingInForceSentence,
-    numberingSampleContext,
     numberingSampleSentence,
     numberingSavedSentence,
     numberingSchemeLabel,
     numberingSchemeRefusal,
     numberingSchemesEqual,
+    numberingStartersFor,
     numberSegmentCellRefusal,
     numberSegmentSummary,
     numberSegmentVocabulary,
+    numberSegmentVocabularyFor,
     removeNumberSegment,
     replaceNumberSegment,
-    type NumberingPurpose,
+    type NumberingPurposeRecord,
+    type NumberingSampleContext,
     type NumberSegment,
     type NumberSegmentKind,
+    type SchemeNumberingPurpose,
   } from "./numbering-scheme.ts";
 
   let {
-    purpose,
+    record,
+    sample,
     canManage,
-    today,
   }: {
-    purpose: NumberingPurpose;
+    /** The purpose as the listing describes it, with what is in force at the time of the read. */
+    record: NumberingPurposeRecord & { purpose: SchemeNumberingPurpose };
+    /** The sample record the server rendered every example against; the preview uses the same. */
+    sample: NumberingSampleContext;
     /** Whether the session may replace the scheme. Without it the scheme is read and stated. */
     canManage: boolean;
-    /** The civil date the sample matter opened on, so the preview's year is today's. */
-    today: string;
   } = $props();
 
   const identifier = $props.id();
-  const sample = $derived(numberingSampleContext(today));
+  const purpose = $derived(record.purpose);
+  const kinds = $derived(record.segmentKinds ?? []);
+  const vocabulary = $derived(numberSegmentVocabularyFor(kinds));
+  const starters = $derived(numberingStartersFor(kinds));
 
-  /** What the server said is in force. Null until the read lands. */
-  let committed = $state<readonly NumberSegment[] | null>(null);
-  let usingDefault = $state(false);
-  let loaded = $state(false);
-  let readFailure = $state<StatedFailure | null>(null);
-
+  // What the server said is in force, as the listing carried it when this editor was drawn. Read
+  // once on purpose: the editor owns the committed scheme from here (Save moves it), and the page
+  // keys each editor by its purpose, so a record is never swapped under a mounted editor.
+  const initial = untrack(() => record);
+  let committed = $state<readonly NumberSegment[] | null>(initial.segments);
+  let usingDefault = $state(initial.usingDefault === true);
   /** The list under edit. Starts as the committed scheme and is returned to it by Discard. */
-  let draft = $state<readonly NumberSegment[]>([]);
+  let draft = $state<readonly NumberSegment[]>(initial.segments ?? []);
   let saving = $state(false);
   let saveFailure = $state<StatedFailure | null>(null);
   let savedSentence = $state<string | null>(null);
@@ -107,30 +115,11 @@
   /** True from the moment a preview is owed until the server answers it. */
   let previewPending = $state(false);
 
-  async function load(): Promise<void> {
-    const outcome = await readNumberingScheme(fetch, purpose);
-    if (outcome.kind !== "ok") {
-      readFailure = stated(outcome.failure, "The firm's numbering scheme could not be read.");
-      loaded = true;
-      return;
-    }
-    readFailure = null;
-    committed = outcome.value.segments;
-    usingDefault = outcome.value.usingDefault;
-    draft = outcome.value.segments ?? [];
-    loaded = true;
-  }
-
-  $effect(() => {
-    void load();
-  });
-
   // The preview follows the draft a moment behind the last edit. A list that fails the counter rule
   // is not sent: the server would refuse it, and the refusal is already on the screen.
   $effect(() => {
     const segments = draft;
     const refused = refusal;
-    if (!loaded) return;
     if (refused !== null || segments.length === 0) {
       preview = null;
       previewFailure = null;
@@ -140,7 +129,7 @@
     previewPending = true;
     const handle = setTimeout(() => {
       void (async () => {
-        const outcome = await previewNumberingScheme(fetch, segments, sample);
+        const outcome = await previewNumberingScheme(fetch, purpose, segments, sample);
         // A later edit may have superseded this request; only the newest answer is shown.
         if (segments !== draft) return;
         previewPending = false;
@@ -170,7 +159,7 @@
   let starterChoice = $state("");
 
   function chooseStarter(key: string): void {
-    const starter = NUMBERING_STARTERS.find((candidate) => candidate.key === key);
+    const starter = starters.find((candidate) => candidate.key === key);
     if (starter !== undefined) draft = [...starter.segments];
     savedSentence = null;
     starterChoice = "";
@@ -186,7 +175,7 @@
   }
 
   function changeKind(index: number, next: string): void {
-    const kind = NUMBER_SEGMENT_VOCABULARY.find((entry) => entry.kind === next)?.kind;
+    const kind = vocabulary.find((entry) => entry.kind === next)?.kind;
     if (kind === undefined || kind === draft[index]?.kind) return;
     draft = replaceNumberSegment(draft, index, newNumberSegment(kind));
     savedSentence = null;
@@ -227,19 +216,23 @@
     committed = outcome.value.segments;
     usingDefault = false;
     draft = outcome.value.segments;
-    savedSentence = numberingSavedSentence(purpose);
+    savedSentence = numberingSavedSentence(record);
   }
 
-  const KIND_CHOICES = NUMBER_SEGMENT_VOCABULARY.map((entry) => ({
-    value: entry.kind,
-    label: entry.label,
-    meaning: entry.description,
-  }));
-  const STARTER_CHOICES = NUMBERING_STARTERS.map((starter) => ({
-    value: starter.key,
-    label: starter.label,
-    aside: starter.example,
-  }));
+  const KIND_CHOICES = $derived(
+    vocabulary.map((entry) => ({
+      value: entry.kind,
+      label: entry.label,
+      meaning: entry.description,
+    })),
+  );
+  const STARTER_CHOICES = $derived(
+    starters.map((starter) => ({
+      value: starter.key,
+      label: starter.label,
+      aside: starter.example,
+    })),
+  );
   const YEAR_DIGIT_CHOICES = [
     { value: "4", label: "Four (2026)" },
     { value: "2", label: "Two (26)" },
@@ -261,12 +254,12 @@
 
   const IN_FORCE_DEFINITION = $derived<SettingDefinition>({
     id: `numbering.${purpose}.in-force`,
-    sectionId: "matter-numbering",
+    sectionId: "numbering",
     label: "In Force",
     description:
-      committed === null && loaded && readFailure === null
-        ? numberingNothingInForceSentence(purpose)
-        : "What the firm is numbering under today.",
+      committed === null
+        ? numberingNothingInForceSentence(record)
+        : `What the firm is numbering under today. ${record.drawnWhen}`,
     kind: "text",
     defaultValue: "",
     sensitivity: "open",
@@ -274,8 +267,8 @@
 
   const SCHEME_DEFINITION = $derived<SettingDefinition>({
     id: `numbering.${purpose}.scheme`,
-    sectionId: "matter-numbering",
-    label: numberingSchemeLabel(purpose),
+    sectionId: "numbering",
+    label: numberingSchemeLabel(record),
     description: "Choose a common shape to load into the parts below; every part is then the firm's to change.",
     kind: "select",
     defaultValue: "",
@@ -284,9 +277,9 @@
 
   const PREVIEW_DEFINITION = $derived<SettingDefinition>({
     id: `numbering.${purpose}.preview`,
-    sectionId: "matter-numbering",
+    sectionId: "numbering",
     label: "Preview",
-    description: numberingSampleSentence(sample),
+    description: numberingSampleSentence(sample, record),
     kind: "text",
     defaultValue: "",
     sensitivity: "open",
@@ -312,29 +305,9 @@
   </SettingsRow>
 {/snippet}
 
-{#if readFailure !== null}
-  <FailureNotice
-    failure={readFailure.failure}
-    title="The Scheme Could Not Be Read"
-    fallback={readFailure.fallback}
-    onRetry={() => void load()}
-  />
-{/if}
-
-<LoadingRegion
-  loading={!loaded}
-  label="Reading the scheme"
-  class="flex flex-col divide-y divide-border-default"
->
-  {#snippet fixture()}
-    {@render inForceRow("Year, 4 digits, restarts the count · \"-\" · Counter, 4 digits", null)}
-  {/snippet}
-
+<div class="flex flex-col divide-y divide-border-default">
   <!-- What is in force, stated before anything is edited. -->
-  {@render inForceRow(
-    inForceSummary,
-    committed === null && readFailure === null ? "not-set" : usingDefault ? "built-in" : null,
-  )}
+  {@render inForceRow(inForceSummary, committed === null ? "not-set" : usingDefault ? "built-in" : null)}
 
   {#if canManage}
     <SettingsRow definition={SCHEME_DEFINITION}>
@@ -358,7 +331,7 @@
         </Button>
       </div>
       <DataTable.Root>
-        <DataTable.Caption class="sr-only">The parts of the {numberingSchemeLabel(purpose)}</DataTable.Caption>
+        <DataTable.Caption class="sr-only">The parts of the {numberingSchemeLabel(record)}</DataTable.Caption>
         <DataTable.Header>
           <DataTable.Row>
             <DataTable.Head class="sr-only">Order</DataTable.Head>
@@ -570,9 +543,7 @@
 
     <!-- The plate's exit: the consequence beside the act, and the act itself. -->
     <div class="flex flex-wrap items-center justify-between gap-12 py-12">
-      <p class="text-sm text-text-muted">
-        A number already drawn is frozen. Saving reaches only the matters numbered from now on.
-      </p>
+      <p class="text-sm text-text-muted">{numberingFrozenSentence(record)}</p>
       <div class="flex gap-8">
         <Button variant="secondary" size="sm" disabled={saving || !changed} onclick={discard}>
           Discard
@@ -588,4 +559,4 @@
       </div>
     </div>
   {/if}
-</LoadingRegion>
+</div>

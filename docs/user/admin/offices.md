@@ -73,4 +73,4 @@ table and opens each office to read it.
 ## Related
 
 - [Firm Profile](firm-profile.md): the firm's name and the marks an office's letterhead falls back to.
-- [Matter numbering](matter-numbering.md): where an office's numbering code appears in a matter number.
+- [Numbering](numbering.md): where an office's numbering code appears in a matter number.

@@ -72,7 +72,7 @@
   name: The Settings area
   scope: Banded settings navigation (My / Firm / Platform), posture badges, draft staging with confirmation recap, change-history pull-out, command-palette listing.
   status: partial
-  evidence: apps/web/src/routes/(app)/settings/ holds eleven pages — theme, accessibility, text, firm-profile, users, matter-numbering, billing, file-safety, beta-access, versions, developer — banded by apps/web/src/lib/settings/settings-sections.ts, with the draft staging and change history in settings-draft.svelte.ts and settings-ledger-store.svelte.ts.
+  evidence: apps/web/src/routes/(app)/settings/ holds eleven pages — theme, accessibility, text, firm-profile, users, numbering, billing, file-safety, beta-access, versions, developer — banded by apps/web/src/lib/settings/settings-sections.ts, with the draft staging and change history in settings-draft.svelte.ts and settings-ledger-store.svelte.ts.
 
 - id: settings.area-ui.my-account
   name: My Account (identity & security)

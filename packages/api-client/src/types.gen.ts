@@ -1688,10 +1688,24 @@ export type MemberLocationsRequest = {
     }>;
 };
 
-export type NumberingSchemeResponse = {
+export type NumberingSchemesResponse = {
+    purposes: Array<NumberingListedPurpose>;
+    sample: NumberingSampleContext;
+};
+
+export type NumberingListedPurpose = {
+    purpose: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication';
+    title: string;
+    label: string;
+    subject: string;
+    subjects: string;
+    drawnWhen: string;
+    formulation: 'scheme' | 'fixed';
+    segmentKinds: Array<'literal' | 'counter' | 'year' | 'date_opened' | 'location_code' | 'matter_type_code' | 'client_code' | 'staff_initials' | 'client_name'> | null;
     segments: Array<NumberSegment> | null;
-    purpose: 'matter' | 'consultation';
-    usingDefault: boolean;
+    usingDefault: boolean | null;
+    fixedShape: string | null;
+    example: string | null;
 };
 
 export type NumberSegment = {
@@ -1725,9 +1739,24 @@ export type NumberSegment = {
     scoping?: boolean;
 };
 
+export type NumberingSampleContext = {
+    openedDate: string;
+    locationCode: string;
+    matterTypeCode: string;
+    clientCode: string;
+    staffInitials: string;
+    clientName: string;
+};
+
+export type NumberingSchemeResponse = {
+    segments: Array<NumberSegment> | null;
+    purpose: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet';
+    usingDefault: boolean;
+};
+
 export type NumberingScheme = {
     segments: Array<NumberSegment>;
-    purpose?: 'matter' | 'consultation' | 'intake';
+    purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet';
 };
 
 export type NumberingPreviewResponse = {
@@ -1737,6 +1766,7 @@ export type NumberingPreviewResponse = {
 
 export type NumberingPreviewRequest = {
     segments: Array<NumberSegment>;
+    purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet';
     counterValue?: number;
     context?: {
         openedDate?: string;
@@ -14450,11 +14480,48 @@ export type LocationsAssignMemberResponses = {
 
 export type LocationsAssignMemberResponse = LocationsAssignMemberResponses[keyof LocationsAssignMemberResponses];
 
+export type NumberingListData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/numbering-schemes';
+};
+
+export type NumberingListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks matters:manageNumbering
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NumberingListError = NumberingListErrors[keyof NumberingListErrors];
+
+export type NumberingListResponses = {
+    /**
+     * Every purpose on the register, and the sample the examples render against
+     */
+    200: NumberingSchemesResponse;
+};
+
+export type NumberingListResponse = NumberingListResponses[keyof NumberingListResponses];
+
 export type NumberingGetData = {
     body?: never;
     path?: never;
     query?: {
-        purpose?: 'matter' | 'consultation' | 'intake';
+        purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet';
     };
     url: '/api/v1/numbering-scheme';
 };
@@ -14521,7 +14588,7 @@ export type NumberingSetErrors = {
      */
     409: Problem;
     /**
-     * The scheme is invalid (not exactly one counter), or the Idempotency-Key was reused
+     * The scheme is invalid (not exactly one counter, or a part this purpose cannot use), or the Idempotency-Key was reused
      */
     422: Problem;
     /**

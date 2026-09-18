@@ -21,23 +21,19 @@ import {
   isSystemMatterConflict,
   SYSTEM_MATTER_KEYS,
 } from "@magna-carta/matters/system-matter-statements";
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import { drawWithBoundedRetry } from "@magna-carta/sequence-numbering/bounded-retry";
+import {
+  planSchemeDraw,
+  schemeDrawOpeningStatements,
+  type SchemeDrawPlan,
+} from "@magna-carta/sequence-numbering/scheme-draw";
 import { custodyAuditStatement, type CustodyAuditContext } from "./audit.ts";
 import { insertCustodyMovementStatement } from "./movement-statements.ts";
 import {
   allocateCounterValueStatement,
   CUSTODY_NUMBERING_TABLES,
-  ensureCounterRowStatement,
-  guardedIncrementStatement,
-  readCounterValue,
 } from "./numbering/counter-statements.ts";
-import {
-  DEFAULT_CUSTODY_NUMBER_SCHEME,
-  deriveScopeKey,
-  renderCustodyNumber,
-  type CustodyNumberContext,
-  type CustodyNumberScheme,
-} from "./numbering/render.ts";
 import {
   endCustodyOwnerStatement,
   insertCustodyOwnerStatement,
@@ -74,9 +70,6 @@ export interface CustodyPacketServiceOptions extends CustodyAuditContext {
   readonly idempotency?: CustodyIdempotencyContext;
   readonly randomSource?: RandomSource;
   readonly maxAttempts?: number;
-  // The firm's custody-number shape. Configured through the scoped-settings mechanism by the caller;
-  // absent means the platform default (a CUS prefix, five-digit padding, firm-wide scope).
-  readonly numberScheme?: CustodyNumberScheme;
 }
 
 // An owner link as supplied on creation. entity_id is a directoryPerson_/directoryOrganization_
@@ -98,7 +91,6 @@ export interface CreateCustodyPacketInput {
   // and takes no allocation row — a firm migrating thirty years of physical labels must not be made
   // to re-label a safe.
   readonly manualCustodyNumber?: string | null;
-  readonly rootCode?: string; // only consulted when the scheme scopes per custody root
 }
 
 export interface CreatedCustodyPacket {
@@ -142,8 +134,11 @@ export async function createCustodyPacket(
     assertCustodyOwnershipRole(owner.ownershipRole, ownershipRoleCatalog);
   }
 
-  const scheme = options.numberScheme ?? DEFAULT_CUSTODY_NUMBER_SCHEME;
-  const numberContext: CustodyNumberContext = { rootCode: input.rootCode };
+  // The custody number's shape is the firm's `custody_packet` scheme on the numbering register
+  // (CUS-00001 by default, firm-wide), read by the shared draw planner exactly as a matter number
+  // is. The day the packet is logged is the UTC day of the instant, the platform's rule for the day
+  // of a recorded moment used as a key (docs/conventions/dates.md).
+  const numberContext = { openedDate: civilDateOf(options.clock.now()) };
 
   return await drawWithBoundedRetry(
     database,
@@ -168,8 +163,7 @@ export async function createCustodyPacket(
       // Minted per attempt: a losing batch rolled its packet row back with everything else, so the
       // retry lands a genuinely new packet rather than re-proposing an identifier that lost.
       const packetId = newIdentifier("custodyPacket", options.randomSource);
-      let scopeKey = "";
-      let observed = 0;
+      let plan: SchemeDrawPlan | undefined;
       const result = await runIdempotentEffect({
         database,
         key: options.idempotency?.key,
@@ -201,21 +195,28 @@ export async function createCustodyPacket(
           if (input.manualCustodyNumber != null && input.manualCustodyNumber.trim().length > 0) {
             custodyNumber = input.manualCustodyNumber.trim();
           } else {
-            scopeKey = deriveScopeKey(scheme, numberContext);
-            observed = (await readCounterValue(database, scopeKey)) ?? scheme.startValue;
+            plan = await planSchemeDraw(
+              database,
+              "custody_packet",
+              CUSTODY_NUMBERING_TABLES,
+              numberContext,
+            );
             // Report the draw so a losing attempt can advance this counter out of band. Only the
             // drawn branch reports: a manual number consumed no counter value, so there is nothing
             // for a retry to step past. This is the signal the old private loop inferred from
             // `scopeKey !== "" || observed !== 0`, which quietly stopped advancing anything on a
             // firm-wide scheme starting from zero.
-            observe({ scopeKey, observedValue: observed, startValue: scheme.startValue });
-            custodyNumber = renderCustodyNumber(scheme, numberContext, observed);
+            observe({
+              scopeKey: plan.scopeKey,
+              observedValue: plan.observedValue,
+              startValue: plan.startValue,
+            });
+            custodyNumber = plan.number;
             drawStatements.push(
-              ensureCounterRowStatement(database, scopeKey, scheme.startValue),
-              guardedIncrementStatement(database, scopeKey, observed),
+              ...schemeDrawOpeningStatements(database, CUSTODY_NUMBERING_TABLES, plan),
             );
           }
-          const drawn = drawStatements.length > 0;
+          const drawn = plan !== undefined;
 
           const ownerStatements = input.owners.map((owner) =>
             insertCustodyOwnerStatement(database, {
@@ -272,11 +273,17 @@ export async function createCustodyPacket(
                   shipmentId: null,
                   note: null,
                 }),
-                ...(drawn
+                ...(plan !== undefined
                   ? [
                       // Last: packet_id is a foreign key, so the packet has to exist by the time the
                       // allocation claim lands.
-                      allocateCounterValueStatement(database, scopeKey, observed, packetId, now),
+                      allocateCounterValueStatement(
+                        database,
+                        plan.scopeKey,
+                        plan.observedValue,
+                        packetId,
+                        now,
+                      ),
                     ]
                   : []),
                 custodyAuditStatement(database, options, "custodyPacket.logged", packetId, {

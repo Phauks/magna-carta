@@ -15,9 +15,10 @@ Plain language, task-oriented — same pattern as the end-user guides ([`../READ
   authority to release money out of client trust ledgers (and take earned fees against bills),
   whether larger payments take a second person as well, and how a payment reaches somebody who can
   release it when the person raising it cannot.
-- [Matter numbering](matter-numbering.md) — the shape of the firm's matter numbers and its
-  consultation numbers, written as a list of parts with one counter; which parts restart the count;
-  the preview; why a number already drawn is frozen; and setting one matter's number by hand.
+- [Numbering](numbering.md) — the shape of every number the firm draws (matter, consultation,
+  intake, conflicts check and custody numbers), written as a list of parts with one counter; which
+  parts restart the count; the preview; the numbers whose shape is fixed; why a number already drawn
+  is frozen; and setting one matter's number by hand.
 - [Event types](event-types.md) — the vocabulary a setting is classified under: the platform's
   shipped types (recategorized or retired, never renamed), the firm's own (added, renamed, retired),
   and why retiring is one way.
