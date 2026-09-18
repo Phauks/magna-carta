@@ -143,3 +143,50 @@ describe("POST /api/v1/documents/{fileId}/edit-session", () => {
     expect(response.status).toBe(404);
   });
 });
+
+function read(path: string, cookie: string): Promise<Response> {
+  return SELF.fetch(`https://example.com${path}`, { headers: { cookie } });
+}
+
+describe("GET /api/v1/documents/{fileId}/edit-session/progress", () => {
+  it("answers every mark null before any launch, and the launch's own record after it", async () => {
+    const { fileId: freshFileId } = await seedCleanFile();
+    const before = await read(
+      `/api/v1/documents/${freshFileId}/edit-session/progress`,
+      editorCookie,
+    );
+    expect(before.status).toBe(200);
+    expect(await before.json()).toEqual({
+      launchedAt: null,
+      checkFileInfoAt: null,
+      getFileAt: null,
+      lastCallback: null,
+    });
+
+    expect(
+      (await launch(`/api/v1/documents/${freshFileId}/edit-session`, editorCookie)).status,
+    ).toBe(200);
+    const after = await read(
+      `/api/v1/documents/${freshFileId}/edit-session/progress`,
+      editorCookie,
+    );
+    expect(after.status).toBe(200);
+    const body = (await after.json()) as { launchedAt: string | null; checkFileInfoAt: null };
+    expect(body.launchedAt).not.toBeNull();
+    // The editor has not called back yet: the launch is the only mark.
+    expect(body.checkFileInfoAt).toBeNull();
+  });
+
+  it("is readable by a member who can see the document but cannot edit it", async () => {
+    const response = await read(`/api/v1/documents/${fileId}/edit-session/progress`, noPermCookie);
+    expect(response.status).toBe(200);
+  });
+
+  it("404s a file that does not exist in the firm", async () => {
+    const response = await read(
+      `/api/v1/documents/${newIdentifier("file")}/edit-session/progress`,
+      editorCookie,
+    );
+    expect(response.status).toBe(404);
+  });
+});

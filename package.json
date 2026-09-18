@@ -42,6 +42,7 @@
     "lint:decisions": "node tooling/lint-decisions.mjs",
     "lint:firm-bucket-seam": "node tooling/lint-firm-bucket-seam.mjs",
     "lint:failure-surface": "node tooling/lint-failure-surface/index.mjs",
+    "lint:download-register": "node tooling/lint-download-register/index.mjs",
     "lint:changelog-fragments": "node tooling/lint-changelog-fragments.mjs",
     "lint:changelog-coverage": "node tooling/lint-changelog-coverage/index.mjs",
     "lint:doc-links": "node tooling/lint-doc-links/index.mjs",

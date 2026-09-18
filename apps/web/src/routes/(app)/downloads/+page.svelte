@@ -1,37 +1,40 @@
 <script lang="ts">
   /*
-   * Downloads — the member's own shelf of what the platform produced for them, held for a short
-   * window and downloadable again until it expires. It is deliberately not the notification feed:
-   * that surface carries the firm's WORK, and a generated file is platform mechanics.
+   * Downloads — the member's own register of everything they have downloaded.
    *
-   * An export is stored as its DOCUMENT rather than as a file, so one row offers every format and
-   * the figures stay frozen at the instant it was taken. The register never proxies bytes — an
-   * artifact hands back a short-lived URL the browser downloads directly.
+   * IT USED TO BE A SHELF OF WHAT THE PLATFORM MADE, and only exports ever reached it; a file taken
+   * from a matter, a bundle, a converted file and a discovery production were all absent, so "I
+   * downloaded something and it did not appear here" was the correct behaviour. Every producer
+   * registers now (apps/api-worker/src/downloads/download-register.ts, held by
+   * `pnpm run lint:download-register`), and the row outlives the bytes — so this screen answers two
+   * questions rather than one: what did I take, and which of it can I still have.
    *
-   * THE TABLE STANDS WHETHER OR NOT THE SHELF DOES. The header row renders from the first paint and
-   * the empty body carries the one line saying why it is empty — a shelf with nothing on it, or a
-   * query that reaches none of it. A member who has never exported anything meets the shape their
-   * files will arrive in rather than a sentence on the canvas where the table will be.
+   * THAT IS WHY IT IS THE GRID. A fixed list of columns served a register that held one kind of
+   * thing. It holds five now, which answer different questions — somebody hunting Tuesday's
+   * spreadsheet wants the name and the day, somebody asking what they pulled off a matter before a
+   * hearing wants the type and its standing — so the columns are declared (download-columns.ts) and
+   * the reader chooses, sorts, filters and keeps a layout, like every other register in the product.
+   *
+   * WHAT "DOWNLOAD AGAIN" DOES DEPENDS ON THE KIND, and the difference is not cosmetic. An export is
+   * stored as its DOCUMENT, so one row offers every format and the figures stay frozen at the instant
+   * it was taken. An artifact hands back a short-lived signed URL. A matter file hands back this
+   * platform's own address for it, so the matter's access check runs again — which is what stops a
+   * register row becoming a standing grant over a matter somebody has since been screened off.
    */
-  import { onMount } from "svelte";
   import { openBeside } from "$lib/navigation/open-beside.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
-  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { guidanceFor } from "$lib/diagnostics/guidance.ts";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import Download from "@lucide/svelte/icons/download";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import Trash2 from "@lucide/svelte/icons/trash-2";
-  import * as Alert from "@magna-carta/design-system/alert";
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
-  import Checkbox from "@magna-carta/design-system/checkbox";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import LoadingRegion from "@magna-carta/design-system/loading-region";
-  import { sampleDate, sampleMatter } from "@magna-carta/design-system/loading-fixtures";
   import { toast } from "@magna-carta/design-system/toast";
+  import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import {
     exportFromStored,
     fetchShelfItem,
@@ -48,23 +51,56 @@
     renderStoredExport,
   } from "$lib/export/bulk-download.ts";
   import { exportFilename, saveExport } from "$lib/export/tabular-export.ts";
-  import { formatInstant } from "@magna-carta/design-system/formatters";
-  import { NO_DOWNLOADS } from "$lib/transfers/transfers.ts";
+  import {
+    downloadRegisterColumns,
+    DOWNLOAD_COLUMN_IDENTIFIERS,
+    DOWNLOAD_REGISTER_INITIAL_SORT,
+    isTakeable,
+  } from "$lib/export/download-columns.ts";
 
-  let items = $state<ShelfItem[] | null>(null);
-  let failure = $state<StatedFailure | null>(null);
-  // True while the shelf is being read. With rows already on screen — Refresh, or the re-read
-  // after a download — they stay where the reader is looking until the fresh ones land.
-  let reading = $state(false);
-  // Selection is the reason exporting generates rather than downloads: several items gathered over a
-  // morning are taken in one act. Held as ids so a refresh that drops a row drops it from the
-  // selection too, rather than leaving a phantom selected item nothing can act on.
-  let selectedIds = $state<string[]>([]);
+  const list = new PagedList<ShelfItem>("Your downloads could not be read.");
+  const items = $derived(list.items);
   let gathering = $state(false);
-  // A download that failed, by shelf item: stated on its own row with the way to try again beside
-  // it, rather than in a toast — a toast vanishes, and the reader who watched it go has nothing
-  // left to press.
+  /*
+   * What is being searched, and what the field currently holds. They are two values because the
+   * field runs ahead of the read: the register is narrowed on the SERVER — it has no bound, so
+   * narrowing the rows already loaded would answer confidently about a fraction of it — and a
+   * request per keystroke would ask a question the reader has already moved past.
+   */
+  let searchText = $state("");
+  let appliedSearch = $state("");
+  /*
+   * A download that failed, by item: stated on its own row with the way to try again beside it,
+   * rather than in a toast — a toast vanishes, and the reader who watched it go has nothing left to
+   * press.
+   */
   let failedTakes = $state<Record<string, { format: string; message: string }>>({});
+
+  const grid = DataTable.createDataTableGrid<ShelfItem>({
+    columns: () => downloadRegisterColumns(),
+    rows: () => items ?? [],
+    rowKey: (item) => item.id,
+    initialSort: DOWNLOAD_REGISTER_INITIAL_SORT,
+    itemNoun: { singular: "download", plural: "downloads" },
+  });
+
+  /* The register keeps every download and keeps the row after the bytes go, so it grows for as long
+     as somebody works here and arrives a page at a time. */
+  const read = (cursor?: string) => readShelf(fetch, { cursor, search: appliedSearch });
+
+  // What the rows on screen are an answer to. A change of it is a different question, so the rows
+  // are discarded and read again; a re-read of the SAME question is a refresh.
+  const subject = $derived(`downloads|${appliedSearch}`);
+
+  function reread(): void {
+    list.reset(subject);
+    void list.load(read);
+  }
+
+  $effect(() => {
+    if (list.showing(subject)) return;
+    reread();
+  });
 
   function recordFailedTake(id: string, format: string, message: string): void {
     failedTakes = { ...failedTakes, [id]: { format, message } };
@@ -74,45 +110,8 @@
     failedTakes = Object.fromEntries(Object.entries(failedTakes).filter(([key]) => key !== id));
   }
 
-  const selectedItems = $derived((items ?? []).filter((item) => selectedIds.includes(item.id)));
-
-  /*
-   * Narrowing the shelf. The whole shelf is already in the browser — it is one member's week of
-   * generated files, not a paged register — so the query runs on every keystroke and never leaves
-   * the machine. It reads the title and what produced the row, which is what a person remembers
-   * about a file they asked for on Tuesday.
-   */
-  let searchText = $state("");
-  let appliedSearch = $state("");
-  const shelfSearch = $derived(appliedSearch.trim().toLowerCase());
-  /*
-   * What the shelf's empty body says. The table stands whether or not there is anything on the
-   * shelf, so this line is the only thing that changes: an empty shelf, and a shelf the query
-   * reaches none of, are different facts and the reader needs to know which one they are looking at.
-   */
-  const shelfEmptyTitle = $derived(
-    shelfSearch === "" ? NO_DOWNLOADS : "Nothing Matches That Search",
-  );
-  const narrowedItems = $derived(
-    items === null
-      ? null
-      : shelfSearch === ""
-        ? items
-        : items.filter((item) =>
-            `${item.title} ${item.producer} ${item.requestedFormat ?? ""}`
-              .toLowerCase()
-              .includes(shelfSearch),
-          ),
-  );
-
-  function toggleSelected(id: string): void {
-    selectedIds = selectedIds.includes(id)
-      ? selectedIds.filter((entry) => entry !== id)
-      : [...selectedIds, id];
-  }
-
   // The formats a stored export can be taken as. The same set the export menu offers, because the
-  // stored document is the same document — a shelf that offered fewer would make keeping a copy
+  // stored document is the same document — a register that offered fewer would make keeping a copy
   // worse than taking it again.
   const SNAPSHOT_FORMATS = [
     { label: "Excel, Sheet per Table (.xlsx)", extension: "xlsx" },
@@ -122,25 +121,6 @@
     { label: "CSV (.csv)", extension: "csv" },
     { label: "Plain Text (.txt)", extension: "txt" },
   ] as const;
-
-  async function load(): Promise<void> {
-    failure = null;
-    reading = true;
-    const outcome = await readShelf(fetch);
-    reading = false;
-    if (outcome.kind === "ok") {
-      items = [...outcome.value.items];
-      const present = new Set(items.map((item) => item.id));
-      selectedIds = selectedIds.filter((id) => present.has(id));
-    } else {
-      items = null;
-      failure = stated(outcome.failure, "Your downloads could not be read.");
-    }
-  }
-
-  onMount(() => {
-    void load();
-  });
 
   async function renderStored(stored: StoredExportDocument, extension: string): Promise<void> {
     const exportDocument = exportFromStored(stored);
@@ -155,56 +135,59 @@
     const outcome = await fetchShelfItem(fetch, item.id, format);
     if (outcome.kind !== "ok") {
       recordFailedTake(item.id, format, guidanceFor(outcome.failure, "That download").message);
-      // A gone item is gone for good, so the shelf is re-read rather than left showing it.
-      if (outcome.kind === "problem" && outcome.problem.status === 410) void load();
+      // A gone item is gone for good, so the register is re-read rather than left showing it ready.
+      if (outcome.kind === "problem" && outcome.problem.status === 410) reread();
       return;
     }
     try {
-      if (outcome.value.kind === "artifact") {
+      if (outcome.value.kind === "snapshot") {
+        await renderStored(outcome.value.document as StoredExportDocument, format);
+      } else {
+        // An artifact's signed URL, or — for a matter file — this platform's own address for it,
+        // which re-runs the matter's access check. Either way a real link the browser's own
+        // download manager drives, never bytes proxied through here.
         const url = outcome.value.url;
         if (url === undefined) throw new Error("no url");
-        // A real link the browser's own download manager drives, never bytes proxied through here.
         globalThis.location.href = url;
-      } else {
-        await renderStored(outcome.value.document as StoredExportDocument, format);
       }
       clearFailedTake(item.id);
-      void load();
+      reread();
     } catch {
       recordFailedTake(item.id, format, "That download could not be produced. Try again shortly.");
     }
   }
 
   /*
-   * Take everything selected in one act. Snapshots render and travel in a single archive; artifacts
-   * cannot join it — their bytes reach the member over a presigned URL the browser downloads
-   * directly — so each is opened on its own after. A partial result is always reported as partial.
+   * Take everything selected in one act. Snapshots render and travel in a single archive; anything
+   * whose bytes reach the member over a URL cannot join it, so each is opened on its own after. A
+   * partial result is always reported as partial.
    */
   async function takeSelected(): Promise<void> {
-    if (selectedItems.length === 0 || gathering) return;
+    const selected = grid.selectedRows;
+    if (selected.length === 0 || gathering) return;
     gathering = true;
     try {
-      const result = await bulkDownload(fetch, selectedItems);
+      const result = await bulkDownload(fetch, selected);
       if (result.archive !== null) {
         saveExport(result.archive, bulkArchiveFilename(new Date()), "application/zip");
       }
       const unreachable: ShelfItem[] = [];
-      for (const artifact of result.artifacts) {
-        const outcome = await fetchShelfItem(fetch, artifact.id, "file");
+      for (const item of result.linked) {
+        const outcome = await fetchShelfItem(fetch, item.id, "file");
         if (outcome.kind === "ok" && outcome.value.url !== undefined) {
           openBeside(outcome.value.url, "file");
         } else {
-          unreachable.push(artifact);
+          unreachable.push(item);
         }
       }
       const short = result.failed.length + unreachable.length;
       if (short > 0) {
         toast.error(
-          `${String(short)} of ${String(selectedItems.length)} could not be produced. The rest downloaded.`,
+          `${String(short)} of ${String(selected.length)} could not be produced. The rest downloaded.`,
         );
       }
-      selectedIds = [];
-      void load();
+      grid.clearSelection();
+      reread();
       markShelfChanged();
     } finally {
       gathering = false;
@@ -214,265 +197,142 @@
   async function remove(item: ShelfItem): Promise<void> {
     const outcome = await removeShelfItem(fetch, item.id);
     if (outcome.kind === "ok") {
-      items = (items ?? []).filter((row) => row.id !== item.id);
-      // Keep the top-bar tray in step with the page; both read the same shelf.
+      list.items = (list.items ?? []).filter((row) => row.id !== item.id);
+      // Keep the top-bar tray in step with the page; both read the same register.
       markShelfChanged();
       return;
     }
     toast.error("That item could not be removed.");
   }
 
-  const PRODUCER_LABELS: Record<string, string> = {
-    export: "Export",
-    bundle: "File Bundle",
-    conversion: "Converted File",
-  };
-
-  const formatStamp = (value: string): string => formatInstant(value);
-
-  function formatTaken(formats: readonly string[]): string {
-    if (formats.length === 0) return "Not yet";
-    return formats.map((entry) => entry.toUpperCase()).join(", ");
-  }
-
-  /*
-   * The shape the shelf takes while it is read: the same table, over invented items from the
-   * sample vocabulary. Inert and hidden from assistive technology while it stands, so no row in it
-   * reads as something the platform made for this member.
-   */
-  const SHELF_FIXTURE = [
-    {
-      id: "fixture-1",
-      title: `Matters docket, ${sampleDate(0)}`,
-      source: PRODUCER_LABELS.export ?? "Export",
-      format: "XLSX",
-      taken: "XLSX, PDF",
-      created: sampleDate(0),
-      until: sampleDate(3),
-    },
-    {
-      id: "fixture-2",
-      title: `Trust ledger, ${sampleMatter(0).title}`,
-      source: PRODUCER_LABELS.export ?? "Export",
-      format: "PDF",
-      taken: "Not yet",
-      created: sampleDate(1),
-      until: sampleDate(4),
-    },
-    {
-      id: "fixture-3",
-      title: `${sampleMatter(1).title}, discovery bundle`,
-      source: PRODUCER_LABELS.bundle ?? "File Bundle",
-      format: "ZIP",
-      taken: "ZIP",
-      created: sampleDate(2),
-      until: sampleDate(1),
-    },
-  ] as const;
-
-  /** The columns the header row draws, which is what the empty body spans. */
-  const SHELF_COLUMN_COUNT = 8;
+  const selectedCount = $derived(grid.selectedRows.length);
 </script>
-
-{#snippet shelfHead()}
-  <!-- The header row renders from the first paint, whether or not the shelf has anything on it:
-       a reader meets the shape the rows will take rather than a sentence where the table will be.
-       The count below spans the empty body across exactly these columns. -->
-  <DataTable.Caption class="sr-only">Your downloads</DataTable.Caption>
-  <DataTable.Header>
-    <DataTable.Row>
-      <DataTable.Head><span class="sr-only">Select</span></DataTable.Head>
-      <DataTable.Head>Name</DataTable.Head>
-      <DataTable.Head>Source</DataTable.Head>
-      <DataTable.Head>Format</DataTable.Head>
-      <DataTable.Head>Downloaded</DataTable.Head>
-      <DataTable.Head>Created</DataTable.Head>
-      <DataTable.Head>Available Until</DataTable.Head>
-      <DataTable.Head><span class="sr-only">Actions</span></DataTable.Head>
-    </DataTable.Row>
-  </DataTable.Header>
-{/snippet}
 
 <svelte:head>
   <title>Downloads · Magna Carta</title>
 </svelte:head>
 
-<ScreenHeader
-  title="Downloads"
-  class="mb-24"
->
-  {#snippet actions()}
-    <!-- The search leads the row and grows toward the inline start, so Refresh never moves when it
-         opens — the same order as every other Workspace screen. -->
-    <ScreenSearch
-      bind:value={searchText}
-      label="Search your downloads"
-      fieldClass="w-2xs sm:w-xs"
-      onsearch={(next) => {
-        appliedSearch = next;
-      }}
-    />
-    <Button variant="ghost" onclick={() => void load()}>
-      <RotateCcw class="size-16" aria-hidden="true" />
-      Refresh
-    </Button>
-  {/snippet}
-</ScreenHeader>
-
-<!-- The page's own state is named `failure`, so the notice the region shows on a failed
-     read takes a name of its own and is handed to the region's `failure` prop. -->
-{#snippet failureNotice()}
-  {#if failure !== null}
-    <FailureNotice
-      failure={failure.failure}
-      title="Your Downloads Could Not Be Read"
-      fallback={failure.fallback}
-      onRetry={() => void load()}
-    />
+{#snippet cell({ row, column, text }: DataTable.GridCellContext<ShelfItem>)}
+  {#if column.id === DOWNLOAD_COLUMN_IDENTIFIERS.title}
+    <span class="block truncate" title={row.title}>{row.title}</span>
+  {:else if column.id === DOWNLOAD_COLUMN_IDENTIFIERS.actions}
+    <span class="inline-flex items-center justify-end gap-4">
+      {#if failedTakes[row.id] !== undefined}
+        <span class="text-status-danger-subtle-foreground text-xs" title={failedTakes[row.id]?.message}>
+          Download failed
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          onclick={() => void take(row, failedTakes[row.id]?.format ?? "file")}
+          aria-label={`Try downloading ${row.title} again`}
+        >
+          <RotateCcw class="size-16" aria-hidden="true" />
+          Retry
+        </Button>
+      {:else if row.kind === "snapshot"}
+        <!-- An export is a document, so the format is chosen at the moment of taking it. -->
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger
+            class={buttonClasses({ variant: "ghost", size: "sm" })}
+            aria-label={`Download ${row.title} again`}
+          >
+            <Download class="size-16" aria-hidden="true" />
+            Download
+            <ChevronDown class="size-16" aria-hidden="true" />
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Content>
+            {#each SNAPSHOT_FORMATS as format (format.label)}
+              <DropdownMenu.Item onSelect={() => void take(row, format.extension)}>
+                {format.label}
+              </DropdownMenu.Item>
+            {/each}
+          </DropdownMenu.Content>
+        </DropdownMenu.Root>
+      {:else if isTakeable(row)}
+        <Button
+          variant="ghost"
+          size="sm"
+          onclick={() => void take(row, "file")}
+          aria-label={`Download ${row.title} again`}
+        >
+          <Download class="size-16" aria-hidden="true" />
+          Download
+        </Button>
+      {/if}
+      <!-- Removing takes the row off this member's own register. It never reaches a matter's file:
+           a reference names something that was never the register's to delete. -->
+      <Button
+        variant="ghost"
+        size="sm"
+        onclick={() => void remove(row)}
+        aria-label={`Remove ${row.title}`}
+      >
+        <Trash2 class="size-16" aria-hidden="true" />
+        Remove
+      </Button>
+    </span>
+  {:else}
+    {text}
   {/if}
 {/snippet}
 
-<LoadingRegion
-  loading={items === null}
-  refreshing={reading}
-  failed={failure !== null}
-  failure={failureNotice}
-  label="Reading your downloads"
-  onRetry={() => void load()}
->
-  {#snippet fixture()}
-    <DataTable.Root>
-      {@render shelfHead()}
-      <DataTable.Body>
-        {#each SHELF_FIXTURE as item (item.id)}
-          <DataTable.Row>
-            <DataTable.Cell>
-              <Checkbox checked={false} aria-label={`Select ${item.title}`} />
-            </DataTable.Cell>
-            <DataTable.Cell>{item.title}</DataTable.Cell>
-            <DataTable.Cell>{item.source}</DataTable.Cell>
-            <DataTable.Cell>{item.format}</DataTable.Cell>
-            <DataTable.Cell>{item.taken}</DataTable.Cell>
-            <DataTable.Cell>{item.created}</DataTable.Cell>
-            <DataTable.Cell>{item.until}</DataTable.Cell>
-            <DataTable.Cell data-align="end">
-              <div class="flex items-center justify-end gap-8">
-                <Button variant="ghost" size="sm">
-                  <Download class="size-16" aria-hidden="true" />
-                  Download
-                </Button>
-                <Button variant="ghost" size="sm">
-                  <Trash2 class="size-16" aria-hidden="true" />
-                  Remove
-                </Button>
-              </div>
-            </DataTable.Cell>
-          </DataTable.Row>
-        {/each}
-      </DataTable.Body>
-    </DataTable.Root>
-  {/snippet}
-  {@const shown = narrowedItems ?? []}
-  {#if selectedItems.length > 0}
-    <!-- Present only while a selection is in play: its absence is itself the answer to whether
-         anything is selected. -->
-    <div class="mb-16 flex items-center gap-8">
-      <Button onclick={() => void takeSelected()} disabled={gathering}>
-        <Download class="size-16" aria-hidden="true" />
-        {gathering ? "Gathering" : `Download ${String(selectedItems.length)} Selected`}
+<div class="flex h-full min-h-0 flex-col">
+  <ScreenHeader title="Downloads" class="mb-24">
+    {#snippet actions()}
+      {#if selectedCount > 0}
+        <Button onclick={() => void takeSelected()} disabled={gathering}>
+          <Download class="size-16" aria-hidden="true" />
+          {gathering ? "Gathering" : `Download ${String(selectedCount)} Selected`}
+        </Button>
+      {/if}
+      <Button variant="ghost" onclick={reread}>
+        <RotateCcw class="size-16" aria-hidden="true" />
+        Refresh
       </Button>
-      <Button variant="ghost" onclick={() => (selectedIds = [])} disabled={gathering}>
-        Clear selection
-      </Button>
-    </div>
+      <ScreenSearch
+        bind:value={searchText}
+        label="Search your downloads"
+        searchOn="pause"
+        fieldClass="w-2xs sm:w-xs"
+        onsearch={(next) => {
+          appliedSearch = next;
+        }}
+      />
+      <DataTable.ClearFilters {grid} />
+    {/snippet}
+  </ScreenHeader>
+
+  {#if list.failure !== null && items === null}
+    <FailureNotice
+      failure={list.failure}
+      title="Your Downloads Could Not Be Read"
+      fallback={list.failureMessage ?? undefined}
+      onRetry={reread}
+    />
+  {:else}
+    <!-- The grid stands whether or not anything has been downloaded: its header row is the shape a
+         member's downloads will take, and its own empty body says "No Results" — one wording for an
+         empty register and for a term that matched nothing, since the grid offers the way back
+         either way. A sentence on the canvas where the table will be is the shape the
+         table-behind-absence rule refuses. -->
+    <DataTable.Grid
+      {grid}
+      {cell}
+      class="min-h-0 flex-1"
+      caption="Everything you have downloaded"
+      loading={items === null}
+    ></DataTable.Grid>
+
+    <DataTable.GridFooter {grid}>
+      {#snippet end()}
+        <DataTable.LoadMore
+          noun="downloads"
+          more={list.nextCursor !== null}
+          loading={list.loadingMore}
+          onLoad={() => void list.loadMore(read)}
+        />
+      {/snippet}
+    </DataTable.GridFooter>
   {/if}
-  <DataTable.Root>
-    {@render shelfHead()}
-    <DataTable.Body>
-      {#each shown as item (item.id)}
-        <DataTable.Row>
-          <DataTable.Cell>
-            <Checkbox
-              checked={selectedIds.includes(item.id)}
-              onCheckedChange={() => toggleSelected(item.id)}
-              aria-label={`Select ${item.title}`}
-            />
-          </DataTable.Cell>
-          <DataTable.Cell>{item.title}</DataTable.Cell>
-          <DataTable.Cell>{PRODUCER_LABELS[item.producer] ?? item.producer}</DataTable.Cell>
-          <DataTable.Cell>
-            {item.requestedFormat === null ? "" : item.requestedFormat.toUpperCase()}
-          </DataTable.Cell>
-          <DataTable.Cell>{formatTaken(item.downloadedFormats)}</DataTable.Cell>
-          <DataTable.Cell>{formatStamp(item.createdAt)}</DataTable.Cell>
-          <DataTable.Cell>{formatStamp(item.expiresAt)}</DataTable.Cell>
-          <DataTable.Cell data-align="end">
-            <div class="flex items-center justify-end gap-8">
-              {#if failedTakes[item.id] !== undefined}
-                <span
-                  class="text-xs text-status-danger-subtle-foreground"
-                  role="status"
-                  title={failedTakes[item.id]?.message}
-                >
-                  Download failed
-                </span>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onclick={() => void take(item, failedTakes[item.id]?.format ?? "file")}
-                  aria-label={`Retry downloading ${item.title}`}
-                >
-                  <RotateCcw class="size-16" aria-hidden="true" />
-                  Retry
-                </Button>
-              {/if}
-              {#if item.kind === "snapshot"}
-                <DropdownMenu.Root>
-                  <DropdownMenu.Trigger
-                    class={buttonClasses({ variant: "ghost", size: "sm" })}
-                    aria-label={`Download ${item.title} again`}
-                  >
-                    <Download class="size-16" aria-hidden="true" />
-                    Download
-                    <ChevronDown class="size-16" aria-hidden="true" />
-                  </DropdownMenu.Trigger>
-                  <DropdownMenu.Content
-                    align="end"
-                    style="inline-size: var(--mc-size-popover)"
-                  >
-                    {#each SNAPSHOT_FORMATS as format (format.label)}
-                      <DropdownMenu.Item onSelect={() => void take(item, format.extension)}>
-                        {format.label}
-                      </DropdownMenu.Item>
-                    {/each}
-                  </DropdownMenu.Content>
-                </DropdownMenu.Root>
-              {:else}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onclick={() => void take(item, "file")}
-                  aria-label={`Download ${item.title} again`}
-                >
-                  <Download class="size-16" aria-hidden="true" />
-                  Download
-                </Button>
-              {/if}
-              <Button
-                variant="ghost"
-                size="sm"
-                onclick={() => void remove(item)}
-                aria-label={`Remove ${item.title}`}
-              >
-                <Trash2 class="size-16" aria-hidden="true" />
-                Remove
-              </Button>
-            </div>
-          </DataTable.Cell>
-        </DataTable.Row>
-      {:else}
-        <DataTable.EmptyRow columns={SHELF_COLUMN_COUNT} title={shelfEmptyTitle} />
-      {/each}
-    </DataTable.Body>
-  </DataTable.Root>
-</LoadingRegion>
+</div>

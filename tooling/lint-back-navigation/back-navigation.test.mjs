@@ -502,7 +502,11 @@ describe("the real sources", () => {
         // still reaches the conflicts surface, not which address it reaches it at.
         "/matters/[id]/conflicts",
         "/matters/[id]/overview",
-        "/tools/whois-lookup",
+        // The tools became top-level rail destinations, so /tools/whois-lookup — which this list
+        // used to name as a screen reached through a hub — is entered from the rail now and is no
+        // longer a screen under a screen. A nested screen outside the matter is named in its place,
+        // because what the assertion is for is the rule's reach, not one address.
+        "/file-workbench/recovery/[jobId]",
         "/developer-console/table-states",
       ]),
     );

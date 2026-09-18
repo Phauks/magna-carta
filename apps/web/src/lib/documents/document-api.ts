@@ -439,3 +439,33 @@ export function abortUpload(
     body: {},
   });
 }
+
+/**
+ * Where the caller's current open of a document has got to, as the host saw the editor's own
+ * calls back to it. The editor asks the host what the document is (CheckFileInfo) and then for its
+ * bytes (GetFile) from inside its container, out of the browser's sight, so the marks here are the
+ * only way the screen framing the editor can tell those two stages apart. Every mark is null when no
+ * launch of this document is on record for the caller.
+ */
+export interface EditOpenProgress {
+  launchedAt: string | null;
+  checkFileInfoAt: string | null;
+  getFileAt: string | null;
+  /** The editor's most recent call and what it was told, refusals included. */
+  lastCallback: {
+    operation: string;
+    status: number;
+    errorId: string | null;
+    at: string;
+  } | null;
+}
+
+export function readEditOpenProgress(
+  fetchImpl: typeof fetch,
+  fileId: string,
+): Promise<ApiOutcome<EditOpenProgress>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/documents/${encodeURIComponent(fileId)}/edit-session/progress`,
+  );
+}

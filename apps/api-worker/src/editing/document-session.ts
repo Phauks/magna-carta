@@ -25,8 +25,35 @@ export interface CurrentObjectMeta {
   readonly wopiTimestamp: string;
 }
 
+// One WOPI callback as the host answered it, recorded so the screen that launched the editor can see
+// what the editor asked for and what it was told. The status and the Error ID are the host's own
+// answer to that call; nothing of the document travels here.
+export interface OpenCallback {
+  readonly operation: string;
+  readonly status: number;
+  readonly errorId: string | null;
+  readonly at: string;
+}
+
+// Where one member's open of this document has got to, as seen from the host. The screen framing
+// the editor can watch the editor come up, but the editor's calls back to this host happen inside the
+// container, out of the browser's sight — and every failure this path has had was in one of those
+// calls. So the host records the two calls that decide whether a document opens: CheckFileInfo, the
+// editor asking what the document is, and GetFile, the editor asking for its bytes. `launchedAt` is
+// when the launch was answered; the marks are null until each call arrives, and a mark that never
+// arrives is the finding. Keyed by member, because one document can be open on several screens.
+export interface OpenProgress {
+  readonly launchedAt: string;
+  readonly checkFileInfoAt: string | null;
+  readonly getFileAt: string | null;
+  readonly lastCallback: OpenCallback | null;
+}
+
 export interface DocumentSessionState {
   readonly participants: Readonly<Record<string, ParticipantCapability>>;
+  // Each member's most recent open of this document, from the launch on (OpenProgress). Reset at
+  // every launch so a retry never reads the marks of the attempt before it.
+  readonly opens: Readonly<Record<string, OpenProgress>>;
   readonly current: CurrentObjectMeta | null;
   // The single WOPI lock for this document — one per session, shared by co-editors, null when no
   // editing session holds it.
@@ -50,6 +77,7 @@ const REAP_WINDOW_MS = 30 * 60 * 1000;
 const STATE_KEY = "session-state";
 const EMPTY_STATE: DocumentSessionState = {
   participants: {},
+  opens: {},
   current: null,
   wopiLock: null,
   sessionId: null,
@@ -64,7 +92,10 @@ const EMPTY_STATE: DocumentSessionState = {
 // -> idle) without a human or the container having to notice.
 export class DocumentSession extends DurableObject<Bindings> {
   private async load(): Promise<DocumentSessionState> {
-    return (await this.ctx.storage.get<DocumentSessionState>(STATE_KEY)) ?? EMPTY_STATE;
+    // Over the empty state, so a record persisted before a field existed reads that field as empty
+    // rather than undefined: `opens` was added after sessions were already live.
+    const stored = await this.ctx.storage.get<Partial<DocumentSessionState>>(STATE_KEY);
+    return stored === undefined ? EMPTY_STATE : { ...EMPTY_STATE, ...stored };
   }
 
   private async save(state: DocumentSessionState): Promise<void> {
@@ -145,6 +176,62 @@ export class DocumentSession extends DurableObject<Bindings> {
     const state = await this.load();
     await this.save({ ...state, current: meta });
     await this.armReapAlarm();
+  }
+
+  // Starts a fresh open record for this member: the launch was answered at `launchedAt`, and nothing
+  // has arrived from the editor yet. Every launch calls this, a view launch included, so the marks a
+  // screen reads are always those of the attempt it is watching.
+  async beginOpen(memberId: string, launchedAt: string): Promise<void> {
+    const state = await this.load();
+    await this.save({
+      ...state,
+      opens: {
+        ...state.opens,
+        [memberId]: { launchedAt, checkFileInfoAt: null, getFileAt: null, lastCallback: null },
+      },
+    });
+  }
+
+  // Records one WOPI callback against the member's current open, and sets the mark it decides: a
+  // CheckFileInfo the host answered 2xx is the editor knowing what the document is, a GetFile answered
+  // 2xx is the editor holding its bytes. A callback with no open on record (an editor that outlived
+  // the screen's record, a session rebuilt from storage) is recorded as the last callback alone, so
+  // the answer the editor got is never lost for want of a launch.
+  async recordCallback(memberId: string, callback: OpenCallback): Promise<void> {
+    const state = await this.load();
+    const open = state.opens[memberId] ?? {
+      launchedAt: callback.at,
+      checkFileInfoAt: null,
+      getFileAt: null,
+      lastCallback: null,
+    };
+    const answered = callback.status >= 200 && callback.status < 300;
+    // A callback is the editor alive on this document, whatever it asked: a lock refresh or a
+    // CheckFileInfo from a member who has typed nothing is still a live session, and reaping it
+    // out from under them turns their next save into a refusal (the edit token's session no
+    // longer matches). Only a join and a save re-armed the idle alarm before this.
+    if (state.sessionId !== null) await this.armReapAlarm();
+    await this.save({
+      ...state,
+      opens: {
+        ...state.opens,
+        [memberId]: {
+          ...open,
+          checkFileInfoAt:
+            answered && callback.operation === "wopi:check-file-info"
+              ? callback.at
+              : open.checkFileInfoAt,
+          getFileAt:
+            answered && callback.operation === "wopi:get-file" ? callback.at : open.getFileAt,
+          lastCallback: callback,
+        },
+      },
+    });
+  }
+
+  // The member's current open, or null when this document has recorded no launch for them.
+  async openProgressOf(memberId: string): Promise<OpenProgress | null> {
+    return (await this.load()).opens[memberId] ?? null;
   }
 
   // Takes (or replaces) the document's single WOPI lock — the WOPI lock-family handlers persist the

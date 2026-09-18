@@ -116,6 +116,18 @@ export interface CheckFileInfoBody {
   readonly OwnerId: string;
   readonly UserId: string;
   readonly UserCanWrite: boolean;
+  // The host accepts PutFile, which is the editor's capability to save at all.
+  readonly SupportsUpdate: boolean;
+  // The host ENFORCES locks: `putFile` refuses any save made without a held lock. coolwsd takes a lock
+  // only when this property says the host supports them — nothing else makes it send LOCK — so a host
+  // that requires a lock it never advertised refuses every save, and the member is told the document
+  // was changed by another user each time they press save. Advertised because it is enforced.
+  // SupportsGetLock is deliberately absent: the lock handler implements no GET_LOCK.
+  readonly SupportsLocks: boolean;
+  // No member is an administrator of the editing server. The platform exposes no admin console (the
+  // container image empties `admin_console.username/password`), so the answer is always false; stating
+  // it silences the editor's server-audit warning that the property was left unset.
+  readonly IsAdminUser: boolean;
   readonly LastModifiedTime: string | null;
   // The origin the editor addresses its status messages to (the WOPI PostMessageOrigin property). It is
   // the app origin that launched this session, carried in the token because this call has no request of
@@ -154,6 +166,9 @@ export async function checkFileInfo(
     OwnerId: `file:${fileId}`,
     UserId: claims.memberId,
     UserCanWrite: claims.capability === "edit",
+    SupportsUpdate: true,
+    SupportsLocks: true,
+    IsAdminUser: false,
     LastModifiedTime: liveWorkingCopy?.wopiTimestamp ?? null,
     // Only ever the origin the token carries. The property is omitted rather than defaulted when the
     // token has none: a guessed origin would not match the page and the messages would go nowhere, which
@@ -305,7 +320,18 @@ export async function lockOperation(
       }
       // A matching value is a co-editor joining the live session — already held, nothing to do.
       if (currentLock === requestedLock) return lockOk();
-      return lockConflict(currentLock);
+      // A DIFFERENT value is a successor instance of the editor container taking over, so it takes the
+      // lock. Exactly one container ever serves a document (it is keyed by the document), and the
+      // coolwsd inside it holds one lock token per open document that every co-editor on that container
+      // shares — co-editors present the SAME value, the join above. So a mismatch can only come from a
+      // new instance after the previous one stopped without unlocking: the container sleeps after idle,
+      // and a lock it left in the session object would otherwise block the document until an unlock
+      // that never comes, with the member told another user holds it. Only a plain LOCK takes over;
+      // UNLOCK, REFRESH_LOCK and UnlockAndRelock still refuse a mismatch, so an old instance cannot
+      // release or refresh a successor's lock. The trade: a 409 here protected against a second WOPI
+      // client on the same document, which this topology cannot produce.
+      await deps.setLock(requestedLock);
+      return lockOk();
     }
     case "UNLOCK": {
       if (currentLock !== requestedLock) return lockConflict(currentLock);

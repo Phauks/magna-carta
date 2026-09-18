@@ -94,7 +94,7 @@ describe("workspaceDestinations", () => {
     id: "forms",
     label: "Forms",
     href: "/forms",
-    group: "desk",
+    group: "work",
     shipped: false,
   },
   {

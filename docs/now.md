@@ -30,9 +30,9 @@ not](#what-a-roll-up-is-not).
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 316 | 47% |
+| Done | shipped | 317 | 47% |
 | Part-built | partial, in-build | 124 | 18% |
-| Ahead | designed, planned, researching, not-started | 200 | 29% |
+| Ahead | designed, planned, researching, not-started | 199 | 29% |
 | Parked | deferred, cut | 42 | 6% |
 | **All units of work** | | **682** | **100%** |
 
@@ -40,14 +40,14 @@ not](#what-a-roll-up-is-not).
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 316 | 46% |
+| `shipped` | 317 | 46% |
 | `partial` | 124 | 18% |
 | `in-build` | 0 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
-| `not-started` | 134 | 20% |
-| `deferred` | 38 | 5% |
+| `not-started` | 133 | 19% |
+| `deferred` | 38 | 6% |
 | `cut` | 4 | 1% |
 | **All statuses** | **682** | **100%** |
 
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 316 of 682 (46%). Shipped plus partial is 440 (65%).**
+**Shipped alone is 317 of 682 (46%). Shipped plus partial is 441 (65%).**
 
 The 124 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,7 +74,7 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**440 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**441 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
@@ -83,9 +83,9 @@ ledger records it separately, in `surface:`.
 | --- | ---: | ---: |
 | A person can open it today (`screen`) | 102 | 23% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 158 | 36% |
-| No user surface by nature (`internal`) | 180 | 41% |
+| No user surface by nature (`internal`) | 181 | 41% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **440** | **100%** |
+| **Everything with something built** | **441** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -111,7 +111,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Financial Core | 21 | 19 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 62 | 34% |
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
 | Integrations & Plugins | 16 | 3 | 0 | 1 | 0 | 3 | 15 | 3 | 1 | 42 | 38% |
-| Maintenance Agents | 2 | 2 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 10 | 20% |
+| Maintenance Agents | 2 | 3 | 0 | 0 | 0 | 0 | 5 | 0 | 0 | 10 | 20% |
 | Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 12 | 58% |
 | Notifications | 4 | 6 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 14 | 29% |
 | Observability & Diagnostics | 14 | 0 | 0 | 0 | 0 | 0 | 4 | 2 | 0 | 20 | 70% |
@@ -121,12 +121,12 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Client Portal | 0 | 0 | 0 | 0 | 0 | 0 | 13 | 1 | 0 | 14 | 0% |
 | Product Updates & User-Facing Documentation | 2 | 4 | 0 | 0 | 0 | 0 | 8 | 0 | 0 | 14 | 14% |
 | Release Channels | 7 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 8 | 88% |
-| Reports | 1 | 3 | 0 | 0 | 5 | 0 | 0 | 2 | 0 | 11 | 9% |
+| Reports | 2 | 2 | 0 | 0 | 5 | 0 | 0 | 2 | 0 | 11 | 18% |
 | Self-Serve Provisioning and Entitlements | 1 | 0 | 0 | 6 | 0 | 0 | 0 | 0 | 0 | 7 | 14% |
 | Settings & Configuration | 13 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 20 | 65% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **316** | **124** | **0** | **46** | **15** | **5** | **134** | **38** | **4** | **682** | **46%** |
+| **All areas** | **317** | **124** | **0** | **46** | **15** | **5** | **133** | **38** | **4** | **682** | **46%** |
 
 ## Where we have been
 
@@ -1026,10 +1026,10 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Maintenance Agents
 
-[`roadmap.d/maintenance-agents.md`](../roadmap.d/maintenance-agents.md) — 10 units of work, 20% shipped. 2 done, 2 part-built, 6 ahead, 0 parked.
+[`roadmap.d/maintenance-agents.md`](../roadmap.d/maintenance-agents.md) — 10 units of work, 20% shipped. 2 done, 3 part-built, 5 ahead, 0 parked.
 
 - `maintenance-agents` · `partial` · **Maintenance agents** — Scheduled propose-only Claude agents plus CI tooling (open PRs/reports, never auto-merge; trust/ledger/conflicts paths always human-reviewed).
-  - `maintenance-agents.security` · `not-started` · **Security agent** — pnpm/cargo audit, CVE triage, secret scanning on a schedule.
+  - `maintenance-agents.security` · `partial` · **Security agent** — pnpm/cargo audit, CVE triage, secret scanning on a schedule.
   - `maintenance-agents.dependency-upgrade` · `not-started` · **Dependency & framework upgrade agent** — Svelte/Rust/Tauri/Workers upgrade proposals.
   - `maintenance-agents.platform-watch` · `not-started` · **Cloudflare platform-watch agent** — Track D1/Workers/Containers platform changes and flag impact.
   - `maintenance-agents.compliance-watch` · `not-started` · **Compliance-watch agent** — Bar/IOLTA rule-change monitoring keeping the trust catalog current.
@@ -1293,7 +1293,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Reports
 
-[`roadmap.d/reports.md`](../roadmap.d/reports.md) — 11 units of work, 9% shipped. 1 done, 3 part-built, 5 ahead, 2 parked.
+[`roadmap.d/reports.md`](../roadmap.d/reports.md) — 11 units of work, 18% shipped. 2 done, 2 part-built, 5 ahead, 2 parked.
 
 - `reports` · `partial` · **Reports** — Reproducible projections over the append-only ledger; standard library of trust-compliance, financial, productivity, and operational reports with scheduling and exports. _Note: Owner scoped all four families with the bar-audit pack first; nine questions flagged for the owner in the design._
   - `reports.projections` · `shipped` · **Ledger projections** — Reports computed as projections over the append-only ledger, consistent with the books and reproducible for any past date. _Note: Backend only, no screen. Two blocks in the trust-compliance pack are labelled as outside the claim — the three-way proof beside each attestation, and the outstanding-item, unmatched-line and stored-balance checks — because their owning reads take no knowledge instant and a second definition of them is refused._
@@ -1304,7 +1304,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `reports.location-rollups` · `planned` · **Per-location roll-ups** — Financial and productivity reports filter and subtotal by office; trust reports inherently per-account/per-location.
   - `reports.scheduling` · `planned` · **Scheduled generation** — Scheduled/automated report generation, archival, and optional email delivery.
   - `reports.exports` · `partial` · **Exports** — PDF, Excel/CSV, and print export of reports.
-  - `reports.download-register` · `partial` · **Download register** — A per-member shelf of what the platform produced — exports, bundles, converted files — held for a short retention window and downloadable again until it expires.
+  - `reports.download-register` · `shipped` · **Download register** — A per-member record of everything they have downloaded — exports, bundles, converted files, discovery productions, and files taken off a matter — kept after the copy the platform held has been released.
   - `reports.custom-builder` · `deferred` · **Custom report builder** — User-defined custom reports.
   - `reports.dashboards` · `deferred` · **Live dashboards** — Live operational/financial dashboards.
 

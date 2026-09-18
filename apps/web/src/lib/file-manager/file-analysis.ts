@@ -7,6 +7,7 @@
  * silencing a file: a reader who has decided a missing document type does not matter on an exhibit
  * has said nothing about that exhibit's scan. Every ignore is individually reversible.
  */
+import { claimedFileCategory, sniffedFileCategory } from "@magna-carta/design-system/file-icon";
 import type { MatterFile } from "./matter-file-api.ts";
 import { ISSUE_KINDS, type IssueKind, type SeverityBandKey } from "./file-manager-vocabulary.ts";
 
@@ -27,7 +28,7 @@ export function issueKey(issue: Issue): string {
 export function issuesOnFile(file: MatterFile): IssueKind[] {
   const found: IssueKind[] = [];
   if (file.status === "quarantined" || file.scanVerdict === "flagged") found.push("signature");
-  if (file.sniffedContentType !== null && mismatched(file)) found.push("mismatch");
+  if (mismatched(file)) found.push("mismatch");
   if (file.status === "pending" || file.currentVersionId === null) found.push("noVersion");
   else if (file.scanVerdict === null || file.scanVerdict === "unscanned") found.push("unscanned");
   return found.toSorted((left, right) => ISSUE_KINDS[left].rank - ISSUE_KINDS[right].rank);
@@ -36,28 +37,29 @@ export function issuesOnFile(file: MatterFile): IssueKind[] {
 /**
  * Whether the claimed type and what the bytes actually read as disagree. The host sniffs the bytes,
  * so where the extension says one thing and the sniff says another the file is not what its name
- * claims — which is a fact worth stating, not a fact worth hiding.
+ * claims — which is a fact worth stating, not a fact worth hiding. The icon beside the name draws
+ * the CLAIM, on purpose, so this finding is the only place the disagreement is said; a check that
+ * stayed quiet would leave the row reading as the name's word alone.
+ *
+ * The comparison is at the level of kind, in the design system's own file-type vocabulary, so the
+ * two sides are graded by the one mapping the icon and the File Type column already use rather than
+ * by a second list kept here. Three rules fall out of that:
+ *
+ * - A name with NO extension claims nothing, so nothing can contradict it.
+ * - A name whose extension nobody recognizes IS a claim — one the bytes can contradict. A Word
+ *   document renamed to end in ".do" is a Word document with a name that says otherwise.
+ * - A sniff the vocabulary has no kind for (the sniffer recognized nothing, or a container format
+ *   it cannot see inside — legacy Office files all read as one compound-file type) is no reading,
+ *   and no reading contradicts nothing. Plain text has no signature at all, so a text or code file
+ *   never sniffs, and never false-alarms here.
  */
 function mismatched(file: MatterFile): boolean {
-  const dot = file.name.lastIndexOf(".");
-  if (dot <= 0) return false;
-  const extension = file.name.slice(dot + 1).toLowerCase();
-  const implied = IMPLIED_BY_EXTENSION[extension];
-  return implied !== undefined && implied !== file.sniffedContentType;
+  if (file.sniffedContentType === null) return false;
+  const claimed = claimedFileCategory(file.name);
+  if (claimed === undefined) return false;
+  const read = sniffedFileCategory(file.sniffedContentType);
+  return read !== undefined && read !== claimed;
 }
-
-const IMPLIED_BY_EXTENSION: Readonly<Record<string, string>> = {
-  pdf: "application/pdf",
-  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  doc: "application/msword",
-  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  zip: "application/zip",
-  png: "image/png",
-  jpg: "image/jpeg",
-  jpeg: "image/jpeg",
-  mp4: "video/mp4",
-  txt: "text/plain",
-};
 
 /** Every open issue across the matter, in file order. */
 export function allIssues(files: readonly MatterFile[]): Issue[] {

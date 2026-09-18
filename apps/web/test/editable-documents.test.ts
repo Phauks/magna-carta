@@ -45,10 +45,30 @@ describe("editorKindOf", () => {
     expect(editorKindOf({ name: "page.html", sniffedContentType: "text/html" })).toBe("text");
   });
 
+  it("sends spreadsheets, presentations and drawings to the office editor too", () => {
+    expect(editorKindOf({ name: "budget.xlsx", sniffedContentType: null })).toBe("office");
+    expect(
+      editorKindOf({
+        name: "deck.pptx",
+        sniffedContentType:
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      }),
+    ).toBe("office");
+    expect(editorKindOf({ name: "figures.csv", sniffedContentType: "text/csv" })).toBe("office");
+    expect(editorKindOf({ name: "plan.vsdx", sniffedContentType: null })).toBe("office");
+  });
+
+  it("reaches the editor by extension for a legacy office format the gate has no signature for", () => {
+    // The gate sniffs nothing it can place for a WordPerfect or Lotus file; the register's own
+    // extension list is what says the editor opens it.
+    expect(editorKindOf({ name: "brief.wpd", sniffedContentType: null })).toBe("office");
+    expect(editorKindOf({ name: "ledger.123", sniffedContentType: null })).toBe("office");
+    expect(editorKindOf({ name: "Keynote deck.key", sniffedContentType: null })).toBe("office");
+  });
+
   it("names no editor for everything else, the portable document included", () => {
     expect(editorKindOf({ name: "scan.pdf", sniffedContentType: "application/pdf" })).toBeNull();
     expect(editorKindOf({ name: "photo.jpg", sniffedContentType: "image/jpeg" })).toBeNull();
-    expect(editorKindOf({ name: "budget.xlsx", sniffedContentType: null })).toBeNull();
     expect(editorKindOf({ name: "bundle.zip", sniffedContentType: "application/zip" })).toBeNull();
     expect(editorKindOf({ name: "mystery", sniffedContentType: null })).toBeNull();
   });
@@ -110,7 +130,7 @@ describe("openDestinationOf", () => {
   });
 
   it("previews a document with neither an editor nor a reader", () => {
-    expect(openDestinationOf(clean({ name: "budget.xlsx", sniffedContentType: null }))).toEqual({
+    expect(openDestinationOf(clean({ name: "photo.jpg", sniffedContentType: null }))).toEqual({
       kind: "preview",
     });
     expect(openDestinationOf(clean({ name: "bundle.zip", sniffedContentType: null }))).toEqual({

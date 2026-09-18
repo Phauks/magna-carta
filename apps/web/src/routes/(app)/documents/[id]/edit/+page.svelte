@@ -1,14 +1,18 @@
 <script lang="ts">
   /*
-   * One document, open for editing. A working surface like the file manager: the header names the
-   * document and the way back to the matter's files, and the editor takes the rest of the viewport
-   * and keeps it. Which editor is decided by what the file IS (editable-documents.ts), the same
-   * decision the file manager made when it opened this address.
+   * One document, open for editing. THE EDITOR IS THE WHOLE SCREEN: the load declares `shell:
+   * "none"`, the app layout draws no rail and no top bar, and this page draws no header — no way
+   * back, no name, no version line — so the editor takes the viewport and keeps it (the owner's
+   * direction, 2026-09-17). What a member does on the platform from inside the document will be
+   * the editor's own controls, added to its toolbar through its message protocol; until then the
+   * way back is the browser's. Which editor is decided by what the file IS (editable-documents.ts),
+   * the same decision the file manager made when it opened this address.
    *
-   * Two documents get no editor here and say so in its place: a format neither editor takes
-   * (reachable only by typing the address, since the file manager never opens one here), which
-   * offers the download instead; and a file withheld while a safety finding is open, which offers
-   * nothing — the file manager's Safety tab carries the finding.
+   * Two documents get no editor here and say so instead, with the shell and the header around the
+   * message because a message needs its way back: a format neither editor takes (reachable only by
+   * typing the address, since the file manager never opens one here), which offers the download
+   * instead; and a file withheld while a safety finding is open, which offers nothing — the file
+   * manager's Safety tab carries the finding.
    */
   import { invalidateAll } from "$app/navigation";
   import * as Alert from "@magna-carta/design-system/alert";
@@ -49,6 +53,16 @@
     whenSilent="Nothing answered when the document was read."
     onRetry={() => void invalidateAll()}
   />
+{:else if file !== null && data.shell === "none" && editorKind !== null}
+  <!-- The editor alone: the layout's shell-less column is the viewport, and the editor fills it.
+       Nothing else is drawn on purpose. -->
+  <div class="flex h-full min-h-0 flex-col">
+    {#if editorKind === "office"}
+      <OfficeDocumentEditor {file} />
+    {:else}
+      <TextDocumentEditor {file} />
+    {/if}
+  </div>
 {:else if file !== null && filesBack !== null}
   <!-- The matter chrome's own arrangement: a full-height flex column, so the editor below can take
        exactly the remaining viewport height. The header is flex-none so it never gives way. -->

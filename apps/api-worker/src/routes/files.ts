@@ -92,6 +92,7 @@ import type { ProblemTypeKey } from "../contracts/problem-types.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { maybeEnqueueRescanOnAccess } from "../files/access-rescan.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
+import { registerDownload } from "../downloads/download-register.ts";
 import { enqueueDevIngestEvent } from "../files/presign.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
 import {
@@ -1519,6 +1520,16 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
       // passing this route's status gate rather than being served under the old verdict.
       const url = await presigner.presignGet(bucket, version.r2Key, DOWNLOAD_TTL_SECONDS);
       // The export is recorded before the redirect — metadata names the version exported, no content.
+      //
+      // TWO RECORDS, AND THEY ANSWER DIFFERENT QUESTIONS. The audit entry is the FIRM's: who pulled
+      // which version, readable by whoever reviews the trail. The register row is the MEMBER's own —
+      // "what did I download, and can I have it again" — and it is why this route writes one at all
+      // (the owner's ruling of 2026-09-16 that every download registers). They ride the same batch
+      // so a download cannot be audited without being registered, or the reverse.
+      //
+      // It is a REFERENCE, which means it holds no object key and cannot be presigned from the
+      // register: coming back for this file returns here, and this route's own capability check runs
+      // again. That is what keeps the row a record rather than a standing grant.
       const now = new Date().toISOString();
       await commitEffectBatch(
         firm.firmDatabase,
@@ -1532,6 +1543,16 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
               metadata: { fileId: id, versionId: version.id, ...downloadAuditExtra },
               now,
             }),
+            registerDownload(firm.firmDatabase, {
+              memberId: userId,
+              now: new Date(now),
+              registration: {
+                producer: "file",
+                title: version.name,
+                fileId: id,
+                byteSize: version.sizeBytes,
+              },
+            }).statement,
           ],
           outboxMessages: [],
         },

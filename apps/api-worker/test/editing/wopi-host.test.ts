@@ -143,7 +143,7 @@ describe("WOPI host surface", () => {
     expect(state.current?.sizeBytes).toBe(edited.byteLength);
   });
 
-  it("Lock takes the lock and a conflicting lock returns 409 with the held value", async () => {
+  it("Lock takes the lock, and a successor container instance's differing lock takes it over", async () => {
     const { fileId, versionId } = await seedFile();
     const sessionId = await openSession(fileId); // live session so the edit token's session matches
     const accessToken = encodeURIComponent(await token(fileId, versionId, "edit", sessionId));
@@ -154,9 +154,13 @@ describe("WOPI host surface", () => {
       });
 
     expect((await lock("LOCK-1")).status).toBe(200);
-    const conflict = await lock("LOCK-2");
-    expect(conflict.status).toBe(409);
-    expect(conflict.headers.get("X-WOPI-Lock")).toBe("LOCK-1");
+    // One container serves a document, so a different value can only be the next instance of it,
+    // after the previous one stopped without unlocking: the stale lock is replaced, never reported
+    // to the member as another editor holding the document.
+    const successor = await lock("LOCK-2");
+    expect(successor.status).toBe(200);
+    expect(successor.headers.get("X-WOPI-Lock")).toBeNull();
+    expect((await documentSessionStub(env, fileId).getState()).wopiLock).toBe("LOCK-2");
   });
 
   it("GetFile serves the working copy to the session that wrote it and the committed version to anyone else", async () => {
@@ -208,5 +212,52 @@ describe("WOPI host surface", () => {
       { method: "POST", body: new TextEncoder().encode("nope") },
     );
     expect(response.status).toBe(403);
+  });
+
+  it("records each callback's answer on the member's open record, refusals included", async () => {
+    const { fileId, versionId } = await seedFile();
+    const stub = documentSessionStub(env, fileId);
+    await stub.beginOpen(MEMBER, "2026-09-17T19:00:00.000Z");
+
+    // CheckFileInfo answered: the first mark of the open.
+    const info = await wopi(
+      `${fileId}?access_token=${encodeURIComponent(await token(fileId, versionId, "edit"))}`,
+    );
+    expect(info.status).toBe(200);
+    let open = await stub.openProgressOf(MEMBER);
+    expect(open?.checkFileInfoAt).not.toBeNull();
+    expect(open?.getFileAt).toBeNull();
+    expect(open?.lastCallback).toMatchObject({ operation: "wopi:check-file-info", status: 200 });
+
+    // GetFile answered: the second mark.
+    const bytes = await wopi(
+      `${fileId}/contents?access_token=${encodeURIComponent(await token(fileId, versionId, "edit"))}`,
+    );
+    expect(bytes.status).toBe(200);
+    open = await stub.openProgressOf(MEMBER);
+    expect(open?.getFileAt).not.toBeNull();
+
+    // A refusal is recorded with the same Error ID the answer carried, and moves no mark.
+    await firmDb.prepare("UPDATE file SET deleted_at = ?2 WHERE id = ?1").bind(fileId, ISO).run();
+    const refused = await wopi(
+      `${fileId}/contents?access_token=${encodeURIComponent(await token(fileId, versionId, "edit"))}`,
+    );
+    expect(refused.status).toBe(404);
+    open = await stub.openProgressOf(MEMBER);
+    expect(open?.lastCallback).toEqual({
+      operation: "wopi:get-file",
+      status: 404,
+      errorId: refused.headers.get("X-MC-Error-Id"),
+      at: expect.any(String),
+    });
+    expect(open?.lastCallback?.errorId).toMatch(/^error_/);
+  });
+
+  it("records nothing for a token the guard refused, so a forged token writes onto no one's record", async () => {
+    const { fileId } = await seedFile();
+    const stub = documentSessionStub(env, fileId);
+    await stub.beginOpen(MEMBER, "2026-09-17T19:00:00.000Z");
+    expect((await wopi(`${fileId}?access_token=not-a-real-token`)).status).toBe(401);
+    expect((await stub.openProgressOf(MEMBER))?.lastCallback).toBeNull();
   });
 });

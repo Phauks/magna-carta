@@ -36,6 +36,7 @@ function item(overrides: Partial<DownloadItemInsert> = {}): DownloadItemInsert {
     kind: "snapshot",
     producer: "export",
     objectKey: "downloads/snapshot-one.json",
+    subjectFileId: null,
     byteSize: null,
     requestedFormat: "xlsx",
     createdAt: "2026-08-31T12:00:00.000Z",
@@ -113,6 +114,64 @@ describe("download register statements", () => {
       "Newer",
       "Older",
     ]);
+  });
+
+  it("walks the (created_at, id) pair, so two rows of the same instant page apart cleanly", async () => {
+    const database = await freshFirmDatabase();
+    await seedMembers(database);
+    // THE SAME INSTANT, THREE TIMES. `created_at < ?` alone would skip both siblings of whichever
+    // row ended the page — this is the case the tuple comparison exists for, and the only one that
+    // tells the two implementations apart.
+    const sameInstant = "2026-08-31T12:00:00.000Z";
+    await database.batch(
+      ["001", "002", "003"].map((suffix) =>
+        insertDownloadItemStatement(
+          database,
+          item({
+            id: `downloadItem_test0000000000000000${suffix}` as DownloadItemId,
+            title: `Report ${suffix}`,
+            createdAt: sameInstant,
+          }),
+        ),
+      ),
+    );
+
+    const seen: string[] = [];
+    let after: { createdAt: string; id: string } | undefined;
+    for (let page = 0; page < 5; page += 1) {
+      const rows = await readDownloadShelf(database, OWNER, 2, after);
+      seen.push(...rows.map((row) => row.title));
+      const last = rows.at(-1);
+      if (rows.length < 2 || last === undefined) break;
+      after = { createdAt: last.createdAt, id: last.id };
+    }
+
+    expect(seen).toEqual(["Report 003", "Report 002", "Report 001"]);
+  });
+
+  it("narrows on the title, treating a reader's wildcard as text", async () => {
+    const database = await freshFirmDatabase();
+    await seedMembers(database);
+    await database.batch([
+      insertDownloadItemStatement(
+        database,
+        item({
+          id: "downloadItem_test000000000000000001" as DownloadItemId,
+          title: "Trust Reconciliation",
+        }),
+      ),
+      insertDownloadItemStatement(
+        database,
+        item({ id: "downloadItem_test000000000000000002" as DownloadItemId, title: "Firm Usage" }),
+      ),
+    ]);
+
+    expect((await readDownloadShelf(database, OWNER, 50, undefined, "trust")).map((r) => r.title)) //
+      .toEqual(["Trust Reconciliation"]);
+    // A blank term is not a question, so it narrows nothing rather than matching nothing.
+    expect(await readDownloadShelf(database, OWNER, 50, undefined, "   ")).toHaveLength(2);
+    // And a wildcard is the reader's text: `%` matching everything would be the escaping failure.
+    expect(await readDownloadShelf(database, OWNER, 50, undefined, "%")).toHaveLength(0);
   });
 
   it("appends a taken format without losing the ones already recorded", async () => {

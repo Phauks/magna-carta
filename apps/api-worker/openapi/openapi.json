@@ -1203,18 +1203,25 @@
           "document"
         ]
       },
-      "DownloadShelfResponse": {
+      "DownloadShelfPage": {
         "type": "object",
         "properties": {
-          "items": {
+          "data": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DownloadItem"
             }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
-          "items"
+          "data",
+          "nextCursor"
         ]
       },
       "DownloadItem": {
@@ -1230,7 +1237,9 @@
             "type": "string",
             "enum": [
               "artifact",
-              "snapshot"
+              "snapshot",
+              "reference",
+              "record"
             ]
           },
           "producer": {
@@ -1238,7 +1247,15 @@
             "enum": [
               "export",
               "bundle",
-              "conversion"
+              "conversion",
+              "file",
+              "discovery"
+            ]
+          },
+          "subjectFileId": {
+            "type": [
+              "string",
+              "null"
             ]
           },
           "byteSize": {
@@ -1263,7 +1280,10 @@
             "type": "string"
           },
           "expiresAt": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "state": {
             "type": "string",
@@ -1280,6 +1300,7 @@
           "title",
           "kind",
           "producer",
+          "subjectFileId",
           "byteSize",
           "requestedFormat",
           "downloadedFormats",
@@ -1295,7 +1316,9 @@
             "type": "string",
             "enum": [
               "artifact",
-              "snapshot"
+              "snapshot",
+              "reference",
+              "record"
             ]
           },
           "url": {
@@ -8047,6 +8070,64 @@
           "accessToken",
           "accessTokenTtl",
           "capability"
+        ]
+      },
+      "EditOpenProgressResponse": {
+        "type": "object",
+        "properties": {
+          "launchedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "checkFileInfoAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "getFileAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastCallback": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "operation": {
+                "type": "string"
+              },
+              "status": {
+                "type": "number"
+              },
+              "errorId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "at": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "operation",
+              "status",
+              "errorId",
+              "at"
+            ]
+          }
+        },
+        "required": [
+          "launchedAt",
+          "checkFileInfoAt",
+          "getFileAt",
+          "lastCallback"
         ]
       },
       "CheckoutResponse": {
@@ -36243,7 +36324,7 @@
     },
     "/api/v1/downloads": {
       "get": {
-        "description": "The session member's own download shelf: what the platform produced for them, newest first, with what has already been taken and when each item expires. Scoped to the member, never the firm.",
+        "description": "The session member's own register of everything they have downloaded, newest first, with what has already been taken and when each item's bytes expire. Optionally narrowed to titles containing `search`. Scoped to the member, never the firm.",
         "operationId": "downloads.shelf",
         "tags": [
           "downloads"
@@ -36261,13 +36342,42 @@
           "downloads"
         ],
         "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "required": false,
+            "name": "search",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
             "description": "The member's shelf",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DownloadShelfResponse"
+                  "$ref": "#/components/schemas/DownloadShelfPage"
                 }
               }
             }
@@ -52650,6 +52760,81 @@
           },
           "404": {
             "description": "The file does not exist in this firm, or has no committed version to open",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/documents/{fileId}/edit-session/progress": {
+      "get": {
+        "description": "Where the caller's current open of this document has got to as the host saw it: when the launch was answered, when the editor asked for the document's information and bytes, and the editor's most recent call and its answer.",
+        "operationId": "documents.editOpenProgress",
+        "tags": [
+          "documents"
+        ],
+        "x-mc-operationId": "documents.editOpenProgress",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "documents"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^file_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "fileId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The caller's open record; every mark null when no launch is on record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditOpenProgressResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The file does not exist in this firm",
             "content": {
               "application/problem+json": {
                 "schema": {

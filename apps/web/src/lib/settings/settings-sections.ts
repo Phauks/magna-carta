@@ -447,6 +447,21 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     shipped: true,
   },
   {
+    // How each kind of file opens: the register the file manager decides the one Open gesture from,
+    // rendered as a routing table. Read-only today — every family has one way of opening and the
+    // table states it — and a firm section because the ways are the firm's, so that when a family
+    // gains a second way (a desktop application, another editor) the choice lands here.
+    id: "opening-files",
+    label: "Opening Files",
+    href: "/settings/opening-files",
+    group: "documents",
+    scope: "firm",
+    commitMode: "instant",
+    editPermissionArea: "documents",
+    readOnly: true,
+    shipped: true,
+  },
+  {
     // How a member takes the files the platform makes them. A MEMBER section, not a firm one:
     // exporting generates onto that person's own shelf and only they decide whether a file is also
     // saved as it is made. Where a file lands is deliberately not here — that is the browser's own

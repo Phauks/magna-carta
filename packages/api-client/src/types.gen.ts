@@ -295,25 +295,27 @@ export type DownloadSnapshotRequest = {
     };
 };
 
-export type DownloadShelfResponse = {
-    items: Array<DownloadItem>;
+export type DownloadShelfPage = {
+    data: Array<DownloadItem>;
+    nextCursor: string | null;
 };
 
 export type DownloadItem = {
     id: string;
     title: string;
-    kind: 'artifact' | 'snapshot';
-    producer: 'export' | 'bundle' | 'conversion';
+    kind: 'artifact' | 'snapshot' | 'reference' | 'record';
+    producer: 'export' | 'bundle' | 'conversion' | 'file' | 'discovery';
+    subjectFileId: string | null;
     byteSize: number | null;
     requestedFormat: string | null;
     downloadedFormats: Array<string>;
     createdAt: string;
-    expiresAt: string;
+    expiresAt: string | null;
     state: 'building' | 'ready' | 'failed' | 'expired';
 };
 
 export type DownloadFetchResponse = {
-    kind: 'artifact' | 'snapshot';
+    kind: 'artifact' | 'snapshot' | 'reference' | 'record';
     url?: string;
     document?: unknown;
 };
@@ -1959,6 +1961,18 @@ export type SessionLaunchResponse = {
     accessToken: string;
     accessTokenTtl: number;
     capability: 'edit' | 'view';
+};
+
+export type EditOpenProgressResponse = {
+    launchedAt: string | null;
+    checkFileInfoAt: string | null;
+    getFileAt: string | null;
+    lastCallback: {
+        operation: string;
+        status: number;
+        errorId: string | null;
+        at: string;
+    } | null;
 };
 
 export type CheckoutResponse = {
@@ -8505,7 +8519,11 @@ export type DownloadsRecordSnapshotResponse = DownloadsRecordSnapshotResponses[k
 export type DownloadsShelfData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        cursor?: string;
+        search?: string;
+        limit?: number;
+    };
     url: '/api/v1/downloads';
 };
 
@@ -8530,7 +8548,7 @@ export type DownloadsShelfResponses = {
     /**
      * The member's shelf
      */
-    200: DownloadShelfResponse;
+    200: DownloadShelfPage;
 };
 
 export type DownloadsShelfResponse = DownloadsShelfResponses[keyof DownloadsShelfResponses];
@@ -15378,6 +15396,41 @@ export type DocumentsViewSessionResponses = {
 };
 
 export type DocumentsViewSessionResponse = DocumentsViewSessionResponses[keyof DocumentsViewSessionResponses];
+
+export type DocumentsEditOpenProgressData = {
+    body?: never;
+    path: {
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/v1/documents/{fileId}/edit-session/progress';
+};
+
+export type DocumentsEditOpenProgressErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The file does not exist in this firm
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DocumentsEditOpenProgressError = DocumentsEditOpenProgressErrors[keyof DocumentsEditOpenProgressErrors];
+
+export type DocumentsEditOpenProgressResponses = {
+    /**
+     * The caller's open record; every mark null when no launch is on record
+     */
+    200: EditOpenProgressResponse;
+};
+
+export type DocumentsEditOpenProgressResponse = DocumentsEditOpenProgressResponses[keyof DocumentsEditOpenProgressResponses];
 
 export type DocumentsCheckoutData = {
     body?: CheckoutRequest;

@@ -1025,6 +1025,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "documentTypes.update",
       "documents.checkin",
       "documents.checkout",
+      "documents.editOpenProgress",
       "documents.editSession",
       "documents.forceRelease",
       "documents.reconcile",

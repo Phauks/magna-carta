@@ -4,8 +4,15 @@
  * nothing that has to be rendered to be checked, so the mapping has ONE home and is unit-testable
  * on its own. resolve.ts is the layer above, which turns a kind into a Lucide glyph.
  *
- * Two inputs, in priority order: the MIME `contentType` (authoritative when present — a server-set
- * type beats a user-chosen extension), then the file name's extension.
+ * Two inputs, in priority order: the file name's extension, then the MIME `contentType`. The icon
+ * states what the file CLAIMS to be — the name is the claim, and it is what the File Type column
+ * beside the icon shows, so the two can never disagree in one row. Whether the claim holds is a
+ * separate fact, owned by the file manager's analysis (apps/web/src/lib/file-manager/file-analysis.ts):
+ * the host sniffs the bytes at intake, and a name that says one thing over bytes that read as another
+ * is reported there as a type mismatch, beside the name, in the safety vocabulary. So a name with
+ * an extension nobody recognizes draws the blank sheet and no badge, whatever the bytes are — the
+ * icon does not quietly correct the name, it lets the verifier say the name is wrong. The content
+ * type decides only where the name makes no claim at all: no extension, or no name.
  *
  * TYPE IDENTITY. We author no glyphs of our own; every mark on this component comes from the
  * installed Lucide package, and Lucide has no per-format glyph. The identity a file type needs
@@ -261,10 +268,50 @@ export function extensionOf(fileName: string): string {
 }
 
 /**
- * Resolve the file kind from its content type (preferred) and/or name. Returns `unknown` when
- * neither resolves — never throws, so a partial or missing descriptor is always safe.
+ * Every file-name extension this table knows a category by, sorted. The one place the platform's
+ * own extension list can be read from, so a screen that lists what a category covers (Settings ·
+ * Opening Files) renders the same list this resolver decides by, and neither can drift.
+ */
+export function extensionsOfCategory(category: FileCategory): readonly string[] {
+  return Object.entries(EXTENSION_CATEGORY)
+    .filter(([, known]) => known === category)
+    .map(([extension]) => extension)
+    .toSorted();
+}
+
+/**
+ * Resolve the file kind from its name (preferred) and/or content type. A name with an extension
+ * decides on its own — a recognized extension names the kind, an unrecognized one is `unknown` —
+ * because the icon draws the claim and never reads past it to the bytes. The content type answers
+ * only when the name makes no claim: no extension, or no name at all. Returns `unknown` when
+ * nothing resolves — never throws, so a partial or missing descriptor is always safe.
  */
 export function resolveFileCategory(input: {
+  contentType?: string;
+  fileName?: string;
+}): FileCategory {
+  if (input.fileName) {
+    const extension = extensionOf(input.fileName);
+    if (extension !== "") return EXTENSION_CATEGORY[extension] ?? "unknown";
+  }
+  if (input.contentType) {
+    const byContentType = categoryFromContentType(input.contentType);
+    if (byContentType) return byContentType;
+  }
+  return "unknown";
+}
+
+/**
+ * Resolve the file kind from what the bytes say (preferred) and/or the name — the opposite
+ * precedence from resolveFileCategory, for the opposite job. That one decides what to DRAW, and
+ * draws the claim; this one decides what to DO with a file — which editor opens it, which reader
+ * draws its pages — and a decision about handling bytes has to read the bytes. A Word document
+ * renamed to end in ".txt" is drawn as the text file its name claims, and opened as the Word
+ * document it is, never handed to the plain-text editor on the strength of its name. The name
+ * answers only where nothing was sniffed, which is where plain text always lands: text has no
+ * signature, so a text or code file is known by its extension alone.
+ */
+export function resolveFileContentCategory(input: {
   contentType?: string;
   fileName?: string;
 }): FileCategory {
@@ -279,6 +326,27 @@ export function resolveFileCategory(input: {
   return "unknown";
 }
 
+/**
+ * The kind a name claims by its extension alone, or undefined where the name claims nothing (no
+ * extension). Distinct from resolveFileCategory: an unrecognized extension is a claim that reads as
+ * `unknown`, and no extension is no claim, and a caller comparing the claim against the bytes needs
+ * to tell those apart.
+ */
+export function claimedFileCategory(fileName: string): FileCategory | undefined {
+  const extension = extensionOf(fileName);
+  if (extension === "") return undefined;
+  return EXTENSION_CATEGORY[extension] ?? "unknown";
+}
+
+/**
+ * The kind the bytes read as, from the content type the host sniffed at intake, or undefined where
+ * the sniff recognized nothing or the type is not one the vocabulary knows. Undefined here means
+ * "no reading", never "unknown kind" — a comparison against the claim has nothing to compare.
+ */
+export function sniffedFileCategory(contentType: string): FileCategory | undefined {
+  return categoryFromContentType(contentType);
+}
+
 /** The tone a category's glyph is drawn in. */
 export function resolveFileIconTone(category: FileCategory): FileIconTone {
   return CATEGORY_TONE[category] ?? "default";
@@ -288,9 +356,9 @@ export function resolveFileIconTone(category: FileCategory): FileIconTone {
  * The badge for a file, or undefined when its category is not one that carries one.
  *
  * The file's own extension is preferred, because that is what the File Type column shows and the
- * two must agree; it is used only when it names the SAME kind the glyph is drawing, so a file the
- * server typed as a pdf never shows a DOCX badge over a pdf glyph. Failing that, the content type
- * names the format, and failing that the category's own default (pdf only).
+ * two must agree; it is used only when it names the SAME kind the glyph is drawing, so a caller
+ * that overrides the category never gets a DOCX badge over a pdf glyph. Failing that, the content
+ * type names the format, and failing that the category's own default (pdf only).
  */
 export function resolveFileTypeBadge(input: {
   contentType?: string;

@@ -59,3 +59,4 @@ Language: docs/conventions/documentation-style.md. Definition of done: docs/conv
 - [ ] No process references in source (`ADR-NNNN`, spec sections, slice or phase numbers); reasoning stated inline
 - [ ] Names written out in full; no shorthand
 - [ ] No new C or C++ dependency, native or compiled to WASM, without explicit owner consent named here
+- [ ] Security angle of the review run against the companion files the change reaches (`.claude/skills/security-audit/`, chosen as `docs/conventions/testing.md` directs): tenant isolation for anything touching per-firm data, cloud and deployment for a binding or secret, supply chain for a dependency, resource exhaustion for a Queue, Durable Object, or Container path

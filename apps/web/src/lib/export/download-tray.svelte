@@ -67,11 +67,14 @@
   }
 
   async function load(): Promise<void> {
-    const outcome = await readShelf(fetch);
+    // Only what the tray shows. This is chrome on every screen in the application and it re-reads on
+    // every shelf revision, so asking for a full page of a register that now keeps every download
+    // would make the furniture cost more than the screen under it.
+    const outcome = await readShelf(fetch, { limit: TRAY_LIMIT });
     // A failure here is silent on purpose: the tray is chrome on every screen in the app, and a
     // member working on a matter must not be handed an error about a surface they did not open.
     // The /downloads page states the failure properly when they go looking.
-    if (outcome.kind === "ok") items = [...outcome.value.items];
+    if (outcome.kind === "ok") items = [...outcome.value.data];
   }
 
   onMount(() => {

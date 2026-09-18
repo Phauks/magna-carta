@@ -43,6 +43,11 @@ export default defineConfig({
       // every row) and CI re-derives + diff-gates them. Never hand-edit; never let the formatter reflow.
       "STATUS.md",
       "STATUS.json",
+      // Vendored verbatim from cloudflare/security-audit-skill (its VENDORED.md carries the pin and the
+      // refresh procedure), so upstream owns the bytes — same case as the assembled files above. It is
+      // also not safe to reflow: the formatter turns `*right*` into `_right_`, and on the next pass
+      // pairs that underscore with the one in `subagent_type` two words earlier, corrupting both.
+      ".claude/skills/security-audit/**",
       // Assembled by tooling/doc-fragments/build-register.mjs from roadmap.d/* — same case again:
       // the generator owns the exact bytes and tooling/lint-roadmap.mjs re-derives and diff-gates
       // them, so formatter reflow would fight the assembler and fail the gate. The register's
@@ -83,6 +88,10 @@ export default defineConfig({
       // Parallel sessions' duplicate checkouts: gitignore-respecting walkers must not lint another
       // session's mid-TDD state against this tree's baseline (the stale-worktree gotcha).
       ".claude/worktrees/**",
+      // Vendored verbatim (see the formatter's entry above): upstream's validators and their tests
+      // carry seventy-odd warnings in this configuration, and nobody here edits them, so the linter
+      // would only ever be reporting somebody else's code style.
+      ".claude/skills/security-audit/**",
     ],
     options: {
       typeAware: true,

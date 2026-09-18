@@ -35,6 +35,14 @@ These are **scoped, not universal:** each binds only when you work in its area. 
 - **Versions are immutable; soft-delete only.** A committed version's bytes and metadata never change — a new version is a new row and a new R2 key; files soft-delete, versions are untouched. (_Matters and File Manager_; ADR-0077)
 - **R2 keys are opaque and server-minted.** Object keys are `files/{fileId}/{versionId}`, never derived from a client-supplied path; the bytes flow direct-to-R2 and never transit the Worker. (_Matters and File Manager_; ADR-0081)
 
+## The download register
+
+- **Every download registers, through one writer.** A member's download register answers "what did I take, and can I have it again", and that answer is wrong — silently, and in the direction that looks fine — the moment one delivery path forgets to write a row. So a register row is written in exactly one place, [`apps/api-worker/src/downloads/download-register.ts`](../../apps/api-worker/src/downloads/download-register.ts): a producer reports what the member received and the chokepoint derives the kind, the object key, the expiry and the state from it. Nothing else may reach for `insertDownloadItemStatement`, and any module that hands a member bytes (it signs a GET, or it streams an archive) must call `registerDownload`. Held by [`pnpm run lint:download-register`](../../tooling/lint-download-register/), which scans both halves and keeps the short list of paths that deliberately register nothing, each with its reason — a stale entry there fails the same run.
+
+- **A matter file is registered as a reference, never as bytes the register holds.** The register's artifact fetch presigns the object key it stored, which is a standing grant: a row carrying the key of a file on a matter would keep working for a member who has since been screened off that matter. A file taken from a matter is therefore registered with `kind = 'reference'` — a subject file id and no object key at all, which the table's CHECK constraints make unrepresentable the other way round — and its fetch answers with this platform's own address for the file, so the matter's capability check runs again at the moment of asking. (_Matters and File Manager_)
+
+- **The row outlives the bytes.** The retention sweep releases the objects on schedule, because they are privileged content in a second place; it marks the row `expired` rather than deleting it, because a title and two instants are the member's own record of what they took. A screen reads the difference as the row's standing, never as its absence.
+
 ## Secrets & encryption
 
 - **`protected()` for sensitive fields.** Encrypt/role-gate/audit sensitive identifiers via the DAL `protected()` field type — never hand-rolled crypto, never plaintext secrets in core tables. (_Encryption & key management_; ADR-0026)
