@@ -120,6 +120,14 @@
   evidence: apps/web/src/routes/(app)/settings/file-safety/ over GET/PATCH /api/v1/firm/scan-policy through apps/web/src/lib/file-manager/scan-policy-draft.svelte.ts, gated on firm:manageScanPolicy from the session. The same policy the ingest consumer and the download route already read, so a save reaches both without re-ingest.
   notes: The suspicion threshold is a typed number. The engine publishes the score distribution of its own rule corpus (/api/v1/firm/scan-policy/score-histogram), which is what would make the threshold answerable rather than a number in a vacuum; that plotted control is its own piece of work and the plain field stands until it lands.
 
+- id: settings.area-ui.editing
+  name: Editing
+  scope: The firm's editing policy — whether every document opened in the browser editor records its changes, with the recording control kept out of members' reach and the marks hidden until somebody asks to see them.
+  status: shipped
+  surface: screen
+  evidence: apps/web/src/routes/(app)/settings/editing/ over GET/PATCH /api/v1/firm/editing-policy (apps/api-worker/src/routes/editing-policy.ts) through apps/web/src/lib/documents/editing-policy-draft.svelte.ts, gated on firm:manageEditingPolicy from the session, Owner/Admin by seed. The WOPI host reads the same policy on every CheckFileInfo (DisableChangeTrackingRecord), and the launch carries it so the screen framing the editor hides the marks once the document is up.
+  notes: On by default. The stored document keeps every mark; accepting them on every copy that leaves the platform is the conversion container's work and is not built yet, so until it lands a download carries the redlines — the decision is recorded and the export step is the next layer of the history spec.
+
 - id: settings.area-ui.firm-profile
   name: Firm Profile
   scope: What the firm is called to its clients — the name on an invoice, in the portal, and on every generated document.

@@ -129,44 +129,56 @@ six months), with a note on why they belong together. The Links tab lists them b
 either; **Remove** takes a link off without touching either setting. A continuance is never linked by
 hand: the record makes that link itself.
 
-**Who is at an event.** When recording, pick a person from the firm, from the directory, or type a
-name once for somebody who is neither, such as a judge or a court reporter; each can carry a role.
-**You can change it afterwards**: open the event, press Edit, and the Participants tab becomes the
-same picker. What you change there is saved with the rest of the record, when you press Save.
+**Who is at an event.** When recording, pick a person under **Staff** (your firm's roster),
+**Directory** (a client, opposing counsel, anyone your firm keeps a record of), or **Other** — type
+a name once for somebody who is neither, such as a judge or a court reporter. Each can carry a
+role, and the people you have added are listed under the heading they came from, so you can tell a
+colleague from a contact from a name typed once. **You can change it afterwards**: open the event,
+press Edit, and the Participants tab becomes the same picker. What you change there is saved with
+the rest of the record, when you press Save.
 
 ## Recording an event
 
-An event is anything that happened or will happen. There is **one form** for all of them, and its
-first line asks who the event belongs to: **a matter**, or **the firm**.
+An event is anything that happened or will happen. There is **one form** for all of them, in four
+tabs — **Details**, **When**, **Where** and **Who** — and the first line of Details asks who the
+event belongs to: **a matter**, **the firm**, or **a staff member**. The field beside it is the
+rest of that answer, and it stays in the same place whichever you choose.
 
-- Choose **a matter** and the matter picker appears beside it. What you record is a setting on that
-  case — a hearing, a deposition, a closing.
+- Choose **a matter** and the matter picker is beside it. What you record is a setting on that
+  case — a hearing, a deposition, a closing. Where asks for the court reference.
 - Choose **the firm** and what you record is a firm event: a meeting, a training, an office closure,
-  a reservation. You are then asked the two things only a firm event needs — **who sees it**
-  (everyone at the firm, or just the people you list) and **which office** it is at, which is what
-  tells the form which conference rooms are nearby. The court reference field disappears, because a
-  firm meeting has no court.
-- There is no third option, and a personal appointment is not a special case: record it as a firm
-  event with only yourself on it.
+  a reservation. Beside it you say **who sees it** — everyone at the firm, or just the people you
+  list on Who — and Where asks **which office** it is at, which is what tells the form which
+  conference rooms are nearby. There is no court reference, because a firm meeting has no court.
+- Choose **a staff member** and pick the colleague: what you record lands on that person's own
+  calendar. It is a firm event with them on it, so it takes the office and the audience of one; add
+  anyone else who is there on Who.
 
 On a matter's own calendar there is nothing to choose — the matter is the one you are standing in.
 
 Give the event a title, a date, and the time zone it happens in. Everything else is optional.
 
-- **A time is optional, and that is deliberate.** Leave it off and the event is an all-day one, which
-  is what a filing is. Put it on and the event sits at that time.
+- **A time is optional, and All day says so.** Leave the times off — or tick **All day**, which
+  clears them and switches the time fields off — and the event is an all-day one, which is what a
+  filing is. Put a time on and the event sits at that hour. A setting that runs across days, such
+  as a three-day trial, is drawn in the all-day band at the top of the week and the day whatever
+  hours it carries, spanning its days, with its hours written on the entry.
 - **The time zone is the one the event happens in** — for a hearing, the court's. A Nevada firm
   appearing in a California court records a Los Angeles hearing, because that is where nine in the
   morning is nine in the morning. Nothing about your firm, the matter, or your office can work that
   out on its own, so you are asked.
 - **A range is a range.** Set an end date for a three-day trial; leave it off for a point in time.
 - **Starts and Ends ask the same two questions**, a date and a time each, on lines the same shape
-  so the second never shifts under the first. **Zone** is asked once beneath them, because one
-  setting is read in one zone; type a city or a code to find it, and the list names both — PST and
-  America / Los Angeles — because CST is three different zones.
-- **Location** offers the places your firm already has: your offices, then your conference rooms,
-  each under its own heading. Type anything else and it is kept — a courthouse, a department number,
-  opposing counsel's address — because most hearings are not at one of your offices.
+  so the second never shifts under the first. **Time zone** is asked once beneath them, because one
+  setting is read in one zone. Every zone reads the same way — "(UTC-08:00) Pacific Standard Time ·
+  Los Angeles": how far it is from UTC on that day, its name, and its city — and the list runs west
+  to east. Type a code, a city or a name to find it: PST, pacific and los angeles all land on the
+  same row, and CST is three different rows with their cities to tell them apart.
+- **Location** offers the places your firm already has and the places it deals with: your offices,
+  each with its street address, then your conference rooms under the office each is in, then — once
+  you have typed two letters — the organizations in your directory, so a courthouse or opposing
+  counsel's firm is one pick. Type anything else and it is kept — an address, a department number,
+  a place nobody has a record of — because most hearings are not at one of your offices.
 - **Choosing one of your conference rooms books it, and changing it moves the booking.** The room is held for the event's own window
   and the event appears on that room's calendar, so "held here" and "this room is taken" are one
   act rather than two you have to remember. If the room cannot be held — somebody else has it, or
@@ -185,7 +197,10 @@ Give the event a title, a date, and the time zone it happens in. Everything else
   other meeting link. It is separate from Location on purpose, because a deposition can be in a
   conference room and on a call at the same time.
 - **That day's calendar stands beside the form** while you fill it in, so you can see who is already
-  busy before you choose a time. It appears once you have chosen a date.
+  busy before you choose a time. It appears once you have chosen a date, and its **Calendars** menu
+  turns colleagues and rooms on and off — each in its own column — so you can check one attorney's
+  afternoon or one room's day without leaving the form. What you turn on there is what the calendar
+  screen's own rail shows afterwards; they are one setting.
 - **Repeats** turns one record into a series. Choose how often — every day, week, month or year —
   and how many of them to skip between: every week, every second week, every third. A weekly rule
   falls on the day the event starts unless you pick the days yourself, and can fall on several

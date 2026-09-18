@@ -15,6 +15,7 @@
  * record's own access-gated read. That is the backend's rule, not this module's, and it is why a
  * firm-wide grid paints kinds and the window that opens on a press fetches the one row it needs.
  */
+import { describeTimeZone } from "@magna-carta/design-system/formatters";
 import { viewerTimeZone } from "$lib/dates";
 import { requestJson, type ApiOutcome, type Page } from "$lib/api/request.ts";
 
@@ -654,11 +655,18 @@ export function firmEventAudienceLabel(audience: FirmEventAudience): string {
  * A wall-clock time as it was recorded, in the zone it was recorded for. The zone is shown only
  * when it is not the reader's own: a hearing at nine in the morning two zones away is a different
  * fact from one at nine here, and a reader who shares the zone does not need to be told.
+ *
+ * THE ZONE IS ITS CODE ON THE DAY — "5:00 PM PST" — never the identifier. A chip printed
+ * "(America/Los_Angeles)" beside the hour while the form that recorded it said "PST", which was
+ * one of the four shapes a zone wore on this calendar (owner, 2026-09-18). The code is the display
+ * vocabulary's own (`describeTimeZone`), worked out for the civil day the time is on, because the
+ * same zone is PST in January and PDT in July; a caller with no day gets today's.
  */
 export function formatWallClock(
   time: string | null,
   timeZone: string,
   readerZone: string = readerTimeZone(),
+  on: string | null = null,
 ): string | null {
   if (time === null) return null;
   const parts = time.split(":");
@@ -668,7 +676,10 @@ export function formatWallClock(
   const suffix = hour < 12 ? "AM" : "PM";
   const hour12 = hour % 12 === 0 ? 12 : hour % 12;
   const clock = `${String(hour12)}:${String(minute).padStart(2, "0")} ${suffix}`;
-  return timeZone === readerZone ? clock : `${clock} (${timeZone})`;
+  if (timeZone === readerZone) return clock;
+  // Noon UTC on the civil day: inside that day in every zone, so the code is the day's own.
+  const day = on === null ? new Date() : new Date(`${on}T12:00:00Z`);
+  return `${clock} ${describeTimeZone(timeZone, day).abbreviation}`;
 }
 
 /**

@@ -6,6 +6,11 @@ import { withEditorDiagnostics } from "./diagnostics.ts";
 import { DocumentEditorContainer } from "./document-editor-container.ts";
 import { documentKeyFromHost } from "./document-routing.ts";
 import { withoutEditorLogo } from "./editor-branding.ts";
+import {
+  isStylesheetRequest,
+  stylesheetResponse,
+  withEditorStylesheet,
+} from "./editor-stylesheet.ts";
 import { allowAppFraming, appFrameAncestors } from "./embedding-policy.ts";
 
 // The standalone in-app document editor worker. It owns the DocumentEditorContainer Durable Object
@@ -56,6 +61,10 @@ export default {
     if (isVersionRequest(request)) return versionResponse();
     const key = documentKeyFromHost(request.headers.get("host") ?? "");
     if (key === null) return new Response("Not Found", { status: 404 });
+    // The platform's own stylesheet for the editor page, answered here rather than by the
+    // container: it is the worker's, the page links it on every open, and a container still
+    // starting must not be what decides whether the page's styles arrive (editor-stylesheet.ts).
+    if (isStylesheetRequest(request)) return stylesheetResponse();
     // Everything from here reaches a container, and everything that reaches a container runs under the
     // surface's diagnostics (diagnostics.ts): a throw becomes a 500 with an Error ID and one redacted
     // event, and an upgrade the container declines is recorded with the status the browser cannot see.
@@ -67,11 +76,14 @@ export default {
         // container. coolwsd's own WOPI callbacks do NOT pass through here — they leave the container
         // via outboundByHost straight to the app worker.
         const response = await getContainer(env.DOCUMENT_EDITOR, key).fetch(request);
-        // The two things this worker changes about the container's answer: coolwsd cannot know which
-        // origin frames the editor here, so the app origins are added to the policy it sent
-        // (embedding-policy.ts); and the editor page's logo field is switched off, since this image
-        // offers no setting for it (editor-branding.ts). Both hand an upgrade back untouched.
-        return withoutEditorLogo(allowAppFraming(response, appFrameAncestors(env)));
+        // The three things this worker changes about the container's answer: coolwsd cannot know
+        // which origin frames the editor here, so the app origins are added to the policy it sent
+        // (embedding-policy.ts); the editor page's logo field is switched off, since this image
+        // offers no setting for it (editor-branding.ts); and the platform's stylesheet is linked
+        // into the page (editor-stylesheet.ts). All three hand an upgrade back untouched.
+        return withEditorStylesheet(
+          withoutEditorLogo(allowAppFraming(response, appFrameAncestors(env))),
+        );
       },
     );
   },

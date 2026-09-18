@@ -337,6 +337,7 @@ describe("end-to-end", () => {
         // question is ordinary work, deciding that the firm's privileged content may leave for
         // a third-party model is not.
         "firm:manageAiSettings",
+        "firm:manageEditingPolicy",
         "firm:manageMembers",
         // The firm's notification policy — the in-app floor, retention window and digest hour —
         // reaches Owner/Admin only. Deliberately NOT notifications:read, which every default role

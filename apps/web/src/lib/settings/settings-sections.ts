@@ -450,6 +450,21 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     shipped: true,
   },
   {
+    // The firm's editing policy: whether every document opened in the browser editor records its
+    // changes. Server-backed over GET/PATCH /api/v1/firm/editing-policy — the same policy the WOPI
+    // host reads on every open, so a save here reaches the next document opened. Draft mode, not
+    // instant: switching recording off is the firm deciding its documents stop carrying a record
+    // of who changed what, which is not a change anybody should make by brushing a switch.
+    id: "editing",
+    label: "Editing",
+    href: "/settings/editing",
+    group: "documents",
+    scope: "firm",
+    commitMode: "draft",
+    editPermissionArea: "documents",
+    shipped: true,
+  },
+  {
     // How each kind of file opens: the register the file manager decides the one Open gesture from,
     // rendered as a routing table. Read-only today — every family has one way of opening and the
     // table states it — and a firm section because the ways are the firm's, so that when a family

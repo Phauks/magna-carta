@@ -40,7 +40,8 @@
     "./validation": "./src/validation.ts",
     "./contents-manifest": "./src/contents-manifest.ts",
     "./bundle-manifest": "./src/bundle-manifest.ts",
-    "./scan-policy-settings": "./src/scan-policy-settings.ts"
+    "./scan-policy-settings": "./src/scan-policy-settings.ts",
+    "./editing-policy-settings": "./src/editing-policy-settings.ts"
   },
   "scripts": {
     "test": "vp test run"

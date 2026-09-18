@@ -45,6 +45,7 @@
     MINUTES_IN_HOUR,
     dayHours,
     hourSlots,
+    inAllDayBand,
   } from "./day-axis.ts";
   import {
     DEFAULT_CONCURRENCY,
@@ -53,7 +54,7 @@
     type PlacedTimeEntry,
   } from "./time-placement.ts";
   import { blockStyle, blocksByStartingHour } from "./time-blocks.ts";
-  import { segmentsForDay } from "./day-segments.ts";
+  import { timedEntriesOn } from "./day-segments.ts";
   import type { CalendarGridEntry } from "./types.ts";
 
   let {
@@ -135,30 +136,22 @@
   });
 
   /*
-   * The all-day band reads through the same span placement the month and the old week used, so a
-   * run of days is still drawn across its days and marked at each end. Only entries with NO hour
-   * reach it: a timed entry belongs on the axis, where its hours are the fact worth seeing.
+   * The all-day band reads through the same span placement the month uses, so a run of days is
+   * drawn across its days and marked at each end. What reaches it is what has no hour AND what runs
+   * across days (`inAllDayBand`): a three-day trial is a fact about days, and drawing it as three
+   * full columns on the axis — reaching above and below the working hours the week draws — was
+   * what the owner met on 2026-09-18. Its hours stay on the chip as text.
    */
-  const allDay = $derived(
-    placeEntries(
-      entries.filter((entry) => entry.startMinute === undefined),
-      days[0]!,
-      days[days.length - 1]!,
-    ),
-  );
+  const allDay = $derived(placeEntries(entries.filter(inAllDayBand), days[0]!, days[days.length - 1]!));
 
   /*
-   * Per civil day, the blocks that BEGIN in each drawn hour.
-   *
-   * A timed entry is cut to the day rather than matched to its start date, so a trial that runs
-   * Monday to Wednesday is on all three columns — the start hour to midnight, then the whole
-   * column, then midnight to the end hour. Matching on `entry.date` put it on Monday alone and
-   * left a firm looking at an empty Tuesday it was spending in court.
+   * Per civil day, the blocks that BEGIN in each drawn hour: the entries that start and end on
+   * that day, placed on the axis.
    */
   const blocks = $derived.by(() => {
     const byDay = new Map<string, ReadonlyMap<number, PlacedTimeEntry[]>>();
     for (const day of days) {
-      const timed = segmentsForDay(entries, day).map((segment) => segment.entry);
+      const timed = timedEntriesOn(entries, day);
       byDay.set(
         formatCivilDate(day),
         blocksByStartingHour(placeTimeEntries(timed, axis, concurrency), hours, axis),

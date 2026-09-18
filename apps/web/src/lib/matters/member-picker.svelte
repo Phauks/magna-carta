@@ -111,8 +111,11 @@
 </script>
 
 {#key handedOver}
+  <!-- A re-pick of the chosen member confirms them; the primitive's default deselect would empty
+       the field on the next click outside ($lib/time/matter-picker.svelte says it in full). -->
   <Combobox.Root
     type="single"
+    allowDeselect={false}
     {disabled}
     items={matching.map((member) => ({ value: member.userId, label: member.displayName }))}
     inputValue={searching ? query : selectedName}
