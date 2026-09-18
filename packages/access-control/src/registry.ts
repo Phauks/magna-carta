@@ -177,6 +177,21 @@ export const PERMISSIONS = [
   "communications:read", // read the firm's calls and texts, and one matter's own
   "communications:log", // log a call or a message by hand, file one onto a matter, unfile one
   "communications:reviewUnrouted", // read and work the queue of calls and texts that belong to no matter yet
+  // Meetings — the room a calendar event is held in when it is held in this product. Two keys,
+  // because being in a meeting and deciding that one happens are different capabilities: a firm that
+  // wants everybody able to attend and only its practitioners able to convene says so by granting
+  // one and withholding the other.
+  //
+  // BOTH BIND resource: "firm", and the reason is the one thing to read before copying this pattern
+  // onto a matter-rooted subsystem. A meeting hangs from a calendar event, and half the calendar's
+  // events are FIRM events — a staff meeting, a training session, an office closure — which have no
+  // matter at all. A matter cannot be the tenancy root of a record that need not have one, so the
+  // firm is, exactly as it is for communications:* and custody:*. What that binding decides is which
+  // root the chokepoint resolves, never what a member may reach: a meeting on a matter event is
+  // still read through the visible-matter predicate, so a walled matter's meeting is unreachable
+  // whoever holds these keys.
+  "meetings:join", // join a meeting on an event the member may see, and read who was in the room
+  "meetings:host", // start a meeting on such an event, and end one
   // Document automation — the firm's assembly-template catalogue and the act of assembling a document
   // onto a matter. The catalogue is firm-level and carries no matter data, so templates:* binds
   // resource: "firm"; an assembly is matter-rooted like every other document operation, so

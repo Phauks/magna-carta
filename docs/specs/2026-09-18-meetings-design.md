@@ -123,27 +123,27 @@ closes. The SFU app secret lives only here and in the SFU client; a browser neve
 
 Client → room:
 
-| type          | fields                                                             | room does                                                                                                 |
-| ------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
-| `publish`     | `sessionDescription {type:"offer", sdp}`, `tracks[{trackName, mid, kind}]` | creates the SFU session on first publish, `tracks/new` with `location:"local"`; replies `published`      |
-| `subscribe`   | `tracks[{sessionId, trackName}]`                                   | `tracks/new` with `location:"remote"`; replies `subscribed` carrying the SFU's offer                      |
-| `renegotiate` | `sessionDescription {type:"answer", sdp}`                          | `PUT renegotiate`; replies `renegotiated`                                                                 |
-| `close`       | `mids[]`                                                           | `tracks/close`; replies `closed` (with the SFU's offer when it requires renegotiation)                   |
-| `leave`       | —                                                                  | removes the participant, broadcasts `roster`, closes the socket 1000                                      |
-| `ping`        | —                                                                  | `pong` (the byte-exact pair from `progress/job-progress-protocol.ts`)                                     |
+| type          | fields                                                                     | room does                                                                                           |
+| ------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `publish`     | `sessionDescription {type:"offer", sdp}`, `tracks[{trackName, mid, kind}]` | creates the SFU session on first publish, `tracks/new` with `location:"local"`; replies `published` |
+| `subscribe`   | `tracks[{sessionId, trackName}]`                                           | `tracks/new` with `location:"remote"`; replies `subscribed` carrying the SFU's offer                |
+| `renegotiate` | `sessionDescription {type:"answer", sdp}`                                  | `PUT renegotiate`; replies `renegotiated`                                                           |
+| `close`       | `mids[]`                                                                   | `tracks/close`; replies `closed` (with the SFU's offer when it requires renegotiation)              |
+| `leave`       | —                                                                          | removes the participant, broadcasts `roster`, closes the socket 1000                                |
+| `ping`        | —                                                                          | `pong` (the byte-exact pair from `progress/job-progress-protocol.ts`)                               |
 
 Room → client:
 
-| type           | fields                                                                 |
-| -------------- | ---------------------------------------------------------------------- |
-| `welcome`      | `participantId`, `roster[]`                                            |
-| `published`    | `sessionDescription {type:"answer", sdp}`, `tracks[{trackName, mid}]`  |
-| `subscribed`   | `sessionDescription {type:"offer", sdp}`, `tracks[{sessionId, trackName, mid}]` |
-| `renegotiated` | —                                                                      |
-| `closed`       | `sessionDescription?`                                                  |
+| type           | fields                                                                                        |
+| -------------- | --------------------------------------------------------------------------------------------- |
+| `welcome`      | `participantId`, `roster[]`                                                                   |
+| `published`    | `sessionDescription {type:"answer", sdp}`, `tracks[{trackName, mid}]`                         |
+| `subscribed`   | `sessionDescription {type:"offer", sdp}`, `tracks[{sessionId, trackName, mid}]`               |
+| `renegotiated` | —                                                                                             |
+| `closed`       | `sessionDescription?`                                                                         |
 | `roster`       | `participants[{participantId, userId, displayName, sfuSessionId, tracks[{trackName, kind}]}]` |
-| `ended`        | `endedAt`                                                              |
-| `refused`      | `reason` (a closed vocabulary), then the socket closes 4000            |
+| `ended`        | `endedAt`                                                                                     |
+| `refused`      | `reason` (a closed vocabulary), then the socket closes 4000                                   |
 
 ### The SFU client
 
@@ -168,17 +168,17 @@ precedent). The TURN pair, when present, mints ICE servers at join; when absent 
 
 ## 7. Routes (OpenAPI, chokepoint, `apps/api-worker/src/routes/meetings.ts`)
 
-| method | path                                   | permission      | does                                                                                   |
-| ------ | -------------------------------------- | --------------- | -------------------------------------------------------------------------------------- |
-| POST   | `/api/v1/meetings`                     | `meetings:host` | body `{ eventKind, eventId }`; creates or returns the event's meeting (idempotent)     |
-| GET    | `/api/v1/meetings/{meetingId}`         | `meetings:join` | `MeetingSummary`                                                                       |
-| GET    | `/api/v1/events/{eventId}/meeting`     | `meetings:join` | the matter event's meeting, or 404                                                     |
+| method | path                                        | permission      | does                                                                               |
+| ------ | ------------------------------------------- | --------------- | ---------------------------------------------------------------------------------- |
+| POST   | `/api/v1/meetings`                          | `meetings:host` | body `{ eventKind, eventId }`; creates or returns the event's meeting (idempotent) |
+| GET    | `/api/v1/meetings/{meetingId}`              | `meetings:join` | `MeetingSummary`                                                                   |
+| GET    | `/api/v1/events/{eventId}/meeting`          | `meetings:join` | the matter event's meeting, or 404                                                 |
 | GET    | `/api/v1/firm-events/{firmEventId}/meeting` | `meetings:join` | the firm event's meeting, or 404                                                   |
-| POST   | `/api/v1/meetings/{meetingId}/join`    | `meetings:join` | opens attendance; returns `{ participantId, displayName, iceServers[] }`               |
-| POST   | `/api/v1/meetings/{meetingId}/leave`   | `meetings:join` | closes the caller's attendance                                                          |
-| POST   | `/api/v1/meetings/{meetingId}/end`     | `meetings:host` | ends it; the room broadcasts `ended` and closes every socket                            |
-| GET    | `/api/v1/meetings/{meetingId}/attendance` | `meetings:join` | who was in the room and when                                                        |
-| GET    | `/api/v1/meetings/{meetingId}/socket`  | `meetings:join` | WebSocket upgrade to the room; 426 otherwise; requires an open attendance row          |
+| POST   | `/api/v1/meetings/{meetingId}/join`         | `meetings:join` | opens attendance; returns `{ participantId, displayName, iceServers[] }`           |
+| POST   | `/api/v1/meetings/{meetingId}/leave`        | `meetings:join` | closes the caller's attendance                                                     |
+| POST   | `/api/v1/meetings/{meetingId}/end`          | `meetings:host` | ends it; the room broadcasts `ended` and closes every socket                       |
+| GET    | `/api/v1/meetings/{meetingId}/attendance`   | `meetings:join` | who was in the room and when                                                       |
+| GET    | `/api/v1/meetings/{meetingId}/socket`       | `meetings:join` | WebSocket upgrade to the room; 426 otherwise; requires an open attendance row      |
 
 `MeetingSummary`: `{ id, eventKind, eventId, matterId | null, title, startsOn, startsAtTime | null,
 endsAtTime | null, timeZone, status, startedAt | null, endedAt | null, liveCount, configured }`.

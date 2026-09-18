@@ -273,6 +273,31 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "retain-under-matter",
     note: "who entered a hand-logged call, and when, is that entry's provenance — the reason a member-produced row can be weighed differently from a carrier-produced one",
   },
+  // Meetings. A meeting is a conversation the firm had, so its retention basis is the call log's one
+  // line above: who was in the room is part of what the matter record says happened. The meeting row
+  // names two members — who convened it and who ended it — and the attendance row names one per
+  // stay. None of them is free-standing member data: each is provenance on a record of a gathering,
+  // which is the line communication.member_user_id and communication.logged_by_user_id already sit
+  // on. Nothing anybody said is stored anywhere in the subsystem, so there is no content residue to
+  // report either.
+  {
+    table: "meeting",
+    subjectKey: "created_by_user_id",
+    action: "retain-under-matter",
+    note: "who convened the meeting on a matter is part of what the record says happened",
+  },
+  {
+    table: "meeting",
+    subjectKey: "ended_by_user_id",
+    action: "retain-under-matter",
+    note: "who ended it, and when, is the fact that closes every stay under it",
+  },
+  {
+    table: "meeting_attendance",
+    subjectKey: "user_id",
+    action: "retain-under-matter",
+    note: "who was in the room and for how long is the whole of what an attendance row records",
+  },
   // Document automation — the assembly record is the provenance of a document on a matter file, so it
   // is retained on the same basis as the document itself. Its structured subject is the member who
   // requested the assembly; the absent-field key list it also carries names FIELDS, never values, and

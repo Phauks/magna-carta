@@ -121,6 +121,8 @@ import type {
   MatterTaskExternalLinkId,
   MatterTaskId,
   MatterTypeId,
+  MeetingAttendanceId,
+  MeetingId,
   MemberLocationId,
   MemberRoleId,
   NarrativeTemplateId,
@@ -7713,6 +7715,134 @@ export const calendarEventLink = sqliteTable(
     check(
       "calendar_event_link_continuance_matter_check",
       sql`${table.kind} <> 'continuance_of' OR (${table.fromMatterEventId} IS NOT NULL AND ${table.toMatterEventId} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// The room a calendar event is held in, when it is held here. A meeting BELONGS TO an event and
+// carries nothing of its own: no title, no time, no participant list, because each of those is
+// already the event's and a second copy would be a second answer to the same question. Read the
+// title and the window through the join; what this row adds is the three facts the event cannot
+// supply — that somebody started it, when the first person actually arrived, and when it ended.
+//
+// Authorization is likewise the event's: a matter event is reachable when the member may see the
+// matter, a firm event is firm-visible, and nothing here re-states either rule. That is the whole
+// reason the table splits its parent across two nullable columns rather than inventing a shared
+// event identity — matter_event and firm_event are separate tables with separate visibility, and a
+// column that pointed at "an event" would have to lose one of the two.
+//
+// Nothing anybody said is stored, here or anywhere: media is routed between browsers and never
+// reaches this platform's storage.
+export const meeting = sqliteTable(
+  "meeting",
+  {
+    id: text("id").primaryKey().$type<MeetingId>(), // meeting_ handle
+    // Which of the two parent tables the row hangs from, stored rather than inferred from which
+    // column is filled: a read that has to test two columns to know what it is looking at is a read
+    // every caller writes slightly differently.
+    eventKind: text("event_kind", { enum: ["matter", "firm"] }).notNull(),
+    matterEventId: text("matter_event_id")
+      .$type<MatterEventId>()
+      .references(() => matterEvent.id),
+    firmEventId: text("firm_event_id")
+      .$type<FirmEventId>()
+      .references(() => firmEvent.id),
+    // `scheduled` is a room nobody has walked into yet — the row exists because somebody pressed
+    // Start, which is not the same as somebody being in it. `live` is set by the FIRST join rather
+    // than by the creation, so a host who starts a meeting and is then called away leaves a record
+    // saying exactly that. `ended` is terminal: a meeting that has ended is not restarted, because
+    // the attendance rows under it describe one gathering and a second gathering is a second room.
+    status: text("status", { enum: ["scheduled", "live", "ended"] })
+      .notNull()
+      .default("scheduled"),
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    // When the first person actually arrived, which is not when the row was created and not when the
+    // event was scheduled for. Null until somebody joins.
+    startedAt: text("started_at"), // ISO-8601 instant
+    endedAt: text("ended_at"), // ISO-8601 instant
+    endedByUserId: text("ended_by_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // ONE MEETING PER EVENT, held by the database rather than by the create path. Creating a meeting
+    // is idempotent — two members pressing Start in the same second must end up in the same room,
+    // not in two rooms neither of them can see the other in — and an idempotency that lives only in
+    // a read-then-write is an idempotency that loses the race it exists to settle. Partial on each
+    // column, because exactly one of the two is filled on any row and a plain unique index over a
+    // column that is null on half the table constrains nothing useful.
+    uniqueIndex("meeting_matter_event_unique_index")
+      .on(table.matterEventId)
+      .where(sql`${table.matterEventId} IS NOT NULL`),
+    uniqueIndex("meeting_firm_event_unique_index")
+      .on(table.firmEventId)
+      .where(sql`${table.firmEventId} IS NOT NULL`),
+    check("meeting_event_kind_check", sql`${table.eventKind} IN ('matter', 'firm')`),
+    check("meeting_status_check", sql`${table.status} IN ('scheduled', 'live', 'ended')`),
+    // EXACTLY ONE PARENT, AND THE KIND SAYS WHICH. Both halves in one check on purpose: a row with
+    // two parents is unreadable, and a row whose kind names the column it did not fill is worse —
+    // it reads cleanly and answers the wrong table. The matter_event_participant shape check is the
+    // precedent for the form.
+    check(
+      "meeting_event_shape_check",
+      sql`(${table.eventKind} = 'matter' AND ${table.matterEventId} IS NOT NULL AND ${table.firmEventId} IS NULL)
+        OR (${table.eventKind} = 'firm' AND ${table.firmEventId} IS NOT NULL AND ${table.matterEventId} IS NULL)`,
+    ),
+    // A meeting that has ended says who ended it and when, or neither. Half of that pair is a record
+    // nobody can act on: an end instant with no actor cannot be questioned, and an actor with no
+    // instant cannot be ordered against anything else that happened.
+    check(
+      "meeting_ended_shape_check",
+      sql`(${table.endedAt} IS NULL AND ${table.endedByUserId} IS NULL)
+        OR (${table.endedAt} IS NOT NULL AND ${table.endedByUserId} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// One person's stay in one room: when they arrived and when they left. A ROW PER STAY, never a flag
+// per person — somebody whose connection drops and who dials back in was in the room twice, and a
+// record that collapsed the two would say they were present through a gap they were absent for.
+// That is also what makes the roster countable: who is in the room right now is the rows whose
+// left_at is null, which is a fact about the table rather than a number somebody maintains.
+//
+// The stay is what the record is FOR. Nothing about the media is kept — no track names, no session
+// handles, no bitrate; the signaling state that carries those lives in the room's own transient
+// storage and is deleted when the room empties.
+export const meetingAttendance = sqliteTable(
+  "meeting_attendance",
+  {
+    id: text("id").primaryKey().$type<MeetingAttendanceId>(), // meetingAttendance_ handle
+    meetingId: text("meeting_id")
+      .notNull()
+      .$type<MeetingId>()
+      .references(() => meeting.id),
+    userId: text("user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    joinedAt: text("joined_at").notNull(), // ISO-8601 instant
+    // Null while the person is still in the room. Ending the meeting closes every open row at one
+    // instant, so a member who never pressed Leave still has a left_at rather than a stay that runs
+    // forever.
+    leftAt: text("left_at"), // ISO-8601 instant
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // "Was this member in this meeting, and is their stay still open" — the read the join path makes
+    // before it opens another row, keyed on the member first so it also answers the leave path.
+    index("meeting_attendance_meeting_user_index").on(table.meetingId, table.userId),
+    // The roster and the participant count: the open rows of one meeting, filtered before anything
+    // is read off them.
+    index("meeting_attendance_meeting_left_at_index").on(table.meetingId, table.leftAt),
+    check(
+      "meeting_attendance_span_check",
+      sql`${table.leftAt} IS NULL OR ${table.leftAt} >= ${table.joinedAt}`,
     ),
   ],
 );

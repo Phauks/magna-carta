@@ -270,6 +270,10 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "matterAssets:manage",
         "matterAssets:read",
         "matters:create",
+        // Meetings follow the call log: a paralegal convenes the settlement conference and is in it,
+        // so this seat carries both keys, where Billing joins and does not host.
+        "meetings:host",
+        "meetings:join",
         // A paralegal writes the note about the call they took, so this role carries both note keys.
         // Deleting rides notes:write rather than taking a key of its own: a member trusted to write
         // the firm's record of a case is trusted to remove what should not be in it. Billing and
@@ -352,6 +356,10 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "firm:scanFile",
         "intake:read",
         "intake:record",
+        // Being in the meeting about an unpaid invoice is ordinary work for this seat, on the same
+        // line communications:read sits on directly above. Convening one is not, so meetings:host
+        // is absent — the pair matches the read/log split exactly.
+        "meetings:join",
         "notifications:read",
         "search:matter",
         "support:request",

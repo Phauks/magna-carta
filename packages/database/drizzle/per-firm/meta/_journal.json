@@ -120,6 +120,20 @@
       "when": 1789560000000,
       "tag": "20260916T120000_download-register-admits-every-download",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1789756101207,
+      "tag": "20260918T182821_meetings-hang-from-a-calendar-event",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1789756102000,
+      "tag": "20260918T182822_seed-meetings-permissions",
+      "breakpoints": true
     }
   ]
 }
