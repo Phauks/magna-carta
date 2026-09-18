@@ -71,8 +71,12 @@ const FATAL_REFUSAL_REASONS = new Set(["not-a-participant", "meeting-ended"]);
 
 /**
  * The refusals that mean the tracks just asked for are not coming: the unit could not be reached, or
- * it does not know a track under the name it was asked for. Those tracks stop counting as pulled, so
- * the next roster asks for them again rather than waiting on media that was never sent.
+ * the room does not hold a track under the name it was asked for. Those tracks stop counting as
+ * pulled, so the next roster asks for them again rather than waiting on media that was never sent.
+ *
+ * The room's other refusals are deliberately NOT here. A name refused as somebody else's, and a
+ * track the room will not carry, are both about what THIS browser tried to publish — un-marking a
+ * subscription over either would ask again for something nobody refused.
  */
 const REFUSALS_THAT_LOSE_A_SUBSCRIPTION = new Set(["sfu-unavailable", "unknown-track"]);
 
@@ -260,10 +264,17 @@ export function refusalStatement(refusal: MeetingRefusal): string {
     case "sfu-unavailable":
       return "The service that carries the pictures and sound could not be reached. What was asked for will be asked for again.";
     case "unknown-track":
-    case "foreign-track-name":
       return "Somebody's picture or sound was asked for under a name the room no longer holds. It will be asked for again.";
+    case "foreign-track-name":
+      // A publish under a name that is not this browser's own. Nothing the member did causes it and
+      // nothing they can do fixes it, so the sentence says what is missing and the Error ID beside
+      // it is what carries the rest.
+      return "Something this page offered the room was named wrongly, so it is not being sent. Nobody else can see or hear it.";
+    case "track-limit-reached":
+      return "The room will not carry any more from one person, so this was not added. Stopping a screen share makes room for it.";
     case "malformed-frame":
     case "frame-too-large":
+    case "binary-unsupported":
     case "unknown-frame":
       return "The room did not understand something this page sent, and ignored it.";
     default:

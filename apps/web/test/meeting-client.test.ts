@@ -17,7 +17,12 @@
  * describe itself fails its step instead of sending an answer labelled as an offer.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MeetingClient, type MeetingClientSeams } from "$lib/meetings/meeting-client.svelte.ts";
+import {
+  MeetingClient,
+  refusalStatement,
+  type MeetingClientSeams,
+} from "$lib/meetings/meeting-client.svelte.ts";
+import { meetingTiles, sharedScreenTile } from "$lib/meetings/meeting-tiles.ts";
 import { leaveMeetingOnDeparture } from "$lib/api/departure-write.ts";
 
 /** Lets every queued negotiation step settle; each one is a handful of microtasks deep. */
@@ -573,6 +578,52 @@ describe("what the room refuses", () => {
 
     socket.deliver(rosterOf("session_2", HER_TRACKS));
     expect(socket.framesOfType("subscribe")).toHaveLength(2);
+  });
+
+  it("survives a refusal about what this browser published, and says what it cost", () => {
+    for (const reason of ["foreign-track-name", "track-limit-reached"]) {
+      const { client, socket } = harness();
+      socket.deliver({ v: 1, type: "refused", reason });
+
+      expect(client.state).toBe("live");
+      expect(client.lastRefusal?.reason).toBe(reason);
+      // Its own sentence, not the catch-all: each of these says what is not being sent, which is
+      // the one thing the member can act on.
+      const statement = refusalStatement({ reason, errorId: null });
+      expect(statement).not.toBe(refusalStatement({ reason: "something-else", errorId: null }));
+      expect(statement).toMatch(/\.$/u);
+    }
+  });
+
+  it("does not ask again for somebody else's tracks over a refusal about its own", () => {
+    const { socket } = harness();
+    socket.deliver(rosterOf("session_2", HER_TRACKS));
+    expect(socket.framesOfType("subscribe")).toHaveLength(1);
+
+    socket.deliver({ v: 1, type: "refused", reason: "track-limit-reached" });
+    socket.deliver(rosterOf("session_2", HER_TRACKS));
+
+    expect(socket.framesOfType("subscribe")).toHaveLength(1);
+  });
+});
+
+describe("a participant whose media has gone quiet", () => {
+  it("keeps their tile, with nothing in it, rather than taking the grid down", async () => {
+    const { client, socket } = harness();
+    socket.deliver(rosterOf("session_2", HER_TRACKS));
+    socket.deliver(subscribedFrame("session_2"));
+    await settle();
+    expect(client.remoteStreams.has("attendance_2")).toBe(true);
+
+    // The room keeps a dropped participant on the roster for about a minute, so this is the
+    // ordinary shape of somebody whose connection went away: still named, nothing arriving.
+    socket.deliver(rosterOf(null, []));
+
+    const tiles = meetingTiles(client, "You");
+    const hers = tiles.find((tile) => tile.key === "attendance_2");
+    expect(hers?.stream).toBeNull();
+    expect(hers?.microphoneOff).toBe(true);
+    expect(sharedScreenTile(client, "You")).toBeNull();
   });
 });
 

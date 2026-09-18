@@ -50,6 +50,22 @@ many people are already in the room. Press it and you are in.
 A meeting holds twelve people. The thirteenth is told the room is full rather than being let in
 halfway.
 
+## The Meetings page
+
+**Meetings**, under Communications in the sidebar, is the other way in — for when you know there is a
+meeting and would rather not go looking for the event it belongs to. It has three parts:
+
+- **Live now** — the meetings running at this moment, with how many people are in each room. **Join**
+  takes you straight in; there is no second step.
+- **Upcoming** — the meetings already opened on events today or later, with the day and time of the
+  event they belong to, in that event's own time zone. **Join** works here too, so you can be first
+  into a room rather than waiting for somebody else to arrive.
+- **Recently ended** — what finished in the last thirty days, with when it ended and a way back to
+  the event, where the attendance record is.
+
+Each row names the event and says whether it belongs to a firm event or to a matter; where it is a
+matter, the row links back to it.
+
 ## While you are in the meeting
 
 Everybody in the room has a tile of their own, with your own picture pinned so you can see what you

@@ -276,7 +276,7 @@
 <svelte:window onpagehide={departOnUnload} onbeforeunload={departOnUnload} />
 
 <div class="flex h-full min-h-0 flex-col gap-16">
-  <ScreenHeader {title}>
+  <ScreenHeader {title} back="meetings">
     {#snippet meta()}
       {#if summary !== null}
         <span>{formatDate(summary.startsOn)}</span>
