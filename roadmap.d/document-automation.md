@@ -10,11 +10,11 @@
   status: partial
   slices: 2-6-document-automation
   adrs: ADR-0011, ADR-0210, ADR-0211, ADR-0218
-  evidence: Build slices 2-6-1, 2-6-2, 2-6-5 and the first half of 2-6-3 shipped — packages/document-assembly, five per-firm tables (document_template, document_template_version, document_template_field_binding, document_template_field_mapping, document_assembly), the templates/assemblies routes, the DocumentAssemblyJob queue consumer, the template expression language behind conditionals, repeats and computed fields, the generated merge-field catalogue and its contract, and the PDF output arm. The authoring surfaces (2-6-4) and the signing ceremony are what remain unbuilt.
+  evidence: Build slices 2-6-1, 2-6-2, 2-6-5 and the first half of 2-6-3 shipped — packages/document-assembly, five per-firm tables (document_template, document_template_version, document_template_field_binding, document_template_field_mapping, document_assembly), the templates/assemblies routes, the DocumentAssemblyJob queue consumer, the template expression language behind conditionals, repeats and computed fields, the generated merge-field catalogue and its contract, and the PDF output arm. The template library at /documents is the first of the 2-6-4 surfaces; the field inspector, browser authoring and the signing ceremony remain unbuilt.
   audience: public
   public-name: Documents built from your templates
   public-summary: Build a document from your own template and the matter's data, including the clauses that only apply in some cases.
-  notes: A firm can register a .docx template and assemble it onto a matter today; the output is filed through the existing ingest chokepoint. One browser surface exists and no node below claims it — a field-input scaffold under the app's forms section, over apps/web/src/lib/document-assembly/ and the design system's merge-field picker, chip and review list. Its interaction shape is real; its data is not, since every template, field and proposal comes from an in-repo fixture catalog through a mock provider, and choosing Assemble reports the collected values rather than starting a job. The submit route is not the gap — it exists; what the surface lacks is a matter to submit against and a catalog read from the server.
+  notes: The template library is a screen (see document-automation.template-library), so a firm registers a template and adds it to matters from the browser; the output is filed through the existing ingest chokepoint. A second browser surface predates it and no node claims it — a field-input scaffold under the app's forms section, over apps/web/src/lib/document-assembly/ and the design system's merge-field picker, chip and review list. Its interaction shape is real; its data is not, since every template, field and proposal comes from an in-repo fixture catalog through a mock provider, and choosing Assemble reports the collected values rather than starting a job.
 
 - id: document-automation.conditional-assembly
   name: Conditional document assembly
@@ -30,10 +30,22 @@
   name: DOCX template authoring
   scope: Templates authored as .docx for formatting control, bound to the data dictionary.
   status: partial
-  surface: awaiting-screen
+  surface: screen
   adrs: ADR-0211
   evidence: document_template plus an immutable document_template_version, a registration pipeline that strips macros, normalizes run-split placeholders, scrubs, and re-verifies, and the nine catalogue routes in apps/api-worker/src/routes/templates.ts (upload, register, add a version, list, field list, archive, the merge-field dictionary, and the mapping library's list and delete) beside the two assembly routes. Authoring in the browser is slice 2-6-4; BINDING a content control is still a named seam, though an unfilled one is now detected and reported.
-  notes: Word MERGEFIELD conversion is detected always and applied only on explicit opt-in. The two constructs nothing binds — legacy Word form fields, and content controls showing a placeholder or bound to the template's own data — are reported on their own manifest lists at registration, in the field list, on a refusal, and by every assembly, which lands on succeeded_with_absences.
+  notes: Registration, versions aside, is a screen — the New Template panel on /documents presigns, uploads and registers a .docx or a fillable PDF and renders the report as findings; adding a version and authoring in the browser are still API-only. Word MERGEFIELD conversion is detected always and applied only on explicit opt-in. The two constructs nothing binds — legacy Word form fields, and content controls showing a placeholder or bound to the template's own data — are reported on their own manifest lists at registration, in the field list, on a refusal, and by every assembly, which lands on succeeded_with_absences.
+
+- id: document-automation.template-library
+  name: Template library
+  scope: The Documents destination — the firm's template catalogue on the one table, registering a template from the browser, adding one template to several matters at once, and archiving.
+  status: partial
+  surface: screen
+  slices: 2-6-document-automation
+  evidence: apps/web/src/routes/(app)/documents over apps/web/src/lib/templates/ (template-columns.ts, register-template.ts, add-to-matters.ts and the register, New Template and Add to Matters surfaces), through the generated client; the documents destination flipped to shipped at alpha in apps/web/src/lib/navigation/destinations.ts.
+  audience: public
+  public-name: The firm's template library
+  public-summary: Every template the firm has registered in one place, with a way to register another and to add one to several matters in one go.
+  notes: Standing is derived from the listing's status and current-version handle rather than served. What is partial is the rest of the authoring seam — the field inspector over a version's manifest, adding a version to an existing template, and the mapping library's screen — which stay API-only.
 
 - id: document-automation.data-dictionary
   name: Data dictionary
