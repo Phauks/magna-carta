@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-18
 **Scope:** Whether a `.docx` open by a single member should be edited locally in the browser instead of in a Collabora container, escalating to the container only when a second editor arrives — what it would save in cost and open latency, what it would cost in fidelity, security posture and licensing, and how the escalation would work over the Durable Object that already coordinates every document.
-**Owner ruling, 2026-09-18:** "Let's stick to Collabora for now." The local-first option is **declined for now** — not rejected on the merits, and this note stays as the record so the question is not re-derived from scratch. ADR-0010 stands unamended. What survives the ruling is the pair of container changes in section 7 that never depended on it: right-sizing the instance to ~2.5 GiB and raising `max_instances` before a tenth concurrent document finds it.
+**Owner ruling, 2026-09-18:** "Let's stick to Collabora for now." The local-first option is **declined for now** — not rejected on the merits, and this note stays as the record so the question is not re-derived from scratch. ADR-0010 stands unamended. What survives the ruling is section 2a: the instance cap is removed, and the size stays at `standard-1` until the open-document peak is measured — the "~2.5 GiB" target that stood in the configuration was not a size the platform can express.
 **Purpose:** Research, prompted by the owner ("if this would increase response time, reduce costs, I would consider it"). **This is research, not a spec and not a decision.** Nothing here is built. ADR-0010 (Collabora as the editor host), ADR-0125 (topology, WOPI, auth) and ADR-0126 (concurrency and reconciliation) stand; section 6 names the one posture in ADR-0125 this would amend.
 **Companion:** [`2026-09-18-claude-docs-and-word-assessment.md`](2026-09-18-claude-docs-and-word-assessment.md) — the tracked-change AI edit path, which a local editor would also carry.
 **White-paper context:** _Documents_, _Delivery model_, _Performance & concurrency model_ — binding, not restated.
@@ -40,6 +40,36 @@ Read from `apps/edit-worker/wrangler.jsonc`, `apps/edit-worker/src/document-edit
 **Per document-hour.** Memory 4 GiB × 3,600 s × $0.0000025 = **$0.036**; disk 8 GB × 3,600 × $0.00000007 = $0.002; CPU at a light 10% of ½ vCPU ≈ $0.004. **≈ $0.04 per document-hour**, plus ≈ $0.003 for the five-minute tail after every close. The included allowance covers about six document-hours a month.
 
 **Worked at a plausible firm.** Ten attorneys, three hours a day in documents, twenty-two days: 660 document-hours ≈ **$26 a month, ≈ $2.60 per user**. A hundred such firms ≈ $2,600 a month. Right-sizing to 2.5 GiB takes roughly 40% off. None of this is ruinous; the ceiling is the sharper fact, because a multi-tenant platform whose concurrency limit is set by memory reserved per open document has a scaling curve that bends the wrong way, and the single-editor case — a paralegal drafting alone, which is most opens — pays the full reservation.
+
+### 2a. What the right size is, and what would identify it
+
+Written after the owner asked for the identification and the arithmetic behind "right-size to ~2.5 GiB". The honest opening is a correction: **that figure was not calculated here.** It is the target `wrangler.jsonc` named, and the "~40%" in section 7 was (4 − 2.5) / 4 on the memory line. Read properly, three things are true.
+
+**The one measurement on record is unsourced.** The "1.16 GiB idle floor" entered `wrangler.jsonc` on 2026-09-11 (#599) as a comment. The slice 2·2 implementation plan's Step 3 — "Measure and record in the README: coolwsd RSS — idle baseline, +1 doc, +Nth doc, a heavy doc" — is unchecked, and `containers/collabora/` has no README. Whether 1.16 GiB was taken with the image's default of four prespawned kits or with the one the Dockerfile now sets is unrecorded. It is a plausible floor for coolwsd, forkit and one kit with LibreOffice core mapped, and nothing more can be said of it.
+
+**The number that decides the size has never been measured.** The size is set by the _peak_, not the floor: one document loaded into the kit, N editors on it, a save, and a PDF export, which is where LibreOffice's memory spikes. The failure mode makes the peak the whole question — a container that exceeds its memory is **restarted, with no swap**, so every keystroke since the last autosave is lost and the member is dropped into the successor-instance takeover (#646). Collabora's own guidance sizes a shared server at ~50 MB per user over a ~1 GiB base and ~2 GB per ~20 open documents; it also warns that a large spreadsheet "will spike memory well past typical recommendations". Here a container serves one document, so the kit's document delta and the export spike are the whole variable.
+
+**The menu is shorter than the comment assumed.** Cloudflare's predefined types are `lite` (1/16 vCPU, 256 MiB), `basic` (¼ vCPU, 1 GiB), `standard-1` (½ vCPU, 4 GiB), `standard-2` (1 vCPU, 6 GiB), `standard-3`, `standard-4`. A custom type must have **at least 1 vCPU and at least 3 GiB per vCPU**, at most 4 vCPU and 12 GiB. So:
+
+| Option                     | vCPU | Memory | Memory line, per document-hour | Verdict                                                                                                  |
+| -------------------------- | ---- | ------ | ------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `basic`                    | ¼    | 1 GiB  | $0.009                         | Under the quoted idle floor — would not boot                                                             |
+| **custom, floor**          | 1    | 3 GiB  | **$0.027**                     | The only smaller-memory configuration that exists; the "~2.5 GiB" target cannot be expressed             |
+| **`standard-1` (today)**   | ½    | 4 GiB  | **$0.036**                     | Current                                                                                                  |
+| `standard-2`               | 1    | 6 GiB  | $0.054                         | The step up if a heavy-document peak demands it                                                          |
+
+Memory is billed on the _provisioned_ size and CPU on _active_ use, so the full vCPU of the custom type costs nothing extra while idle and finishes a layout pass sooner when busy. Disk (8 GB today) is $0.002 an hour and the export spike in CPU is the same seconds either way. The saving from `standard-1` to the custom floor is therefore **$0.009 per document-hour — a quarter of the memory line, not 40%** — about $6 a month on the ten-attorney firm of section 2.
+
+**What would identify the right size, in order.**
+
+1. **Measure the peak on the real image against the real WOPI host** — the plan's unchecked Step 3, done properly: cgroup `memory.peak` or `docker stats` on the same image, over the load-profile fixtures plus a deliberately heavy `.docx` (a couple of hundred pages with images) and a large `.xlsx`, with one editor and with five, through open → edit → save → PDF export → thirty minutes idle. Record p50 and p99 of the peak, per scenario.
+2. **Pick the smallest allowed type whose limit sits at ~1.4× the p99 peak.** LibreOffice's memory is spiky, there is no swap, and the cost of a miss is a lost session. If the p99 of a normal `.docx` session lands near 2 GiB, the custom floor at 3 GiB qualifies and `standard-1` is generous; if a heavy document or a spreadsheet reaches 2.5 GiB, `standard-1` is the floor and `standard-2` is the heavy-document type.
+3. **Force one OOM and watch the recovery** — that the successor instance takes over the stale lock, reloads from `current`, and the member sees a notice rather than a blank frame. The size is only as safe as that path.
+4. **Only then change the type**, and the reason to try the custom floor is responsiveness — a full vCPU for layout and tile rendering — more than the nine-tenths of a cent.
+
+Back of the envelope, labelled as such: floor 1.16 GiB + a median `.docx` in the kit (0.1–0.3 GiB) + five editors (~0.25 GiB) + an export spike (0.3–0.5 GiB) ≈ **1.8–2.2 GiB** for an ordinary session, which the custom floor would hold at ~65–75% and `standard-1` at ~50%; a heavy document or a large workbook adds a gigabyte or more and puts the custom floor at the edge. That envelope is an argument for measuring, not for changing anything — which is why section 7's "do it regardless" is withdrawn below and `standard-1` stays until the number exists.
+
+**The instance cap is a separate matter and is gone.** `max_instances: 10` was removed on the owner's ruling of 2026-09-18: a fixed per-class cap is a cliff a growing fleet walks off, and six of the eight container workers already run without one. The bound is the account's 6 TiB / 1,500 vCPU concurrent limit, and the Host-label check keeps an invented label from booting a container.
 
 **Latency.** A local open is bounded by the bytes (a `.docx` is usually well under a megabyte) and a parse; SuperDoc's V2 "reads progressively" and "renders bounded windows". A container open is the platform cold start, coolwsd's boot, the image, the WOPI handshake and the load. The repository has no measured first-open figure; the spike (section 9 of the slice 2·2 design) measured the idle floor and could not load a document. The spike in section 7 below measures both on the same document.
 
@@ -162,7 +192,7 @@ The per-document `DocumentSession` Durable Object stays the single authority. `f
 2. **If it passes: option B behind `getEditorBackend`, `.docx` only, with escalation** — the `local` state, the save route, the flush protocol over the presence channel, the amendment ADR for the posture, and the identity-mapping fitness function. This is the step where the container leaves the single-editor path.
 3. **Measure, then decide option C on the numbers** — whether co-editing itself leaves the container.
 
-**Independently and regardless:** right-size the container to ~2.5 GiB as `wrangler.jsonc` already intends, which is ~40% of the cost for a config change, and raise `max_instances` before a tenth concurrent document finds it.
+**Independently — revised the same day, see section 2a.** The "right-size to ~2.5 GiB, ~40% off" line that stood here was wrong twice: the platform cannot configure a 2.5 GiB instance (a custom type needs ≥ 1 vCPU and ≥ 3 GiB per vCPU), and the only smaller option saves a quarter of the memory line, not 40%. `standard-1` stays until the open-document peak is measured. `max_instances` is removed on the owner's ruling, not raised.
 
 **Not to do.** Pool containers to save the cost instead (the red flag stands, and the isolation argument has not changed). De-escalate mid-session. Ship local editing on the strength of a demo rather than the harness.
 
@@ -180,6 +210,9 @@ The per-document `DocumentSession` Durable Object stays the single authority. `f
 ## 9. Sources
 
 - [Cloudflare Containers — Pricing](https://developers.cloudflare.com/containers/pricing/) — instance sizes, per-second rates, the included allowance, memory and disk billed on provisioned size and CPU on active use (section 2).
+- [Cloudflare Containers — Limits](https://developers.cloudflare.com/containers/platform-details/limits/) and [Custom container instance types (changelog, 2026-01-05)](https://developers.cloudflare.com/changelog/post/2026-01-05-custom-instance-types/) — the predefined types, the custom-type floor of 1 vCPU and 3 GiB per vCPU, the account concurrency limits (section 2a).
+- [Cloudflare Containers — FAQ](https://developers.cloudflare.com/containers/faq/) — out-of-memory restarts the instance; no swap (section 2a).
+- [Collabora Online — FAQs](https://www.collaboraonline.com/faqs/) and [System requirements for Collabora Online — Nextcloud community](https://help.nextcloud.com/t/system-requirements-for-collabora-online/30694) — the per-user and per-document sizing guidance (section 2a).
 - [SuperDoc — How SuperDoc works](https://docs.superdoc.dev/resources/how-superdoc-works/) — the V2 OOXML-backed model, headless surfaces, `doc.capabilities()` (section 4).
 - [SuperDoc — Self-hosted collaboration](https://docs.superdoc.dev/guides/collaboration/self-hosted-overview) — the provider-agnostic Yjs layer (sections 3 and 4).
 - [SuperDoc — Licensing](https://docs.superdoc.dev/resources/license/) — AGPLv3 and the commercial licence (section 4).

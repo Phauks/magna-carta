@@ -2,7 +2,7 @@
 worktree: (none — this stream runs in a remote session checkout)
 area: Research only — assessment of Anthropic's Claude Docs and Claude for Word against the built documents-and-automation subsystem
 status: review
-touches: docs/research/
+touches: docs/research/, apps/edit-worker/wrangler.jsonc, changelog.d/
 ---
 
 Adds two research notes and nothing else. The first,
