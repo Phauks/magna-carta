@@ -807,7 +807,7 @@
         }
       },
       "branch": "claude/festive-planck-79z60m",
-      "activeWork": "docs/active-work/claude/festive-planck-79z60m.md",
+      "activeWork": null,
       "next": "The field inspector and browser authoring (2·6·4) now that the template library is a screen; the signing ceremony surface (the rest of the 2·6·3 remainder, sequenced against slice 2·5), a location time-zone column behind timeZoneForLocation, a firm currency setting behind ResolutionInput.currencyCode, the office-settings UI for the letterhead logo, and the owner decision on whether a filled form files flattened or interactive.",
       "links": {
         "spec": "docs/specs/2026-08-04-template-expression-language-design.md",

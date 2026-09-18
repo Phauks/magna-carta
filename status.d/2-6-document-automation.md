@@ -10,7 +10,7 @@ ui: in-progress
 load-profile: done by="Opus 4.8"
 tested: done by="Opus 4.8"
 branch: claude/festive-planck-79z60m
-active-work: docs/active-work/claude/festive-planck-79z60m.md
+active-work:
 next: The field inspector and browser authoring (2·6·4) now that the template library is a screen; the signing ceremony surface (the rest of the 2·6·3 remainder, sequenced against slice 2·5), a location time-zone column behind timeZoneForLocation, a firm currency setting behind ResolutionInput.currencyCode, the office-settings UI for the letterhead logo, and the owner decision on whether a filled form files flattened or interactive.
 link-spec: docs/specs/2026-08-04-template-expression-language-design.md
 link-plan: docs/specs/2026-08-04-document-automation-implementation-plan.md
