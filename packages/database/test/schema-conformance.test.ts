@@ -154,7 +154,11 @@ describe("schema conformance (fitness functions)", () => {
     // it does not; the pair IS the attachment, and a handle would let one file attach to the same
     // conversation twice, which is the one state the per-file outcome the composer reports could not
     // then reconcile.
+    // file_version_participant is the many-to-many join between a version and the members who were
+    // in the editing session when it was cut — the pair (version_id, member_user_id) is the natural
+    // key, same idiom as directory_entity_category; no handle is warranted.
     const compositeKeyTables = new Set([
+      "file_version_participant",
       "ai_search_feed_object",
       "magnus_conversation_attachment",
       "storage_meter",

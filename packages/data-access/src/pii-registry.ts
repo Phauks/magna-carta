@@ -116,6 +116,11 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // chain-of-custody a firm can be asked to account for, and removing the row would break the
   // version lineage the current-version pointer walks.
   { table: "file_version", subjectKey: "uploaded_by", action: "pseudonymize-keep" },
+  // Who was in the editing session when a version was cut, on the same terms as uploaded_by: the
+  // reference outlives the member row by design (no foreign key to member), and the row is
+  // chain-of-custody — that SOMEBODY was in the document at this time — so it is pseudonymized,
+  // never deleted.
+  { table: "file_version_participant", subjectKey: "member_user_id", action: "pseudonymize-keep" },
   { table: "entity_merge", subjectKey: "subordinate_id", action: "pseudonymize-keep" },
   // The conflicts log — append-only compliance records whose RAISE(ABORT) triggers forbid deletion, so
   // the subject reference is pseudonymized in place and the row is never removed (the same discipline as

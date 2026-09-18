@@ -260,7 +260,8 @@ describe("WOPI host surface", () => {
 
     const cut = await versions();
     expect(cut.map((row) => row.kind)).toEqual([null, "explicit", "autosave", "exit"]);
-    for (const row of cut.slice(1)) expect(row.participants).toEqual([MEMBER, "user_reader"]);
+    for (const row of cut.slice(1))
+      expect(row.participants).toEqual([MEMBER, "user_reader"].sort());
     const file = await firmDb
       .prepare("SELECT current_version_id AS currentVersionId FROM file WHERE id = ?1")
       .bind(fileId)

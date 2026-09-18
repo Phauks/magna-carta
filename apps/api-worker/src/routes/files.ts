@@ -1277,7 +1277,10 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
             contentSha256: version.contentSha256,
             committedAt: version.committedAt,
             saveKind: version.saveKind,
-            participants: version.participants,
+            participants: version.participants.map((participant) => ({
+              userId: participant.userId,
+              name: participant.name,
+            })),
             uploadedBy: version.uploadedBy,
             uploadedByName: version.uploadedByName,
             scanVerdict: version.scanVerdict,
