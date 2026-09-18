@@ -21,20 +21,28 @@ ENV DONT_GEN_SSL_CERT="true"
 #   ssl.enable=false / ssl.termination=true — coolwsd speaks http behind the edge TLS terminator.
 #   num_prespawn_children=1 — one container serves one document, so one kit (shrinks the memory floor;
 #                             the shipped coolwsd.xml default is 4).
-#   security.capabilities=false — run without the chroot-jail Linux capabilities that Cloudflare
-#                                 Containers do not grant (the kit uses a plain process boundary).
-#                                 This is the line the editor's server audit reports as "Documents
-#                                 are not effectively contained: missing capabilities or
-#                                 namespaces": coolwsd chroots a document's kit only with those
-#                                 capabilities, and with them off it also refuses to try Linux user
-#                                 namespaces instead (wsd/COOLWSD.cpp: "MountNamespaces is not
-#                                 compatible with NoCapsForKit"), so the audit line is the stated
-#                                 consequence of this setting, not a fault beside it. Every document
-#                                 still runs in its own container with no egress, which is the
-#                                 boundary this platform relies on. Turning the setting on is an
-#                                 experiment with one outcome that stops every open: coolforkit
-#                                 exits at startup when it holds neither the file capabilities nor
-#                                 a working namespace, so it wants a deploy somebody is watching.
+#   security.capabilities — LEFT AT THE IMAGE'S DEFAULT (true) since 2026-09-19, as an experiment the
+#                           owner asked for. Until then it was set false, on the assumption that
+#                           Cloudflare Containers grant none of the chroot-jail capabilities, and
+#                           that setting was the line the editor's server audit reported as
+#                           "Documents are not effectively contained: missing capabilities or
+#                           namespaces": coolwsd chroots a document's kit only with those
+#                           capabilities, and with them off it also refuses to try Linux user
+#                           namespaces instead (wsd/COOLWSD.cpp: "MountNamespaces is not compatible
+#                           with NoCapsForKit"). With the setting on, coolwsd first tries a user +
+#                           mount namespace (no capability needed, if the runtime allows unprivileged
+#                           namespaces), and failing that the kit needs the file capabilities the
+#                           image sets on coolforkit (CAP_SYS_CHROOT, CAP_MKNOD, CAP_FOWNER), which
+#                           a Docker-default bounding set carries. Two outcomes, read from the
+#                           audit and the container log after the deploy:
+#                             - the audit's containment line clears, and "Using Mount Namespaces"
+#                               or the capability check passing is in the log: keep it.
+#                             - no document opens, and the log says "Capabilities are not set for
+#                               the coolforkit program": the runtime grants neither, so restore
+#                               `--o:security.capabilities=false` to extra_params (first, before
+#                               ssl.enable, and the audit line returns as the stated consequence).
+#                           Every document runs in its own container with no egress either way,
+#                           which is the boundary this platform relies on.
 #   mount_jail_tree=false — the kit's files are linked or copied into its jail rather than
 #                           bind-mounted. Bind-mounting needs CAP_SYS_ADMIN, which the container
 #                           does not have; left on, coolwsd tries the mount, fails, falls back to
@@ -75,7 +83,7 @@ ENV DONT_GEN_SSL_CERT="true"
 #   unquoted, and it stays literal because no file in the entrypoint's working directory can match a
 #   word of that shape. Quoting the expansion in this file is not an option — the entrypoint is the
 #   image's, not ours.
-ENV extra_params="--o:ssl.enable=false --o:ssl.termination=true --o:num_prespawn_children=1 --o:security.capabilities=false --o:mount_jail_tree=false --o:storage.wopi.alias_groups[@mode]=groups --o:storage.wopi.alias_groups.group[0].host=http://wopi.magna-carta.internal:80 --o:storage.wopi.alias_groups.group[0].host[@allow]=true --o:home_mode.enable=true --o:welcome.enable=false --o:admin_console.username= --o:admin_console.password="
+ENV extra_params="--o:ssl.enable=false --o:ssl.termination=true --o:num_prespawn_children=1 --o:mount_jail_tree=false --o:storage.wopi.alias_groups[@mode]=groups --o:storage.wopi.alias_groups.group[0].host=http://wopi.magna-carta.internal:80 --o:storage.wopi.alias_groups.group[0].host[@allow]=true --o:home_mode.enable=true --o:welcome.enable=false --o:admin_console.username= --o:admin_console.password="
 
 # coolwsd's HTTP + WebSocket port — matches DocumentEditorContainer.defaultPort. The image's own
 # entrypoint (which generates the TLS material when asked to, maps the container's user id, and execs
