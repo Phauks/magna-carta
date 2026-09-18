@@ -57,12 +57,21 @@ interface ShelfItem {
   readonly state: string;
 }
 
-async function readShelf(cookie: string): Promise<ShelfItem[]> {
-  const response = await SELF.fetch("https://example.com/api/v1/downloads", {
+interface ShelfPage {
+  readonly data: ShelfItem[];
+  readonly nextCursor: string | null;
+}
+
+async function readShelfPage(cookie: string, query = ""): Promise<ShelfPage> {
+  const response = await SELF.fetch(`https://example.com/api/v1/downloads${query}`, {
     headers: { cookie },
   });
   expect(response.status).toBe(200);
-  return ((await response.json()) as { items: ShelfItem[] }).items;
+  return (await response.json()) as ShelfPage;
+}
+
+async function readShelf(cookie: string): Promise<ShelfItem[]> {
+  return (await readShelfPage(cookie)).data;
 }
 
 beforeAll(async () => {
@@ -183,6 +192,58 @@ describe("the download register", () => {
     });
     expect(response.status).toBe(422);
     expect(response.headers.get("content-type")).toContain("application/problem+json");
+  });
+
+  it("answers the house paged envelope, and the cursor is null on the last page", async () => {
+    const cookie = await shelfCookie("shelf-pager@example.com", "Shelf Pager");
+    const titles = Array.from({ length: 3 }, (unused, index) => `Paged Report ${String(index)}`);
+    for (const title of titles) await keepSnapshot(cookie, title);
+
+    // `data` and `nextCursor`, not an array and not `items`: the shape is what the list-pagination
+    // gate reads off the emitted contract, and what every other register on the client already
+    // drives its paging from. The WALK itself — the tuple comparison that makes two rows written in
+    // the same millisecond page apart cleanly — is pinned where it lives, over a page smaller than
+    // this route's own: packages/data-access/test/download-register-statements.test.ts.
+    const page = await readShelfPage(cookie);
+    expect(page.nextCursor).toBeNull();
+    expect(page.data.map((item) => item.title).sort()).toEqual([...titles].sort());
+  });
+
+  it("answers a smaller page when a caller asks for one, and says the record continues", async () => {
+    const cookie = await shelfCookie("shelf-tray@example.com", "Shelf Tray");
+    for (const title of ["Tray One", "Tray Two", "Tray Three"]) await keepSnapshot(cookie, title);
+
+    // What the top-bar tray asks for: it shows a handful on every screen in the application, and a
+    // register that keeps every download would otherwise make that chrome read a full page.
+    const page = await readShelfPage(cookie, "?limit=2");
+    expect(page.data).toHaveLength(2);
+    expect(page.nextCursor).not.toBeNull();
+
+    // And the bound is the server's, not the caller's: a limit past the page size is refused rather
+    // than quietly honoured.
+    const refused = await SELF.fetch("https://example.com/api/v1/downloads?limit=5000", {
+      headers: { cookie },
+    });
+    expect(refused.status).toBe(422);
+  });
+
+  it("narrows the whole register by title, and never another member's", async () => {
+    const cookie = await shelfCookie("shelf-searcher@example.com", "Shelf Searcher");
+    await keepSnapshot(cookie, "Trust Reconciliation");
+    await keepSnapshot(cookie, "Firm Usage");
+
+    const found = await readShelfPage(cookie, "?search=trust");
+    expect(found.data.map((item) => item.title)).toEqual(["Trust Reconciliation"]);
+
+    // A wildcard typed by a reader is their TEXT, not their instruction: an unescaped `%` here
+    // would match every row, which is the failure the shared LIKE escaping exists to prevent.
+    const wildcard = await readShelfPage(cookie, "?search=%25");
+    expect(wildcard.data).toEqual([]);
+
+    // Another member's register is not reachable through the term, the way it is not through the
+    // list: the search narrows what the member already owns.
+    const other = await shelfCookie("shelf-onlooker@example.com", "Shelf Onlooker");
+    expect((await readShelfPage(other, "?search=trust")).data).toEqual([]);
   });
 
   it("emits every register route into the OpenAPI document with its metadata", async () => {

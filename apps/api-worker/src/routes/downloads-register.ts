@@ -18,6 +18,7 @@ import {
 } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
+import { cursorQuery, paginated } from "../contracts/pagination.ts";
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import {
@@ -27,6 +28,7 @@ import {
   shelfExpiry,
   snapshotObjectKey,
 } from "../downloads/download-register.ts";
+import { decodeCursor, encodeCursor } from "@magna-carta/data-access/cursor-pagination";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
 
@@ -38,8 +40,11 @@ const DownloadItemView = z
   .object({
     id: z.string(),
     title: z.string(),
-    kind: z.enum(["artifact", "snapshot"]),
-    producer: z.enum(["export", "bundle", "conversion"]),
+    kind: z.enum(["artifact", "snapshot", "reference", "record"]),
+    producer: z.enum(["export", "bundle", "conversion", "file", "discovery"]),
+    // The matter file a reference points at, so the screen can offer the way back to it. Null on
+    // every other kind.
+    subjectFileId: z.string().nullable(),
     byteSize: z.number().nullable(),
     // What it was made for, distinct from what has been taken.
     requestedFormat: z.string().nullable(),
@@ -47,23 +52,44 @@ const DownloadItemView = z
     // real state the shelf shows rather than hides.
     downloadedFormats: z.array(z.string()),
     createdAt: z.string(),
-    expiresAt: z.string(),
+    // When the BYTES let go, not the row — the register keeps what a member downloaded. Null on a
+    // reference, which holds no bytes of the register's to release.
+    expiresAt: z.string().nullable(),
     state: z.enum(["building", "ready", "failed", "expired"]),
   })
   .openapi("DownloadItem");
 
-const DownloadShelfResponse = z
-  .object({ items: z.array(DownloadItemView) })
-  .openapi("DownloadShelfResponse");
+/*
+ * The register is paged, on the platform's one list envelope.
+ *
+ * It used to answer `{ items: [...] }` — one bounded read, on the reasoning that a shelf is short-
+ * lived by construction. Two changes took that premise away: every download registers now, not only
+ * what the platform made, and the row outlives the bytes rather than being swept with them. A
+ * member's register therefore grows without bound, and a whole read of it would get slower for the
+ * rest of their time at the firm.
+ *
+ * Naming the array `data` is not cosmetic either. `pnpm run lint:list-pagination` reads the EMITTED
+ * contract for GETs answering `{ data: [...] }` with no `nextCursor` beside them — so a list that
+ * called its array something else was invisible to the gate that exists to catch exactly this.
+ */
+const DownloadShelfPage = paginated(DownloadItemView).openapi("DownloadShelfPage");
 
-// One fetch answers for both kinds, because the member performed one act. An artifact hands back a
+// One fetch answers for every kind, because the member performed one act. An artifact hands back a
 // freshly minted presigned URL — the register never proxies bytes, so the browser's own download
 // manager keeps pause, resume and speed. A snapshot hands back the stored DOCUMENT, which the client
 // renders in whichever format it asked for (text, CSV and Excel in the browser; Word and PDF through
 // the report-export printer), so the register grows no renderer of its own.
+//
+// A REFERENCE HANDS BACK THIS PLATFORM'S OWN ADDRESS FOR THE FILE, and that is the security design
+// rather than a convenience. The file lives on a matter and is reached through the files route,
+// which runs the whole chokepoint — tenancy, authentication, the matter capability — on every
+// request. Presigning it here instead would mint a standing grant from a register row, so a member
+// screened off a matter afterwards would keep a working handle to its files. Handing back the route
+// means the answer to "may they still have this" is re-asked by the one thing that knows, at the
+// moment they ask for it.
 const DownloadFetchResponse = z
   .object({
-    kind: z.enum(["artifact", "snapshot"]),
+    kind: z.enum(["artifact", "snapshot", "reference", "record"]),
     url: z.string().optional(),
     document: z.unknown().optional(),
   })
@@ -183,12 +209,23 @@ export const downloadSnapshotRoute = defineOpenAPIRoute(downloadSnapshotMeta, {
 export const downloadShelfRoute = defineOpenAPIRoute(downloadShelfMeta, {
   method: "get",
   path: "/api/v1/downloads",
+  request: {
+    // `search` narrows the whole register on the server rather than the page in hand: the register
+    // has no bound, so narrowing what a client already loaded would answer confidently about a
+    // fraction of it. `limit` exists for the same reason from the other end — the top-bar tray shows
+    // the newest four on every screen in the application, and asking for a full page of a register
+    // that now keeps everything would make that chrome cost more than the screen under it.
+    query: cursorQuery.extend({
+      search: z.string().max(200).optional(),
+      limit: z.coerce.number().int().min(1).max(SHELF_READ_LIMIT).optional(),
+    }),
+  },
   description:
-    "The session member's own download shelf: what the platform produced for them, newest first, with what has already been taken and when each item expires. Scoped to the member, never the firm.",
+    "The session member's own register of everything they have downloaded, newest first, with what has already been taken and when each item's bytes expire. Optionally narrowed to titles containing `search`. Scoped to the member, never the firm.",
   responses: {
     200: {
       description: "The member's shelf",
-      content: { "application/json": { schema: DownloadShelfResponse } },
+      content: { "application/json": { schema: DownloadShelfPage } },
     },
     401: {
       description: "No valid session",
@@ -334,14 +371,24 @@ export function registerDownloadRegisterRoutes(
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
-      const rows = await readDownloadShelf(firm.firmDatabase, userId, SHELF_READ_LIMIT);
+      const { cursor, search, limit } = c.req.valid("query");
+      const after = decodeCursor(cursor);
+      const size = limit ?? SHELF_READ_LIMIT;
+      // One more than the page, so "is there another page" is answered by the read rather than by a
+      // second count that could disagree with it.
+      const rows = await readDownloadShelf(firm.firmDatabase, userId, size + 1, after, search);
+      const page = rows.slice(0, size);
+      const last = page.at(-1);
       return c.json(
         {
-          items: rows.map((row) => ({
+          nextCursor:
+            rows.length > size && last !== undefined ? encodeCursor(last.createdAt, last.id) : null,
+          data: page.map((row) => ({
             id: row.id,
             title: row.title,
             kind: row.kind,
             producer: row.producer,
+            subjectFileId: row.subjectFileId,
             byteSize: row.byteSize,
             requestedFormat: row.requestedFormat,
             downloadedFormats: [...row.downloadedFormats],
@@ -411,6 +458,40 @@ export function registerDownloadRegisterRoutes(
           { now: () => now.toISOString() },
         );
       };
+
+      if (row.kind === "reference") {
+        // The file's own address on this platform, never a presigned URL. The files route re-runs
+        // the matter capability check, so access is decided now rather than at the instant the row
+        // was written. A row with no file id cannot exist — the schema's CHECK ties the two — but
+        // the read is typed as nullable, and refusing is the honest answer to a row that broke it.
+        if (row.subjectFileId === null) {
+          return problemJson(c, {
+            type: "not-found",
+            title: "Download unavailable",
+            status: 410,
+            detail: "That download no longer names a file.",
+          });
+        }
+        await recordTaken();
+        return c.json(
+          {
+            kind: "reference" as const,
+            url: `/api/v1/files/${encodeURIComponent(row.subjectFileId)}/download`,
+          },
+          200,
+        );
+      }
+
+      // Past the reference branch every remaining kind holds bytes of its own, so a missing key is a
+      // row whose object has already been released rather than a shape this code should carry.
+      if (row.objectKey === null) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Download expired",
+          status: 410,
+          detail: "That download has passed its retention window and is no longer stored.",
+        });
+      }
 
       if (row.kind === "snapshot") {
         const document = await readSnapshotDocument(bucket, row.objectKey);

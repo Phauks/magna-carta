@@ -30,8 +30,8 @@ not](#what-a-roll-up-is-not).
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 316 | 47% |
-| Part-built | partial, in-build | 125 | 18% |
+| Done | shipped | 317 | 47% |
+| Part-built | partial, in-build | 124 | 18% |
 | Ahead | designed, planned, researching, not-started | 199 | 29% |
 | Parked | deferred, cut | 42 | 6% |
 | **All units of work** | | **682** | **100%** |
@@ -40,8 +40,8 @@ not](#what-a-roll-up-is-not).
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 316 | 46% |
-| `partial` | 125 | 18% |
+| `shipped` | 317 | 46% |
+| `partial` | 124 | 18% |
 | `in-build` | 0 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 15 | 2% |
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 316 of 682 (46%). Shipped plus partial is 441 (65%).**
+**Shipped alone is 317 of 682 (46%). Shipped plus partial is 441 (65%).**
 
-The 125 units between those two numbers are work that is engineered and paid for and is not
+The 124 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -121,12 +121,12 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Client Portal | 0 | 0 | 0 | 0 | 0 | 0 | 13 | 1 | 0 | 14 | 0% |
 | Product Updates & User-Facing Documentation | 2 | 4 | 0 | 0 | 0 | 0 | 8 | 0 | 0 | 14 | 14% |
 | Release Channels | 7 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 8 | 88% |
-| Reports | 1 | 3 | 0 | 0 | 5 | 0 | 0 | 2 | 0 | 11 | 9% |
+| Reports | 2 | 2 | 0 | 0 | 5 | 0 | 0 | 2 | 0 | 11 | 18% |
 | Self-Serve Provisioning and Entitlements | 1 | 0 | 0 | 6 | 0 | 0 | 0 | 0 | 0 | 7 | 14% |
 | Settings & Configuration | 13 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 20 | 65% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **316** | **125** | **0** | **46** | **15** | **5** | **133** | **38** | **4** | **682** | **46%** |
+| **All areas** | **317** | **124** | **0** | **46** | **15** | **5** | **133** | **38** | **4** | **682** | **46%** |
 
 ## Where we have been
 
@@ -1293,7 +1293,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Reports
 
-[`roadmap.d/reports.md`](../roadmap.d/reports.md) — 11 units of work, 9% shipped. 1 done, 3 part-built, 5 ahead, 2 parked.
+[`roadmap.d/reports.md`](../roadmap.d/reports.md) — 11 units of work, 18% shipped. 2 done, 2 part-built, 5 ahead, 2 parked.
 
 - `reports` · `partial` · **Reports** — Reproducible projections over the append-only ledger; standard library of trust-compliance, financial, productivity, and operational reports with scheduling and exports. _Note: Owner scoped all four families with the bar-audit pack first; nine questions flagged for the owner in the design._
   - `reports.projections` · `shipped` · **Ledger projections** — Reports computed as projections over the append-only ledger, consistent with the books and reproducible for any past date. _Note: Backend only, no screen. Two blocks in the trust-compliance pack are labelled as outside the claim — the three-way proof beside each attestation, and the outstanding-item, unmatched-line and stored-balance checks — because their owning reads take no knowledge instant and a second definition of them is refused._
@@ -1304,7 +1304,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `reports.location-rollups` · `planned` · **Per-location roll-ups** — Financial and productivity reports filter and subtotal by office; trust reports inherently per-account/per-location.
   - `reports.scheduling` · `planned` · **Scheduled generation** — Scheduled/automated report generation, archival, and optional email delivery.
   - `reports.exports` · `partial` · **Exports** — PDF, Excel/CSV, and print export of reports.
-  - `reports.download-register` · `partial` · **Download register** — A per-member shelf of what the platform produced — exports, bundles, converted files — held for a short retention window and downloadable again until it expires.
+  - `reports.download-register` · `shipped` · **Download register** — A per-member record of everything they have downloaded — exports, bundles, converted files, discovery productions, and files taken off a matter — kept after the copy the platform held has been released.
   - `reports.custom-builder` · `deferred` · **Custom report builder** — User-defined custom reports.
   - `reports.dashboards` · `deferred` · **Live dashboards** — Live operational/financial dashboards.
 

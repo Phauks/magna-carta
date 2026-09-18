@@ -95,7 +95,60 @@ const REBUILD_CASES: Record<string, RebuildCase> = {
     childrenAtSeed: countClaimsResolvingToTheirLine,
     childrenAfterRebuild: countClaimsResolvingToTheirLine,
   },
+  /*
+   * THE SECOND LEAF, and the arrow points outward here too. Nothing in the schema references
+   * `download_item` — it is the register row that points OUT, at the member whose shelf it sits on
+   * — so the drop it performs has no child row to orphan, which is what keeps it clear of
+   * `parentRebuildViolations`. The pairing is therefore the row against the member it names, which
+   * is still this harness's question: after the copy, does it resolve to what it resolved to
+   * before? The seed is a row at the PRE-rebuild schema, where `kind` admitted two values,
+   * `producer` three, and both the key and the expiry were NOT NULL — the copy has to carry that
+   * shape across into a table whose CHECKs were widened around it.
+   *
+   * The applicability half of the proof is elsewhere, for the same reason the claim's is:
+   * `node:sqlite` does not reproduce the durable object's commit-time enforcement.
+   */
+  "20260916T120000_download-register-admits-every-download": {
+    lineage: "per-firm",
+    rebuilt: "download_item",
+    child: "member",
+    seed: seedShelvedDownload,
+    childrenAtSeed: countDownloadsResolvingToTheirMember,
+    childrenAfterRebuild: countDownloadsResolvingToTheirMember,
+  },
 };
+
+/**
+ * One member with one register row, at the schema as it stood before the rebuild: an artifact
+ * produced by an export, carrying a key and an expiry because both columns were NOT NULL then. It
+ * is the row shape the rebuild's copy has to preserve, so seeding today's shape would prove
+ * nothing.
+ */
+function seedShelvedDownload(raw: DatabaseSync): void {
+  raw
+    .prepare(
+      `INSERT OR IGNORE INTO member (user_id, display_name, created_at)
+       VALUES ('user_seed', 'Seeded Person', ?)`,
+    )
+    .run(NOW);
+  raw
+    .prepare(
+      `INSERT INTO download_item (id, member_id, title, kind, producer, object_key, byte_size,
+                                  downloaded_formats_json, created_at, expires_at, state,
+                                  requested_format)
+       VALUES ('downloadItem_seed', 'user_seed', 'Firm Usage', 'snapshot', 'export',
+               'exports/firm-usage/downloadItem_seed', 2048, '["xlsx"]', ?, ?, 'ready', 'xlsx')`,
+    )
+    .run(NOW, "2026-09-13T12:00:00.000Z");
+}
+
+function countDownloadsResolvingToTheirMember(raw: DatabaseSync): number {
+  return countJoin(
+    raw,
+    `SELECT COUNT(*) AS n FROM download_item
+     JOIN member ON member.user_id = download_item.member_id`,
+  );
+}
 
 function countAccounts(raw: DatabaseSync): number {
   return countJoin(raw, "SELECT COUNT(*) AS n FROM account JOIN user ON user.id = account.user_id");

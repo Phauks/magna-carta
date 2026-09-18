@@ -81,14 +81,14 @@ describe("workspaceDestinations", () => {
     href: "/matters",
     icon: FolderOpen,
     description: "Every matter the firm holds.",
-    group: "top",
+    group: "work",
     shipped: true,
   },
   {
     id: "forms",
     label: "Forms",
     href: "/forms",
-    group: "top",
+    group: "work",
     shipped: false,
   },
   {

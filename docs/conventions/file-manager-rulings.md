@@ -1023,7 +1023,39 @@ comfortable`, which is the whole reason nine of the ten steps did nothing: the c
   that puts an icon beside a name uses flex, which is block-level. The reservation is unchanged:
   a table that can mark a row reserves the width on every row, so pinning still moves nothing.
 
-## R25 — round twenty-two: a filter is chosen from what the column holds
+## R25 — round twenty-two: the icon draws the claim, and the analysis says whether it holds
+
+The owner's question of 2026-09-17: a Word document renamed to end in ".do" kept its Word glyph and
+its DOCX badge. It did because the icon read the sniffed bytes before the name — a rule the resolver
+wrote to keep the icon from lying — while the File Type column in the same row read the name, and
+the analysis that owns "the name lies" only knew ten extensions and stayed silent on this one. One
+row, three answers. The owner's ruling: the firm already has a system for verifying what a file is,
+so the symbol states what the file says it is, and that system says whether it is telling the truth.
+
+| #    | Ruling                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Status  |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| I51  | **The file icon draws what the NAME claims.** The glyph and its badge resolve from the extension first; the sniffed content type answers only where the name makes no claim (no extension). An extension nobody recognizes draws the blank sheet with no badge, whatever the bytes are — the icon never quietly corrects a name. So the icon, the File Type column (**L32**) and the type in words (Activity, search) all say one thing per row. Refines **I50**, which stands on what each kind draws.                                                                                                                                                 | settled |
+| F13  | **Type Mismatch is graded in the file-type vocabulary the icon uses, at the level of kind, over every extension it knows.** A recognized extension naming a different kind from the sniffed bytes is a mismatch; an extension nobody recognizes over bytes the sniffer read is a mismatch too, because it is still a claim; a name with no extension claims nothing; a sniff the vocabulary has no kind for (nothing recognized, or a container it cannot see inside — legacy Office files all read as one compound-file type) is no reading and contradicts nothing. Replaces the ten-entry list the check kept on its own. **F12** holds it at Error. | settled |
+| P17b | **A consequence stated so it is not later read as a defect:** a file named `invoice.pdf` that is really an executable draws the pdf glyph and the PDF badge, with the Error mark beside it and Type Mismatch in the analysis. That is I51 working. The alarm is the Safety cell's (**L47**, **F12**), not the glyph's; folding it into the glyph is **P17**, still the owner's open question.                                                                                                                                                                                                                                                           | settled |
+
+**Notes recorded this round:**
+
+- **What is DRAWN reads the name; what is DONE reads the bytes.** The one Open gesture decides its
+  editor from the sniffed type first, as it always did, and now says so: a Word document renamed
+  `.txt` is drawn as the text file its name claims and opened as the Word document it is, never
+  handed to the plain-text editor on the strength of its name. The design system exports the two
+  precedences as two functions rather than one with a flag, so a caller has to say which question
+  it is asking.
+- **The check and the icon share one mapping now.** The analysis used to keep its own list of ten
+  extensions and their exact MIME types, so it could only ever contradict names the list happened
+  to know, and `.do` was not one of them. It reads the design system's claim-and-reading pair
+  instead, so the day an extension is added to the icon's vocabulary it is added to the check's.
+- **Kind, not exact format.** A `.docx` whose bytes sniff as the legacy Word type is a Word document
+  under a Word name; telling doc from docx is the badge's job (**I50**), not the finding's. Grading
+  by exact MIME type would also false-alarm on every format the sniffer names differently from the
+  extension (`.m4a` reads as `audio/x-m4a`, `.mov` as `video/quicktime`).
+
+## R26 — round twenty-three: a filter is chosen from what the column holds
 
 The owner's note of 2026-09-17, on the per-column filters of every table on the surface: the date
 filters vanished when their calendar was reached for, and the text filters — From, To, File or

@@ -68,7 +68,7 @@ export const downloadsRecordSnapshot = <ThrowOnError extends boolean = false>(op
 });
 
 /**
- * The session member's own download shelf: what the platform produced for them, newest first, with what has already been taken and when each item expires. Scoped to the member, never the firm.
+ * The session member's own register of everything they have downloaded, newest first, with what has already been taken and when each item's bytes expire. Optionally narrowed to titles containing `search`. Scoped to the member, never the firm.
  */
 export const downloadsShelf = <ThrowOnError extends boolean = false>(options?: Options<DownloadsShelfData, ThrowOnError>): RequestResult<DownloadsShelfResponses, DownloadsShelfErrors, ThrowOnError> => (options?.client ?? client).get<DownloadsShelfResponses, DownloadsShelfErrors, ThrowOnError>({ url: '/api/v1/downloads', ...options });
 

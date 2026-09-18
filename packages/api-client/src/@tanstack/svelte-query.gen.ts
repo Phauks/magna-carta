@@ -166,7 +166,7 @@ export const downloadsRecordSnapshotMutation = (options?: Partial<Options<Downlo
 export const downloadsShelfQueryKey = (options?: Options<DownloadsShelfData>) => createQueryKey('downloadsShelf', options);
 
 /**
- * The session member's own download shelf: what the platform produced for them, newest first, with what has already been taken and when each item expires. Scoped to the member, never the firm.
+ * The session member's own register of everything they have downloaded, newest first, with what has already been taken and when each item's bytes expire. Optionally narrowed to titles containing `search`. Scoped to the member, never the firm.
  */
 export const downloadsShelfOptions = (options?: Options<DownloadsShelfData>) => queryOptions<DownloadsShelfResponse, DownloadsShelfError, DownloadsShelfResponse, ReturnType<typeof downloadsShelfQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -179,6 +179,62 @@ export const downloadsShelfOptions = (options?: Options<DownloadsShelfData>) => 
         return data;
     },
     queryKey: downloadsShelfQueryKey(options)
+});
+
+const createInfiniteParams = <K extends Pick<QueryKey<Options>[0], 'body' | 'headers' | 'path' | 'query'>>(queryKey: QueryKey<Options>, page: K) => {
+    const params = { ...queryKey[0] };
+    if (page.body) {
+        params.body = {
+            ...queryKey[0].body as any,
+            ...page.body as any
+        };
+    }
+    if (page.headers) {
+        params.headers = {
+            ...queryKey[0].headers,
+            ...page.headers
+        };
+    }
+    if (page.path) {
+        params.path = {
+            ...queryKey[0].path as any,
+            ...page.path as any
+        };
+    }
+    if (page.query) {
+        params.query = {
+            ...queryKey[0].query as any,
+            ...page.query as any
+        };
+    }
+    return params as unknown as typeof page;
+};
+
+export const downloadsShelfInfiniteQueryKey = (options?: Options<DownloadsShelfData>): QueryKey<Options<DownloadsShelfData>> => createQueryKey('downloadsShelf', options, true);
+
+/**
+ * The session member's own register of everything they have downloaded, newest first, with what has already been taken and when each item's bytes expire. Optionally narrowed to titles containing `search`. Scoped to the member, never the firm.
+ */
+export const downloadsShelfInfiniteOptions = (options?: Options<DownloadsShelfData>) => infiniteQueryOptions<DownloadsShelfResponse, DownloadsShelfError, InfiniteData<DownloadsShelfResponse>, QueryKey<Options<DownloadsShelfData>>, string | Pick<QueryKey<Options<DownloadsShelfData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+// @ts-ignore
+{
+    queryFn: async ({ pageParam, queryKey, signal }) => {
+        // @ts-ignore
+        const page: Pick<QueryKey<Options<DownloadsShelfData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+            query: {
+                cursor: pageParam
+            }
+        };
+        const params = createInfiniteParams(queryKey, page);
+        const { data } = await downloadsShelf({
+            ...options,
+            ...params,
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: downloadsShelfInfiniteQueryKey(options)
 });
 
 /**
@@ -701,35 +757,6 @@ export const emailsListOptions = (options: Options<EmailsListData>) => queryOpti
     },
     queryKey: emailsListQueryKey(options)
 });
-
-const createInfiniteParams = <K extends Pick<QueryKey<Options>[0], 'body' | 'headers' | 'path' | 'query'>>(queryKey: QueryKey<Options>, page: K) => {
-    const params = { ...queryKey[0] };
-    if (page.body) {
-        params.body = {
-            ...queryKey[0].body as any,
-            ...page.body as any
-        };
-    }
-    if (page.headers) {
-        params.headers = {
-            ...queryKey[0].headers,
-            ...page.headers
-        };
-    }
-    if (page.path) {
-        params.path = {
-            ...queryKey[0].path as any,
-            ...page.path as any
-        };
-    }
-    if (page.query) {
-        params.query = {
-            ...queryKey[0].query as any,
-            ...page.query as any
-        };
-    }
-    return params as unknown as typeof page;
-};
 
 export const emailsListInfiniteQueryKey = (options: Options<EmailsListData>): QueryKey<Options<EmailsListData>> => createQueryKey('emailsList', options, true);
 

@@ -51,8 +51,13 @@ export async function renderStoredExport(
 export interface BulkDownloadResult {
   /** The archive of every snapshot that rendered, or null when none did. */
   readonly archive: Blob | null;
-  /** Artifacts the archive structurally cannot carry — the caller opens each on its own. */
-  readonly artifacts: readonly ShelfItem[];
+  /**
+   * Items whose bytes reach the member over a URL rather than through this tab, so the archive
+   * structurally cannot carry them and the caller opens each on its own. Both kinds that work this
+   * way land here: a stored artifact, whose URL is signed, and a matter file, whose URL is this
+   * platform's own address for it and re-runs the matter's access check on the way through.
+   */
+  readonly linked: readonly ShelfItem[];
   /** Items whose bytes could not be produced at all, so the member is told rather than left short. */
   readonly failed: readonly ShelfItem[];
   /** Every (item, format) pair that really was produced, for the caller to record as taken. */
@@ -62,21 +67,30 @@ export interface BulkDownloadResult {
 /**
  * Gather the selected items. Snapshots are rendered in the format each was made for (falling back to
  * the spreadsheet, which is what an item generated before the register recorded a format gets) and
- * packed into one archive; artifacts and outright failures come back named, so a partial result is
- * always reported as partial rather than presented as the whole selection.
+ * packed into one archive; linked items and outright failures come back named, so a partial result
+ * is always reported as partial rather than presented as the whole selection.
+ *
+ * ROUTING IS BY KIND, and every kind the register can hold is answered for. A record holds no bytes
+ * at all — the download happened, was streamed, and was never kept — so it is neither archived nor
+ * opened: it comes back among the failures, because a member who selected it and got silence would
+ * reasonably believe the archive contained it.
  */
 export async function bulkDownload(
   fetchImpl: typeof fetch,
   items: readonly ShelfItem[],
 ): Promise<BulkDownloadResult> {
   const files: { name: string; input: Blob }[] = [];
-  const artifacts: ShelfItem[] = [];
+  const linked: ShelfItem[] = [];
   const failed: ShelfItem[] = [];
   const taken: { item: ShelfItem; format: string }[] = [];
 
   for (const item of items) {
-    if (item.kind === "artifact") {
-      artifacts.push(item);
+    if (item.kind === "artifact" || item.kind === "reference") {
+      linked.push(item);
+      continue;
+    }
+    if (item.kind === "record") {
+      failed.push(item);
       continue;
     }
     const format = item.requestedFormat ?? item.downloadedFormats[0] ?? "xlsx";
@@ -101,7 +115,7 @@ export async function bulkDownload(
   }
 
   const archive = files.length === 0 ? null : await downloadZip(files).blob();
-  return { archive, artifacts, failed, taken };
+  return { archive, linked, failed, taken };
 }
 
 /** The archive's own name, stamped like every other export so two gatherings never blur together. */

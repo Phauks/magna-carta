@@ -327,7 +327,7 @@ export function selectCurrentCleanVersionStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT v.id, v.r2_key, v.size_bytes, v.version_number, v.scan_verdict, v.scan_detail FROM ${FILE_TABLE} f JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id WHERE f.id = ?1 AND f.deleted_at IS NULL AND v.status = 'clean'`,
+      `SELECT v.id, v.r2_key, v.size_bytes, v.version_number, v.scan_verdict, v.scan_detail, f.name FROM ${FILE_TABLE} f JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id WHERE f.id = ?1 AND f.deleted_at IS NULL AND v.status = 'clean'`,
     )
     .bind(fileId);
 }
@@ -342,6 +342,9 @@ export interface CleanVersion {
   // the verdict here and gate a flagged version, rather than assume status='clean' means safe.
   readonly scanVerdict: "unscanned" | "clean" | "flagged" | null;
   readonly scanDetail: string | null;
+  // The file's own name. Carried by the join this read already makes rather than fetched again: the
+  // download register records what a member took, and "what they took" is a name, not a key.
+  readonly name: string;
 }
 
 export interface FileWithCurrentCleanVersion {
@@ -393,6 +396,9 @@ export async function getFileWithCurrentCleanVersion(
             versionNumber: row.version_number as number,
             scanVerdict: row.scan_verdict,
             scanDetail: row.scan_detail,
+            // This read already has the file's name at the top level; the nested version carries it
+            // too so every CleanVersion answers the same questions whichever read produced it.
+            name: row.name,
           },
   };
 }
@@ -447,6 +453,9 @@ export async function getFileWithNamedVersion(
             versionNumber: row.version_number as number,
             scanVerdict: row.scan_verdict,
             scanDetail: row.scan_detail,
+            // This read already has the file's name at the top level; the nested version carries it
+            // too so every CleanVersion answers the same questions whichever read produced it.
+            name: row.name,
           },
   };
 }
@@ -514,6 +523,7 @@ export async function getCurrentCleanVersion(
     version_number: number;
     scan_verdict: "unscanned" | "clean" | "flagged" | null;
     scan_detail: string | null;
+    name: string;
   }>();
   const row = results[0];
   if (row === undefined) return undefined;
@@ -524,6 +534,7 @@ export async function getCurrentCleanVersion(
     versionNumber: row.version_number,
     scanVerdict: row.scan_verdict,
     scanDetail: row.scan_detail,
+    name: row.name,
   };
 }
 

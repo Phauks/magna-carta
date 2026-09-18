@@ -172,6 +172,23 @@ The list is the only part of the screen that scrolls. The matter's title and its
 the folder path, and the counts strip along the bottom all stay where they are however long the list
 gets, so you can scroll a folder of two thousand documents and still reach everything around it.
 
+### What the icon beside a name means
+
+The icon and its small label (PDF, DOCX, XLSX) read the document's own name — the part after the
+last dot — the same as the **File Type** column does. Rename a Word document to end in `.pdf` and
+its icon becomes a PDF icon; give it an ending nothing recognizes and it becomes a plain blank sheet
+with no label. The icon tells you what the name says the document is.
+
+Whether the name is telling the truth is a separate check, and it is made for you. Every document's
+contents are read on the way in, and when they are not what the name says — a Word document called
+`.pdf`, a photo called `.docx`, a document whose ending nothing recognizes — the row's **Safety**
+reads **Error** and the matter's File Analysis lists it as a **Type Mismatch**. The icon does not
+quietly correct the name for you, because a name that lies about a file is something you should be
+told, not something the screen should paper over.
+
+Opening a document always goes by its contents, not its name: a Word document renamed to `.txt`
+still opens in the Word editor.
+
 ### As icons instead of rows
 
 The switch on the right of the strip above the list swaps the rows for tiles. A name too long for a
