@@ -254,26 +254,35 @@
   audience: public
   public-summary: Hold client money in trust with a balance per client that cannot go negative, and the rules of your jurisdiction enforced rather than described.
   awaiting-owner: Three controls are analysed and deliberately not built. Whether one person may relax the two-person release control and then act alone; whether matter-to-matter reallocations, which move no money out of trust, stay outside the authorization policy; and whether to close the structuring gap where two at-threshold requests pass where one larger request would not.
-  notes: The matter's Trust section renders the ledger surface (apps/web/src/lib/trust) built whole against the movement record, empty until a route lists the firm's trust accounts; nothing reads a jurisdiction requirement through the port yet. Owner flags from the 2026-08-04 analysis stay open and are refused rather than defaulted in code.
+  notes: The matter's Trust section (apps/web/src/lib/trust) reads the firm's accounts, the matter's ledger and the pending requests on it, and records deposits, proposes payments out and transfers between the client's matters; the firm's Trust screen (apps/web/src/routes/(app)/trust) lists the accounts, opens one, and carries the approval queue, the statements and reconciliations as recorded, the cushion and the posture. Nothing reads a jurisdiction requirement through the port yet. Owner flags from the 2026-08-04 analysis stay open and are refused rather than defaulted in code.
+
+- id: financial.trust.accounts
+  name: Trust accounts (open and list)
+  scope: The firm's trust accounts, each bound to an office whose jurisdiction it inherits; opened over HTTP and listed for every surface that names one.
+  status: shipped
+  surface: screen
+  slices: 3-2-trust-accounting-jurisdiction-compliance
+  evidence: POST and GET /api/v1/trust/accounts in apps/api-worker/src/routes/trust.ts over openTrustAccount and listTrustAccounts in packages/trust/src/account-tree.ts; the accounts register and the opening dialog on apps/web/src/routes/(app)/trust; the listing has one web home in apps/web/src/lib/trust/trust-api.ts
+  notes: The jurisdiction is derived from the office and never taken from the caller; an office with none recorded opens the account and every movement on it refuses until one is recorded. Closing an account has no route.
 
 - id: financial.trust.client-ledgers
   name: Per-client trust ledgers, no negative balance
   scope: Per-client (per-matter) trust subledgers under a per-account roll-up, with a hard no-negative-balance invariant per client ledger.
   status: partial
-  surface: awaiting-screen
+  surface: screen
   slices: 3-2-trust-accounting-jurisdiction-compliance
   adrs: ADR-0009, ADR-0072
-  evidence: the three-level tree ships in packages/trust/src/account-tree.ts and min_balance_minor = 0 is written onto every matter leaf in its creation batch, enforced by the account_balance bounds CHECK; deposits, disbursements and matter-to-matter reallocations ship as domain operations in packages/trust/src/movements.ts behind required-idempotency routes
-  notes: No screen reads a client ledger; the balances, holds and movement history are API-only.
+  evidence: the three-level tree ships in packages/trust/src/account-tree.ts and min_balance_minor = 0 is written onto every matter leaf in its creation batch, enforced by the account_balance bounds CHECK; deposits, disbursements and matter-to-matter reallocations ship as domain operations in packages/trust/src/movements.ts behind required-idempotency routes; the matter's Trust section reads the ledger and records all three movements (apps/web/src/lib/trust)
+  notes: Placing and releasing a hold has no screen; the account-level balance is not served, so the firm screen states the position as unread.
 
 - id: financial.trust.authorization-policy
   name: Disbursement authorization policy (per-firm)
   scope: Who may release money leaving a client ledger, as firm configuration. Authority is a property of the person - a member holding trust:authorize releases alone, in one act; a member without it raises a request that routes to somebody who holds it, and is told who before composing anything. Every per-firm database is seeded with that posture as version 1 (off plus the authority requirement); a firm adds a ceiling above which two people are required by writing a threshold or always version, and above the ceiling the authority requirement binds whichever of the two decides (peer approval). The earned-fee application follows the same policy through the same approval queue; in-flight requests keep the policy version they were submitted under.
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   slices: 3-2-trust-accounting-jurisdiction-compliance
   evidence: packages/trust/src/authorization-policy.ts (versioned append-only policy, the shared requires-second-person predicate, the authority assertion, resolveLoneTrustManagerException, resolveTrustAuthorizationDisposition); composeTrustDisbursementSubmission in packages/trust/src/disbursement-authorization.ts (proposal plus solo release, one batch); the seeded version-1 posture in packages/database/drizzle/per-firm/20260908T000000_baseline.sql; policy-aware decision and transfer triggers in the per-firm migration; billing's applyEarnedFeesUnderAuthorizationPolicy in packages/billing/src/apply-authorization.ts; routes for the policy read/change, the disbursement submission, and the application submit/approve
-  notes: Owner-directed. UI deferred. Flagged, not decided - whether the lone-holder exception should count trust:authorize rather than trust:manage (it would relax a firm with several managers and one authority holder), whether a posture relaxation itself takes a second person, and whether matter-to-matter reallocations fall under the policy.
+  notes: Owner-directed. The posture is read and changed on the firm's Trust screen, and the approval queue with approve, reject and withdraw sits there and on the matter's own section. Flagged, not decided - whether the lone-holder exception should count trust:authorize rather than trust:manage (it would relax a firm with several managers and one authority holder), whether a posture relaxation itself takes a second person, and whether matter-to-matter reallocations fall under the policy.
 
 - id: financial.trust.firm-funds
   name: Bank-charge cushion (the firm-funds carve-out)
@@ -283,7 +292,7 @@
   slices: 3-2-trust-accounting-jurisdiction-compliance
   spec: docs/specs/2026-08-12-trust-bank-charges-and-unclaimed-funds.md
   evidence: packages/trust/src/firm-funds.ts (the per-account enablement, the deposit, the charge, the position read) behind assertTrustFirmFundsComposition in packages/trust/src/composition-guard.ts, which admits exactly two lines and refuses everything the general door refuses; the trust_firm_funds_movement table carries no client, matter, node or payee column, so a record of the category cannot describe somebody else's money; apps/api-worker/src/routes/trust-firm-funds.ts over the 20260812T000000_trust-firm-funds-and-unclaimed-funds and 20260812T000001_seed-trust-firm-funds-permission per-firm migrations, on a trust:firmFunds capability seeded to Owner/Admin alone
-  notes: Backend only, no screen. Owner-directed and deliberately incomplete in one direction - the rule text authorizes the deposit and is silent on taking it back out, so there is no movement that withdraws surplus firm funds and none that pays a person. Refused outright on a pooled interest-bearing account, which the corpus records as exempt from the charges it would pay.
+  notes: The cushion's position is read on the firm's Trust screen; opening, funding and recording a charge have no form yet. Owner-directed and deliberately incomplete in one direction - the rule text authorizes the deposit and is silent on taking it back out, so there is no movement that withdraws surplus firm funds and none that pays a person. Refused outright on a pooled interest-bearing account, which the corpus records as exempt from the charges it would pay.
 
 - id: financial.trust.unclaimed-funds
   name: Unclaimed client funds diligence file
