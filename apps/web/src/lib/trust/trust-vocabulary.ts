@@ -18,6 +18,7 @@
 import { UNRECORDED_PERSON } from "@magna-carta/design-system/formatters";
 import type {
   TrustAuthorizationBasis,
+  TrustBankMovementMethod,
   TrustMovementKind,
   TrustMovementMethod,
   TrustMovementRecord,
@@ -38,6 +39,21 @@ export const TRUST_MOVEMENT_METHODS: readonly TrustMovementMethod[] = [
   "electronic_transfer",
   "card",
   "internal",
+];
+
+/**
+ * The methods a person may STATE, in the order a form offers them.
+ *
+ * `internal` is missing on purpose: it is a transfer's own method, set by the server because
+ * nothing left the bank, and offering it on a deposit or a payment out would invite somebody to
+ * record money as having moved inside an account when it crossed the institution's counter.
+ */
+export const TRUST_BANK_MOVEMENT_METHODS: readonly TrustBankMovementMethod[] = [
+  "check",
+  "cash",
+  "wire",
+  "electronic_transfer",
+  "card",
 ];
 
 /** What a movement is called in a cell, a filter list and the panel: one wording, one home. */

@@ -1,21 +1,16 @@
 /*
  * What the Trust ledger is designed to show and the app cannot reach yet.
  *
- * ONE GAP DOMINATES THE REST: this surface cannot name a trust account. The matter's ledger read
- * names one, a deposit is posted into one, a payment out is proposed against one and a transfer
- * moves money inside one. The listing exists now (GET /api/v1/trust/accounts, read by the report
- * screen through $lib/reports/reports-api.ts) and this ledger is not yet wired to it; the routes
- * behind every one of those acts exist and are served, and what the screen still lacks is the one
- * identifier each of them takes.
+ * WHAT USED TO DOMINATE THIS FILE IS GONE. The surface could not name a trust account, so the
+ * ledger read, the deposit, the payment out and the transfer were all one dependency wearing four
+ * names. The account listing is wired now (trust-account-choice.ts chooses one, matter-trust.svelte.ts
+ * reads against it), every one of those acts writes, and the members on a movement are resolved to
+ * names through the firm's own roster (trust-member-names.ts). Those five entries came out.
  *
- * So this surface is built whole against the record a trust movement IS, the list stands empty
- * and says why, and every write renders where the design puts it, refused, naming this dependency
- * in its own words. The alternative, guessing an account or hiding the section, would state a
- * model the product does not hold or hide a surface the firm will use every week.
- *
- * Each gap is named once, as the noun phrase the Soon composition completes into a sentence and a
- * cell hover states on its own. When one starts being served, its entry comes out of this file and
- * nothing else changes.
+ * What is left is three genuine holes, each one a route or a capability that does not exist rather
+ * than a wire that was not run. Each gap is named once, as the noun phrase the Soon composition
+ * completes into a sentence and a cell hover states on its own. When one starts being served, its
+ * entry comes out of this file and nothing else changes.
  */
 
 /** A field or an act the surface shows, and what has to arrive before it works. */
@@ -27,36 +22,6 @@ export interface TrustLedgerGap {
 }
 
 export const TRUST_LEDGER_GAPS = {
-  account: {
-    field: "Trust Account",
-    waitsOn:
-      "this ledger being wired to the firm's trust-account listing: the matter's ledger is read " +
-      "against one account, and the listing the report screen picks from is not yet wired here",
-  },
-  deposit: {
-    field: "Deposit",
-    waitsOn:
-      "the same read of the firm's trust accounts: a deposit is posted into one, and nothing on " +
-      "this screen can name it yet",
-  },
-  disbursement: {
-    field: "Disbursement",
-    waitsOn:
-      "the same read of the firm's trust accounts: a payment out is proposed against one, and " +
-      "nothing on this screen can name it yet",
-  },
-  transfer: {
-    field: "Transfer",
-    waitsOn:
-      "the same read of the firm's trust accounts: a transfer between two of this client's " +
-      "matters moves money inside one, and nothing on this screen can name it yet",
-  },
-  memberNames: {
-    field: "Recorded By",
-    waitsOn:
-      "the recorder and the authorizer being served as names: the ledger carries their user " +
-      "identifiers",
-  },
   disbursementRequest: {
     field: "Disbursement Request",
     waitsOn:

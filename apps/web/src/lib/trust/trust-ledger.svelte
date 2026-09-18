@@ -19,17 +19,26 @@
    * nothing else. There is no record window, because there is nothing about one movement that the
    * panel cannot state and nothing about it anybody may change.
    *
-   * THIS SURFACE CANNOT NAME A TRUST ACCOUNT YET (trust-gaps.ts). The ledger read, the deposit, the
-   * disbursement and the transfer each take one of the firm's trust accounts; the listing exists
-   * (the report screen reads it) and this ledger is not yet wired to it. The surface is built whole
-   * against the record a movement IS, the list stands empty and says why, and every write renders
-   * where the design puts it, refused, naming what it waits on.
+   * EVERY READ AND WRITE NAMES A TRUST ACCOUNT, AND THE TOOLBAR IS WHERE THAT IS ANSWERED. A firm
+   * holding one account never sees a control — the account's name stands as a quiet fact with its
+   * bank on the hover — and a firm holding several picks, once, and is remembered. The three acts
+   * that move money live beside it: the header's create control records a deposit, and Pay Out and
+   * Transfer stand here. Each of them is DISABLED WITH ITS REASON rather than absent, because a
+   * control that vanishes teaches nothing about why it is gone.
+   *
+   * A PAYMENT OUT MAY NOT BE THIS MEMBER'S TO RELEASE. The firm's authorization posture decides,
+   * the server answers, and a request that is waiting stands in the notices band with the two
+   * answers it takes — or, where the reader is the one who proposed it, with the way to take it
+   * back.
    */
+  import * as Alert from "@magna-carta/design-system/alert";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { formatInstant } from "@magna-carta/design-system/formatters";
-  import { MaturityBadge, soonDependencySentence } from "@magna-carta/design-system/maturity";
+  import Button from "@magna-carta/design-system/button";
   import Copy from "@lucide/svelte/icons/copy";
+  import ArrowUpFromLine from "@lucide/svelte/icons/arrow-up-from-line";
+  import ArrowLeftRight from "@lucide/svelte/icons/arrow-left-right";
   import { MoneySurface, type MoneySurfaceDensity } from "$lib/money/index.ts";
   import {
     RecordMenu,
@@ -38,17 +47,39 @@
     type RecordMenuChoice,
     type RecordMenuModel,
   } from "$lib/records/index.ts";
+  import ChoicePicker from "$lib/components/choice-picker.svelte";
+  import type { ChoiceOption } from "$lib/components/choice-picker.ts";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
+  import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { createPersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
   import { stringUnionPreference } from "$lib/preferences/persisted-preference.ts";
-  import type { TrustMatterLedger, TrustMovementRecord } from "./trust-api.ts";
+  import {
+    TRUST_PERMISSIONS,
+    trustAccountLabel,
+    withdrawTrustRequest,
+    type TrustAccountListing,
+    type TrustDisbursementProposalAck,
+    type TrustMatterLedger,
+    type TrustMovementRecord,
+    type TrustPendingRequest,
+  } from "./trust-api.ts";
+  import { trustAccountsInPickingOrder } from "./trust-account-choice.ts";
   import {
     TRUST_COLUMN_IDENTIFIERS,
     TRUST_LEDGER_INITIAL_SORT,
     trustLedgerColumns,
   } from "./trust-columns.ts";
   import TrustDetailsPanel from "./trust-details-panel.svelte";
+  import DepositDialog from "./deposit-dialog.svelte";
+  import DisbursementDialog from "./disbursement-dialog.svelte";
+  import MatterTransferDialog from "./matter-transfer-dialog.svelte";
+  import ApproveRequestDialog from "./approve-request-dialog.svelte";
+  import RejectRequestDialog from "./reject-request-dialog.svelte";
   import { footerFigures, ledgerCurrency } from "./trust-figures.ts";
-  import { gapCellTitle, gapReason } from "./trust-gaps.ts";
+  import { memberDisplay } from "./trust-member-names.ts";
+  import { proposalPendingSentence } from "./trust-write-requests.ts";
   import {
     authorizedByText,
     authorizedByTitle,
@@ -64,15 +95,44 @@
     matterId,
     matterTitle,
     matterNumber,
+    accounts,
+    accountsCapped = false,
+    account,
+    noLedgerYet = false,
+    pendingRequests,
+    pendingRefusal = null,
+    permissions,
+    sessionUserId = null,
+    onChooseAccount,
+    onChanged,
   }: {
     /** Every movement on the matter, in effective-date order: that is what a trust ledger is. */
     movements: readonly TrustMovementRecord[];
-    /** The ledger read the movements came from, for the position it states. Null until served. */
+    /** The ledger read the movements came from, for the position it states. Null where none yet. */
     ledger: TrustMatterLedger | null;
     loading?: boolean;
     matterId: string;
     matterTitle: string;
     matterNumber: string | null;
+    /** The firm's trust accounts. Empty is a firm that has opened none. */
+    accounts: readonly TrustAccountListing[];
+    /** Whether that roster stopped short of the whole record. */
+    accountsCapped?: boolean;
+    /** The account this section is reading against, or null where nothing could be chosen. */
+    account: TrustAccountListing | null;
+    /** Whether this matter simply holds no ledger in that account yet. */
+    noLedgerYet?: boolean;
+    /** The payments out of THIS matter's ledger that nobody has decided yet. */
+    pendingRequests: readonly TrustPendingRequest[];
+    /** What to say where the queue itself could not be read. */
+    pendingRefusal?: string | null;
+    /** The reader's capabilities. Null while the session is still being read. */
+    permissions: readonly string[] | null;
+    /** Who is reading, so their own request offers Withdraw rather than Approve and Reject. */
+    sessionUserId?: string | null;
+    onChooseAccount: (accountId: string) => void;
+    /** Something was written: the section re-reads rather than guessing what the server now holds. */
+    onChanged: () => void;
   } = $props();
 
   const currency = $derived(ledgerCurrency(movements));
@@ -109,16 +169,167 @@
     }),
   );
 
+  // ---- the account, and what every act on this surface waits on ---------------------------------
+
+  const orderedAccounts = $derived(trustAccountsInPickingOrder(accounts));
+  const accountChoices = $derived<readonly ChoiceOption[]>(
+    orderedAccounts.map((one) => ({
+      value: one.id,
+      label: one.name,
+      aside: trustAccountLabel(one),
+      keywords: [one.bankName ?? "", one.accountNumberLastFour ?? ""],
+    })),
+  );
+  /*
+   * The picker stands where there is a choice to make. That is more than one account — and also the
+   * case where the roster's only account is closed, which is never chosen for anybody: without the
+   * control its history would be unreachable.
+   */
+  const picksAccount = $derived(accounts.length > 1 || (accounts.length === 1 && account === null));
+
+  const noAccountRefusal = $derived.by((): string | undefined => {
+    if (accounts.length === 0) {
+      return "The firm has not opened a trust account yet, so there is nowhere to hold client money.";
+    }
+    if (account === null) return "No trust account is chosen, so there is nothing to act against.";
+    return undefined;
+  });
+
+  const manageRefusal = $derived.by((): string | undefined => {
+    if (permissions === null) return "Reading your session.";
+    if (permissions.includes(TRUST_PERMISSIONS.manage)) return undefined;
+    return permissionRefusal("Moving client money", TRUST_PERMISSIONS.manage);
+  });
+
+  const availableMinor = $derived(ledger?.availableMinor ?? 0);
+
+  function actRefusal(nothingToMove: string): string | undefined {
+    const refused = manageRefusal ?? noAccountRefusal;
+    if (refused !== undefined) return refused;
+    if (ledger === null) return nothingToMove;
+    if (availableMinor <= 0) {
+      return "This matter's trust ledger has nothing available, so there is nothing to move.";
+    }
+    return undefined;
+  }
+
+  const payOutRefusal = $derived(
+    actRefusal(
+      "Nothing has been paid into this matter's trust ledger yet, so there is nothing to pay out.",
+    ),
+  );
+  const transferRefusal = $derived(
+    actRefusal(
+      "Nothing has been paid into this matter's trust ledger yet, so there is nothing to transfer.",
+    ),
+  );
+  const decisionRefusal = $derived(manageRefusal);
+
+  // ---- the panels that write --------------------------------------------------------------------
+
+  let depositOpen = $state(false);
+  let disbursementOpen = $state(false);
+  let transferOpen = $state(false);
+  let approveOpen = $state(false);
+  let rejectOpen = $state(false);
+  let answeringRequest = $state<TrustPendingRequest | null>(null);
+  let answerKey = $state("");
+  /** What a proposal that did not release came to, until the section is read again. */
+  let proposalNotice = $state<string | null>(null);
+  let decisionFailure = $state<StatedFailure | null>(null);
+
   /*
    * The one create action this surface has, exported for the section page: the matter header's
-   * create control is the only button that records anything here (create-action.svelte.ts), so
-   * the ledger keeps no button of its own and answers the header's press. Until the firm's trust
-   * accounts can be read there is no account to post a deposit into, so the page claims the
-   * control with that refusal and this does nothing; the deposit window arrives with the read.
+   * create control is the only button that records a deposit here (create-action.svelte.ts), so
+   * the ledger keeps no button of its own and answers the header's press.
    */
   export function openNew(): void {
-    // Nothing to open yet: the deposit form waits on the account read (trust-gaps.ts, `deposit`).
+    depositOpen = true;
   }
+
+  /**
+   * The key one answer to one request is sent under, kept per request.
+   *
+   * It is minted on the gesture that starts the answer and reused while that answer is still being
+   * attempted, so a reader who presses through a refusal is retrying one decision rather than
+   * filing a second one. It is dropped once the decision lands.
+   */
+  const answerKeys = new Map<string, string>();
+  function keyForAnswer(requestId: string): string {
+    const existing = answerKeys.get(requestId);
+    if (existing !== undefined) return existing;
+    const minted = crypto.randomUUID();
+    answerKeys.set(requestId, minted);
+    return minted;
+  }
+
+  function startAnswer(request: TrustPendingRequest, panel: "approve" | "reject"): void {
+    answeringRequest = request;
+    answerKey = keyForAnswer(request.id);
+    decisionFailure = null;
+    if (panel === "approve") approveOpen = true;
+    else rejectOpen = true;
+  }
+
+  function answered(requestId: string): void {
+    answerKeys.delete(requestId);
+    proposalNotice = null;
+    onChanged();
+  }
+
+  async function withdraw(request: TrustPendingRequest): Promise<void> {
+    decisionFailure = null;
+    const outcome = await withdrawTrustRequest(
+      fetch,
+      request.id,
+      null,
+      keyForAnswer(request.id),
+    );
+    if (outcome.kind === "ok") {
+      answered(request.id);
+      return;
+    }
+    decisionFailure = stated(
+      outcome.failure,
+      "The request was not taken back: it is still waiting on a decision.",
+      "Nothing answered, so the request was not taken back. It is still waiting on a decision.",
+    );
+  }
+
+  function proposed(acknowledgement: TrustDisbursementProposalAck): void {
+    proposalNotice =
+      acknowledgement.status === "pending"
+        ? proposalPendingSentence(acknowledgement.eligibleApprovers)
+        : null;
+    onChanged();
+  }
+
+  /** Who proposed a pending request, as a name where the firm's roster can say. */
+  function requestedByName(request: TrustPendingRequest): string {
+    return memberDisplay(request.requestedBy, firmRoster.members).text;
+  }
+
+  // ---- what the notices band has to say ----------------------------------------------------------
+
+  const noLedgerSentence = $derived(
+    account === null
+      ? null
+      : noLedgerYet
+        ? `This matter holds no trust ledger in ${account.name} yet. Its ledger is created by the first deposit.`
+        : null,
+  );
+
+  const hasNotice = $derived(
+    accounts.length === 0 ||
+      noLedgerSentence !== null ||
+      accountsCapped ||
+      pendingRequests.length > 0 ||
+      pendingRefusal !== null ||
+      proposalNotice !== null ||
+      decisionFailure !== null,
+  );
+
+  // ---- the menu ------------------------------------------------------------------------------
 
   /*
    * What the menu speaks for. Right-clicking inside the selection speaks for all of it; right-
@@ -191,6 +402,16 @@
 
   /** A figure the read has not stated yet reads as a dash, never as nothing. */
   const UNSERVED_FIGURE = "—";
+
+  /** Why a figure is a dash, in the words of whichever fact is true of this matter right now. */
+  const unservedPositionTitle = $derived.by((): string => {
+    if (accounts.length === 0) {
+      return "The firm has not opened a trust account yet, so there is no position to state.";
+    }
+    if (account === null) return "No trust account is chosen, so there is no position to state.";
+    if (noLedgerYet) return `This matter holds no trust ledger in ${account.name} yet.`;
+    return "This matter's trust position has not been read yet.";
+  });
 </script>
 
 {#snippet cell({ row, column, text }: DataTable.GridCellContext<TrustMovementRecord>)}
@@ -216,16 +437,17 @@
       <span class="whitespace-nowrap tabular-nums">{text}</span>
     {/if}
   {:else if column.id === TRUST_COLUMN_IDENTIFIERS.recordedBy}
-    <span class="block truncate tabular-nums" title={gapCellTitle("memberNames")}>
-      {row.recordedBy}
-    </span>
+    {@const recorder = memberDisplay(row.recordedBy, firmRoster.members)}
+    <span class="block truncate" title={recorder.title}>{recorder.text}</span>
   {:else if column.id === TRUST_COLUMN_IDENTIFIERS.authorizedBy}
-    <span
-      class={row.authorizedBy === null ? "text-text-muted" : "block truncate tabular-nums"}
-      title={authorizedByTitle(row)}
-    >
-      {authorizedByText(row)}
-    </span>
+    {#if row.authorizedBy === null}
+      <span class="text-text-muted" title={authorizedByTitle(row)}>{authorizedByText(row)}</span>
+    {:else}
+      {@const authorizer = memberDisplay(row.authorizedBy, firmRoster.members)}
+      <span class="block truncate" title={authorizer.title ?? authorizedByTitle(row)}>
+        {authorizer.text}
+      </span>
+    {/if}
   {:else if column.id === TRUST_COLUMN_IDENTIFIERS.recordedAt}
     <span class="whitespace-nowrap tabular-nums">{formatInstant(row.recordedAt)}</span>
   {:else}
@@ -233,13 +455,135 @@
   {/if}
 {/snippet}
 
+<!-- The account this surface reads against, then the two acts that move money out of it. Each act
+     is disabled carrying its reason rather than removed: the reader learns the act exists and what
+     it is waiting for. -->
+{#snippet acts()}
+  {#if picksAccount}
+    <div class="w-192">
+      <ChoicePicker
+        label="Trust Account"
+        options={accountChoices}
+        value={account?.id ?? ""}
+        onchange={(chosen) => onChooseAccount(chosen)}
+      />
+    </div>
+  {:else if account !== null}
+    <span class="whitespace-nowrap text-xs text-text-muted" title={trustAccountLabel(account)}>
+      {account.name}
+    </span>
+  {/if}
 
-<!-- The one honest line about why this ledger stands empty: nothing can name a trust account. -->
+  <Button
+    variant="secondary"
+    size="sm"
+    disabled={payOutRefusal !== undefined}
+    title={payOutRefusal ?? "Pay client money out of this matter's trust ledger."}
+    onclick={() => (disbursementOpen = true)}
+  >
+    <ArrowUpFromLine class="size-16" aria-hidden="true" />
+    Pay Out
+  </Button>
+  <Button
+    variant="secondary"
+    size="sm"
+    disabled={transferRefusal !== undefined}
+    title={transferRefusal ?? "Move this money to another matter of the same client."}
+    onclick={() => (transferOpen = true)}
+  >
+    <ArrowLeftRight class="size-16" aria-hidden="true" />
+    Transfer
+  </Button>
+{/snippet}
+
 {#snippet notices()}
-  <p class="flex flex-wrap items-center gap-8 text-xs text-text-muted">
-    <MaturityBadge stage="soon" />
-    {soonDependencySentence(gapReason("account"))}
-  </p>
+  {#if decisionFailure !== null}
+    <FailureNotice
+      failure={decisionFailure.failure}
+      title="Nothing Was Decided"
+      fallback={decisionFailure.fallback}
+      whenSilent={decisionFailure.whenSilent}
+    />
+  {/if}
+
+  {#if accounts.length === 0}
+    <Alert.Root variant="info">
+      <Alert.Title>The firm has not opened a trust account yet.</Alert.Title>
+      <Alert.Description>
+        Client money is held in an account bound to one of the firm's offices, and this matter's
+        ledger begins when one is opened.
+        <Button variant="ghost" size="sm" href="/trust">Open the firm&rsquo;s Trust screen</Button>
+      </Alert.Description>
+    </Alert.Root>
+  {/if}
+
+  {#if noLedgerSentence !== null}
+    <p class="text-xs text-text-muted">{noLedgerSentence}</p>
+  {/if}
+
+  {#if accountsCapped}
+    <p class="text-xs text-status-warning-subtle-foreground">
+      The firm has more trust accounts than were read, so this list is a page of them rather than
+      all of them.
+    </p>
+  {/if}
+
+  {#if proposalNotice !== null}
+    <p class="text-xs text-text-muted">{proposalNotice}</p>
+  {/if}
+
+  {#if pendingRefusal !== null}
+    <p class="text-xs text-status-warning-subtle-foreground">{pendingRefusal}</p>
+  {/if}
+
+  {#if pendingRequests.length > 0}
+    <ul class="flex flex-col gap-4">
+      {#each pendingRequests as request (request.id)}
+        <li class="flex flex-wrap items-center gap-8 text-xs text-text-muted">
+          <span class="font-semibold tabular-nums text-text-default">
+            {money(request.amountMinor)}
+          </span>
+          <span>to {request.payee}</span>
+          <span aria-hidden="true">·</span>
+          <span>{request.purpose}</span>
+          <span aria-hidden="true">·</span>
+          <span>requested by {requestedByName(request)}</span>
+          <span aria-hidden="true">·</span>
+          <span class="tabular-nums">{formatDate(request.effectiveDate)}</span>
+          {#if sessionUserId !== null && request.requestedBy === sessionUserId}
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={decisionRefusal !== undefined}
+              title={decisionRefusal ?? "Take this request back. It is recorded, never deleted."}
+              onclick={() => void withdraw(request)}
+            >
+              Withdraw
+            </Button>
+          {:else}
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={decisionRefusal !== undefined}
+              title={decisionRefusal ?? "Release this payment and post the movement."}
+              onclick={() => startAnswer(request, "approve")}
+            >
+              Approve
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={decisionRefusal !== undefined}
+              title={decisionRefusal ?? "Refuse this payment, with the reason the proposer reads."}
+              onclick={() => startAnswer(request, "reject")}
+            >
+              Reject
+            </Button>
+          {/if}
+        </li>
+      {/each}
+    </ul>
+  {/if}
 {/snippet}
 
 {#snippet list({ density, tableClass, frame }: { density: MoneySurfaceDensity; tableClass: string; frame: "card" | "flush" })}
@@ -271,6 +615,7 @@
     {movements}
     selected={selectedMovements}
     {money}
+    {unservedPositionTitle}
     onLetGo={() => grid.clearSelection()}
   />
 {/snippet}
@@ -282,7 +627,7 @@
     {#if index > 0}<span aria-hidden="true">·</span>{/if}
     <span
       class="inline-flex items-baseline gap-4"
-      title={figure.amountMinor === null ? gapCellTitle("account") : figure.caption}
+      title={figure.amountMinor === null ? unservedPositionTitle : figure.caption}
     >
       <span class="text-text-subtle">{figure.label}</span>
       {#if figure.amountMinor === null}
@@ -301,8 +646,62 @@
   autoSaveId="matter-trust-panes"
   {panelOpen}
   onTogglePanel={(open) => panelPreference.set(open ? "open" : "closed")}
-  {notices}
+  notices={hasNotice ? notices : undefined}
+  {acts}
   {list}
   {panel}
   {figures}
+/>
+
+<DepositDialog
+  bind:open={depositOpen}
+  {account}
+  {matterId}
+  {matterNumber}
+  onRecorded={() => {
+    proposalNotice = null;
+    onChanged();
+  }}
+/>
+
+<DisbursementDialog
+  bind:open={disbursementOpen}
+  {account}
+  {matterId}
+  {matterNumber}
+  {availableMinor}
+  {money}
+  onProposed={proposed}
+/>
+
+<MatterTransferDialog
+  bind:open={transferOpen}
+  {account}
+  {matterId}
+  {matterNumber}
+  {availableMinor}
+  {money}
+  onTransferred={() => {
+    proposalNotice = null;
+    onChanged();
+  }}
+/>
+
+<ApproveRequestDialog
+  bind:open={approveOpen}
+  request={answeringRequest}
+  {matterNumber}
+  {money}
+  requestedByName={answeringRequest === null ? "" : requestedByName(answeringRequest)}
+  submissionKey={answerKey}
+  onApproved={() => answered(answeringRequest?.id ?? "")}
+/>
+
+<RejectRequestDialog
+  bind:open={rejectOpen}
+  request={answeringRequest}
+  {matterNumber}
+  {money}
+  submissionKey={answerKey}
+  onRejected={() => answered(answeringRequest?.id ?? "")}
 />

@@ -18,9 +18,11 @@
   import { formatDate } from "@magna-carta/design-system/data-table";
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import * as DetailsPanel from "$lib/details-panel/index.ts";
+  import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
   import type { TrustMatterLedger, TrustMovementRecord } from "./trust-api.ts";
   import { flow, matterTrustSummary } from "./trust-figures.ts";
   import { gapCellTitle } from "./trust-gaps.ts";
+  import { memberDisplay } from "./trust-member-names.ts";
   import {
     authorizedByText,
     authorizedByTitle,
@@ -37,6 +39,7 @@
     movements,
     selected,
     money,
+    unservedPositionTitle,
     onLetGo,
   }: {
     /** The ledger read, for the position the panel states with nothing selected. Null until served. */
@@ -45,6 +48,8 @@
     movements: readonly TrustMovementRecord[];
     selected: readonly TrustMovementRecord[];
     money: (amountMinor: number) => string;
+    /** Why a figure is a dash: which of "no account", "none chosen" or "no ledger yet" is true. */
+    unservedPositionTitle: string;
     onLetGo: () => void;
   } = $props();
 
@@ -84,16 +89,22 @@
         <DetailsPanel.Fact label="Method" value={methodLabel(sole.method)} />
         <DetailsPanel.Fact label="Reference" value={sole.reference ?? UNSERVED_FIGURE} />
         <DetailsPanel.Fact label="Counterparty" value={counterpartyText(sole, ownNode)} />
-        <DetailsPanel.Fact
-          label="Recorded By"
-          value={sole.recordedBy}
-          title={gapCellTitle("memberNames")}
-        />
-        <DetailsPanel.Fact
-          label="Authorized By"
-          value={authorizedByText(sole)}
-          title={authorizedByTitle(sole)}
-        />
+        {@const recorder = memberDisplay(sole.recordedBy, firmRoster.members)}
+        <DetailsPanel.Fact label="Recorded By" value={recorder.text} title={recorder.title} />
+        {#if sole.authorizedBy === null}
+          <DetailsPanel.Fact
+            label="Authorized By"
+            value={authorizedByText(sole)}
+            title={authorizedByTitle(sole)}
+          />
+        {:else}
+          {@const authorizer = memberDisplay(sole.authorizedBy, firmRoster.members)}
+          <DetailsPanel.Fact
+            label="Authorized By"
+            value={authorizer.text}
+            title={authorizer.title ?? authorizedByTitle(sole)}
+          />
+        {/if}
         {#if sole.authorizationBasis !== null}
           <DetailsPanel.Fact label="Footing" value={basisLabel(sole.authorizationBasis)} />
         {/if}
@@ -138,21 +149,21 @@
           label="Balance"
           value={figureText(summary.balanceMinor)}
           title={summary.balanceMinor === null
-            ? gapCellTitle("account")
+            ? unservedPositionTitle
             : "What this matter's trust ledger holds: every movement netted."}
         />
         <DetailsPanel.Fact
           label="Held"
           value={figureText(summary.heldMinor)}
           title={summary.heldMinor === null
-            ? gapCellTitle("account")
+            ? unservedPositionTitle
             : "The part of the balance under a disputed-funds hold."}
         />
         <DetailsPanel.Fact
           label="Available"
           value={figureText(summary.availableMinor)}
           title={summary.availableMinor === null
-            ? gapCellTitle("account")
+            ? unservedPositionTitle
             : "The balance less what is held: what a payment out or a transfer may take."}
         />
       </DetailsPanel.Facts>

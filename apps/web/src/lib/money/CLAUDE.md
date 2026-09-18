@@ -38,12 +38,13 @@ frame.
 - **The sub-part links come from `matterStrip`'s Money group**, never a list written here. Adding a
   money section is an edit to `$lib/matters/sections.ts` and to `MoneySectionSlug`; the module
   refuses the two disagreeing.
-- **The way out names a sidebar DESTINATION, never an address.** Three of the five sections have a
-  firm-wide twin — `/time`, `/costs`, `/billing` — and `moneySectionFirmDestination` answers with
-  that destination's id so the href, the label and the glyph all come from
+- **The way out names a sidebar DESTINATION, never an address.** All five sections have a firm-wide
+  twin — `/time`, `/fees`, `/costs`, `/billing`, `/trust` — and `moneySectionFirmDestination`
+  answers with that destination's id so the href, the label and the glyph all come from
   `$lib/navigation/destinations.ts`. The rail and the toolbar therefore cannot call one place two
   things, and a destination that is announced but not `shipped` answers null: a way out to a Soon
-  page is worse than no way out. Fees and Trust answer null for that reason today.
+  page is worse than no way out. So a section names its twin here once and the registry's shipped
+  flag decides when the link appears.
 - **One bill has one address, and `billHref` is it.** Every surface that sends a reader to a bill —
   the cost and time ledgers from a billed row's menu, the invoice window's list of the matters a
   bill charges, the cost record window and its details panel — calls `billHref(matterId,
