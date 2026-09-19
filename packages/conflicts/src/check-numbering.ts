@@ -1,5 +1,9 @@
 import type { SequenceNumberingTables } from "@magna-carta/sequence-numbering/counter-statements";
-import { CONFLICTS_NUMBERED_CHECK_TABLE } from "./check-run.ts";
+
+// The numbered check's table, named here rather than in check-run.ts so the sequence module owes
+// nothing to the module that draws from it: check-run.ts imports this file, and a module that
+// imports its way back to itself is the one shape the hard rules refuse.
+export const CONFLICTS_NUMBERED_CHECK_TABLE = "conflicts_numbered_check";
 
 // The conflicts check sequence over the shared numbering idiom. What the number LOOKS like is the
 // firm's own choice, written on the numbering settings screen under the `conflicts_check` purpose

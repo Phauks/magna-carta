@@ -186,12 +186,12 @@ The Matter Numbering screen became Numbering when every sequence the firm draws 
 register (`docs/decisions/pending/every-number-the-firm-issues-is-drawn-from-one-register.md`).
 The design review of the new screen left four judgment calls; the owner ruled on 2026-09-18.
 
-| #   | Ruling                                                                                                                                                                                                                                   | Status  |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| N1  | **A fixed sequence is its own plate.** Invoice, time entry and call numbers are three different structures, so three plates, not one "Fixed Shapes" plate with a row each.                                                              | settled |
-| N2  | **"Custody Packet Numbers".** The plate is named for the record the number is on, as the register's subject is.                                                                                                                          | settled |
+| #   | Ruling                                                                                                                                                                                                                                            | Status  |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| N1  | **A fixed sequence is its own plate.** Invoice, time entry and call numbers are three different structures, so three plates, not one "Fixed Shapes" plate with a row each.                                                                        | settled |
+| N2  | **"Custody Packet Numbers".** The plate is named for the record the number is on, as the register's subject is.                                                                                                                                   | settled |
 | N3  | **Every member sees the inventory read-only.** A member without `matters:manageNumbering` sees what is in force for every sequence with Request a change beside it, never a refusal; reading rides `matters:viewNumbering`, seeded to every role. | settled |
-| N4  | **Add Part is the list's last row**, under the entry-row ruling in `design-corrections.md`; the owner left the placement to the rule.                                                                                                     | settled |
+| N4  | **Add Part is the list's last row**, under the entry-row ruling in `design-corrections.md`; the owner left the placement to the rule.                                                                                                             | settled |
 
 **What the code says today.** `apps/web/src/routes/(app)/settings/numbering/+page.svelte` lists
 every purpose from `GET /api/v1/numbering-schemes`; a scheme-shaped purpose renders

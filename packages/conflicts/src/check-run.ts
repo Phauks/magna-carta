@@ -12,7 +12,11 @@ import {
   schemeDrawOpeningStatements,
 } from "@magna-carta/sequence-numbering/scheme-draw";
 import { conflictsAuditStatement, type ConflictsWriteOptions } from "./audit.ts";
-import { CONFLICTS_CHECK_NUMBERING_TABLES, isCheckNumberConflict } from "./check-numbering.ts";
+import {
+  CONFLICTS_CHECK_NUMBERING_TABLES,
+  CONFLICTS_NUMBERED_CHECK_TABLE,
+  isCheckNumberConflict,
+} from "./check-numbering.ts";
 import { runConflictsEffect } from "./run-conflicts-effect.ts";
 import type { ScopeRequest } from "./settings.ts";
 import type { ConflictsTrigger, ConflictsTriggerSource } from "./types.ts";
@@ -41,7 +45,7 @@ import type { ConflictsTrigger, ConflictsTriggerSource } from "./types.ts";
 // id is its check's id, and a re-run mints a fresh handle that names both the run and the record it
 // will write.
 
-export const CONFLICTS_NUMBERED_CHECK_TABLE = "conflicts_numbered_check";
+export { CONFLICTS_NUMBERED_CHECK_TABLE };
 export const CONFLICTS_CHECK_RUN_TABLE = "conflicts_check_run";
 
 export const RUN_STATUSES = ["queued", "running", "completed", "failed"] as const;
