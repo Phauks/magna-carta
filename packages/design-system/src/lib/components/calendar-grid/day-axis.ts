@@ -15,6 +15,7 @@
  * in, and whether it names one, are facts about the domain the grid does not have, and reading a
  * number back out of somebody else's formatting is how a 12-hour clock lands at midnight.
  */
+import { readCivilDate } from "./civil-date.ts";
 import type { CalendarGridEntry, CalendarGridLane } from "./types.ts";
 
 /** How many minutes an hour holds — the one number the day axis is built on. */
@@ -32,6 +33,27 @@ export const DEFAULT_LAST_HOUR = 19;
 
 /** The lane key a Day uses when the caller named no lanes: one column, and nothing to head it. */
 export const SINGLE_LANE_KEY = "";
+
+/**
+ * Whether an entry belongs in the BAND ABOVE THE HOURS rather than on the axis: it has no hour, or
+ * it runs past the day it starts on.
+ *
+ * A thing with no hour is what all day means, and has always gone there. A thing that RUNS ACROSS
+ * DAYS goes there too now (owner, 2026-09-18: "multi-day events actually render in the whole
+ * calendar, rather than in the all-day area above"). It used to be cut into a piece per day and
+ * laid on the axis — the start hour to midnight, then a whole column, then midnight to the end —
+ * which drew a three-day trial as three full columns and, where the day drew only working hours,
+ * as blocks reaching above and below the grid. A span is a fact about DAYS, and the band is where
+ * a fact about days is read; its hours ride along on the chip as text.
+ *
+ * An end before the start is a point, as `placeEntries` already reads it, so it stays on the axis.
+ */
+export function inAllDayBand(entry: CalendarGridEntry): boolean {
+  if (entry.startMinute === undefined) return true;
+  const start = readCivilDate(entry.date);
+  const end = readCivilDate(entry.endDate);
+  return start !== null && end !== null && end.compare(start) > 0;
+}
 
 /** The hours a day draws, first to last inclusive. */
 export interface DayHours {
@@ -56,7 +78,8 @@ export function dayHours(
   if (lastHour < firstHour) lastHour = firstHour;
   for (const entry of entries) {
     const start = entry.startMinute;
-    if (start === undefined) continue;
+    // What the band holds never widens the axis: a span's start hour is not an hour on this day.
+    if (start === undefined || inAllDayBand(entry)) continue;
     firstHour = Math.min(firstHour, hourOf(start));
     // An entry that ends exactly on the hour does not need that hour's row: a meeting to 17:00 is
     // over at 17:00, and widening for it would leave an empty row under every tidy afternoon.
@@ -100,7 +123,7 @@ export function laneOf(entry: CalendarGridEntry, lanes: readonly CalendarGridLan
 
 /** A day's entries, split per lane into the band above the hours and the ones the hours hold. */
 export interface DayPlacement {
-  /** By lane key: the entries with no time, which is what all day means. */
+  /** By lane key: the entries with no time, and the ones that run across days (`inAllDayBand`). */
   readonly allDay: ReadonlyMap<string, CalendarGridEntry[]>;
   /** By lane key: the entries that have an hour, in the order handed over. */
   readonly timed: ReadonlyMap<string, CalendarGridEntry[]>;
@@ -126,7 +149,7 @@ export function placeDayEntries(
   }
   for (const entry of entries) {
     const key = laneOf(entry, lanes);
-    const into = entry.startMinute === undefined ? allDay : timed;
+    const into = inAllDayBand(entry) ? allDay : timed;
     into.get(key)?.push(entry);
   }
   return { allDay, timed };

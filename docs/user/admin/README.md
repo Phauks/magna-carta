@@ -43,6 +43,9 @@ Plain language, task-oriented — same pattern as the end-user guides ([`../READ
 - [File safety and scanning](file-safety-and-scanning.md) — how deep every upload is scanned (Core,
   Extended or Full, and what each means), the engine that scans it, the suspicion threshold, what
   the firm may do with a flagged file, and who can change any of it.
+- [Editing](editing.md) — whether every document opened in the browser editor records its changes:
+  what recording does and does not change for the member typing, where the marks are seen, what
+  switching it off means, and who can.
 - [The beta branch](beta-branch.md) — running the build ahead of the released one: what joining
   asks you to accept, why cancelling leaves the switch off, stepping back, and the alpha channel the
   platform sets.

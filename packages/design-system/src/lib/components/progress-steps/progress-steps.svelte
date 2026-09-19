@@ -52,6 +52,9 @@
       <span class="mc-progress-steps-label">
         {step.status === "failed" && step.failure ? step.failure : step.label}
       </span>
+      {#if step.note !== undefined}
+        <span class="mc-progress-steps-note" aria-hidden="true">{step.note}</span>
+      {/if}
     </li>
   {/each}
 </ol>

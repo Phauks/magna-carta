@@ -69,6 +69,7 @@ import { registerScanDiagnoseRoute } from "./routes/scan-diagnose.ts";
 import { registerUploadReadinessRoute } from "./routes/upload-readiness.ts";
 import { registerScanMatterRoute } from "./routes/scan-matter.ts";
 import { registerFileScanRoutes } from "./routes/file-scans.ts";
+import { registerEditingPolicyRoutes } from "./routes/editing-policy.ts";
 import { registerScanPolicyRoutes } from "./routes/scan-policy.ts";
 import { registerFirmsRoute } from "./routes/firms.ts";
 import { registerPlatformReleaseChannelRoute } from "./routes/platform-release-channel.ts";
@@ -790,6 +791,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerFileScanRoutes(app, chokepoint);
   // Read and update the firm's malware scan-policy settings (tier, score floor, flagged treatment).
   registerScanPolicyRoutes(app, chokepoint);
+  registerEditingPolicyRoutes(app, chokepoint);
   // The async bulk-download poll endpoint — the status side of the download route's 202 hand-off.
   registerBundleStatusRoute(app, chokepoint);
   // Slice 1·3: the directory (persons/organizations, names, sensitive identifiers, edges,

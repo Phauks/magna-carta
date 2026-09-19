@@ -167,8 +167,13 @@
   }
 </script>
 
+  <!-- A re-pick of the chosen row is a confirmation, never a deselect: the primitive's own default
+       clears the value and leaves the list open, so the next click outside settled an empty field
+       (owner, 2026-09-18: "if I select an item and try to click outside the dropdown, it reverts to
+       an empty field"). Clearing is a row of its own where this field offers one. -->
 <Combobox.Root
   type="single"
+  allowDeselect={false}
   {disabled}
   items={[
     { value: NO_MATTER_VALUE, label: noMatterLabel },

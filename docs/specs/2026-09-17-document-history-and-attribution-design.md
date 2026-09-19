@@ -1,7 +1,9 @@
 # Document history — every save, who was there, and who wrote which words
 
 **Status:** Layers 1 and 2 built (every save a version with its kind, the fold, participants per
-version); layer 3 is design, its one decision (section 3.3) taken: accept on export. The owner asked on 2026-09-17 for history that matches
+version), and 3.2 built (the firm policy, recording forced on by the host, the marks hidden on open);
+3.4 and the accept-on-export step are design, the one decision (section 3.3) taken: accept on
+export. The owner asked on 2026-09-17 for history that matches
 what Google Docs shows: every state of the document, grouped in a timeline, and each change
 attributed to the person who made it, with the noise handled by grouping rather than by keeping
 less.
@@ -94,14 +96,19 @@ person when two were typing.
 
 ### 3.2 Recording on, showing off
 
-Every document the firm opens in the editor records changes. The document's own setting is turned
-on when it loads (a UNO command sent by the page framing the editor once the document is showing),
-and the host keeps the recording control out of reach (`DisableChangeTrackingRecord`) so it stays
-on; the showing control stays available and starts off, so the page a member types on looks the
-way it always did. A member who wants to see the marks turns showing on, as in Word.
+Every document the firm opens in the editor records changes. The host does both halves of the
+recording in one property: `DisableChangeTrackingRecord` is tri-state on the editor's side, and an
+explicit `false` forces recording ON and takes the control out of the member's reach (an explicit
+`true` forces it off the same way; absence leaves the document alone). So the host answers `false`
+on every CheckFileInfo while the policy is on, and omits the property when it is off, which is the
+firm stepping back rather than forbidding. The showing control stays available and starts off: the
+launch carries the policy, and the page framing the editor sends `.uno:ShowTrackedChanges` false
+once the document is showing, so the page a member types on looks the way it always did. A member
+who wants to see the marks turns showing on, as in Word.
 
-This is a firm policy, on by default, under Settings › Documents, because a firm that files
-documents with opposing counsel may decide otherwise and must be able to.
+This is a firm policy, on by default, under Settings › Documents › Editing
+(`firm:manageEditingPolicy`, Owner/Admin by seed), because a firm that files documents with
+opposing counsel may decide otherwise and must be able to. Built 2026-09-18.
 
 ### 3.3 The decision: what happens to the marks
 

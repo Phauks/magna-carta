@@ -49,6 +49,7 @@
     dayHours,
     dayLanes,
     hourSlots,
+    inAllDayBand,
     placeDayEntries,
   } from "./day-axis.ts";
   import {
@@ -58,7 +59,7 @@
     type PlacedTimeEntry,
   } from "./time-placement.ts";
   import { blockStyle, blocksByStartingHour } from "./time-blocks.ts";
-  import { segmentsForDay } from "./day-segments.ts";
+  import { timedEntriesOn } from "./day-segments.ts";
   import type { CalendarGridEntry, CalendarGridLane } from "./types.ts";
 
   let {
@@ -132,17 +133,14 @@
   const dayDate = $derived(parseCivilDate(date));
   const columns = $derived(dayLanes(lanes));
   /*
-   * The day's own entries, with a timed one that runs past midnight cut to THIS day: a trial that
-   * began yesterday is this column from its top, not absent. All-day entries pass through
-   * untouched — they belong in the band above the hours, which spans them already.
+   * The day's own entries: what the band above the hours holds — no hour, or a run of days, so a
+   * trial that began yesterday is in the band rather than the whole column — and the timed entries
+   * that begin and end on THIS day, for the axis.
    */
   const dayEntries = $derived(
     dayDate === null
       ? entries
-      : [
-          ...entries.filter((entry) => entry.startMinute === undefined),
-          ...segmentsForDay(entries, dayDate).map((segment) => segment.entry),
-        ],
+      : [...entries.filter(inAllDayBand), ...timedEntriesOn(entries, dayDate)],
   );
   const hours = $derived(dayHours(dayEntries, firstHour, lastHour));
   const slots = $derived(hourSlots(hours));
