@@ -62,12 +62,20 @@ const MISSED_PONGS_BEFORE_FAILURE = 2;
 export const SOCKET_CLOSED_REASON = "socket-closed";
 
 /**
+ * The reason a socket is closed because the SAME member opened a newer one: a second tab, or a
+ * rejoin after a drop. The room keeps one live socket per stay and the newest wins, so this one is
+ * over — and the stay it was holding now belongs to the socket that superseded it, which is why a
+ * screen meeting this must not offer to walk back in and must not close the stay on its way out.
+ */
+export const SUPERSEDED_REASON = "superseded";
+
+/**
  * The refusals that END this browser's meeting. Everything else the room refuses is a setback: it
  * keeps the socket open, the roster keeps arriving, and the member is still in the room. Treating a
  * malformed frame or an unreachable unit as the end of a meeting throws somebody out of a room they
  * are still in, over a frame they never saw.
  */
-const FATAL_REFUSAL_REASONS = new Set(["not-a-participant", "meeting-ended"]);
+const FATAL_REFUSAL_REASONS = new Set(["not-a-participant", "meeting-ended", SUPERSEDED_REASON]);
 
 /**
  * The refusals that mean the tracks just asked for are not coming: the unit could not be reached, or
@@ -114,12 +122,27 @@ export interface MeetingRefusal {
   readonly errorId: string | null;
 }
 
+/**
+ * What a meeting is made of: pictures and sound, or sound alone.
+ *
+ * A CALL IS NOT A MEETING WITH THE CAMERAS OFF. It is chosen when the room is opened and never
+ * changes, because the people who joined agreed to one thing — so this browser captures no camera in
+ * a call, offers no screen share, and draws no picture, rather than capturing a camera nobody asked
+ * for and hiding it behind a control.
+ */
+export type MeetingMedium = "video" | "audio";
+
 /** What the join route answered with, plus where the room's socket lives. */
 export interface MeetingJoinRequest {
   readonly meetingId: string;
   readonly participantId: string;
   readonly iceServers: readonly RTCIceServer[];
   readonly socketUrl: string;
+  /**
+   * What this room carries. Left out, it is a video meeting — which is what every meeting was
+   * before calls existed, and what the record says for every meeting opened before that day.
+   */
+  readonly medium?: MeetingMedium;
 }
 
 /**
@@ -261,6 +284,10 @@ function pulledTrackKey(sessionId: string, trackName: string): string {
  */
 export function refusalStatement(refusal: MeetingRefusal): string {
   switch (refusal.reason) {
+    case SUPERSEDED_REASON:
+      // The one fatal reason with a sentence here, because it is the one a member CAUSED and can
+      // understand: the meeting is still running and they are still in it, somewhere else.
+      return "You joined this meeting again from another tab or window, so this one has closed.";
     case "sfu-unavailable":
       return "The service that carries the pictures and sound could not be reached. What was asked for will be asked for again.";
     case "unknown-track":
@@ -272,6 +299,10 @@ export function refusalStatement(refusal: MeetingRefusal): string {
       return "Something this page offered the room was named wrongly, so it is not being sent. Nobody else can see or hear it.";
     case "track-limit-reached":
       return "The room will not carry any more from one person, so this was not added. Stopping a screen share makes room for it.";
+    case "track-kind-refused":
+      // The room is a CALL. Nothing here can change that — the medium is settled when the room is
+      // opened, because everybody in it agreed to the same thing.
+      return "This is a call, so only sound is carried in it. Nothing you can see was sent.";
     case "malformed-frame":
     case "frame-too-large":
     case "binary-unsupported":
@@ -336,6 +367,12 @@ export class MeetingClient {
   participantId = $state<string | null>(null);
   /** The meeting being attended. */
   meetingId = $state<string | null>(null);
+  /**
+   * What this room carries, as the join stated it. It decides what is captured and what is offered,
+   * and it never changes while a meeting is open — the room refuses a picture published into a call,
+   * so a client that changed its mind would only be refused.
+   */
+  medium = $state<MeetingMedium>("video");
 
   /** Everybody but this browser — the tiles the grid draws from the pulled streams. */
   readonly others = $derived(
@@ -385,6 +422,7 @@ export class MeetingClient {
     this.state = "joining";
     this.meetingId = request.meetingId;
     this.participantId = request.participantId;
+    this.medium = request.medium ?? "video";
     this.#peerConnection = this.#seams.createPeerConnection({
       iceServers: [...request.iceServers],
     });
@@ -392,7 +430,13 @@ export class MeetingClient {
   }
 
   /**
-   * Capture the microphone and camera and offer them to the unit.
+   * Capture what this room carries and offer it to the unit: the microphone and camera in a meeting,
+   * the microphone alone in a call.
+   *
+   * THE CAMERA IS NOT CAPTURED IN A CALL, rather than captured and muted. A browser that opens a
+   * camera lights the device's own indicator, and a member who started a call did not agree to that;
+   * the room would refuse the picture anyway (`track-kind-refused`), so asking for it would be a
+   * light on somebody's laptop in exchange for nothing.
    *
    * The mids are read AFTER the local description is set, because that is when the browser assigns
    * them; read before, every track would be named with a null mid and the unit would have nothing
@@ -408,11 +452,14 @@ export class MeetingClient {
     const peerConnection = this.#peerConnection;
     if (peerConnection === null || this.localStream !== null) return;
 
+    const wantsPicture = this.medium === "video";
     let stream: MediaStream;
     try {
-      stream = await this.#seams.getUserMedia({ audio: true, video: true });
+      stream = await this.#seams.getUserMedia({ audio: true, video: wantsPicture });
     } catch {
-      this.captureRefusal = "The microphone and camera are not available in this browser.";
+      this.captureRefusal = wantsPicture
+        ? "The microphone and camera are not available in this browser."
+        : "The microphone is not available in this browser.";
       return;
     }
     this.localStream = stream;
@@ -420,9 +467,16 @@ export class MeetingClient {
     this.microphoneOn = stream.getAudioTracks().length > 0;
     this.cameraOn = stream.getVideoTracks().length > 0;
 
-    await this.#enqueue("Your camera and microphone were not offered to the room.", async () => {
+    const notOffered = wantsPicture
+      ? "Your camera and microphone were not offered to the room."
+      : "Your microphone was not offered to the room.";
+    await this.#enqueue(notOffered, async () => {
       const published: PublishedTrack[] = [];
       for (const track of stream.getTracks()) {
+        // A call offers sound and nothing else. Capture asked for no picture, so this is the second
+        // gate rather than the first: a browser that handed back a video track anyway does not get
+        // to publish it into a room whose people agreed to a call.
+        if (!wantsPicture && track.kind !== "audio") continue;
         const transceiver = peerConnection.addTransceiver(track, { direction: "sendonly" });
         published.push({ transceiver, kind: track.kind === "audio" ? "audio" : "video" });
       }
@@ -465,10 +519,20 @@ export class MeetingClient {
     });
   }
 
-  /** Capture a screen or a window and publish it as a second video track. */
+  /**
+   * Capture a screen or a window and publish it as a second video track.
+   *
+   * A CALL REFUSES THIS HERE, not at the room. A screen share is a video track, the room would
+   * refuse it (`track-kind-refused`), and the picker would already have been opened and a screen
+   * already chosen by then — so the refusal is stated before anybody is asked to choose anything.
+   */
   async shareScreen(): Promise<void> {
     const peerConnection = this.#peerConnection;
     if (peerConnection === null || this.sharing) return;
+    if (this.medium !== "video") {
+      this.lastProblem = "This is a call, so there is no picture in it to share a screen into.";
+      return;
+    }
 
     let stream: MediaStream;
     try {
@@ -526,10 +590,10 @@ export class MeetingClient {
     this.microphoneOn = next;
   }
 
-  /** Turn the camera picture off or on. */
+  /** Turn the camera picture off or on. A call has no camera, so there is nothing to turn. */
   toggleCamera(): void {
     const stream = this.localStream;
-    if (stream === null) return;
+    if (stream === null || this.medium !== "video") return;
     const next = !this.cameraOn;
     for (const track of stream.getVideoTracks()) track.enabled = next;
     this.cameraOn = next;

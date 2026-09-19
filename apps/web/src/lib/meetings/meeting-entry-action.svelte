@@ -19,6 +19,7 @@
    * server — the entry's meeting is read behind that same permission, and asking anyway bought them
    * a refusal on every entry window they opened.
    */
+  import Phone from "@lucide/svelte/icons/phone";
   import Video from "@lucide/svelte/icons/video";
   import Button from "@magna-carta/design-system/button";
   import { createQuery } from "@tanstack/svelte-query";
@@ -31,6 +32,7 @@
   import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
   import { startMeeting } from "./meetings-api.ts";
   import type { Failure } from "$lib/api/problem.ts";
+  import type { MeetingMedium } from "./meeting-client.svelte.ts";
 
   let {
     eventKind,
@@ -90,57 +92,84 @@
    */
   const configured = $derived(summary?.configured ?? true);
 
-  let starting = $state(false);
+  /** Which of the two is being opened, or null while neither is. One at a time, so one flag. */
+  let starting = $state<MeetingMedium | null>(null);
   let startFailure = $state<Failure | null>(null);
+  /** Which of the two the last attempt was, so Retry asks for the one that was pressed. */
+  let lastAttempt = $state<MeetingMedium>("video");
 
-  async function start(): Promise<void> {
-    if (starting) return;
-    starting = true;
+  async function start(medium: MeetingMedium): Promise<void> {
+    if (starting !== null) return;
+    starting = medium;
+    lastAttempt = medium;
     startFailure = null;
-    const outcome = await startMeeting(eventKind, eventId);
-    starting = false;
+    const outcome = await startMeeting(eventKind, eventId, medium);
+    starting = null;
     if (outcome.kind === "ok") {
       await goto(`/meetings/${outcome.value.id}`);
       return;
     }
     startFailure = outcome.failure;
   }
+
+  /** What the running room is called, which is what its Join control has to say. */
+  const joinLabel = $derived(running?.medium === "audio" ? "Join Call" : "Join Meeting");
 </script>
 
 {#if canJoin && configured}
   {#if running !== null}
     <Button
       variant="secondary"
-      title="Go into the meeting running on this entry"
+      title={running.medium === "audio"
+        ? "Go into the call running on this entry"
+        : "Go into the meeting running on this entry"}
       onclick={() => void goto(`/meetings/${running.id}`)}
     >
-      <Video class="size-16" aria-hidden="true" />
-      <!-- The count is stated even when it is none: a meeting stays open until a host ends it, so an
-           empty room is an ordinary standing, and "Join Meeting" with nothing beside it reads as a
+      {#if running.medium === "audio"}
+        <Phone class="size-16" aria-hidden="true" />
+      {:else}
+        <Video class="size-16" aria-hidden="true" />
+      {/if}
+      <!-- The count is stated even when it is none: a room stays open until a host ends it, so an
+           empty one is an ordinary standing, and "Join Meeting" with nothing beside it reads as a
            room somebody is in. -->
-      Join Meeting ({running.liveCount})
+      {joinLabel} ({running.liveCount})
     </Button>
   {:else if canHost && startable && !meetingRead.isPending}
-    <!-- The control and whatever came of pressing it stack, so a refusal states itself where the
-         act happened and the way to try again is the same button, still in its own place. -->
+    <!-- TWO CONTROLS, NOT A CONTROL WITH A CHOICE INSIDE IT. A call and a meeting are different
+         rooms to be in, and which one is being opened is decided before anything opens rather than
+         in a menu that hides the second answer. They sit on one row; whatever came of pressing
+         either stacks under both, so a refusal states itself where the act happened and the way to
+         try again is the same button, still in its own place. -->
     <div class="flex flex-col items-start gap-8">
-      <Button
-        variant="secondary"
-        disabled={starting}
-        title="Open a meeting on this entry and go into it"
-        onclick={() => void start()}
-      >
-        <Video class="size-16" aria-hidden="true" />
-        Start Meeting
-      </Button>
+      <div class="flex flex-wrap items-center gap-8">
+        <Button
+          variant="secondary"
+          disabled={starting !== null}
+          title="Open a video meeting on this entry and go into it"
+          onclick={() => void start("video")}
+        >
+          <Video class="size-16" aria-hidden="true" />
+          Start Meeting
+        </Button>
+        <Button
+          variant="secondary"
+          disabled={starting !== null}
+          title="Open a call on this entry and go into it — sound only, no cameras"
+          onclick={() => void start("audio")}
+        >
+          <Phone class="size-16" aria-hidden="true" />
+          Start Call
+        </Button>
+      </div>
       {#if startFailure !== null}
         <FailureNotice
           failure={startFailure}
           subject="This meeting"
-          title="No Meeting Was Opened"
-          fallback="The meeting was not started."
-          whenSilent="Nothing answered. The meeting was not started."
-          onRetry={() => void start()}
+          title="Nothing Was Opened"
+          fallback="The room was not opened."
+          whenSilent="Nothing answered. The room was not opened."
+          onRetry={() => void start(lastAttempt)}
         />
       {/if}
     </div>

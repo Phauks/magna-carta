@@ -21,6 +21,7 @@ import {
   type StartedMeeting,
 } from "@magna-carta/api-client";
 import { failureOf } from "$lib/api/api-client.ts";
+import type { MeetingMedium } from "./meeting-client.svelte.ts";
 import type { Failure } from "$lib/api/problem.ts";
 
 /** What a write answered: the value, or the record a failure surface renders from. */
@@ -46,15 +47,19 @@ async function write<T>(call: () => Promise<{ data: T }>): Promise<MeetingWrite<
  * Create the event's meeting, or answer with the one it already has.
  *
  * The route is idempotent on the event rather than on the key alone, so two members pressing Start
- * within a second of each other land in the same room instead of opening two.
+ * within a second of each other land in the same room instead of opening two — which is also why
+ * the SECOND of them gets the room the first opened, in the medium the first chose.
  */
 export function startMeeting(
   eventKind: "matter" | "firm",
   eventId: string,
+  medium: MeetingMedium = "video",
 ): Promise<MeetingWrite<StartedMeeting>> {
   return write(() =>
     meetingsStart({
-      body: { eventKind, eventId },
+      // What the room carries is settled HERE and never again: everybody who joins agreed to the
+      // same thing, so the medium is part of opening the room rather than a setting inside it.
+      body: { eventKind, eventId, medium },
       headers: { "idempotency-key": newWriteKey() },
       throwOnError: true,
     }),

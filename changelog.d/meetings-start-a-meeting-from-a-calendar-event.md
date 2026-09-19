@@ -11,6 +11,8 @@ External guests, recording, dial-in by telephone and rooms larger than the slice
 
 **The sidebar gains a Communications group** (owner ruling, 2026-09-18) between Workspace and Money, holding Messaging and the new Meetings row; the `/meetings` screen behind that row lists what is live, ahead and recently ended, over a cursor-paged `GET /api/v1/meetings`. Messaging keeps its stored id so a member's stars survive the move.
 
+**The browser's half of an audio call.** The client takes the room's medium at `join` and captures the microphone ALONE in a call — a camera captured and muted still lights the device's own indicator, and the room would refuse the picture anyway — so it offers one track, declines a screen share before the picker is ever opened, and draws each participant as their initials over an audio element instead of a dark video one. The control bar drops the two controls a call cannot honour rather than grey them, the entry window offers **Start Meeting** and **Start Call** side by side under the one host key, and Join, the Meetings page's row glyphs and the header all read the medium off the record.
+
 ## Public
 
 **Meet by video without a second subscription.** Open a calendar event and press **Start meeting**; everyone else on the event sees **Join meeting** in the same place. You see and hear each other, anyone can share a screen, and the controls are the ones you would expect: microphone, camera, share screen, leave. Whoever started it can end it for the room.

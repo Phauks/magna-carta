@@ -41,6 +41,8 @@
     MeetingClient,
     browserMeetingSeams,
     refusalStatement,
+    SUPERSEDED_REASON,
+    type MeetingMedium,
   } from "$lib/meetings/meeting-client.svelte.ts";
   import { meetingTiles, sharedScreenTile } from "$lib/meetings/meeting-tiles.ts";
   import MeetingGrid from "$lib/meetings/meeting-grid.svelte";
@@ -76,6 +78,18 @@
    * member who walked from one meeting to another joined to neither.
    */
   let joinedMeetingId = $state<string | null>(null);
+  /**
+   * The meeting this browser has already left, so nothing walks back into it on its own.
+   *
+   * LETTING GO OF A MEETING AND NEVER HAVING JOINED ONE LOOK THE SAME to the arrival below, and both
+   * departures let go by clearing `joinedMeetingId` — so without this the effect starts a FRESH join
+   * as the tab closes: a POST racing the departure's own leave, which, if the leave lands first,
+   * opens a stay that no socket ever reaches and that nothing closes but the server's sweep.
+   *
+   * It holds the meeting rather than a flag for the reason `joinedMeetingId` does: a member walking
+   * from one meeting to another keeps this component, and a flag would leave them in neither room.
+   */
+  let departedMeetingId = $state<string | null>(null);
   /** True while a leave is in flight, so the way out cannot be taken twice. */
   let leaving = $state(false);
 
@@ -100,8 +114,10 @@
     const id = meetingId;
     if (id === "" || joinedMeetingId === id || summary === null) return;
     // A room this browser has already been in and out of is not walked back into on its own; that
-    // is what the Rejoin control is for.
-    if (client.state === "ended") return;
+    // is what the Rejoin control is for. Both halves of that are needed: the state covers a meeting
+    // the room closed, and the departure covers one this browser left, which leaves the client
+    // holding no state at all.
+    if (client.state === "ended" || departedMeetingId === id) return;
     // The summary in hand may still be the PREVIOUS meeting's for a frame after the address moved,
     // and joining on it would read the wrong standing.
     if (summary.id !== id) return;
@@ -110,10 +126,10 @@
     if (!summary.configured || summary.status === "ended") return;
     joinedMeetingId = id;
     leaving = false;
-    void arrive(id);
+    void arrive(id, summary.medium);
   });
 
-  async function arrive(id: string): Promise<void> {
+  async function arrive(id: string, medium: MeetingMedium): Promise<void> {
     const outcome = await joinMeeting(id);
     if (outcome.kind !== "ok") {
       joinFailure = outcome.failure;
@@ -126,6 +142,9 @@
       participantId: outcome.value.participantId,
       iceServers: outcome.value.iceServers,
       socketUrl: meetingSocketUrl(id),
+      // The record's own answer, not this screen's guess: it decides whether a camera is captured
+      // at all, and it was settled when somebody opened the room.
+      medium,
     });
     await client.publish();
   }
@@ -140,6 +159,7 @@
     if (leaving || id === null) return;
     leaving = true;
     joinedMeetingId = null;
+    departedMeetingId = id;
     client.leave();
     await leaveMeeting(id);
     await goto(backAddress);
@@ -154,6 +174,7 @@
     const id = joinedMeetingId;
     if (id === null) return;
     joinedMeetingId = null;
+    departedMeetingId = id;
     client.dispose();
     void leaveMeeting(id);
   }
@@ -173,17 +194,29 @@
     const id = joinedMeetingId;
     if (id === null) return;
     joinedMeetingId = null;
+    departedMeetingId = id;
     client.dispose();
     leaveMeetingOnDeparture(id);
   }
 
   /*
-   * The room ending closes every attendance on the server at one instant, so there is nothing left
+   * Two ways this browser stops holding a stay without having asked to.
+   *
+   * The room ENDING closes every attendance on the server at one instant, so there is nothing left
    * for this browser to close on its way out and a leave sent afterwards would be asking to close a
    * row that is already closed.
+   *
+   * A socket SUPERSEDED by a newer one for the same stay is the other, and it is the more dangerous:
+   * the stay is still open and is now the other tab's. Sending a leave from here would take the tab
+   * that is actually in the room out of it — so this browser lets go of the meeting AND records it
+   * as departed, which is what stops the arrival below opening a second one in its place.
    */
   $effect(() => {
     if (client.state === "ended") joinedMeetingId = null;
+    if (client.failureReason === SUPERSEDED_REASON) {
+      joinedMeetingId = null;
+      departedMeetingId = meetingId;
+    }
   });
 
   beforeNavigate(() => {
@@ -210,6 +243,8 @@
    */
   function rejoin(): void {
     joinedMeetingId = null;
+    // Asked for, so the departure that closed this screen's last stay stops standing in the way.
+    departedMeetingId = null;
     joinFailure = null;
   }
 
@@ -269,6 +304,18 @@
    */
   const over = $derived(client.state === "ended" || summary?.status === "ended");
   const unconfigured = $derived(summary !== null && !summary.configured);
+  /*
+   * This socket lost the stay to a newer one of this member's own. The meeting is NOT over — it is
+   * running, with them in it, in the tab that superseded this one — so the screen says that rather
+   * than reading as a room that closed.
+   */
+  const superseded = $derived(client.failureReason === SUPERSEDED_REASON);
+  /*
+   * What this room IS, named on the header's own line beside the day and the count — because a call
+   * and a meeting look different the moment you are in one (no picture, no share) and a reader
+   * arriving at the address should know which they are about to join before they are in it.
+   */
+  const kindWord = $derived(client.medium === "audio" ? "Call" : "Meeting");
 </script>
 
 <svelte:head><title>{title} · Magna Carta</title></svelte:head>
@@ -283,6 +330,7 @@
         {#if startsAt !== null}
           <span>{endsAt === null ? startsAt : `${startsAt} to ${endsAt}`} {zoneCode}</span>
         {/if}
+        <span>{kindWord}</span>
         <span>{summary.liveCount === 1 ? "1 in the room" : `${summary.liveCount} in the room`}</span>
       {/if}
     {/snippet}
@@ -331,7 +379,21 @@
       <!-- The room's own faults are not API failures and are not dressed as them: no request was
            refused, so there is no Error ID to carry and no retry that would mean anything. The
            statement says what happened and the way back in is the control beside it. -->
-      {#if client.state === "failed"}
+      {#if superseded}
+        <!-- The one failure with no Rejoin beside it, and the reason is the whole of it: this
+             member is already back in the room somewhere else. A Rejoin here would take the stay
+             off the tab that is actually in the meeting and hand it to this one, which is the same
+             collision again with the tabs swapped. -->
+        <div class="flex flex-col items-start gap-8">
+          <Alert.Root variant="info">
+            <Alert.Title>This Meeting Moved</Alert.Title>
+            <Alert.Description>
+              {refusalStatement({ reason: SUPERSEDED_REASON, errorId: null })}
+            </Alert.Description>
+          </Alert.Root>
+          <Button variant="secondary" href={backAddress}>Back to the Event</Button>
+        </div>
+      {:else if client.state === "failed"}
         <div class="flex flex-col items-start gap-8">
           <Alert.Root variant="warning">
             <Alert.Title>The Room Stopped Answering</Alert.Title>
@@ -372,7 +434,7 @@
 
       <div class="flex min-h-0 flex-1 gap-16">
         <div class="min-h-0 min-w-0 flex-1">
-          <MeetingGrid {tiles} {sharedScreen} />
+          <MeetingGrid {tiles} {sharedScreen} medium={client.medium} />
         </div>
         <aside class="hidden min-h-0 w-3xs shrink-0 lg:block">
           <MeetingRoster
@@ -386,6 +448,7 @@
         microphoneOn={client.microphoneOn}
         cameraOn={client.cameraOn}
         sharing={client.sharing}
+        medium={client.medium}
         canEnd={canHost}
         subtitle={endSubject}
         onToggleMicrophone={() => client.toggleMicrophone()}

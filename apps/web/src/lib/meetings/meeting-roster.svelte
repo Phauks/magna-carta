@@ -15,6 +15,7 @@
   import MicOff from "@lucide/svelte/icons/mic-off";
   import ScreenShare from "@lucide/svelte/icons/screen-share";
   import * as Avatar from "@magna-carta/design-system/avatar";
+  import { participantInitials } from "./meeting-tiles.ts";
   import type { MeetingParticipant } from "./meeting-client.svelte.ts";
 
   let {
@@ -27,15 +28,6 @@
     ownParticipantId?: string | null;
   } = $props();
 
-  /** The letters an avatar falls back to: the initials of however many words the name has. */
-  function initials(name: string): string {
-    const letters = name
-      .split(/\s+/u)
-      .filter((word) => word !== "")
-      .map((word) => word[0] ?? "")
-      .join("");
-    return letters.slice(0, 2).toUpperCase();
-  }
 </script>
 
 <div class="flex h-full min-h-0 flex-col gap-12">
@@ -47,7 +39,7 @@
       {@const shares = participant.tracks.some((track) => track.kind === "screen")}
       <li class="flex items-center gap-8">
         <Avatar.Root>
-          <Avatar.Fallback>{initials(name)}</Avatar.Fallback>
+          <Avatar.Fallback>{participantInitials(name)}</Avatar.Fallback>
         </Avatar.Root>
         <span class="min-w-0 flex-1 truncate text-sm" title={name}>
           {name}{#if participant.participantId === ownParticipantId}<span

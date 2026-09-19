@@ -23,6 +23,23 @@ export interface MeetingTileModel {
 /** The word a participant with no display name on the roster is drawn under. */
 const UNNAMED_PARTICIPANT = "Joining";
 
+/**
+ * The letters a participant is drawn as where there is no picture of them: the initials of however
+ * many words their name has, capped at two.
+ *
+ * It lives here rather than in either surface because BOTH draw them — the roster rail always, and
+ * a tile in a call, which has no picture to draw at all — and two copies of this would be two
+ * answers to "what is somebody called when you cannot see them".
+ */
+export function participantInitials(name: string): string {
+  const letters = name
+    .split(/\s+/u)
+    .filter((word) => word !== "")
+    .map((word) => word[0] ?? "")
+    .join("");
+  return letters.slice(0, 2).toUpperCase();
+}
+
 function nameOf(participant: MeetingParticipant): string {
   return participant.displayName === "" ? UNNAMED_PARTICIPANT : participant.displayName;
 }

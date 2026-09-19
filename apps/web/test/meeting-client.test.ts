@@ -20,7 +20,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   MeetingClient,
   refusalStatement,
+  SUPERSEDED_REASON,
   type MeetingClientSeams,
+  type MeetingMedium,
 } from "$lib/meetings/meeting-client.svelte.ts";
 import { meetingTiles, sharedScreenTile } from "$lib/meetings/meeting-tiles.ts";
 import { leaveMeetingOnDeparture } from "$lib/api/departure-write.ts";
@@ -215,16 +217,23 @@ interface Harness {
  */
 const opened: MeetingClient[] = [];
 
-function harness(participantId = "attendance_1"): Harness {
+function harness(participantId = "attendance_1", medium: MeetingMedium = "video"): Harness {
   const socket = new FakeSocket();
   const peerConnection = new FakePeerConnection();
+  /*
+   * Capture answers what it was ASKED for, the way a browser does: a call asks for no camera, so a
+   * call's stream carries a microphone and nothing else. A fake that handed back a camera either way
+   * would let a client that forgot to ask correctly still pass.
+   */
   const captured = new FakeStream([new FakeTrack("audio"), new FakeTrack("video")]);
+  const audioOnly = new FakeStream([new FakeTrack("audio")]);
   const displayed = new FakeStream([new FakeTrack("video")]);
 
   const seams = {
     createPeerConnection: () => peerConnection,
     openSocket: () => socket,
-    getUserMedia: () => Promise.resolve(captured),
+    getUserMedia: (constraints: MediaStreamConstraints) =>
+      Promise.resolve(constraints.video === false ? audioOnly : captured),
     getDisplayMedia: () => Promise.resolve(displayed),
     createMediaStream: () => new FakeStream([]),
   } as unknown as MeetingClientSeams;
@@ -236,11 +245,18 @@ function harness(participantId = "attendance_1"): Harness {
     participantId,
     iceServers: [],
     socketUrl: "wss://example.test/api/v1/meetings/meeting_1/socket",
+    medium,
   });
   socket.accept();
   socket.deliver({ v: 1, type: "welcome", participantId, roster: [] });
 
-  return { client, socket, peerConnection, captured, displayed };
+  return {
+    client,
+    socket,
+    peerConnection,
+    captured: medium === "audio" ? audioOnly : captured,
+    displayed,
+  };
 }
 
 afterEach(() => {
@@ -322,6 +338,31 @@ describe("publishing", () => {
     // A failed step is not the end of the meeting: the member is still in the room and the next
     // frame is still worth applying.
     expect(client.state).toBe("live");
+  });
+
+  it("offers sound alone in a call, and never asks for a camera", async () => {
+    const { client, socket, peerConnection } = harness("attendance_1", "audio");
+    await client.publish();
+
+    const [publish] = socket.framesOfType("publish");
+    expect(publish?.tracks).toEqual([{ trackName: "attendance_1:audio", mid: "0", kind: "audio" }]);
+    // One media section, not two with one of them dark: a camera that is captured and muted still
+    // lights the device's own indicator, and nobody who started a CALL agreed to that.
+    expect(peerConnection.transceivers).toHaveLength(1);
+    expect(client.cameraOn).toBe(false);
+  });
+
+  it("refuses a screen share in a call here, before anybody is asked to choose a screen", async () => {
+    const { client, socket } = harness("attendance_1", "audio");
+    await client.publish();
+    const framesBefore = socket.framesOfType("publish").length;
+
+    await client.shareScreen();
+
+    expect(client.sharing).toBe(false);
+    expect(client.screenStream).toBeNull();
+    expect(socket.framesOfType("publish")).toHaveLength(framesBefore);
+    expect(client.lastProblem).toContain("This is a call");
   });
 
   it("applies the answer the room sends back", async () => {
@@ -593,6 +634,34 @@ describe("what the room refuses", () => {
       expect(statement).not.toBe(refusalStatement({ reason: "something-else", errorId: null }));
       expect(statement).toMatch(/\.$/u);
     }
+  });
+
+  it("ends this session when the same member opens a newer one, and says which is which", async () => {
+    const { client, socket, captured } = harness();
+    await client.publish();
+
+    socket.deliver({ v: 1, type: "refused", reason: "superseded" });
+
+    expect(client.state).toBe("failed");
+    expect(client.failureReason).toBe(SUPERSEDED_REASON);
+    // Torn down like any other ending: the camera stops here, because the tab that superseded this
+    // one is the one in the room now.
+    expect(captured.getTracks().every((track) => track.stopped)).toBe(true);
+    // It is the one fatal reason a member caused, so it is the one with words of its own.
+    expect(refusalStatement({ reason: SUPERSEDED_REASON, errorId: null })).toContain(
+      "another tab or window",
+    );
+  });
+
+  it("states a picture refused by a call without ending it", () => {
+    const { client, socket } = harness("attendance_1", "audio");
+    socket.deliver({ v: 1, type: "refused", reason: "track-kind-refused" });
+
+    expect(client.state).toBe("live");
+    expect(client.lastRefusal?.reason).toBe("track-kind-refused");
+    expect(refusalStatement({ reason: "track-kind-refused", errorId: null })).toContain(
+      "only sound",
+    );
   });
 
   it("does not ask again for somebody else's tracks over a refusal about its own", () => {

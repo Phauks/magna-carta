@@ -42,6 +42,28 @@ meeting** in the same place from then on.
 If **Start meeting** is not on the event at all, your firm has not been set up for meetings yet, and
 that is a step for whoever administers the firm rather than something you can turn on from here.
 
+## Audio calls
+
+Beside **Start meeting** is **Start call**, and it opens the same kind of room with the cameras left
+out of it. Use it when the point is the conversation: a quick word before a hearing, a client
+catch-up, anything you would have picked up the telephone for.
+
+What is different, and nothing else is:
+
+- **Your camera is never asked for.** The browser asks for your microphone alone, so no indicator
+  light comes on and there is nothing to remember to turn off.
+- **Everybody is a name, not a picture.** Each person in the room is their initials and their name,
+  with the same mark beside them when they are muted.
+- **There is no screen sharing**, because there is no picture in the room to share one into.
+
+**A call cannot be turned into a video meeting once it has started.** Everybody who joined agreed to
+a call, so nobody can add a camera to the room afterwards. If it turns out you need to see each
+other, leave and start a meeting on the same event — the call's attendance stays on the record, and
+the meeting's is recorded beside it.
+
+Joining is the same act: where somebody has started a call, the event says **Join call** rather than
+**Join meeting**, and the Meetings page marks the call rows with a telephone.
+
 ## Joining a meeting
 
 Open the same event. Where **Start meeting** was, it now says **Join meeting**, with a count of how

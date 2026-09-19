@@ -17,6 +17,7 @@
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Button from "@magna-carta/design-system/button";
   import FieldLabel from "@magna-carta/design-system/field-label";
+  import Phone from "@lucide/svelte/icons/phone";
   import Video from "@lucide/svelte/icons/video";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { eventAddress } from "./meetings-api.ts";
@@ -73,7 +74,19 @@
 </script>
 
 {#snippet cell({ row, column, text }: DataTable.GridCellContext<MeetingSummary>)}
-  {#if column.id === MEETING_COLUMN_IDENTIFIERS.where}
+  {#if column.id === MEETING_COLUMN_IDENTIFIERS.title}
+    <!-- The glyph rides in the row's anchored column, beside the name of the event: what KIND of
+         room this is decides what walking into it does to your camera, so it is read at a glance
+         rather than found by opening it. The label is what a screen reader hears in its place. -->
+    <span class="flex min-w-0 items-center gap-8">
+      {#if row.medium === "audio"}
+        <Phone class="mc-table-grid-row-glyph shrink-0" aria-label="Call" />
+      {:else}
+        <Video class="mc-table-grid-row-glyph shrink-0" aria-label="Video meeting" />
+      {/if}
+      <span class="truncate" title={row.title}>{text}</span>
+    </span>
+  {:else if column.id === MEETING_COLUMN_IDENTIFIERS.where}
     {@const address = matterAddress(row)}
     {#if address === null}
       {text}
@@ -87,8 +100,12 @@
       </Button>
     {:else}
       <Button variant="secondary" size="sm" href={meetingAddress(row)}>
-        <Video class="size-16" aria-hidden="true" />
-        Join
+        {#if row.medium === "audio"}
+          <Phone class="size-16" aria-hidden="true" />
+        {:else}
+          <Video class="size-16" aria-hidden="true" />
+        {/if}
+        {row.medium === "audio" ? "Join Call" : "Join Meeting"}
       </Button>
     {/if}
   {:else}

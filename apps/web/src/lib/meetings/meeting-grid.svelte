@@ -10,15 +10,23 @@
    */
   import MeetingTile from "./meeting-tile.svelte";
   import type { MeetingTileModel } from "./meeting-tiles.ts";
+  import type { MeetingMedium } from "./meeting-client.svelte.ts";
 
   let {
     tiles,
     sharedScreen = null,
+    medium = "video",
   }: {
     /** Everybody in the room, this browser's own preview first. */
     tiles: readonly MeetingTileModel[];
     /** The screen being shared, where one is. It takes the large slot. */
     sharedScreen?: MeetingTileModel | null;
+    /**
+     * What the room carries. It reaches every tile from here rather than riding on each one: it is
+     * a fact about the ROOM, and a grid whose tiles could disagree about it would be a call with
+     * one person's camera in it.
+     */
+    medium?: MeetingMedium;
   } = $props();
 </script>
 
@@ -30,6 +38,7 @@
       name={sharedScreen.name}
       local={sharedScreen.local}
       microphoneOff={sharedScreen.microphoneOff}
+      {medium}
     />
     <div
       class="mc-scrollbar grid min-h-0 shrink-0 basis-1/4 auto-rows-fr grid-cols-3 gap-16 overflow-y-auto sm:grid-cols-4 xl:grid-cols-6"
@@ -41,6 +50,7 @@
           name={tile.name}
           local={tile.local}
           microphoneOff={tile.microphoneOff}
+          {medium}
         />
       {/each}
     </div>
@@ -54,6 +64,7 @@
         name={tile.name}
         local={tile.local}
         microphoneOff={tile.microphoneOff}
+        {medium}
       />
     {/each}
   </div>

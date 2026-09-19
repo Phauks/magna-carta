@@ -43,6 +43,7 @@ function meeting(overrides: Partial<MeetingSummary> = {}): MeetingSummary {
     status: "live",
     startedAt: "2026-09-18T15:02:00.000Z",
     endedAt: null,
+    medium: "video",
     liveCount: 3,
     configured: true,
     ...overrides,
@@ -144,11 +145,26 @@ describe("a section of the screen", () => {
     expect(rendered.querySelector("h2")?.textContent?.trim()).toBe(MEETING_SECTIONS.live.heading);
     expect(rendered.textContent).toContain("Hearing preparation");
     expect(rendered.querySelector('a[href="/meetings/meeting_1"]')?.textContent?.trim()).toBe(
-      "Join",
+      "Join Meeting",
     );
     expect(rendered.querySelector('a[href="/meetings/meeting_2"]')).not.toBeNull();
     // The matter is reached from the row it is named on.
     expect(rendered.querySelector('a[href="/matters/matter_1/overview"]')).not.toBeNull();
+  });
+
+  it("marks a call as one, and says what pressing Join walks into", () => {
+    const rendered = draw({
+      scope: "live",
+      meetings: [meeting({ medium: "audio" })],
+    });
+
+    expect(rendered.querySelector('a[href="/meetings/meeting_1"]')?.textContent?.trim()).toBe(
+      "Join Call",
+    );
+    // The kind is on the row itself, where a reader meets the event's name — and it is named for
+    // somebody who cannot see the glyph.
+    expect(rendered.querySelector('[aria-label="Call"]')).not.toBeNull();
+    expect(rendered.querySelector('[aria-label="Video meeting"]')).toBeNull();
   });
 
   it("sends an ended meeting back to its event rather than into a room that is closed", () => {

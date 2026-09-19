@@ -38,6 +38,7 @@ function meeting(overrides: Partial<MeetingSummary> = {}): MeetingSummary {
     status: "live",
     startedAt: "2026-09-18T15:02:00.000Z",
     endedAt: null,
+    medium: "video",
     liveCount: 3,
     configured: true,
     ...overrides,

@@ -17,12 +17,16 @@
   import MicOff from "@lucide/svelte/icons/mic-off";
   import UserRound from "@lucide/svelte/icons/user-round";
   import Badge from "@magna-carta/design-system/badge";
+  import * as Avatar from "@magna-carta/design-system/avatar";
+  import { participantInitials } from "./meeting-tiles.ts";
+  import type { MeetingMedium } from "./meeting-client.svelte.ts";
 
   let {
     stream = null,
     name,
     local = false,
     microphoneOff = false,
+    medium = "video",
     class: className = "",
   }: {
     /** The media to show. Null before anything has been pulled for this participant. */
@@ -37,18 +41,30 @@
      * which has no microphone to report and must not read as somebody sitting there muted.
      */
     microphoneOff?: boolean | null;
+    /**
+     * What the room carries. A call has no picture in it at all, so the tile is the person's
+     * initials and their name over a media element that plays their sound and shows nothing.
+     */
+    medium?: MeetingMedium;
     class?: string;
   } = $props();
 
-  let element = $state<HTMLVideoElement | null>(null);
+  /*
+   * The element the stream is played through — a `video` in a meeting, an `audio` in a call.
+   *
+   * IT IS ONE REFERENCE AND NOT TWO because only one of them is ever in the document, and because
+   * what attaches a stream must not depend on which: a call still has to PLAY the room, and a tile
+   * that drew initials over no media element at all would be a silent room full of faces.
+   */
+  let element = $state<HTMLMediaElement | null>(null);
 
   $effect(() => {
-    const video = element;
+    const media = element;
     const source = stream;
-    if (video === null) return;
-    video.srcObject = source;
+    if (media === null) return;
+    media.srcObject = source;
     return () => {
-      video.srcObject = null;
+      media.srcObject = null;
     };
   });
 
@@ -62,23 +78,35 @@
 <figure
   class="relative flex min-h-0 min-w-0 overflow-hidden rounded-lg border border-border-default bg-surface-sunken {className}"
 >
-  <!-- svelte-ignore a11y_media_has_caption -->
-  <!-- A live camera has no caption track to offer: nothing is transcribing the room in this slice,
-       and an empty track element would assert captions that do not exist. -->
-  <video
-    bind:this={element}
-    class="h-full w-full object-cover"
-    autoplay
-    playsinline
-    muted={local}
-  ></video>
-
-  {#if !showsPicture}
-    <!-- The tile keeps its shape whether or not a picture has arrived; absence is what says the
-         camera is off, and the glyph is there so the tile is not a blank rectangle. -->
+  {#if medium === "audio"}
+    <!-- svelte-ignore a11y_media_has_caption -->
+    <!-- Sound only, and played through an element that shows nothing: a call carries no picture, but
+         it still has to be heard. The person is drawn as their initials over it. -->
+    <audio bind:this={element} class="hidden" autoplay muted={local}></audio>
     <div class="absolute inset-0 flex items-center justify-center">
-      <UserRound class="size-48 text-text-subtle" aria-hidden="true" />
+      <Avatar.Root>
+        <Avatar.Fallback>{participantInitials(name)}</Avatar.Fallback>
+      </Avatar.Root>
     </div>
+  {:else}
+    <!-- svelte-ignore a11y_media_has_caption -->
+    <!-- A live camera has no caption track to offer: nothing is transcribing the room in this slice,
+         and an empty track element would assert captions that do not exist. -->
+    <video
+      bind:this={element}
+      class="h-full w-full object-cover"
+      autoplay
+      playsinline
+      muted={local}
+    ></video>
+
+    {#if !showsPicture}
+      <!-- The tile keeps its shape whether or not a picture has arrived; absence is what says the
+           camera is off, and the glyph is there so the tile is not a blank rectangle. -->
+      <div class="absolute inset-0 flex items-center justify-center">
+        <UserRound class="size-48 text-text-subtle" aria-hidden="true" />
+      </div>
+    {/if}
   {/if}
 
   <figcaption

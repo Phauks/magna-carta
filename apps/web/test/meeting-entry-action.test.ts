@@ -24,17 +24,24 @@ const ORIGIN = "https://app.example";
 let target: HTMLElement;
 let instance: Record<string, unknown> | undefined;
 let asked: string[] = [];
+/** Every room this control asked the server to open, as it asked for it. */
+let started: unknown[] = [];
 
 /** Answer every read with one canned reply, and record what was asked for. */
 function answerWith(status: number, body: unknown): void {
-  const stub = ((request: Request) => {
+  const stub = (async (request: Request) => {
     asked.push(new URL(request.url).pathname);
-    return Promise.resolve(
-      new Response(body === null ? null : JSON.stringify(body), {
-        status,
+    if (request.method === "POST") {
+      started.push(await request.clone().json());
+      return new Response(JSON.stringify({ id: "meeting_9" }), {
+        status: 201,
         headers: { "content-type": "application/json" },
-      }),
-    );
+      });
+    }
+    return new Response(body === null ? null : JSON.stringify(body), {
+      status,
+      headers: { "content-type": "application/json" },
+    });
   }) as unknown as typeof fetch;
   client.setConfig({ baseUrl: ORIGIN, fetch: stub });
 }
@@ -63,6 +70,7 @@ const RUNNING_MEETING = {
   status: "live",
   startedAt: "2026-09-18T13:00:00.000Z",
   endedAt: null,
+  medium: "video",
   liveCount: 0,
   configured: true,
 };
@@ -80,6 +88,7 @@ beforeEach(() => {
   target = document.createElement("div");
   document.body.append(target);
   asked = [];
+  started = [];
   queryClient.clear();
 });
 
@@ -115,5 +124,43 @@ describe("a member who may join", () => {
     expect(asked).toEqual(["/api/v1/events/matterEvent_1/meeting"]);
     const control = rendered.querySelector("button");
     expect(control?.textContent?.trim()).toBe("Join Meeting (0)");
+  });
+
+  it("is told which kind of room is running, because walking in differs", async () => {
+    sessionHolding(["meetings:join"]);
+    answerWith(200, { ...RUNNING_MEETING, medium: "audio" });
+
+    const rendered = await draw();
+
+    expect(rendered.querySelector("button")?.textContent?.trim()).toBe("Join Call (0)");
+  });
+});
+
+describe("a member who may host, on an entry with no room yet", () => {
+  it("is offered both, side by side, rather than one with a choice hidden inside it", async () => {
+    sessionHolding(["meetings:join", "meetings:host"]);
+    // A 404 is the ordinary answer for an entry nobody has started anything on.
+    answerWith(404, { type: "meeting-not-found", title: "No meeting", status: 404 });
+
+    const rendered = await draw();
+
+    const labels = [...rendered.querySelectorAll("button")].map((control) =>
+      control.textContent?.trim(),
+    );
+    expect(labels).toEqual(["Start Meeting", "Start Call"]);
+  });
+
+  it("opens the kind that was pressed, saying so on the wire", async () => {
+    sessionHolding(["meetings:join", "meetings:host"]);
+    answerWith(404, { type: "meeting-not-found", title: "No meeting", status: 404 });
+    const rendered = await draw();
+
+    const call = [...rendered.querySelectorAll("button")].find(
+      (control) => control.textContent?.trim() === "Start Call",
+    );
+    call?.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(started).toEqual([{ eventKind: "matter", eventId: "matterEvent_1", medium: "audio" }]);
   });
 });
