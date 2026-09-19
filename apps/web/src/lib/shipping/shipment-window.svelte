@@ -28,6 +28,7 @@
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import { toast } from "@magna-carta/design-system/toast";
   import { WriteIntent } from "$lib/api/write-intent.ts";
+  import { openBeside } from "$lib/navigation/open-beside.ts";
   import { readLabelObjectUrl, readTracking, refundShipment } from "$lib/shipping/shipping-api.ts";
   import { formatMinorUnits, shipmentStatusLabel } from "$lib/shipping/shipment-columns.ts";
 
@@ -146,7 +147,9 @@
       toast.error("The label could not be fetched.");
       return;
     }
-    window.open(url, "_blank", "noopener");
+    // Through the one helper every new-tab opening in the application goes through, rather than a
+    // bare window.open: the isolation a second tab gets is decided in one place, not per caller.
+    openBeside(url, "file");
     // Released once the browser has taken it. Held any longer and every label opened in a session
     // stays in memory for as long as the tab does.
     setTimeout(() => URL.revokeObjectURL(url), LABEL_URL_LIFETIME_MS);

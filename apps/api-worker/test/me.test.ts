@@ -199,6 +199,10 @@ describe("GET /api/v1/me", () => {
         "intake:read",
         "intake:record",
         "intake:waive",
+        // Decrypting a connected integration's credential so the worker can act with it —
+        // deliberately not firm:manageSecrets, which would be read access to every secret the
+        // firm holds in exchange for buying a postage label.
+        "integrations:useConnection",
         "locations:manage",
         // Both assistant keys reach Owner/Admin: magnus:converse is seeded to the seats that do
         // legal work (Owner/Admin, Attorney, Paralegal), and magnus:readAllConversations — reading

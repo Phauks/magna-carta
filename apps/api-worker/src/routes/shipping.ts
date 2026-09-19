@@ -599,6 +599,9 @@ export function registerShippingRoutes(
       // batch. This order is deliberate: a connection row over a key that was never stored would
       // leave the firm believing it had connected an account it had not, while a stored credential
       // with no connection row is inert — nothing resolves it, and the next connect overwrites it.
+      // fitness:allow-no-dimensions — not a bucket write at all: this is the integration
+      // CredentialStore, whose `put` seals a credential into the per-firm integration_credential
+      // table. Nothing reaches object storage here, so there are no object dimensions to carry.
       await credentials.put(credentialRef, { kind: "apiKey", apiKey });
 
       const result = await runIdempotentEffect({
