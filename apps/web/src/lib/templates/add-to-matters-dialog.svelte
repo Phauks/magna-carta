@@ -227,8 +227,12 @@
           <div class="flex flex-col">
             {#each chosen as target (target.matterId)}
               {@const standing = standings[target.matterId]}
+              <!-- The track sizes ride an inline grid-template rather than an arbitrary Tailwind
+                   value: golden rule 2 admits no off-token utility, and a declared template is the
+                   house form for a two-track row (the Directory's section grids take it too). -->
               <div
-                class="grid grid-cols-[1fr_auto] items-start gap-x-12 gap-y-4 border-b border-border-subtle py-8"
+                class="grid items-start gap-x-12 gap-y-4 border-b border-border-subtle py-8"
+                style="grid-template-columns: minmax(0, 1fr) auto"
               >
                 <span class="text-sm tabular-nums">{target.label}</span>
                 {#if standing === undefined}

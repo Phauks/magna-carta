@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 826 nodes of the feature ledger in
+is the complete register rather than a digest: all 828 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,39 +21,39 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**826 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**828 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 143 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **683 that are units of work**, for the reason set out under [What a roll-up is
+count the **685 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 317 | 47% |
+| Done | shipped | 319 | 47% |
 | Part-built | partial, in-build | 125 | 18% |
 | Ahead | designed, planned, researching, not-started | 199 | 29% |
 | Parked | deferred, cut | 42 | 6% |
-| **All units of work** | | **683** | **100%** |
+| **All units of work** | | **685** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 317 | 46% |
+| `shipped` | 319 | 47% |
 | `partial` | 125 | 18% |
 | `in-build` | 0 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
 | `not-started` | 133 | 19% |
-| `deferred` | 38 | 6% |
+| `deferred` | 38 | 5% |
 | `cut` | 4 | 1% |
-| **All statuses** | **683** | **100%** |
+| **All statuses** | **685** | **100%** |
 
 ### What a roll-up is not
 
-**143 of the 826 nodes are parents, and 111 of those parents are `partial`.** A parent's status is a
+**143 of the 828 nodes are parents, and 111 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 317 of 683 (46%). Shipped plus partial is 442 (65%).**
+**Shipped alone is 319 of 685 (47%). Shipped plus partial is 444 (65%).**
 
 The 125 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**442 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**444 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 104 | 24% |
+| A person can open it today (`screen`) | 106 | 24% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 157 | 35% |
 | No user surface by nature (`internal`) | 181 | 41% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **442** | **100%** |
+| **Everything with something built** | **444** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -96,7 +96,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Area | `shipped` | `partial` | `in-build` | `designed` | `planned` | `researching` | `not-started` | `deferred` | `cut` | Total | Shipped |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | AI & Inference | 18 | 5 | 0 | 0 | 0 | 1 | 3 | 3 | 0 | 30 | 60% |
-| Authentication, Access Control & Encryption | 13 | 5 | 0 | 0 | 0 | 0 | 5 | 3 | 0 | 26 | 50% |
+| Authentication, Access Control & Encryption | 15 | 5 | 0 | 0 | 0 | 0 | 5 | 3 | 0 | 28 | 54% |
 | Calendar and Rules-Based Docketing | 14 | 2 | 0 | 0 | 0 | 1 | 4 | 0 | 0 | 21 | 67% |
 | Communications Layer | 5 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 17 | 29% |
 | Community & Feedback Forum | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 1 | 0 | 10 | 0% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 13 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 20 | 65% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **317** | **125** | **0** | **46** | **15** | **5** | **133** | **38** | **4** | **683** | **46%** |
+| **All areas** | **319** | **125** | **0** | **46** | **15** | **5** | **133** | **38** | **4** | **685** | **47%** |
 
 ## Where we have been
 
@@ -435,12 +435,14 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Authentication, Access Control & Encryption
 
-[`roadmap.d/auth.md`](../roadmap.d/auth.md) — 26 units of work, 50% shipped. 13 done, 5 part-built, 5 ahead, 3 parked.
+[`roadmap.d/auth.md`](../roadmap.d/auth.md) — 28 units of work, 54% shipped. 15 done, 5 part-built, 5 ahead, 3 parked.
 
 - `auth` · `partial` · **Authentication, access control and encryption** — First-party Better Auth login, trusted-insider RBAC, and narrowly-scoped structural application-level encryption.
   - `auth.first-party-login` · `shipped` · **First-party login** — Better Auth on control-plane D1 (Drizzle adapter), firm = organization, exactly one organization per user; role/profile mirrored to the per-firm member row. _Note: API-only to date; the login/2FA UI is the 0-7b slice (branch active)._
     - `auth.first-party-login.invitation-only` · `shipped` · **Invitation-only membership** — Nobody adds themselves to an existing firm; Better Auth's own signup stays structurally off, and joining a firm goes through invitation redemption with an email-verified flip. _Note: Founding a NEW firm is now self-serve (ADR-0280) — that is the one anonymous write, two-staged behind an emailed link. Membership of an existing firm remains invitation-only, which is what this node covers._
-    - `auth.first-party-login.auth-ui` · `partial` · **Login and 2FA UI** — The login/2FA surface over the auth backend — the design system's first consumer. _Note: Sign-in shipped, so has signing out (and signing another device out), and so are the joining screens — apps/web/src/routes/register (the role fork), register/firm, register/confirm and register/invitation each call startRegistration, confirmRegistration or redeemInvitation against the real endpoints. The two-factor ENROLMENT screens are still missing, which is the half of auth.two-factor.totp nobody can reach: a code is verified at sign-in and no screen sets one up. Passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice remain server-side gaps. Human verification is no longer one of them — the server side exists (auth.hardening.human-verification); what the sign-in surface's Turnstile slot still lacks is a widget that mints a token, which is UI._
+    - `auth.first-party-login.auth-ui` · `partial` · **Login and 2FA UI** — The login/2FA surface over the auth backend — the design system's first consumer. _Note: The ACCOUNT surface is now three built pages and one seam — Profile states and edits the member's name in its parts, sets and removes their photograph (auth.first-party-login.member-photo), and states the account's email address without offering to change it (the reason is a pending decision, not a gap); Security changes the password in place and ends the other devices with it (auth.first-party-login.password-change); Active Sessions is the live list. Two-Factor is the one Soon seam left on it, and apps/web/test/account-seams.test.ts holds that. Sign-in shipped, so has signing out (and signing another device out), and so are the joining screens — apps/web/src/routes/register (the role fork), register/firm, register/confirm and register/invitation each call startRegistration, confirmRegistration or redeemInvitation against the real endpoints. The two-factor ENROLMENT screens are still missing, which is the half of auth.two-factor.totp nobody can reach: a code is verified at sign-in and no screen sets one up. Passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice remain server-side gaps. Human verification is no longer one of them — the server side exists (auth.hardening.human-verification); what the sign-in surface's Turnstile slot still lacks is a widget that mints a token, which is UI._
+    - `auth.first-party-login.password-change` · `shipped` · **In-account password change** — Changing the password you already have, in place — against the standing password rather than an emailed token, ending every other signed-in device in the same request when asked to. _Note: It is what replaced the signed-in-devices screen's standing notice, which told a member who feared their account was held by somebody else to go and find the reset on the sign-in screen. Sign-out-elsewhere is offered and defaulted on, because asking the two questions separately leaves a gap an intruder changes the password back through._
+    - `auth.first-party-login.member-photo` · `shipped` · **Member photograph** — A member's own picture — set, replaced and removed from their profile; stored in the firm's own database and bucket, content-addressed. _Note: FIRM data rather than account data, which is the recorded decision: a name follows a person between accounts, a photograph is what this firm's colleagues see beside this person's work and is already firm-keyed by its storage. Keyed by the member rather than by the bytes, unlike the firm's brand images, because two members may legitimately hold the same image._
   - `auth.two-factor` · `partial` · **Second factors** — Passkeys/WebAuthn and TOTP primary; email codes and SMS secondary/recovery only.
     - `auth.two-factor.totp` · `shipped` · **TOTP** — TOTP enrollment and login with transition-exact audit events.
     - `auth.two-factor.passkeys` · `not-started` · **Passkeys / WebAuthn** — Passkey server plugin, enrollment UI, virtual-authenticator test coverage. _Note: Deferred from the auth backend slice because WebAuthn needs a browser; scheduled into the auth-UI slice._
