@@ -125,6 +125,30 @@
   spec: docs/specs/2026-06-12-slice-1-2-protected-crypto-module-design.md
   evidence: identifiers.ts imports blindIndexValue/composeProtectedWrite/readProtected from @magna-carta/data-access/protected-fields; status.d/1-2 on main
 
+- id: directory.addresses
+  name: Postal addresses
+  scope: Structured postal addresses on every directory entity, held as the international field set so a country's own shape is a presentation of the stored columns rather than a schema of its own.
+  status: shipped
+  slices: 1-3-directory
+  evidence: directory_address in packages/database/src/per-firm-schema.ts carries recipient, organization, two address lines, dependent locality, locality, administrative area, postal code, sorting code and country, plus the four verification columns and a duplicate-detection normalized_key; written through packages/directory/src/statements.ts and entered on the record's Address pane (apps/web/src/lib/directory/sections/address-section.svelte).
+  notes: The field set is the international one rather than a state and a five-digit code, which is what lets a provider's structured result land later with no migration.
+
+- id: directory.addresses.constraints
+  name: Postal-code and administrative-area constraints
+  scope: What a well-formed postal code looks like in a country and which administrative areas it publishes, so an address form can say a code reads wrong and can offer a state.
+  status: shipped
+  surface: screen
+  evidence: packages/address-formats — a corpus of 252 countries checked in at docs/research/address-formats/corpus.json, projected by scripts/build-data.mts into two generated modules (182 postal-code formats, 62 administrative-area lists, 1,619 areas) with a --check drift guard; validatePostalCode anchors and case-folds the published pattern, administrativeAreasFor offers the list. Reaches AddressFields as optional props, wired on the Directory record's Address pane and the office record window.
+  notes: A warning and never a gate — a malformed code renders as the field's hint, so the box is never marked invalid and nothing can refuse a commit. "No published format" is a distinct answer from "wrong", and an administrative-area list is a suggestion the field still takes free text past.
+
+- id: directory.addresses.lookup
+  name: Address autocomplete
+  scope: Offering real addresses as a person types one, and turning a chosen offer into the parts a record stores.
+  status: partial
+  surface: internal
+  evidence: packages/address-lookup holds the port and the deferred implementation — AddressLookupPort with suggest/resolve, typed outcomes that never throw, and deferredAddressLookupPort() answering engine-not-implemented to everything, the same wired-but-dormant shape resolveSearchIndexPort takes. No engine.
+  notes: Partial because the seam exists and the engine does not. The intended engine is an index over the open address corpora reusing crates/search-core and the R2 range-reader containers/search already runs, which keeps every query inside the tenancy; a hosted provider is a disclosure decision the owner has not made. no-coverage is a first-class outcome because the open corpora cover countries very unevenly.
+
 - id: directory.duplicates
   name: Duplicate detection
   scope: Fuzzy name + identifier matching on entry and import surfacing possible-duplicate candidates.

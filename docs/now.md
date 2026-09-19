@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 826 nodes of the feature ledger in
+is the complete register rather than a digest: all 829 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,39 +21,39 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**826 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
-below. 143 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **683 that are units of work**, for the reason set out under [What a roll-up is
+**829 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+below. 144 of them are roll-up parents — a node another node sits beneath — and the totals here
+count the **685 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 318 | 47% |
+| Done | shipped | 320 | 47% |
 | Part-built | partial, in-build | 124 | 18% |
 | Ahead | designed, planned, researching, not-started | 199 | 29% |
 | Parked | deferred, cut | 42 | 6% |
-| **All units of work** | | **683** | **100%** |
+| **All units of work** | | **685** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 318 | 46% |
+| `shipped` | 320 | 47% |
 | `partial` | 124 | 18% |
 | `in-build` | 0 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
 | `not-started` | 133 | 19% |
-| `deferred` | 38 | 6% |
+| `deferred` | 38 | 5% |
 | `cut` | 4 | 1% |
-| **All statuses** | **683** | **100%** |
+| **All statuses** | **685** | **100%** |
 
 ### What a roll-up is not
 
-**143 of the 826 nodes are parents, and 111 of those parents are `partial`.** A parent's status is a
+**144 of the 829 nodes are parents, and 111 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 318 of 683 (47%). Shipped plus partial is 442 (65%).**
+**Shipped alone is 320 of 685 (47%). Shipped plus partial is 444 (65%).**
 
 The 124 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**442 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**444 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 104 | 24% |
+| A person can open it today (`screen`) | 105 | 24% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 157 | 35% |
-| No user surface by nature (`internal`) | 181 | 41% |
+| No user surface by nature (`internal`) | 182 | 41% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **442** | **100%** |
+| **Everything with something built** | **444** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -101,9 +101,9 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Communications Layer | 5 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 17 | 29% |
 | Community & Feedback Forum | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 1 | 0 | 10 | 0% |
 | Conflicts Check | 6 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 75% |
-| Core Domain — Directory, Matters & Locations | 33 | 20 | 0 | 1 | 2 | 0 | 4 | 1 | 0 | 61 | 54% |
+| Core Domain — Directory, Matters & Locations | 34 | 21 | 0 | 1 | 2 | 0 | 4 | 1 | 0 | 63 | 54% |
 | Custodian (Safe Custody) | 6 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 11 | 55% |
-| Design System, UI Consistency & Design Quality | 12 | 6 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 19 | 63% |
+| Design System, UI Consistency & Design Quality | 13 | 5 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 19 | 68% |
 | Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
 | Document Automation | 3 | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 10 | 30% |
 | Documents | 67 | 11 | 0 | 2 | 0 | 0 | 16 | 3 | 1 | 100 | 67% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 13 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 20 | 65% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **318** | **124** | **0** | **46** | **15** | **5** | **133** | **38** | **4** | **683** | **47%** |
+| **All areas** | **320** | **124** | **0** | **46** | **15** | **5** | **133** | **38** | **4** | **685** | **47%** |
 
 ## Where we have been
 
@@ -561,7 +561,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Core Domain — Directory, Matters & Locations
 
-[`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 61 units of work, 54% shipped. 33 done, 20 part-built, 7 ahead, 1 parked.
+[`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 63 units of work, 54% shipped. 34 done, 21 part-built, 7 ahead, 1 parked.
 
 - `directory` · `partial` · **Directory** — Single source of truth for every person and organization, modeled as a graph of entities and typed edges. _Note: Backend complete; the list, the entity window and its panes are built and owner-reviewed; edge creation, category management and the deeper edge catalog remain (docs/specs/2026-09-02-directory-linking-design.md)._
   - `directory.entities` · `partial` · **Person and Organization entities** — Distinct Person and Organization types with equal data depth; full contact core (typed emails/phones/addresses, notes) on every entity regardless of role. _Note: Backend shipped; the record opens in one window wherever it is reached (owner ruling, 2026-09-05). The organization stays thin by the owner's ruling. Postal addresses have their own section over the country-shaped AddressFields component, and both panels hold one height whichever rail section is chosen (owner ruling, 2026-09-08)._
@@ -576,6 +576,9 @@ to change a line here, edit the node in its area file and re-run the build.
     - `directory.edges.role-assignments` · `partial` · **Matter role assignments** — Entity-to-matter role links with the role on the link, not the entity; one entity can hold multiple roles in one matter. _Note: Backend shipped; the matter's Parties page adds a party from the Directory picker with a role and a capacity, and removes one. The matter's client is a party row from the moment the matter exists, written by the intake's create._
   - `directory.identifiers` · `shipped` · **Typed identifiers** — Typed identifier list (bar number, EIN/Tax ID, SSN, DOB, driver's license) used for conflicts, billing, and document generation. _Note: Typed shapes with format checks on both sides; accounts sealed with their username and secret; the dob kind removed (dates live on the person)._
     - `directory.identifiers.protected-fields` · `shipped` · **Field-level encryption and access control** — Sensitive fields (SSN, EIN, DOB, financial) structurally encrypted via the data-access protected() field type with HMAC blind index so conflicts can match without decrypting; access logged.
+  - `directory.addresses` · `shipped` · **Postal addresses** — Structured postal addresses on every directory entity, held as the international field set so a country's own shape is a presentation of the stored columns rather than a schema of its own. _Note: The field set is the international one rather than a state and a five-digit code, which is what lets a provider's structured result land later with no migration._
+    - `directory.addresses.constraints` · `shipped` · **Postal-code and administrative-area constraints** — What a well-formed postal code looks like in a country and which administrative areas it publishes, so an address form can say a code reads wrong and can offer a state. _Note: A warning and never a gate — a malformed code renders as the field's hint, so the box is never marked invalid and nothing can refuse a commit. "No published format" is a distinct answer from "wrong", and an administrative-area list is a suggestion the field still takes free text past._
+    - `directory.addresses.lookup` · `partial` · **Address autocomplete** — Offering real addresses as a person types one, and turning a chosen offer into the parts a record stores. _Note: Partial because the seam exists and the engine does not. The intended engine is an index over the open address corpora reusing crates/search-core and the R2 range-reader containers/search already runs, which keeps every query inside the tenancy; a hosted provider is a disclosure decision the owner has not made. no-coverage is a first-class outcome because the open corpora cover countries very unevenly._
   - `directory.duplicates` · `shipped` · **Duplicate detection** — Fuzzy name + identifier matching on entry and import surfacing possible-duplicate candidates. _Note: Candidate engine shipped; the entry-time gate runs beside the New Person and New Organization entry (apps/web/src/lib/directory/duplicate-gate.svelte), permanently in view as the name is typed._
   - `directory.merge` · `partial` · **Non-destructive merge** — Merge folds a duplicate into a master, repoints every reference, archives (never deletes) the subordinate, and records survivorship plus the exact repoint list in an append-only entity_merge event. _Note: Backend shipped; merge tooling UI not built._
     - `directory.merge.unmerge` · `deferred` · **Guarded unmerge** — Reversal of a recent, still-clean merge; locked once post-merge activity accrues. _Note: Deferral-with-seam, not a retrofit; no unmerge export exists in packages/directory._
@@ -661,7 +664,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Design System, UI Consistency & Design Quality
 
-[`roadmap.d/design-system.md`](../roadmap.d/design-system.md) — 19 units of work, 63% shipped. 12 done, 6 part-built, 1 ahead, 0 parked.
+[`roadmap.d/design-system.md`](../roadmap.d/design-system.md) — 19 units of work, 68% shipped. 13 done, 5 part-built, 1 ahead, 0 parked.
 
 - `design-system` · `partial` · **Design system** — UI consistency prevented by construction (tokens, one component source, CI) and design quality set by a human foundation with an enforced review step. _Note: Foundation built and merged; close-out items open (NVDA passes, owner Storybook sign-off, first container VRT baselines, dark design pass)._
   - `design-system.tokens` · `partial` · **Design tokens** — Every color/spacing/radius/shadow/type/z/motion/breakpoint value a named DTCG token; no raw values elsewhere.
@@ -671,7 +674,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `design-system.tokens.per-firm-branding` · `partial` · **Per-firm branding generation** — Generated accessible palettes from firm anchor colors via the Culori engine. _Note: Engine built but unexposed to firms, matching the white paper's built-but-unexposed framing._
     - `design-system.tokens.tailwind-theme` · `shipped` · **Tailwind v4 token binding** — Tailwind configured via @theme to consume only generated tokens so off-scale values cannot be expressed naturally.
   - `design-system.components` · `shipped` · **Component library** — In-house @magna-carta/design-system styled directly on headless Bits UI v2 — the only primitives the app may compose. _Note: shadcn-svelte (original choice) replaced after an adversarial stress test; Bits scroll-lock CSP patch carried in patches/._
-    - `design-system.components.address-fields` · `partial` · **Country-shaped address fields** — One address form for the whole product whose field set, labels and order follow the country the address is in; the stored columns are the international field set, so changing the country re-labels and re-orders without moving a value between fields. _Note: Partial because the table is a curated shape rather than the full address-metadata corpus: it carries no postal-code patterns and no administrative-area lists, so it cannot validate a code or offer a state. A country nobody has entered yet takes the international form, which is honest rather than a guess. Adopting libaddressinput's dataset is the open question, and it is a dependency that goes stale monthly._
+    - `design-system.components.address-fields` · `shipped` · **Country-shaped address fields** — One address form for the whole product whose field set, labels and order follow the country the address is in; the stored columns are the international field set, so changing the country re-labels and re-orders without moving a value between fields. _Note: The open question the curated table left — that it could not validate a code or offer a state — is closed: the constraints are a separate package the form is HANDED, which is what kept the corpus out of a component that depends on one workspace package by design. What stays curated here is the SHAPE (which boxes, what they are called, what order), because that is a presentation choice; a country nobody has entered still takes the international form._
     - `design-system.components.storybook-catalog` · `shipped` · **Component catalog** — Storybook as the single place components are defined and reviewed; stories triple as behavior tests and axe accessibility checks. _Note: Histoire dead without Svelte 5 support, as the white paper records._
     - `design-system.components.icons` · `shipped` · **Lucide icons, no emojis** — Lucide as the only icon source; emojis banned everywhere and machine-enforced.
   - `design-system.enforcement` · `partial` · **Machine enforcement** — Lint forbids arbitrary/off-token values; catalog plus visual regression catch drift in CI.
