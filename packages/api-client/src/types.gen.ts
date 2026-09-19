@@ -371,6 +371,21 @@ export type SafeWebsiteView = {
     links: Array<string>;
 };
 
+export type SafeBrowseSessionProbe = {
+    supported: boolean;
+    steps: Array<{
+        name: string;
+        ok: boolean;
+        detail?: string;
+    }>;
+    sessionsBefore: number;
+    maxConcurrentSessions: number | null;
+    allowedBrowserAcquisitions: number | null;
+    sessionReused: boolean;
+    cdpAttached: boolean;
+    elapsedMilliseconds: number;
+};
+
 export type DecryptionInspectResponse = {
     format: 'pdf' | 'zip' | 'ooxml';
     hash: string;
@@ -8925,6 +8940,39 @@ export type SafeBrowseStreamResponses = {
 };
 
 export type SafeBrowseStreamResponse = SafeBrowseStreamResponses[keyof SafeBrowseStreamResponses];
+
+export type SafeBrowseSessionProbeData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/safe-browse/session-probe';
+};
+
+export type SafeBrowseSessionProbeErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:safeBrowse
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SafeBrowseSessionProbeError = SafeBrowseSessionProbeErrors[keyof SafeBrowseSessionProbeErrors];
+
+export type SafeBrowseSessionProbeResponses = {
+    /**
+     * The probe ran; the report says how far it got
+     */
+    200: SafeBrowseSessionProbe;
+};
+
+export type SafeBrowseSessionProbeResponse = SafeBrowseSessionProbeResponses[keyof SafeBrowseSessionProbeResponses];
 
 export type DecryptionInspectData = {
     body: {
