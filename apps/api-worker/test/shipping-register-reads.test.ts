@@ -2,7 +2,9 @@ import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import type { HttpClient } from "@magna-carta/integrations/http";
+import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { createApp } from "../src/app.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
@@ -73,6 +75,7 @@ async function createDraft(recipientName: string): Promise<string> {
 }
 
 let firstDraftId: string;
+let matterId: string;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
@@ -84,6 +87,17 @@ beforeAll(async () => {
   });
   await mirrorMemberWithOwnerRole(userId, "Register User", firmId);
   cookie = await signInForSessionCookie("register@example.com");
+
+  // A real matter, because shipment.matter_ref is a foreign key onto it — and because the matter is
+  // the whole reason a shipment's postage is recoverable at all.
+  matterId = newIdentifier("matter");
+  const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmId);
+  await firmDatabase
+    .prepare(
+      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Postage Matter', 'open', ?2, ?3, ?3)",
+    )
+    .bind(matterId, userId, new Date().toISOString())
+    .run();
 
   firstDraftId = await createDraft("First Recipient");
   await createDraft("Second Recipient");
@@ -210,5 +224,58 @@ describe("the shipping register's reads", () => {
       env,
     );
     expect(response.status).toBe(404);
+  });
+
+  /*
+   * The matter is what makes a shipment's postage recoverable: the cost-recovery adapter treats a
+   * null matter as firm-administrative and emits nothing, so a shipment that cannot carry one is a
+   * shipment whose postage can never be billed back. This asserts the link survives the round trip —
+   * the half that was missing while the buy flow never sent a matter at all.
+   */
+  it("carries a matter through the draft, the register row and the shipment", async () => {
+    const created = await app.request(
+      `${ROUTE_BASE}/shipments`,
+      {
+        method: "POST",
+        headers: authedJson(true),
+        body: JSON.stringify({
+          matterRef: matterId,
+          from: address,
+          to: { ...address, name: "Filed Recipient" },
+          parcel: { weightOz: 8 },
+        }),
+      },
+      env,
+    );
+    expect(created.status).toBe(201);
+    const { id } = (await created.json()) as { id: string };
+
+    const detail = await app.request(
+      `${ROUTE_BASE}/shipments/${id}`,
+      { method: "GET", headers: authedJson(false) },
+      env,
+    );
+    expect((await detail.json()) as { matterRef: string | null }).toMatchObject({
+      matterRef: matterId,
+    });
+
+    const listed = await app.request(
+      `${ROUTE_BASE}/shipments`,
+      { method: "GET", headers: authedJson(false) },
+      env,
+    );
+    const { data } = (await listed.json()) as { data: { id: string; matterRef: string | null }[] };
+    expect(data.find((row) => row.id === id)?.matterRef).toBe(matterId);
+  });
+
+  it("still accepts a shipment with no matter, which is mail the firm sends on its own account", async () => {
+    const detail = await app.request(
+      `${ROUTE_BASE}/shipments/${firstDraftId}`,
+      { method: "GET", headers: authedJson(false) },
+      env,
+    );
+    expect((await detail.json()) as { matterRef: string | null }).toMatchObject({
+      matterRef: null,
+    });
   });
 });

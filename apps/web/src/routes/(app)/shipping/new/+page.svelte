@@ -30,6 +30,8 @@
   import * as Card from "@magna-carta/design-system/card";
   import * as RadioGroup from "@magna-carta/design-system/radio-group";
   import { WriteIntent } from "$lib/api/write-intent.ts";
+  import { FirmMatters } from "$lib/time/firm-matters.svelte.ts";
+  import MatterPicker from "$lib/time/matter-picker.svelte";
   import {
     createShipmentDraft,
     purchaseLabel,
@@ -84,6 +86,21 @@
   let certifiedMail = $state(false);
   let returnReceipt = $state<"none" | "electronic" | "physical">("none");
   let signatureConfirmation = $state<"none" | "signature" | "adult">("none");
+
+  /*
+   * The matter this goes on, or none.
+   *
+   * It is what makes the postage recoverable: a shipment with a matter posts its postage as a hard
+   * cost against that matter, and one without emits nothing at all — a firm posts plenty of mail to
+   * a bank or an insurer with nothing to bill. So the picker offers "No matter" as a real answer
+   * rather than treating an unfiled shipment as an omission.
+   */
+  const firmMatters = new FirmMatters();
+  let matterRef = $state<string | null>(null);
+
+  $effect(() => {
+    void firmMatters.load(fetch);
+  });
 
   let shipmentId = $state<string | null>(null);
   let remoteShipmentId = $state<string | null>(null);
@@ -156,6 +173,7 @@
         const created = await draftIntent.submit((key) =>
           createShipmentDraft(
             {
+              matterRef,
               from: payloadAddress(from),
               to: payloadAddress(to),
               parcel: { weightOz: Number(weightOz) },
@@ -253,6 +271,19 @@
               </div>
             </fieldset>
           {/each}
+
+          <LabelledField label="Matter">
+            <MatterPicker
+              matters={firmMatters.matters ?? []}
+              capped={firmMatters.capped}
+              value={matterRef}
+              onpick={(picked) => (matterRef = picked)}
+            />
+          </LabelledField>
+          <p class="text-sm text-text-muted">
+            Postage on a shipment filed to a matter is recorded against it as a recoverable cost.
+            Mail the firm sends on its own account needs no matter.
+          </p>
         </Card.Content>
       </Card.Root>
       <div class="mt-16 flex justify-end">

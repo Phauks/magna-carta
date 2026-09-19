@@ -115,6 +115,7 @@ export function disconnectPostageAccount(idempotencyKey: string) {
 
 export function createShipmentDraft(
   draft: {
+    readonly matterRef: string | null;
     readonly from: ShipmentAddressPayload;
     readonly to: ShipmentAddressPayload;
     readonly parcel: { readonly weightOz: number };
