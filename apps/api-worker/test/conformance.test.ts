@@ -1260,6 +1260,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "notifications.markRead",
       "notifications.unreadCount",
       "numbering.get",
+      "numbering.list",
       "numbering.preview",
       "numbering.set",
       "ocr.recognize",

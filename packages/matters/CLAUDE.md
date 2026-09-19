@@ -12,14 +12,14 @@ list/consultations queries. Validates in memory and composes statements into @ma
 
 ## Key files / entry points
 
-- `src/numbering/segments.ts` — `NumberSegment` types + the zod scheme schema (exactly one counter)
-- `src/numbering/render.ts` — `renderMatterNumber` + `deriveScopeKey` (pure; dates/codes arrive as strings)
-- `src/numbering/counter-statements.ts` — ensure-row + guarded-increment + allocation builders
-- `src/numbering/scheme-service.ts` / `scheme-statements.ts` — the one-active-scheme-PER-PURPOSE write path
-- `src/numbering/consultation-scheme.ts` — the built-in consultation sequence + its scope prefix
-- `src/numbering/intake-scheme.ts` — the built-in intake sequence + its scope prefix
-- `src/numbering/sequences.ts` — what each of the three sequences IS, as one table rather than four
-  conditionals; `sequenceOf(purpose)` is the only reader
+- `src/numbering/counter-statements.ts` — the matter tables (`matter_number_counter` /
+  `matter_number_allocation`, owner column `matter_id`) bound to the shared draw. The segment model,
+  the renderer, the scheme table's write path, the three built-in defaults and the per-purpose
+  facts all live in `@magna-carta/sequence-numbering` now (`segments`, `render`, `scheme-service`,
+  `purposes`, `scheme-draw`) — the register every numbered record in the platform draws from
+- `src/numbering/sequences.ts` — what is MATTERS' OWN about each of its three sequences: the
+  rendered-string collision only this package's partial unique indexes can see. `matterSequenceOf`
+  is the only reader; everything else about a sequence is `purposeOf(purpose)` on the register
 - `src/matter-service.ts` — `createMatter`/`openMatter`/`closeMatter`/`reopenMatter`/`renumberMatter`/`updateMatter`
 - `src/close-preconditions.ts` — the close-precondition hook: a `check` plus an optional in-batch `commitGuard`
 - `src/close-advisories.ts` — the close-ADVISORY hook: a `notice` and nothing else. Deliberately a
@@ -52,13 +52,17 @@ list/consultations queries. Validates in memory and composes statements into @ma
   must consume nothing from a run it never reached, because a gap in the matter run reads as a lost
   file and a consultation run pitted with declined enquiries cannot be told apart from one with
   records missing.
-- **What a sequence IS lives in `src/numbering/sequences.ts`, not in conditionals.** The scope
-  prefix, the label a non-convergence is reported under, the retryable rendered-string collision, and
-  whether a built-in default exists are four facts about a sequence; spread across four branches they
-  can disagree, and a fourth run would have to find all four. Only the matter purpose has
-  `fallbackScheme: null` — there is no defensible shape to invent for a firm's own file spine — so
-  consultation and intake render from their built-in defaults until the firm configures its own, and
-  neither is ever left unnumbered while somebody gets round to the settings screen.
+- **What a sequence IS lives on the numbering register, not in conditionals.** The scope prefix,
+  the label a non-convergence is reported under, the built-in default and the parts a scheme may
+  use are facts about a sequence, held one row per purpose in
+  `@magna-carta/sequence-numbering/purposes`; the one fact that cannot leave this package — the
+  retryable rendered-string collision on the matter table — is `src/numbering/sequences.ts`. Only
+  the matter purpose has `fallbackScheme: null` — there is no defensible shape to invent for a
+  firm's own file spine — so consultation and intake render from their built-in defaults until the
+  firm configures its own, and neither is ever left unnumbered while somebody gets round to the
+  settings screen. The draw itself (`runMatterDraw`) is the shared planner's four steps plus this
+  package's own batch: `planSchemeDraw`, `observe`, the opening statements, the matter write, the
+  allocation.
 - **Counter idiom (atomic, race-proof).** Read `next_value` → render → compose [ensure-row INSERT,
   **guarded** `UPDATE … WHERE scope_key = ? AND next_value = ?`, matter write, **allocation INSERT**].
   A zero-row guarded UPDATE is not an error, so the guard alone aborts nothing: the backstop is the

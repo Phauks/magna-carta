@@ -1,21 +1,25 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { NumberingSchemeId } from "@magna-carta/identifiers/types";
-import { NUMBERING_SCHEME_TABLE, type NumberingPurpose } from "../matter-statements.ts";
+import type { SchemeNumberingPurpose } from "./purposes.ts";
+
+// Table name tracked against @magna-carta/database's schema by the schema-name-sync fitness tests.
+export const NUMBERING_SCHEME_TABLE = "numbering_scheme";
 
 // The numbering-scheme write path: a firm has at most one active scheme PER PURPOSE — one for
-// matter numbers, one for consultation numbers, which are separate sequences a firm shapes
-// independently. Setting a new scheme deactivates the prior active row of that purpose and inserts
-// the new one active in the same batch, so the "exactly one active row per purpose" invariant the
-// draw (selectActiveSchemeStatement) trusts holds transactionally. Prior schemes are kept (active = 0), not deleted — a matter's number is frozen at
+// matter numbers, one for consultation numbers, one for conflicts check numbers, and so on through
+// the purpose register — because they are separate sequences a firm shapes independently. Setting a
+// new scheme deactivates the prior active row of that purpose and inserts the new one active in the
+// same batch, so the "exactly one active row per purpose" invariant the draw trusts holds
+// transactionally. Prior schemes are kept (active = 0), not deleted — a number is frozen at
 // assignment, but the scheme history is the audit trail of how numbers were rendered over time.
 
-// Clears the currently-active scheme of one purpose, leaving the other purpose's alone. Guarded on
+// Clears the currently-active scheme of one purpose, leaving every other purpose's alone. Guarded on
 // active = 1 so a firm with no active scheme for that purpose gets a plain insert (the UPDATE
 // matches no row).
 // fitness:unguarded-write — matches a set rather than one row, so zero is an empty set rather than a refusal
 export function deactivateActiveSchemeStatement(
   database: SqlDatabase,
-  purpose: NumberingPurpose,
+  purpose: SchemeNumberingPurpose,
   now: string,
 ): SqlStatement {
   return database
@@ -28,7 +32,7 @@ export function deactivateActiveSchemeStatement(
 export interface InsertNumberingSchemeRow {
   readonly id: NumberingSchemeId;
   readonly segments: string; // the scheme JSON the renderer parses via numberingSchemeSchema
-  readonly purpose: NumberingPurpose;
+  readonly purpose: SchemeNumberingPurpose;
   readonly createdAt: string;
 }
 
@@ -43,13 +47,14 @@ export function insertNumberingSchemeStatement(
     .bind(row.id, row.segments, row.purpose, row.createdAt);
 }
 
-// The active scheme's segments JSON for the GET surface (the matter draw reads through
-// selectActiveSchemeStatement in matter-statements; this read carries only what the route renders).
-export function selectActiveSchemeSegmentsStatement(
+// The one active scheme for a purpose (a single active row per purpose is enforced in the write
+// path above). segments is the JSON the renderer parses via numberingSchemeSchema. Read by the draw
+// and by the settings surface alike.
+export function selectActiveSchemeStatement(
   database: SqlDatabase,
-  purpose: NumberingPurpose,
+  purpose: SchemeNumberingPurpose,
 ): SqlStatement {
   return database
-    .prepare(`SELECT segments FROM ${NUMBERING_SCHEME_TABLE} WHERE active = 1 AND purpose = ?1`)
+    .prepare(`SELECT id, segments FROM ${NUMBERING_SCHEME_TABLE} WHERE active = 1 AND purpose = ?1`)
     .bind(purpose);
 }

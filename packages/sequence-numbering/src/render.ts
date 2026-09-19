@@ -1,6 +1,6 @@
 import type { NumberSegment } from "./segments.ts";
 
-// Render-time refusal: a segment references a context value the matter does not carry (e.g. a
+// Render-time refusal: a segment references a context value the record does not carry (e.g. a
 // location-scoped scheme on a matter with no Location and no firm default). Callers branch on `code`.
 export type NumberingRenderCode = "scheme-segment-value-missing";
 
@@ -14,8 +14,10 @@ export class NumberingRenderError extends Error {
   }
 }
 
-// Plain strings the handler assembles from the matter, its Location, type, and client. The renderer
-// takes no D1 binding and reads no clock — every date is derived from openedDate, a civil date.
+// Plain strings the handler assembles from the record being numbered — a matter, its Location, type
+// and client; a conflicts check or a custody packet supplies only the date. The renderer takes no
+// database binding and reads no clock: every date segment is derived from openedDate, the civil date
+// the record was numbered on (the day a matter opened, a check was opened, a packet was logged).
 export interface RenderContext {
   readonly openedDate: string; // ISO civil date YYYY-MM-DD
   readonly locationCode?: string;
@@ -48,7 +50,7 @@ function renderValueSegment(segment: NumberSegment, context: RenderContext): str
     if (rendered.length === 0) {
       throw new NumberingRenderError(
         "scheme-segment-value-missing",
-        `the ${label} segment has no value for this matter`,
+        `the ${label} segment has no value for this record`,
       );
     }
     return rendered;
@@ -86,8 +88,9 @@ export function deriveScopeKey(segments: readonly NumberSegment[], context: Rend
 }
 
 // Render the full number for a drawn counter value. Counter is zero-padded to padWidth and never
-// truncated (a wider value renders in full); every other segment resolves through renderValueSegment.
-export function renderMatterNumber(
+// truncated (a wider value renders in full — the padding is a floor on the width, not a ceiling on
+// the run, so no sequence ever "runs out"); every other segment resolves through renderValueSegment.
+export function renderNumber(
   segments: readonly NumberSegment[],
   context: RenderContext,
   counterValue: number,

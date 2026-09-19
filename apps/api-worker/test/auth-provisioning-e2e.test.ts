@@ -393,6 +393,7 @@ describe("end-to-end", () => {
         "matters:open",
         "matters:renumber",
         "matters:reopen",
+        "matters:viewNumbering",
         // The two matter-notes keys, each seeded to the same three practising seats — Owner/Admin,
         // Attorney and Paralegal — and to neither Billing nor Read-only. The separate withdrawal key
         // left with the edit-and-delete model.

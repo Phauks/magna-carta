@@ -2,8 +2,8 @@ import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import type { UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
-import { readActiveScheme, setActiveNumberingScheme } from "../src/numbering/scheme-service.ts";
-import type { NumberSegment } from "../src/numbering/segments.ts";
+import { readActiveScheme, setActiveNumberingScheme } from "../src/scheme-service.ts";
+import type { NumberSegment } from "../src/segments.ts";
 
 const clock = { now: () => "2026-06-13T12:00:00.000Z" };
 const options = { clock, actorUserId: "user_admin" as UserId };
