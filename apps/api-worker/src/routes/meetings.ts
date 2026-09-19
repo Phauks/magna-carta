@@ -34,6 +34,7 @@ import {
   MAX_MEETING_PARTICIPANTS,
   MEETING_EVENT_KINDS,
   MEETING_LIST_SCOPES,
+  MEETING_MEDIA,
   type MeetingEventKind,
 } from "@magna-carta/meetings/types";
 import { MeetingValidationError } from "@magna-carta/meetings/validation";
@@ -108,6 +109,11 @@ const StartMeetingRequest = z
     // the kind beside it, and a schema that named one would refuse the other. The read through the
     // visibility gate is what decides whether it names anything at all.
     eventId: z.string().min(1).max(64),
+    // Sound alone, or sound and pictures. Optional and defaulted to a video meeting, so a caller
+    // that predates calls keeps getting what it always got. It is read ONLY when this request opens
+    // the room: one meeting per event, so the first Start decides and a second one asking for the
+    // other medium gets the room that exists rather than changing it under the people in it.
+    medium: z.enum(MEETING_MEDIA).default("video"),
   })
   .openapi("StartMeetingRequest");
 
@@ -131,6 +137,8 @@ const MeetingSummaryResponse = z
     // event was scheduled for. Null on a room nobody has walked into.
     startedAt: z.string().nullable(),
     endedAt: z.string().nullable(),
+    // Sound alone, or sound and pictures, decided by whoever started it and fixed for its life.
+    medium: z.enum(MEETING_MEDIA),
     // How many people are in the room right now, counted off the open stays on every read.
     liveCount: z.number().int().min(0),
     // Whether this deployment can route a meeting's media at all. A fact about the deployment, not
@@ -716,7 +724,7 @@ export function registerMeetingsRoutes(
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
       const idempotency = requireChokepointIdempotency(c);
-      const { eventKind, eventId } = c.req.valid("json");
+      const { eventKind, eventId, medium } = c.req.valid("json");
 
       let outcome;
       try {
@@ -727,7 +735,7 @@ export function registerMeetingsRoutes(
           async () => {
             const started = await createMeeting(
               firm.firmDatabase,
-              { eventKind: eventKind as MeetingEventKind, eventId },
+              { eventKind: eventKind as MeetingEventKind, eventId, medium },
               serviceOptions(userId),
             );
             return {
@@ -1098,6 +1106,10 @@ export function registerMeetingsRoutes(
       // cookie and no caller-supplied header travels on to the room.
       return await roomFor(c.env, firmId, meetingId).fetch(
         meetingSocketRequest({
+          // The room is told what kind of gathering it is, off the meeting row the caller was just
+          // authorized against — so a browser cannot name its own medium and publish a camera into
+          // a call.
+          medium: meeting.medium,
           firmId,
           meetingId,
           userId,

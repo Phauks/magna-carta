@@ -222,6 +222,11 @@ Problem types: `meeting-not-found` (404, and the same for an event the member ma
 - **The upgrade is same-origin.** An `Origin` header that is present and is not this application's is
   refused 403: a browser opens a WebSocket cross-origin with the member's cookie where it would refuse
   to let that page read any other call here.
+- **The medium is on the record and on the wire** (§7b): `POST /api/v1/meetings` takes an optional
+  `medium` (`video` | `audio`, default `video`) read only when the request opens the room, and
+  `MeetingSummary` carries it on every read including the list. The socket upgrade passes it inward
+  off the meeting row, and a `publish` naming anything but an audio track in a call is `refused` with
+  a new reason `track-kind-refused`, socket kept open and nothing asked of the routing service.
 
 ## 7b. Audio calls (owner direction, 2026-09-18)
 

@@ -52,6 +52,22 @@ when it ended.
 `started_at` is set by the **first join**, never by the creation. A host who opens a room and is then
 called away leaves a record saying exactly that.
 
+## The medium is chosen at Start and never changed
+
+`meeting.medium` is `video` or `audio` (`MEETING_MEDIA`), set by `createMeeting` and written by no
+other statement in this package — there is deliberately no update path for it. An audio call is a
+kind of meeting rather than a second subsystem: same record, same room, same screen, and what differs
+is what may be published into it.
+
+**It cannot change afterwards because the people already in the room agreed to one thing.** A medium
+that could be widened mid-gathering would be a camera switched on for everybody by somebody else's
+click; a second meeting on the same event is what "let us switch to video" actually means, and one
+meeting per event is what makes that a deliberate act rather than a toggle. The create path is
+find-or-return, so a second Start that asks for a different medium gets the EXISTING meeting
+unchanged — the first Start decides, and `created: false` is what says so. The room enforces the
+other half (a picture published into a call is refused there, not here): this package holds no
+socket.
+
 ## Attendance is a row per stay, and the roster is derived from it
 
 Somebody whose connection drops and who dials back in was in the room twice; a flag per person would

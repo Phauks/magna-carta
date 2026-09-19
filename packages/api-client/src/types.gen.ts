@@ -3701,6 +3701,7 @@ export type StartedMeeting = {
 export type StartMeetingRequest = {
     eventKind: 'matter' | 'firm';
     eventId: string;
+    medium?: 'video' | 'audio';
 };
 
 export type MeetingSummaryPage = {
@@ -3721,6 +3722,7 @@ export type MeetingSummary = {
     status: 'scheduled' | 'live' | 'ended';
     startedAt: string | null;
     endedAt: string | null;
+    medium: 'video' | 'audio';
     liveCount: number;
     configured: boolean;
 };

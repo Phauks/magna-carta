@@ -3,7 +3,10 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import type { MeetingRoom } from "../src/meetings/meeting-room.ts";
-import { meetingSocketRequestUrl } from "../src/meetings/meeting-room.ts";
+import {
+  meetingSocketRequestUrl,
+  SOCKET_LOSS_GRACE_SECONDS,
+} from "../src/meetings/meeting-room.ts";
 import { MAX_MEETING_FRAME_BYTES, PING_FRAME } from "../src/meetings/meeting-room-protocol.ts";
 import { setSfuFetchForTests } from "../src/meetings/sfu-client.ts";
 
@@ -130,6 +133,14 @@ async function waitFor(condition: () => boolean): Promise<void> {
   }
 }
 
+/** The same wait, for a condition only a read inside the object can answer. */
+async function waitForStored(condition: () => Promise<boolean>): Promise<void> {
+  const deadline = Date.now() + 10_000;
+  while (!(await condition()) && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
 /** The most recent roster this participant was sent, which is the one that is current. */
 function rosterOf(participant: Participant): RosterFrame | undefined {
   const frames = participant.frames.filter((frame) => frame["type"] === "roster");
@@ -166,6 +177,7 @@ async function connect(
   meetingId: string,
   attendanceId: string,
   displayName: string,
+  medium: "video" | "audio" = "video",
 ): Promise<Participant> {
   const response = await stub.fetch(
     new Request(
@@ -175,6 +187,7 @@ async function connect(
         userId: `user_${attendanceId}`,
         attendanceId,
         displayName,
+        medium,
       }),
       { headers: { Upgrade: "websocket" } },
     ),
@@ -291,38 +304,69 @@ describe("joining the room", () => {
     ]);
   });
 
-  it("a SECOND socket for one stay keeps the session and the tracks the first one opened", async () => {
+  it("supersedes the first socket when a second arrives for the same stay", async () => {
     const { meetingId, stub } = freshRoom();
     const attendanceId = "meetingAttendance_rejoin";
+    const observer = await connect(stub, meetingId, "meetingAttendance_watcher", "A Guest");
     const first = await connect(stub, meetingId, attendanceId, "A Host");
     await publish(first, attendanceId, [{ name: "video", kind: "video" }]);
-    const session = rosterOf(first)?.participants[0]?.sfuSessionId;
+    const session = rosterOf(first)?.participants.find(
+      (one) => one.participantId === attendanceId,
+    )?.sfuSessionId;
     expect(session).toMatch(/^routing-session-/);
+    upstream = [];
 
-    // A reconnect, or a second tab. The routing session and the tracks are live at the SERVICE;
-    // a welcome that reset them to nothing would leave media running that nothing could name,
-    // subscribe to, or close.
+    // A RECONNECT IS A NEW PEER CONNECTION, always: new ICE credentials and a new DTLS fingerprint,
+    // so it cannot resume the session the first one opened. Carrying the session forward left the
+    // returning member publishing into a session nobody was subscribed to, while everybody else went
+    // on subscribing to one that would never send again — a black tile that never resolves.
     const second = await connect(stub, meetingId, attendanceId, "A Host");
-    const entry = welcomeRosterOf(second)[0];
-    expect(entry?.sfuSessionId).toBe(session);
-    expect(entry?.tracks.map((track) => track.trackName)).toEqual([`${attendanceId}:video`]);
+
+    // The displaced browser is told why rather than watching a socket go quiet.
+    await waitFor(() => lastFrame(first, "refused") !== undefined);
+    expect(lastFrame(first, "refused")).toEqual({ v: 1, type: "refused", reason: "superseded" });
+    await waitFor(() => first.closeCode() !== null);
+    expect(first.closeCode()).toBe(4000);
+
+    // The stay is still theirs, and it starts again from no session and no tracks.
+    const entry = welcomeRosterOf(second).find((one) => one.participantId === attendanceId);
+    expect(entry?.sfuSessionId).toBeNull();
+    expect(entry?.tracks).toEqual([]);
+
+    // And everybody else is told, which is what makes them drop the subscription they were holding.
+    await waitFor(
+      () =>
+        rosterOf(observer)?.participants.find((one) => one.participantId === attendanceId)?.tracks
+          .length === 0,
+    );
+    expect(
+      rosterOf(observer)?.participants.find((one) => one.participantId === attendanceId)
+        ?.sfuSessionId,
+    ).toBeNull();
+
+    // The old session is nobody's now, and the service goes on forwarding it until told otherwise.
+    await waitFor(() => upstream.some((call) => call.path.endsWith("/tracks/close")));
+    const close = upstream.find((call) => call.path.endsWith("/tracks/close"));
+    expect(close?.path).toContain(encodeURIComponent(session ?? ""));
+    expect(close?.body).toEqual({ tracks: [{ mid: "0" }], force: true });
   });
 
-  it("keeps the participant when one of their two sockets closes", async () => {
+  it("times no grace for the superseded socket, and removes nobody", async () => {
     const { meetingId, stub } = freshRoom();
-    const attendanceId = "meetingAttendance_twoTabs";
+    const attendanceId = "meetingAttendance_takeover";
     const first = await connect(stub, meetingId, attendanceId, "A Host");
     const second = await connect(stub, meetingId, attendanceId, "A Host");
 
-    first.close();
     await waitFor(() => first.closeCode() !== null);
-
-    // The other tab is still looking at the meeting, so the tile is still theirs.
+    // The member is sitting in the meeting on the newer socket, so nothing was lost and there is
+    // nothing to time. A grace armed here would close the record of somebody who is present.
     expect(second.closeCode()).toBeNull();
     await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
-      expect(await state.storage.get(`participant:${attendanceId}`)).toBeDefined();
-      // And no sweep is pending: nothing was lost.
-      expect(await state.storage.get("sweep")).toBeUndefined();
+      const participant = await state.storage.get<{ socketLostAt: string | null }>(
+        `participant:${attendanceId}`,
+      );
+      expect(participant).toBeDefined();
+      expect(participant?.socketLostAt).toBeNull();
     });
   });
 });
@@ -564,6 +608,73 @@ describe("what a participant may claim to be publishing", () => {
   });
 });
 
+describe("a call is sound, and the room is where that holds", () => {
+  it("refuses a picture published into a call, and asks the service nothing", async () => {
+    const { meetingId, stub } = freshRoom();
+    const attendanceId = "meetingAttendance_caller";
+    const participant = await connect(stub, meetingId, attendanceId, "A Host", "audio");
+    upstream = [];
+
+    // The people who joined a call agreed to sound. A modified client publishing a camera would
+    // turn it into a video meeting for every one of them, on one person's decision.
+    participant.send(
+      JSON.stringify({
+        v: 1,
+        type: "publish",
+        sessionDescription: { type: "offer", sdp: "v=0 browser-offer" },
+        tracks: [{ trackName: `${attendanceId}:camera`, mid: "0", kind: "video" }],
+      }),
+    );
+
+    await waitForFrames(participant, 2);
+    expect(participant.frames[1]).toEqual({
+      v: 1,
+      type: "refused",
+      reason: "track-kind-refused",
+    });
+    expect(upstream).toEqual([]);
+    // The socket is fine — one frame the room will not act on is not a reason to drop somebody out
+    // of a call they are otherwise in.
+    expect(participant.closeCode()).toBeNull();
+
+    // A screen share is a picture by another name, and is refused on the same terms.
+    participant.send(
+      JSON.stringify({
+        v: 1,
+        type: "publish",
+        sessionDescription: { type: "offer", sdp: "v=0 browser-offer" },
+        tracks: [{ trackName: `${attendanceId}:screen`, mid: "0", kind: "screen" }],
+      }),
+    );
+    await waitForFrames(participant, 3);
+    expect(participant.frames[2]).toEqual({
+      v: 1,
+      type: "refused",
+      reason: "track-kind-refused",
+    });
+    expect(upstream).toEqual([]);
+  });
+
+  it("serves the microphone in a call, which is the whole of what a call is", async () => {
+    const { meetingId, stub } = freshRoom();
+    const attendanceId = "meetingAttendance_heard";
+    const participant = await connect(stub, meetingId, attendanceId, "A Host", "audio");
+
+    await publish(participant, attendanceId, [{ name: "microphone", kind: "audio" }]);
+
+    expect(participant.frames[1]).toEqual({
+      v: 1,
+      type: "published",
+      sessionDescription: LOCAL_ANSWER,
+      tracks: [{ trackName: `${attendanceId}:microphone`, mid: "0" }],
+    });
+    await waitForFrames(participant, 3);
+    expect(rosterOf(participant)?.participants[0]?.tracks.map((track) => track.kind)).toEqual([
+      "audio",
+    ]);
+  });
+});
+
 describe("a routing service that will not answer", () => {
   it("refuses the frame on the asking socket and leaves everybody else's open", async () => {
     const { meetingId, stub } = freshRoom();
@@ -782,27 +893,32 @@ const EVENT_COLUMNS =
   "id, title, status, starts_on, starts_at_time, ends_at_time, time_zone, audience, " +
   "recorded_at, recorded_by, created_at, updated_at";
 
-/** A meeting and one open stay in the room test's own firm, so the sweep has a record to close. */
-async function seedOpenStay(meetingId: string): Promise<{ userId: string; attendanceId: string }> {
-  const database = firmDatabaseFor(env.FIRM_DATABASE, FIRM);
-  const userId = newIdentifier("user");
-  const firmEventId = newIdentifier("firmEvent");
-  const attendanceId = newIdentifier("meetingAttendance");
-  const now = "2026-09-18T12:00:00.000Z";
+const SEED_INSTANT = "2026-09-18T12:00:00.000Z";
 
-  await database
+/** One member of the room test's own firm, so a stay has somebody to belong to. */
+async function seedMember(): Promise<string> {
+  const userId = newIdentifier("user");
+  await firmDatabaseFor(env.FIRM_DATABASE, FIRM)
     .prepare(
       `INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'A Host', 'active', ?2)`,
     )
-    .bind(userId, now)
+    .bind(userId, SEED_INSTANT)
     .run();
+  return userId;
+}
+
+/** A live meeting on a firm event, so the sweep has a record to close stays in. */
+async function seedMeeting(meetingId: string): Promise<void> {
+  const database = firmDatabaseFor(env.FIRM_DATABASE, FIRM);
+  const userId = await seedMember();
+  const firmEventId = newIdentifier("firmEvent");
   await database
     .prepare(
       `INSERT INTO firm_event (${EVENT_COLUMNS}) VALUES ` +
         `(?1, 'Monday staff meeting', 'scheduled', '2026-09-21', '08:00', '08:30', ` +
         `'America/Los_Angeles', 'all_members', ?2, ?3, ?2, ?2)`,
     )
-    .bind(firmEventId, now, userId)
+    .bind(firmEventId, SEED_INSTANT, userId)
     .run();
   await database
     .prepare(
@@ -810,16 +926,58 @@ async function seedOpenStay(meetingId: string): Promise<{ userId: string; attend
         `created_by_user_id, started_at, ended_at, ended_by_user_id, created_at, updated_at) ` +
         `VALUES (?1, 'firm', NULL, ?2, 'live', ?3, ?4, NULL, NULL, ?4, ?4)`,
     )
-    .bind(meetingId, firmEventId, userId, now)
+    .bind(meetingId, firmEventId, userId, SEED_INSTANT)
     .run();
-  await database
+}
+
+/** One more open stay in a meeting already seeded. */
+async function seedStay(meetingId: string): Promise<string> {
+  const attendanceId = newIdentifier("meetingAttendance");
+  await firmDatabaseFor(env.FIRM_DATABASE, FIRM)
     .prepare(
       `INSERT INTO meeting_attendance (id, meeting_id, user_id, joined_at, left_at, created_at, ` +
         `updated_at) VALUES (?1, ?2, ?3, ?4, NULL, ?4, ?4)`,
     )
-    .bind(attendanceId, meetingId, userId, now)
+    .bind(attendanceId, meetingId, await seedMember(), SEED_INSTANT)
     .run();
-  return { userId, attendanceId };
+  return attendanceId;
+}
+
+/** A meeting and one open stay in it, which is what most of these tests want. */
+async function seedOpenStay(meetingId: string): Promise<{ attendanceId: string }> {
+  await seedMeeting(meetingId);
+  return { attendanceId: await seedStay(meetingId) };
+}
+
+/** When the room recorded this participant's last socket going away, or null while one is open. */
+async function socketLostAtOf(
+  stub: ReturnType<typeof roomStub>,
+  attendanceId: string,
+): Promise<string | null> {
+  let lostAt: string | null = null;
+  await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
+    const participant = await state.storage.get<{ socketLostAt: string | null }>(
+      `participant:${attendanceId}`,
+    );
+    lostAt = participant?.socketLostAt ?? null;
+  });
+  return lostAt;
+}
+
+/** Winds one participant's drop back, so the alarm makes the decision it would a minute from now. */
+async function rewindGrace(
+  stub: ReturnType<typeof roomStub>,
+  attendanceId: string,
+  secondsAgo: number,
+): Promise<void> {
+  await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
+    const key = `participant:${attendanceId}`;
+    const participant = await state.storage.get<Record<string, unknown>>(key);
+    await state.storage.put(key, {
+      ...participant,
+      socketLostAt: new Date(Date.now() - secondsAgo * 1000).toISOString(),
+    });
+  });
 }
 
 async function readStay(attendanceId: string): Promise<{ left_at: string | null } | null> {
@@ -842,23 +1000,20 @@ describe("a connection that went away and did not come back", () => {
 
     // A GRACE PERIOD, not an immediate close: the member is very likely about to reconnect, and a
     // stay closed the moment a tunnel dropped would be reopened as a second arrival they never made.
-    let armedFor = 0;
+    // The instant is on the PARTICIPANT, which is what makes it one grace per person.
+    await waitForStored(async () => (await socketLostAtOf(stub, attendanceId)) !== null);
+    const lostAt = await socketLostAtOf(stub, attendanceId);
+    expect(lostAt).not.toBeNull();
+    expect(Date.parse(lostAt ?? "")).toBeGreaterThan(Date.now() - 30_000);
     await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
-      await waitFor(() => true);
-      armedFor = (await state.storage.get<number>("sweep")) ?? 0;
       expect(await state.storage.getAlarm()).not.toBeNull();
     });
-    await waitFor(() => armedFor > 0);
-    expect(armedFor).toBeGreaterThan(Date.now() + 30_000);
-    expect(armedFor).toBeLessThanOrEqual(Date.now() + 60_000);
     // Inside the grace the record still says they are here, which is the whole point of it.
     expect((await readStay(attendanceId))?.left_at).toBeNull();
 
-    // Wind the deadline back rather than waiting a minute: the alarm handler decides from the
-    // stored instant, so this is the same decision it makes a minute from now.
-    await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
-      await state.storage.put("sweep", Date.now() - 1000);
-    });
+    // Wind the drop back rather than waiting a minute: the alarm handler decides from the stored
+    // instant, so this is the same decision it makes a minute from now.
+    await rewindGrace(stub, attendanceId, SOCKET_LOSS_GRACE_SECONDS + 1);
     upstream = [];
     expect(await runDurableObjectAlarm(stub)).toBe(true);
 
@@ -875,6 +1030,42 @@ describe("a connection that went away and did not come back", () => {
     expect(close?.body).toEqual({ tracks: [{ mid: "0" }], force: true });
   });
 
+  it("closes only the person whose OWN minute has run out", async () => {
+    const { meetingId, stub } = freshRoom();
+    await seedMeeting(meetingId);
+    const earlyId = await seedStay(meetingId);
+    const lateId = await seedStay(meetingId);
+    const early = await connect(stub, meetingId, earlyId, "A Host");
+    const late = await connect(stub, meetingId, lateId, "A Guest");
+
+    // Two people drop forty seconds apart, inside one sixty-second grace. When the first one's
+    // alarm fires the second is twenty seconds into their own minute — and a room that kept ONE
+    // pending deadline closed them both, spending the first person's grace on the second's record.
+    early.close();
+    late.close();
+    await waitFor(() => early.closeCode() !== null && late.closeCode() !== null);
+    await waitForStored(async () => (await socketLostAtOf(stub, lateId)) !== null);
+    await rewindGrace(stub, earlyId, SOCKET_LOSS_GRACE_SECONDS + 1);
+    await rewindGrace(stub, lateId, SOCKET_LOSS_GRACE_SECONDS - 40);
+
+    expect(await runDurableObjectAlarm(stub)).toBe(true);
+
+    expect((await readStay(earlyId))?.left_at).not.toBeNull();
+    expect((await readStay(lateId))?.left_at).toBeNull();
+    await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
+      expect([...(await state.storage.list({ prefix: "participant:" })).keys()]).toEqual([
+        `participant:${lateId}`,
+      ]);
+      // And the room comes back for them: the alarm re-arms to the deadline still running.
+      expect(await state.storage.getAlarm()).not.toBeNull();
+    });
+
+    // Then their own minute runs out, and the same sweep closes them.
+    await rewindGrace(stub, lateId, SOCKET_LOSS_GRACE_SECONDS + 1);
+    await runDurableObjectAlarm(stub);
+    expect((await readStay(lateId))?.left_at).not.toBeNull();
+  });
+
   it("leaves alone a participant who reconnected inside the grace period", async () => {
     const { meetingId, stub } = freshRoom();
     const { attendanceId } = await seedOpenStay(meetingId);
@@ -883,9 +1074,7 @@ describe("a connection that went away and did not come back", () => {
     await waitFor(() => first.closeCode() !== null);
     await connect(stub, meetingId, attendanceId, "A Host");
 
-    await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
-      await state.storage.put("sweep", Date.now() - 1000);
-    });
+    await rewindGrace(stub, attendanceId, SOCKET_LOSS_GRACE_SECONDS + 1);
     await runDurableObjectAlarm(stub);
 
     // The sweep asks who has a socket NOW, not who dropped one earlier.

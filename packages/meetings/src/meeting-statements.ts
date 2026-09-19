@@ -11,6 +11,7 @@ import type {
 import type {
   MeetingAttendanceRow,
   MeetingEventKind,
+  MeetingMedium,
   MeetingEventRow,
   MeetingListScope,
   MeetingRow,
@@ -47,6 +48,7 @@ function visibleEventClause(visibility: VisibleMatterPredicate, meetingExpressio
 const MEETING_COLUMNS = [
   "id",
   "event_kind",
+  "medium",
   "matter_event_id",
   "firm_event_id",
   "status",
@@ -91,6 +93,7 @@ function toSummary(row: MeetingSummaryColumns): MeetingSummary {
   return {
     id: row.id,
     eventKind: row.event_kind,
+    medium: row.medium,
     eventId: row.event_id,
     matterId: row.matter_id,
     title: row.title,
@@ -444,6 +447,7 @@ export function isOpenStayConflict(error: unknown): boolean {
 export interface InsertMeetingInput {
   readonly id: MeetingId;
   readonly eventKind: MeetingEventKind;
+  readonly medium: MeetingMedium;
   readonly matterEventId: MatterEventId | null;
   readonly firmEventId: FirmEventId | null;
   readonly createdByUserId: UserId;
@@ -465,13 +469,14 @@ export function insertMeetingStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${MEETING_TABLE} (id, event_kind, matter_event_id, firm_event_id, status, ` +
-        `created_by_user_id, started_at, ended_at, ended_by_user_id, created_at, updated_at) ` +
-        `VALUES (?1, ?2, ?3, ?4, 'scheduled', ?5, NULL, NULL, NULL, ?6, ?6)`,
+      `INSERT INTO ${MEETING_TABLE} (id, event_kind, medium, matter_event_id, firm_event_id, ` +
+        `status, created_by_user_id, started_at, ended_at, ended_by_user_id, created_at, ` +
+        `updated_at) VALUES (?1, ?2, ?3, ?4, ?5, 'scheduled', ?6, NULL, NULL, NULL, ?7, ?7)`,
     )
     .bind(
       input.id,
       input.eventKind,
+      input.medium,
       input.matterEventId,
       input.firmEventId,
       input.createdByUserId,

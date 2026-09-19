@@ -7755,6 +7755,14 @@ export const meeting = sqliteTable(
     status: text("status", { enum: ["scheduled", "live", "ended"] })
       .notNull()
       .default("scheduled"),
+    // SOUND ALONE, OR SOUND AND PICTURES. An audio call is a first-class kind of meeting rather than
+    // a video meeting nobody turned a camera on in: it is chosen at Start and never changed, because
+    // the people already in the room agreed to one thing and a medium that could be widened
+    // mid-gathering would be a camera switched on for everybody by somebody else's click. Defaulted
+    // to `video` so every row that predates the column reads as what it was.
+    medium: text("medium", { enum: ["video", "audio"] })
+      .notNull()
+      .default("video"),
     createdByUserId: text("created_by_user_id")
       .notNull()
       .$type<UserId>()
@@ -7784,6 +7792,7 @@ export const meeting = sqliteTable(
       .where(sql`${table.firmEventId} IS NOT NULL`),
     check("meeting_event_kind_check", sql`${table.eventKind} IN ('matter', 'firm')`),
     check("meeting_status_check", sql`${table.status} IN ('scheduled', 'live', 'ended')`),
+    check("meeting_medium_check", sql`${table.medium} IN ('video', 'audio')`),
     // EXACTLY ONE PARENT, AND THE KIND SAYS WHICH. Both halves in one check on purpose: a row with
     // two parents is unreadable, and a row whose kind names the column it did not fill is worse —
     // it reads cleanly and answers the wrong table. The matter_event_participant shape check is the

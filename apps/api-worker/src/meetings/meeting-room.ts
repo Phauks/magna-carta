@@ -3,6 +3,7 @@ import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
 import type { MeetingAttendanceId } from "@magna-carta/identifiers/types";
 import { closeAttendanceAfterSocketLoss } from "@magna-carta/meetings/meeting-service";
+import { isMeetingMedium, type MeetingMedium } from "@magna-carta/meetings/types";
 import type { Bindings } from "../app.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
 import { isWebSocketUpgrade } from "../progress/job-progress-sockets.ts";
@@ -52,11 +53,21 @@ import { sfuClientForEnv, SfuUnavailableError, type SfuClient } from "./sfu-clie
 // properties do not survive hibernation. Everything a frame needs rides on the per-socket
 // attachment, which does, and everything the ROOM needs is read back out of storage.
 //
+// ONE LIVE SOCKET PER STAY, NEWEST WINS. A stay is a person in a room, and a person in a room has
+// one browser sending their camera; the rule is forced by WebRTC rather than chosen. A reconnecting
+// browser brings a new peer connection — new ICE credentials, new DTLS fingerprint — so it cannot
+// resume the routing session its predecessor opened, and two tabs cannot share one session at all.
+// An upgrade therefore RETIRES whatever socket was on that stay (`refused: superseded`, then a
+// close), resets the participant to no session and no tracks, and tells the room — so every other
+// browser drops the subscriptions it was holding by the old session id and re-subscribes to the new
+// one. Anything gentler leaves the returning member a black tile on everybody else's screen.
+//
 // THE RECORD IS NOT KEPT HERE, but the room is what closes it when nobody else will. Who was in the
 // meeting and when is attendance in the firm's own database, written by the routes through the
 // firm-scoped data-access layer. This object's roster is a view of who is connected right now, which
 // is a different question and a shorter-lived one — and when a browser simply goes away, the grace
-// sweep below is the only thing that ever turns that into an ending in the record.
+// sweep below is the only thing that ever turns that into an ending in the record. Each person's
+// grace is timed from their OWN drop, on their own roster entry.
 
 const PARTICIPANT_PREFIX = "participant:";
 
@@ -71,10 +82,6 @@ const ENDED_KEY = "ended";
 // name the firm could not close anybody's stay.
 const ROOM_KEY = "room";
 
-// When the grace sweep is due. Present only while one is pending, so its absence is the ordinary
-// state and the alarm handler has nothing to decide when nobody has dropped.
-const SWEEP_KEY = "sweep";
-
 // HOW LONG A DROPPED CONNECTION IS GIVEN before the room writes down that the member left.
 //
 // A minute is chosen from what it is protecting against on each side. Shorter, and an ordinary
@@ -82,7 +89,12 @@ const SWEEP_KEY = "sweep";
 // second arrival in the record for somebody who never noticed anything. Longer, and a member who
 // shut their laptop at noon has a record saying they were still in the meeting at five past, which
 // is the failure this exists to fix: before it, the stay stayed open forever.
-const SOCKET_LOSS_GRACE_SECONDS = 60;
+//
+// IT IS A MINUTE EACH, MEASURED FROM EACH PERSON'S OWN DROP. The deadline lives on the participant
+// (`socketLostAt`) rather than as one pending sweep for the room, because one shared deadline is a
+// grace period only for whoever armed it: a sweep armed when the first person dropped fires while
+// the second is twenty seconds into a sixty-second window, and closes them both.
+export const SOCKET_LOSS_GRACE_SECONDS = 60;
 
 // How long the ended marker is kept. A browser that was open when the meeting ended learns so within
 // seconds; a day is far past any reconnect anybody will attempt, and past it the marker is a key
@@ -100,6 +112,14 @@ const MAX_TRACKS_PER_PARTICIPANT = 8;
 // pair, and the roster is how every other browser resolves one to a tile.
 const TRACK_NAME_SEPARATOR = ":";
 
+// The track kinds that carry a picture, which is what a call does not have. A camera and a screen
+// share are both video to the routing service and are named apart here only because a browser names
+// them apart; anything that is not sound is treated as a picture, so a kind nobody has thought of
+// yet is refused from a call rather than admitted into one.
+function isPicture(kind: string): boolean {
+  return kind !== "audio";
+}
+
 /** The subscription context, established at upgrade and carried for the life of the socket. */
 export interface MeetingSocketAttachment {
   readonly protocolVersion: number;
@@ -108,6 +128,9 @@ export interface MeetingSocketAttachment {
   readonly userId: string;
   readonly attendanceId: string;
   readonly displayName: string;
+  // Sound alone, or sound and pictures — read off the meeting row by the route, like every other
+  // value here, so the room never has to ask the database what kind of gathering it is.
+  readonly medium: MeetingMedium;
 }
 
 /**
@@ -135,12 +158,19 @@ interface StoredParticipant {
   // make one.
   readonly sfuSessionId: string | null;
   readonly tracks: readonly StoredTrack[];
+  // When this participant's last socket went away, or null while one is open. THE GRACE PERIOD IS
+  // MEASURED FROM HERE, per person, which is the only place it can be measured from: a deadline kept
+  // for the room is one person's grace spent on everybody.
+  readonly socketLostAt: string | null;
 }
 
 /** Which meeting, in which firm, this room is the signaling side of. */
 interface StoredRoom {
   readonly firmId: string;
   readonly meetingId: string;
+  // What kind of gathering this is. Kept here rather than read off each socket, so the answer is the
+  // room's and not one browser's — and so the alarm, which has no socket, could read it too.
+  readonly medium: MeetingMedium;
 }
 
 const FIRM_PARAMETER = "firm";
@@ -148,21 +178,20 @@ const MEETING_PARAMETER = "meeting";
 const USER_PARAMETER = "user";
 const ATTENDANCE_PARAMETER = "attendance";
 const DISPLAY_NAME_PARAMETER = "displayName";
+const MEDIUM_PARAMETER = "medium";
+
+/** What the route resolves before it addresses the room — every value of it server-derived. */
+export type MeetingSocketContext = Omit<MeetingSocketAttachment, "protocolVersion">;
 
 /** The internal URL the upgrade is addressed to. Exported so a test can build the same request. */
-export function meetingSocketRequestUrl(attachment: {
-  readonly firmId: string;
-  readonly meetingId: string;
-  readonly userId: string;
-  readonly attendanceId: string;
-  readonly displayName: string;
-}): string {
+export function meetingSocketRequestUrl(attachment: MeetingSocketContext): string {
   const parameters = new URLSearchParams({
     [FIRM_PARAMETER]: attachment.firmId,
     [MEETING_PARAMETER]: attachment.meetingId,
     [USER_PARAMETER]: attachment.userId,
     [ATTENDANCE_PARAMETER]: attachment.attendanceId,
     [DISPLAY_NAME_PARAMETER]: attachment.displayName,
+    [MEDIUM_PARAMETER]: attachment.medium,
   });
   return `https://meeting-room.invalid/socket?${parameters.toString()}`;
 }
@@ -173,13 +202,7 @@ export function meetingSocketRequestUrl(attachment: {
  * is server-derived: the firm from the session, the meeting after the caller was authorized against
  * it, and the attendance and the name from the firm's own rows.
  */
-export function meetingSocketRequest(attachment: {
-  readonly firmId: string;
-  readonly meetingId: string;
-  readonly userId: string;
-  readonly attendanceId: string;
-  readonly displayName: string;
-}): Request {
+export function meetingSocketRequest(attachment: MeetingSocketContext): Request {
   return new Request(meetingSocketRequestUrl(attachment), { headers: { Upgrade: "websocket" } });
 }
 
@@ -190,6 +213,7 @@ function attachmentFromRequest(request: Request): MeetingSocketAttachment | null
   const userId = parameters.get(USER_PARAMETER);
   const attendanceId = parameters.get(ATTENDANCE_PARAMETER);
   const displayName = parameters.get(DISPLAY_NAME_PARAMETER);
+  const medium = parameters.get(MEDIUM_PARAMETER);
   if (
     firmId === null ||
     firmId === "" ||
@@ -211,6 +235,10 @@ function attachmentFromRequest(request: Request): MeetingSocketAttachment | null
     // A member who has never set a name still has a socket and still belongs on the roster; an empty
     // tile with no label is worse than a placeholder nobody chose.
     displayName: displayName ?? "",
+    // A value the room does not recognise is read as the WIDER medium, which is the safe direction:
+    // an unrecognised label must not silently turn a video meeting into one where no camera works.
+    // A socket opened by an older build carries none, and those meetings were all video.
+    medium: medium !== null && isMeetingMedium(medium) ? medium : "video",
   };
 }
 
@@ -251,32 +279,54 @@ export class MeetingRoom extends DurableObject<Bindings> {
     server.serializeAttachment(attachment);
     this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING_FRAME, PONG_FRAME));
 
-    // AN UPGRADE JOINS A PARTICIPANT; IT DOES NOT RESET ONE. A second socket for the same stay is
-    // ordinary — a browser reconnecting after a dropped connection, a member opening the meeting in
-    // a second tab — and the routing session and the tracks it already holds are still live at the
-    // service. Overwriting them with nulls left the media running with nothing naming it: nobody
-    // could subscribe to it, nothing could close it, and the participant appeared to everybody else
-    // to have gone silent. Read-modify-write under the gate, because two sockets arriving together
-    // would otherwise each read the absence and each write it.
-    await this.ctx.blockConcurrencyWhile(async () => {
+    // ONE LIVE SOCKET PER STAY, AND THE NEWEST WINS. This is forced by WebRTC, not chosen: a browser
+    // that reconnects builds a NEW peer connection, with new ICE credentials and a new DTLS
+    // fingerprint, so it cannot resume the routing session its predecessor opened — and two tabs
+    // cannot share one session at all. Carrying the old session forward therefore produced the worst
+    // of both: the returning member published into a session nobody was subscribed to, and every
+    // other browser — which keys its subscriptions by (session, track) — went on subscribing to a
+    // session that would never send again, so the rejoined member stayed a black tile.
+    //
+    // So an upgrade RESETS the participant to a session that does not exist yet, tells the room, and
+    // hangs up on whatever socket was there before. The new socket then publishes into a fresh
+    // session and everybody re-subscribes by its id, which is the only sequence that actually
+    // reconnects somebody. Read-modify-write under the gate, because two sockets arriving together
+    // would otherwise both read the same predecessor and both try to retire it.
+    const superseded = this.socketsFor(attachment.attendanceId, server);
+    const previous = await this.ctx.blockConcurrencyWhile(async () => {
       await this.ctx.storage.put<StoredRoom>(ROOM_KEY, {
         firmId: attachment.firmId,
         meetingId: attachment.meetingId,
+        medium: attachment.medium,
       });
       const existing = await this.readParticipant(attachment.attendanceId);
       await this.putParticipant(attachment.attendanceId, {
         userId: attachment.userId,
         displayName: attachment.displayName,
-        sfuSessionId: existing?.sfuSessionId ?? null,
-        tracks: existing?.tracks ?? [],
+        sfuSessionId: null,
+        tracks: [],
+        // A socket is open again, so whatever grace was running for this stay is over. Left set, the
+        // sweep would close the record of somebody who is sitting in the meeting.
+        socketLostAt: null,
       });
+      return existing;
     });
+
+    // Told BEFORE anything else, so the displaced browser learns why rather than watching a socket
+    // go quiet. Its close handler finds this newer socket and arms nothing.
+    for (const older of superseded) this.refuseAndClose(older, "superseded");
 
     const roster = await this.roster();
     server.send(welcomeFrame(attachment.attendanceId, roster));
-    // Everybody else learns there is a new tile to draw. The arriving socket already has the roster
-    // on its welcome, so it is not sent the same list twice.
+    // Everybody else learns there is a new tile to draw — and, on a rejoin, that the tracks they were
+    // subscribed to are gone, which is what stops them holding a subscription to a session that will
+    // never send again. The arriving socket already has the roster on its welcome, so it is not sent
+    // the same list twice.
     this.broadcast(rosterFrame(roster), server);
+
+    // Last, and best-effort: the predecessor's session is nobody's now, and the routing service goes
+    // on forwarding and billing it until it is told otherwise.
+    if (previous !== undefined) await this.releaseMedia([previous]);
     return new Response(null, { status: 101, webSocket: client });
   }
 
@@ -343,25 +393,31 @@ export class MeetingRoom extends DurableObject<Bindings> {
     const attachment = attachmentOf(socket);
     if (attachment === null) return;
 
-    // A PARTICIPANT IS NOT THEIR SOCKET. Two sockets for one stay is ordinary — a reconnect that
-    // overlapped its predecessor, a second tab — and removing the roster entry because one of them
-    // closed would empty a tile the member is still looking at from the other. So the entry survives
-    // while any socket for this stay is still open.
+    // A NEWER SOCKET HAS ALREADY TAKEN THIS STAY OVER — the supersede above, or a reconnect that
+    // overlapped its predecessor. The member is sitting in the meeting on the other socket, so there
+    // is nothing lost and nothing to time.
     if (this.socketExistsFor(attachment.attendanceId, socket)) return;
 
-    // A socket closing under a participant the room has ALREADY let go of has nothing to sweep, and
-    // scheduling one would leave a key behind in a finished room. Both ways that happens are acts
-    // somebody took: the leave route closed the stay, or the host ended the meeting and every stay
-    // with it.
-    if ((await this.readParticipant(attachment.attendanceId)) === undefined) return;
-
+    // A socket closing under a participant the room has ALREADY let go of has nothing to time. Both
+    // ways that happens are acts somebody took: the leave route closed the stay, or the host ended
+    // the meeting and every stay with it.
+    //
     // A DROPPED SOCKET STILL DOES NOT CLOSE ATTENDANCE — not immediately. The member is very likely
     // about to reconnect, and a stay closed here would either cut their record in half or be
-    // reopened as a second arrival they never made. So the roster entry and the record both stand
-    // for a grace period, and the sweep the alarm runs is what decides. What is NOT deferred is the
-    // question itself: before this, nothing asked it at all, and a closed laptop left a stay open in
-    // the firm's record for as long as the record lasted.
-    await this.scheduleSocketLossSweep();
+    // reopened as a second arrival they never made. So what is written down is WHEN it went, on the
+    // participant itself; the sweep an alarm runs a minute later is what decides. What is NOT
+    // deferred is the question: before this, nothing asked it at all, and a closed laptop left a
+    // stay open in the firm's record for as long as the record lasted.
+    const timed = await this.ctx.blockConcurrencyWhile(async () => {
+      const participant = await this.readParticipant(attachment.attendanceId);
+      if (participant === undefined) return false;
+      await this.putParticipant(attachment.attendanceId, {
+        ...participant,
+        socketLostAt: new Date().toISOString(),
+      });
+      return true;
+    });
+    if (timed) await this.armAlarm();
   }
 
   /**
@@ -374,16 +430,13 @@ export class MeetingRoom extends DurableObject<Bindings> {
    */
   override async alarm(): Promise<void> {
     const now = Date.now();
-
-    const sweepAt = await this.ctx.storage.get<number>(SWEEP_KEY);
-    if (sweepAt !== undefined && sweepAt <= now) {
-      await this.ctx.storage.delete(SWEEP_KEY);
-      await this.sweepParticipantsWithNoSocket();
-    }
+    await this.sweepParticipantsPastTheirGrace(now);
 
     const purgeAt = await this.endedPurgeDeadline();
     if (purgeAt !== null && purgeAt <= now) await this.ctx.storage.delete(ENDED_KEY);
 
+    // The re-arm is what makes one alarm serve several graces: whoever is still inside theirs when
+    // this fires gets their own deadline set here.
     await this.armAlarm();
   }
 
@@ -579,6 +632,15 @@ export class MeetingRoom extends DurableObject<Bindings> {
     frame: Exclude<MeetingClientFrame, { type: "ping" } | { type: "leave" }>,
   ): Promise<MeetingRefusalReason | null> {
     if (frame.type === "publish") {
+      // A CALL IS SOUND, AND THE ROOM IS WHERE THAT HOLDS. The medium is chosen when the meeting is
+      // started and never changed, so the people who joined a call agreed to sound — a modified
+      // client publishing a camera into one would turn it into a video meeting for all of them, on
+      // one person's decision. Read off the room rather than the frame's own socket, so a socket
+      // that arrived with the wrong label cannot widen it.
+      const room = await this.ctx.storage.get<StoredRoom>(ROOM_KEY);
+      if (room?.medium === "audio" && frame.tracks.some((track) => isPicture(track.kind))) {
+        return "track-kind-refused";
+      }
       // A TRACK NAME CARRIES ITS PUBLISHER, and every browser in the room resolves a tile from it.
       // A name prefixed with somebody else's handle would put this participant's camera under that
       // member's face on every screen — an impersonation that needs no credential at all, only a
@@ -753,28 +815,37 @@ export class MeetingRoom extends DurableObject<Bindings> {
   // The grace sweep, and the media that outlives a browser
   // ---------------------------------------------------------------------------------------------
 
-  /** True when some OTHER socket is still carrying this stay. */
-  private socketExistsFor(attendanceId: string, except?: WebSocket): boolean {
+  /** Every socket carrying this stay, other than the one that is asking. */
+  private socketsFor(attendanceId: string, except?: WebSocket): WebSocket[] {
+    const found: WebSocket[] = [];
     for (const socket of this.ctx.getWebSockets()) {
       if (socket === except) continue;
-      if (attachmentOf(socket)?.attendanceId === attendanceId) return true;
+      if (attachmentOf(socket)?.attendanceId === attendanceId) found.push(socket);
     }
-    return false;
+    return found;
   }
 
-  /**
-   * Arms the grace period after a connection went away.
-   *
-   * An EARLIER pending sweep is kept rather than pushed out. Two people dropping half a minute apart
-   * must not mean the first waits on the second: the sweep looks at every participant when it runs,
-   * so an early one simply finds the second still inside their own grace and leaves them, and the
-   * re-arm at the end of the alarm picks them up.
-   */
-  private async scheduleSocketLossSweep(): Promise<void> {
-    const dueAt = Date.now() + SOCKET_LOSS_GRACE_SECONDS * 1000;
-    const pending = await this.ctx.storage.get<number>(SWEEP_KEY);
-    if (pending === undefined || pending > dueAt) await this.ctx.storage.put(SWEEP_KEY, dueAt);
-    await this.armAlarm();
+  /** True when some OTHER socket is still carrying this stay. */
+  private socketExistsFor(attendanceId: string, except?: WebSocket): boolean {
+    return this.socketsFor(attendanceId, except).length > 0;
+  }
+
+  /** When this participant's grace runs out, or null while they are connected. */
+  private graceDeadlineOf(attendanceId: string, participant: StoredParticipant): number | null {
+    if (participant.socketLostAt === null) return null;
+    if (this.socketExistsFor(attendanceId)) return null;
+    const lostAt = Date.parse(participant.socketLostAt);
+    return Number.isNaN(lostAt) ? null : lostAt + SOCKET_LOSS_GRACE_SECONDS * 1000;
+  }
+
+  /** The soonest grace still running in this room, or null when nobody is inside one. */
+  private async nextGraceDeadline(): Promise<number | null> {
+    let nearest: number | null = null;
+    for (const [attendanceId, participant] of await this.storedParticipants()) {
+      const deadline = this.graceDeadlineOf(attendanceId, participant);
+      if (deadline !== null && (nearest === null || deadline < nearest)) nearest = deadline;
+    }
+    return nearest;
   }
 
   /** When the ended marker should be retired, or null when there is none. */
@@ -789,8 +860,8 @@ export class MeetingRoom extends DurableObject<Bindings> {
   // due sooner is doing a job this one would delay.
   private async armAlarm(): Promise<void> {
     const deadlines: number[] = [];
-    const sweepAt = await this.ctx.storage.get<number>(SWEEP_KEY);
-    if (sweepAt !== undefined) deadlines.push(sweepAt);
+    const graceAt = await this.nextGraceDeadline();
+    if (graceAt !== null) deadlines.push(graceAt);
     const purgeAt = await this.endedPurgeDeadline();
     if (purgeAt !== null) deadlines.push(purgeAt);
     if (deadlines.length === 0) return;
@@ -801,16 +872,24 @@ export class MeetingRoom extends DurableObject<Bindings> {
   }
 
   /**
-   * Everybody whose connection went and did not come back inside the grace period.
+   * Everybody whose OWN grace has run out — never simply everybody without a socket.
+   *
+   * The alarm fires once for the soonest deadline in the room, so at that instant somebody else may
+   * be twenty seconds into their own minute. Closing them too would spend one member's grace on
+   * another's record, which is the whole thing the grace exists to prevent; they are left, and the
+   * re-arm at the end of the alarm comes back for them.
    *
    * THE MEETING IS NOT ENDED HERE, however empty the room gets. Ending a meeting is the host's act
    * and it writes who ended it; a room that closed itself because the last connection dropped would
    * put an ending in the record that nobody decided on — and a host whose laptop slept would come
    * back to a meeting they cannot resume.
    */
-  private async sweepParticipantsWithNoSocket(): Promise<void> {
+  private async sweepParticipantsPastTheirGrace(now: number): Promise<void> {
     const stored = await this.storedParticipants();
-    const lost = stored.filter(([attendanceId]) => !this.socketExistsFor(attendanceId));
+    const lost = stored.filter(([attendanceId, participant]) => {
+      const deadline = this.graceDeadlineOf(attendanceId, participant);
+      return deadline !== null && deadline <= now;
+    });
     if (lost.length === 0) return;
 
     // THE RECORD FIRST, then the roster, then the media. The record is the only durable one of the

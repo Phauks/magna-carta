@@ -34,6 +34,19 @@ export function isMeetingStatus(value: string): value is MeetingStatus {
   return (MEETING_STATUSES as readonly string[]).includes(value);
 }
 
+// SOUND ALONE, OR SOUND AND PICTURES — and an audio call is a kind of meeting rather than a second
+// subsystem. Same record, same room, same screen; what differs is what may be published into it and
+// what a tile shows. Chosen at Start and NEVER CHANGED, which is the part worth stating: the people
+// already in the room agreed to one thing, and a medium that could be widened mid-gathering would be
+// a camera switched on for everybody by somebody else's click. Also a SQLite CHECK on the meeting
+// row, so a value that reaches a write without appearing here fails at the database too.
+export const MEETING_MEDIA = Object.freeze(["video", "audio"] as const);
+export type MeetingMedium = (typeof MEETING_MEDIA)[number];
+
+export function isMeetingMedium(value: string): value is MeetingMedium {
+  return (MEETING_MEDIA as readonly string[]).includes(value);
+}
+
 // THE THREE QUESTIONS A MEETINGS SCREEN ASKS, as a closed vocabulary. Not filters over one list:
 // each wants its own ordering — longest-running first, soonest first, most-recently-finished first —
 // so a single ordering would make two of the three answers wrong. A fourth scope is a fourth
@@ -72,6 +85,8 @@ export const MAX_MEETING_PARTICIPANTS = 12;
 export interface MeetingRow {
   readonly id: MeetingId;
   readonly event_kind: MeetingEventKind;
+  // Sound alone, or sound and pictures. Set at creation and never updated.
+  readonly medium: MeetingMedium;
   // Exactly one of these is set, and `event_kind` says which. The database holds the pairing; a
   // reader never has to test both columns to learn what it is looking at.
   readonly matter_event_id: MatterEventId | null;
@@ -130,6 +145,7 @@ export interface MeetingEventRow {
 export interface MeetingSummary {
   readonly id: MeetingId;
   readonly eventKind: MeetingEventKind;
+  readonly medium: MeetingMedium;
   readonly eventId: string;
   readonly matterId: MatterId | null;
   readonly title: string;

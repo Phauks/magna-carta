@@ -15464,6 +15464,14 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 64
+          },
+          "medium": {
+            "type": "string",
+            "enum": [
+              "video",
+              "audio"
+            ],
+            "default": "video"
           }
         },
         "required": [
@@ -15555,6 +15563,13 @@
               "null"
             ]
           },
+          "medium": {
+            "type": "string",
+            "enum": [
+              "video",
+              "audio"
+            ]
+          },
           "liveCount": {
             "type": "integer",
             "minimum": 0
@@ -15576,6 +15591,7 @@
           "status",
           "startedAt",
           "endedAt",
+          "medium",
           "liveCount",
           "configured"
         ]

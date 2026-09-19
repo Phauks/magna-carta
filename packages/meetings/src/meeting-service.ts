@@ -30,6 +30,7 @@ import {
   MAX_MEETING_PARTICIPANTS,
   type MeetingDepartureReason,
   type MeetingEventKind,
+  type MeetingMedium,
   type MeetingRow,
 } from "./types.ts";
 import { refuse } from "./validation.ts";
@@ -52,6 +53,11 @@ import { refuse } from "./validation.ts";
  */
 export const JOIN_CAPACITY_GUARD = "meeting.join.capacity";
 
+// WHAT A MEETING IS WHEN NOBODY SAID. Video, because that is what every meeting started before calls
+// existed was, and because the narrower answer is the one a member has to ask for rather than the one
+// they are given by a caller that has not been updated.
+const DEFAULT_MEETING_MEDIUM = "video" satisfies MeetingMedium;
+
 // The two labels the departure audit row carries, named once so the two write paths cannot drift on
 // a string.
 const DEPARTED = "left" satisfies MeetingDepartureReason;
@@ -70,6 +76,11 @@ export interface MeetingServiceOptions {
 export interface CreateMeetingInput {
   readonly eventKind: MeetingEventKind;
   readonly eventId: string;
+  // Sound alone, or sound and pictures. Optional here and defaulted to a video meeting, because a
+  // caller that has not heard of calls must keep getting what it has always got; the ROOM is what
+  // holds the medium to what was chosen, and the choice is made once — see the note below on why a
+  // meeting's medium never changes.
+  readonly medium?: MeetingMedium;
 }
 
 /**
@@ -115,6 +126,7 @@ export async function createMeeting(
 
   const now = options.clock.now();
   const meetingId = newIdentifier("meeting", options.randomSource);
+  const medium = input.medium ?? DEFAULT_MEETING_MEDIUM;
   return {
     meetingId,
     created: true,
@@ -123,6 +135,7 @@ export async function createMeeting(
         insertMeetingStatement(database, {
           id: meetingId,
           eventKind: input.eventKind,
+          medium,
           matterEventId: input.eventKind === "matter" ? (input.eventId as MatterEventId) : null,
           firmEventId: input.eventKind === "firm" ? (input.eventId as FirmEventId) : null,
           createdByUserId: options.actorUserId,
@@ -139,6 +152,9 @@ export async function createMeeting(
           // browsers and never reaches this platform at all.
           metadata: {
             eventKind: input.eventKind,
+            // A closed-vocabulary label, which is what an audit field may carry: it says what kind
+            // of gathering this was without saying anything about what happened in it.
+            medium,
             eventId: input.eventId,
             matterId: event.matter_id,
           },

@@ -117,6 +117,7 @@ interface AttendancePage {
 }
 interface MeetingSummary {
   id: string;
+  medium: string;
   status: string;
   liveCount: number;
   configured: boolean;
@@ -273,6 +274,46 @@ describe("starting a meeting on an event", () => {
     expect(second.status).toBe(200);
     const found = await readJson<StartedMeeting>(second);
     expect(found).toEqual({ id: opened.id, created: false });
+  });
+
+  it("starts a CALL when one is asked for, and keeps it a call when somebody asks for video", async () => {
+    const eventId = await freshEvent("Settlement call");
+    const started = await post("/api/v1/meetings", ownerCookie, {
+      eventKind: "matter",
+      eventId,
+      medium: "audio",
+    });
+    expect(started.status).toBe(201);
+    const meetingId = (await readJson<StartedMeeting>(started)).id;
+    expect(
+      (await readJson<MeetingSummary>(await get(`/api/v1/meetings/${meetingId}`, ownerCookie)))
+        .medium,
+    ).toBe("audio");
+
+    // ONE MEETING PER EVENT, so the first Start decides. A second one asking for the other medium
+    // gets the room that exists rather than switching a camera on for everybody already in it.
+    const again = await post("/api/v1/meetings", ownerCookie, {
+      eventKind: "matter",
+      eventId,
+      medium: "video",
+    });
+    expect(again.status).toBe(200);
+    expect(await readJson<StartedMeeting>(again)).toEqual({ id: meetingId, created: false });
+    expect(
+      (await readJson<MeetingSummary>(await get(`/api/v1/meetings/${meetingId}`, ownerCookie)))
+        .medium,
+    ).toBe("audio");
+
+    // And a Start that says nothing is a video meeting, which is what every one of them was before
+    // calls existed.
+    const silent = await post("/api/v1/meetings", ownerCookie, {
+      eventKind: "matter",
+      eventId: await freshEvent("Ordinary meeting"),
+    });
+    const quiet = (await readJson<StartedMeeting>(silent)).id;
+    expect(
+      (await readJson<MeetingSummary>(await get(`/api/v1/meetings/${quiet}`, ownerCookie))).medium,
+    ).toBe("video");
   });
 
   it("is refused for a member who may attend but not convene", async () => {

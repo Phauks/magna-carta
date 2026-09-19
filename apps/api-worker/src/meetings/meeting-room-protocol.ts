@@ -114,9 +114,12 @@ export type MeetingClientFrame = z.infer<typeof MeetingClientFrame>;
 
 /**
  * Why a frame was refused. A CLOSED vocabulary: these are labels a browser branches on, never prose
- * to show somebody. The first seven are about the FRAME that arrived and leave the socket open; the
- * last three are about the room, and the two that name a state the socket cannot recover from are
+ * to show somebody. The first eight are about the FRAME that arrived and leave the socket open; the
+ * last four are about the room, and the three that name a state the socket cannot recover from are
  * followed by a close.
+ *
+ * `superseded` is the one the room sends without any frame having arrived: it is the answer to
+ * somebody else's upgrade, not to anything this socket said.
  */
 export type MeetingRefusalReason =
   | "frame-too-large"
@@ -135,12 +138,23 @@ export type MeetingRefusalReason =
   | "foreign-track-name"
   // This participant already offers as many tracks as the room will carry for one person.
   | "track-limit-reached"
+  // A picture offered into a meeting that is a CALL. The medium is chosen when the meeting is
+  // started and never changed, so a modified client cannot turn a call into a video meeting for the
+  // people who joined one — they agreed to sound.
+  | "track-kind-refused"
   // The routing service did not answer, or answered something unreadable. Never carries a word of
   // what it said — see sfu-client.ts, where the reason that text is withheld is written out.
   | "sfu-unavailable"
   // The socket's attachment cannot be read, so the room cannot say who this is. A socket accepted by
   // an older build, or one that predates a protocol change.
   | "not-a-participant"
+  // A NEWER SOCKET FOR THIS SAME STAY HAS TAKEN OVER, and this one is finished. One live socket per
+  // stay is the rule, and it is forced by WebRTC rather than chosen: a reconnecting browser arrives
+  // with a new peer connection, which means new ICE credentials and a new DTLS fingerprint, so it
+  // cannot resume the routing session the old one opened — and two tabs cannot share one session at
+  // all. Whoever connected last is the one holding the media. Nothing about this improves by
+  // retrying on this socket, so it is followed by a close.
+  | "superseded"
   // The meeting closed while this socket was open.
   | "meeting-ended";
 

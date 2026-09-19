@@ -378,6 +378,72 @@ describe("reaching a room at all", () => {
   });
 });
 
+describe("a meeting has a medium, and it is decided once", () => {
+  it("records a call as a call, and a meeting it did not ask about as a video meeting", async () => {
+    const database = fresh();
+    const call = await createMeeting(
+      database.database,
+      { eventKind: "matter", eventId: MATTER_EVENT, medium: "audio" },
+      options,
+    );
+    await commit(database.database, call.effect);
+    expect((await readMeetingSummary(database.database, call.meetingId, visibility))?.medium).toBe(
+      "audio",
+    );
+
+    // A caller that has not heard of calls keeps getting what it has always got.
+    const meeting = await createMeeting(
+      database.database,
+      { eventKind: "firm", eventId: FIRM_EVENT },
+      options,
+    );
+    await commit(database.database, meeting.effect);
+    expect(
+      (await readMeetingSummary(database.database, meeting.meetingId, visibility))?.medium,
+    ).toBe("video");
+  });
+
+  it("does not change a room's medium when somebody presses Start again asking for the other", async () => {
+    const database = fresh();
+    const call = await createMeeting(
+      database.database,
+      { eventKind: "matter", eventId: MATTER_EVENT, medium: "audio" },
+      options,
+    );
+    await commit(database.database, call.effect);
+
+    // ONE MEETING PER EVENT, so the first Start decides. Widening it here would switch a camera on
+    // for everybody already in the call, on the strength of somebody else's click.
+    const again = await createMeeting(
+      database.database,
+      { eventKind: "matter", eventId: MATTER_EVENT, medium: "video" },
+      options,
+    );
+    expect(again.created).toBe(false);
+    expect(again.meetingId).toBe(call.meetingId);
+    expect(again.effect.statements).toHaveLength(0);
+    expect((await readMeetingSummary(database.database, call.meetingId, visibility))?.medium).toBe(
+      "audio",
+    );
+  });
+
+  it("puts the medium on the audit row as a label, beside the identifiers", async () => {
+    const database = fresh();
+    const call = await createMeeting(
+      database.database,
+      { eventKind: "matter", eventId: MATTER_EVENT, medium: "audio" },
+      options,
+    );
+    await commit(database.database, call.effect);
+
+    const audit = database.raw
+      .prepare(`SELECT metadata FROM audit_log WHERE event = 'meetings.meeting.created' LIMIT 1`)
+      .get() as { metadata: string } | undefined;
+    const metadata = JSON.parse(audit?.metadata ?? "{}") as Record<string, unknown>;
+    expect(metadata["medium"]).toBe("audio");
+  });
+});
+
 describe("the races the read-then-write cannot span", () => {
   it("refuses the thirteenth stay at the DATABASE, so a concurrent join cannot slip past the count", async () => {
     const database = fresh();
