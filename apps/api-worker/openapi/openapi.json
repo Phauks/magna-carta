@@ -1506,6 +1506,69 @@
           "links"
         ]
       },
+      "SafeBrowseSessionProbe": {
+        "type": "object",
+        "properties": {
+          "supported": {
+            "type": "boolean"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "ok": {
+                  "type": "boolean"
+                },
+                "detail": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "ok"
+              ]
+            }
+          },
+          "sessionsBefore": {
+            "type": "number"
+          },
+          "maxConcurrentSessions": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "allowedBrowserAcquisitions": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "sessionReused": {
+            "type": "boolean"
+          },
+          "cdpAttached": {
+            "type": "boolean"
+          },
+          "elapsedMilliseconds": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "supported",
+          "steps",
+          "sessionsBefore",
+          "maxConcurrentSessions",
+          "allowedBrowserAcquisitions",
+          "sessionReused",
+          "cdpAttached",
+          "elapsedMilliseconds"
+        ]
+      },
       "DecryptionInspectResponse": {
         "type": "object",
         "properties": {
@@ -37413,6 +37476,70 @@
           },
           "422": {
             "description": "The isolated browser reached the address but the page did not finish rendering (type page-render-failed) — or the request body failed validation (type validation)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/safe-browse/session-probe": {
+      "post": {
+        "description": "Diagnostic: acquire a browser session against a fixed inert address, disconnect, reconnect to the same session, navigate again, and attach a CDP session — reporting each step. Answers whether this deployment can support interactive remote browsing. Navigates only to a constant held in the route; it accepts no target and is not a browsing endpoint.",
+        "operationId": "safeBrowse.sessionProbe",
+        "tags": [
+          "safeBrowse"
+        ],
+        "x-mc-operationId": "safeBrowse.sessionProbe",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:safeBrowse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "safeBrowse"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The probe ran; the report says how far it got",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SafeBrowseSessionProbe"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks tools:safeBrowse",
             "content": {
               "application/problem+json": {
                 "schema": {

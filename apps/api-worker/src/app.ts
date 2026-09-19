@@ -97,6 +97,7 @@ import {
   registerSafeBrowseStreamRoute,
   type SafeBrowseRouteDeps,
 } from "./routes/safe-browse.ts";
+import { registerSafeBrowseSessionProbeRoute } from "./routes/safe-browse-session-probe.ts";
 import { registerDecryptionRoutes } from "./routes/decryption.ts";
 import { registerDocumentSealRoutes } from "./routes/document-seal.ts";
 import { registerRecoveryRoutes } from "./routes/recovery.ts";
@@ -696,6 +697,7 @@ export function createApp(options: CreateAppOptions = {}) {
   // createFetchRedirectProbe() — built lazily in the handler, never at startup.
   registerSafeBrowseRoute(app, chokepoint, options.safeBrowseDeps ?? {});
   registerSafeBrowseStreamRoute(app, chokepoint, options.safeBrowseDeps ?? {});
+  registerSafeBrowseSessionProbeRoute(app, chokepoint);
   registerDecryptionRoutes(app, chokepoint);
   // Password recovery: mints a job and fans it out through the recovery coordinator Durable
   // Object. Registered beside decryption — the button-initiated surface for the SAME extracted
