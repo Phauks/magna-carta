@@ -1554,6 +1554,7 @@ The owner, placing Meetings in the left sidebar:
   group answers one question, and a row that answers a different one is the start of a new group,
   not the end of a long one.** Messaging keeps its stored id, because a member's stars are filed
   under it; only its group moved.
+
 ### 2026-09-17 — a star, the settings column, the Directory's search, and the calendar on a laptop
 
 The owner's round over the deployed site, in one message. What was said, and what each part
