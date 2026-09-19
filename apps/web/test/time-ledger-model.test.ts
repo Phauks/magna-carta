@@ -21,11 +21,11 @@ import {
   durationParts,
   firmTimeColumns,
   isUnservedColumn,
-  personInitials,
   timeLedgerColumns,
   timekeeperOf,
   unservedCellTitle,
 } from "../src/lib/time/time-columns.ts";
+import { personInitials } from "@magna-carta/design-system/formatters";
 import {
   countable,
   footerFigures,

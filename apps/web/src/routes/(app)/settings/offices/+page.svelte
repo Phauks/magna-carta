@@ -19,7 +19,6 @@
   import CreateControl from "@magna-carta/design-system/create-control";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import Badge from "@magna-carta/design-system/badge";
   import { replaceState } from "$app/navigation";
@@ -170,7 +169,6 @@
       <ScreenSearch
         bind:value={searchText}
         label="Search offices"
-        placeholder={placeholderOf("Search offices")}
         searchOn="keystroke"
         fieldClass="w-2xs sm:w-xs"
         onsearch={(next) => {

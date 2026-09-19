@@ -31,11 +31,19 @@
    * A launch that comes back `view` is a read-only seat: another member holds the document's
    * exclusive lock, and the editor opens on the document without the ability to change it. That
    * is stated once, above the frame, and never as a blocked screen — reading is never refused.
+   *
+   * THE EDITOR OPENS IN ITS TABBED INTERFACE. The same form carries `ui_defaults`, which is the
+   * editor's own channel for how it first draws itself. Left unset it fell to the compact mode — a
+   * menubar over one toolbar — where the paragraph and character settings sit behind the Format
+   * menu, and the owner asked for them at the top (2026-09-18). The tabbed interface's Home tab is
+   * where they are. It is a DEFAULT, not a lock: the editor's own View menu still switches modes,
+   * and a switch made there is remembered by that browser and wins over this line thereafter.
    */
   import { dev } from "$app/environment";
+  import { goto } from "$app/navigation";
   import { onMount, untrack } from "svelte";
   import Badge from "@magna-carta/design-system/badge";
-  import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import Button from "@magna-carta/design-system/button";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import type { MatterFile } from "$lib/file-manager/matter-file-api.ts";
@@ -52,22 +60,55 @@
   } from "./editor-frame-readiness.ts";
   import {
     currentStage,
-    elapsedLabel,
     freshMarks,
     marked,
     OPEN_PROGRESS_POLL_MILLISECONDS,
+    openFeed,
+    openPace,
     openRows,
-    openSteps,
     openTrace,
     refusal,
+    RETRY_AFTER_MILLISECONDS,
     stalledSentence,
-    stoppedLabel,
     type OpenMarks,
     type OpenStage,
   } from "./editor-open-progress.ts";
   import { loopStep } from "./document-loop-availability.ts";
+  import {
+    BACK_TO_MATTER_BUTTON_ID,
+    backToMatterButton,
+    hideTrackedChangesMessage,
+    hostSignalOf,
+    insertButtonMessage,
+    LEAVE_SAVE_BUDGET_MILLISECONDS,
+    routeCloseThroughHostMessage,
+    saveBeforeLeavingMessage,
+  } from "./editor-controls.ts";
 
-  let { file }: { file: MatterFile } = $props();
+  /**
+   * How the editor first draws itself: the tabbed interface, whose Home tab carries the font and
+   * paragraph controls the compact mode keeps behind a menu. `tabbed` is the editor's current name
+   * for it (`notebookbar` is the older one it still accepts).
+   */
+  const EDITOR_INTERFACE_DEFAULTS = "UIMode=tabbed";
+
+  let {
+    file,
+    back = null,
+  }: {
+    file: MatterFile;
+    /**
+     * Where the editor's back-to-matter button leads, and what it is called. The editor is the
+     * whole screen, so the way back is a button on the editor's own bar, put there by this
+     * component; absent, no button is inserted and the editor's Close stays the editor's.
+     */
+    back?: {
+      readonly href: string;
+      readonly label: string;
+      /** The matter's number, the button's own word on the bar; null before a matter has one. */
+      readonly number?: string | null;
+    } | null;
+  } = $props();
 
   // One name for the frame and the form that posts into it. Minted once per instance, so two
   // editors on one page (two tabs' worth of documents, or a test) can never post into each other.
@@ -95,8 +136,15 @@
   let now = $state(new Date());
 
   const opening = $derived(!documentShowing && openFailure === null);
-  const steps = $derived(openSteps(marks, failedStage, openFailure?.fallback));
   const editorOrigin = $derived(launch?.editorOrigin);
+  // Past the point Retry is worth offering (well after the usual open), the panel says so and
+  // offers it, in place. Before that the bar and its sentence carry the wait.
+  const stalled = $derived(
+    opening && now.getTime() - marks.startedAt.getTime() >= RETRY_AFTER_MILLISECONDS,
+  );
+  // True from the moment the member asked to leave until the screen goes: a save has been asked
+  // for and its answer, or the budget, decides when.
+  let leaving = $state(false);
 
   function reach(stage: OpenStage): void {
     marks = marked(marks, stage, new Date());
@@ -253,6 +301,62 @@
     }, 1000);
     return () => clearInterval(ticker);
   });
+
+  /*
+   * The platform's controls inside the editor, from the moment the document is showing. The
+   * back-to-matter button goes onto the editor's own bar, and the editor's own Close is routed
+   * here, so both leave the same way: a save is asked for first, and the screen goes when the
+   * editor says the save is done, or after a short budget if it never says. The editor saves on
+   * its own when the last view drops, so the budget protects the member's time, not their work.
+   */
+  function leave(): void {
+    if (leaving || back === null) return;
+    leaving = true;
+    const origin = editorOrigin;
+    if (origin !== undefined) {
+      frame?.contentWindow?.postMessage(saveBeforeLeavingMessage(), origin);
+    }
+    setTimeout(() => void goto(back.href), LEAVE_SAVE_BUDGET_MILLISECONDS);
+  }
+
+  /*
+   * Under the firm's policy the document records its changes (the host keeps recording on and the
+   * control withheld), and the marks are shown to nobody by default: the page reads the way it
+   * always did, and the editor's Review tab shows them to anybody who asks. Sent once the document
+   * is showing, because a command sent before then reaches no document.
+   */
+  $effect(() => {
+    const origin = editorOrigin;
+    if (origin === undefined || !documentShowing || launch?.recordsChanges !== true) return;
+    frame?.contentWindow?.postMessage(hideTrackedChangesMessage(), origin);
+  });
+
+  $effect(() => {
+    const origin = editorOrigin;
+    const destination = back;
+    if (origin === undefined || destination === null || !documentShowing) return undefined;
+
+    const href = destination.href;
+    const target = frame?.contentWindow;
+    target?.postMessage(
+      insertButtonMessage(
+        backToMatterButton({ title: destination.label, number: destination.number ?? null }),
+      ),
+      origin,
+    );
+    target?.postMessage(routeCloseThroughHostMessage(), origin);
+
+    function onMessage(event: MessageEvent): void {
+      if (event.origin !== origin) return;
+      const signal = hostSignalOf(event.data);
+      if (signal === null) return;
+      if (signal.kind === "button-clicked" && signal.id === BACK_TO_MATTER_BUTTON_ID) leave();
+      if (signal.kind === "close-requested") leave();
+      if (signal.kind === "save-responded" && leaving) void goto(href);
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  });
 </script>
 
 <div class="flex min-h-0 flex-1 flex-col">
@@ -263,63 +367,76 @@
     </div>
   {/if}
 
-  <LoadingRegion
-    loading={opening}
-    failed={openFailure !== null}
-    label="Opening this document in the editor"
-    onRetry={open}
-    class="flex min-h-0 flex-1 flex-col"
-  >
-    {#snippet failure()}
-      {#if openFailure !== null}
-        {@const failedAt = openFailure.failure.failedAt}
-        <div class="p-24">
-          <!-- The launch failing is the one stop this page's own request explains, so its notice
-               keeps that request's facts and the rows stay with the notice. Every later stop is
-               the editor's, and the rows say which stage, how long, and what the host answered. -->
-          <DocumentOpeningProgress
-            {steps}
-            elapsed={stoppedLabel(marks.startedAt, failedAt)}
-            rows={failedStage === "session" ? undefined : openRows(marks, failedAt)}
-            trace={failedStage === "session" ? undefined : () => openTrace(marks, failedAt)}
-          >
-            <FailureNotice
-              failure={openFailure.failure}
-              subject="The editor"
-              title={failedStage === "session" ? undefined : "The document did not open"}
-              fallback={openFailure.fallback}
-              whenSilent={openFailure.whenSilent}
-              onRetry={open}
-            />
-          </DocumentOpeningProgress>
-        </div>
-      {/if}
-    {/snippet}
+  {#if launch !== null}
+    <form method="post" action={launch.editorUrl} target={frameName} hidden bind:this={launchForm}>
+      <input type="hidden" name="access_token" value={launch.accessToken} />
+      <input type="hidden" name="access_token_ttl" value={String(launch.accessTokenTtl)} />
+      <input type="hidden" name="ui_defaults" value={EDITOR_INTERFACE_DEFAULTS} />
+    </form>
+  {/if}
 
-    {#if opening}
-      <div class="p-24">
-        <DocumentOpeningProgress {steps} elapsed={elapsedLabel(marks.startedAt, now)} />
-      </div>
-    {/if}
-
-    {#if launch !== null}
-      <form method="post" action={launch.editorUrl} target={frameName} hidden bind:this={launchForm}>
-        <input type="hidden" name="access_token" value={launch.accessToken} />
-        <input type="hidden" name="access_token_ttl" value={String(launch.accessTokenTtl)} />
-      </form>
-    {/if}
-    <!-- Edge to edge, like the file manager's list: the header above and the canvas's own edges
-         are the frame's only border. The frame is in the document from the start, because the form
-         posts INTO it — it is what makes the launch possible, not a result of it. -->
+  <!-- The frame and the panel share one box. The frame is in the document from the start, at its
+       full size, because the form posts INTO it and because the document must arrive into a frame
+       that is already where it will stay; the panel sits over it until the document is showing,
+       so nothing is stacked above the frame to disappear and nothing reflows when the editor
+       appears. Edge to edge: the canvas's own edges are the frame's only border. -->
+  <div class="relative min-h-0 flex-1">
     <iframe
       bind:this={frame}
       name={frameName}
       title="Editor for {file.name}"
-      allow="clipboard-read; clipboard-write"
+      allow="clipboard-read; clipboard-write; fullscreen"
       onload={onFrameLoad}
-      class="min-h-0 w-full flex-1 border-0 bg-surface-raised"
+      class="absolute inset-0 h-full w-full border-0 bg-surface-raised"
     ></iframe>
-  </LoadingRegion>
+
+    {#if opening || openFailure !== null}
+      <!-- Centered, and scrollable when a stopped open's facts run past the height: the panel is
+           margin-centered inside a scrolling box rather than flex-centered, so a tall failure is
+           reachable from its top rather than clipped there. -->
+      <div class="mc-scrollbar absolute inset-0 flex overflow-y-auto bg-surface-default p-24">
+        <div class="m-auto flex w-full max-w-prose justify-center">
+          {#if openFailure !== null}
+            {@const failedAt = openFailure.failure.failedAt}
+            <!-- The launch failing is the one stop this page's own request explains, so its notice
+                 keeps that request's facts and the rows stay with the notice. Every later stop is
+                 the editor's, and the rows say which stage, how long, and what the host answered. -->
+            <DocumentOpeningProgress
+              feed={openFeed(marks, failedAt, failedStage)}
+              rows={failedStage === "session" ? undefined : openRows(marks, failedAt)}
+              trace={failedStage === "session" ? undefined : () => openTrace(marks, failedAt)}
+              stopped
+            >
+              <FailureNotice
+                failure={openFailure.failure}
+                subject="The editor"
+                title={failedStage === "session" ? undefined : "The Document Did Not Open"}
+                fallback={openFailure.fallback}
+                whenSilent={openFailure.whenSilent}
+                onRetry={open}
+              />
+              <!-- A way out that is not trying again: the editor never drew its bar, so the back
+                   button it would have carried is offered here instead. -->
+              {#if back !== null}
+                <div>
+                  <Button variant="secondary" size="sm" href={back.href}>Back to {back.label}</Button>
+                </div>
+              {/if}
+            </DocumentOpeningProgress>
+          {:else}
+            <DocumentOpeningProgress
+              feed={openFeed(marks, now)}
+              pace={openPace(marks.startedAt, now)}
+              {stalled}
+              onRetry={open}
+              rows={openRows(marks, now)}
+              trace={() => openTrace(marks, new Date())}
+            />
+          {/if}
+        </div>
+      </div>
+    {/if}
+  </div>
 
   {#if dev}
     <p class="px-12 py-4 text-xs text-text-muted">{editorStep.behaviour}</p>

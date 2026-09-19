@@ -371,6 +371,21 @@ export type SafeWebsiteView = {
     links: Array<string>;
 };
 
+export type SafeBrowseSessionProbe = {
+    supported: boolean;
+    steps: Array<{
+        name: string;
+        ok: boolean;
+        detail?: string;
+    }>;
+    sessionsBefore: number;
+    maxConcurrentSessions: number | null;
+    allowedBrowserAcquisitions: number | null;
+    sessionReused: boolean;
+    cdpAttached: boolean;
+    elapsedMilliseconds: number;
+};
+
 export type DecryptionInspectResponse = {
     format: 'pdf' | 'zip' | 'ooxml';
     hash: string;
@@ -1816,6 +1831,11 @@ export type FileVersionItem = {
     committedAt: string | null;
     uploadedBy: string | null;
     uploadedByName: string | null;
+    saveKind: 'explicit' | 'autosave' | 'exit' | 'reap' | null;
+    participants: Array<{
+        userId: string;
+        name: string | null;
+    }>;
     scanVerdict: 'unscanned' | 'clean' | 'flagged' | null;
     scanEngineVersion: string | null;
     scanDetail: string | null;
@@ -1961,6 +1981,7 @@ export type SessionLaunchResponse = {
     accessToken: string;
     accessTokenTtl: number;
     capability: 'edit' | 'view';
+    recordsChanges: boolean;
 };
 
 export type EditOpenProgressResponse = {
@@ -2101,6 +2122,14 @@ export type PatchScanPolicyRequest = {
     };
     flaggedTreatment?: 'block' | 'informed-access' | 'allow-and-flag';
     stepUpReauthOnFlagged?: boolean;
+};
+
+export type EditingPolicyResponse = {
+    recordChanges: boolean;
+};
+
+export type PatchEditingPolicyRequest = {
+    recordChanges?: boolean;
 };
 
 export type BundleStatus = {
@@ -2363,9 +2392,13 @@ export type DirectoryEntityListingPage = {
     data: Array<DirectoryEntityListing>;
     nextCursor: string | null;
     /**
-     * How many records the firm holds under these filters — every page of the walk, not the rows on this one.
+     * How many records the firm holds under these filters — every page of the walk when the directory is being listed, and the number of records answering when it is being searched, because a ranked answer's size is the answer's and not the book's.
      */
     total: number;
+    /**
+     * True only where a ranked answer (`search`) was cut short: the firm holds more matches than were returned, so narrowing the query reaches the rest. False on every page of the plain index, which is walkable to its end by cursor and never cut.
+     */
+    capped: boolean;
 };
 
 export type DirectoryEntityListing = {
@@ -8903,6 +8936,10 @@ export type SafeBrowsePostErrors = {
      */
     403: Problem;
     /**
+     * The isolated browser reached the address but the page did not finish rendering (type page-render-failed) — or the request body failed validation (type validation)
+     */
+    422: Problem;
+    /**
      * Rate limit exceeded
      */
     429: Problem;
@@ -8946,6 +8983,10 @@ export type SafeBrowseStreamErrors = {
      */
     403: Problem;
     /**
+     * The isolated browser reached the address but the page did not finish rendering (type page-render-failed) — or the request body failed validation (type validation)
+     */
+    422: Problem;
+    /**
      * Rate limit exceeded
      */
     429: Problem;
@@ -8961,6 +9002,39 @@ export type SafeBrowseStreamResponses = {
 };
 
 export type SafeBrowseStreamResponse = SafeBrowseStreamResponses[keyof SafeBrowseStreamResponses];
+
+export type SafeBrowseSessionProbeData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/safe-browse/session-probe';
+};
+
+export type SafeBrowseSessionProbeErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:safeBrowse
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SafeBrowseSessionProbeError = SafeBrowseSessionProbeErrors[keyof SafeBrowseSessionProbeErrors];
+
+export type SafeBrowseSessionProbeResponses = {
+    /**
+     * The probe ran; the report says how far it got
+     */
+    200: SafeBrowseSessionProbe;
+};
+
+export type SafeBrowseSessionProbeResponse = SafeBrowseSessionProbeResponses[keyof SafeBrowseSessionProbeResponses];
 
 export type DecryptionInspectData = {
     body: {
@@ -15949,6 +16023,95 @@ export type ScanPolicyScoreHistogramResponses = {
 
 export type ScanPolicyScoreHistogramResponse = ScanPolicyScoreHistogramResponses[keyof ScanPolicyScoreHistogramResponses];
 
+export type EditingPolicyGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/editing-policy';
+};
+
+export type EditingPolicyGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageEditingPolicy
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EditingPolicyGetError = EditingPolicyGetErrors[keyof EditingPolicyGetErrors];
+
+export type EditingPolicyGetResponses = {
+    /**
+     * The firm's editing policy, resolved with its defaults
+     */
+    200: EditingPolicyResponse;
+};
+
+export type EditingPolicyGetResponse = EditingPolicyGetResponses[keyof EditingPolicyGetResponses];
+
+export type EditingPolicyUpdateData = {
+    body: PatchEditingPolicyRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/editing-policy';
+};
+
+export type EditingPolicyUpdateErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageEditingPolicy
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EditingPolicyUpdateError = EditingPolicyUpdateErrors[keyof EditingPolicyUpdateErrors];
+
+export type EditingPolicyUpdateResponses = {
+    /**
+     * The firm's editing policy after the change
+     */
+    200: EditingPolicyResponse;
+};
+
+export type EditingPolicyUpdateResponse = EditingPolicyUpdateResponses[keyof EditingPolicyUpdateResponses];
+
 export type DownloadsBundleStatusData = {
     body?: never;
     path: {
@@ -16408,6 +16571,10 @@ export type DirectoryListEntitiesData = {
          * Narrows to one side of the directory. Omitted, both are listed together.
          */
         kind?: 'person' | 'organization';
+        /**
+         * A name to rank the directory against — every name the firm has recorded is matched, former names included, and a misspelling still finds the record. The corpus matches three-character windows, so a shorter query answers with nothing rather than with the whole book. Omitted, the directory is listed in name order.
+         */
+        search?: string;
     };
     url: '/api/v1/directory/entities';
 };
@@ -16431,7 +16598,7 @@ export type DirectoryListEntitiesError = DirectoryListEntitiesErrors[keyof Direc
 
 export type DirectoryListEntitiesResponses = {
     /**
-     * A page of the directory in name order, with the size of the whole record
+     * A page of the directory in name order, with the size of the whole record — or, under `search`, the ranked matches as the same rows
      */
     200: DirectoryEntityListingPage;
 };
@@ -37551,6 +37718,7 @@ export type TemplatesListData = {
         cursor?: string;
         status?: 'active' | 'archived';
         matterTypeId?: string;
+        search?: string;
     };
     url: '/api/v1/templates';
 };

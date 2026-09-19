@@ -1,3 +1,4 @@
+import { askableTerm, likePattern, LIKE_ESCAPE_CLAUSE } from "@magna-carta/data-access/like-search";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type {
   DocumentTemplateId,
@@ -254,6 +255,8 @@ export async function readDocumentTemplate(
 export interface ListTemplatesParams {
   readonly status?: TemplateStatus;
   readonly matterTypeId?: MatterTypeId;
+  /** A reader's text, matched anywhere in the name or the description. Blank means unfiltered. */
+  readonly search?: string;
   readonly limit: number;
   // Keyset cursor: the (name, id) pair of the last row of the previous page. Names are not unique, so
   // the id is the tiebreaker that keeps the page boundary stable when two templates share a name.
@@ -275,6 +278,16 @@ export function listDocumentTemplatesStatement(
   if (params.matterTypeId !== undefined) {
     bindings.push(params.matterTypeId);
     conditions.push(`(matter_type_id IS NULL OR matter_type_id = ?${bindings.length})`);
+  }
+  // A contains-match over the two things a person calls a template by. It is a scan within the
+  // status the index walk narrowed to, which is a bounded cost at a few hundred templates per firm;
+  // the pattern is escaped so a reader's own `%` or `_` is text, never a wildcard.
+  const term = askableTerm(params.search);
+  if (term !== undefined) {
+    bindings.push(likePattern(term));
+    conditions.push(
+      `(name LIKE ?${bindings.length} ${LIKE_ESCAPE_CLAUSE} OR description LIKE ?${bindings.length} ${LIKE_ESCAPE_CLAUSE})`,
+    );
   }
   if (params.afterName !== undefined && params.afterId !== undefined) {
     bindings.push(params.afterName, params.afterId);

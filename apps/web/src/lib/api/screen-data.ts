@@ -29,7 +29,11 @@
  *     // +page.svelte
  *     const matters = createQuery(() => mattersListOptions());
  */
-import { QueryClient, type FetchQueryOptions } from "@tanstack/svelte-query";
+import {
+  QueryClient,
+  type FetchQueryOptions,
+  type CreateInfiniteQueryOptions,
+} from "@tanstack/svelte-query";
 
 /**
  * How long an answer is served without going back to the server.
@@ -142,61 +146,38 @@ interface CursorPage {
  * listing whose last page answered a null cursor has no next page, which is what stops the reader's
  * scroll asking for one.
  */
-export function paged<TOptions extends InfiniteRead>(options: TOptions): TOptions {
+export function paged<
+  TPage extends CursorPage,
+  TError,
+  TData,
+  TKey extends readonly unknown[],
+  TPageParam,
+>(
+  options: CreateInfiniteQueryOptions<TPage, TError, TData, TKey, TPageParam>,
+): CreateInfiniteQueryOptions<TPage, TError, TData, TKey, TPageParam> {
   return {
     ...options,
-    /*
-     * The first page is asked for with NO cursor, and that is the one page param the generated
-     * operations have no type for: each declares its own as "a cursor, or a whole set of request
-     * parts", and absence is neither. It is exactly what their `queryFn` expects — it reads
-     * `pageParam` and puts it in `query.cursor`, where undefined simply omits the parameter.
-     */
-    initialPageParam: undefined,
-    getNextPageParam: (last: CursorPage) => last.nextCursor ?? undefined,
-  } as TOptions;
-}
-
-/*
- * An infinite read of any shape, returned as the same shape — the widening `AnyRead` performs for
- * warming, in the one place a screen's own types must SURVIVE it.
- *
- * The generated infinite factories each type their page param as their operation's own union while
- * typing their data as the library's default, so no instantiation of `CreateInfiniteQueryOptions`
- * describes one: a signature written over those five parameters rejects every listing on the
- * contract. What this function actually does is add two properties whose behaviour is the contract's
- * cursor convention and not the operation's, so it takes the options as they come and hands them
- * back unchanged in type — `createInfiniteQuery` then reads the generated types, page shape and all.
- */
-interface InfiniteRead {
-  readonly queryKey: readonly unknown[];
-  readonly queryFn?: unknown;
+    // The generated page parameter is the cursor, or a whole request for a page — never "no page
+    // yet", so the first page is asserted. The generated queryFn reads an undefined parameter as a
+    // request with no cursor (svelte-query.gen.ts), which is exactly what the first page is.
+    initialPageParam: undefined as TPageParam,
+    getNextPageParam: (last: TPage) => (last.nextCursor ?? undefined) as TPageParam | undefined,
+  };
 }
 
 /**
  * Warm a paged listing's FIRST page from a `+page.ts`. Only the first: the pages after it are what
  * the reader asks for by scrolling, and reading ahead on a hover would spend a firm's request budget
  * on rows nobody has looked at.
+ *
+ * Widened the same way `warm` is, for the same reason: `prefetchInfiniteQuery`'s parameter is
+ * invariant in the operation's own types, so the generated options for one listing are not
+ * assignable to it without the widening, and nothing downstream reads a result.
  */
-export function warmPaged(...reads: readonly AnyPagedRead[]): void {
+export function warmPaged(...reads: readonly AnyRead[]): void {
   for (const read of reads) {
     void queryClient.prefetchInfiniteQuery(
       read as Parameters<QueryClient["prefetchInfiniteQuery"]>[0],
     );
   }
-}
-
-/*
- * A paged read of any shape — the same widening `AnyRead` performs above, and for the same reason.
- *
- * `prefetchInfiniteQuery` fixes its key as `readonly unknown[]` and its page param as `unknown`,
- * while each generated listing carries its own key type and its own page param; the two cannot be
- * unified for a variadic call that mixes listings. Nothing here reads a RESULT — warming returns
- * nothing and rejects never — so what this needs of a read is only that it is one: a key, a way to
- * fetch a page, and the two properties `paged` has just put on it.
- */
-interface AnyPagedRead {
-  readonly queryKey: readonly unknown[];
-  readonly queryFn?: unknown;
-  readonly initialPageParam?: unknown;
-  readonly getNextPageParam?: unknown;
 }

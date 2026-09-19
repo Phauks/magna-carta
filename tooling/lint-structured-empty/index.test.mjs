@@ -214,6 +214,152 @@ describe("prose-after-structure", () => {
   });
 });
 
+describe("table-behind-absence", () => {
+  it("bites on the uploads shape: an EmptyState where the register's table would stand", () => {
+    const source = `
+{#if batches.length === 0 && remembered.length === 0}
+  <EmptyState title="No Uploads" />
+{:else}
+  <div class="flex flex-col gap-24">
+    <section aria-label="Earlier">
+      <DataTable.Root><DataTable.Header /><DataTable.Body /></DataTable.Root>
+    </section>
+  </div>
+{/if}`;
+    expect(rules(source)).toEqual(["table-behind-absence"]);
+    expect(lines(source)).toEqual([3]);
+  });
+
+  it("bites on every absence branch of a chain, the search-empty one included", () => {
+    const source = `
+{#if shown.length === 0 && query !== ""}
+  <EmptyState title="Nothing Matches That Search" />
+{:else if shown.length === 0}
+  <EmptyState title="No Downloads" />
+{:else}
+  <DataTable.Root><DataTable.Body /></DataTable.Root>
+{/if}`;
+    expect(rules(source)).toEqual(["table-behind-absence", "table-behind-absence"]);
+    expect(lines(source)).toEqual([3, 5]);
+  });
+
+  it("bites on the downloads shape: an emptyState snippet replacing the region's table", () => {
+    const source = `
+{#snippet shelfHead()}
+  <DataTable.Header><DataTable.Row><DataTable.Head>Name</DataTable.Head></DataTable.Row></DataTable.Header>
+{/snippet}
+<LoadingRegion loading={items === null} empty={items !== null && items.length === 0} label="Reading">
+  {#snippet emptyState()}
+    <EmptyState title="No Downloads" />
+  {/snippet}
+  <DataTable.Root>{@render shelfHead()}</DataTable.Root>
+</LoadingRegion>`;
+    expect(rules(source)).toEqual(["table-behind-absence"]);
+    expect(lines(source)).toEqual([7]);
+  });
+
+  it("follows the table through a snippet the region only RENDERS, and through a second one", () => {
+    const source = `
+{#snippet head()}<DataTable.Header />{/snippet}
+{#snippet shelf()}<DataTable.Root>{@render head()}</DataTable.Root>{/snippet}
+<LoadingRegion loading={false} empty={rows.length === 0} label="Reading">
+  {#snippet emptyState()}<EmptyState title="Nothing" />{/snippet}
+  {@render shelf()}
+</LoadingRegion>`;
+    expect(rules(source)).toEqual(["table-behind-absence"]);
+  });
+
+  it("bites on prose in an emptyState snippet, which no other rule can see", () => {
+    const source = `
+<LoadingRegion loading={false} empty={scans.length === 0} label="Reading">
+  {#snippet emptyState()}
+    <p class="text-sm text-text-muted">No check has been recorded yet.</p>
+  {/snippet}
+  <DataTable.Grid grid={grid} caption="Checks" />
+</LoadingRegion>`;
+    expect(rules(source)).toEqual(["table-behind-absence"]);
+  });
+
+  it("passes when the table renders its header over an empty body with the words inside", () => {
+    const source = `
+<DataTable.Root>
+  <DataTable.Header><DataTable.Row><DataTable.Head>Name</DataTable.Head></DataTable.Row></DataTable.Header>
+  <DataTable.Body>
+    {#each rows as row (row.id)}
+      <DataTable.Row><DataTable.Cell>{row.name}</DataTable.Cell></DataTable.Row>
+    {:else}
+      <DataTable.EmptyRow columns={1} title="No Downloads" />
+    {/each}
+  </DataTable.Body>
+</DataTable.Root>`;
+    expect(rules(source)).toEqual([]);
+  });
+
+  it("passes on a failure standing where the table would, in a branch or in a snippet", () => {
+    expect(
+      rules("{#if readFailure !== null}<FailureNotice {failure} />{:else}<DataTable.Root />{/if}"),
+    ).toEqual([]);
+    expect(
+      rules(`
+<LoadingRegion loading={false} failed={failure !== null} label="Reading">
+  {#snippet failure()}
+    <FailureNotice failure={readFailure} onRetry={retry} />
+  {/snippet}
+  <DataTable.Grid grid={grid} caption="Rows" />
+</LoadingRegion>`),
+    ).toEqual([]);
+  });
+
+  it("passes on a permission refusal, which is not an absence of data", () => {
+    expect(
+      rules(
+        '{#if !mayReadLedger}<EmptyState title="Not Yours To Read" />{:else}<table></table>{/if}',
+      ),
+    ).toEqual([]);
+    expect(
+      rules(
+        '{#if permissionRefusal !== null}<EmptyState title="Refused" />{:else}<DataTable.Grid grid={g} />{/if}',
+      ),
+    ).toEqual([]);
+  });
+
+  it("passes when the branch swapped in is not about absence, and when neither holds a table", () => {
+    expect(
+      rules(
+        '{#if section.kind === "note"}<EmptyState title="A note" />{:else}<DataTable.Root />{/if}',
+      ),
+    ).toEqual([]);
+    expect(
+      rules(
+        '{#if rows.length === 0}<EmptyState title="None" />{:else}<EventRail events={rows} />{/if}',
+      ),
+    ).toEqual([]);
+  });
+
+  it("passes on a fixture snippet, which is the shape rather than the absence", () => {
+    expect(
+      rules(`
+<LoadingRegion loading={rows === null} label="Reading">
+  {#snippet fixture()}<DataTable.Root><DataTable.Body /></DataTable.Root>{/snippet}
+  <DataTable.Root><DataTable.Body /></DataTable.Root>
+</LoadingRegion>`),
+    ).toEqual([]);
+  });
+
+  it("takes the allowance, like every other rule here", () => {
+    const source = `
+{#if row === null}
+  <!-- structured-empty-allow: nothing is selected, which is not a table waiting to fill -->
+  <EmptyState title="Select a file" />
+{:else}
+  <DataTable.Root><DataTable.Body /></DataTable.Root>
+{/if}`;
+    const { problems, excused } = auditFile(FILE, source);
+    expect(problems).toEqual([]);
+    expect(excused.map(({ problem }) => problem.rule)).toEqual(["table-behind-absence"]);
+  });
+});
+
 describe("allowances", () => {
   const excusedBranch = `
 {#if rows.length === 0}

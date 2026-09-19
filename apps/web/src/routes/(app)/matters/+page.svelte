@@ -37,7 +37,6 @@
   import Badge from "@magna-carta/design-system/badge";
   import CreateControl from "@magna-carta/design-system/create-control";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { goto } from "$app/navigation";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { createQuery } from "@tanstack/svelte-query";
@@ -251,7 +250,6 @@
       <ScreenSearch
         bind:value={searchText}
         label="Search the docket"
-        placeholder={placeholderOf("Search the docket")}
         searchOn="pause"
         fieldClass="w-2xs sm:w-xs"
         onsearch={(next) => {

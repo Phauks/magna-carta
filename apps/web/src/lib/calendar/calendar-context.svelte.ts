@@ -25,12 +25,8 @@
  */
 import type { Failure } from "$lib/api/request.ts";
 import { listFirmMembers, type FirmMemberSummary } from "$lib/members/members-api.ts";
-import {
-  listLocations,
-  readSession,
-  type LocationSummary,
-  type SessionBootstrap,
-} from "$lib/matters/matters-api.ts";
+import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
+import { listOffices, type OfficeSummary } from "$lib/offices/offices-api.ts";
 import { FirmMatters } from "$lib/time/firm-matters.svelte.ts";
 import type { SheetMatter } from "$lib/time/time-sheet-model.ts";
 import {
@@ -53,7 +49,12 @@ export class CalendarContext {
   eventTypesFailure = $state<Failure | null>(null);
   members = $state<readonly FirmMemberSummary[]>([]);
   membersFailure = $state<Failure | null>(null);
-  locations = $state<readonly LocationSummary[]>([]);
+  /*
+   * The firm's offices, WHOLE — addresses included — rather than the matters API's summary of them.
+   * Same endpoint, wider reading: the Location field offers an office by its street address, so a
+   * hearing recorded "at the North Office" carries where that is (owner, 2026-09-18).
+   */
+  locations = $state<readonly OfficeSummary[]>([]);
   locationsFailure = $state<Failure | null>(null);
   /** The firm's bookable things: every room is a calendar the rail offers and a place to meet. */
   resources = $state<readonly FirmResource[]>([]);
@@ -279,7 +280,7 @@ export class CalendarContext {
   }
 
   async #readLocations(fetchImpl: typeof fetch): Promise<void> {
-    const outcome = await listLocations(fetchImpl);
+    const outcome = await listOffices(fetchImpl);
     if (outcome.kind === "ok") {
       this.locations = outcome.value.data;
       this.locationsFailure = null;

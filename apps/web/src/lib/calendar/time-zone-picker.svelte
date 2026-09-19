@@ -13,19 +13,18 @@
    * as a record with no zone, which on a calendar is a different and important fact. Same
    * discipline as $lib/matters/member-picker.svelte, for the same reason.
    *
-   * THE LIST READS BY CODE AND BY NAME BOTH — "PST · America / Los Angeles" — because CST is three
-   * different zones and a reader choosing between them needs the name. The code is worked out ON THE
-   * EVENT'S OWN DAY, since the same zone is PST in January and PDT in July. There was a `compact`
-   * mode that also read the FIELD by its code, for a 40-pixel slot at the end of the timing line;
-   * the slot is gone (record-timing-fields.svelte: the zone is its own line now, wide enough to
-   * read), and with no caller left the mode went with it.
+   * EVERY ROW IS THE SAME LINE — "(UTC-08:00) Pacific Standard Time · Los Angeles" — the display
+   * vocabulary's one shape for a zone (time-zone-options.ts says why), worked out ON THE EVENT'S OWN
+   * DAY, since the same zone is PST in January and PDT in July. The offset is what a reader checks
+   * against a court's notice, the name is what tells three Centrals apart, and the place is what
+   * they type. The code is not printed on the row but is what the search matches: "PST" finds Los
+   * Angeles, and "pacific" or "los angeles" find it too. There was a `compact` mode that read the
+   * FIELD by its code, for a 40-pixel slot at the end of the timing line; the slot is gone
+   * (record-timing-fields.svelte: the zone is its own line now, wide enough to read), and with no
+   * caller left the mode went with it.
    */
   import * as Combobox from "@magna-carta/design-system/combobox";
-  import {
-    timeZoneLabel,
-    timeZoneOptions,
-    timeZoneShortCode,
-  } from "./time-zone-options.ts";
+  import { matchingTimeZones, timeZoneLabel, timeZoneOptions } from "./time-zone-options.ts";
 
   let {
     value = $bindable(""),
@@ -56,25 +55,12 @@
   /** Whether the reader is searching rather than reading the zone the field holds. */
   let searching = $state(false);
 
-  const options = $derived(
-    timeZoneOptions(preferred).map((option) => ({
-      value: option.value,
-      label: `${timeZoneShortCode(option.value, on)} · ${option.label}`,
-    })),
-  );
+  const options = $derived(timeZoneOptions(preferred, undefined, on));
 
   // At rest the field names the zone it holds, so a filled field never reads as an empty one.
-  const selectedLabel = $derived(value === "" ? "" : timeZoneLabel(value));
+  const selectedLabel = $derived(value === "" ? "" : timeZoneLabel(value, on));
 
-  const matching = $derived.by(() => {
-    const needle = query.trim().toLowerCase().replaceAll("_", " ");
-    if (needle === "") return options;
-    return options.filter(
-      (option) =>
-        option.label.toLowerCase().includes(needle) ||
-        option.value.toLowerCase().replaceAll("_", " ").includes(needle),
-    );
-  });
+  const matching = $derived(matchingTimeZones(options, query));
 
   /** Searching stops the moment a zone is chosen, so the field goes back to naming it. */
   function settle(): void {
@@ -89,8 +75,11 @@
   }
 </script>
 
+<!-- A re-pick of the chosen zone confirms it; the primitive's default deselect would empty the
+     field on the next click outside (matter-picker.svelte says it in full). -->
 <Combobox.Root
   type="single"
+  allowDeselect={false}
   {disabled}
   items={matching}
   {value}

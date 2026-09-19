@@ -52,6 +52,7 @@ export {
   dayLanes,
   hourOf,
   hourSlots,
+  inAllDayBand,
   laneOf,
   placeDayEntries,
   wallClockMinutes,

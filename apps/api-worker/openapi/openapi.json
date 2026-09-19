@@ -1506,6 +1506,69 @@
           "links"
         ]
       },
+      "SafeBrowseSessionProbe": {
+        "type": "object",
+        "properties": {
+          "supported": {
+            "type": "boolean"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "ok": {
+                  "type": "boolean"
+                },
+                "detail": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "ok"
+              ]
+            }
+          },
+          "sessionsBefore": {
+            "type": "number"
+          },
+          "maxConcurrentSessions": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "allowedBrowserAcquisitions": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "sessionReused": {
+            "type": "boolean"
+          },
+          "cdpAttached": {
+            "type": "boolean"
+          },
+          "elapsedMilliseconds": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "supported",
+          "steps",
+          "sessionsBefore",
+          "maxConcurrentSessions",
+          "allowedBrowserAcquisitions",
+          "sessionReused",
+          "cdpAttached",
+          "elapsedMilliseconds"
+        ]
+      },
       "DecryptionInspectResponse": {
         "type": "object",
         "properties": {
@@ -7408,6 +7471,40 @@
               "null"
             ]
           },
+          "saveKind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "explicit",
+              "autosave",
+              "exit",
+              "reap",
+              null
+            ]
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "userId": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "userId",
+                "name"
+              ]
+            }
+          },
           "scanVerdict": {
             "type": [
               "string",
@@ -7442,6 +7539,8 @@
           "committedAt",
           "uploadedBy",
           "uploadedByName",
+          "saveKind",
+          "participants",
           "scanVerdict",
           "scanEngineVersion",
           "scanDetail"
@@ -8062,6 +8161,9 @@
               "edit",
               "view"
             ]
+          },
+          "recordsChanges": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -8069,7 +8171,8 @@
           "editorOrigin",
           "accessToken",
           "accessTokenTtl",
-          "capability"
+          "capability",
+          "recordsChanges"
         ]
       },
       "EditOpenProgressResponse": {
@@ -8676,6 +8779,25 @@
             ]
           },
           "stepUpReauthOnFlagged": {
+            "type": "boolean"
+          }
+        }
+      },
+      "EditingPolicyResponse": {
+        "type": "object",
+        "properties": {
+          "recordChanges": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "recordChanges"
+        ]
+      },
+      "PatchEditingPolicyRequest": {
+        "type": "object",
+        "properties": {
+          "recordChanges": {
             "type": "boolean"
           }
         }
@@ -9634,13 +9756,18 @@
           },
           "total": {
             "type": "integer",
-            "description": "How many records the firm holds under these filters — every page of the walk, not the rows on this one."
+            "description": "How many records the firm holds under these filters — every page of the walk when the directory is being listed, and the number of records answering when it is being searched, because a ranked answer's size is the answer's and not the book's."
+          },
+          "capped": {
+            "type": "boolean",
+            "description": "True only where a ranked answer (`search`) was cut short: the firm holds more matches than were returned, so narrowing the query reaches the rest. False on every page of the plain index, which is walkable to its end by cursor and never cut."
           }
         },
         "required": [
           "data",
           "nextCursor",
-          "total"
+          "total",
+          "capped"
         ]
       },
       "DirectoryEntityListing": {
@@ -37337,6 +37464,16 @@
               }
             }
           },
+          "422": {
+            "description": "The isolated browser reached the address but the page did not finish rendering (type page-render-failed) — or the request body failed validation (type validation)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Rate limit exceeded",
             "content": {
@@ -37417,6 +37554,80 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks tools:safeBrowse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The isolated browser reached the address but the page did not finish rendering (type page-render-failed) — or the request body failed validation (type validation)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/safe-browse/session-probe": {
+      "post": {
+        "description": "Diagnostic: acquire a browser session against a fixed inert address, disconnect, reconnect to the same session, navigate again, and attach a CDP session — reporting each step. Answers whether this deployment can support interactive remote browsing. Navigates only to a constant held in the route; it accepts no target and is not a browsing endpoint.",
+        "operationId": "safeBrowse.sessionProbe",
+        "tags": [
+          "safeBrowse"
+        ],
+        "x-mc-operationId": "safeBrowse.sessionProbe",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:safeBrowse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "safeBrowse"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The probe ran; the report says how far it got",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SafeBrowseSessionProbe"
                 }
               }
             }
@@ -54150,6 +54361,203 @@
         }
       }
     },
+    "/api/v1/firm/editing-policy": {
+      "get": {
+        "description": "The firm's editing policy: whether every document opened in the browser editor records its changes.",
+        "operationId": "editingPolicy.get",
+        "tags": [
+          "editingPolicy"
+        ],
+        "x-mc-operationId": "editingPolicy.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageEditingPolicy",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "editingPolicy"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's editing policy, resolved with its defaults",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditingPolicyResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:manageEditingPolicy",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "description": "Updates the firm's editing policy. Only the supplied fields change; the change is audited.",
+        "operationId": "editingPolicy.update",
+        "tags": [
+          "editingPolicy"
+        ],
+        "x-mc-operationId": "editingPolicy.update",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageEditingPolicy",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "editingPolicy"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchEditingPolicyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The firm's editing policy after the change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditingPolicyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing on a write",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:manageEditingPolicy",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is invalid, or the Idempotency-Key was reused with a different body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/downloads/bundles/{manifestHash}": {
       "get": {
         "description": "Reports the state of an async bulk-download build (building, ready, or failed). A ready job carries a freshly minted, short-lived signed URL to the built ZIP artifact.",
@@ -55218,7 +55626,7 @@
     },
     "/api/v1/directory/entities": {
       "get": {
-        "description": "Lists the firm's directory — every person and organization it holds, in name order and cursor-paged, with `total` giving the size of the whole record. People and organizations are ONE sequence: the directory is one book, and `kind` narrows it rather than splitting it. Deleted records and records folded into another by a merge are excluded — a folded record still answers a search and still resolves to its survivor, but listing it beside that survivor would show one client as two. This is the read that answers 'show me everyone'; the ranked search answers a name and is capped, and neither can stand in for the other.",
+        "description": "Lists the firm's directory — every person and organization it holds, in name order and cursor-paged, with `total` giving the size of the whole record. People and organizations are ONE sequence: the directory is one book, and `kind` narrows it rather than splitting it. Deleted records and records folded into another by a merge are excluded — a folded record still answers a search and still resolves to its survivor, but listing it beside that survivor would show one client as two. Given `search`, the same read answers a NAME instead: the firm's ranked trigram search chooses the records and they come back as the same listing rows, in the firm's own relevance order. That answer is capped rather than walkable, so `nextCursor` is null, `total` is the size of the answer, and `capped` says whether the firm holds more matches than fitted.",
         "operationId": "directory.listEntities",
         "tags": [
           "directory"
@@ -55258,11 +55666,21 @@
             "description": "Narrows to one side of the directory. Omitted, both are listed together.",
             "name": "kind",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "A name to rank the directory against — every name the firm has recorded is matched, former names included, and a misspelling still finds the record. The corpus matches three-character windows, so a shorter query answers with nothing rather than with the whole book. Omitted, the directory is listed in name order."
+            },
+            "required": false,
+            "description": "A name to rank the directory against — every name the firm has recorded is matched, former names included, and a misspelling still finds the record. The corpus matches three-character windows, so a shorter query answers with nothing rather than with the whole book. Omitted, the directory is listed in name order.",
+            "name": "search",
+            "in": "query"
           }
         ],
         "responses": {
           "200": {
-            "description": "A page of the directory in name order, with the size of the whole record",
+            "description": "A page of the directory in name order, with the size of the whole record — or, under `search`, the ranked matches as the same rows",
             "content": {
               "application/json": {
                 "schema": {
@@ -106100,7 +106518,7 @@
         }
       },
       "get": {
-        "description": "Lists the firm's assembly templates, newest page first by name. Every template is visible to every member who can assemble; a template bound to a matter type is still listed, and the binding narrows which matters offer it. Filter by matter type to see only what a matter of that type would offer.",
+        "description": "Lists the firm's assembly templates, newest page first by name. Every template is visible to every member who can assemble; a template bound to a matter type is still listed, and the binding narrows which matters offer it. Filter by matter type to see only what a matter of that type would offer, and pass search to keep only the templates whose name or description contains the text.",
         "operationId": "templates.list",
         "tags": [
           "templates"
@@ -106145,6 +106563,15 @@
             },
             "required": false,
             "name": "matterTypeId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "required": false,
+            "name": "search",
             "in": "query"
           }
         ],
@@ -108631,6 +109058,9 @@
     },
     {
       "name": "downloads"
+    },
+    {
+      "name": "editingPolicy"
     },
     {
       "name": "emailInspector"

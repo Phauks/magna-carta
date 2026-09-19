@@ -45,7 +45,6 @@
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import NavigationLayout from "@magna-carta/design-system/navigation-layout";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { SAMPLE_SENTENCE, sampleInstant } from "@magna-carta/design-system/loading-fixtures";
   import FolderInput from "@lucide/svelte/icons/folder-input";
   import Trash2 from "@lucide/svelte/icons/trash-2";
@@ -624,7 +623,6 @@
   <ScreenSearch
     bind:value={searchText}
     label="Search your conversations"
-    placeholder={placeholderOf("Search your conversations")}
     searchOn="pause"
     fieldClass="w-2xs sm:w-xs"
     disabled={isSample || !isOpen}

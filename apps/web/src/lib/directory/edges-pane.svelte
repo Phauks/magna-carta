@@ -30,7 +30,6 @@
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import EntityIdentity from "@magna-carta/design-system/entity-identity";
   import type { PickableEntity } from "@magna-carta/design-system/entity-picker";
   import DirectoryEntityPicker from "./directory-entity-picker.svelte";
@@ -88,31 +87,31 @@
     onOpenEntity?: (entityId: string) => void;
   } = $props();
 
-  /** What each filter calls itself and says when it has nothing to list. */
+  /*
+   * What each filter calls itself and says when it has nothing to list. The empty line is ONE line:
+   * it stands in the table's own empty body, under the header row, and the paragraph that used to
+   * sit beside it explained the domain term to a reader who was only looking at a short list.
+   */
   const PANE_WORDS: Record<
     EdgePaneFilter,
-    { heading: string; caption: string; emptyTitle: string; emptyBody: string; readFailure: string }
+    { heading: string; caption: string; emptyTitle: string; readFailure: string }
   > = {
     all: {
       heading: "Relationships",
       caption: "How this record connects to others in the firm's book",
       emptyTitle: "Nothing Connected To This Record",
-      emptyBody:
-        "No relationship has been recorded between this record and any other in the firm's book.",
       readFailure: "This record's relationships could not be read.",
     },
     people: {
       heading: "People",
       caption: "The people inside this organization",
       emptyTitle: "Nobody Recorded In This Organization",
-      emptyBody: "No officer, director, employee or other member has been recorded for it.",
       readFailure: "The people in this organization could not be read.",
     },
     organizations: {
       heading: "Organizations",
       caption: "The organizations this person is inside",
       emptyTitle: "No Organization Recorded For This Person",
-      emptyBody: "No organization they are an officer, director, employee or member of has been recorded.",
       readFailure: "This person's organizations could not be read.",
     },
   };
@@ -351,7 +350,6 @@
     loading={edges === null}
     {refreshing}
     failed={readFailure !== null}
-    empty={edges !== null && shown.length === 0}
     label="Reading this record's {words.heading.toLowerCase()}"
     onRetry={retry}
     class="flex flex-col gap-8"
@@ -369,9 +367,6 @@
     {/snippet}
     {#snippet fixture()}
       {@render edgeTable(EDGE_FIXTURE)}
-    {/snippet}
-    {#snippet emptyState()}
-      <EmptyState title={words.emptyTitle}>{words.emptyBody}</EmptyState>
     {/snippet}
     {@render edgeTable(shown)}
   </LoadingRegion>
@@ -502,7 +497,8 @@
   {/if}
 </section>
 
-<!-- One table for the rows and for the shape they take while they are read, so the two cannot drift. -->
+<!-- One table for the rows, for the shape they take while they are read, and for the empty body
+     they leave behind when there are none, so the three cannot drift. -->
 {#snippet edgeTable(rows: readonly DirectoryEdgeEntry[])}
   <DataTable.Root>
     <DataTable.Caption class="sr-only">{words.caption}</DataTable.Caption>
@@ -554,6 +550,8 @@
             <span class="text-text-muted">{period(edge)}</span>
           </DataTable.Cell>
         </DataTable.Row>
+      {:else}
+        <DataTable.EmptyRow columns={3} title={words.emptyTitle} />
       {/each}
     </DataTable.Body>
   </DataTable.Root>

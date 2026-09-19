@@ -15,6 +15,11 @@
    * ($lib/transfers/upload-history.svelte.ts) and read below, where every file that landed can be
    * downloaded again from the matter it landed on. Before that record existed this screen answered
    * "nothing uploading" to "where is the thing I sent yesterday", which is true and useless.
+   *
+   * THE TABLE STANDS WHETHER OR NOT ANYTHING IS UPLOADING. With nothing in the air and nothing
+   * remembered, the register still draws the header row a remembered batch opens to, over an empty
+   * body carrying the one line that says which kind of nothing it is. A member arriving here before
+   * their first upload meets the shape their files will arrive in.
    */
   import Ban from "@lucide/svelte/icons/ban";
   import Download from "@lucide/svelte/icons/download";
@@ -23,7 +28,6 @@
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import Button from "@magna-carta/design-system/button";
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import Progress from "@magna-carta/design-system/progress";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
@@ -40,11 +44,7 @@
     type UploadHistoryEntry,
     type UploadHistoryFile,
   } from "$lib/transfers/upload-history.svelte.ts";
-  import {
-    formatInstant,
-    formatTimeOfDay,
-    placeholderOf,
-  } from "@magna-carta/design-system/formatters";
+  import { formatInstant, formatTimeOfDay } from "@magna-carta/design-system/formatters";
   import {
     batchCountsText,
     batchPaceText,
@@ -142,7 +142,25 @@
 
   /** Which remembered batches are open. Closed by default: the register is a list of batches. */
   let openEntries = $state<Record<string, boolean>>({});
+
+  /** The columns the header row below draws, which is what an empty body spans. */
+  const REMEMBERED_COLUMN_COUNT = 4;
 </script>
+
+<!-- One header row for the remembered files, drawn by the register whether or not it is holding
+     anything: the empty register shows the shape a batch opens to, and a batch that is open shows
+     the same one, so the two cannot drift apart. -->
+{#snippet rememberedFileHead(caption: string)}
+  <DataTable.Caption class="sr-only">{caption}</DataTable.Caption>
+  <DataTable.Header>
+    <DataTable.Row>
+      <DataTable.Head>Name</DataTable.Head>
+      <DataTable.Head>Size</DataTable.Head>
+      <DataTable.Head>Standing</DataTable.Head>
+      <DataTable.Head><span class="sr-only">Actions</span></DataTable.Head>
+    </DataTable.Row>
+  </DataTable.Header>
+{/snippet}
 
 <svelte:head>
   <title>Uploads · Magna Carta</title>
@@ -155,7 +173,6 @@
     <ScreenSearch
       bind:value={searchText}
       label="Search your uploads"
-      placeholder={placeholderOf("Search your uploads")}
       fieldClass="w-2xs sm:w-xs"
       onsearch={(next) => {
         appliedSearch = next;
@@ -179,14 +196,21 @@
   {/snippet}
 </ScreenHeader>
 
-{#if batches.length === 0 && remembered.length === 0 && batchSearch !== ""}
-  <!-- Uploads exist and the query reaches none of them, so the answer is about the query rather
-       than about the register. -->
-  <EmptyState title="Nothing Matches That Search">
-    No upload matches "{appliedSearch.trim()}". Clear the search to see them all again.
-  </EmptyState>
-{:else if batches.length === 0 && remembered.length === 0}
-  <EmptyState title={NO_UPLOADS} />
+{#if batches.length === 0 && remembered.length === 0}
+  <!-- Nothing in the air and nothing remembered: the register still renders the shape files arrive
+       in — the same header row a remembered batch opens to, over an empty body carrying the one
+       line that says whether the register is empty or the query simply reaches none of it. -->
+  <section class="flex flex-col gap-8" aria-label="Uploads">
+    <DataTable.Root>
+      {@render rememberedFileHead("The files this browser remembers uploading")}
+      <DataTable.Body>
+        <DataTable.EmptyRow
+          columns={REMEMBERED_COLUMN_COUNT}
+          title={batchSearch === "" ? NO_UPLOADS : "Nothing Matches That Search"}
+        />
+      </DataTable.Body>
+    </DataTable.Root>
+  </section>
 {:else}
   <div class="flex flex-col gap-24">
     {#each batches as batch (batch.id)}
@@ -279,17 +303,7 @@
             </div>
             {#if isOpen}
               <DataTable.Root>
-                <DataTable.Caption class="sr-only">
-                  Files uploaded to {entry.matterTitle}
-                </DataTable.Caption>
-                <DataTable.Header>
-                  <DataTable.Row>
-                    <DataTable.Head>Name</DataTable.Head>
-                    <DataTable.Head>Size</DataTable.Head>
-                    <DataTable.Head>Standing</DataTable.Head>
-                    <DataTable.Head><span class="sr-only">Actions</span></DataTable.Head>
-                  </DataTable.Row>
-                </DataTable.Header>
+                {@render rememberedFileHead(`Files uploaded to ${entry.matterTitle}`)}
                 <DataTable.Body>
                   {#each entry.files as file, index (`${String(index)}:${file.name}`)}
                     <DataTable.Row>
@@ -315,6 +329,11 @@
                         {/if}
                       </DataTable.Cell>
                     </DataTable.Row>
+                  {:else}
+                    <DataTable.EmptyRow
+                      columns={REMEMBERED_COLUMN_COUNT}
+                      title="No Files Remembered"
+                    />
                   {/each}
                 </DataTable.Body>
               </DataTable.Root>

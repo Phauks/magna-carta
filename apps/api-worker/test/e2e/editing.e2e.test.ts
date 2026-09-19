@@ -94,6 +94,8 @@ async function cutVersion(fileId: FileId, hash: string): Promise<void> {
       contentSha256: hash,
       sizeBytes: PDF_BYTES.byteLength,
       uploadedBy: ownerId,
+      saveKind: "explicit",
+      participants: [],
     },
     { clock: { now: () => new Date().toISOString() }, actorUserId: ownerId },
     async (from, to) => {

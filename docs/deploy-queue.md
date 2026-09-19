@@ -186,15 +186,26 @@ email-capture steps already on this queue.
    `crates/decryption-core/*`) — both API-confirmed the same day. Nothing here is open any more;
    `operations.md` §12's two-drift note is now historical.
 
-4. **Enable Browser Rendering on the account.** The **safe website viewer** is the only tool in the
-   catalog whose dependency is an account entitlement rather than a worker, a container or a secret
-   — `env.BROWSER` with `quickAction()` (the current `compatibility_date` already satisfies the
-   `>= 2026-03-24` requirement). There is nothing in the repository to deploy for it and nothing
-   local can exercise it: Miniflare exposes a `BROWSER` binding whose receiver has no `quickAction`,
-   so the route answers 500 in every local run no matter what changes. One fact the API pass adds
-   (2026-08-24): the deployed app worker does carry the `BROWSER` binding, so the binding side is
-   live; whether the entitlement actually serves `quickAction()` is only answerable by exercising
-   the route.
+4. **Enable Browser Rendering on the account — CLOSED 2026-09-18, and it had been enabled all
+   along.** The **safe website viewer** was the only tool in the catalog whose dependency is an
+   account entitlement rather than a worker, a container or a secret — `env.BROWSER` with
+   `quickAction()`. This entry stood open for weeks on the reasoning that captures were failing and
+   the entitlement was the one thing nobody could check from the repository. That reasoning was
+   sound and the conclusion was wrong: the entitlement was serving, and the captures were failing on
+   a wait for `networkidle2` that a page holding a socket never reaches, which the service reported
+   as a 422 and the route then reported to members as a capacity outage. A capture returned a
+   screenshot on 2026-09-18, which is the only evidence that ever settled it.
+
+   **What the episode is worth remembering for** is the shape of the mistake, because this file
+   invites it: an item here names something no session can verify, so a failure that _could_ be that
+   item gets attributed to it, and the attribution is never re-tested. The renderer's own refusals
+   were being collapsed into one message and never logged, so for weeks there was nothing to read.
+   Before blaming an open entry here for a live failure, make the failure readable first.
+
+   Still true, and unchanged by the closure: nothing local can exercise it — Miniflare exposes a
+   `BROWSER` binding whose receiver has no `quickAction`, so that path is stubbed in every local
+   run. Interactive live browsing would need Browser Sessions on top of this, which is a larger
+   surface than quick actions and has not been exercised.
 
 5. **Set `PANGRAM_API_KEY` — last, and only when a firm has asked.** **AI-text detection** refuses
    twice today, both correctly: `422` because the firm's consent setting is off, and `422` again if

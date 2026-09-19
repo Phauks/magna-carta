@@ -17,7 +17,6 @@
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { sampleMatter } from "@magna-carta/design-system/loading-fixtures";
   import {
@@ -120,7 +119,6 @@
     loading={parties === null}
     {refreshing}
     failed={readFailure !== null}
-    empty={parties !== null && parties.length === 0}
     label="Reading the matters this record is on"
     onRetry={retry}
     class="flex flex-col gap-16"
@@ -139,13 +137,6 @@
     {#snippet fixture()}
       {@render partyTable(PARTY_FIXTURE)}
     {/snippet}
-    {#snippet emptyState()}
-      <EmptyState title="Not A Party To Anything Yet">
-        This record is in the firm's book but is not linked to a matter. A record can exist purely
-        to be matched against — a conflicts check searches every record, not only the ones on a
-        file.
-      </EmptyState>
-    {/snippet}
 
     {@render partyTable(parties ?? [])}
 
@@ -159,7 +150,8 @@
   </LoadingRegion>
 </section>
 
-<!-- One table for the rows and for the shape they take while they are read, so the two cannot drift. -->
+<!-- One table for the rows, for the shape they take while they are read, and for the empty body
+     they leave behind when there are none, so the three cannot drift. -->
 {#snippet partyTable(rows: readonly DirectoryEntityMatterParty[])}
   <DataTable.Root>
     <DataTable.Caption class="sr-only">
@@ -200,6 +192,8 @@
             {/if}
           </DataTable.Cell>
         </DataTable.Row>
+      {:else}
+        <DataTable.EmptyRow columns={3} title="Not A Party To Anything Yet" />
       {/each}
     </DataTable.Body>
   </DataTable.Root>

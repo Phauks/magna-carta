@@ -48,6 +48,13 @@ export const PROBLEM_TYPES = {
   // would send the reader looking for a fault in their own file. This one says the archive is
   // intact and the shortfall is ours or the password's.
   "archive-unreadable": "archive-unreadable",
+  // The remote browser reached the target and could not finish rendering it (HTTP 422): the page
+  // crashed, consumed too much memory, or did not become ready inside the wait — the conditions the
+  // rendering service reports as an issue with the site. DISTINCT from `validation` (request-shape)
+  // — the address was accepted and visited — and DISTINCT from `internal`, which would hand the
+  // member an Error ID for a fault that is neither theirs nor the platform's. The capture is
+  // attempted twice before this is reported, the second time with everything expensive turned off.
+  "page-render-failed": "page-render-failed",
   // The firm's object storage is unprovisioned, or is recorded against a bucket this deployment
   // does not read through (HTTP 503, retryable once an operator has configured it). DISTINCT from
   // `internal` — the condition is known and named, so the reader is told what is misconfigured

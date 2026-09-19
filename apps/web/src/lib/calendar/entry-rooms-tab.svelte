@@ -107,8 +107,13 @@
   }
 
   function when(booking: EventBooking): string {
-    const starts = formatWallClock(booking.startsAtTime, booking.timeZone, readerTimeZone);
-    const ends = formatWallClock(booking.endsAtTime, booking.timeZone, readerTimeZone);
+    const starts = formatWallClock(
+      booking.startsAtTime,
+      booking.timeZone,
+      readerTimeZone,
+      booking.startsOn,
+    );
+    const ends = formatWallClock(booking.endsAtTime, booking.timeZone, readerTimeZone, booking.startsOn);
     return `${booking.startsOn}${starts === null ? "" : ` ${starts}`}${ends === null ? "" : ` to ${ends}`}`;
   }
 
@@ -192,7 +197,6 @@
   <LoadingRegion
     loading={bookings === null}
     failed={bookingsFailure !== null}
-    empty={bookings !== null && bookings.length === 0}
     label="Reading the event's bookings"
     onRetry={() => void readBookings(record)}
     class="flex flex-col gap-8"
@@ -206,9 +210,6 @@
           onRetry={() => void readBookings(record)}
         />
       {/if}
-    {/snippet}
-    {#snippet emptyState()}
-      <p class="text-sm text-text-muted">Nothing booked for this event.</p>
     {/snippet}
     {#snippet fixture()}
       <DataTable.Root>
@@ -268,6 +269,8 @@
               </Button>
             </DataTable.Cell>
           </DataTable.Row>
+        {:else}
+          <DataTable.EmptyRow columns={3} title="Nothing Booked For This Event" />
         {/each}
       </DataTable.Body>
     </DataTable.Root>

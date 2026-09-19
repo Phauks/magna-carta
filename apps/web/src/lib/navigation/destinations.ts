@@ -398,14 +398,21 @@ const DESTINATION_LIST = [
     permission: assertPermission("meetings:join"),
   },
   {
+    // The firm's template library: the documents that belong to the FIRM rather than to any one
+    // matter, each registered once and added to as many matters as need it. A matter's own files
+    // live under the matter (its Files section); what stands at the top level is the catalogue those
+    // files are built from, which is why this row and Matters do not overlap.
     id: "documents",
     label: "Documents",
     href: "/documents",
     icon: FileText,
-    description: "The firm's documents — stored, scanned, and versioned.",
+    description: "The firm's document templates, registered once and added to any matter.",
     group: "work",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    // The library reads, registers a template from a Word document or a fillable PDF, adds one to
+    // several matters at once, and archives. The field inspector and authoring in the browser are
+    // still to come.
+    stage: "alpha",
     defaultShown: true,
   },
   {

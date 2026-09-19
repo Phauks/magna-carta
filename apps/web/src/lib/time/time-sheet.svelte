@@ -83,7 +83,7 @@
   import MatterPicker from "./matter-picker.svelte";
   import type { FirmMemberSummary } from "$lib/members/members-api.ts";
   import type { TimeEntrySummary } from "$lib/matters/time-api.ts";
-  import { personInitials } from "./time-columns.ts";
+  import { personInitials } from "@magna-carta/design-system/formatters";
   import { gapCellTitle, gapReason } from "./time-gaps.ts";
   import TimeRecordWindow from "./time-record-window.svelte";
   import {

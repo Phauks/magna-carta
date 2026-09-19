@@ -1,5 +1,7 @@
 import type { OpenAPIHono } from "@hono/zod-openapi";
-import type { FileId } from "@magna-carta/identifiers/types";
+import { readMemberDisplayName } from "@magna-carta/data-access/member-statements";
+import { readRecordChanges } from "@magna-carta/file-manager/editing-policy-settings";
+import type { FileId, UserId } from "@magna-carta/identifiers/types";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
@@ -8,7 +10,15 @@ import type { AppVariables } from "../chokepoint/ports.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import { documentSessionStub } from "./document-session.ts";
 import { wopiGuard, WopiGuardError, type FirmDatabaseResolver } from "./wopi-guard.ts";
-import { checkFileInfo, getFile, lockOperation, putFile, runWopiCallback } from "./wopi-routes.ts";
+import {
+  checkFileInfo,
+  getFile,
+  lockOperation,
+  putFile,
+  runWopiCallback,
+  saveKindOf,
+} from "./wopi-routes.ts";
+import { cutVersionFromWorkingCopy } from "./working-copy-version.ts";
 
 // The WOPI host callback surface — the editor's data plane. Collabora replays an opaque access_token
 // (no session cookie) against the WOPISrc the launch handed it, so these routes are token-guarded and
@@ -118,11 +128,17 @@ export function registerWopiHostRoutes(
   // CheckFileInfo — GET /wopi/files/{fileId}
   app.get("/wopi/files/:fileId", (c) =>
     withWopi(c, "wopi:check-file-info", async ({ claims, firmDatabase, bucket, state }) => {
+      const [memberName, recordChanges] = await Promise.all([
+        readMemberDisplayName(firmDatabase, claims.memberId as UserId),
+        readRecordChanges(firmDatabase),
+      ]);
       const body = await checkFileInfo(claims, {
         database: firmDatabase,
         bucket,
         currentMeta: state.current,
         liveSessionId: state.sessionId,
+        memberName,
+        recordChanges,
       });
       return Response.json(body);
     }),
@@ -164,14 +180,31 @@ export function registerWopiHostRoutes(
     withWopi(
       c,
       "wopi:put-file",
-      async ({ claims, bucket, fileId, state }) => {
+      async ({ claims, firmDatabase, bucket, fileId, state }) => {
         const stub = documentSessionStub(c.env, fileId);
+        const saveKind = saveKindOf(c.req.raw.headers);
+        const now = (): string => new Date().toISOString();
         return putFile(claims, c.req.raw, {
           bucket,
           currentMeta: state.current,
           currentLock: state.wopiLock,
-          recordCurrentMeta: (meta) => stub.setCurrentMeta(meta),
-          now: () => new Date().toISOString(),
+          // The working copy's metadata first, then a version cut from it — every save, the autosave
+          // included — so the file's history shows each state the moment it landed, with the kind of
+          // save and everyone in the session on it. A save with unchanged bytes cuts nothing.
+          recordCurrentMeta: async (meta) => {
+            await stub.setCurrentMeta(meta);
+            await cutVersionFromWorkingCopy(
+              firmDatabase,
+              bucket,
+              fileId,
+              meta,
+              claims.memberId as UserId,
+              saveKind,
+              Object.keys(state.participants) as UserId[],
+              now,
+            );
+          },
+          now,
         });
       },
       { requireLiveSession: true },

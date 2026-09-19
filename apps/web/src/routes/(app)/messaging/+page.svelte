@@ -55,7 +55,6 @@
   import Button from "@magna-carta/design-system/button";
   import CreateControl from "@magna-carta/design-system/create-control";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import type { PickableEntity } from "@magna-carta/design-system/entity-picker";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import {
@@ -273,7 +272,6 @@
       <ScreenSearch
         bind:value={searchText}
         label="Search the log"
-        placeholder={placeholderOf("Search the log")}
         searchOn="pause"
         fieldClass="w-2xs sm:w-xs"
         onsearch={(next) => {

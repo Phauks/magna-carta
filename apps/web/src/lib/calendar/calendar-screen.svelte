@@ -40,7 +40,6 @@
   import CalendarClock from "@lucide/svelte/icons/calendar-clock";
   import CalendarDays from "@lucide/svelte/icons/calendar-days";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import type { BackTarget } from "$lib/screen/screen-header.ts";
   import { calendarContext } from "./calendar-context.svelte.ts";
@@ -182,7 +181,6 @@
         <ScreenSearch
           bind:value={searchText}
           label="Search this calendar"
-          placeholder={placeholderOf("Search this calendar")}
           fieldClass="w-2xs sm:w-xs"
           onsearch={(next) => {
             appliedSearch = next;

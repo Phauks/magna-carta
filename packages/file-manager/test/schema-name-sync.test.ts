@@ -11,6 +11,7 @@ import {
   member,
   storageMeter,
   uploadSession,
+  fileVersionParticipant,
 } from "@magna-carta/database/per-firm-schema";
 import { describe, expect, it } from "vitest";
 import {
@@ -43,6 +44,7 @@ import {
   selectPendingVersionStatement,
   setUploadSessionStatusStatement,
   softDeleteFileStatement,
+  FILE_VERSION_PARTICIPANT_TABLE,
 } from "../src/file-statements.ts";
 import {
   FOLDER_TABLE,
@@ -232,13 +234,24 @@ describe("schema name sync (file-manager SQL pinned to @magna-carta/database)", 
       // so a joined table is added here WITH its columns rather than its alias being waved through.
       MEMBER_TABLE,
       "m",
+      // p=file_version_participant and pm=the member row each participant is named from, in the
+      // versions read's participants subquery; the participant table's columns come in with it.
+      FILE_VERSION_PARTICIPANT_TABLE,
+      "p",
+      "pm",
+      // The two SQLite functions that subquery composes its answer with: group_concat folds the
+      // participants into one column, char() supplies the separators between and inside pairs.
+      "group_concat",
+      "char",
       // SELECT-list projection aliases (dv.status AS version_status, s.status AS session_status,
-      // m.display_name AS uploaded_by_name).
+      // m.display_name AS uploaded_by_name, the participants subquery AS participants).
       "version_status",
       "session_status",
       "uploaded_by_name",
+      "participants",
       ...columnsOf(file),
       ...columnsOf(fileVersion),
+      ...columnsOf(fileVersionParticipant),
       ...columnsOf(uploadSession),
       ...columnsOf(member),
     ]);

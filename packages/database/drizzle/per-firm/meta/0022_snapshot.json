@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "608d8bbc-5df5-43e9-aa61-adca2766c115",
-  "prevId": "0f272e4d-613b-4c86-bacd-de4446d7f6a5",
+  "id": "a6440327-95c3-4a20-a94c-735156fbbd98",
+  "prevId": "c1b7f892-50ba-467a-a4ff-d6529f971820",
   "tables": {
     "account_balance": {
       "name": "account_balance",
@@ -9204,6 +9204,13 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "save_kind": {
+          "name": "save_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -9319,6 +9326,52 @@
           "value": "\"file_version\".\"size_bytes\" IS NULL OR \"file_version\".\"size_bytes\" >= 0"
         }
       }
+    },
+    "file_version_participant": {
+      "name": "file_version_participant",
+      "columns": {
+        "version_id": {
+          "name": "version_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "member_user_id": {
+          "name": "member_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "file_version_participant_version_id_file_version_id_fk": {
+          "name": "file_version_participant_version_id_file_version_id_fk",
+          "tableFrom": "file_version_participant",
+          "tableTo": "file_version",
+          "columnsFrom": [
+            "version_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "file_version_participant_version_id_member_user_id_pk": {
+          "columns": [
+            "version_id",
+            "member_user_id"
+          ],
+          "name": "file_version_participant_version_id_member_user_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
     },
     "firm_account_role": {
       "name": "firm_account_role",
@@ -18090,6 +18143,14 @@
           "autoincrement": false,
           "default": "'scheduled'"
         },
+        "medium": {
+          "name": "medium",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'video'"
+        },
         "created_by_user_id": {
           "name": "created_by_user_id",
           "type": "text",
@@ -18215,6 +18276,10 @@
         "meeting_status_check": {
           "name": "meeting_status_check",
           "value": "\"meeting\".\"status\" IN ('scheduled', 'live', 'ended')"
+        },
+        "meeting_medium_check": {
+          "name": "meeting_medium_check",
+          "value": "\"meeting\".\"medium\" IN ('video', 'audio')"
         },
         "meeting_event_shape_check": {
           "name": "meeting_event_shape_check",

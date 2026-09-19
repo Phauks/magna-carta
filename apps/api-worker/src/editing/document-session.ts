@@ -281,7 +281,8 @@ export class DocumentSession extends DurableObject<Bindings> {
         // session participant (the precise last writer is not tracked; any participant is a faithful
         // attribution for an auto-cut). commitEditedVersion copies `current` server-side into the new
         // version's key and skips when the bytes match the latest committed version.
-        const author = Object.keys(state.participants)[0] as UserId | undefined;
+        const participants = Object.keys(state.participants) as UserId[];
+        const author = participants[0];
         if (state.current !== null && author !== undefined) {
           const committed = await commitEditedVersion(
             database,
@@ -291,6 +292,8 @@ export class DocumentSession extends DurableObject<Bindings> {
               contentSha256: state.current.sha256,
               sizeBytes: state.current.sizeBytes,
               uploadedBy: author,
+              saveKind: "reap",
+              participants,
             },
             { clock: { now }, actorUserId: author },
             async (fromKey, toKey) => {

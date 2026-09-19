@@ -17,6 +17,14 @@ accepts a user-supplied URL MUST call `assertPublicTarget` (from
 to the renderer. Never pass an unvalidated target to `SafeBrowseDeps.probe`,
 `SafeBrowseDeps.renderer`, or `SafeBrowseDeps.resolve`.
 
+**A refusal from the renderer is a `RendererFailure`, never a message to pattern-match.** The
+service states its reason in an `errors` array; `renderer-failure.ts` carries the HTTP status and
+the error code out of it and nothing else, because the message beside them can quote the suspect URL
+and a failure object that cannot hold the target cannot leak it. That is what makes it safe to log,
+and both the transient and permanent paths do. Never signal a renderer fault by throwing a string
+for a caller to `includes` — that is exactly what collapsed an entitlement failure, a permission
+failure and a rejected parameter into one "at capacity" answer.
+
 Screenshots are transient — they are returned to the caller and are not persisted anywhere in this
 package. Persistence policy is the caller's responsibility.
 

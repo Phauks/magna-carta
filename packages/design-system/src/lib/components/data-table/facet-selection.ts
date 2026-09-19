@@ -62,3 +62,29 @@ export function facetSelectionAfterToggle(
 export function facetSelectionAfterToggleAll(selected: boolean): FacetSelection {
   return selected ? undefined : [];
 }
+
+/** Whether every one of `values` is selected — vacuously true of an empty list. */
+export function areFacetsSelected(selection: FacetSelection, values: readonly string[]): boolean {
+  return values.every((value) => isFacetSelected(selection, value));
+}
+
+/**
+ * The next filter value after toggling SEVERAL values on/off at once: the choices a narrowed list
+ * shows, under the one select-all/none control, which acts on what is listed rather than on the
+ * whole universe. Handed the whole universe it is exactly `facetSelectionAfterToggleAll`; the
+ * same collapse (everything on → `undefined`) and the same floor (nothing on → `[]`) apply.
+ */
+export function facetSelectionAfterToggleValues(
+  universe: readonly string[],
+  selection: FacetSelection,
+  values: readonly string[],
+  selected: boolean,
+): FacetSelection {
+  const next = new Set<string>(selection ?? universe);
+  for (const value of values) {
+    if (selected) next.add(value);
+    else next.delete(value);
+  }
+  if (universe.every((item) => next.has(item))) return undefined;
+  return universe.filter((item) => next.has(item));
+}

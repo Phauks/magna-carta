@@ -114,6 +114,11 @@ export interface EditSessionLaunch {
   accessToken: string;
   accessTokenTtl: number;
   capability: "edit" | "view";
+  /**
+   * Whether the firm's policy has this document record its changes. When it does, the screen
+   * framing the editor turns the showing of the marks off once the document is up.
+   */
+  recordsChanges: boolean;
 }
 
 export function listMatterDocuments(

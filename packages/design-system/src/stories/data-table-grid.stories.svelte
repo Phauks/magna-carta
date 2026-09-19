@@ -323,6 +323,34 @@
       await userEvent.click(body.getByRole("menuitem", { name: "Select all" }));
       await waitFor(() => expect(bodyRows(table)).toHaveLength(12));
       await expect(within(table).getByText("Total")).toBeVisible();
+    });
+
+    await step("Narrowing the list scopes the one control to what is listed", async () => {
+      // The narrow field takes the keys itself (the menu's typeahead does not), and the list
+      // under it shrinks to the choices that match.
+      const narrow = body.getByRole("searchbox", { name: "Narrow the Status choices" });
+      // The root menu carries checkbox rows of its own (the display settings), so the choices
+      // are counted inside the filter submenu alone.
+      const submenu = within(narrow.closest('[role="menu"]') as HTMLElement);
+      narrow.focus();
+      await userEvent.keyboard("dra");
+      await waitFor(() => expect(submenu.getAllByRole("menuitemcheckbox")).toHaveLength(1));
+      // Everything listed is on, so the control offers to uncheck the listed choices — and says
+      // "listed", because the rest of the set is not on the table.
+      await expect(body.queryByRole("menuitem", { name: "Select none" })).toBeNull();
+      await userEvent.click(body.getByRole("menuitem", { name: "Select none listed" }));
+      // Only Draft went off: the three Draft rows leave and the other nine stay.
+      await waitFor(() => expect(bodyRows(table)).toHaveLength(9));
+      await waitFor(() =>
+        expect(body.getByRole("menuitem", { name: "Select all listed" })).toBeVisible(),
+      );
+      // Clearing the narrowing shows the whole set again, with Draft still off and the control
+      // back to speaking for everything.
+      narrow.focus();
+      await userEvent.keyboard("{Control>}a{/Control}{Backspace}");
+      await waitFor(() => expect(submenu.getAllByRole("menuitemcheckbox").length).toBeGreaterThan(1));
+      await userEvent.click(body.getByRole("menuitem", { name: "Select all" }));
+      await waitFor(() => expect(bodyRows(table)).toHaveLength(12));
       await closeMenu();
       await expect(
         headOf("Status").querySelector(".mc-table-grid-filter-mark"),
@@ -370,6 +398,18 @@
       const from = await body.findByLabelText("From");
       await userEvent.click(within(from).getByRole("button", { name: "Open calendar" }));
       const grid = await body.findByRole("grid");
+      // Focus really moved into the calendar. In a browser a member is using, that arrival is a
+      // `focusin` the submenu's layer hears and used to answer by closing — and unmounting the
+      // field whose calendar had just opened. The harness cannot be trusted to fire it (its page
+      // may hold no system focus), so the event the browser would have fired is fired here, and
+      // the submenu has to still be OPEN after the layer has heard it — open by its own state,
+      // because a closed panel stays in the DOM through its exit transition, and a story that
+      // only looked for the panel passed on the build that had the defect.
+      const submenu = from.closest('[role="menu"]') as HTMLElement;
+      await waitFor(() => expect(grid).toContainElement(document.activeElement as HTMLElement));
+      document.activeElement?.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 60));
+      await expect(submenu).toHaveAttribute("data-state", "open");
       await expect(body.getByLabelText("To")).toBeVisible();
       // The calendar opened on the month the field already holds, so the 12th moves the lower
       // bound forward two days and takes two more rows out.

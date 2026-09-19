@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "0f272e4d-613b-4c86-bacd-de4446d7f6a5",
+  "id": "c1b7f892-50ba-467a-a4ff-d6529f971820",
   "prevId": "b18b3f3a-6a7e-4af8-880e-df985f448d03",
   "tables": {
     "account_balance": {
@@ -9204,6 +9204,13 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "save_kind": {
+          "name": "save_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -9319,6 +9326,52 @@
           "value": "\"file_version\".\"size_bytes\" IS NULL OR \"file_version\".\"size_bytes\" >= 0"
         }
       }
+    },
+    "file_version_participant": {
+      "name": "file_version_participant",
+      "columns": {
+        "version_id": {
+          "name": "version_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "member_user_id": {
+          "name": "member_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "file_version_participant_version_id_file_version_id_fk": {
+          "name": "file_version_participant_version_id_file_version_id_fk",
+          "tableFrom": "file_version_participant",
+          "tableTo": "file_version",
+          "columnsFrom": [
+            "version_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "file_version_participant_version_id_member_user_id_pk": {
+          "columns": [
+            "version_id",
+            "member_user_id"
+          ],
+          "name": "file_version_participant_version_id_member_user_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
     },
     "firm_account_role": {
       "name": "firm_account_role",
@@ -18048,289 +18101,6 @@
         "matter_type_name_nonempty_check": {
           "name": "matter_type_name_nonempty_check",
           "value": "length(\"matter_type\".\"name\") > 0"
-        }
-      }
-    },
-    "meeting": {
-      "name": "meeting",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "event_kind": {
-          "name": "event_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "matter_event_id": {
-          "name": "matter_event_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "firm_event_id": {
-          "name": "firm_event_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'scheduled'"
-        },
-        "created_by_user_id": {
-          "name": "created_by_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "started_at": {
-          "name": "started_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "ended_at": {
-          "name": "ended_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "ended_by_user_id": {
-          "name": "ended_by_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "meeting_matter_event_unique_index": {
-          "name": "meeting_matter_event_unique_index",
-          "columns": [
-            "matter_event_id"
-          ],
-          "isUnique": true,
-          "where": "\"meeting\".\"matter_event_id\" IS NOT NULL"
-        },
-        "meeting_firm_event_unique_index": {
-          "name": "meeting_firm_event_unique_index",
-          "columns": [
-            "firm_event_id"
-          ],
-          "isUnique": true,
-          "where": "\"meeting\".\"firm_event_id\" IS NOT NULL"
-        }
-      },
-      "foreignKeys": {
-        "meeting_matter_event_id_matter_event_id_fk": {
-          "name": "meeting_matter_event_id_matter_event_id_fk",
-          "tableFrom": "meeting",
-          "tableTo": "matter_event",
-          "columnsFrom": [
-            "matter_event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "meeting_firm_event_id_firm_event_id_fk": {
-          "name": "meeting_firm_event_id_firm_event_id_fk",
-          "tableFrom": "meeting",
-          "tableTo": "firm_event",
-          "columnsFrom": [
-            "firm_event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "meeting_created_by_user_id_member_user_id_fk": {
-          "name": "meeting_created_by_user_id_member_user_id_fk",
-          "tableFrom": "meeting",
-          "tableTo": "member",
-          "columnsFrom": [
-            "created_by_user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "meeting_ended_by_user_id_member_user_id_fk": {
-          "name": "meeting_ended_by_user_id_member_user_id_fk",
-          "tableFrom": "meeting",
-          "tableTo": "member",
-          "columnsFrom": [
-            "ended_by_user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "meeting_event_kind_check": {
-          "name": "meeting_event_kind_check",
-          "value": "\"meeting\".\"event_kind\" IN ('matter', 'firm')"
-        },
-        "meeting_status_check": {
-          "name": "meeting_status_check",
-          "value": "\"meeting\".\"status\" IN ('scheduled', 'live', 'ended')"
-        },
-        "meeting_event_shape_check": {
-          "name": "meeting_event_shape_check",
-          "value": "(\"meeting\".\"event_kind\" = 'matter' AND \"meeting\".\"matter_event_id\" IS NOT NULL AND \"meeting\".\"firm_event_id\" IS NULL)\n        OR (\"meeting\".\"event_kind\" = 'firm' AND \"meeting\".\"firm_event_id\" IS NOT NULL AND \"meeting\".\"matter_event_id\" IS NULL)"
-        },
-        "meeting_ended_shape_check": {
-          "name": "meeting_ended_shape_check",
-          "value": "(\"meeting\".\"ended_at\" IS NULL AND \"meeting\".\"ended_by_user_id\" IS NULL)\n        OR (\"meeting\".\"ended_at\" IS NOT NULL AND \"meeting\".\"ended_by_user_id\" IS NOT NULL)"
-        }
-      }
-    },
-    "meeting_attendance": {
-      "name": "meeting_attendance",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "meeting_id": {
-          "name": "meeting_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "joined_at": {
-          "name": "joined_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "left_at": {
-          "name": "left_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "meeting_attendance_meeting_user_index": {
-          "name": "meeting_attendance_meeting_user_index",
-          "columns": [
-            "meeting_id",
-            "user_id"
-          ],
-          "isUnique": false
-        },
-        "meeting_attendance_meeting_left_at_index": {
-          "name": "meeting_attendance_meeting_left_at_index",
-          "columns": [
-            "meeting_id",
-            "left_at"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "meeting_attendance_meeting_id_meeting_id_fk": {
-          "name": "meeting_attendance_meeting_id_meeting_id_fk",
-          "tableFrom": "meeting_attendance",
-          "tableTo": "meeting",
-          "columnsFrom": [
-            "meeting_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "meeting_attendance_user_id_member_user_id_fk": {
-          "name": "meeting_attendance_user_id_member_user_id_fk",
-          "tableFrom": "meeting_attendance",
-          "tableTo": "member",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "meeting_attendance_span_check": {
-          "name": "meeting_attendance_span_check",
-          "value": "\"meeting_attendance\".\"left_at\" IS NULL OR \"meeting_attendance\".\"left_at\" >= \"meeting_attendance\".\"joined_at\""
         }
       }
     },

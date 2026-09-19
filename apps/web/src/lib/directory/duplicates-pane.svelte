@@ -23,7 +23,6 @@
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
@@ -186,7 +185,6 @@
     loading={candidates === null}
     {refreshing}
     failed={readFailure !== null}
-    empty={candidates !== null && candidates.length === 0}
     label="Looking for near matches"
     onRetry={lookAgain}
     class="flex flex-col gap-8"
@@ -205,17 +203,12 @@
     {#snippet fixture()}
       {@render candidateTable(CANDIDATE_FIXTURE)}
     {/snippet}
-    {#snippet emptyState()}
-      <EmptyState title="Nothing Near This Record">
-        No other record in the firm's book sounds like this one, is spelled like it, or shares a
-        sealed identifier with it.
-      </EmptyState>
-    {/snippet}
     {@render candidateTable(candidates ?? [])}
   </LoadingRegion>
 </section>
 
-<!-- One table for the rows and for the shape they take while they are read, so the two cannot drift. -->
+<!-- One table for the rows, for the shape they take while they are read, and for the empty body
+     they leave behind when there are none, so the three cannot drift. -->
 {#snippet candidateTable(rows: readonly DuplicateCandidate[])}
   <DataTable.Root>
     <DataTable.Caption class="sr-only">
@@ -264,6 +257,8 @@
             </Button>
           </DataTable.Cell>
         </DataTable.Row>
+      {:else}
+        <DataTable.EmptyRow columns={3} title="Nothing Near This Record" />
       {/each}
     </DataTable.Body>
   </DataTable.Root>

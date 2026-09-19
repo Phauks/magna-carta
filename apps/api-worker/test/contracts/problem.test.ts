@@ -66,6 +66,7 @@ describe("problem-type URI registry", () => {
         "unsupported-conversion",
         "not-an-archive",
         "archive-unreadable",
+        "page-render-failed",
         "storage-unavailable",
         "wrong-password",
         "internal",

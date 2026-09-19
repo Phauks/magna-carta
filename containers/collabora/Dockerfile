@@ -21,8 +21,35 @@ ENV DONT_GEN_SSL_CERT="true"
 #   ssl.enable=false / ssl.termination=true — coolwsd speaks http behind the edge TLS terminator.
 #   num_prespawn_children=1 — one container serves one document, so one kit (shrinks the memory floor;
 #                             the shipped coolwsd.xml default is 4).
-#   security.capabilities=false — run without the chroot-jail Linux capabilities that Cloudflare
-#                                 Containers do not grant (the kit uses a plain process boundary).
+#   security.capabilities — at the image's default (true) since 2026-09-19. Until then it was set
+#                           false, on the assumption that Cloudflare Containers grant none of the
+#                           chroot-jail capabilities, and that setting was the line the editor's
+#                           server audit reported as "Documents are not effectively contained":
+#                           coolwsd chroots a document's kit only with those capabilities, and with
+#                           them off it also refuses to try Linux user namespaces instead
+#                           (wsd/COOLWSD.cpp: "MountNamespaces is not compatible with NoCapsForKit").
+#                           The owner's deploy of 2026-09-19 proved the assumption wrong: with the
+#                           setting on, the kit is jailed and the audit reports each document as
+#                           securely contained. Whether that jail came from a user + mount namespace
+#                           or from the file capabilities the image sets on coolforkit is a line in
+#                           the container log ("Using Mount Namespaces: 1", or nothing), and it
+#                           decides the next setting. Should a later image or runtime refuse both,
+#                           no document opens and the log says "Capabilities are not set for the
+#                           coolforkit program"; the revert is `--o:security.capabilities=false`
+#                           first in extra_params, and the audit line returns as the consequence.
+#   mount_jail_tree — at the image's default (true) since 2026-09-19, the second experiment. It
+#                     bind-mounts the kit's files into the jail rather than linking or copying
+#                     them, which is the fast path, and the audit's "Fast kit jail bind mounting
+#                     not configured" recommendation while it was off. A bind mount needs
+#                     CAP_SYS_ADMIN in the mount namespace it runs in: a namespace of the kit's own
+#                     (the containment result above makes that likely) grants it, the container's
+#                     initial namespace does not. coolwsd tests the mount at startup before relying
+#                     on it (common/JailUtil.cpp setupChildRoot), so the failure mode is not an
+#                     outage: the kit falls back to linking or copying, documents open exactly as
+#                     before, and the audit reports "Slow Kit jail setup with copying, cannot
+#                     bind-mount" as a failure line. Should that be what the audit says, restore
+#                     `--o:mount_jail_tree=false` to extra_params, which turns the same copying back
+#                     into the recommendation-level line.
 #   home_mode.enable=true + welcome.enable=false — the editor's own "what's new" dialog is not shown on
 #                          open, and neither is its feedback prompt. The dialog decides whether to show
 #                          itself from a version it remembers in the BROWSER'S storage for the editor's
@@ -58,7 +85,7 @@ ENV DONT_GEN_SSL_CERT="true"
 #   unquoted, and it stays literal because no file in the entrypoint's working directory can match a
 #   word of that shape. Quoting the expansion in this file is not an option — the entrypoint is the
 #   image's, not ours.
-ENV extra_params="--o:ssl.enable=false --o:ssl.termination=true --o:num_prespawn_children=1 --o:security.capabilities=false --o:storage.wopi.alias_groups[@mode]=groups --o:storage.wopi.alias_groups.group[0].host=http://wopi.magna-carta.internal:80 --o:storage.wopi.alias_groups.group[0].host[@allow]=true --o:home_mode.enable=true --o:welcome.enable=false --o:admin_console.username= --o:admin_console.password="
+ENV extra_params="--o:ssl.enable=false --o:ssl.termination=true --o:num_prespawn_children=1 --o:storage.wopi.alias_groups[@mode]=groups --o:storage.wopi.alias_groups.group[0].host=http://wopi.magna-carta.internal:80 --o:storage.wopi.alias_groups.group[0].host[@allow]=true --o:home_mode.enable=true --o:welcome.enable=false --o:admin_console.username= --o:admin_console.password="
 
 # coolwsd's HTTP + WebSocket port — matches DocumentEditorContainer.defaultPort. The image's own
 # entrypoint (which generates the TLS material when asked to, maps the container's user id, and execs
