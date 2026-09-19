@@ -4,7 +4,7 @@ import type { MatterId } from "@magna-carta/identifiers/types";
 import { runMatterSearch } from "@magna-carta/matter-search/run";
 import type { MatterSearchAnswer } from "@magna-carta/matter-search/types";
 import { matterSearchSources } from "@magna-carta/matter-search/sources";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

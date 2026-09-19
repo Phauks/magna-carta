@@ -5,7 +5,7 @@ import { enableUtbmsCode, disableUtbmsCode } from "@magna-carta/timekeeping/utbm
 import { listUtbmsCodesBySetStatement } from "@magna-carta/timekeeping/utbms-statements";
 import { TimeEntryValidationError } from "@magna-carta/timekeeping/time-entry-validation";
 import type { UtbmsCodeId } from "@magna-carta/identifiers/types";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

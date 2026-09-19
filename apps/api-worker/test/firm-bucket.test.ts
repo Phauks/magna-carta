@@ -1,6 +1,6 @@
 import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import type { Bindings } from "../src/app.ts";
+import type { Bindings } from "../src/bindings.ts";
 import { resolveFirmBucket } from "../src/files/firm-bucket.ts";
 
 // The firm bucket resolver is the one decision about where a firm's bytes live. Two things have to

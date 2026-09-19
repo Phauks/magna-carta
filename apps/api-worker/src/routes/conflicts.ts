@@ -74,7 +74,7 @@ import type { ConflictsCheckId } from "@magna-carta/identifiers/types";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import { identifierField, identifierPathParam, idempotencyKeyHeader } from "../contracts/common.ts";
 import type { Context } from "hono";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { runInBackground } from "../background.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import { executeConflictsRunInBackground } from "../conflicts/check-run-executor.ts";

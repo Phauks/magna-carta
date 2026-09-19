@@ -2,7 +2,7 @@ import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { runConversion, type EngineResolver } from "@magna-carta/conversion/execute";
 import { composeTabularDocument } from "@magna-carta/document-assembly/compose/tabular";
 import { renderableTabularDocumentSchema } from "@magna-carta/export-document/renderable";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";

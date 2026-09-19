@@ -5,7 +5,7 @@
 // forget to flip, no construction-time throw, and the not-configured path is the default everywhere
 // the secret is absent — which today is every environment, local, test and production alike.
 
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { verifierNotConfigured, type HumanVerificationPort } from "./human-verification-port.ts";
 import { createTurnstileVerifier } from "./turnstile-verifier.ts";
 

@@ -1,7 +1,7 @@
 # The api worker as a manifest of domain modules — design
 
 **Date:** 2026-09-18
-**Status:** Proposed. The owner walked the assessment on 2026-09-18 and accepted items 1 through 4 and 7 below, asked for the lint that makes 1 safe, asked for 5 to be double-checked (it was, and it changes shape: section 8), and asked whether the registries in 6 are hand-maintained (two of three are: section 9).
+**Status:** Proposed; step 1 of the migration plan (section 10) is built on the branch — the bindings, auth-instance and logger modules, `createDomainApp()`, the four fitness tests against today's tree, and the gate's startup dimension. The owner walked the assessment on 2026-09-18 and accepted items 1 through 4 and 7 below, asked for the lint that makes 1 safe, asked for 5 to be double-checked (it was, and it changes shape: section 8), and asked whether the registries in 6 are hand-maintained (two of three are: section 9).
 **Scope:** the internal shape of `apps/api-worker` — how its route surface is organized, where a contract shape lives, where the boundary between the HTTP side and the background side runs, and the checks that keep that shape from regrowing.
 **Excludes:** the deployment topology (whether the background machinery is a second Worker — settled, and restated in section 8); the contract itself (`docs/conventions/api.md`); the chokepoint's enforcement order (ADR-0067); anything a caller can observe. A client that could tell this work happened is a bug.
 
@@ -116,7 +116,7 @@ This keeps a background Worker cheap to cut if the ruling is ever revisited, wit
 
 ## 9. The guards
 
-The move is safe because of what already exists, and stays safe because of four small additions. Every one of them is a Vitest check that self-registers with the repo-wide-fitness tag, so it runs in the gate's governance dimension unconditionally.
+The move is safe because of what already exists, and stays safe because of four small additions. The three source scans self-register with the repo-wide-fitness tag, so they run in the gate's governance dimension unconditionally; the route table runs with the worker's suite.
 
 **Already there, and load-bearing for the move:**
 
@@ -127,9 +127,9 @@ The move is safe because of what already exists, and stays safe because of four 
 
 **Added by this work:**
 
-1. **Route table.** For every operation in the assembled document, Hono's router resolves its method and path template to the handler carrying that operation id. This is the check the owner asked for in accepting section 3: a route that another route shadows, or a module mounted so that a pattern claims a literal, fails here by name rather than as a 422 in production. It is also what makes cross-domain ordering a proven non-issue.
+1. **Route table.** For every operation in the assembled document, Hono's router resolves its method and path template to the route registered under that same template. It runs in the worker's own Vitest project rather than the repo-wide sweep, because it needs the built app, not the source text. This is the check the owner asked for in accepting section 3: a route that another route shadows, or a module mounted so that a pattern claims a literal, fails here by name rather than as a 422 in production. It is also what makes cross-domain ordering a proven non-issue.
 2. **Route hygiene.** Under `src/http/routes/`: no file constructs `OpenAPIHono` (only `createDomainApp` does); every `app.openapi(` call passes `middleware: chokepointMiddleware(`; no route module imports another domain's `index.ts`.
-3. **Size and shape caps.** A ceiling on lines per route file and on `z.object(` constructions per route file, with today's offenders named in an explicit allow-list that may only shrink. The ceiling is set so a file holding its parameter schemas passes and one holding bodies does not.
+3. **Size and shape caps.** A ceiling on lines per route file and on `z.object(` constructions per route file, with today's offenders named in an explicit ledger that may only shrink; raising an entry is a reviewed act with its reason in the pull request, never a default. The ceiling is set so a file holding its parameter schemas passes and one holding bodies does not.
 4. **Import boundary.** Section 6's rule: the background side imports neither the HTTP side nor Hono; the route tree imports no consumer or sweep.
 
 **Measured, not capped:** `wrangler check startup` joins the gate for this Worker and its total is recorded per run, so a step change is visible. Local CPU is not Cloudflare CPU, so the number is a trend, not a threshold.
@@ -140,7 +140,7 @@ The move is safe because of what already exists, and stays safe because of four 
 
 Each step is one pull request, mergeable on its own, with `main` as production in mind: nothing a caller can observe changes at any step, and the snapshot test is the proof at every one.
 
-1. **Foundations.** `src/bindings.ts`; `createDomainApp()`; the four fitness tests written against today's tree with every current offender on the allow-list, so they pass on day one and fail on regrowth. Add `wrangler check startup` to the gate. No route moves.
+1. **Foundations** (built 2026-09-19). `src/bindings.ts`, with `src/auth-instance.ts` and `src/worker-logger.ts` beside it so the provisioning consumer stops importing the app module; `createDomainApp()`, which the root app already builds through; the four fitness tests written against today's tree with every current offender on the ledger, so they pass on day one and fail on regrowth; and the gate's `startup` dimension. No route moves.
 2. **The manifest.** Create the domain directories and move the route files into them unchanged, one `index.ts` per module, `app.ts` reduced to the manifest. Re-emit the snapshot; the diff is reordering only. Split the conformance operation list per module. Split the area note.
 3. **The seam.** The `http/` and `background/` rename, with the boundary test switched from advisory to enforced. A rename-only commit.
 4. **Contract shapes, one domain per pull request**, largest first (calendar, directory, custody, billing), each shrinking the allow-list by its own entries. The snapshot proves each one.

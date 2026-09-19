@@ -19,7 +19,7 @@ import { modeThresholdDefinition } from "@magna-carta/file-manager/upload-policy
 import { FileManagerValidationError } from "@magna-carta/file-manager/validation";
 import type { UploadSessionId } from "@magna-carta/identifiers/types";
 import type { ObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

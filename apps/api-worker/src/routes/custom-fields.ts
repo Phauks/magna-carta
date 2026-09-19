@@ -37,7 +37,7 @@ import {
 import { CustomFieldIdempotencyConflictError } from "@magna-carta/custom-fields/run-custom-field-effect";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
 import type { Context } from "hono";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

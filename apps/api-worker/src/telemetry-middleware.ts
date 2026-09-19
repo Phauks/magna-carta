@@ -15,7 +15,7 @@ import { errorCaptured, requestCompleted } from "@magna-carta/telemetry/events";
 import { newCorrelationId, newErrorId } from "@magna-carta/telemetry/ids";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import { MESSAGE_HEAD_LENGTH } from "@magna-carta/telemetry/operation";
-import type { Bindings } from "./app.ts";
+import type { Bindings } from "./bindings.ts";
 import type { AppVariables } from "./chokepoint/ports.ts";
 import { problemJson } from "./contracts/problem.ts";
 import { FirmBucketUnavailableError } from "./files/firm-bucket-fault.ts";

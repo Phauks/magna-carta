@@ -29,7 +29,7 @@ import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import { enqueueVersionForIndexing } from "../search/enqueue-index.ts";
 import { resolveFirmBucket } from "./firm-bucket.ts";

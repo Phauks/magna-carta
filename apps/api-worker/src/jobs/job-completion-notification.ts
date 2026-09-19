@@ -3,7 +3,7 @@ import type { UserId } from "@magna-carta/identifiers/types";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
 
 // THE ONE PLACE A JOB COORDINATOR WRITES A NOTIFICATION, so adding the next coordinator is a call

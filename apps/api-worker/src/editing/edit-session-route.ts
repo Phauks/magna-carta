@@ -7,7 +7,7 @@ import { getFileWithCurrentCleanVersion } from "@magna-carta/file-manager/querie
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FileId, FileVersionId, MatterId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

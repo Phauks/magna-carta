@@ -43,7 +43,7 @@ import { CommunicationValidationError } from "@magna-carta/communications/valida
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
 import type { CommunicationId, MatterId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   assertAlsoHasPermission,

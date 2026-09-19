@@ -13,7 +13,7 @@
 import type { Context, MiddlewareHandler } from "hono";
 import { idempotencyMiddleware } from "@magna-carta/data-access/hono-idempotency-middleware";
 import type { FirmId } from "@magna-carta/identifiers/types";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
 import type { RouteMeta } from "../contracts/route-meta.ts";
 import { requireIdempotencyKey } from "../require-idempotency-key.ts";

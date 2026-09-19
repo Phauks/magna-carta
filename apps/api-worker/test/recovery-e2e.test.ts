@@ -4,7 +4,8 @@ import { ensureReady, recoveryTier } from "@magna-carta/decryption";
 import decryptionWasmModule from "@magna-carta/decryption/src/pkg/decryption_core_bg.wasm";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId } from "@magna-carta/identifiers/types";
-import { createApp, type Bindings } from "../src/app.ts";
+import { createApp } from "../src/app.ts";
+import type { Bindings } from "../src/bindings.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { recoveryQueue } from "../src/recovery/recovery-consumer.ts";
 import type {

@@ -2,7 +2,7 @@ import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { insertAuthAuditStatement } from "@magna-carta/data-access/auth-audit-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { AttemptLadder } from "../auth-attempt-budget.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import { requireChokepointUserId } from "../chokepoint/context-accessors.ts";

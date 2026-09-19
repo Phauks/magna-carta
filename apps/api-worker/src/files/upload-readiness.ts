@@ -1,6 +1,6 @@
 import type { DataRegion } from "@magna-carta/database/data-region";
 import type { FirmId } from "@magna-carta/identifiers/types";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { FirmResourceProvider } from "../firm-resource-provider.ts";
 import { resourceProviderForEnv } from "../firm-provisioner-wiring.ts";
 import { resolveFirmBucket } from "./firm-bucket.ts";

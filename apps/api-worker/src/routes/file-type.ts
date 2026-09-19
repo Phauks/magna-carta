@@ -1,7 +1,7 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { buildFileTypeReport, type RawIdentifyResult } from "@magna-carta/file-type";
 import { readInspectableSizeCap } from "@magna-carta/file-manager/upload-policy";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import { requireChokepointFirmContext } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";

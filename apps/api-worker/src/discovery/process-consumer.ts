@@ -43,7 +43,7 @@ import type { TextExtractionPort, TextExtractionResult } from "@magna-carta/sear
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { FileManagerValidationError } from "@magna-carta/file-manager/validation";

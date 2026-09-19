@@ -4,7 +4,7 @@ import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { authDenied } from "@magna-carta/telemetry/events";
 import { newErrorId } from "@magna-carta/telemetry/ids";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { createAuth } from "../auth.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import { requireChokepointIdempotency } from "../chokepoint/context-accessors.ts";

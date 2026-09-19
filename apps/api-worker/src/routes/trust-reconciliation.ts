@@ -36,7 +36,7 @@ import {
 } from "@magna-carta/trust/statement-import";
 import { TrustValidationError } from "@magna-carta/trust/trust-validation";
 import type { Context } from "hono";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

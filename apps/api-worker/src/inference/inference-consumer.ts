@@ -10,7 +10,7 @@ import type { FirmId } from "@magna-carta/identifiers/types";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
 import { inferencePortFor, resolveReasoningModel } from "./call-site.ts";
 

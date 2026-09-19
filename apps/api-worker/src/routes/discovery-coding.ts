@@ -64,7 +64,7 @@ import type {
   UserId,
 } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {

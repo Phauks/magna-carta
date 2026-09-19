@@ -45,7 +45,7 @@ import type { Logger } from "@magna-carta/telemetry/logger";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
 import { extractAndFileAttachments } from "./attachment-extraction.ts";

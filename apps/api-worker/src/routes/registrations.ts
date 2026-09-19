@@ -3,7 +3,7 @@ import { createEmailVerificationToken } from "better-auth/api";
 import { insertAuthAuditStatement } from "@magna-carta/data-access/auth-audit-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { createAuth } from "../auth.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";

@@ -21,7 +21,7 @@ import { readInspectableSizeCap } from "@magna-carta/file-manager/upload-policy"
 import { findMattersByNumbers, listMatters, readMattersByIds } from "@magna-carta/matters/queries";
 import type { MatterListItem } from "@magna-carta/matters/queries";
 import type { EmailThreadId, MatterId } from "@magna-carta/identifiers/types";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

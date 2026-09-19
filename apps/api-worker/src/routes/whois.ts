@@ -2,7 +2,7 @@ import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { lookupRegistration, RdapUpstreamFailure, UnsupportedRegistry } from "@magna-carta/whois";
 import type { WhoisDeps } from "@magna-carta/whois/types";
 import { SsrfRejection } from "@magna-carta/integrations/safe-target";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";

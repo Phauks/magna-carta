@@ -28,7 +28,7 @@ import type { ManifestEntry } from "@magna-carta/file-manager/contents-manifest"
 import type { FileId, FolderId, MatterId } from "@magna-carta/identifiers/types";
 import { makeZip } from "client-zip";
 import { registerDownload, type DownloadRegistration } from "../downloads/download-register.ts";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

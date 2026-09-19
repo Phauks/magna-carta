@@ -1,6 +1,6 @@
 import { type EngineResolver, runConversion } from "@magna-carta/conversion/execute";
 import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { resolveEnginePort } from "./conversion-engine.ts";
 import type { ConversionMessage } from "./conversion-types.ts";

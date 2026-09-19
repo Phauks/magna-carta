@@ -54,7 +54,7 @@ import { domainAuditStatement } from "@magna-carta/data-access/audit-statements"
 import { TimeEntryValidationError } from "@magna-carta/timekeeping/time-entry-validation";
 import type { TimeEntryId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

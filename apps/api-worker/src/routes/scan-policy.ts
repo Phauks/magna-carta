@@ -13,7 +13,7 @@ import {
 } from "@magna-carta/file-manager/scan-policy-settings";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { fetchScoreHistogram } from "../files/score-histogram.ts";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

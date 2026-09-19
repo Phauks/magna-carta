@@ -27,7 +27,7 @@ import {
 } from "@magna-carta/timekeeping/settings";
 import { elapsedMinutes } from "../timer/timer-runtime.ts";
 import type { TimeEntryId } from "@magna-carta/identifiers/types";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

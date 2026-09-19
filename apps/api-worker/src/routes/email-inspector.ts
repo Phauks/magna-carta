@@ -2,7 +2,7 @@ import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { EmailError, ensureReady, parseMessage } from "@magna-carta/email";
 import emailWasmModule from "@magna-carta/email/src/pkg/email_core_bg.wasm";
 import { readInspectableSizeCap } from "@magna-carta/file-manager/upload-policy";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import { requireChokepointFirmContext } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";

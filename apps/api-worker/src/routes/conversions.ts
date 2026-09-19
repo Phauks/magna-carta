@@ -5,7 +5,7 @@ import { findPath } from "@magna-carta/conversion/pathfinding";
 import { getFormat } from "@magna-carta/conversion/registry";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

@@ -1,4 +1,4 @@
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { createDevR2Presigner, createR2Presigner, type R2Presigner } from "./presign.ts";
 
 // The account-scoped R2 S3 credential set the real SigV4 presigner signs direct-to-R2 URLs with. All

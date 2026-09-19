@@ -3,7 +3,7 @@ import { insertAuthAuditStatement } from "@magna-carta/data-access/auth-audit-st
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { renderPersonName } from "@magna-carta/directory/person-name";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

@@ -1,5 +1,5 @@
 import type { OpenAPIHono } from "@hono/zod-openapi";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { buildSafeDeliveryHeaders } from "./preview-headers.ts";
 import { resolveFirmBucket } from "./firm-bucket.ts";

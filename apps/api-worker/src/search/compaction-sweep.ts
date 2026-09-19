@@ -8,7 +8,7 @@ import { readSearchCompactionPolicy } from "@magna-carta/search/settings";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { listReachableActiveFirms } from "../scheduled.ts";
 import { corpusNeedsCompaction } from "./compaction-consumer.ts";

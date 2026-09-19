@@ -28,7 +28,7 @@ import {
   type NotificationRecipientState,
 } from "@magna-carta/notifications/types";
 import { identifierField } from "../contracts/common.ts";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

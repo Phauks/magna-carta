@@ -31,7 +31,7 @@ import {
 import { selectMatterStatement } from "@magna-carta/matters/matter-statements";
 import type { EmailMessageId, MatterId } from "@magna-carta/identifiers/types";
 import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {

@@ -5,7 +5,7 @@ import { readFirmReleaseChannelStatement } from "@magna-carta/data-access/firm-r
 import { writeFirmReleaseChannelStatement } from "@magna-carta/data-access/firm-release-channel-statements";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { createAuth } from "../auth.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";

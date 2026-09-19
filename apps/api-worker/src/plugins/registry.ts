@@ -8,7 +8,7 @@ import {
   type IntegrationRegistry,
 } from "@magna-carta/integrations/registry";
 import type { OpenAPIHono } from "@hono/zod-openapi";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import type { PluginRuntime } from "./runtime.ts";

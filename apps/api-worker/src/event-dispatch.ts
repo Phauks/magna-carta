@@ -17,7 +17,8 @@
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { setServiceIdentity } from "@magna-carta/telemetry/service-identity";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
-import { createApp, type Bindings } from "./app.ts";
+import { createApp } from "./app.ts";
+import type { Bindings } from "./bindings.ts";
 import { documentAssemblyQueue } from "./assemblies/assembly-consumer.ts";
 import type { DocumentAssemblyMessage } from "./assemblies/assembly-types.ts";
 import { runTemplateOrphanSweep } from "./assemblies/template-orphan-sweep.ts";

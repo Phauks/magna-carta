@@ -5,7 +5,7 @@ import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { Context } from "hono";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { attemptLadderKey, type AttemptLadder } from "../auth-attempt-budget.ts";
 import { neutralRedemptionRefusal, resolveInvitationRedemption } from "../invitation-redemption.ts";
 import type { createAuth } from "../auth.ts";

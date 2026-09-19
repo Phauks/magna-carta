@@ -10,7 +10,7 @@ import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { DownloadItemId } from "@magna-carta/identifiers/types";
 import { storedTabularDocumentSchema } from "@magna-carta/export-document/renderable";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

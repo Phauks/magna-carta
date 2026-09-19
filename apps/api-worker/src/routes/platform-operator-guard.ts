@@ -6,10 +6,10 @@ import {
 } from "@magna-carta/data-access/platform-operator-statements";
 import { authDenied } from "@magna-carta/telemetry/events";
 import { newErrorId } from "@magna-carta/telemetry/ids";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { resolveSession } from "../session-context.ts";
-import { authForEnv } from "../app.ts";
+import { authForEnv } from "../auth-instance.ts";
 import { problemJson } from "../contracts/problem.ts";
 
 type GuardEnv = { Bindings: Bindings; Variables: AppVariables };

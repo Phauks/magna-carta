@@ -28,7 +28,7 @@ import { normalizeAddress } from "@magna-carta/email-filing/record";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { EmailAutoFileRuleId, MatterId } from "@magna-carta/identifiers/types";
 import { readMatterFilingTargets } from "@magna-carta/matters/queries";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

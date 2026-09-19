@@ -5,7 +5,7 @@ import { targetDailyHoursDefinition } from "@magna-carta/timekeeping/settings";
 import { readMyDay } from "@magna-carta/timekeeping/my-day";
 import { identifierField } from "../contracts/common.ts";
 import type { UserId } from "@magna-carta/identifiers/types";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

@@ -82,7 +82,7 @@ import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import { runPendingMigrations } from "@magna-carta/database/migration-runner";
 import { d1MigrationTarget } from "@magna-carta/database/d1-migration-target";
-import type { Bindings } from "./app.ts";
+import type { Bindings } from "./bindings.ts";
 import { controlPlaneMigrations } from "./control-plane-migrations.ts";
 import { resolveFirmBucket } from "./files/firm-bucket.ts";
 import { presignerForEnv } from "./files/presigner-wiring.ts";

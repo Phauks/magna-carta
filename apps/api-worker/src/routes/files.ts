@@ -75,7 +75,7 @@ import type {
 import type { OutboxMessage } from "@magna-carta/data-access/outbox-statements";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { Context } from "hono";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { runInBackground } from "../background.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {

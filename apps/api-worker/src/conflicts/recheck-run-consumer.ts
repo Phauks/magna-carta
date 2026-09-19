@@ -4,7 +4,7 @@ import {
   readMattersAwaitingRecheck,
 } from "@magna-carta/conflicts/recheck-statements";
 import type { Logger } from "@magna-carta/telemetry/logger";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import { automatedConflictsContext } from "./recheck-context.ts";
 

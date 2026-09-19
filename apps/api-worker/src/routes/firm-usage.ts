@@ -19,7 +19,7 @@ import {
   readMatterCountsByType,
 } from "@magna-carta/matters/queries";
 import { readUsageMeterTotals } from "@magna-carta/search/natural-language-statements";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import { requireChokepointFirmContext } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";

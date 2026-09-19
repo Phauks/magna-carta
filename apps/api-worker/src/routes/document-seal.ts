@@ -5,7 +5,7 @@ import { readInspectableSizeCap } from "@magna-carta/file-manager/upload-policy"
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { SignerCompletion } from "@magna-carta/signing/esign";
 import type { SealPort, SealRequest } from "@magna-carta/signing/port";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

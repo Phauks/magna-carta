@@ -6,7 +6,7 @@ import {
   type PlatformStaffRow,
   type SupportGrantRow,
 } from "@magna-carta/data-access/support-access-statements";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { SessionContext } from "../session-context.ts";
 import { supportGrantUsable } from "./grant-lifecycle.ts";
 import { verifySupportSessionToken } from "./support-session-token.ts";

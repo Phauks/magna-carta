@@ -5,7 +5,7 @@ import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-eff
 import type { EntityType } from "@magna-carta/identifiers/registry";
 import type { KnownPermission } from "@magna-carta/access-control/registry";
 import type { Context } from "hono";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

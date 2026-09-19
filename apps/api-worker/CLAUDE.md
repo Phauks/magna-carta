@@ -24,8 +24,24 @@ routes requests through the chokepoint into those packages.
   built lazily on the first request), `runScheduledPass` (Cron → sweep router), and `routeQueueBatch`
   (routes each batch by `batch.queue` name to its consumer). A new consumer, sweep, or route joins
   this module's graph.
-- `src/app.ts` — `createApp()` + the `Bindings` env shape (the no-barrel single home for the env type).
-  Builds the chokepoint once over the real ports and registers every route through it.
+- `src/app.ts` — `createApp()`: the composition root. Builds the chokepoint once over the real ports
+  and registers every route through it. It no longer holds the env shape or the auth instance —
+  those have modules of their own so the background side can import them without importing the app.
+- `src/bindings.ts` — the `Bindings` env shape, the no-barrel single home for the env type, imported by
+  both sides of the Worker. `src/auth-instance.ts` holds the per-env Better Auth instance and its
+  counted email port; `src/worker-logger.ts` the per-env Workers logger.
+- `src/routes/domain-app.ts` — `createDomainApp()`, the ONE constructor for a router here (the root
+  app and every domain sub-app). The 422 default hook is per instance, so a router built anywhere
+  else would answer a validation failure with the library default; `test/route-hygiene-scan.test.ts`
+  refuses a direct construction under `src/routes/`.
+- The shape of the route tree is held by four fitness tests, not by review: `test/route-table.test.ts`
+  (every published operation resolves through Hono's router to its own route, so a literal path a
+  pattern shadows fails by name), `test/route-hygiene-scan.test.ts` (one constructor, every
+  registration through the chokepoint, no cross-domain import), `test/route-shape-ratchet.test.ts` (a
+  line cap and an inline-shape cap per route module, with a ledger of today's offenders that only
+  shrinks), and `test/http-background-boundary-scan.test.ts` (a consumer or sweep imports neither
+  Hono nor the app; a route imports no consumer or sweep beyond the named crossings). The design they
+  hold is `docs/specs/2026-09-18-api-worker-domain-modules-design.md`.
 - `src/chokepoint/` — the ordered enforcement middleware + its ports; `defineOpenAPIRoute` carries each
   route's `RouteMeta`, and `chokepointMiddleware` enforces it. No per-handler auth discipline.
 - `src/routes/` — one module per surface; each is a route-bundle registered in `app.ts`.

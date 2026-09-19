@@ -29,7 +29,7 @@ import { LocationValidationError } from "@magna-carta/locations/validation";
 import type { LocationId, UserId } from "@magna-carta/identifiers/types";
 import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
 import type { Context } from "hono";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

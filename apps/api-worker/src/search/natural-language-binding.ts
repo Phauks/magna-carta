@@ -17,7 +17,7 @@ import {
   type NaturalLanguageSearchPort,
 } from "@magna-carta/search/natural-language-port";
 import { NATURAL_LANGUAGE_KEEP_ALIVE_QUERY } from "@magna-carta/search/natural-language-instance";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 
 // Where this deployment's natural-language search bindings resolve — and, when they are absent,
 // where the honest "there is nothing here" answer comes from.

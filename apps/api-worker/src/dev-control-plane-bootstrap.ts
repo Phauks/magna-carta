@@ -1,7 +1,7 @@
 import type { MiddlewareHandler } from "hono";
 import { runPendingMigrations } from "@magna-carta/database/migration-runner";
 import { d1MigrationTarget } from "@magna-carta/database/d1-migration-target";
-import type { Bindings } from "./app.ts";
+import type { Bindings } from "./bindings.ts";
 import type { AppVariables } from "./chokepoint/ports.ts";
 import { controlPlaneMigrations } from "./control-plane-migrations.ts";
 import { devUploadEmulationActive } from "./files/presigner-wiring.ts";

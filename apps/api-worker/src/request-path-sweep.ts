@@ -1,6 +1,6 @@
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
-import type { Bindings } from "./app.ts";
+import type { Bindings } from "./bindings.ts";
 import { trackBackgroundWork } from "./background.ts";
 import { runScheduledSweep } from "./scheduled.ts";
 

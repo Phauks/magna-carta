@@ -11,7 +11,7 @@ import { RateValidationError } from "@magna-carta/timekeeping/rate-validation";
 import { listRateCardsStatement } from "@magna-carta/timekeeping/rate-statements";
 import type { RateCardId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

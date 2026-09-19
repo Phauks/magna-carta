@@ -8,7 +8,7 @@ import {
 } from "@magna-carta/data-access/token-usage-statements";
 import { primaryReasoningModelDefinition } from "@magna-carta/inference/settings";
 import type { FirmId } from "@magna-carta/identifiers/types";
-import type { Bindings } from "../src/app.ts";
+import type { Bindings } from "../src/bindings.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   handleInferenceJob,

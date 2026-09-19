@@ -18,7 +18,7 @@ import type { Permission } from "@magna-carta/access-control/registry";
 import type { IdempotencyContext } from "@magna-carta/data-access/hono-idempotency-middleware";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import type { AppVariables, FirmContext } from "./ports.ts";
 import type { SessionContext } from "../session-context.ts";

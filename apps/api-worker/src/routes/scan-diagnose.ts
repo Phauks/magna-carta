@@ -5,7 +5,7 @@ import { readInspectableSizeCap } from "@magna-carta/file-manager/upload-policy"
 import { computeVerdict, ScanFaultError } from "@magna-carta/file-manager/verdict";
 import { readFirmScanPolicy } from "@magna-carta/file-manager/scan-policy-settings";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

@@ -3,7 +3,7 @@ import { readMemberDisplayName } from "@magna-carta/data-access/member-statement
 import type { FileId, UserId } from "@magna-carta/identifiers/types";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Context } from "hono";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { resolveFirmBucketForFirmId } from "../files/firm-bucket.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";

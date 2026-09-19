@@ -14,7 +14,7 @@
  * fleet; prove it fits with `wrangler check startup` before shipping it. Budget reasoning:
  * docs/conventions/build-performance.md.
  */
-import type { Bindings } from "./app.ts";
+import type { Bindings } from "./bindings.ts";
 
 // The async bulk-download coordinator Durable Object must be exported from the Worker's main entrypoint
 // so the runtime can instantiate the class named in wrangler.jsonc's durable_objects binding.

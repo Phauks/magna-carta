@@ -12,7 +12,7 @@ import {
   incrementMinutesDefinition,
   roundingDirectionDefinition,
 } from "@magna-carta/timekeeping/settings";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

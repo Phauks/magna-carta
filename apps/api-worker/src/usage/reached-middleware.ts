@@ -2,7 +2,7 @@ import type { MiddlewareHandler } from "hono";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { runInBackground } from "../background.ts";
 import {
   optionalChokepointFirmContext,

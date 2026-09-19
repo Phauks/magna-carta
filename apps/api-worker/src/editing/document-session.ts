@@ -9,7 +9,7 @@ import {
   setFileEditStateStatement,
 } from "@magna-carta/file-manager/file-statements";
 import type { FileId, UserId } from "@magna-carta/identifiers/types";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { copyObjectPreservingDimensions } from "../files/object-stamping.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";

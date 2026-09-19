@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Bindings } from "../src/app.ts";
+import type { Bindings } from "../src/bindings.ts";
 import { resolveChannelAndFlags } from "../src/routes/me.ts";
 import type { FirmId } from "@magna-carta/identifiers/types";
 

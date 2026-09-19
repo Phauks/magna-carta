@@ -8,7 +8,7 @@ import {
   selectSupportGrantStatement,
   type SupportGrantRow,
 } from "@magna-carta/data-access/support-access-statements";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";

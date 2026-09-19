@@ -31,8 +31,8 @@ not](#what-a-roll-up-is-not).
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
 | Done | shipped | 318 | 47% |
-| Part-built | partial, in-build | 124 | 18% |
-| Ahead | designed, planned, researching, not-started | 200 | 29% |
+| Part-built | partial, in-build | 125 | 18% |
+| Ahead | designed, planned, researching, not-started | 199 | 29% |
 | Parked | deferred, cut | 42 | 6% |
 | **All units of work** | | **684** | **100%** |
 
@@ -42,8 +42,8 @@ not](#what-a-roll-up-is-not).
 | --- | ---: | ---: |
 | `shipped` | 318 | 46% |
 | `partial` | 124 | 18% |
-| `in-build` | 0 | 0% |
-| `designed` | 47 | 7% |
+| `in-build` | 1 | 0% |
+| `designed` | 46 | 7% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
 | `not-started` | 133 | 19% |
@@ -74,7 +74,7 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**442 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**443 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
@@ -83,9 +83,9 @@ ledger records it separately, in `surface:`.
 | --- | ---: | ---: |
 | A person can open it today (`screen`) | 104 | 24% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 157 | 35% |
-| No user surface by nature (`internal`) | 181 | 41% |
+| No user surface by nature (`internal`) | 182 | 41% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **442** | **100%** |
+| **Everything with something built** | **443** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -117,7 +117,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Observability & Diagnostics | 14 | 0 | 0 | 0 | 0 | 0 | 4 | 2 | 0 | 20 | 70% |
 | Payments | 0 | 0 | 0 | 6 | 0 | 0 | 3 | 0 | 0 | 9 | 0% |
 | Performance & Concurrency | 6 | 2 | 0 | 0 | 0 | 0 | 1 | 2 | 0 | 11 | 55% |
-| Platform — Delivery, Architecture, Tenancy & Data Conventions | 33 | 7 | 0 | 2 | 0 | 0 | 20 | 6 | 1 | 69 | 48% |
+| Platform — Delivery, Architecture, Tenancy & Data Conventions | 33 | 7 | 1 | 1 | 0 | 0 | 20 | 6 | 1 | 69 | 48% |
 | Client Portal | 0 | 0 | 0 | 0 | 0 | 0 | 13 | 1 | 0 | 14 | 0% |
 | Product Updates & User-Facing Documentation | 2 | 4 | 0 | 0 | 0 | 0 | 8 | 0 | 0 | 14 | 14% |
 | Release Channels | 7 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 8 | 88% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 13 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 20 | 65% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **318** | **124** | **0** | **47** | **15** | **5** | **133** | **38** | **4** | **684** | **46%** |
+| **All areas** | **318** | **124** | **1** | **46** | **15** | **5** | **133** | **38** | **4** | **684** | **46%** |
 
 ## Where we have been
 
@@ -313,7 +313,7 @@ Decisions about a capability only. Account-side steps that no session can perfor
 
 ## Being built now
 
-_No capability is marked `in-build`._
+- `platform.workers-api.domain-modules` · **Domain-module route tree** — The route surface as about twenty domain modules behind a manifest, contract shapes in the domain packages, an HTTP-versus-background import boundary, and the fitness tests that hold the shape.
 
 ## Next up
 
@@ -365,7 +365,6 @@ _No capability is marked `in-build`._
 - `payments.card` · **Card rail (fallback)** — Card acceptance as the convenience fallback.
 - `payments.trust-separation` · **Fees never touch trust** — Trust/IOLTA deposits land gross; card fees debit operating only, enforced by separate deposit destinations per rail.
 - `payments.pci-scope` · **PCI scope minimization** — Card capture exclusively via the processor's hosted payment modal returning a cardToken; store token plus last-four/brand only; script-clean payment page; SAQ A.
-- `platform.workers-api.domain-modules` · **Domain-module route tree** — The route surface as about twenty domain modules behind a manifest, contract shapes in the domain packages, an HTTP-versus-background import boundary, and the fitness tests that hold the shape.
 - `platform.scan-capture.inbound-email` · **Inbound email capture** — Receiving scan-to-email / inbound mail on Cloudflare via an Email Worker into the ingest pipeline (25 MiB ceiling noted).
 - `release-channels.frontend` · **Channel frontend (Plan 2)** — Settings surface for the beta opt-in/consent flow plus stage-labeled Alpha/Beta markers and feedback affordances on pre-stable features, disappearing on graduation.
 - `reports.financial` · **Financial reports** — WIP, A/R aging, realization, and profitability reports.
@@ -1150,7 +1149,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Platform — Delivery, Architecture, Tenancy & Data Conventions
 
-[`roadmap.d/platform.md`](../roadmap.d/platform.md) — 69 units of work, 48% shipped. 33 done, 7 part-built, 22 ahead, 7 parked.
+[`roadmap.d/platform.md`](../roadmap.d/platform.md) — 69 units of work, 48% shipped. 33 done, 8 part-built, 21 ahead, 7 parked.
 
 - `platform` · `partial` · **Platform** — Delivery model, application architecture, architectural coherence, tenancy and isolation, Cloudflare primitive adoption, and the foundational data and runtime conventions. _Note: Backend foundations largely shipped; web UI shell in build; desktop not started._
   - `platform.workers-api` · `partial` · **Workers REST API** — Cloudflare Workers backend on Hono exposing a REST API documented by OpenAPI 3.1. _Note: First-party same-origin /api surface live; the public token-auth host is reserved, not built._
@@ -1158,7 +1157,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `platform.workers-api.contract-toolchain` · `shipped` · **Spec CI toolchain** — Spectral linting, oasdiff breaking-change detection, and snapshot drift gates over the emitted spec; the Prism mock server runs on demand rather than as a dependency. _Note: Spectral duplicated-entry-in-enum rule disabled (crash on null-valued extensions), recorded as an ADR-0066 amendment._
     - `platform.workers-api.typed-client` · `shipped` · **Generated typed client** — Committed Hey API plus Svelte Query v6 client generated from the emitted spec, operationId-keyed factories.
     - `platform.workers-api.route-chokepoint` · `shipped` · **Route metadata chokepoint** — Ordered enforcement chain (tenancy, authn, RBAC, idempotency, rate limit) driven by per-route declared metadata, with a conformance fitness suite.
-    - `platform.workers-api.domain-modules` · `designed` · **Domain-module route tree** — The route surface as about twenty domain modules behind a manifest, contract shapes in the domain packages, an HTTP-versus-background import boundary, and the fitness tests that hold the shape. _Note: Lazy per-domain loading deferred pending a recorded startup trend; the background orchestration stays in this Worker per the extraction rubric._
+    - `platform.workers-api.domain-modules` · `in-build` · **Domain-module route tree** — The route surface as about twenty domain modules behind a manifest, contract shapes in the domain packages, an HTTP-versus-background import boundary, and the fitness tests that hold the shape. _Note: In flight on docs/active-work/claude/adoring-ride-fe94q5.md. Lazy per-domain loading deferred pending a recorded startup trend; the background orchestration stays in this Worker per the extraction rubric._
     - `platform.workers-api.public-api-host` · `not-started` · **Public API host** — api.magnacarta.esq token-authenticated third-party/SDK surface, separated from cookie-auth first-party calls by host. _Note: Host reserved by design; only the same-origin first-party surface exists._
     - `platform.workers-api.service-bindings` · `shipped` · **Internal Worker RPC** — Plugin/core and heavy-service calls over Cloudflare service bindings, separate from the public REST surface.
   - `platform.web-spa` · `partial` · **Web SPA** — Svelte 5 / SvelteKit SPA (adapter-cloudflare) served as Workers static assets, login-gated, per-route code-splitting. _Note: Skeleton shipped; the app shell and first operable surfaces are on main, and the settings sections are being completed under docs/active-work/claude/settings-implementation-plan-asr0l6.md._

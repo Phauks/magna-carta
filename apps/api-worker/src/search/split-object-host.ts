@@ -3,7 +3,7 @@ import { readReviewSet } from "@magna-carta/discovery/review-set-statements";
 import type { MatterId, ReviewSetId } from "@magna-carta/identifiers/types";
 import { matterScopedObjectDimensions } from "@magna-carta/object-dimensions";
 import type { Context } from "hono";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";

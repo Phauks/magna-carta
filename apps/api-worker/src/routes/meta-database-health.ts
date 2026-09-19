@@ -28,7 +28,7 @@ import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { OUTBOX_TABLE } from "@magna-carta/data-access/outbox-statements";
 import { scrubText } from "@magna-carta/telemetry/scrub";
 import type { UserId } from "@magna-carta/identifiers/types";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import {
   requireChokepointFirmContext,
   requireChokepointFirmId,

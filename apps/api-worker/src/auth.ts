@@ -9,7 +9,7 @@ import type { EntityType } from "@magna-carta/identifiers/registry";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
-import type { Bindings } from "./app.ts";
+import type { Bindings } from "./bindings.ts";
 import type { SendEmail } from "./email-port.ts";
 import { passwordResetEmailText, passwordResetScreenLink } from "./password-reset-link.ts";
 

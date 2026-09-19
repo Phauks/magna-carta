@@ -8,7 +8,7 @@ import type { IdempotencyContext } from "@magna-carta/data-access/hono-idempoten
 import { selectMemberStatusStatement } from "@magna-carta/data-access/member-statements";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import type { Logger } from "@magna-carta/telemetry/logger";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { RouteMeta } from "../contracts/route-meta.ts";
 import type { createAuth } from "../auth.ts";
 import {

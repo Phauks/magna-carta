@@ -15,7 +15,7 @@ import type {
   FolderId,
 } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { ASSEMBLY_ENGINE_VERSION } from "../assemblies/assembly-engine.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {

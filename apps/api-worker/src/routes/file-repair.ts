@@ -10,7 +10,7 @@ import { readFirmScanPolicy } from "@magna-carta/file-manager/scan-policy-settin
 import { FileManagerValidationError } from "@magna-carta/file-manager/validation";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FileId, FolderId, MatterId } from "@magna-carta/identifiers/types";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   assertAlsoHasPermission,

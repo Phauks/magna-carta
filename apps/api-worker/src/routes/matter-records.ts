@@ -18,7 +18,7 @@ import {
 } from "@magna-carta/matters/matter-estate";
 import { MatterValidationError } from "@magna-carta/matters/validation";
 import type { Context } from "hono";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

@@ -9,7 +9,7 @@ import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { naturalLanguageInstanceOperationFailed } from "@magna-carta/telemetry/events";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
 import { resolveNaturalLanguageProvisioningPort } from "./natural-language-binding.ts";
 import type { NaturalLanguageProvisioningPort } from "@magna-carta/search/natural-language-provisioning";

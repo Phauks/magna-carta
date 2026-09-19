@@ -65,6 +65,13 @@ The standing shape, worked in `apps/api-worker/src/index.ts` + `src/event-dispat
 wrangler check startup` writes a local CPU profile and total. The split took the app worker from
   roughly 1.5 s to 0.24 s of local startup work. Local CPU is not Cloudflare CPU; treat the number
   as a trend, not the deployed truth.
+- **The gate measures it on every code change.** The `startup` dimension of `pnpm gate`
+  (`tooling/gate/startup.mjs`) runs the same check, reads the span out of the profile it writes, and
+  prints it beside the previous run recorded on this machine, so a step change is read in the
+  summary as a trend rather than discovered as a refused deploy. It never fails on a threshold, for
+  the reason above: the number is local. What grows it is the route graph — every route module
+  builds its schemas when it is evaluated, so the first request to a fresh isolate pays for every
+  operation whichever one it asked for.
 
 The same rule binds every worker in the fleet: a new consumer, sweep, or route joins the
 event-dispatch graph, never the entrypoint's static imports.

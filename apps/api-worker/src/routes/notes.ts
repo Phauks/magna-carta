@@ -32,7 +32,7 @@ import {
 import { MAX_NOTE_BODY_LENGTH, MAX_NOTE_PAGE_SIZE } from "@magna-carta/notes/types";
 import { NoteValidationError } from "@magna-carta/notes/validation";
 import type { Context } from "hono";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

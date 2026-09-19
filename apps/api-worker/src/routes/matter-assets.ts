@@ -78,7 +78,7 @@ import { MatterAssetValidationError } from "@magna-carta/matter-assets/validatio
 import { pageMatterAssetValuations } from "@magna-carta/matter-assets/valuation-statements";
 import { appendMatterAssetValuation } from "@magna-carta/matter-assets/valuation-service";
 import type { Context } from "hono";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

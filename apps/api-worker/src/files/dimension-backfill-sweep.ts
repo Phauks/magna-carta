@@ -9,7 +9,7 @@ import {
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { listReachableActiveFirms } from "../scheduled.ts";
 import { resolveFirmBucket } from "./firm-bucket.ts";
 

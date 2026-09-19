@@ -5,7 +5,7 @@ import {
   SCRUB_ALL,
   type ScrubOptions,
 } from "@magna-carta/metadata";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";

@@ -25,7 +25,7 @@ import { authDenied } from "@magna-carta/telemetry/events";
 import { humanVerificationDecided } from "@magna-carta/telemetry/metrics";
 import { newErrorId } from "@magna-carta/telemetry/ids";
 import type { Context } from "hono";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import type { HumanVerificationPort } from "./human-verification-port.ts";

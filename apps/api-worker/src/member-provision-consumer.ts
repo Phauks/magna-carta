@@ -9,7 +9,7 @@ import type { SqlStatement } from "@magna-carta/data-access/idempotency-statemen
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
-import type { Bindings } from "./app.ts";
+import type { Bindings } from "./bindings.ts";
 import { firmDatabaseFor } from "./firm-database/firm-database-proxy.ts";
 
 // The member.provision payload as the producers write it (routes/members.ts invite,

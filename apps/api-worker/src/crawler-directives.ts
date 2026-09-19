@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from "hono";
-import type { Bindings } from "./app.ts";
+import type { Bindings } from "./bindings.ts";
 import type { AppVariables } from "./chokepoint/ports.ts";
 
 // Magna Carta is a private, authenticated, multi-tenant product: the SPA shell, the API, and every

@@ -24,7 +24,7 @@ import {
   NOTIFICATION_IN_APP_CHOICES,
   type NotificationCategory,
 } from "@magna-carta/notifications/types";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

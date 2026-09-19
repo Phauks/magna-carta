@@ -47,7 +47,7 @@ import { matterClientCreditClosePrecondition } from "@magna-carta/billing/close-
 import { matterTrustClosePrecondition } from "@magna-carta/trust/close-precondition";
 import type { LocationId, MatterId, MatterTypeId, UserId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

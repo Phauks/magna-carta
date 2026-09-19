@@ -1,7 +1,7 @@
 import { zipEntriesFromR2 } from "@magna-carta/file-manager/zip-entries-from-r2";
 import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
 import { makeZip } from "client-zip";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { bundleContainerAdapter } from "./bundle-container-adapter.ts";
 import type { BundleBuildMessage } from "./bundle-types.ts";

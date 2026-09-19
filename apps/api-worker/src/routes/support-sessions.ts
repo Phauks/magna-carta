@@ -16,7 +16,7 @@ import { selectIdempotencyRecordStatement } from "@magna-carta/data-access/idemp
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { insertAuthAuditStatement } from "@magna-carta/data-access/auth-audit-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";

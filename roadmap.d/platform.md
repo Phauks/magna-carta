@@ -60,11 +60,12 @@
 - id: platform.workers-api.domain-modules
   name: Domain-module route tree
   scope: The route surface as about twenty domain modules behind a manifest, contract shapes in the domain packages, an HTTP-versus-background import boundary, and the fitness tests that hold the shape.
-  status: designed
+  status: in-build
+  surface: internal
   slices: api-worker-domain-modules
   spec: docs/specs/2026-09-18-api-worker-domain-modules-design.md
-  evidence: docs/specs/2026-09-18-api-worker-domain-modules-design.md; the worker today is 99 flat route files behind a 1,019-line app.ts
-  notes: Lazy per-domain loading deferred pending a recorded startup trend; the background orchestration stays in this Worker per the extraction rubric.
+  evidence: apps/api-worker/src/bindings.ts + src/routes/domain-app.ts + the four fitness tests under apps/api-worker/test (route-table, route-hygiene-scan, route-shape-ratchet, http-background-boundary-scan); the route files themselves are still flat
+  notes: In flight on docs/active-work/claude/adoring-ride-fe94q5.md. Lazy per-domain loading deferred pending a recorded startup trend; the background orchestration stays in this Worker per the extraction rubric.
 
 - id: platform.workers-api.public-api-host
   name: Public API host

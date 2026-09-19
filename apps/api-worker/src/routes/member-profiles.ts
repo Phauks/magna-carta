@@ -8,7 +8,7 @@ import {
 } from "@magna-carta/matters/member-professional-profile";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import type { UserId } from "@magna-carta/identifiers/types";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

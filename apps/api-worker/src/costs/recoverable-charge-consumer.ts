@@ -12,7 +12,7 @@ import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { MAGNUS_TURN_SUBMITTED_TOPIC } from "@magna-carta/magnus/turn";
 import { RECHECK_CAUSE_TOPICS } from "@magna-carta/conflicts/recheck-cause";
 import { CONFLICTS_RECHECK_REQUESTED_TOPIC } from "@magna-carta/conflicts/topics";

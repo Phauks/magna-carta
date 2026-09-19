@@ -45,7 +45,7 @@ import {
 } from "@magna-carta/telemetry/metrics";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { resolveEnginePort } from "../conversions/conversion-engine.ts";
 import { fillAcroForm, FILLED_FORM_FINISH } from "./pdf-form-engine.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";

@@ -27,7 +27,7 @@ import {
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
 import { firmRateGate, tokenUsageKeyForDay } from "../inference/inference-consumer.ts";
 import { resolveReasoningModel } from "../inference/call-site.ts";

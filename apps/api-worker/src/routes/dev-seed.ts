@@ -19,7 +19,7 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import type { FirmId, FolderId, MatterId, UserId } from "@magna-carta/identifiers/types";
 import { matterScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { createAuth } from "../auth.ts";
 import type { ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";

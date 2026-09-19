@@ -1,4 +1,4 @@
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import { resolveRecoveryBackend } from "./recovery-backend.ts";
 import type { RecoveryBackend, RecoveryJobStatus, RecoveryShardMessage } from "./recovery-types.ts";
 

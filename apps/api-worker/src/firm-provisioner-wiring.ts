@@ -1,4 +1,4 @@
-import type { Bindings } from "./app.ts";
+import type { Bindings } from "./bindings.ts";
 import {
   createCloudflareRestFirmResourceProvider,
   createDevFirmResourceProvider,

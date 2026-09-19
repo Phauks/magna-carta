@@ -18,7 +18,7 @@ import {
 } from "@magna-carta/matters/numbering/segments";
 import { sequenceOf } from "@magna-carta/matters/numbering/sequences";
 import { ZodError } from "zod";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,

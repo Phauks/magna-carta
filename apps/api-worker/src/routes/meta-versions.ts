@@ -22,7 +22,7 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { BUILD_IDENTITY } from "@magna-carta/build-identity/build-identity";
 import { VERSION_ROUTE_PATH } from "@magna-carta/build-identity/version-route";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";

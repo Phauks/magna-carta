@@ -1,5 +1,5 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";

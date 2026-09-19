@@ -64,7 +64,7 @@ import {
 import { TaskValidationError } from "@magna-carta/tasks/validation";
 import type { Context } from "hono";
 import type { Permission } from "@magna-carta/access-control/registry";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../bindings.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
