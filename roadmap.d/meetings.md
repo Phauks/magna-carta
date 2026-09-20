@@ -180,13 +180,23 @@
 - id: meetings.scheduling
   name: Scheduling
   scope: A member schedules a meeting or call from the product — picks the people (members and Directory contacts), the time and the medium, and the event and its meeting are created with invitations sent; availability read from the calendar; confirmation and reminders.
+  status: partial
+  spec: docs/specs/2026-09-18-meetings-design.md
+  evidence: Scheduling from the calendar's own event form is in build (see the child node); booking pages are not started.
+  audience: public
+  public-summary: Schedule a video meeting or a call from the calendar, invite your colleagues, and see who is already busy at that hour.
+  notes: High priority by the owner's direction of 2026-09-20 — sequenced directly behind host controls and the waiting room. Staff schedule as well as clients (2026-09-20).
+
+- id: meetings.scheduling.from-the-calendar
+  name: Scheduling from the event form
+  scope: A Meeting choice on the one event form (None, Video meeting, Audio call) that writes the meeting row as the event is saved, invites the member participants through the notifications subsystem, reads each colleague's conflicting entries for the chosen hour, and adds New Meeting to the Meetings page.
   status: in-build
   surface: screen
   spec: docs/specs/2026-09-18-meetings-design.md
-  evidence: The Meeting choice in apps/web/src/lib/calendar/record-event-dialog.svelte over event-draft.ts and firm-event-draft.ts; the meeting field and its scheduling helpers in apps/api-worker/src/routes/calendar.ts; the invitation topic in packages/calendar/src/notifications.ts with the meetings.meeting.scheduled type and the named-members audience in packages/notifications; availability in apps/web/src/lib/calendar/member-availability.ts; New Meeting on apps/web/src/routes/(app)/meetings/+page.svelte.
+  evidence: The Meeting choice in apps/web/src/lib/calendar/record-event-dialog.svelte over event-draft.ts and firm-event-draft.ts; the meeting field and its scheduling helpers in apps/api-worker/src/routes/calendar.ts; the invitation topic in packages/calendar/src/notifications.ts with the meetings.meeting.scheduled type and the named-members audience in packages/notifications; availability in apps/web/src/lib/calendar/member-availability.ts; New Meeting on apps/web/src/routes/(app)/meetings/+page.svelte; stream docs/active-work/claude/focused-edison-ylxfiy.md.
   audience: public
-  public-summary: Schedule a video meeting or a call from the calendar, invite your colleagues, and see who is already busy at that hour.
-  notes: High priority by the owner's direction of 2026-09-20 — sequenced directly behind host controls and the waiting room. Staff schedule as well as clients (2026-09-20). Firm events raise no invitation yet: notification_event.subject_kind is a SQLite CHECK with no firmEvent value, and widening it rebuilds a table notification_recipient points at. Reminders and Directory-guest invitations are the remaining halves.
+  public-summary: Choose Video meeting or Audio call when you record an event, and the room is there the moment it is saved.
+  notes: Firm events raise no invitation yet — notification_event.subject_kind is a SQLite CHECK with no firmEvent value, and widening it rebuilds a table notification_recipient points at. Reminders and Directory-guest invitations are the remaining halves.
 
 - id: meetings.scheduling.booking-pages
   name: Booking pages

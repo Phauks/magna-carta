@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 857 nodes of the feature ledger in
+is the complete register rather than a digest: all 858 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,9 +21,9 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**857 capabilities across 32 areas.** Every one of them is listed in [the register](#the-register)
+**858 capabilities across 32 areas.** Every one of them is listed in [the register](#the-register)
 below. 145 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **712 that are units of work**, for the reason set out under [What a roll-up is
+count the **713 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
@@ -31,10 +31,10 @@ not](#what-a-roll-up-is-not).
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
 | Done | shipped | 326 | 46% |
-| Part-built | partial, in-build | 125 | 17% |
+| Part-built | partial, in-build | 126 | 17% |
 | Ahead | designed, planned, researching, not-started | 219 | 31% |
 | Parked | deferred, cut | 42 | 6% |
-| **All units of work** | | **712** | **100%** |
+| **All units of work** | | **713** | **100%** |
 
 ### Every status
 
@@ -42,18 +42,18 @@ not](#what-a-roll-up-is-not).
 | --- | ---: | ---: |
 | `shipped` | 326 | 46% |
 | `partial` | 124 | 17% |
-| `in-build` | 1 | 0% |
+| `in-build` | 2 | 0% |
 | `designed` | 52 | 7% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
 | `not-started` | 147 | 21% |
 | `deferred` | 38 | 5% |
 | `cut` | 4 | 1% |
-| **All statuses** | **712** | **100%** |
+| **All statuses** | **713** | **100%** |
 
 ### What a roll-up is not
 
-**145 of the 857 nodes are parents, and 112 of those parents are `partial`.** A parent's status is a
+**145 of the 858 nodes are parents, and 113 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 326 of 712 (46%). Shipped plus partial is 450 (63%).**
+**Shipped alone is 326 of 713 (46%). Shipped plus partial is 450 (63%).**
 
 The 124 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**451 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**452 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 110 | 24% |
+| A person can open it today (`screen`) | 111 | 24% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 157 | 35% |
 | No user surface by nature (`internal`) | 184 | 41% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **451** | **100%** |
+| **Everything with something built** | **452** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -112,7 +112,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
 | Integrations & Plugins | 17 | 2 | 0 | 1 | 0 | 3 | 15 | 3 | 1 | 42 | 40% |
 | Maintenance Agents | 2 | 3 | 0 | 0 | 0 | 0 | 5 | 0 | 0 | 10 | 20% |
-| Meetings | 6 | 0 | 1 | 6 | 0 | 0 | 14 | 0 | 0 | 27 | 22% |
+| Meetings | 6 | 0 | 2 | 6 | 0 | 0 | 14 | 0 | 0 | 28 | 21% |
 | Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 12 | 58% |
 | Notifications | 4 | 6 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 14 | 29% |
 | Observability & Diagnostics | 14 | 0 | 0 | 0 | 0 | 0 | 4 | 2 | 0 | 20 | 70% |
@@ -127,7 +127,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 14 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 21 | 67% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **326** | **124** | **1** | **52** | **15** | **5** | **147** | **38** | **4** | **712** | **46%** |
+| **All areas** | **326** | **124** | **2** | **52** | **15** | **5** | **147** | **38** | **4** | **713** | **46%** |
 
 ## Where we have been
 
@@ -317,7 +317,7 @@ Decisions about a capability only. Account-side steps that no session can perfor
 ## Being built now
 
 - `meetings.large-rooms` · **Large rooms (300 participants)** — The cap lifted to 300 — simulcast cameras, a subscription policy that pulls only the tiles shown and the people talking, roster deltas instead of full broadcasts, relayed speaking presence, a paged gallery, speaker view and pin.
-- `meetings.scheduling` · **Scheduling** — A member schedules a meeting or call from the product — picks the people (members and Directory contacts), the time and the medium, and the event and its meeting are created with invitations sent; availability read from the calendar; confirmation and reminders.
+- `meetings.scheduling.from-the-calendar` · **Scheduling from the event form** — A Meeting choice on the one event form (None, Video meeting, Audio call) that writes the meeting row as the event is saved, invites the member participants through the notifications subsystem, reads each colleague's conflicting entries for the chosen hour, and adds New Meeting to the Meetings page.
 
 ## Next up
 
@@ -1055,7 +1055,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Meetings
 
-[`roadmap.d/meetings.md`](../roadmap.d/meetings.md) — 27 units of work, 22% shipped. 6 done, 1 part-built, 20 ahead, 0 parked.
+[`roadmap.d/meetings.md`](../roadmap.d/meetings.md) — 28 units of work, 21% shipped. 6 done, 2 part-built, 20 ahead, 0 parked.
 
 - `meetings` · `partial` · **Meetings** — In-app video conferencing — a meeting started from a calendar event, media browser-to-Cloudflare Realtime SFU, signaling through a per-meeting Durable Object, attendance recorded on the event. _Note: The owner's ruling of 2026-09-18 — bundled into the product so a firm runs fewer tools; a Zoom/Teams port may exist later, never as the default._
   - `meetings.record` · `shipped` · **Meeting record and attendance** — One meeting per calendar event (matter or firm), status scheduled/live/ended, an attendance row per join with joined and left instants, audit rows of identifiers and instants only.
@@ -1079,7 +1079,8 @@ to change a line here, edit the node in its area file and re-run the build.
   - `meetings.backgrounds-and-noise` · `not-started` · **Backgrounds and noise suppression** — A blurred or replaced background and microphone noise suppression, both in the browser.
   - `meetings.webinars` · `not-started` · **Webinars** — A meeting where a few present and many watch — registration, view-only attendees, a panel — for a firm's seminars and client briefings.
   - `meetings.live-streaming` · `not-started` · **Live streaming** — A meeting broadcast to a streaming destination.
-  - `meetings.scheduling` · `in-build` · **Scheduling** — A member schedules a meeting or call from the product — picks the people (members and Directory contacts), the time and the medium, and the event and its meeting are created with invitations sent; availability read from the calendar; confirmation and reminders. _Note: High priority by the owner's direction of 2026-09-20 — sequenced directly behind host controls and the waiting room. Staff schedule as well as clients (2026-09-20). Firm events raise no invitation yet: notification_event.subject_kind is a SQLite CHECK with no firmEvent value, and widening it rebuilds a table notification_recipient points at. Reminders and Directory-guest invitations are the remaining halves._
+  - `meetings.scheduling` · `partial` · **Scheduling** — A member schedules a meeting or call from the product — picks the people (members and Directory contacts), the time and the medium, and the event and its meeting are created with invitations sent; availability read from the calendar; confirmation and reminders. _Note: High priority by the owner's direction of 2026-09-20 — sequenced directly behind host controls and the waiting room. Staff schedule as well as clients (2026-09-20)._
+    - `meetings.scheduling.from-the-calendar` · `in-build` · **Scheduling from the event form** — A Meeting choice on the one event form (None, Video meeting, Audio call) that writes the meeting row as the event is saved, invites the member participants through the notifications subsystem, reads each colleague's conflicting entries for the chosen hour, and adds New Meeting to the Meetings page. _Note: Firm events raise no invitation yet — notification_event.subject_kind is a SQLite CHECK with no firmEvent value, and widening it rebuilds a table notification_recipient points at. Reminders and Directory-guest invitations are the remaining halves._
     - `meetings.scheduling.booking-pages` · `not-started` · **Booking pages** — A member's booking page a client picks a time on, creating the event and its meeting or call the same way a member's own scheduling does.
   - `meetings.personal-room` · `not-started` · **A member's standing room** — A room a member always has, joined by a stable link, not tied to a calendar event.
   - `meetings.end-to-end-encryption` · `not-started` · **End-to-end encryption** — Media the routing service cannot read — keys agreed between browsers, frames encrypted before they leave.
