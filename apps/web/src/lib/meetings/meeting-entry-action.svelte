@@ -23,6 +23,8 @@
   import Phone from "@lucide/svelte/icons/phone";
   import Video from "@lucide/svelte/icons/video";
   import Button from "@magna-carta/design-system/button";
+  import Label from "@magna-carta/design-system/label";
+  import Switch from "@magna-carta/design-system/switch";
   import { createQuery } from "@tanstack/svelte-query";
   import {
     meetingsGetForEventOptions,
@@ -98,13 +100,22 @@
   let startFailure = $state<Failure | null>(null);
   /** Which of the two the last attempt was, so Retry asks for the one that was pressed. */
   let lastAttempt = $state<MeetingMedium>("video");
+  /*
+   * Whether arrivals are held at a door, chosen before the room opens.
+   *
+   * OFF BY DEFAULT, because every participant today is a firm member arriving at an event they are
+   * already on, and a lobby on by default would put a colleague in a queue for every ordinary
+   * hearing. It is a standing the room OPENS with rather than a setting of the meeting's: a host
+   * changes it from inside, and this control has nothing to say about a room that already exists.
+   */
+  let holdArrivals = $state(false);
 
   async function start(medium: MeetingMedium): Promise<void> {
     if (starting !== null) return;
     starting = medium;
     lastAttempt = medium;
     startFailure = null;
-    const outcome = await startMeeting(eventKind, eventId, medium);
+    const outcome = await startMeeting(eventKind, eventId, medium, holdArrivals ? "on" : "off");
     starting = null;
     if (outcome.kind === "ok") {
       await goto(`/meetings/${outcome.value.id}`);
@@ -183,6 +194,18 @@
           <Phone class="size-16" aria-hidden="true" />
           Start Call
         </Button>
+      </div>
+      <!-- THE ONE THING DECIDED BEFORE THE ROOM OPENS RATHER THAN INSIDE IT, and it sits beside both
+           controls because it is true of whichever one is pressed. A host changes it from inside the
+           meeting afterwards: who may come in is a standing decision of theirs and has no bearing on
+           what the people already in the room agreed to. -->
+      <div class="flex items-center gap-8">
+        <Switch
+          aria-labelledby="{eventId}-hold-arrivals-label"
+          bind:checked={holdArrivals}
+          disabled={starting !== null}
+        />
+        <Label id="{eventId}-hold-arrivals-label">Hold arrivals in a lobby</Label>
       </div>
       {#if startFailure !== null}
         <FailureNotice

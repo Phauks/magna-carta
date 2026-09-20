@@ -209,6 +209,7 @@ describe("the control bar's own menu", () => {
       onToggleSharing: () => {},
       onMuteAll: () => asked.push("mute-all"),
       onSetLocked: (wanted: boolean) => asked.push(wanted ? "lock" : "unlock"),
+      onSetLobby: (wanted: string) => asked.push(wanted === "on" ? "lobby-on" : "lobby-off"),
       onClearSpotlight: () => asked.push("clear-spotlight"),
       onOpenHosts: () => asked.push("hosts"),
       onLeave: () => {},
@@ -229,7 +230,13 @@ describe("the control bar's own menu", () => {
 
     openMenu(named("Host controls"));
 
-    expect(menuItems()).toEqual(["Mute Everyone", "Unlock the Room", "Stop Spotlighting", "Hosts"]);
+    expect(menuItems()).toEqual([
+      "Mute Everyone",
+      "Unlock the Room",
+      "Hold Arrivals in a Lobby",
+      "Stop Spotlighting",
+      "Hosts",
+    ]);
   });
 
   it("offers no way to clear a spotlight nobody is in", () => {
@@ -238,6 +245,30 @@ describe("the control bar's own menu", () => {
 
     openMenu(named("Host controls"));
 
-    expect(menuItems()).toEqual(["Mute Everyone", "Lock the Room", "Hosts"]);
+    expect(menuItems()).toEqual([
+      "Mute Everyone",
+      "Lock the Room",
+      "Hold Arrivals in a Lobby",
+      "Hosts",
+    ]);
+  });
+
+  it("names the door's next act rather than its state, and sends the standing it would set", () => {
+    instance = mount(Controls, { target, props: bar({ lobby: "on" }) });
+    flushSync();
+
+    openMenu(named("Host controls"));
+    expect(menuItems()).toContain("Let Arrivals Straight In");
+    expect(menuItems()).not.toContain("Hold Arrivals in a Lobby");
+
+    const item = [...document.body.querySelectorAll('[role="menuitem"]')].find(
+      (one) => one.textContent?.trim() === "Let Arrivals Straight In",
+    );
+    item?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    flushSync();
+
+    // Turning the door off admits nobody — it is a standing, not a decision about a named person —
+    // so what goes out is the setting and nothing else.
+    expect(asked).toEqual(["lobby-off"]);
   });
 });

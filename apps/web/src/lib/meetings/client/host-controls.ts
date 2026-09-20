@@ -25,6 +25,7 @@ import type {
   MeetingRoomState,
   MeetingSpotlight,
 } from "@magna-carta/meeting-protocol/types";
+import { readLobbyMode } from "./lobby.ts";
 import { isRecord, readString } from "./signaling.ts";
 
 export type { MeetingHostRole, MeetingLobbyMode, MeetingRoomState, MeetingSpotlight };
@@ -95,15 +96,10 @@ export function readRoomState(value: unknown): MeetingRoomState {
   return {
     spotlight: readSpotlight(value.spotlight),
     locked: value.locked === true,
-    // Held rather than drawn here: nothing in host controls asks whether arrivals wait at a door. It
-    // is read so the frame is applied whole rather than losing a field the room states.
+    // The door's own reader, from the door's own module: a host's menu offers the switch that
+    // changes this and the room states it here, so one function answers what the string means.
     lobby: readLobbyMode(value.lobby),
   };
-}
-
-/** Whether arrivals wait at a door, as the room states it. Anything else reads as an open door. */
-function readLobbyMode(value: unknown): MeetingLobbyMode {
-  return value === "on" ? "on" : "off";
 }
 
 /** Who the room is looking at, and who put them there. Null where nobody is spotlighted. */

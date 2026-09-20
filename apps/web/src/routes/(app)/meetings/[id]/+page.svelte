@@ -33,17 +33,21 @@
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { failureOf } from "$lib/api/api-client.ts";
+  import { toast } from "@magna-carta/design-system/toast";
   import { meetingSocketUrl } from "$lib/api/socket-url.ts";
   import { leaveMeetingOnDeparture } from "$lib/api/departure-write.ts";
   import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
   import { formatWallClock } from "$lib/calendar/calendar-api.ts";
   import {
+    DENIED_REASON,
+    DENIED_STATEMENT,
     MeetingClient,
     browserMeetingSeams,
     PROTOCOL_MISMATCH_REASON,
     refusalStatement,
     REMOVED_REASON,
     SUPERSEDED_REASON,
+    type MeetingLobbyMode,
     type MeetingMedium,
     type MeetingParticipant,
   } from "$lib/meetings/client/meeting-client.svelte.ts";
@@ -56,6 +60,8 @@
   } from "$lib/meetings/screen/meeting-tiles.ts";
   import MeetingHostMenu from "$lib/meetings/meeting-host-menu.svelte";
   import MeetingHostsPanel from "$lib/meetings/meeting-hosts-panel.svelte";
+  import MeetingLobbyPanel from "$lib/meetings/meeting-lobby-panel.svelte";
+  import MeetingLobbyWait from "$lib/meetings/meeting-lobby-wait.svelte";
   import MeetingAudio from "$lib/meetings/screen/meeting-audio.svelte";
   import MeetingGrid from "$lib/meetings/screen/meeting-grid.svelte";
   import MeetingControls from "$lib/meetings/screen/meeting-controls.svelte";
@@ -67,19 +73,24 @@
     connectionUplink,
   } from "$lib/meetings/screen/meeting-connection.ts";
   import {
+    admitToMeetingLobby,
+    denyFromMeetingLobby,
+    doorDecisionStatement,
     endMeeting,
     eventAddress,
     grantMeetingHosting,
     joinMeeting,
     leaveMeeting,
     readMeetingHosts,
+    readMeetingLobby,
     refusedAs,
     removeMeetingParticipant,
     revokeMeetingHosting,
+    setMeetingLobby,
     setMeetingLocked,
     type MeetingWrite,
   } from "$lib/meetings/meetings-api.ts";
-  import type { MeetingHostGrant } from "@magna-carta/api-client";
+  import type { MeetingHostGrant, MeetingLobbyDecisions } from "@magna-carta/api-client";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import type { Failure } from "$lib/api/problem.ts";
   import type { RecordSubject } from "@magna-carta/design-system/record-reference";
@@ -170,7 +181,16 @@
       // The record's own answer, not this screen's guess: it decides whether a camera is captured
       // at all, and it was settled when somebody opened the room.
       medium,
+      // Whether this stay is at the DOOR. The server decides it — the lobby is on, and this member
+      // is not running the room — and it is what stops anything being captured below.
+      waiting: outcome.value.waiting,
     });
+    /*
+     * Asked for on every arrival, including one that is waiting: the client refuses it at the door
+     * and asks again itself the moment a host admits them. A screen that decided this would be a
+     * second place the camera rule is written, and the rule is that a waiter's camera light must
+     * not come on.
+     */
     await client.publish();
   }
 
@@ -295,6 +315,93 @@
     hostsFailure = outcome.failure;
   }
 
+  /*
+   * THE DOOR. The list a host reads is the LIVE one the room broadcasts to every socket holding a
+   * grant; the read below fills the one gap that list has, and the writes are routes because
+   * arrivals refused at a door somebody shut is a fact that outlives the room.
+   */
+
+  /** Whether the panel naming who is at the door is open. */
+  let lobbyOpen = $state(false);
+  /** The door's own refusal — a read or a decision — rendered in the panel's reserved band. */
+  let lobbyRefusal = $state<Failure | null>(null);
+  /**
+   * The meeting and the grant the door was last read under.
+   *
+   * The read exists for one case and it is worth naming: a member named co-host at the twentieth
+   * minute is sent the roster that says so and nothing about the people already standing outside,
+   * because the room sends the waiting list as those people ARRIVE. Keyed on the grant as well as
+   * the meeting, so a grant written later reads the door again rather than trusting a list that was
+   * never sent to this socket.
+   */
+  let doorReadUnder = $state<string | null>(null);
+  /** True once the hosts have been told somebody is outside, so they are told once and not per frame. */
+  let arrivalAnnounced = $state(false);
+  /** What the last batch at the door did not do, where it did not do all of it. */
+  let doorShortfall = $state<string | null>(null);
+
+  $effect(() => {
+    const id = meetingId;
+    if (id === "" || myRole === null || client.state !== "live") return;
+    const key = `${id}:${myRole}`;
+    if (doorReadUnder === key) return;
+    doorReadUnder = key;
+    void refreshLobby(id);
+  });
+
+  async function refreshLobby(id: string): Promise<void> {
+    const outcome = await readMeetingLobby(id);
+    if (outcome.kind !== "ok") {
+      lobbyRefusal = outcome.failure;
+      return;
+    }
+    lobbyRefusal = null;
+    client.noteWhoIsWaiting(outcome.value);
+  }
+
+  /*
+   * SOMEBODY IS OUTSIDE, SAID ONCE AND NAMING NOBODY.
+   *
+   * A count on a control a host is not looking at is a person left standing at a door for ten
+   * minutes, so the first arrival is raised where a host cannot miss it. It names nobody: who is at
+   * the door is a list a host has not decided about yet, and a passer-by reading a colleague's
+   * screen should not learn who was turned away.
+   */
+  $effect(() => {
+    if (client.lobbyList.length === 0) {
+      // An empty door arms it again, so a second arrival an hour later is announced as well.
+      arrivalAnnounced = false;
+      return;
+    }
+    if (myRole === null || arrivalAnnounced || lobbyOpen) return;
+    arrivalAnnounced = true;
+    toast("Somebody is waiting to be let in.");
+  });
+
+  /**
+   * Let people in, or turn them away.
+   *
+   * The room tells every host what is left either way, so nothing here rebuilds the list. What is
+   * kept is what the batch did NOT do: a host admitting five people into two free seats is told
+   * which three did not get in, rather than watching three rows stay where they were.
+   */
+  function decideAtTheDoor(
+    act: (participantIds: readonly string[]) => Promise<MeetingWrite<MeetingLobbyDecisions>>,
+    participantIds: readonly string[],
+    wanted: "admitted" | "denied",
+  ): void {
+    if (participantIds.length === 0) return;
+    lobbyRefusal = null;
+    doorShortfall = null;
+    void act(participantIds).then((outcome) => {
+      if (outcome.kind !== "ok") {
+        lobbyRefusal = outcome.failure;
+        return;
+      }
+      doorShortfall = doorDecisionStatement(outcome.value, wanted);
+    });
+  }
+
   /** What a member is called, out of the roster this browser already holds. */
   function nameOfMember(userId: string): string {
     const participant = client.participants.find((one) => one.userId === userId);
@@ -358,6 +465,9 @@
     // Asked for, so the departure that closed this screen's last stay stops standing in the way.
     departedMeetingId = null;
     joinFailure = null;
+    // The door is read again on the way back in: this browser holds a list from a socket that is
+    // gone, and the next welcome may be a stay that is waiting rather than a host's.
+    doorReadUnder = null;
   }
 
   function toggleSharing(): void {
@@ -397,6 +507,18 @@
       : formatWallClock(summary.endsAtTime, summary.timeZone, summary.timeZone),
   );
 
+  /**
+   * The day and time, as one line for a surface that has no header band to spread them across.
+   *
+   * Somebody following a link an hour early is the case it exists for: standing at a door with no
+   * idea whether anybody is behind it yet is the one thing the waiting screen can answer for them.
+   */
+  const whenLine = $derived.by(() => {
+    if (summary === null) return null;
+    const day = formatDate(summary.startsOn);
+    return startsAt === null ? day : `${day} at ${startsAt} ${zoneCode}`.trim();
+  });
+
   const backAddress = $derived(
     summary === null
       ? "/calendar"
@@ -433,6 +555,17 @@
   const removed = $derived(
     client.failureReason === REMOVED_REASON || refusedAs(joinFailure, "meeting-removed"),
   );
+  /*
+   * A host turned this member away at the door — the twin of being removed, by the two same routes:
+   * the socket's own refusal while they stood there, and the join's 409 for somebody following a
+   * link back to a meeting they were denied. Barred entry is one rule with two labels, so there is
+   * no way back in from either, and only the sentence differs.
+   */
+  const denied = $derived(
+    client.failureReason === DENIED_REASON || refusedAs(joinFailure, "meeting-not-admitted"),
+  );
+  /** Standing at the door: not in the room, and nothing captured until a host says so. */
+  const atTheDoor = $derived(client.state === "waiting");
   const unconfigured = $derived(summary !== null && !summary.configured);
   /*
    * This socket lost the stay to a newer one of this member's own. The meeting is NOT over — it is
@@ -579,6 +712,13 @@
           <Button variant="secondary" href={backAddress}>Back to the Event</Button>
         {/snippet}
       </EmptyState>
+    {:else if denied}
+      <EmptyState title="You Were Not Let Into This Meeting">
+        {DENIED_STATEMENT}
+        {#snippet actions()}
+          <Button variant="secondary" href={backAddress}>Back to the Event</Button>
+        {/snippet}
+      </EmptyState>
     {:else if removed}
       <EmptyState title="You Were Removed From This Meeting">
         A host took you out of the room. You cannot come back into this meeting, and the record
@@ -594,6 +734,17 @@
         title="You Are Not in the Room"
         fallback="You were not joined to this meeting."
         whenSilent="Nothing answered. You were not joined to this meeting."
+      />
+    {:else if atTheDoor}
+      <!-- NOT THE ROOM WITH THINGS MISSING. A waiting socket holds no roster and this browser has
+           captured nothing, so there is no grid to page, no rail to read and no control bar to
+           draw — the one act somebody at a door has is going away again. -->
+      <MeetingLobbyWait
+        {title}
+        when={whenLine}
+        place={client.waiting}
+        {leaving}
+        onLeave={() => void leave()}
       />
     {:else}
       <!-- The room's own faults are not API failures and are not dressed as them: no request was
@@ -739,6 +890,8 @@
         canEnd={canHost}
         hosting={myRole !== null}
         locked={client.roomState.locked}
+        lobby={client.roomState.lobby}
+        waitingCount={client.lobbyList.length}
         spotlighted={client.roomState.spotlight !== null}
         subtitle={endSubject}
         onToggleMicrophone={() => client.toggleMicrophone()}
@@ -747,6 +900,9 @@
         onToggleSpeakerView={() => client.toggleSpeakerView()}
         onMuteAll={() => client.muteAll()}
         onSetLocked={(wanted) => void hostingWrite(() => setMeetingLocked(meetingId, wanted))}
+        onSetLobby={(wanted: MeetingLobbyMode) =>
+          void hostingWrite(() => setMeetingLobby(meetingId, wanted))}
+        onOpenLobby={() => (lobbyOpen = true)}
         onClearSpotlight={() => client.spotlight(null)}
         onOpenHosts={() => (hostsOpen = true)}
         onLeave={() => void leave()}
@@ -782,6 +938,43 @@
           {/if}
         {/snippet}
       </MeetingControls>
+
+      <!-- Who is at the door. Opened from a control that is absent for everybody who is not running
+           the meeting, and it would have nothing to draw for them either: the room sends the list
+           to the sockets holding a grant and to nobody else. -->
+      <MeetingLobbyPanel
+        bind:open={lobbyOpen}
+        subject={endSubject}
+        waiting={client.lobbyList}
+        onAdmit={(participantIds) =>
+          decideAtTheDoor(
+            (ids) => admitToMeetingLobby(meetingId, ids),
+            participantIds,
+            "admitted",
+          )}
+        onDeny={(participantIds) =>
+          decideAtTheDoor((ids) => denyFromMeetingLobby(meetingId, ids), participantIds, "denied")}
+      >
+        {#snippet writeFailure()}
+          {#if lobbyRefusal !== null}
+            <FailureNotice
+              failure={lobbyRefusal}
+              subject="This meeting"
+              title="Nobody Moved"
+              fallback="Nothing changed at the door."
+              whenSilent="Nothing answered, so nothing changed at the door."
+              onRetry={() => void refreshLobby(meetingId)}
+            />
+          {:else if doorShortfall !== null}
+            <!-- A batch that half-landed. Not a failure and not dressed as one: the request was
+                 served, and what it says is which of the people named did not move. -->
+            <Alert.Root variant="info">
+              <Alert.Title>Not Everybody Moved</Alert.Title>
+              <Alert.Description>{doorShortfall}</Alert.Description>
+            </Alert.Root>
+          {/if}
+        {/snippet}
+      </MeetingLobbyPanel>
 
       <!-- Who is running this meeting. Open to everybody in the room — the grants read rides on the
            permission to JOIN, because everybody a decision governs may know who makes it — and what

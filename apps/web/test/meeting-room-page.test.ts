@@ -49,6 +49,7 @@ const SUMMARY = {
   medium: "video",
   liveCount: 1,
   locked: false,
+  lobby: "off",
   configured: true,
 };
 
@@ -119,9 +120,22 @@ function serveTheRoom(summary: Record<string, unknown> = SUMMARY): void {
     }
     if (path.endsWith("/join")) {
       return new Response(
-        JSON.stringify({ participantId: "attendance_1", displayName: "You", iceServers: [] }),
+        JSON.stringify({
+          participantId: "attendance_1",
+          displayName: "You",
+          waiting: false,
+          iceServers: [],
+        }),
         { status: 200, headers: { "content-type": "application/json" } },
       );
+    }
+    if (method === "GET" && path.endsWith("/lobby")) {
+      // The door, as a host's screen reads it once on arrival. Empty here: the cases that are about
+      // the door state it on the wire, which is what a host's screen is actually kept current by.
+      return new Response(JSON.stringify({ data: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
     }
     return new Response(JSON.stringify({ ok: true }), {
       status: 200,
@@ -484,6 +498,102 @@ describe("somebody following a link back to a meeting they are barred from", () 
       control.textContent?.trim(),
     );
     expect(controls).not.toContain("Rejoin");
+  });
+});
+
+describe("an arrival the lobby is holding", () => {
+  it("waits, with nothing captured and no room to control", async () => {
+    // The join is what decides it: the lobby is on and this member is not running the room, so the
+    // server answers `waiting` and the screen is a door rather than a room with things missing.
+    const answer = (method: string, path: string): Response => {
+      requests.push({ method, path });
+      if (method === "GET" && path === `/api/v1/meetings/${MEETING_ID}`) {
+        return new Response(JSON.stringify({ ...SUMMARY, lobby: "on" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      if (path.endsWith("/join")) {
+        return new Response(
+          JSON.stringify({
+            participantId: "attendance_1",
+            displayName: "You",
+            waiting: true,
+            iceServers: [],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    };
+    const stub = ((request: Request | string, init?: RequestInit) => {
+      if (typeof request === "string") {
+        return Promise.resolve(answer(init?.method ?? "GET", new URL(request, ORIGIN).pathname));
+      }
+      return Promise.resolve(answer(request.method, new URL(request.url).pathname));
+    }) as unknown as typeof fetch;
+    client.setConfig({ baseUrl: ORIGIN, fetch: stub });
+    vi.stubGlobal("fetch", stub);
+
+    const rendered = await draw();
+    sockets[0]?.deliver({
+      v: 1,
+      type: "lobby",
+      position: 2,
+      waiting: 2,
+      at: "2026-09-20T15:00:00.000Z",
+    });
+    await settle();
+
+    expect(rendered.textContent).toContain("Waiting to Be Let In");
+    expect(rendered.textContent).toContain("1 person is ahead of you.");
+    const offered = [...rendered.querySelectorAll("button")].map(
+      (control) => control.getAttribute("aria-label") ?? control.textContent?.trim() ?? "",
+    );
+    // No microphone and no camera: a browser that lit the device indicator for somebody standing at
+    // a door would be taking a picture nobody asked for.
+    expect(offered.some((label) => label.includes("microphone"))).toBe(false);
+    expect(offered.some((label) => label.includes("camera"))).toBe(false);
+    expect(offered).toContain("Leave");
+  });
+});
+
+describe("the door, to a host inside the room", () => {
+  it("carries its count on the control bar, from what the waiting frame says", async () => {
+    const rendered = await draw();
+    welcomeWith(sockets[0], roomOfTwo("host"), { spotlight: null, locked: false, lobby: "on" });
+    sockets[0]?.deliver({
+      v: 1,
+      type: "waiting",
+      participants: [
+        {
+          participantId: "attendance_9",
+          userId: "usr_9",
+          displayName: "Rosalind Chase",
+          waitingFrom: "2026-09-20T15:00:00.000Z",
+        },
+      ],
+    });
+    await settle();
+
+    const lobby = [...rendered.querySelectorAll("button")].find((control) =>
+      control.textContent?.includes("Lobby"),
+    );
+    expect(lobby?.textContent?.replace(/\s+/gu, " ").trim()).toBe("Lobby 1");
+  });
+
+  it("offers none of it to a member who is not running the meeting", async () => {
+    const rendered = await draw();
+    welcomeWith(sockets[0], roomOfTwo(null), { spotlight: null, locked: false, lobby: "on" });
+    await settle();
+
+    const offered = [...rendered.querySelectorAll("button")].map((control) =>
+      control.textContent?.trim(),
+    );
+    expect(offered).not.toContain("Lobby");
   });
 });
 

@@ -161,9 +161,11 @@ describe("a member who may host, on an entry with no room yet", () => {
 
     const rendered = await draw();
 
-    const labels = [...rendered.querySelectorAll("button")].map((control) =>
-      control.textContent?.trim(),
-    );
+    // The lobby switch beside them carries no words of its own — its label is the line next to it —
+    // so what is compared here is the controls that name something.
+    const labels = [...rendered.querySelectorAll("button")]
+      .map((control) => control.textContent?.trim())
+      .filter((label) => label !== "");
     expect(labels).toEqual(["Start Meeting", "Start Call"]);
   });
 
@@ -178,6 +180,37 @@ describe("a member who may host, on an entry with no room yet", () => {
     call?.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(started).toEqual([{ eventKind: "matter", eventId: "matterEvent_1", medium: "audio" }]);
+    expect(started).toEqual([
+      { eventKind: "matter", eventId: "matterEvent_1", medium: "audio", lobby: "off" },
+    ]);
+  });
+
+  it("opens the door by default, and holds arrivals only where that was asked for", async () => {
+    sessionHolding(["meetings:join", "meetings:host"]);
+    answerWith(404, { type: "meeting-not-found", title: "No meeting", status: 404 });
+    const rendered = await draw();
+
+    // Off by default: every participant today is a firm member arriving at an event they are on,
+    // and a lobby on by default would queue a colleague for every ordinary hearing.
+    const hold = rendered.querySelector('[role="switch"]');
+    expect(hold).not.toBeNull();
+    expect(hold?.getAttribute("aria-checked")).toBe("false");
+    expect(rendered.textContent).toContain("Hold arrivals in a lobby");
+
+    (hold as HTMLElement | null)?.click();
+    flushSync();
+    expect(hold?.getAttribute("aria-checked")).toBe("true");
+
+    const start = [...rendered.querySelectorAll("button")].find(
+      (control) => control.textContent?.trim() === "Start Meeting",
+    );
+    start?.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // The standing the room OPENS with, sent with the medium: a host changes it from inside
+    // afterwards, because who may come in has no bearing on what anybody already agreed to.
+    expect(started).toEqual([
+      { eventKind: "matter", eventId: "matterEvent_1", medium: "video", lobby: "on" },
+    ]);
   });
 });

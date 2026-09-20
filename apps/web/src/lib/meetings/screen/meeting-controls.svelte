@@ -21,6 +21,8 @@
    * the product asks acts in. Only one of the two wears the loud register, because a band with two
    * red controls tells a reader nothing about which one is the dangerous one.
    */
+  import DoorClosed from "@lucide/svelte/icons/door-closed";
+  import DoorOpen from "@lucide/svelte/icons/door-open";
   import Focus from "@lucide/svelte/icons/focus";
   import Lock from "@lucide/svelte/icons/lock";
   import LockOpen from "@lucide/svelte/icons/lock-open";
@@ -34,13 +36,14 @@
   import Square from "@lucide/svelte/icons/square";
   import Video from "@lucide/svelte/icons/video";
   import VideoOff from "@lucide/svelte/icons/video-off";
+  import Badge from "@magna-carta/design-system/badge";
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import type { RecordSubject } from "@magna-carta/design-system/record-reference";
-  import type { MeetingMedium } from "@magna-carta/meeting-protocol/types";
+  import type { MeetingLobbyMode, MeetingMedium } from "@magna-carta/meeting-protocol/types";
   import type { Snippet } from "svelte";
 
   let {
@@ -52,6 +55,8 @@
     canEnd = false,
     hosting = false,
     locked = false,
+    lobby = "off",
+    waitingCount = 0,
     spotlighted = false,
     subtitle = {},
     onToggleMicrophone,
@@ -60,6 +65,8 @@
     onToggleSpeakerView,
     onMuteAll,
     onSetLocked,
+    onSetLobby,
+    onOpenLobby,
     onClearSpotlight,
     onOpenHosts,
     onLeave,
@@ -87,6 +94,15 @@
     hosting?: boolean;
     /** Whether the door is shut, which is what the menu's item says next. */
     locked?: boolean;
+    /** Whether arrivals wait at a door, which is what the menu's other item says next. */
+    lobby?: MeetingLobbyMode;
+    /**
+     * How many people are standing at the door.
+     *
+     * It rides on a control of its own rather than on the menu, because a host running a meeting
+     * learns somebody has arrived by seeing the count rather than by opening a menu to check.
+     */
+    waitingCount?: number;
     /** Whether anybody is on every screen in the room, which is what makes clearing it offerable. */
     spotlighted?: boolean;
     /** Which meeting is being ended, for the confirmation panel to name. */
@@ -100,6 +116,16 @@
     onMuteAll?: () => void;
     /** Shut the door, or open it again. */
     onSetLocked?: (locked: boolean) => void;
+    /**
+     * Hold arrivals in a lobby, or let them straight in.
+     *
+     * Turning it OFF admits nobody: the people already at the door stay there until a host decides
+     * about each of them, because somebody may be waiting precisely because the host means to turn
+     * them away, and a switch must never become an admission nobody made.
+     */
+    onSetLobby?: (lobby: MeetingLobbyMode) => void;
+    /** Open the panel naming who is at the door. */
+    onOpenLobby?: () => void;
     /** Take whoever is on every screen off it. */
     onClearSpotlight?: () => void;
     /** Open the panel naming who is running this meeting. */
@@ -225,6 +251,25 @@
        shows what it is already doing. -->
   {@render connection?.()}
 
+  {#if hosting && onOpenLobby !== undefined}
+    <!-- THE ONE ROOM ACT THAT EARNS ITS OWN CONTROL, because it is the only one that has something
+         to SAY. A host running a meeting learns somebody is standing outside by seeing the count,
+         and a count inside a menu is a person left at a door for ten minutes. It sits before the
+         menu rather than at the end of the band: the end is an anchor, and a control whose badge
+         comes and goes must not hold it. -->
+    <Button variant="secondary" onclick={onOpenLobby}>
+      {#if lobby === "on"}
+        <DoorClosed class="size-16" aria-hidden="true" />
+      {:else}
+        <DoorOpen class="size-16" aria-hidden="true" />
+      {/if}
+      Lobby
+      {#if waitingCount > 0}
+        <Badge variant="primary">{waitingCount}</Badge>
+      {/if}
+    </Button>
+  {/if}
+
   {#if hosting}
     <!-- ONE MENU RATHER THAN A ROW OF NEW GLYPHS. The acts over the whole room are four, and four
          more controls in a band every member reads would cost everybody else the space so that
@@ -249,6 +294,15 @@
           {:else}
             <Lock class="size-16 shrink-0" aria-hidden="true" />
             Lock the Room
+          {/if}
+        </DropdownMenu.Item>
+        <DropdownMenu.Item onSelect={() => onSetLobby?.(lobby === "on" ? "off" : "on")}>
+          {#if lobby === "on"}
+            <DoorOpen class="size-16 shrink-0" aria-hidden="true" />
+            Let Arrivals Straight In
+          {:else}
+            <DoorClosed class="size-16 shrink-0" aria-hidden="true" />
+            Hold Arrivals in a Lobby
           {/if}
         </DropdownMenu.Item>
         {#if spotlighted}

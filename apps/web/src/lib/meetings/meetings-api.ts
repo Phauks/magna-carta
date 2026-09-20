@@ -1,5 +1,5 @@
 /*
- * The four writes a meeting screen makes, each answering with an outcome rather than throwing.
+ * Every read and write a meeting screen makes, each answering with an outcome rather than throwing.
  *
  * The reads are the generated `…Options` factories and go straight into the one cache; these are
  * the writes, and they are wrapped for one reason: the generated client throws its failure
@@ -12,23 +12,30 @@
  * member twice and the record says they were in the room twice over.
  */
 import {
+  meetingsAdmitToLobby,
+  meetingsDenyFromLobby,
   meetingsEnd,
   meetingsGrantHosting,
   meetingsHosts,
   meetingsJoin,
   meetingsLeave,
+  meetingsLobby,
   meetingsRemoveParticipant,
   meetingsRevokeHosting,
+  meetingsSetLobby,
   meetingsSetLocked,
   meetingsStart,
   type JoinedMeeting,
   type MeetingAcknowledged,
   type MeetingHostGrant,
   type MeetingHostingAcknowledged,
+  type MeetingLobbyAcknowledged,
+  type MeetingLobbyDecisions,
+  type MeetingLobbyEntry,
   type StartedMeeting,
 } from "@magna-carta/api-client";
 import { failureOf } from "$lib/api/api-client.ts";
-import type { MeetingHostRole } from "@magna-carta/meeting-protocol/types";
+import type { MeetingHostRole, MeetingLobbyMode } from "@magna-carta/meeting-protocol/types";
 import type { MeetingMedium } from "./meeting-client.svelte.ts";
 import type { Failure } from "$lib/api/problem.ts";
 
@@ -62,12 +69,15 @@ export function startMeeting(
   eventKind: "matter" | "firm",
   eventId: string,
   medium: MeetingMedium = "video",
+  lobby: MeetingLobbyMode = "off",
 ): Promise<MeetingWrite<StartedMeeting>> {
   return write(() =>
     meetingsStart({
       // What the room carries is settled HERE and never again: everybody who joins agreed to the
-      // same thing, so the medium is part of opening the room rather than a setting inside it.
-      body: { eventKind, eventId, medium },
+      // same thing, so the medium is part of opening the room rather than a setting inside it. The
+      // door is the opposite and is sent here only as the standing it OPENS with: a host changes it
+      // from inside the room, because who may come in has no bearing on what anybody agreed to.
+      body: { eventKind, eventId, medium, lobby },
       headers: { "idempotency-key": newWriteKey() },
       throwOnError: true,
     }),
@@ -205,6 +215,115 @@ export function setMeetingLocked(
       throwOnError: true,
     }),
   );
+}
+
+/*
+ * THE DOOR. Four writes, all of them the host's, and every one of them a route rather than a frame
+ * for the reason the acts above are: arrivals refused at a door somebody shut, and a member let into
+ * a meeting on a matter's record, are both facts that outlive the room.
+ */
+
+/** Open the door or shut it. A host's standing decision, changed from inside the meeting. */
+export function setMeetingLobby(
+  meetingId: string,
+  lobby: MeetingLobbyMode,
+): Promise<MeetingWrite<MeetingLobbyAcknowledged>> {
+  return write(() =>
+    meetingsSetLobby({
+      path: { meetingId },
+      body: { lobby },
+      headers: { "idempotency-key": newWriteKey() },
+      throwOnError: true,
+    }),
+  );
+}
+
+/**
+ * Who is at the door.
+ *
+ * The one read in this family the people INSIDE the room may not make: who is running the meeting is
+ * something everybody it governs needs to know, and who is outside it is a list of people a host has
+ * not yet decided about.
+ */
+export function readMeetingLobby(
+  meetingId: string,
+): Promise<MeetingWrite<readonly MeetingLobbyEntry[]>> {
+  return write(async () => {
+    const { data } = await meetingsLobby({ path: { meetingId }, throwOnError: true });
+    return { data: data.data };
+  });
+}
+
+/**
+ * Let the named arrivals in.
+ *
+ * THERE IS NO "ADMIT EVERYONE" ON THE SERVER, and its absence is the design: a server-side "all"
+ * would admit whoever arrived in the millisecond after the host looked at the list, which in a lobby
+ * that exists because somebody might arrive who should not is precisely the person the host did not
+ * decide about. So Admit all sends the identifiers the panel was showing.
+ *
+ * The answer reports one outcome per identifier, so a batch that half-lands is legible: a host
+ * admitting five people into two free seats learns which three did not get in.
+ */
+export function admitToMeetingLobby(
+  meetingId: string,
+  participantIds: readonly string[],
+): Promise<MeetingWrite<MeetingLobbyDecisions>> {
+  return write(() =>
+    meetingsAdmitToLobby({
+      path: { meetingId },
+      body: { participantIds: [...participantIds] },
+      headers: { "idempotency-key": newWriteKey() },
+      throwOnError: true,
+    }),
+  );
+}
+
+/**
+ * Turn the named arrivals away.
+ *
+ * Denial BARS them from this meeting while it runs, on the same rule a removal keeps: a denial that
+ * did not bar would be a control that does nothing, because the member presses Join again and is
+ * back at the front of the queue.
+ */
+export function denyFromMeetingLobby(
+  meetingId: string,
+  participantIds: readonly string[],
+): Promise<MeetingWrite<MeetingLobbyDecisions>> {
+  return write(() =>
+    meetingsDenyFromLobby({
+      path: { meetingId },
+      body: { participantIds: [...participantIds] },
+      headers: { "idempotency-key": newWriteKey() },
+      throwOnError: true,
+    }),
+  );
+}
+
+/**
+ * What a batch at the door did NOT do, in the words a host reads. Null where it did all of it.
+ *
+ * The answer reports one outcome per identifier because a batch can half-land, and a half-landed
+ * batch that says nothing is the silent failure this whole family is built to avoid: the rows that
+ * did not move stay on screen looking exactly like rows nobody pressed. A room that filled is
+ * separated from a stay that closed while the host was reading, because only the first is a reason
+ * to wait and try again.
+ */
+export function doorDecisionStatement(
+  decisions: MeetingLobbyDecisions,
+  wanted: "admitted" | "denied",
+): string | null {
+  const missed = decisions.data.filter((decision) => decision.outcome !== wanted);
+  if (missed.length === 0) return null;
+  const full = missed.filter((decision) => decision.outcome === "room-full").length;
+  if (full > 0) {
+    return full === 1
+      ? "1 person did not get in: the room is full."
+      : `${full} people did not get in: the room is full.`;
+  }
+  return missed.length === 1
+    ? "1 person was no longer waiting, so nothing changed for them."
+    : `${missed.length} people were no longer waiting, so nothing changed for them.`;
 }
 
 /**

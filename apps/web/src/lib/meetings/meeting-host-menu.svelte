@@ -160,7 +160,7 @@
   <ActionDialog
     bind:open={handingOver}
     kind="confirm"
-    heading="Change Who Is Hosting"
+    heading="Hand Hosting Over"
     subtitle={subject}
     commitLabel="Hand It Over"
     commitBusyLabel="Handing It Over"

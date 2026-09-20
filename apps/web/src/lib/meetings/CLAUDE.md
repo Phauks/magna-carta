@@ -39,6 +39,10 @@ edge is a constructor seam, so the whole machine runs under a test with fakes.
 - `host-controls.ts` — running the meeting from inside it: the four directives a host sends, the
   reader for what the room says about itself, and the two sentences a member reads when a host acts on
   them. A concern is a module, so none of it is a set of fields on the client.
+- `lobby.ts` — the door: where somebody waiting stands, who is at it for a host, and the two answers
+  a room gives a socket that is not through it yet (`denied`, which is fatal, and `not-admitted`,
+  which is a notice). It is also the one home for what a lobby mode string off the wire means, which
+  `host-controls.ts` reads rather than answering a second time.
 - `presence.ts` — the meter on this browser's own microphone, and the transition test that keeps a
   presence frame from being sent twice.
 - `audio-level-meter.ts` — the analyser itself, which is a device and therefore a seam.
@@ -60,8 +64,11 @@ four surfaces drawing the same badge is four spellings of "Co-host". The room sc
 `src/routes/(app)/meetings/[id]/+page.svelte`.
 
 **Beside them, running the meeting:** `meeting-host-menu.svelte` (the per-tile and per-row menu, one
-component for both places) and `meeting-hosts-panel.svelte` (who holds a grant, and the claim). Both
-take models and handlers rather than the client, like every other screen component here.
+component for both places), `meeting-hosts-panel.svelte` (who holds a grant, and the claim),
+`meeting-lobby-panel.svelte` (who is at the door, and the host's two answers for each of them) and
+`meeting-lobby-wait.svelte` (what somebody standing at that door sees, which is not the room with
+things missing). All of them take models and handlers rather than the client, like every other
+screen component here.
 
 **Beside them, and not part of the room:** `meetings-api.ts` (every read and write, mirroring the
 contract), `meeting-list.ts` / `meeting-list-section.svelte` / `meetings-screen.svelte` (the Meetings
@@ -86,11 +93,23 @@ so those modules can take the `MeetingMedium` union without reaching into the ro
 - **Every external edge is a seam on `MeetingClientSeams`.** The peer connection, the socket,
   capture, the empty stream, the level meter. Adding a browser global anywhere in `client/` is what
   makes the next case untestable.
-- **A refusal is not the end of a meeting unless it says so.** Four reasons end it
-  (`not-a-participant`, `meeting-ended`, `superseded`, `removed`); every other one leaves the socket
-  open, the roster arriving and the member in the room, with a sentence on the screen. `not-host` is
-  the one that is neither: nothing is wrong with this browser and nothing was refused about the
-  meeting, so it is a notice rather than the band that reports a frame the room could not read.
+- **NOTHING IS CAPTURED AT THE DOOR.** A join answered `waiting: true` opens the socket and refuses
+  the publish — in `publish()` itself, not in a branch a screen remembers to write — because a
+  browser that lit the camera indicator for somebody standing outside a room would be taking a
+  picture nobody asked for. The `admitted` frame is what owes the capture, and the `welcome` that
+  follows it is what spends it, so an admitted member publishes exactly as they would have on an
+  ordinary join.
+- **Who is at the door comes off the WIRE, and a read may only fill a gap in it.** The room re-sends
+  the whole list to every socket holding a grant as the queue moves, so `noteWhoIsWaiting` refuses
+  to write over a list a frame has already stated. The one thing the frames cannot cover is a grant
+  written AFTER the last arrival — a member named co-host at the twentieth minute is told the roster
+  changed and nothing about the people already outside — and that is the only gap the read fills.
+- **A refusal is not the end of a meeting unless it says so.** Five reasons end it
+  (`not-a-participant`, `meeting-ended`, `superseded`, `removed`, `denied`); every other one leaves
+  the socket open, the roster arriving and the member in the room, with a sentence on the screen.
+  `not-host` and `not-admitted` are the two that are neither: nothing is wrong with this browser and
+  nothing was refused about the meeting, so each is a notice rather than the band that reports a
+  frame the room could not read.
 - **A HOST'S MUTE TAKES THE TRACK AWAY; THIS MEMBER'S OWN MUTE DOES NOT.** The room closes the audio
   at the routing service, which is what makes it a mute rather than a request the browser could
   decline by ignoring it — so coming back is a fresh media section, a fresh offer and a fresh
@@ -131,4 +150,7 @@ so those modules can take the `MeetingMedium` union without reaching into the ro
   landing in that gap names somebody an empty roster does not hold, which is the shape of a frame
   gone missing — so the client asks for the whole list again, and every browser joining at the top
   of the hour does it at once. Only the frames about the socket itself (the hello, a refusal, the
-  meeting ending) mean anything before it.
+  meeting ending) mean anything before it — plus the door's two, `lobby` and `admitted`, which are
+  about the socket rather than the room and which a waiting socket receives INSTEAD of a hello. Held
+  behind the welcome, those two would be held forever and the screen would sit blank behind a door
+  that was open.

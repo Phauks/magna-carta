@@ -18,11 +18,14 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  DENIED_REASON,
+  DENIED_STATEMENT,
   MeetingClient,
   PROTOCOL_MISMATCH_REASON,
   RECONCILE_DEBOUNCE_MILLISECONDS,
   refusalStatement,
   SUPERSEDED_REASON,
+  waitingPlaceStatement,
   type MeetingClientSeams,
   type MeetingMedium,
 } from "$lib/meetings/client/meeting-client.svelte.ts";
@@ -327,6 +330,11 @@ function harness(
    * frame arriving early has to be judged in.
    */
   welcomed = true,
+  /**
+   * Whether the join put this stay at the DOOR rather than in the room. A waiting socket is never
+   * sent a welcome, so a case that passes this passes `welcomed` as false beside it.
+   */
+  waiting = false,
 ): Harness {
   const socket = new FakeSocket();
   const peerConnection = new FakePeerConnection();
@@ -359,6 +367,7 @@ function harness(
     iceServers: [],
     socketUrl: "wss://example.test/api/v1/meetings/meeting_1/socket",
     medium,
+    waiting,
   });
   socket.accept();
   if (welcomed) socket.deliver({ v: 1, type: "welcome", participantId, roster: [] });
@@ -2070,5 +2079,189 @@ describe("a host putting this member out of the meeting", () => {
     // refuses them while the meeting runs.
     expect(captured.getTracks().every((track) => track.stopped)).toBe(true);
     expect(peerConnection.closed).toBe(true);
+  });
+});
+
+/*
+ * WAITING AT THE DOOR.
+ *
+ * The case that cannot be got right by inspection is the camera: a browser that captured while
+ * somebody stood outside a room would light the device's own indicator for a person who is not in
+ * any meeting, and nothing on their screen would say why. So the door's own standing is asserted
+ * first, and the publish that follows an admission is asserted to be the one that was refused at it.
+ */
+
+/** A waiting stay: the socket is open, the room has said nothing but where they stand. */
+function atTheDoor(): Harness {
+  return harness("attendance_1", "video", false, true);
+}
+
+describe("a join that put this stay at the door", () => {
+  it("opens the socket and captures NOTHING", async () => {
+    const { client, socket } = atTheDoor();
+
+    expect(client.state).toBe("waiting");
+    await client.publish();
+
+    // No capture, no offer, no media section. The screen asks for a publish on every arrival, so
+    // the refusal has to live here rather than in a branch some surface remembers to write.
+    expect(client.localStream).toBeNull();
+    expect(socket.framesOfType("publish")).toHaveLength(0);
+  });
+
+  it("takes its place from the lobby frame, and states who is ahead", () => {
+    const { client, socket } = atTheDoor();
+
+    socket.deliver({
+      v: 1,
+      type: "lobby",
+      position: 3,
+      waiting: 4,
+      at: "2026-09-20T15:00:00.000Z",
+    });
+
+    expect(client.waiting).toEqual({
+      position: 3,
+      waiting: 4,
+      at: "2026-09-20T15:00:00.000Z",
+    });
+    expect(waitingPlaceStatement(client.waiting)).toBe("2 people are ahead of you.");
+
+    // Re-sent whole as the queue moves, and replaced rather than merged.
+    socket.deliver({
+      v: 1,
+      type: "lobby",
+      position: 1,
+      waiting: 1,
+      at: "2026-09-20T15:01:00.000Z",
+    });
+    expect(client.waiting?.position).toBe(1);
+    // Nobody is ahead of the person at the front, and a line saying so says nothing.
+    expect(waitingPlaceStatement(client.waiting)).toBeNull();
+  });
+
+  it("publishes on the welcome that follows an admission, as if it had just joined", async () => {
+    const { client, socket } = atTheDoor();
+    socket.deliver({
+      v: 1,
+      type: "lobby",
+      position: 1,
+      waiting: 1,
+      at: "2026-09-20T15:00:00.000Z",
+    });
+
+    socket.deliver({ v: 1, type: "admitted", at: "2026-09-20T15:02:00.000Z" });
+    // Two frames with one job each, so the welcome handler is the handler it has always been.
+    socket.deliver({ v: 1, type: "welcome", participantId: "attendance_1", roster: [] });
+    await settle();
+
+    expect(client.state).toBe("live");
+    expect(client.waiting).toBeNull();
+    const [publish] = socket.framesOfType("publish");
+    expect(publish?.tracks).toEqual([
+      { trackName: "attendance_1:audio", mid: "0", kind: "audio" },
+      { trackName: "attendance_1:video", mid: "1", kind: "video" },
+    ]);
+  });
+
+  it("may still give up, which is one of the two frames a waiting socket may send", () => {
+    const { client, socket } = atTheDoor();
+
+    client.leave();
+
+    expect(socket.framesOfType("leave")).toHaveLength(1);
+    expect(client.state).toBe("ended");
+  });
+});
+
+describe("a host turning somebody away at the door", () => {
+  it("is fatal, and says so in words of its own", () => {
+    const { client, socket } = atTheDoor();
+
+    socket.deliver({ v: 1, type: "refused", reason: DENIED_REASON });
+
+    expect(client.state).toBe("failed");
+    expect(client.failureReason).toBe(DENIED_REASON);
+    // The twin of a removal and barred on the same terms, so the sentence has to say there is no
+    // way back in rather than reading as one more thing the room refused.
+    expect(refusalStatement({ reason: DENIED_REASON, errorId: null })).toBe(DENIED_STATEMENT);
+    expect(DENIED_STATEMENT).toContain("cannot come back");
+  });
+});
+
+describe("a frame from a socket that is still waiting", () => {
+  it("is a notice, and leaves them exactly where they were", () => {
+    const { client, socket } = atTheDoor();
+
+    socket.deliver({ v: 1, type: "refused", reason: "not-admitted" });
+
+    expect(client.state).toBe("waiting");
+    expect(client.lastNotice).toContain("still waiting");
+    // Deliberately NOT the band that reports a frame the room could not read: nothing is wrong with
+    // this browser, and the door may still open.
+    expect(client.lastRefusal).toBeNull();
+  });
+});
+
+describe("who is at the door, for a host", () => {
+  it("rides on the welcome and is replaced whole by each waiting frame", () => {
+    const { client, socket } = harness("attendance_1", "video", false);
+
+    socket.deliver({
+      v: 1,
+      type: "welcome",
+      participantId: "attendance_1",
+      roster: [],
+      waiting: [
+        {
+          participantId: "attendance_7",
+          userId: "usr_7",
+          displayName: "Rosalind Chase",
+          waitingFrom: "2026-09-20T15:00:00.000Z",
+        },
+      ],
+    });
+    expect(client.lobbyList.map((one) => one.displayName)).toEqual(["Rosalind Chase"]);
+
+    socket.deliver({
+      v: 1,
+      type: "waiting",
+      participants: [
+        {
+          participantId: "attendance_7",
+          userId: "usr_7",
+          displayName: "Rosalind Chase",
+          waitingFrom: "2026-09-20T15:00:00.000Z",
+        },
+        {
+          participantId: "attendance_8",
+          userId: "usr_8",
+          displayName: "Theodore Vance",
+          waitingFrom: "2026-09-20T15:01:00.000Z",
+        },
+      ],
+    });
+    expect(client.lobbyList).toHaveLength(2);
+
+    // Whole rather than as a difference: an emptied door is an empty list, not an absent frame.
+    socket.deliver({ v: 1, type: "waiting", participants: [] });
+    expect(client.lobbyList).toHaveLength(0);
+  });
+
+  it("takes a read of the door as well, for a grant written after the last arrival", () => {
+    // A member named co-host at the twentieth minute is sent the roster that says so and nothing
+    // about the people already standing outside, because the room sends the list as they ARRIVE.
+    const { client } = harness();
+
+    client.noteWhoIsWaiting([
+      {
+        participantId: "attendance_7",
+        userId: "usr_7",
+        displayName: "Rosalind Chase",
+        waitingFrom: "2026-09-20T15:00:00.000Z",
+      },
+    ]);
+
+    expect(client.lobbyList).toHaveLength(1);
   });
 });

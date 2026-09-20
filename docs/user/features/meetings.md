@@ -244,6 +244,57 @@ where they are, and the event and the Meetings page both say **Locked** instead 
 pressing Join. **Unlock the room** opens it again. Locking is what you do once everybody has
 arrived and the matter turns confidential.
 
+## The waiting room
+
+Most meetings need no door. Everybody who can join is already on the event, and a queue in front of
+an ordinary hearing would only make a colleague press a button and then wait for somebody to notice
+them. So the waiting room is off unless you turn it on, and it is worth turning on for the meetings
+where who walks in matters: a client call, a discussion that turns confidential, a room you would
+rather not have somebody wander into halfway through.
+
+**Turning it on.** Beside **Start meeting** and **Start call** on the event is a switch reading
+**Hold arrivals in a lobby**. Set it before you open the room and everybody who joins after you waits
+until you let them in. Inside a meeting it is **Host controls › Hold arrivals in a lobby**, and the
+same item reads **Let arrivals straight in** once it is on, so you can shut the door in the middle of
+a meeting that has taken a turn, or open it again once everybody has arrived.
+
+**Turning it off does not let in the people already outside.** They stay at the door until you decide
+about each of them. A switch is a standing decision about arrivals in general, and somebody may be
+waiting precisely because you meant to turn them away.
+
+**Whoever is running the meeting never waits.** A host or co-host of the meeting goes straight in.
+Holding the firm permission to start meetings is not enough on its own: a colleague with that
+permission walking past the door of a confidential matter discussion is what the lobby is for.
+
+**A locked room has no queue.** Locking refuses arrivals outright rather than holding them, because a
+queue in front of a door somebody has shut is a queue nobody will ever be let in from.
+
+### What somebody waiting sees
+
+The meeting's own screen, saying they are waiting to be let in, which meeting it is, and — where
+anybody is in front of them — how many people are ahead. There is no room on it: no tiles, no list of
+who is inside, no microphone and no camera. Nothing is captured while they wait, so no indicator
+light comes on and there is nothing of theirs going anywhere. The only control is **Leave**, which
+closes their own stay and takes them back to the event.
+
+### Letting people in, and turning them away
+
+The control bar carries **Lobby** for whoever is running the meeting, with the number of people
+outside on it, and the first time somebody arrives a line says so — you should not have to watch a
+button to find out that a client is standing at the door.
+
+Opening it lists everybody waiting, with the time each of them arrived, and **Admit** and **Deny**
+beside each name. Past one person there is **Admit all**, which lets in exactly the people the list
+was showing: somebody who arrives a second later is still a person you have not decided about, and
+they stay at the door. If the room is full, the people who did not get a seat stay in the list and
+the panel says how many, so you can end somebody else's stay or wait for a seat.
+
+**A denial bars that person from this meeting.** They are told a host did not let them in, and
+pressing Join again will not put them back in the queue — otherwise Deny would be a button that does
+nothing at all. It is this meeting they are barred from and nothing else: a new meeting on the same
+event is a new room, their place on the calendar entry is untouched, and the record keeps when they
+arrived and when their stay closed.
+
 ## Ending a meeting
 
 The control bar carries **End meeting** for whoever is running the meeting. It ends it for everybody:

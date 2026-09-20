@@ -240,6 +240,23 @@ export interface RoomFrameHandlers {
   muted(frame: Record<string, unknown>): void;
   /** A host asked this member to unmute. A request — nothing happens until the member chooses. */
   unmuteRequested(frame: Record<string, unknown>): void;
+  /**
+   * Where this browser stands at the door. It arrives in place of a `welcome` and is re-sent as the
+   * queue in front of them moves; a waiting socket is never sent a welcome at all.
+   */
+  lobby(frame: Record<string, unknown>): void;
+  /**
+   * A host let them in, on the socket they were waiting on. The ordinary `welcome` follows it.
+   *
+   * Two frames with one job each, which is what keeps the welcome handler the handler it has always
+   * been: this one is where the browser learns it may start capturing and publishing.
+   */
+  admitted(frame: Record<string, unknown>): void;
+  /**
+   * Who is at the door, sent to the sockets holding a grant and to nobody else. Whole rather than as
+   * a difference, and carried on a host's own `welcome` for the reason the roster is.
+   */
+  waiting(frame: Record<string, unknown>): void;
   ended(frame: Record<string, unknown>): void;
   refused(frame: Record<string, unknown>): void;
   /**
@@ -263,11 +280,16 @@ export interface RoomFrameHandlers {
  * browser joining at the top of the hour does that at once, over a roster that was always about to
  * arrive, which is a sync storm the room has to answer three hundred times for nothing.
  *
- * The three here are the frames that are about the socket rather than about the room's contents: the
+ * The ones here are the frames that are about the socket rather than about the room's contents: the
  * hello itself, a refusal (which may be the reason there will never be a hello), and the meeting
  * having ended under it.
+ *
+ * THE DOOR'S TWO ARE HERE BECAUSE A WAITING SOCKET NEVER GETS A WELCOME AT ALL. `lobby` is what the
+ * room sends in its place and `admitted` is what comes immediately before one, so a rule that held
+ * them until a welcome had arrived would hold both of them forever — the screen would sit blank
+ * behind a door that was open.
  */
-const FRAMES_BEFORE_WELCOME = new Set(["welcome", "refused", "ended", "pong"]);
+const FRAMES_BEFORE_WELCOME = new Set(["welcome", "refused", "ended", "pong", "lobby", "admitted"]);
 
 export class MeetingSignaling {
   readonly #openSocket: (url: string) => WebSocket;
@@ -483,6 +505,17 @@ export class MeetingSignaling {
         return;
       case "unmute-requested":
         this.#handlers.unmuteRequested(parsed);
+        return;
+      case "lobby":
+        this.#handlers.lobby(parsed);
+        return;
+      case "admitted":
+        // The welcome the room sends next is what makes this socket a member of the room; this
+        // frame is where the browser learns the wait is over and may start capturing.
+        this.#handlers.admitted(parsed);
+        return;
+      case "waiting":
+        this.#handlers.waiting(parsed);
         return;
       case "ended":
         this.#diagnostics.note({ kind: "ended" });

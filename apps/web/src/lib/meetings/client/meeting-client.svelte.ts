@@ -12,8 +12,9 @@
  * beside it — the socket and the frames (signaling.ts), the peer connection and the serialized
  * chain (negotiation.ts), what is coming in against what the plan wants (subscriptions.ts, over the
  * pure policy in subscription-policy.ts), what is captured and how it is offered (capture.ts,
- * through the effects stage in media-effects.ts), and what this browser says about its own
- * microphone (presence.ts). What is HERE is the runes state a screen renders from and the wiring
+ * through the effects stage in media-effects.ts), what this browser says about its own microphone
+ * (presence.ts), and the door somebody may be waiting at (lobby.ts). What is HERE is the runes
+ * state a screen renders from and the wiring
  * that turns one module's answer into another's question. A new concern is a new module, not another
  * field on this class.
  *
@@ -61,6 +62,18 @@ import {
   type MeetingHostRole,
   type MeetingRoomState,
 } from "./host-controls.ts";
+import {
+  DENIED_REASON,
+  DENIED_STATEMENT,
+  NOT_ADMITTED_NOTICE,
+  NOT_ADMITTED_REASON,
+  readWaitingParticipants,
+  readWaitingPlace,
+  waitingPlaceStatement,
+  type MeetingLobbyMode,
+  type MeetingWaitingPlace,
+  type WaitingParticipant,
+} from "./lobby.ts";
 import type { EffectedCapture } from "./media-effects.ts";
 import { MeetingNegotiation } from "./negotiation.ts";
 import { MeetingPresence } from "./presence.ts";
@@ -95,16 +108,20 @@ import {
 
 export { RECONCILE_DEBOUNCE_MILLISECONDS };
 export { mayActOn, mayRunTheMeeting };
+export { DENIED_REASON, DENIED_STATEMENT, waitingPlaceStatement };
 export type {
   ConnectionQuality,
   MeetingDirective,
   MeetingHostRole,
+  MeetingLobbyMode,
   MeetingMedium,
   MeetingParticipant,
   MeetingRefusal,
   MeetingRoomState,
   MeetingTrack,
   MeetingTrackKind,
+  MeetingWaitingPlace,
+  WaitingParticipant,
 };
 
 /** The reason recorded when the signaling socket goes away without the meeting having ended. */
@@ -149,6 +166,9 @@ const FATAL_REFUSAL_REASONS = new Set([
   "meeting-ended",
   SUPERSEDED_REASON,
   REMOVED_REASON,
+  // The twin of `removed`, on the same terms: barred entry is one rule with two labels, and the
+  // join path refuses them while the meeting runs.
+  DENIED_REASON,
 ]);
 
 /** A host frame from a socket holding no grant. The socket stays open; the member is told. */
@@ -177,8 +197,15 @@ const REFUSALS_THAT_LOSE_A_SUBSCRIPTION = new Set([
   "frame-too-large",
 ]);
 
-/** Where a meeting stands from this browser's point of view. */
-export type MeetingState = "idle" | "joining" | "live" | "ended" | "failed";
+/**
+ * Where a meeting stands from this browser's point of view.
+ *
+ * `waiting` is its own standing rather than a flag beside `joining`, and it has to be: a socket at
+ * the door has no roster, no peer connection worth anything and — deliberately — no capture, so
+ * every surface and every module that asks "is this browser in the room" would otherwise have to
+ * remember to ask a second question. It settles to `live` on the welcome that follows an admission.
+ */
+export type MeetingState = "idle" | "joining" | "waiting" | "live" | "ended" | "failed";
 
 /**
  * What one person's microphone is doing, as the room last relayed it.
@@ -206,6 +233,14 @@ export interface MeetingJoinRequest {
    * before calls existed, and what the record says for every meeting opened before that day.
    */
   readonly medium?: MeetingMedium;
+  /**
+   * Whether this stay is at the DOOR rather than in the room, as the join answered it.
+   *
+   * It decides that nothing is captured: a browser that lit the camera indicator for somebody
+   * standing at a door would be taking a picture nobody asked for. The socket is opened either way,
+   * because the queue's own frames arrive on it and giving up is a frame sent along it.
+   */
+  readonly waiting?: boolean;
 }
 
 /**
@@ -251,6 +286,11 @@ export function refusalStatement(refusal: MeetingRefusal): string {
       // The one fatal reason with a sentence here, because it is the one a member CAUSED and can
       // understand: the meeting is still running and they are still in it, somewhere else.
       return "You joined this meeting again from another tab or window, so this one has closed.";
+    case DENIED_REASON:
+      // The second fatal reason with a sentence of its own, and for the opposite reason to the one
+      // above: nothing here is a fault of this browser's, and somebody decided it about them by
+      // name. A screen that said only "the room refused something" would leave them pressing Join.
+      return DENIED_STATEMENT;
     case "sfu-unavailable":
       return "The service that carries the pictures and sound could not be reached. What was asked for will be asked for again.";
     case "unknown-track":
@@ -349,6 +389,16 @@ export class MeetingClient {
    * door is shut. Replaced whole by each `room-state`, and carried inline on the `welcome`.
    */
   roomState = $state<MeetingRoomState>(OPEN_ROOM_STATE);
+  /**
+   * Where this browser stands at the door, as the room last stated it. Null once it is through one,
+   * and null for everybody who never waited.
+   */
+  waiting = $state<MeetingWaitingPlace | null>(null);
+  /**
+   * Who is at the door, for a member running the meeting. Empty for everybody else, which is what
+   * the room sends them: who is outside a room is a list of people a host has not yet decided about.
+   */
+  lobbyList = $state<readonly WaitingParticipant[]>([]);
 
   /** This browser's own participant, as the room named it. */
   participantId = $state<string | null>(null);
@@ -482,6 +532,20 @@ export class MeetingClient {
    * show itself as sending while nobody could hear it for the rest of the meeting.
    */
   #microphoneClosedUpstream = false;
+  /**
+   * True while this stay is at the DOOR, which is what stops anything being captured.
+   *
+   * It is held apart from the standing rather than read off it because it answers a narrower
+   * question — "may this browser open a device" — and the standing changes for reasons that have
+   * nothing to do with the door.
+   */
+  #waitingAtTheDoor = false;
+  /**
+   * True between an admission and the welcome that follows it, so the client publishes on arrival
+   * exactly as it would have on an ordinary join. A member let in at the twentieth minute should
+   * not have to press anything to be seen.
+   */
+  #publishOnWelcome = false;
   /** True once this browser asked to leave, so the socket closing is expected rather than a fault. */
   #leaving = false;
 
@@ -538,6 +602,13 @@ export class MeetingClient {
         unmuteRequested: (frame) => {
           this.unmuteRequest = readDirective(frame);
         },
+        lobby: (frame) => {
+          this.waiting = readWaitingPlace(frame);
+        },
+        admitted: () => this.#handleAdmitted(),
+        waiting: (frame) => {
+          this.lobbyList = readWaitingParticipants(frame.participants);
+        },
         ended: () => {
           this.#leaving = true;
           this.state = "ended";
@@ -556,11 +627,15 @@ export class MeetingClient {
     );
   }
 
-  /** Open the peer connection and the signaling socket. The room answers with `welcome`. */
+  /**
+   * Open the peer connection and the signaling socket. The room answers with `welcome` — or, for a
+   * stay the join put at the door, with `lobby` and nothing else until a host admits them.
+   */
   join(request: MeetingJoinRequest): void {
-    if (this.state === "joining" || this.state === "live") return;
+    if (this.state === "joining" || this.state === "waiting" || this.state === "live") return;
     this.#reset();
-    this.state = "joining";
+    this.#waitingAtTheDoor = request.waiting === true;
+    this.state = this.#waitingAtTheDoor ? "waiting" : "joining";
     this.meetingId = request.meetingId;
     this.participantId = request.participantId;
     this.medium = request.medium ?? "video";
@@ -582,6 +657,26 @@ export class MeetingClient {
       participantId: () => this.participantId,
     });
     this.#signaling.open(request.socketUrl);
+  }
+
+  /**
+   * Take who is at the door from a READ rather than from a frame.
+   *
+   * The frames are the ordinary source and they are live: the room re-sends the whole list to every
+   * socket holding a grant as the queue moves. What they cannot cover is the socket that was not
+   * holding one when the last arrival happened — a member named co-host at the twentieth minute is
+   * sent the roster that says so and nothing about the people already standing outside, so their
+   * count and their panel would both read empty until somebody else arrived. The read closes that,
+   * and lands here rather than beside it so that one list answers the question everywhere.
+   *
+   * IT NEVER WRITES OVER WHAT THE WIRE SAID. A read is at best as current as the moment it was
+   * asked, and a frame is what the room holds now — so a read whose answer arrives after a `waiting`
+   * frame would put a stale list back, and the list it puts back would be the one a host acts on.
+   * It fills a gap or it does nothing.
+   */
+  noteWhoIsWaiting(waiting: readonly WaitingParticipant[]): void {
+    if (this.lobbyList.length > 0) return;
+    this.lobbyList = waiting;
   }
 
   /** How somebody else's picture and sound are arriving, for a surface that draws the mark. */
@@ -622,6 +717,14 @@ export class MeetingClient {
   async publish(): Promise<void> {
     const peerConnection = this.#negotiation.connection;
     if (peerConnection === null || this.localStream !== null) return;
+    /*
+     * NOTHING IS CAPTURED AT THE DOOR, and this is the guard rather than a decision the screen
+     * makes. A browser that lit the camera indicator for somebody standing outside a room would be
+     * taking a picture nobody asked for, and the screen calls this on arrival whether or not the
+     * join put them in a queue — so the one place that knows they are waiting is the one that
+     * refuses. The admission itself asks again.
+     */
+    if (this.#waitingAtTheDoor) return;
 
     const wantsPicture = this.medium === "video";
     const captured = await captureLocalMedia(this.#seams, this.medium);
@@ -930,7 +1033,28 @@ export class MeetingClient {
     // The room's own facts ride inline for the reason the whole roster does: a socket that has just
     // arrived holds nothing to apply a change to, so it cannot be told about a spotlight as one.
     this.roomState = readRoomState(frame.roomState);
+    // Who is at the door rides along on the same reasoning, and is empty for everybody who is not
+    // running the meeting — which is what the room sends them.
+    this.lobbyList = readWaitingParticipants(frame.waiting);
     this.#adoptRoster(readParticipants(frame.roster));
+    if (!this.#publishOnWelcome) return;
+    this.#publishOnWelcome = false;
+    void this.publish();
+  }
+
+  /**
+   * A host let this browser in, on the socket it was waiting on.
+   *
+   * The welcome follows immediately, and it is that frame rather than this one that makes this a
+   * member of the room — so what happens here is the two facts the welcome cannot carry: the door
+   * is behind them, and the capture that was refused at it is now owed. The peer connection was
+   * built from the relay credentials the join already answered with, which is why the join carries
+   * them even for somebody who is about to wait.
+   */
+  #handleAdmitted(): void {
+    this.#waitingAtTheDoor = false;
+    this.waiting = null;
+    this.#publishOnWelcome = true;
   }
 
   /** What the room now says about itself, replacing what this browser held. */
@@ -1186,6 +1310,13 @@ export class MeetingClient {
       this.lastNotice = NOT_HOSTING_NOTICE;
       return;
     }
+    // A frame from a socket that is still at the door. Nothing is wrong with it — the only frames a
+    // waiting socket may send are the keepalive and giving up — so the member is told rather than
+    // taken anywhere, and the door may still open.
+    if (reason === NOT_ADMITTED_REASON) {
+      this.lastNotice = NOT_ADMITTED_NOTICE;
+      return;
+    }
     this.lastRefusal = { reason, errorId: readString(frame, "errorId") };
     if (REFUSALS_THAT_LOSE_A_SUBSCRIPTION.has(reason)) this.#subscriptions.forgetPending();
   }
@@ -1293,6 +1424,10 @@ export class MeetingClient {
     this.unmuteRequest = null;
     this.mutedBy = null;
     this.roomState = OPEN_ROOM_STATE;
+    this.waiting = null;
+    this.lobbyList = [];
+    this.#waitingAtTheDoor = false;
+    this.#publishOnWelcome = false;
     this.#microphoneClosedUpstream = false;
     this.participants = [];
     this.remoteStreams = new Map();
