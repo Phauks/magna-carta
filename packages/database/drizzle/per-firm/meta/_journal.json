@@ -176,6 +176,13 @@
       "when": 1789773300000,
       "tag": "20260919T001022_a-meeting-has-a-medium",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1789928863768,
+      "tag": "20260920T090000_communication-number-scope-parts",
+      "breakpoints": true
     }
   ]
 }

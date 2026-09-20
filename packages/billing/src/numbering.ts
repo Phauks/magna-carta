@@ -9,21 +9,15 @@ export const INVOICE_NUMBERING_TABLES: SequenceNumberingTables = {
   ownerColumn: "invoice_id",
 };
 
-// The first number a firm's sequence hands out. A sequence that starts at zero produces an invoice
-// numbered 0, which no firm wants to send.
-export const INVOICE_NUMBER_START_VALUE = 1;
-
 // Firm-wide by default. A multi-office firm issuing on two letterheads passes a per-Location scope
 // and gets two independent sequences; a single-office firm passes nothing and gets one. The empty
 // string is the firm-wide scope, the same convention matter numbering uses.
+//
+// The scope is what the count runs within, and it is NOT a value the template renders: it is the
+// letterhead chosen when the bill was finalized, so the draw passes it to the planner rather than
+// deriving it (the `invoice` purpose is `scopeSource: "owner"` on the register). What the number
+// LOOKS like is the firm's own choice, written on the numbering settings screen; the built-in
+// default renders the same five-digit count this run has always rendered, and where a firm opens a
+// second letterhead its scheme has to carry the office code so the two runs stay apart — which
+// finalize refuses at the moment that second scope is opened.
 export const FIRM_WIDE_NUMBER_SCOPE = "";
-
-const NUMBER_DIGITS = 5;
-
-// The rendered number. Zero-padded so a year of bills sorts lexically the way it sorts numerically,
-// and prefixed by the scope when there is one, so two offices' sequences are distinguishable on a
-// remittance advice rather than colliding as bare integers.
-export function renderInvoiceNumber(scopeKey: string, drawnValue: number): string {
-  const digits = String(drawnValue).padStart(NUMBER_DIGITS, "0");
-  return scopeKey === FIRM_WIDE_NUMBER_SCOPE ? digits : `${scopeKey}-${digits}`;
-}

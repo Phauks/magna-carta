@@ -7,7 +7,8 @@ every one of those sequences in one place and decides what shape the ones the fi
 
 ## The sequences
 
-Each sequence has its own plate on the page, in this order:
+Each sequence folds open on the page, in this order. Closed, the page is the whole inventory: every
+sequence's name beside the number it is issuing today.
 
 - **Matter Numbers**: drawn once, when a matter opens, and frozen from then on. An intake and a
   consultation carry no matter number: a caller the firm never takes on must not consume one,
@@ -56,21 +57,25 @@ A scheme is an ordered list of parts. Each part is one of:
   that lacks the value a scheme needs cannot open under that scheme; the window that opens it says
   which part has no value.
 
-Any part taken from the record can be set to **restart the count**: the counter then begins again
+Where a sequence already counts within something — a time entry within its matter, an invoice
+within the letterhead it was issued on — no part restarts the count, and the column says so.
+Everywhere else, any part taken from the record can be set to **restart the count**: the counter then begins again
 for each distinct value of that part, so a year that restarts the count gives `2026-0001`,
 `2026-0002` and then `2027-0001`, and a practice area that restarts it gives each practice its own
 run.
 
-**In Force** states the scheme the firm is numbering under today, or says that nothing is set and
-what that means; a plate numbering from its built-in shape says so. The **Matter Numbering
-Scheme** field (or **Conflicts Check Numbering Scheme**, and so on) offers the common shapes;
-choosing one loads it into the parts below, and every part is then yours to change.
+**Current** states the scheme the firm is numbering under today, or says that nothing is set and
+what that means; a sequence numbering from its built-in shape says so.
 
-The parts are a table, one row per part. The arrows at the start of a row move it up or down; the
-**Part** column chooses what kind of part it is; **Text**, **Digits**, **Starts At** and **Restarts
-The Count** hold the facts that kind takes, and a column a part has no fact for is greyed with the
-reason shown when you hover it; the control at the end of the row removes it. **Add Part**, the
-list's last row, adds a part above it.
+The parts are a table, one row per part, in the order they appear in the number. The **Part**
+column chooses what kind of part it is, from a list in alphabetical order. **Value** holds the text
+of a fixed piece, and for every other kind states what that part will put into the number.
+**Digits**, **Starts At** and **Restarts the Count** hold the facts that kind takes, and a column a
+part has no fact for is empty with the reason shown when you hover it. At the end of the row are
+the controls that act on it: move it up, move it down, remove it.
+
+The last row of the table is where you add: **Add Part** adds one at the end, and **Load an
+example** fills the whole list with a common shape you can then change part by part.
 
 The **Preview** row is rendered by the same machinery that draws real numbers, against a sample
 record whose values are printed under it, so what you see is what the next record will get. **Save

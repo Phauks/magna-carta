@@ -10,7 +10,7 @@ import type {
   NumberingPurposeRecord,
   NumberingSampleContext,
   NumberSegment,
-  SchemeNumberingPurpose,
+  NumberingPurpose,
 } from "./numbering-scheme.ts";
 
 export interface NumberingSchemesListing {
@@ -30,14 +30,14 @@ export function readNumberingSchemes(
 export interface NumberingSchemeRecord {
   /** The active template, or null where the firm has configured nothing and no default applies. */
   segments: NumberSegment[] | null;
-  purpose: SchemeNumberingPurpose;
+  purpose: NumberingPurpose;
   /** True where the segments are the built-in sequence rendering until the firm sets its own. */
   usingDefault: boolean;
 }
 
 export function readNumberingScheme(
   fetchImpl: typeof fetch,
-  purpose: SchemeNumberingPurpose,
+  purpose: NumberingPurpose,
 ): Promise<ApiOutcome<NumberingSchemeRecord>> {
   return requestJson(fetchImpl, `/api/v1/numbering-scheme?purpose=${purpose}`);
 }
@@ -48,10 +48,10 @@ export function readNumberingScheme(
  */
 export function setNumberingScheme(
   fetchImpl: typeof fetch,
-  purpose: SchemeNumberingPurpose,
+  purpose: NumberingPurpose,
   segments: readonly NumberSegment[],
   idempotencyKey: string,
-): Promise<ApiOutcome<{ segments: NumberSegment[]; purpose?: SchemeNumberingPurpose }>> {
+): Promise<ApiOutcome<{ segments: NumberSegment[]; purpose?: NumberingPurpose }>> {
   return requestJson(fetchImpl, "/api/v1/numbering-scheme", {
     method: "PUT",
     idempotencyKey,
@@ -63,6 +63,12 @@ export interface NumberingPreview {
   number: string;
   /** The counter scope the sample falls in: empty for a firm-wide count. */
   scopeKey: string;
+  /**
+   * What each part of the scheme puts into that number, in template order. The table states it
+   * beside a part a reader cannot type into, and it is the SERVER's rendering: a value composed on
+   * the screen would be a second renderer beside the one that draws real numbers.
+   */
+  parts: string[];
 }
 
 /**
@@ -71,7 +77,7 @@ export interface NumberingPreview {
  */
 export function previewNumberingScheme(
   fetchImpl: typeof fetch,
-  purpose: SchemeNumberingPurpose,
+  purpose: NumberingPurpose,
   segments: readonly NumberSegment[],
   context: NumberingSampleContext,
   counterValue = 1,

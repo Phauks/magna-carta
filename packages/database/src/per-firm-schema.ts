@@ -632,7 +632,16 @@ export const numberingScheme = sqliteTable(
     // defensible shape to invent for one. Widening this enum is the whole of admitting a new
     // purpose here: there is no CHECK on the column (below), so no migration rewrites the table.
     purpose: text("purpose", {
-      enum: ["matter", "consultation", "intake", "conflicts_check", "custody_packet"],
+      enum: [
+        "matter",
+        "consultation",
+        "intake",
+        "conflicts_check",
+        "custody_packet",
+        "invoice",
+        "time_entry",
+        "communication",
+      ],
     })
       .notNull()
       .default("matter"),

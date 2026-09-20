@@ -1,4 +1,4 @@
-import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
+import { CIVIL_DATE_PATTERN, civilDateOf } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
@@ -1148,7 +1148,12 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
               fingerprint: idempotency.fingerprint,
               now,
               effect: async () => {
-                const plan = await planEntryNumberBlock(firm.firmDatabase, request.matterId, 1);
+                const plan = await planEntryNumberBlock(
+                  firm.firmDatabase,
+                  request.matterId,
+                  1,
+                  civilDateOf(now()),
+                );
                 observe({
                   scopeKey: plan.scopeKey,
                   observedValue: plan.observedValue,
@@ -1763,7 +1768,12 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
                 }
                 const plans = new Map<string, { plan: EntryNumberBlockPlan; used: number }>();
                 for (const [matterId, count] of blockSizes) {
-                  const plan = await planEntryNumberBlock(firm.firmDatabase, matterId, count);
+                  const plan = await planEntryNumberBlock(
+                    firm.firmDatabase,
+                    matterId,
+                    count,
+                    civilDateOf(now()),
+                  );
                   plans.set(matterId, { plan, used: 0 });
                 }
                 // The retry's out-of-band advance can carry one scope; the first is as good as

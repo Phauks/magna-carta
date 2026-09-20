@@ -1087,8 +1087,8 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="chip done">Shipped</span>
 <span class="nm">One numbering register for every sequence</span>
 <code>matters.numbering.register</code>
-<p>Every number the firm issues on one register in @magna-carta/sequence-numbering (purpose, when drawn, scheme-shaped or fixed, parts, default); conflicts check and custody numbers drawn through the shared planner from firm-written schemes; the numbering listing route; Settings · Numbering listing every sequence.</p>
-<p class="note">Shipped 2026-09-18. Conflicts checks default to CC2026-00001 restarting each year (a four-digit firm-wide run was the wrong default for the busiest sequence); custody keeps CUS-00001 as its default. Invoice, time-entry and call numbers are registered with their fixed shapes and listed read-only; making any of them scheme-shaped is one row flipping on the register plus its draw site.</p>
+<p>Every number the firm issues on one register in @magna-carta/sequence-numbering (purpose, when drawn, parts, what decides the counter scope, default); all eight sequences drawn through the shared planner from firm-written schemes; the numbering listing route; Settings · Numbering as one fold per sequence.</p>
+<p class="note">Shipped 2026-09-18; the last three fixed runs became schemes on 2026-09-20. Conflicts checks default to CC2026-00001 restarting each year (a four-digit firm-wide run was the wrong default for the busiest sequence); custody keeps CUS-00001 as its default. Invoice, time-entry and call numbers are schemes like the rest, each defaulting to byte-for-byte what it rendered before — which needed the month, day and matter-number parts plus scopeSource (template-derived scope versus a key the domain passes) and scopeDistinguishedBy on the register. A new sequence is a row here and a draw site; nothing about its shape goes in the owning package.</p>
 </li><li class="n d2" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Location segment in numbering</span>

@@ -1,29 +1,31 @@
 <script lang="ts">
   /*
-   * The editor for one of the firm's numbering schemes: the template one of its sequences follows
-   * — matter, consultation, intake, conflicts check or custody numbers, whichever purpose the page
-   * hands it. It renders INSIDE a settings plate, as rows of the settings anatomy plus one table,
-   * so the page it sits on reads like every other settings page rather than a form parked on one.
-   * What the purpose IS — its title, its parts, what is in force — arrives on the listing record;
-   * the editor keeps no second copy of the register.
+   * The editor for one of the firm's numbering schemes: the template one of its sequences follows,
+   * whichever purpose the page hands it. It renders INSIDE a settings plate, as rows of the
+   * settings anatomy plus one table, so the page it sits on reads like every other settings page
+   * rather than a form parked on one. What the purpose IS — its title, its parts, what is in force,
+   * what decides its count's scope — arrives on the listing record; the editor keeps no second copy
+   * of the register.
    *
    * ONE LIST, ONE PREVIEW, ONE SAVE. The scheme is an ordered list of parts, and BUILDING IT IS A
    * TABLE (owner ruling, 2026-09-11): one row per part, its fields in columns, edited the way every
-   * other list in the product is edited. The reordering arrows lead the row on the LEFT, because
-   * they act on the row and the row begins there; Remove ends it. A column a part has no fact for
-   * holds its control refused, with the reason on its hover, rather than removed — so changing a
-   * part's kind never moves the columns under the hand.
+   * other list in the product is edited. Moving a part and removing one are the row's own controls
+   * and sit together at its END (owner ruling, 2026-09-19, reversing the arrows-lead ruling of
+   * 2026-09-11): they are what you do TO the row rather than part of what it says, and the row says
+   * its piece first. The list's last row is where a part is added and where an example is loaded.
    *
-   * Beneath the list the server renders the list against the sample record as the reader types, so
-   * the number a scheme produces is seen before it is saved rather than discovered on the first
-   * record numbered under it. Save replaces the firm's scheme in one audited write.
+   * THE TABLE FITS ITS PLATE. Every cell sizes to what it holds, and nothing carries a fixed width:
+   * a table wider than the settings column grows its own horizontal scrollbar inside the page's,
+   * which is two bars for one list and hides the row's own controls off the right edge — which is
+   * exactly what shipped on 2026-09-18 and what `pnpm run lint:settings-scroll` now refuses.
    *
-   * THE PREVIEW IS THE SERVER'S. The same renderer that draws real numbers renders the sample; this
-   * component never composes a number itself, so what it shows is what a matter will get. It asks
-   * only when the list passes the one rule it can check here (exactly one counter, and text that
-   * can stand in a link), and it asks a moment after the last keystroke rather than on every one.
+   * A CELL A READER CANNOT TYPE INTO STATES WHAT THE PART WILL PUT THERE (owner ruling,
+   * 2026-09-19), rather than standing empty and refused: the Office Code part's value cell reads
+   * "RNO", because that is what the part contributes to the number. The value is the SERVER's — it
+   * comes back with the preview, rendered by the same renderer that draws real numbers — so the
+   * screen never composes a number or a piece of one.
    *
-   * WHAT IS IN FORCE STAYS ON SCREEN. The committed scheme is the first row of the plate, so a
+   * WHAT IS CURRENT STAYS ON SCREEN. The committed scheme is the first row of the plate, so a
    * half-edited list is never mistaken for the scheme the firm is numbering under. Discard returns
    * the list to it. A number already drawn is frozen whatever is saved here, and the line beside
    * Save says so.
@@ -37,7 +39,7 @@
   import ArrowDown from "@lucide/svelte/icons/arrow-down";
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
   import Plus from "@lucide/svelte/icons/plus";
-  import X from "@lucide/svelte/icons/x";
+  import Trash2 from "@lucide/svelte/icons/trash-2";
   import ChoicePicker from "$lib/components/choice-picker.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -53,17 +55,15 @@
     isScoping,
     moveNumberSegment,
     newNumberSegment,
+    numberingCurrentDescriptor,
     numberingFrozenSentence,
-    numberingInForceDescriptor,
     numberingSampleSentence,
     numberingSampleYear,
     numberingSavedSentence,
-    numberingSchemeLabel,
     numberingSchemeRefusal,
     numberingSchemesEqual,
     numberingStartersFor,
     numberSegmentCellRefusal,
-    numberSegmentVocabulary,
     numberSegmentVocabularyFor,
     removeNumberSegment,
     replaceNumberSegment,
@@ -71,7 +71,6 @@
     type NumberingSampleContext,
     type NumberSegment,
     type NumberSegmentKind,
-    type SchemeNumberingPurpose,
   } from "./numbering-scheme.ts";
 
   let {
@@ -81,27 +80,26 @@
     onRequestChange,
   }: {
     /** The purpose as the listing describes it, with what is in force at the time of the read. */
-    record: NumberingPurposeRecord & { purpose: SchemeNumberingPurpose };
+    record: NumberingPurposeRecord;
     /** The sample record the server rendered every example against; the preview uses the same. */
     sample: NumberingSampleContext;
     /** Whether the session may replace the scheme. Without it the scheme is read and stated. */
     canManage: boolean;
-    /** Read-only only: mounts the per-row Request a change affordance on the In Force row. */
+    /** Read-only only: mounts the per-row Request a change affordance on the Current row. */
     onRequestChange?: (definition: SettingDefinition) => void;
   } = $props();
 
   const identifier = $props.id();
   const purpose = $derived(record.purpose);
-  const kinds = $derived(record.segmentKinds ?? []);
-  const vocabulary = $derived(numberSegmentVocabularyFor(kinds));
-  const starters = $derived(numberingStartersFor(kinds));
+  const vocabulary = $derived(numberSegmentVocabularyFor(record.segmentKinds));
+  const starters = $derived(numberingStartersFor(record));
 
   // What the server said is in force, as the listing carried it when this editor was drawn. Read
   // once on purpose: the editor owns the committed scheme from here (Save moves it), and the page
   // keys each editor by its purpose, so a record is never swapped under a mounted editor.
   const initial = untrack(() => record);
   let committed = $state<readonly NumberSegment[] | null>(initial.segments);
-  let usingDefault = $state(initial.usingDefault === true);
+  let usingDefault = $state(initial.usingDefault);
   /** The first number the sample renders under what is in force, as the server rendered it. */
   let example = $state<string | null>(initial.example);
   /** The list under edit. Starts as the committed scheme and is returned to it by Discard. */
@@ -156,9 +154,9 @@
   });
 
   /**
-   * The scheme field holds nothing at rest: choosing a shape loads it into the list and the field
-   * empties again, because once a part has been changed the list is no longer that shape, and a
-   * field still naming it would be claiming something the table below contradicts.
+   * The examples control holds nothing at rest: choosing one loads it into the list and the control
+   * empties again, because once a part has been changed the list is no longer that example, and a
+   * field still naming it would be claiming something the table above contradicts.
    */
   let starterChoice = $state("");
 
@@ -187,6 +185,16 @@
 
   function update(index: number, segment: NumberSegment): void {
     draft = replaceNumberSegment(draft, index, segment);
+    savedSentence = null;
+  }
+
+  function removePart(index: number): void {
+    draft = removeNumberSegment(draft, index);
+    savedSentence = null;
+  }
+
+  function movePart(index: number, delta: -1 | 1): void {
+    draft = moveNumberSegment(draft, index, delta);
     savedSentence = null;
   }
 
@@ -221,7 +229,7 @@
     usingDefault = false;
     draft = outcome.value.segments;
     // The preview rendered the saved list against the sample at its first value, which is exactly
-    // what the In Force row shows; the server rendered it, so nothing is composed here.
+    // what the Current row shows; the server rendered it, so nothing is composed here.
     if (preview !== null) example = preview.number;
     savedSentence = numberingSavedSentence(record);
   }
@@ -233,8 +241,8 @@
       meaning: entry.description,
     })),
   );
-  // Every year these choices name is the sample's, which the server sets to today: a starter's
-  // example and the digits picker never disagree with the preview beneath them in January.
+  // Every year these choices name is the sample's, which the server sets to today: an example and
+  // the digits picker never disagree with the preview beneath them in January.
   const sampleYear = $derived(numberingSampleYear(sample));
   const STARTER_CHOICES = $derived(
     starters.map((starter) => ({
@@ -253,33 +261,21 @@
     return Number.isNaN(parsed) ? fallback : parsed;
   }
 
-  /** What one column of a part reads as a number field, where the part has one. */
-  function digitsOf(segment: NumberSegment): string {
-    if (segment.kind === "counter") return String(segment.padWidth);
-    if (segment.kind === "year") return String(segment.digits);
-    return "";
+  /** What the part at this row will put into the number, as the server's preview rendered it. */
+  function partValue(index: number): string {
+    return preview?.parts[index] ?? "";
   }
 
   // ---- the rows of the plate, as settings definitions ----------------------------------------
 
-  // In Force answers with the number the sample renders, as the fixed sequences' rows do, and its
-  // one line under it is the parts that render it — the built-in ones said to be so.
-  const IN_FORCE_DEFINITION = $derived<SettingDefinition>({
-    id: `numbering.${purpose}.in-force`,
+  // Current answers with the number the sample renders, and its one line under it is the parts that
+  // render it — the built-in ones said to be so.
+  const CURRENT_DEFINITION = $derived<SettingDefinition>({
+    id: `numbering.${purpose}.current`,
     sectionId: "numbering",
-    label: "In Force",
-    description: numberingInForceDescriptor(record, committed, usingDefault),
+    label: "Current",
+    description: numberingCurrentDescriptor(record, committed, usingDefault),
     kind: "text",
-    defaultValue: "",
-    sensitivity: "open",
-  });
-
-  const SCHEME_DEFINITION = $derived<SettingDefinition>({
-    id: `numbering.${purpose}.scheme`,
-    sectionId: "numbering",
-    label: numberingSchemeLabel(record),
-    description: "Choose a common shape to load into the parts below; every part is then the firm's to change.",
-    kind: "select",
     defaultValue: "",
     sensitivity: "open",
   });
@@ -293,161 +289,126 @@
     defaultValue: "",
     sensitivity: "open",
   });
-
 </script>
 
 <div class="flex flex-col divide-y divide-border-default">
-  <!-- What is in force, stated before anything is edited: a value engraved, never a control. -->
+  <!-- What is current, stated before anything is edited: a value engraved, never a control. -->
   <SettingsRow
-    definition={IN_FORCE_DEFINITION}
+    definition={CURRENT_DEFINITION}
     value={example ?? "Not set"}
     onRequestChange={canManage ? undefined : onRequestChange}
   />
 
   {#if canManage}
-    <SettingsRow definition={SCHEME_DEFINITION}>
-      {#snippet control()}
-        <ChoicePicker
-          options={STARTER_CHOICES}
-          inputId="settings-{SCHEME_DEFINITION.id}"
-          label={SCHEME_DEFINITION.label}
-          disabled={saving}
-          bind:value={() => starterChoice, chooseStarter}
-        />
-      {/snippet}
-    </SettingsRow>
-
-    <!-- The parts, as a table whose last row is the one that adds a part: an entry row is the last
-         row of its list, under the same rule as every other row (docs/conventions/design-corrections.md). -->
+    <!-- The parts, as a table whose last row is where one is added and where an example is loaded:
+         an entry row is the last row of its list, under the same rule as every other row
+         (docs/conventions/design-corrections.md). -->
     <div class="py-12">
       <DataTable.Root>
-        <DataTable.Caption class="sr-only">The parts of the {numberingSchemeLabel(record)}</DataTable.Caption>
+        <DataTable.Caption class="sr-only">The parts of {record.title}</DataTable.Caption>
         <DataTable.Header>
           <DataTable.Row>
-            <DataTable.Head class="sr-only">Order</DataTable.Head>
             <DataTable.Head>Part</DataTable.Head>
-            <DataTable.Head>Text</DataTable.Head>
+            <DataTable.Head>Value</DataTable.Head>
             <DataTable.Head>Digits</DataTable.Head>
             <DataTable.Head>Starts At</DataTable.Head>
             <DataTable.Head>Restarts the Count</DataTable.Head>
-            <DataTable.Head class="sr-only">Remove</DataTable.Head>
+            <DataTable.Head class="sr-only">Move and remove</DataTable.Head>
           </DataTable.Row>
         </DataTable.Header>
         <DataTable.Body>
           {#if draft.length === 0}
-            <DataTable.EmptyRow columns={7} title="No parts yet" />
+            <DataTable.EmptyRow columns={6} title="No parts yet" />
           {/if}
           {#each draft as segment, index (index)}
-            {@const vocabulary = numberSegmentVocabulary(segment.kind)}
-            {@const textRefusal = numberSegmentCellRefusal(segment.kind, "text")}
+            {@const valueRefusal = numberSegmentCellRefusal(segment.kind, "value")}
             {@const digitsRefusal = numberSegmentCellRefusal(segment.kind, "digits")}
             {@const startRefusal = numberSegmentCellRefusal(segment.kind, "start")}
-            {@const scopingRefusal = numberSegmentCellRefusal(segment.kind, "scoping")}
+            {@const scopingRefusal = numberSegmentCellRefusal(
+              segment.kind,
+              "scoping",
+              record.scopeSource,
+            )}
             <DataTable.Row>
-              <!-- The arrows LEAD the row: they act on the row, and the row begins here. -->
               <DataTable.Cell>
-                <span class="inline-flex items-center gap-4">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    title="Move up"
-                    aria-label="Move part {index + 1} up"
-                    disabled={saving || index === 0}
-                    onclick={() => (draft = moveNumberSegment(draft, index, -1))}
-                  >
-                    <ArrowUp class="size-16" aria-hidden="true" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    title="Move down"
-                    aria-label="Move part {index + 1} down"
-                    disabled={saving || index === draft.length - 1}
-                    onclick={() => (draft = moveNumberSegment(draft, index, 1))}
-                  >
-                    <ArrowDown class="size-16" aria-hidden="true" />
-                  </Button>
-                </span>
-              </DataTable.Cell>
-              <DataTable.Cell>
-                <div class="flex flex-col gap-4">
-                  <div class="w-3xs">
-                    <ChoicePicker
-                      options={KIND_CHOICES}
-                      inputId="{identifier}-kind-{index}"
-                      label="Part {index + 1}"
-                      disabled={saving}
-                      bind:value={() => segment.kind, (next) => changeKind(index, next)}
-                    />
-                  </div>
-                  <span class="text-xs text-text-muted">{vocabulary.description}</span>
-                </div>
-              </DataTable.Cell>
-              <DataTable.Cell>
-                <Input
-                  id="{identifier}-text-{index}"
-                  class="w-3xs"
-                  aria-label="Text of part {index + 1}"
-                  value={segment.kind === "literal" ? segment.text : ""}
-                  disabled={saving || textRefusal !== null}
-                  title={textRefusal ?? undefined}
-                  oninput={(event) =>
-                    update(index, { kind: "literal", text: event.currentTarget.value })}
+                <ChoicePicker
+                  options={KIND_CHOICES}
+                  inputId="{identifier}-kind-{index}"
+                  label="Part {index + 1}"
+                  disabled={saving}
+                  bind:value={() => segment.kind, (next) => changeKind(index, next)}
                 />
               </DataTable.Cell>
               <DataTable.Cell>
-                {#if segment.kind === "year"}
-                  <div class="w-3xs">
-                    <ChoicePicker
-                      options={YEAR_DIGIT_CHOICES}
-                      inputId="{identifier}-digits-{index}"
-                      label="Digits of part {index + 1}"
-                      disabled={saving}
-                      bind:value={
-                        () => String(segment.digits),
-                        (next) => update(index, { ...segment, digits: next === "2" ? 2 : 4 })
-                      }
-                    />
-                  </div>
+                {#if segment.kind === "literal"}
+                  <Input
+                    id="{identifier}-value-{index}"
+                    class="w-96"
+                    aria-label="Text of part {index + 1}"
+                    value={segment.text}
+                    disabled={saving}
+                    oninput={(event) =>
+                      update(index, { kind: "literal", text: event.currentTarget.value })}
+                  />
                 {:else}
+                  <!-- Not a control: what this part puts into the number, from the server's own
+                       rendering of the sample. -->
+                  <span class="text-sm tabular-nums text-text-subtle" title={valueRefusal ?? undefined}>
+                    {partValue(index)}
+                  </span>
+                {/if}
+              </DataTable.Cell>
+              <DataTable.Cell>
+                {#if segment.kind === "year"}
+                  <ChoicePicker
+                    options={YEAR_DIGIT_CHOICES}
+                    inputId="{identifier}-digits-{index}"
+                    label="Digits of part {index + 1}"
+                    disabled={saving}
+                    bind:value={
+                      () => String(segment.digits),
+                      (next) => update(index, { ...segment, digits: next === "2" ? 2 : 4 })
+                    }
+                  />
+                {:else if segment.kind === "counter"}
                   <Input
                     id="{identifier}-digits-{index}"
-                    class="w-3xs tabular-nums"
+                    class="w-64 tabular-nums"
                     type="number"
                     min="1"
                     max="12"
                     aria-label="Digits of part {index + 1}"
-                    value={digitsOf(segment)}
-                    disabled={saving || digitsRefusal !== null}
-                    title={digitsRefusal ?? undefined}
-                    oninput={(event) => {
-                      if (segment.kind !== "counter") return;
+                    value={String(segment.padWidth)}
+                    disabled={saving}
+                    oninput={(event) =>
                       update(index, {
                         ...segment,
                         padWidth: numberOf(event.currentTarget.value, segment.padWidth),
-                      });
-                    }}
+                      })}
                   />
+                {:else}
+                  <span class="text-sm text-text-muted" title={digitsRefusal ?? undefined}></span>
                 {/if}
               </DataTable.Cell>
               <DataTable.Cell>
-                <Input
-                  id="{identifier}-start-{index}"
-                  class="w-3xs tabular-nums"
-                  type="number"
-                  min="1"
-                  aria-label="Where part {index + 1} starts"
-                  value={segment.kind === "counter" ? String(segment.start ?? 1) : ""}
-                  disabled={saving || startRefusal !== null}
-                  title={startRefusal ?? undefined}
-                  oninput={(event) => {
-                    if (segment.kind !== "counter") return;
-                    update(index, {
-                      ...segment,
-                      start: numberOf(event.currentTarget.value, segment.start ?? 1),
-                    });
-                  }}
-                />
+                {#if segment.kind === "counter"}
+                  <Input
+                    id="{identifier}-start-{index}"
+                    class="w-64 tabular-nums"
+                    type="number"
+                    min="1"
+                    aria-label="Where part {index + 1} starts"
+                    value={String(segment.start ?? 1)}
+                    disabled={saving}
+                    oninput={(event) =>
+                      update(index, {
+                        ...segment,
+                        start: numberOf(event.currentTarget.value, segment.start ?? 1),
+                      })}
+                  />
+                {:else}
+                  <span class="text-sm text-text-muted" title={startRefusal ?? undefined}></span>
+                {/if}
               </DataTable.Cell>
               <DataTable.Cell>
                 <Switch
@@ -458,34 +419,67 @@
                   title={scopingRefusal ?? undefined}
                 />
               </DataTable.Cell>
-              <!-- Remove ENDS the row. -->
+              <!-- What you do TO the row, at its end: move it, then remove it. -->
               <DataTable.Cell class="text-end">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  title="Remove"
-                  aria-label="Remove part {index + 1}"
-                  disabled={saving}
-                  onclick={() => (draft = removeNumberSegment(draft, index))}
-                >
-                  <X class="size-16" aria-hidden="true" />
-                </Button>
+                <span class="inline-flex items-center gap-4">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Move up"
+                    aria-label="Move part {index + 1} up"
+                    disabled={saving || index === 0}
+                    onclick={() => movePart(index, -1)}
+                  >
+                    <ArrowUp class="size-16" aria-hidden="true" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Move down"
+                    aria-label="Move part {index + 1} down"
+                    disabled={saving || index === draft.length - 1}
+                    onclick={() => movePart(index, 1)}
+                  >
+                    <ArrowDown class="size-16" aria-hidden="true" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Remove this part"
+                    aria-label="Remove part {index + 1}"
+                    disabled={saving}
+                    onclick={() => removePart(index)}
+                  >
+                    <Trash2 class="size-16" aria-hidden="true" />
+                  </Button>
+                </span>
               </DataTable.Cell>
             </DataTable.Row>
           {/each}
           <DataTable.Row>
-            <DataTable.Cell colspan={7}>
-              <Button variant="ghost" size="sm" disabled={saving} onclick={addPart}>
-                <Plus class="size-16" aria-hidden="true" />
-                Add Part
-              </Button>
+            <DataTable.Cell colspan={6}>
+              <div class="flex flex-wrap items-center justify-between gap-12">
+                <Button variant="ghost" size="sm" disabled={saving} onclick={addPart}>
+                  <Plus class="size-16" aria-hidden="true" />
+                  Add Part
+                </Button>
+                <!-- Examples to start from, not a choice of what a number may be: the list above is
+                     the whole of that (owner ruling, 2026-09-19). -->
+                <ChoicePicker
+                  options={STARTER_CHOICES}
+                  inputId="{identifier}-example"
+                  label="Load an example"
+                  disabled={saving}
+                  bind:value={() => starterChoice, chooseStarter}
+                />
+              </div>
             </DataTable.Cell>
           </DataTable.Row>
         </DataTable.Body>
       </DataTable.Root>
     </div>
 
-    <!-- The preview: the server's own rendering of the list against the sample matter. -->
+    <!-- The preview: the server's own rendering of the list against the sample record. -->
     <SettingsRow definition={PREVIEW_DEFINITION}>
       {#snippet control()}
         {#if refusal !== null}
@@ -514,9 +508,11 @@
                 {preview.number}
               </output>
               <p class="text-end text-xs text-text-muted">
-                {preview.scopeKey === ""
-                  ? "One count across the whole firm."
-                  : `The count restarts for each ${preview.scopeKey.split(":").length === 1 ? "value" : "combination"} of the parts that restart it; this sample counts under "${preview.scopeKey}".`}
+                {record.scopeSource === "owner"
+                  ? `The count restarts for each ${record.subject === "time entry" ? "matter" : "letterhead"}.`
+                  : preview.scopeKey === ""
+                    ? "One count across the whole firm."
+                    : `The count restarts for each ${preview.scopeKey.split(":").length === 1 ? "value" : "combination"} of the parts that restart it; this sample counts under "${preview.scopeKey}".`}
               </p>
             {/if}
           </LoadingRegion>

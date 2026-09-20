@@ -20,6 +20,37 @@ _Directory_ as the surrounding context —
   place the nullable-matter problem is expressed
 - `src/communication-service.ts` — log, file onto a matter, take off a matter, each one batch with
   its audit row
+- `src/numbering.ts` — the reference number's counter tables, the UTC day it counts under
+  (`communicationNumberDate`), and the conflict its rendered-number index raises. The SHAPE is not
+  here: it is the `communication` purpose on the register in `@magna-carta/sequence-numbering`
+
+## The reference number is a scheme like every other
+
+The number a receptionist reads back down the telephone. Since the owner's ruling of 2026-09-19 it
+is the firm's to shape: `planSchemeDraw` loads the `communication` purpose's scheme in force and
+this package renders nothing itself. The built-in default is year, month, day and a four-digit
+count with the three date parts marked scoping, which renders exactly the `2026-09-08-0042` the run
+has always rendered and keeps the count restarting each day — a firm-wide run reaches five digits
+inside a year and stops being a number anybody can read back.
+
+The day is the **UTC day of the instant**, which is the platform's rule for the day of a recorded
+moment used as a key ([`docs/conventions/dates.md`](../../docs/conventions/dates.md)): a number is a
+key before it is a sentence, and one derived from the reader's own zone would name two different
+days for one call depending on who was looking. What day the call fell on where the reader is stays
+the record's When field, rendered in their zone.
+
+This sequence writes **no allocation row** — the one place it departs from its siblings. The
+rendered number contains the whole of its scope, so two draws that observed the same counter value
+in one day render byte-identical strings and the partial unique index on
+`communication.reference_number` aborts the loser exactly as an allocation primary key would. The
+tables record therefore names that index's table and is never written to;
+`isCommunicationNumberConflict` names the conflict this run actually raises, and it is registered as
+the bounded retry's `alsoRetryable`.
+
+The counter's scope keys were re-keyed by migration when the run joined the scheme model
+(`20260920T090000_communication-number-scope-parts.sql`), from `2026-09-08` to the `2026:09:08` the
+three scoping parts derive. A counter the draw can no longer find restarts the day's count at one
+and issues a number the firm has already said out loud, so the rows move with the model.
 
 ## Three producers, one record — and only one is built
 
