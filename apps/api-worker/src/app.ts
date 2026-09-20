@@ -99,6 +99,7 @@ import {
   type SafeBrowseRouteDeps,
 } from "./routes/safe-browse.ts";
 import { registerSafeBrowseSessionProbeRoute } from "./routes/safe-browse-session-probe.ts";
+import { registerSafeBrowseLiveRoutes } from "./routes/safe-browse-live.ts";
 import { registerDecryptionRoutes } from "./routes/decryption.ts";
 import { registerDocumentSealRoutes } from "./routes/document-seal.ts";
 import { registerRecoveryRoutes } from "./routes/recovery.ts";
@@ -163,6 +164,11 @@ export type Bindings = {
   // self-migrating on wake. All per-firm data-plane SQL routes through here.
   FIRM_DATABASE: DurableObjectNamespace<
     import("./firm-database/firm-database-object.ts").FirmDatabase
+  >;
+  // One live browsing session per member, addressed idFromName(`${firmId}:${userId}`). Holds the
+  // remote browser's session id and an idle alarm — never the handle, never any history.
+  SAFE_BROWSE_SESSION: DurableObjectNamespace<
+    import("./safe-browse/safe-browse-session.ts").SafeBrowseSession
   >;
   // The bundle-build queue the coordinator enqueues onto; its consumer streams R2 -> client-zip -> R2.
   BUNDLE_BUILD: Queue<import("./downloads/bundle-types.ts").BundleBuildMessage>;
@@ -713,6 +719,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerSafeBrowseRoute(app, chokepoint, options.safeBrowseDeps ?? {});
   registerSafeBrowseStreamRoute(app, chokepoint, options.safeBrowseDeps ?? {});
   registerSafeBrowseSessionProbeRoute(app, chokepoint);
+  registerSafeBrowseLiveRoutes(app, chokepoint);
   registerDecryptionRoutes(app, chokepoint);
   // Password recovery: mints a job and fans it out through the recovery coordinator Durable
   // Object. Registered beside decryption — the button-initiated surface for the SAME extracted

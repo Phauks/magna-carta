@@ -1,0 +1,31 @@
+---
+slug: interactive-browsing-on-a-per-member-session
+status: Accepted
+date: 2026-09-20
+area: Safe Website Viewer
+summary: "Interactive remote browsing is built, on the terms ADR-0119 set for it. A per-member Durable Object holds one Browser Rendering session; navigation reuses that session so a page's cookies and state survive between hops, and each hop re-runs the SSRF guard. What crosses back to the member is unchanged from the static capture — a screenshot and structured text, never live markup — so the strongest safety property survives the feature. Pixel streaming (CDP screencast plus input forwarding) is confirmed possible on this platform and is still NOT built: the decision here is the session, not the pixels."
+---
+
+**Interactive browsing is a persistent, per-member remote browser session whose every navigation re-runs the SSRF guard and whose every answer is inert. The live page still never loads in the member's browser.** Takes up the seam deferred in ADR-0119; inherits the SSRF invariant and ADR-0017/ADR-0038 redaction.
+
+**Context.** ADR-0119 chose a static snapshot and recorded interactive browsing as a documented future seam, deferring it as roughly 3–5× the build with a larger operational surface. It also recorded that the decision should be revisited on evidence rather than appetite. Two things have since changed.
+
+The first is that the static capture now works at all. Until 2026-09-18 every capture failed, and the failure was attributed for weeks to an account entitlement that was in fact serving — the renderer was waiting for a network-idle condition that a page holding a socket never reaches, and collapsing every distinguishable refusal into one "at capacity" message so nobody could read what was happening. That episode is the reason this decision is written after a measurement rather than before one.
+
+The second is the measurement. `POST /api/v1/safe-browse/session-probe` acquires a real browser, navigates, disconnects, reconnects to the same session id, navigates again, and attaches a CDP session. Run against the deployed service on 2026-09-20 it answered `supported: true` with all seven steps passing, in 8.2 seconds, reporting 200 maximum concurrent sessions and 10 acquisitions in the rate budget. Session reuse and CDP are therefore facts about this platform, not assumptions.
+
+**Why the session is worth building on its own, before any pixels.** The investigative case for this tool is a link that leads somewhere in more than one step: a shortener into a consent wall into a credential form, where step two only exists because step one set a cookie. Quick actions cannot see past step one — each capture is a fresh browser that arrives with no history. A held session can walk the chain, and that is most of the value of "live" with none of the exposure of streaming pixels and forwarding keystrokes. The acquisition budget argues the same way from the other end: ten new browsers in the rate window is a real ceiling for a tool that opens one per navigation, and no ceiling at all for one that opens one per member.
+
+**Decision.**
+
+1. **One session per member, held in a Durable Object** keyed `${firmId}:${userId}` — firm-namespaced for the same reason the live timer is, so a session can never be addressed across firms. The object holds the Browser Rendering session id and the current location, not the browser itself; the Worker reconnects to the id per request.
+
+2. **The session is ephemeral and self-closing.** An idle alarm closes the remote browser and clears the object's state. A session that outlives its member's attention is a billed browser nobody is watching, and the storage ceiling for this object is one small record — there is no history here to accumulate.
+
+3. **Every navigation re-runs `assertPublicTarget`.** Not only the address the member types: the address the *page* sends the browser to as well. This is the constraint ADR-0119 named as mandatory and inherited, and it is the one that makes a held session different in kind from a one-shot capture — a hostile page that can navigate itself has a whole session to try it in.
+
+4. **What crosses back is what crossed back before.** The live route answers the same `SafeWebsiteView` the static capture answers: a base64 screenshot, the final URL, response facts, extracted text and links as text. No HTML is returned or re-rendered as live markup. The member's browser gains nothing new to execute, so the safety property ADR-0119 called the strongest one survives intact.
+
+5. **Pixel streaming is NOT built, and the probe changes its status from unknown to possible.** `cdpAttached` was true, so `Page.startScreencast` and `Input.dispatch*` are available on this platform. That removes the technical question and leaves the ones that actually gate it: forwarding keystrokes into a page chosen for being suspect invites credential entry, a streamed session bills for its whole duration rather than its navigations, and the input path is a new attack surface on the member's side of the boundary. Those are decided when there is a reason to, not because the platform turned out to allow it.
+
+**Consequences.** A member can follow a suspect link through the steps it was built to hide, without any of it executing on their device. A held browser is billed for the time it is held, which is a different cost shape from the metered capture and wants the idle alarm to be conservative rather than generous. The per-navigation guard is the load-bearing control and belongs in the navigate path itself, never in the caller. The 200-session ceiling is far above any plausible concurrent use by one firm, so capacity is not a near-term constraint and no queueing is built. Spec: [`docs/specs/2026-09-20-interactive-browsing-design.md`](../../specs/2026-09-20-interactive-browsing-design.md).

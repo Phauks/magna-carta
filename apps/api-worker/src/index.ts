@@ -67,6 +67,7 @@ export { DocumentSession } from "./editing/document-session.ts";
 // entrypoint so the runtime can construct it. The timer routes proxy to it; it writes no business
 // data itself.
 export { LiveTimerDurableObject } from "./timer/live-timer-durable-object.ts";
+export { SafeBrowseSession } from "./safe-browse/safe-browse-session.ts";
 
 // The one dynamic import, shared by all three handlers and resolved once per isolate. A dynamic
 // import is idempotent and cached by the runtime, so racing events share the same evaluation.
