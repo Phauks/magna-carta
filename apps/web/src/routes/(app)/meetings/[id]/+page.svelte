@@ -67,6 +67,8 @@
   import MeetingControls from "$lib/meetings/screen/meeting-controls.svelte";
   import MeetingRoster from "$lib/meetings/screen/meeting-roster.svelte";
   import MeetingConnectionPanel from "$lib/meetings/screen/meeting-connection-panel.svelte";
+  import MeetingChatPanel from "$lib/meetings/screen/meeting-chat-panel.svelte";
+  import { MeetingChat, meetingChatSeams } from "$lib/meetings/client/chat.svelte.ts";
   import {
     connectionEvents,
     connectionParticipants,
@@ -81,6 +83,7 @@
     grantMeetingHosting,
     joinMeeting,
     leaveMeeting,
+    MAX_MEETING_MESSAGE_LENGTH,
     readMeetingHosts,
     readMeetingLobby,
     refusedAs,
@@ -90,7 +93,11 @@
     setMeetingLocked,
     type MeetingWrite,
   } from "$lib/meetings/meetings-api.ts";
-  import type { MeetingHostGrant, MeetingLobbyDecisions } from "@magna-carta/api-client";
+  import type {
+    MeetingHostGrant,
+    MeetingLobbyDecisions,
+    MeetingMessage,
+  } from "@magna-carta/api-client";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import type { Failure } from "$lib/api/problem.ts";
   import type { RecordSubject } from "@magna-carta/design-system/record-reference";
@@ -475,6 +482,83 @@
     else void client.shareScreen();
   }
 
+  /*
+   * WHAT IS BEING SAID IN THE ROOM.
+   *
+   * The transcript is the meeting's one stored content, so it is a route and a record rather than
+   * anything the socket holds: a message is written by a POST, read back from its own cursor, and
+   * taken back rather than deleted. The room will later relay a copy of a committed row so a
+   * message arrives as it is said; the poll is what fills that gap today, and it is also what
+   * catches a browser back up that missed the frame.
+   */
+  const chat = new MeetingChat(meetingChatSeams(() => meetingId));
+  /** Whether the chat panel is showing, which is also what decides if a message counts as unread. */
+  let chatOpen = $state(false);
+  /** What is typed and not yet said. Held by the screen, so closing the panel does not lose it. */
+  let chatDraft = $state("");
+
+  /*
+   * Followed while this browser is IN the room and never before: a socket at the door has no stay
+   * the route would accept a message from, and the transcript is a fact about a meeting this member
+   * has not been let into yet.
+   */
+  $effect(() => {
+    if (client.state !== "live") return;
+    chat.start();
+    return () => {
+      chat.stop();
+    };
+  });
+
+  $effect(() => {
+    if (chatOpen) chat.noteOpened();
+    else chat.noteClosed();
+  });
+
+  /** Who said something, out of the roster this browser already holds. */
+  function chatSenderName(message: MeetingMessage): string {
+    const stay = client.participants.find(
+      (one) => one.participantId === message.participantId,
+    );
+    if (stay !== undefined) return participantName(stay);
+    // The stay has closed, or it belongs to a guest and was never on the roster. The member behind
+    // it is the next honest answer, and where the roster does not hold them either there is nothing
+    // left to say but that they have gone.
+    const member =
+      message.userId === null
+        ? undefined
+        : client.participants.find((one) => one.userId === message.userId);
+    return member === undefined ? "Somebody who left" : participantName(member);
+  }
+
+  /**
+   * Whether this reader may take a message back.
+   *
+   * Their own, or any of them while they are running the meeting: a host moderates the room and a
+   * member takes back what they said. The route decides it again from the record, so this only
+   * governs whether the control is offered.
+   */
+  function mayTakeBack(message: MeetingMessage): boolean {
+    if (myRole !== null) return true;
+    return message.userId !== null && message.userId === sessionPermissions.session?.user.id;
+  }
+
+  /** What a refused message reads as: the two refusals with words of their own, and the rest. */
+  const chatWriteTitle = $derived.by(() => {
+    if (refusedAs(chat.writeFailure, "meeting-message-too-long")) return "That Message Is Too Long";
+    if (refusedAs(chat.writeFailure, "meeting-not-joined")) return "You Are Not in This Meeting";
+    return "Nothing Was Said";
+  });
+  const chatWriteSentence = $derived.by(() => {
+    if (refusedAs(chat.writeFailure, "meeting-message-too-long")) {
+      return `A message holds ${String(MAX_MEETING_MESSAGE_LENGTH)} characters at most, and this one is longer.`;
+    }
+    if (refusedAs(chat.writeFailure, "meeting-not-joined")) {
+      return "Your stay in this meeting has closed, so nothing can be said in it from here.";
+    }
+    return "That did not reach this meeting's record.";
+  });
+
   // ---- what the header says -------------------------------------------------------------------
 
   const title = $derived(summary?.title ?? "Meeting");
@@ -643,6 +727,52 @@
     participantName(participant),
     participant.hostRole,
   )}
+{/snippet}
+
+<!--
+  What is being said, beside what is being sent. It is passed to the band as a snippet rather than
+  rendered here, for the reason the connection control is: the band owns where a control sits, and
+  the control owns what it says and what it opens.
+-->
+{#snippet chatControl()}
+  <MeetingChatPanel
+    bind:open={chatOpen}
+    bind:draft={chatDraft}
+    messages={chat.messages}
+    unread={chat.unread}
+    loading={chat.reading}
+    failed={chat.readFailure !== null && chat.messages.length === 0}
+    sending={chat.sending}
+    nameOf={chatSenderName}
+    canTakeBack={mayTakeBack}
+    onSend={(body) => chat.send(body)}
+    onTakeBack={(messageId) => void chat.redact(messageId)}
+  >
+    {#snippet readFailure()}
+      {#if chat.readFailure !== null}
+        <FailureNotice
+          failure={chat.readFailure}
+          subject="This meeting"
+          title="Nothing Could Be Read"
+          fallback="What has been said in this meeting could not be read."
+          whenSilent="Nothing answered. What has been said in this meeting could not be read."
+          onRetry={() => void chat.refresh()}
+        />
+      {/if}
+    {/snippet}
+
+    {#snippet writeFailure()}
+      {#if chat.writeFailure !== null}
+        <FailureNotice
+          failure={chat.writeFailure}
+          subject="This meeting"
+          title={chatWriteTitle}
+          fallback={chatWriteSentence}
+          whenSilent="Nothing answered, so nothing was said in this meeting."
+        />
+      {/if}
+    {/snippet}
+  </MeetingChatPanel>
 {/snippet}
 
 <!-- One reading of a refused hosting write, rendered wherever the act was asked for. -->
@@ -907,6 +1037,7 @@
         onOpenHosts={() => (hostsOpen = true)}
         onLeave={() => void leave()}
         onEnd={end}
+        chat={chatControl}
       >
         {#snippet connection()}
           <MeetingConnectionPanel

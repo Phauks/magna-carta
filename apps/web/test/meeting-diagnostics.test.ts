@@ -291,6 +291,13 @@ function pathOf(roundTripSeconds: number): StatsEntry {
   };
 }
 
+/** Every diagnostic report this socket has been given, read back off the wire. */
+function reports(socket: FakeSocket): Record<string, unknown>[] {
+  return socket.sent
+    .map((frame) => JSON.parse(frame) as Record<string, unknown>)
+    .filter((frame) => frame.type === "diagnostic-report");
+}
+
 /** A room where her tracks are coming in, so the media sections have owners. */
 async function roomWithHer(): Promise<Harness> {
   const harnessed = harness();
@@ -435,12 +442,99 @@ describe("the snapshot a report would carry", () => {
     expect(report.roundTripMilliseconds).toBe(50);
   });
 
-  it("sends nothing, because the room has nothing to receive it on yet", () => {
+  it("sends nothing before anything has been measured", () => {
     const { client, socket } = harness();
     const before = socket.sent.length;
 
     client.diagnostics.sendReport();
 
+    // A report of nothing is a claim about a connection nobody has read yet, and the room would
+    // record it as the latest thing known about this member.
+    expect(reports(socket)).toHaveLength(0);
     expect(socket.sent).toHaveLength(before);
+  });
+});
+
+describe("the measurement the room is sent", () => {
+  it("carries the numbers of the sample it was built from, once per window", async () => {
+    const { peerConnection, timer, socket } = await roomWithHer();
+    peerConnection.report = [
+      pathOf(0.05),
+      {
+        id: "outbound-1",
+        type: "outbound-rtp",
+        kind: "video",
+        mid: "1",
+        rid: "h",
+        frameWidth: 640,
+        frameHeight: 360,
+        bytesSent: 500_000,
+        packetsSent: 4000,
+        framesSent: 900,
+      },
+      ...herStreams(0, 1000),
+    ];
+    await timer.fire();
+    await timer.fire();
+
+    // TWO TICKS, ONE REPORT. The room takes one per participant per window and drops the rest, so
+    // the second reading in the same window is measured and kept rather than spent on a frame
+    // nothing would read.
+    const sent = reports(socket);
+    expect(sent).toHaveLength(1);
+    const sample = sent[0]?.sample as Record<string, unknown>;
+    expect(sample.roundTripMilliseconds).toBe(50);
+    expect(sample.quality).toBe("good");
+    expect(sample.inboundCount).toBe(2);
+    expect(sample.outbound).toEqual({
+      rid: "h",
+      width: 640,
+      height: 360,
+      // Nothing has been sent between two readings of the same stream yet, so there is no rate to
+      // state and the field is absent rather than zero.
+    });
+  });
+
+  it("carries no session description, no name and no track name", async () => {
+    const { peerConnection, timer, socket } = await roomWithHer();
+    peerConnection.report = [pathOf(0.05), ...herStreams(0, 1000)];
+    await timer.fire();
+
+    const written = JSON.stringify(reports(socket));
+    expect(written).not.toContain("Rosalind");
+    expect(written).not.toContain("v=0");
+    expect(written).not.toContain("sdp");
+    expect(written).not.toContain("attendance_2");
+  });
+
+  it("says nothing from the door, where the only frames allowed are the keepalive and giving up", async () => {
+    const socket = new FakeSocket();
+    const peerConnection = new FakePeerConnection();
+    const timer = new HandTimer();
+    const client = new MeetingClient(
+      {
+        createPeerConnection: () => peerConnection,
+        openSocket: () => socket,
+        getUserMedia: () => Promise.resolve(new FakeStream([])),
+        getDisplayMedia: () => Promise.resolve(new FakeStream([])),
+        createMediaStream: () => new FakeStream([]),
+        createAudioLevelMeter: () => ({ start: () => {}, stop: () => {} }),
+      } as unknown as MeetingClientSeams,
+      new MeetingDiagnostics(timer),
+    );
+    opened.push(client);
+    client.join({
+      meetingId: "meeting_1",
+      participantId: "attendance_1",
+      iceServers: [],
+      socketUrl: "wss://example.test/api/v1/meetings/meeting_1/socket",
+      waiting: true,
+    });
+    socket.accept();
+
+    peerConnection.report = [pathOf(0.05)];
+    await timer.fire();
+
+    expect(reports(socket)).toHaveLength(0);
   });
 });

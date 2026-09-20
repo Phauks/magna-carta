@@ -51,15 +51,20 @@ edge is a constructor seam, so the whole machine runs under a test with fakes.
   touches a browser, so the numbers that decide whether a member is told their meeting is poor are
   argued with in a unit test rather than by sitting in a bad meeting.
 - `diagnostics.svelte.ts` — the sampling, the two short rings (five minutes of samples, the last
-  sixty wire events) and the redacted snapshot a periodic report will one day carry. It is also the
+  sixty wire events), the redacted snapshot every surface reads, and the `diagnostic-report` frame
+  that puts the NUMBERS on the wire once per the room's own window. It is also the
   `DiagnosticsSink` signaling and subscriptions emit through — a seam with a no-op default, so
   neither of them knows diagnostics exist.
+- `chat.svelte.ts` — what is being said in writing: the transcript, the poll that follows it from
+  its own cursor, saying something, taking something back, and the count of what arrived while the
+  panel was closed. It is the one thing in this directory that is a RECORD — a message is a route
+  and a row, never a frame — and `noteMessageFrame` is the door the room's later relay lands in.
 
 **`screen/` — what is drawn.** `meeting-tiles.ts` projects the client's state into tile models and
 `meeting-connection.ts` projects its diagnostics into the connection surface's models;
 `meeting-grid.svelte`, `meeting-tile.svelte`, `meeting-roster.svelte`, `meeting-controls.svelte`,
-`meeting-quality-mark.svelte`, `meeting-connection-panel.svelte` and `meeting-audio.svelte` draw
-them, and `meeting-host-labels.ts` is the one home for what a role and a spotlight are CALLED, because
+`meeting-quality-mark.svelte`, `meeting-connection-panel.svelte`, `meeting-chat-panel.svelte` and
+`meeting-audio.svelte` draw them, and `meeting-host-labels.ts` is the one home for what a role and a spotlight are CALLED, because
 four surfaces drawing the same badge is four spellings of "Co-host". The room screen itself is
 `src/routes/(app)/meetings/[id]/+page.svelte`.
 
@@ -71,7 +76,7 @@ things missing). All of them take models and handlers rather than the client, li
 screen component here.
 
 **Beside them, and not part of the room:** `meetings-api.ts` (every read and write, mirroring the
-contract), `meeting-list.ts` / `meeting-list-section.svelte` / `meetings-screen.svelte` (the Meetings
+contract, chat's three included), `meeting-list.ts` / `meeting-list-section.svelte` / `meetings-screen.svelte` (the Meetings
 page), and `meeting-entry-action.svelte` (Start or Join, on a calendar entry).
 `meeting-client.svelte.ts` at the top level is a re-export of `client/meeting-client.svelte.ts`, kept
 so those modules can take the `MeetingMedium` union without reaching into the room's own directory.
@@ -131,11 +136,14 @@ so those modules can take the `MeetingMedium` union without reaching into the ro
   it draws tiles and ranks the two differently, so a stream with no audio track in it is the
   ordinary state of somebody whose camera is on this page and whose voice is not among the ones
   being pulled. Reading that absence as "Muted" tells the room somebody is silent who is talking.
-- **What the connection is doing is LOCAL, and never becomes a record.** The samples and the wire
-  events live in this tab, go when the meeting does, and are not written anywhere. A meeting's
-  record is who was in the room and for how long; how somebody's connection behaved is not a fact
-  about the meeting, and the snapshot `report()` builds carries participant handles only — no
-  session description, no display name, no track name.
+- **What the connection is doing NEVER BECOMES THE MEETING'S RECORD.** The samples and the wire
+  events live in this tab and go when the meeting does. What leaves is the `diagnostic-report`
+  frame, and it is numbers, counts and one enum — no session description, no display name, no track
+  name, nothing a person typed — which the room aggregates through telemetry and keeps as the last
+  sample on the participant record, where it dies with the room. A meeting's record is who was in
+  the room and for how long, plus what was said in chat; how somebody's connection behaved is not a
+  fact about the meeting and must never become one. The snapshot `report()` builds for the screen
+  carries participant handles only, under the same rule.
 - **A layer is settled by `layered`, never by having sent the frame.** The room drops a `layer`
   frame that follows too closely on the last one, so what the plan WANTS and what the unit is known
   to be sending are two maps, and every pass re-asks for whatever is still outstanding. The same

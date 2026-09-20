@@ -19,11 +19,20 @@
  * (docs/conventions/error-logging.md), and a ring buffer that ends up in a report is exactly where
  * that stops being theoretical.
  *
- * NOTHING IS SENT ANYWHERE YET. `report()` assembles the redacted snapshot and `sendReport` is the
- * seam it will go out through; the room's side of diagnostics — the frame, the handler, the
- * per-meeting event stream — is the next slice of this wave, and until it exists a client that
- * invented a frame would only be refused.
+ * WHAT LEAVES THIS BROWSER IS THE MEASUREMENT AND NOTHING ELSE. `report()` assembles the redacted
+ * snapshot every surface here reads, and `sendReport` puts the NUMBERS on the wire: rates, counts
+ * and one enum, bounded by the protocol's own ceilings. The ring of events stays here — it is the
+ * one thing in this file shaped like prose, and prose is where a name gets in.
  */
+import {
+  MAX_DIAGNOSTIC_BITS_PER_SECOND,
+  MAX_DIAGNOSTIC_INBOUND_COUNT,
+  MAX_DIAGNOSTIC_JITTER_MILLISECONDS,
+  MAX_DIAGNOSTIC_PIXELS,
+  MAX_DIAGNOSTIC_ROUND_TRIP_MILLISECONDS,
+  type MeetingDiagnosticSample,
+} from "@magna-carta/meeting-protocol/frames";
+import { PREFERRED_RIDS, type PreferredRid } from "@magna-carta/meeting-protocol/types";
 import {
   inboundFacts,
   qualityOf,
@@ -48,6 +57,18 @@ export const SAMPLES_KEPT = 60;
 
 /** How many wire events are kept. Long enough to hold a join and what went wrong after it. */
 export const EVENTS_KEPT = 60;
+
+/**
+ * How often a measurement may go out, and it is the ROOM's window rather than this browser's taste.
+ *
+ * The room takes one report per participant per window and drops the rest, exactly as it drops a
+ * `sync` that follows too closely on the last one. That matters here because the tick is not the
+ * only thing that takes a reading: a member opening the connection surface samples on the spot, and
+ * without this guard that reading would spend the window the next scheduled report was going to use.
+ * A sample is a restatement and the next one is along in a moment, so the one that is dropped is
+ * never the one worth having.
+ */
+export const REPORT_INTERVAL_MILLISECONDS = 5_000;
 
 /**
  * What happened, in the room's own vocabulary rather than a member's.
@@ -127,7 +148,7 @@ export function intervalDiagnosticsTimer(): DiagnosticsTimer {
   };
 }
 
-/** What the client lets diagnostics ask about the connection it is sampling. */
+/** What the client lets diagnostics ask about the connection, and where what it measures goes. */
 export interface DiagnosticsSource {
   /** The connection's own statistics. Null where there is no connection to ask. */
   readStats: () => Promise<StatsReportLike | null> | null;
@@ -137,6 +158,17 @@ export interface DiagnosticsSource {
   screenMid: () => string | null;
   /** This browser's own participant, for a report to be correlated by. */
   participantId: () => string | null;
+  /**
+   * Whether this browser is IN the room.
+   *
+   * Sampling starts with the connection, which is before a socket standing at a door has been let
+   * through one — and the only frames such a socket may send are the keepalive and giving up. A
+   * report sent from there is refused, and the refusal puts a notice on the screen of somebody who
+   * did nothing but wait.
+   */
+  isLive: () => boolean;
+  /** Where a frame this browser measured goes out, which is the signaling socket. */
+  send: (frame: Record<string, unknown>) => void;
 }
 
 /** The redacted snapshot a periodic report will carry. */
@@ -165,6 +197,31 @@ export interface DiagnosticsReport {
   readonly events: readonly DiagnosticEvent[];
 }
 
+/**
+ * A measurement the wire will take, or nothing.
+ *
+ * Nothing covers both of the ways a number can be unreportable: nobody measured it, and what was
+ * measured cannot be true. The protocol's ceilings are sanity bounds far above any working
+ * connection, so a figure past one is a reading this browser should not be making a claim out of —
+ * and clamping it would record a number nobody took, under a name that says somebody did.
+ */
+function within(measured: number | null, ceiling: number): number | undefined {
+  if (measured === null || !Number.isFinite(measured)) return undefined;
+  return measured < 0 || measured > ceiling ? undefined : measured;
+}
+
+/** A picture's edge, which the wire takes as a whole number of pixels. */
+function pixels(measured: number | null): number | undefined {
+  if (measured === null || !Number.isFinite(measured)) return undefined;
+  const whole = Math.round(measured);
+  return whole < 1 || whole > MAX_DIAGNOSTIC_PIXELS ? undefined : whole;
+}
+
+/** The simulcast layer the camera is going out as, where the connection named one of the three. */
+function layerOf(rid: string | null): PreferredRid | undefined {
+  return PREFERRED_RIDS.find((offered) => offered === rid);
+}
+
 export class MeetingDiagnostics implements DiagnosticsSink {
   /** How this browser's own sending is doing. `unknown` until the first sample lands. */
   quality = $state<ConnectionQuality>("unknown");
@@ -187,6 +244,8 @@ export class MeetingDiagnostics implements DiagnosticsSink {
   #source: DiagnosticsSource | null = null;
   /** True while a reading is in flight, so a slow connection cannot stack ticks on itself. */
   #reading = false;
+  /** When the last report went out, on this browser's clock. Null while none has this meeting. */
+  #reportedAt: number | null = null;
 
   constructor(timer: DiagnosticsTimer = intervalDiagnosticsTimer()) {
     this.#timer = timer;
@@ -215,6 +274,7 @@ export class MeetingDiagnostics implements DiagnosticsSink {
     this.#source = null;
     this.#samples = [];
     this.#reading = false;
+    this.#reportedAt = null;
     this.latest = null;
     this.quality = "unknown";
     this.#qualityByParticipant = new Map();
@@ -260,6 +320,10 @@ export class MeetingDiagnostics implements DiagnosticsSink {
         screenMid: source.screenMid() ?? null,
       });
       this.#keep(sample);
+      // Measured and reported in one step, because a measurement nobody sends answers the question
+      // this browser can answer and the room cannot: whether its own picture is arriving anywhere.
+      // The window above is what keeps an on-demand reading from spending the scheduled one's turn.
+      this.sendReport();
     } catch {
       // A connection that is being torn down rejects the ask, and a meeting is not worth ending
       // over a measurement. The marks stay where they were and the next tick asks again.
@@ -308,14 +372,57 @@ export class MeetingDiagnostics implements DiagnosticsSink {
   }
 
   /**
-   * Send the snapshot to the room.
+   * Put the latest measurement on the wire, where the room's window allows another one.
    *
-   * Nothing, deliberately, and not for want of a caller: the room has no frame to receive it on and
-   * no handler for one. The frame, the room's handler and the per-meeting event stream are the next
-   * slice of this wave; when they land this is the one place that sends it, and every surface above
-   * is already reading from the same snapshot.
+   * THE FRAME CARRIES NUMBERS AND ONE ENUM. No session description, no track name, no display name,
+   * nothing a person typed — the room records these through the standard telemetry pipeline and
+   * keeps the last of them on the participant record, so an operator can see which END a bad
+   * meeting is bad at. A browser's own handle is what correlates it, and the room already knows
+   * which socket sent the frame, so the report does not restate it.
+   *
+   * EVERY FIELD IS OMITTED RATHER THAN INVENTED. A rate that has not been measured yet, and a
+   * figure outside the protocol's own sanity bounds, are both left out: an absent field means "not
+   * measured", and a clamped one would put a number in the record that nobody took.
    */
-  sendReport(): void {}
+  sendReport(): void {
+    const source = this.#source;
+    const sample = this.latest;
+    if (source === null || sample === null || !source.isLive()) return;
+    const at = Date.now();
+    if (this.#reportedAt !== null && at - this.#reportedAt < REPORT_INTERVAL_MILLISECONDS) return;
+    this.#reportedAt = at;
+    source.send({ type: "diagnostic-report", sample: this.#measurementOf(sample) });
+  }
+
+  /** The latest reading in the shape the wire takes it, bounded and with nothing measured omitted. */
+  #measurementOf(sample: ConnectionSample): MeetingDiagnosticSample {
+    const uplink = sample.uplink;
+    return {
+      quality: this.quality,
+      roundTripMilliseconds: within(
+        sample.roundTripMilliseconds,
+        MAX_DIAGNOSTIC_ROUND_TRIP_MILLISECONDS,
+      ),
+      lossFraction: within(uplink?.lossFraction ?? null, 1),
+      jitterMilliseconds: within(
+        uplink?.jitterMilliseconds ?? null,
+        MAX_DIAGNOSTIC_JITTER_MILLISECONDS,
+      ),
+      // Absent for somebody who joined to listen, and for a call, where there is no picture at all.
+      outbound:
+        uplink === null
+          ? undefined
+          : {
+              rid: layerOf(uplink.rid),
+              width: pixels(uplink.frameWidth),
+              height: pixels(uplink.frameHeight),
+              bitrate: within(uplink.bitsPerSecond, MAX_DIAGNOSTIC_BITS_PER_SECOND),
+            },
+      // What is arriving, not who: the count is what says whether a member seeing nothing is
+      // subscribed to nothing or subscribed to everything and receiving none of it.
+      inboundCount: within(sample.inbound.length, MAX_DIAGNOSTIC_INBOUND_COUNT),
+    };
+  }
 
   /** Keep a sample, judge everything it says, and let go of whatever fell out of the window. */
   #keep(sample: ConnectionSample): void {

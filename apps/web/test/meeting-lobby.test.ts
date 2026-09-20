@@ -78,8 +78,11 @@ afterEach(() => {
   instance = undefined;
   target.remove();
   // A panel portals its content to the document, so what one case opened would otherwise be read by
-  // the next one as something this render drew.
-  for (const panel of document.body.querySelectorAll('[role="dialog"]')) panel.remove();
+  // the next one as something this render drew. Both roles, because a question about an act that
+  // cannot be walked back is an alertdialog rather than a dialog.
+  for (const panel of document.body.querySelectorAll('[role="dialog"],[role="alertdialog"]')) {
+    panel.remove();
+  }
 });
 
 describe("the host's lobby panel", () => {
@@ -126,7 +129,36 @@ describe("the host's lobby panel", () => {
     flushSync();
 
     expect(labelled("Admit All")).toBeUndefined();
+    expect(labelled("Deny All")).toBeUndefined();
     expect(named("Admit Rosalind Chase")).toBeDefined();
+  });
+
+  it("asks before turning everybody away, and sends nothing until it is answered", () => {
+    instance = mount(Panel, { target, props: panelProps() });
+    flushSync();
+
+    labelled("Deny All")?.click();
+    flushSync();
+
+    // Barring everybody outside at once cannot be walked back by the person pressing it, and each
+    // of them is standing at a door with nothing left to press — so the question stands first.
+    expect(document.body.textContent).toContain("Deny Everyone Waiting");
+    expect(denied).toEqual([]);
+  });
+
+  it("turns away exactly the people it was showing when the question is answered", () => {
+    instance = mount(Panel, { target, props: panelProps() });
+    flushSync();
+
+    labelled("Deny All")?.click();
+    flushSync();
+    labelled("Deny Everyone")?.click();
+    flushSync();
+
+    // The same list Admit all sends, by the same rule: never a server-side "everybody", which
+    // would turn away whoever arrived in the millisecond after the host looked.
+    expect(denied).toEqual([["attendance_2", "attendance_3"]]);
+    expect(admitted).toEqual([]);
   });
 
   it("states an empty door inside the list rather than beside it", () => {
@@ -174,6 +206,22 @@ describe("what a batch at the door came to", () => {
         "admitted",
       ),
     ).toBe("2 people did not get in: the room is full.");
+  });
+
+  it("says the same thing about a batch that was turned away", () => {
+    // The two batches are answered the same way, which is what lets Deny all report what it did
+    // not do in the same band Admit all reports it in.
+    expect(
+      doorDecisionStatement(
+        {
+          data: [
+            { participantId: "attendance_2", outcome: "denied" },
+            { participantId: "attendance_3", outcome: "not-waiting" },
+          ],
+        },
+        "denied",
+      ),
+    ).toBe("1 person was no longer waiting, so nothing changed for them.");
   });
 
   it("tells a stay that closed under the host apart from a room that filled", () => {

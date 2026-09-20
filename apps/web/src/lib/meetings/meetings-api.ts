@@ -19,9 +19,12 @@ import {
   meetingsHosts,
   meetingsJoin,
   meetingsLeave,
+  meetingsListMessages,
   meetingsLobby,
+  meetingsRedactMessage,
   meetingsRemoveParticipant,
   meetingsRevokeHosting,
+  meetingsSendMessage,
   meetingsSetLobby,
   meetingsSetLocked,
   meetingsStart,
@@ -32,6 +35,8 @@ import {
   type MeetingLobbyAcknowledged,
   type MeetingLobbyDecisions,
   type MeetingLobbyEntry,
+  type MeetingMessage,
+  type MeetingMessagePage,
   type StartedMeeting,
 } from "@magna-carta/api-client";
 import { failureOf } from "$lib/api/api-client.ts";
@@ -324,6 +329,87 @@ export function doorDecisionStatement(
   return missed.length === 1
     ? "1 person was no longer waiting, so nothing changed for them."
     : `${missed.length} people were no longer waiting, so nothing changed for them.`;
+}
+
+/*
+ * WHAT IS SAID IN THE ROOM, which is the meeting's first stored content.
+ *
+ * Everything else this subsystem holds is identifiers and instants, and the audio and video never
+ * reach this platform at all — so chat is the one thing here that is kept on the record, and it is
+ * a record with the shape a filed message has: append-only, taken back rather than deleted, and
+ * read back oldest first.
+ *
+ * THE WRITE NEVER GOES THROUGH THE SOCKET. A record that existed only where a Durable Object's
+ * transient storage holds it would be a record that empties when the room does, so a message is a
+ * route and the room's later relay frame will be a copy of a row that is already committed.
+ */
+
+/**
+ * The most characters one message carries.
+ *
+ * The browser's mirror of the number the write is actually checked against — the server's own copy
+ * is in `packages/meetings/src/chat-types.ts`, and is a SQLite CHECK on the row besides, so a body
+ * that gets past this is refused rather than stored. It is here because the composer has to say how
+ * much room is left before the reader presses anything, and a browser bundle cannot import from a
+ * Worker's own package.
+ */
+export const MAX_MEETING_MESSAGE_LENGTH = 4000;
+
+/**
+ * One page of what has been said, oldest first.
+ *
+ * A POLLER CONTINUES FROM THE CURSOR AND NEVER FROM A TIMESTAMP. The cursor is the `(sent_at, id)`
+ * key of the last row of the page it came with, so continuing from it cannot skip a message written
+ * in the same millisecond as the last one read, and cannot re-read one either. An instant can do
+ * both, and `since` exists for the caller who is starting from a time rather than continuing from a
+ * place.
+ */
+export function readMeetingMessages(
+  meetingId: string,
+  cursor: string | null = null,
+): Promise<MeetingWrite<MeetingMessagePage>> {
+  return write(() =>
+    meetingsListMessages({
+      path: { meetingId },
+      query: cursor === null ? undefined : { cursor },
+      throwOnError: true,
+    }),
+  );
+}
+
+/** Say something in the room. Refused for a member with no open stay in it. */
+export function sendMeetingMessage(
+  meetingId: string,
+  body: string,
+): Promise<MeetingWrite<MeetingMessage>> {
+  return write(() =>
+    meetingsSendMessage({
+      path: { meetingId },
+      body: { body },
+      headers: { "idempotency-key": newWriteKey() },
+      throwOnError: true,
+    }),
+  );
+}
+
+/**
+ * Take a message back.
+ *
+ * It is NOT a delete, and the answer says so: the row comes back with its body blanked and its
+ * redaction stamped, so the file keeps that a message existed, when, from which stay, and that
+ * somebody removed it. A member may take back their own; somebody hosting may take back any.
+ */
+export function redactMeetingMessage(
+  meetingId: string,
+  messageId: string,
+): Promise<MeetingWrite<MeetingMessage>> {
+  return write(() =>
+    meetingsRedactMessage({
+      path: { meetingId, messageId },
+      headers: { "idempotency-key": newWriteKey() },
+      throwOnError: true,
+    }),
+  );
 }
 
 /**

@@ -137,6 +137,28 @@ what it has always been: who was in the room and for how long.
 A poor mark on one person and good marks on everybody else usually means the trouble is at their
 end. Poor marks on everybody, or on your own preview, usually means it is at yours.
 
+## Chat
+
+**Chat** in the control bar opens what is being said in writing, beside what is being said out loud.
+A number on the control counts what has been said since you last looked, so you can watch the room
+instead of watching a button. Opening the panel clears it.
+
+Each line says who said it and when. Type in the box at the foot and press Enter to send it; Shift
+and Enter writes a second line instead. One message holds 4,000 characters, and the panel starts
+telling you how much room is left as you approach that. You have to be in the meeting to say
+anything in it: once you have left, the panel is a record you can read and not a place you can
+write.
+
+**What is said here is kept on the meeting's record.** Chat is the one part of a meeting that is
+written down anywhere — the pictures and the sound are carried between browsers and never reach the
+platform at all — so a message in a meeting belongs on the file the way an email does. Write it
+accordingly.
+
+**Taking a message back leaves a mark.** Your own messages carry **Take back**, and so does every
+message for whoever is running the meeting. The words go and the line stays, saying that a message
+was taken back. Nothing is deleted outright, because the record is an account of what happened, and
+that something was said and then removed is part of what happened.
+
 ## Large meetings
 
 A room holds up to three hundred people, and a meeting that size is read differently from a meeting
@@ -321,9 +343,10 @@ often the floor was cleared. Those are the mechanics of a conversation and they 
 Putting somebody out of a meeting, shutting the door and changing who is running the room are the
 three that stay, because each of them is a thing somebody may later need to ask about.
 
-That is the whole of it. There is no duration you can bill from directly and no note of what was
-discussed — if the meeting is worth an entry on the file, record your time and write a matter note the
-way you would after a meeting in a conference room.
+That is the whole of it, apart from the chat, which is kept in full. There is no duration you can
+bill from directly and no note of what was said out loud — if the meeting is worth an entry on the
+file, record your time and write a matter note the way you would after a meeting in a conference
+room.
 
 ## What is not built yet
 

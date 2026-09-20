@@ -655,6 +655,10 @@ export class MeetingClient {
       ownerOfMid: (mid) => this.#subscriptions.ownerOfMid(mid),
       screenMid: () => this.#screenMid,
       participantId: () => this.participantId,
+      // A socket still at the door may send nothing but the keepalive, and sampling starts before
+      // that door has opened — so the report asks whether this browser is in the room at all.
+      isLive: () => this.state === "live",
+      send: (frame) => this.#signaling.send(frame),
     });
     this.#signaling.open(request.socketUrl);
   }

@@ -1,0 +1,271 @@
+/*
+ * What is being said in the room, held where the room is drawn from.
+ *
+ * THE RECORD IS THE ROUTE, AND THIS FOLLOWS IT. A message is written by a POST and read back by a
+ * paged GET; the room will later relay a copy of a committed row so a message reaches the other
+ * browsers as it is said rather than on the next tick, and `noteMessageFrame` is where that copy
+ * lands when it does. Nothing here writes through the socket — a record that existed only where a
+ * Durable Object's transient storage holds it would be a record that empties when the room does.
+ *
+ * THE POLL CONTINUES FROM THE CURSOR, NEVER FROM A TIMESTAMP. Each page answers with the key of its
+ * own last row, and that key is where the next page starts. An instant cannot do this job: two
+ * messages written in the same millisecond are ordered by the row's own handle, so a poller asking
+ * "everything since 15:04:07.912" either skips the second of them or reads the first one twice.
+ * A page with nothing in it carries no cursor, and leaves the one we hold exactly where it was.
+ *
+ * WHAT IS NEW IS COUNTED ONLY ONCE THE TRANSCRIPT IS IN HAND. The first page is what was said
+ * before this member opened the panel, which for somebody joining at the twentieth minute is the
+ * whole conversation — a badge reading forty on arrival is noise, not news. So the count starts
+ * after the first page settles, and counts what somebody else said while the panel was closed.
+ *
+ * EVERY EDGE IS A SEAM, like every other module in this directory: the three calls and the ticking.
+ * Nothing here touches `window`, so a case about what three seconds of polling does is a unit test
+ * rather than a rehearsal.
+ */
+import type { MeetingMessage, MeetingMessagePage } from "@magna-carta/api-client";
+import {
+  readMeetingMessages,
+  redactMeetingMessage,
+  sendMeetingMessage,
+  type MeetingWrite,
+} from "../meetings-api.ts";
+import type { Failure } from "$lib/api/problem.ts";
+
+/**
+ * How often the transcript is asked for what it has gained.
+ *
+ * Short, because a message nobody sees for a quarter of a minute is a message answered after the
+ * subject changed — and the read is a keyset walk from a cursor, which is index-covered and returns
+ * an empty page when nothing has been said. The relay frame is what will make this the fallback
+ * rather than the path; until it exists this is how a message arrives.
+ */
+export const CHAT_POLL_INTERVAL_MILLISECONDS = 3_000;
+
+/** The edges this module reaches the outside world through. */
+export interface MeetingChatSeams {
+  /** One page of the transcript, continuing from the cursor the last page answered with. */
+  list: (cursor: string | null) => Promise<MeetingWrite<MeetingMessagePage>>;
+  send: (body: string) => Promise<MeetingWrite<MeetingMessage>>;
+  redact: (messageId: string) => Promise<MeetingWrite<MeetingMessage>>;
+  /** Start ticking, and answer with the way to stop. A seam for the reason the sampling tick is. */
+  every: (milliseconds: number, tick: () => void) => () => void;
+}
+
+/**
+ * The seams as the app supplies them.
+ *
+ * The meeting arrives as an accessor rather than a value because the room screen is reused across
+ * an address change — a member walking from one meeting to another keeps the same component, and a
+ * meeting captured when the module was built would have this reading the previous room's messages.
+ */
+export function meetingChatSeams(meetingId: () => string): MeetingChatSeams {
+  return {
+    list: (cursor) => readMeetingMessages(meetingId(), cursor),
+    send: (body) => sendMeetingMessage(meetingId(), body),
+    redact: (messageId) => redactMeetingMessage(meetingId(), messageId),
+    every: (milliseconds, tick) => {
+      const ticking = setInterval(tick, milliseconds);
+      return () => clearInterval(ticking);
+    },
+  };
+}
+
+/** Whether a message has been taken back, which is a blanked body and a stamped redaction. */
+export function wasTakenBack(message: MeetingMessage): boolean {
+  return message.redactedAt !== null;
+}
+
+export class MeetingChat {
+  /** Everything said in this room that this browser has read, oldest first. */
+  messages = $state<readonly MeetingMessage[]>([]);
+  /** True while the FIRST page is in flight. A later poll is not a region that has not arrived. */
+  reading = $state(false);
+  /** Why the transcript could not be read. Null while nothing has refused one. */
+  readFailure = $state<Failure | null>(null);
+  /** Why the last thing this member tried to do did not happen. Null while nothing has. */
+  writeFailure = $state<Failure | null>(null);
+  /** True while a message is on its way, so the composer cannot send the same one twice. */
+  sending = $state(false);
+  /** How much has been said since the panel was last open. Zero while it is open. */
+  unread = $state(0);
+
+  readonly #seams: MeetingChatSeams;
+  #stopTicking: (() => void) | null = null;
+  /** Where the next page starts: the key of the last row of the last page that had any. */
+  #cursor: string | null = null;
+  /** True while a read is in flight, so a slow answer cannot stack polls on itself. */
+  #polling = false;
+  /** True once the first page has settled, which is when a new message becomes news. */
+  #caughtUp = false;
+  /** True while the panel is showing, which is what stops a message counting as unread. */
+  #open = false;
+
+  constructor(seams: MeetingChatSeams) {
+    this.#seams = seams;
+  }
+
+  /**
+   * Start following the transcript: read what is there, then ask again on the tick.
+   *
+   * Starting a running one restarts it rather than leaving two tickers, on the rule the sampling
+   * timer keeps.
+   */
+  start(): void {
+    this.stop();
+    this.reading = true;
+    this.#stopTicking = this.#seams.every(CHAT_POLL_INTERVAL_MILLISECONDS, () => {
+      void this.refresh();
+    });
+    void this.refresh();
+  }
+
+  /**
+   * Stop following it, and let go of what was read.
+   *
+   * The transcript is on the record and is read again from the beginning next time, so nothing is
+   * lost by forgetting it; what would be wrong is a client joining a second meeting holding the
+   * first one's conversation.
+   */
+  stop(): void {
+    this.#stopTicking?.();
+    this.#stopTicking = null;
+    this.messages = [];
+    this.#cursor = null;
+    this.#polling = false;
+    this.#caughtUp = false;
+    this.reading = false;
+    this.sending = false;
+    this.unread = 0;
+    this.readFailure = null;
+    this.writeFailure = null;
+  }
+
+  /** The panel is showing: what has arrived has been seen. */
+  noteOpened(): void {
+    this.#open = true;
+    this.unread = 0;
+  }
+
+  /** The panel is closed, so what arrives next is worth a mark on the control. */
+  noteClosed(): void {
+    this.#open = false;
+  }
+
+  /**
+   * Read whatever the transcript has gained since the last page.
+   *
+   * A refusal leaves what is already on screen exactly where it is: a conversation replaced by an
+   * error because one poll in twenty failed is a surface that loses a member's place for nothing,
+   * and the next tick asks again. The notice is only raised where there is nothing to show.
+   */
+  async refresh(): Promise<void> {
+    if (this.#polling) return;
+    this.#polling = true;
+    const outcome = await this.#seams.list(this.#cursor);
+    this.#polling = false;
+    this.reading = false;
+    if (outcome.kind !== "ok") {
+      this.readFailure = outcome.failure;
+      this.#caughtUp = true;
+      return;
+    }
+    this.readFailure = null;
+    // Read rather than trusted, because this one runs unattended for the length of a meeting: an
+    // answer shaped differently from the contract would otherwise throw out of a tick nobody is
+    // awaiting, and take the next three seconds' poll with it.
+    const arrived = Array.isArray(outcome.value.data) ? outcome.value.data : [];
+    this.#adopt(arrived);
+    // A page with nothing in it carries no cursor, so the one we hold is still where to continue.
+    if (typeof outcome.value.nextCursor === "string") this.#cursor = outcome.value.nextCursor;
+    this.#caughtUp = true;
+  }
+
+  /**
+   * Say something. Answers whether it reached the record, so a composer clears only what was sent.
+   *
+   * The body is trimmed here because the record is what somebody said, and trailing newlines from
+   * a field are not part of that. An empty one is not a message and never leaves the browser.
+   */
+  async send(body: string): Promise<boolean> {
+    const stated = body.trim();
+    if (stated === "" || this.sending) return false;
+    this.sending = true;
+    this.writeFailure = null;
+    const outcome = await this.#seams.send(stated);
+    this.sending = false;
+    if (outcome.kind !== "ok") {
+      this.writeFailure = outcome.failure;
+      return false;
+    }
+    // Shown the moment the record has it, rather than on the next tick: the person who typed it is
+    // watching, and a message that takes three seconds to appear reads as one that did not send.
+    // Never news — it is this member's own, and they are looking at it.
+    this.#adopt([outcome.value], false);
+    return true;
+  }
+
+  /**
+   * Take a message back: the body is blanked and the row stays, which is what the answer carries.
+   *
+   * The row this browser holds is replaced by the one that came back rather than edited here, so
+   * what is drawn is what the record says — including who took it back and when.
+   */
+  async redact(messageId: string): Promise<boolean> {
+    this.writeFailure = null;
+    const outcome = await this.#seams.redact(messageId);
+    if (outcome.kind !== "ok") {
+      this.writeFailure = outcome.failure;
+      return false;
+    }
+    this.#adopt([outcome.value], false);
+    return true;
+  }
+
+  /**
+   * A message the ROOM relayed, rather than one a page answered with.
+   *
+   * The seam for the relay frame: the room will send a copy of a row it has already committed, so
+   * a message reaches the other browsers as it is said. It goes through the same merge as a page
+   * does, which is what makes a browser that misses the frame no worse off than one that gets it —
+   * the poll behind it reads the same row and the two collapse into one.
+   */
+  noteMessageFrame(message: MeetingMessage): void {
+    this.#adopt([message]);
+  }
+
+  /**
+   * Take what arrived, keeping the transcript in the order the record states it.
+   *
+   * Merged by handle rather than appended, because the same row reaches this browser by two routes:
+   * the answer to this member's own write, and the page that follows it. Appending would draw a
+   * message twice, and a transcript that repeats itself is one nobody trusts about anything else.
+   */
+  #adopt(arriving: readonly MeetingMessage[], news = true): void {
+    if (arriving.length === 0) return;
+    const held = new Map(this.messages.map((message) => [message.id, message] as const));
+    let arrivedUnseen = 0;
+    for (const message of arriving) {
+      if (news && !held.has(message.id) && this.#countsAsNews(message)) arrivedUnseen += 1;
+      held.set(message.id, message);
+    }
+    this.messages = [...held.values()].toSorted(inOrderSaid);
+    if (arrivedUnseen > 0) this.unread += arrivedUnseen;
+  }
+
+  /**
+   * Whether a message arriving is something to mark the control with.
+   *
+   * Three ways it is not: it came in the first page, which is the conversation rather than news;
+   * the panel is open, so it is already on screen; or it has been taken back, and a mark inviting
+   * somebody to go and read a blank row is a mark that lies about what is there.
+   */
+  #countsAsNews(message: MeetingMessage): boolean {
+    return this.#caughtUp && !this.#open && !wasTakenBack(message);
+  }
+}
+
+/** The order the record states: oldest first, and by the row's own handle within one instant. */
+function inOrderSaid(first: MeetingMessage, second: MeetingMessage): number {
+  if (first.sentAt !== second.sentAt) return first.sentAt < second.sentAt ? -1 : 1;
+  return first.id < second.id ? -1 : 1;
+}

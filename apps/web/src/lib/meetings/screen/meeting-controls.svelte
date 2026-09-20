@@ -72,6 +72,7 @@
     onLeave,
     onEnd,
     connection,
+    chat,
     endFailure,
   }: {
     microphoneOn: boolean;
@@ -136,6 +137,12 @@
      * it says and what it opens.
      */
     connection?: Snippet;
+    /**
+     * The chat control, which the room screen supplies because the panel behind it is built from
+     * what the room is reading. The band owns WHERE it sits; the control owns what it says, which
+     * includes the count of what has been said since it was last opened.
+     */
+    chat?: Snippet;
     onLeave: () => void;
     /** Ends it for everybody. Reports how the write went, so the panel can stand its ground. */
     onEnd?: () => Promise<ActionOutcome>;
@@ -250,6 +257,10 @@
        pressed state: the band's other controls change what the room is doing, and this one only
        shows what it is already doing. -->
   {@render connection?.()}
+
+  <!-- What is being said, beside what is being sent. It carries its own count, which is how a
+       member learns something was said while they were watching the room rather than the panel. -->
+  {@render chat?.()}
 
   {#if hosting && onOpenLobby !== undefined}
     <!-- THE ONE ROOM ACT THAT EARNS ITS OWN CONTROL, because it is the only one that has something

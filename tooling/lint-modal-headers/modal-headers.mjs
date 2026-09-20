@@ -69,6 +69,7 @@ export const ACT_VERBS = new Set([
   "confirm",
   "continue",
   "delete",
+  "deny",
   "describe",
   "detach",
   "discard",

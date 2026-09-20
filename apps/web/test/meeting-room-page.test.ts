@@ -108,7 +108,7 @@ class FakePeerConnection {
  */
 const declinedCapture = (): Promise<never> => Promise.reject(new Error("NotAllowedError"));
 
-/** Answer the three calls this screen makes, and record every one of them. */
+/** Answer the calls this screen makes, and record every one of them. */
 function serveTheRoom(summary: Record<string, unknown> = SUMMARY): void {
   const answer = (method: string, path: string): Response => {
     requests.push({ method, path });
@@ -133,6 +133,14 @@ function serveTheRoom(summary: Record<string, unknown> = SUMMARY): void {
       // The door, as a host's screen reads it once on arrival. Empty here: the cases that are about
       // the door state it on the wire, which is what a host's screen is actually kept current by.
       return new Response(JSON.stringify({ data: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (method === "GET" && path.endsWith("/messages")) {
+      // What has been said, which the screen follows for as long as it is in the room. Empty here:
+      // the cases about chat are the chat module's own and the panel's.
+      return new Response(JSON.stringify({ data: [], nextCursor: null }), {
         status: 200,
         headers: { "content-type": "application/json" },
       });
