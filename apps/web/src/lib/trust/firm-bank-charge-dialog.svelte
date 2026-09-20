@@ -112,9 +112,9 @@
 <ActionDialog
   bind:open
   kind="form"
-  heading="Record a Bank Charge"
+  heading="Record Bank Charge"
   {subtitle}
-  commitLabel="Record Charge"
+  commitLabel="Record Bank Charge"
   commitBusyLabel="Recording"
   commitRefusal={refusal}
   unsavedChanges={started}

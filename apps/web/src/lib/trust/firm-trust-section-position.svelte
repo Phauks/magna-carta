@@ -80,9 +80,14 @@
   failed={trust.positionFailure !== null}
 >
   {#snippet failure()}
-    <FirmTrustReadFailure
-      sentence="This account's position could not be read, so what it holds today is not shown. The ledgers themselves are unaffected."
-    />
+    {#if trust.positionFailure !== null}
+      <FirmTrustReadFailure
+        failure={trust.positionFailure}
+        title="This Account's Position Could Not Be Read"
+        fallback="What the account holds today is not shown. The ledgers themselves are unaffected."
+        onRetry={() => trust.reloadPosition(fetch, account.id)}
+      />
+    {/if}
   {/snippet}
 
   {#snippet fixture()}

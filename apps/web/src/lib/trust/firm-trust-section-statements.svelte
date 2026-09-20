@@ -82,9 +82,14 @@
   failed={trust.statementsFailure !== null}
 >
   {#snippet failure()}
-    <FirmTrustReadFailure
-      sentence="This account's statements could not be read, so none is shown. The record itself is unaffected."
-    />
+    {#if trust.statementsFailure !== null}
+      <FirmTrustReadFailure
+        failure={trust.statementsFailure}
+        title="This Account's Statements Could Not Be Read"
+        fallback="No period the bank reported is shown. The record itself is unaffected."
+        onRetry={() => trust.reloadStatements(fetch, account.id)}
+      />
+    {/if}
   {/snippet}
 
   {#each statements as statement (statement.id)}
@@ -158,6 +163,7 @@
 <RecordStatementDialog
   bind:open={recordOpen}
   trustAccountId={account.id}
+  accountName={account.name}
   currency={account.currency}
   timeZone={account.timeZone}
   onRecorded={recorded}
@@ -166,6 +172,7 @@
 <ImportStatementDialog
   bind:open={importOpen}
   trustAccountId={account.id}
+  accountName={account.name}
   currency={account.currency}
   timeZone={account.timeZone}
   onRecorded={recorded}

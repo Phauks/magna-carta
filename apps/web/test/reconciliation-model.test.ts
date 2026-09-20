@@ -35,6 +35,7 @@ import {
   proofFigures,
   verdictLabel,
 } from "../src/lib/trust/reconciliation-model.ts";
+import { statementLineDirectionLabel } from "../src/lib/trust/reconciliation-columns.ts";
 
 const money = (amountMinor: number): string => `${String(amountMinor)} cents`;
 
@@ -170,8 +171,19 @@ describe("the proof, as the screen arranges it", () => {
 
 describe("the recorded items, as the right-hand table reads them", () => {
   it("takes the direction from the sign the record carries, never from the kind", () => {
-    expect(bankItemDirectionLabel(item())).toBe("Out");
-    expect(bankItemDirectionLabel(item({ bankDeltaMinor: 5_000 }))).toBe("In");
+    expect(bankItemDirectionLabel(item())).toBe("Withdrawal");
+    expect(bankItemDirectionLabel(item({ bankDeltaMinor: 5_000 }))).toBe("Deposit");
+  });
+
+  it("says it in the bank's own words, so the two sides of the workbench read alike", () => {
+    // A reader matching a recorded entry against the line that clears it should not have to
+    // translate In to Deposit on every row: both tables describe the same bank account.
+    expect(bankItemDirectionLabel(item({ bankDeltaMinor: 5_000 }))).toBe(
+      statementLineDirectionLabel("deposit"),
+    );
+    expect(bankItemDirectionLabel(item({ bankDeltaMinor: -5_000 }))).toBe(
+      statementLineDirectionLabel("withdrawal"),
+    );
   });
 
   it("names an earned-fee transfer, which posts an entry and no movement", () => {

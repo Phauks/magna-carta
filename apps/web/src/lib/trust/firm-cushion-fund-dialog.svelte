@@ -125,10 +125,10 @@
 <ActionDialog
   bind:open
   kind="form"
-  heading="Add Firm Funds to the Cushion"
+  heading="Fund Cushion"
   {subtitle}
-  commitLabel="Add Funds"
-  commitBusyLabel="Adding"
+  commitLabel="Fund Cushion"
+  commitBusyLabel="Funding"
   commitRefusal={refusal}
   unsavedChanges={started}
   onOpen={reset}

@@ -13,6 +13,7 @@ import type { PrintSheetDocument, PrintSheetSection } from "@magna-carta/design-
 import { formatDate, formatInstant } from "@magna-carta/design-system/formatters";
 import type { TrustUnclaimedFundsReview } from "./trust-api.ts";
 import {
+  ATTACHED_MOVEMENT_NOT_ON_LEDGER,
   contactChannelLabel,
   contactOutcomeLabel,
   matterHeading,
@@ -27,6 +28,13 @@ export interface UnclaimedFundsSheetContext {
   readonly money: (amountMinor: number) => string;
   /** One member identifier as a name, where the firm's roster can say. */
   readonly memberName: (identifier: string) => string;
+  /**
+   * The payment the round closed over, as the day, the payee and the amount — the same line the
+   * window shows, composed by the surface that read the matter's ledger. Null where this round
+   * attached none, or where the ledger that names it could not be read; the two are different
+   * facts and the sheet says which.
+   */
+  readonly attachedMovementText: string | null;
   readonly printedAt: Date;
 }
 
@@ -88,8 +96,14 @@ export function unclaimedFundsReviewSheet(
       fields: [
         { label: "Outcome", value: reviewOutcomeLabel(closure.outcome) },
         {
+          // The payment as a person reads one, never the handle the platform joins on: this sheet
+          // is read by an administrator outside the firm, to whom an identifier says nothing at
+          // all and a day, a payee and an amount say everything.
           label: "Trust Movement",
-          value: closure.trustMovementId ?? "None attached",
+          value:
+            closure.trustMovementId === null
+              ? "None attached"
+              : (context.attachedMovementText ?? ATTACHED_MOVEMENT_NOT_ON_LEDGER),
         },
         { label: "Closed By", value: context.memberName(closure.closedBy) },
         { label: "Closed On", value: formatInstant(closure.closedAt) },

@@ -16,11 +16,15 @@
    * AFTER EITHER WRITE THE FILE IS READ AGAIN, and the surface that opened this window is told, so
    * the quiet ledgers behind it stop naming a file that has just been closed.
    *
+   * THE PAYMENT A CLOSED ROUND ATTACHED IS NAMED, NOT HANDED OVER AS A HANDLE. The matter's own
+   * trust ledger is read beside the file so the row reads as the day, the payee and the amount —
+   * the same line the panel that closed the round picked from. Where that read fails it is the one
+   * row that suffers, and it says so where the payment would have stood.
+   *
    * WHAT THE PAPER SAYS IS THE SAME THING: unclaimed-funds-sheet.ts renders this record for the
-   * administrator or the counsel who asks the firm to produce its diligence.
+   * administrator or the counsel who asks the firm to produce its diligence, down to that line.
    */
   import Button from "@magna-carta/design-system/button";
-  import * as Alert from "@magna-carta/design-system/alert";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as DefinitionList from "@magna-carta/design-system/definition-list";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
@@ -38,10 +42,17 @@
   } from "./trust-api.ts";
   import { dayText } from "./firm-trust-vocabulary.ts";
   import { memberDisplay } from "./trust-member-names.ts";
+  import FirmTrustReadFailure from "./firm-trust-read-failure.svelte";
+  import { MatterTrustLedger } from "./matter-trust-ledger.svelte.ts";
+  import { movementLineText } from "./trust-vocabulary.ts";
   import UnclaimedFundsRecordAttemptDialog from "./unclaimed-funds-record-attempt-dialog.svelte";
   import UnclaimedFundsCloseReviewDialog from "./unclaimed-funds-close-review-dialog.svelte";
   import { unclaimedFundsReviewSheet } from "./unclaimed-funds-sheet.ts";
   import {
+    ATTACHED_MOVEMENT_NOT_ON_LEDGER,
+    ATTACHED_MOVEMENT_NOT_ON_LEDGER_MEANING,
+    ATTACHED_MOVEMENT_READING,
+    ATTACHED_MOVEMENT_UNREADABLE,
     OBSERVATION_MEANING,
     REVIEW_UNREADABLE,
     contactChannelLabel,
@@ -54,6 +65,8 @@
   let {
     open = $bindable(false),
     reviewId,
+    trustAccountId,
+    matterId,
     matterNumber,
     matterTitle,
     timeZone,
@@ -66,6 +79,10 @@
     open?: boolean;
     /** The file to read, or null while the window holds none. */
     reviewId: string | null;
+    /** The account the quiet ledger sits in: half of what names the ledger to read. */
+    trustAccountId: string;
+    /** The matter whose ledger holds the payment a closure names, or null while none is open. */
+    matterId: string | null;
     matterNumber: string | null;
     matterTitle: string | null;
     /** The account's own zone, for the day an attempt defaults to. */
@@ -136,6 +153,38 @@
   const attempts = $derived<readonly TrustContactAttempt[]>(review?.attempts ?? []);
   const closure = $derived(review?.closure ?? null);
 
+  /*
+   * The matter's own trust ledger, so a closed file states the payment it closed over as the day,
+   * the payee and the amount rather than as the handle the platform joins on. The same reader the
+   * closing panel picks from, so the row a reader chose and the row they are then shown cannot
+   * describe one payment two ways.
+   */
+  const ledger = new MatterTrustLedger();
+
+  $effect(() => {
+    ledger.read(fetch, open ? matterId : null, open ? trustAccountId : null);
+  });
+
+  /** The payment this file closed over, as a line, or null where the ledger cannot name it. */
+  const attachedMovement = $derived(ledger.movement(closure?.trustMovementId ?? null));
+  const attachedMovementText = $derived(
+    attachedMovement === null || ledger.ledger === null
+      ? null
+      : movementLineText(attachedMovement, ledger.ledger.trustLedgerNodeId, money),
+  );
+
+  /**
+   * Where that row stands, as one word, because four of its five states read alike at a glance and
+   * only one of them says anything is wrong.
+   */
+  const attachedMovementStanding = $derived.by(
+    (): "failed" | "reading" | "named" | "not-on-ledger" => {
+      if (ledger.failure !== null) return "failed";
+      if (ledger.reading) return "reading";
+      return attachedMovementText === null ? "not-on-ledger" : "named";
+    },
+  );
+
   /** Why the round cannot be closed again, if it cannot. A closed file takes neither write. */
   const ROUND_ALREADY_CLOSED =
     "This round is already closed. A further search opens a new file over the same ledger.";
@@ -203,6 +252,7 @@
           matterTitle,
           money,
           memberName: (identifier) => asMember(identifier).text,
+          attachedMovementText,
           printedAt: new Date(),
         }),
   );
@@ -210,14 +260,22 @@
   /** A write landed: read the file again, and tell the surface behind so its ledgers agree. */
   function afterWrite(): void {
     readReview(reviewId);
+    // The matter's ledger goes with it: a round just closed over a payment names that payment here,
+    // and the read on hand was taken before the closure existed.
+    ledger.reread(fetch, matterId, trustAccountId);
     onWritten();
   }
 </script>
 
-{#snippet failureLine(sentence: string)}
-  <Alert.Root variant="warning">
-    <Alert.Description>{sentence}</Alert.Description>
-  </Alert.Root>
+{#snippet readFailure()}
+  {#if reviewFailure !== null}
+    <FirmTrustReadFailure
+      failure={reviewFailure}
+      title="This File Could Not Be Read"
+      fallback={REVIEW_UNREADABLE}
+      onRetry={() => readReview(reviewId)}
+    />
+  {/if}
 {/snippet}
 
 {#snippet record()}
@@ -230,7 +288,7 @@
       class="flex flex-col gap-16"
     >
       {#snippet failure()}
-        {@render failureLine(REVIEW_UNREADABLE)}
+        {@render readFailure()}
       {/snippet}
 
       <!-- THE OBSERVATION — what the reviewer acted on, kept as they saw it. -->
@@ -285,11 +343,32 @@
         >
           {closure === null ? "" : reviewOutcomeLabel(closure.outcome)}
         </DefinitionList.Row>
+        <!-- THE PAYMENT THE ROUND CLOSED OVER, as a person reads one: the day, the payee and the
+             amount. Never the handle it is joined on, which nobody can check. Where the ledger that
+             names it could not be read, the failure stands in this row and nowhere else. -->
         <DefinitionList.Row
           term="Trust Movement"
           empty={closure === null || closure.trustMovementId === null}
+          title={attachedMovementStanding === "not-on-ledger"
+            ? ATTACHED_MOVEMENT_NOT_ON_LEDGER_MEANING
+            : undefined}
         >
-          {closure?.trustMovementId}
+          {#if closure !== null && closure.trustMovementId !== null}
+            {#if ledger.failure !== null}
+              <FirmTrustReadFailure
+                failure={ledger.failure}
+                title="The Attached Payment Could Not Be Named"
+                fallback={ATTACHED_MOVEMENT_UNREADABLE}
+                onRetry={() => ledger.reread(fetch, matterId, trustAccountId)}
+              />
+            {:else if attachedMovementStanding === "reading"}
+              {ATTACHED_MOVEMENT_READING}
+            {:else if attachedMovementText !== null}
+              <span class="tabular-nums">{attachedMovementText}</span>
+            {:else}
+              {ATTACHED_MOVEMENT_NOT_ON_LEDGER}
+            {/if}
+          {/if}
         </DefinitionList.Row>
         <DefinitionList.Row term="Closed By" empty={closure === null}>
           {#if closure !== null}
@@ -329,7 +408,7 @@
       class="flex min-h-0 flex-1 flex-col gap-8"
     >
       {#snippet failure()}
-        {@render failureLine(REVIEW_UNREADABLE)}
+        {@render readFailure()}
       {/snippet}
 
       <DataTable.Grid
@@ -390,7 +469,10 @@
 <UnclaimedFundsCloseReviewDialog
   bind:open={closeOpen}
   {reviewId}
+  {trustAccountId}
+  {matterId}
   {matterNumber}
   {matterTitle}
+  {money}
   onClosed={afterWrite}
 />

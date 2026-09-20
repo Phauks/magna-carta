@@ -86,9 +86,14 @@
   failed={trust.cushionFailure !== null}
 >
   {#snippet failure()}
-    <FirmTrustReadFailure
-      sentence="The bank-charge cushion could not be read, so its position is not shown. The account's client ledgers are unaffected."
-    />
+    {#if trust.cushionFailure !== null}
+      <FirmTrustReadFailure
+        failure={trust.cushionFailure}
+        title="The Bank-Charge Cushion Could Not Be Read"
+        fallback="What the firm's own money in this account comes to is not shown. The account's client ledgers are unaffected."
+        onRetry={() => trust.reloadCushion(fetch, account.id)}
+      />
+    {/if}
   {/snippet}
 
   <DefinitionList.Root>

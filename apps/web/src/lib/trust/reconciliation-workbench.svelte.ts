@@ -140,13 +140,16 @@ export class ReconciliationWorkbench {
       return;
     }
     /*
-     * A 404 is an ANSWER: this address names no reconciliation, which is the not-found state inside
-     * the screen's own chrome rather than a failure band offering a retry that cannot succeed.
+     * A 404 KEEPS ITS FAILURE RECORD. It is an answer rather than a fault, and it is still a
+     * failure: the problem document carries the Error ID, the server's own words, and the
+     * difference between an address that names no reconciliation and a service briefly out of step
+     * after a release. The flag says only that a retry could not succeed, so the screen draws none;
+     * everything a reader is told comes off the record.
      */
     this.notFound = outcome.failure.problem?.status === 404;
     this.reconciliation = null;
     this.proof = null;
-    this.reconciliationFailure = this.notFound ? null : outcome.failure;
+    this.reconciliationFailure = outcome.failure;
   }
 
   async #readStatement(

@@ -12,6 +12,7 @@
    */
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
+  import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import * as DefinitionList from "@magna-carta/design-system/definition-list";
   import { formatDate } from "@magna-carta/design-system/formatters";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -25,6 +26,7 @@
     reconciliationId,
     match,
     money,
+    periodText,
     submissionKey,
     onWithdrawn,
   }: {
@@ -34,12 +36,30 @@
     match: TrustReconciliationMatch | null;
     /** How an amount reads, from the surface's own money vocabulary. */
     money: (amountMinor: number) => string;
+    /** The period this reconciliation is of, as the surface already reads it. */
+    periodText: string;
     /** Minted on the gesture that opened this panel, reused on every retry of it. */
     submissionKey: string;
     onWithdrawn: () => void;
   } = $props();
 
   let failure = $state<StatedFailure | null>(null);
+
+  /** The bank's own line, as a reader reads one: the day, the amount, what the bank called it. */
+  const lineText = $derived(
+    match === null
+      ? null
+      : `${formatDate(match.line.postedOn)} · ${money(match.line.amountMinor)} · ${match.line.description}`,
+  );
+
+  /*
+   * WHICH ASSERTION IS BEING TAKEN BACK, named where the panel names it. A match has no number
+   * somebody could read back, so the line it was made about is what identifies it, and the period
+   * says which reconciliation it stands on.
+   */
+  const subtitle = $derived<RecordSubject>({
+    facts: [lineText, periodText].filter((fact): fact is string => fact !== null && fact !== ""),
+  });
 
   async function withdraw(): Promise<ActionOutcome> {
     if (match === null) return "refused";
@@ -67,6 +87,7 @@
   bind:open
   kind="confirm"
   heading="Withdraw Match"
+  {subtitle}
   commitLabel="Withdraw Match"
   commitBusyLabel="Withdrawing"
   commitRefusal={match === null ? "No match is chosen." : undefined}

@@ -12,6 +12,11 @@
    * old one stays on the record: a firm's attestation about a period is not something the platform
    * lets anybody quietly replace, and the supersession is what makes the correction legible.
    *
+   * SUPERSEDING NOTHING IS A ROW, NOT AN EMPTY FIELD. A second reconciliation of a period that
+   * supersedes none of the ones before it is a real thing a firm can open, so the answer is offered
+   * as its own choice rather than reached by clearing a field: the picker refuses the primitive's
+   * deselect, so a field with no such row could be filled and never emptied again.
+   *
    * THE IDEMPOTENCY KEY IS MINTED WHEN THE PANEL OPENS. Two reconciliations of one statement are a
    * real thing a firm can hold, so nothing downstream could tell a retry from a deliberate second
    * one. Minting on the opening gesture is what makes a retry a retry.
@@ -19,7 +24,6 @@
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as DefinitionList from "@magna-carta/design-system/definition-list";
-  import Label from "@magna-carta/design-system/label";
   import LabelledField from "@magna-carta/design-system/labelled-field";
   import Textarea from "@magna-carta/design-system/textarea";
   import { formatInstant, placeholderOf } from "@magna-carta/design-system/formatters";
@@ -50,9 +54,14 @@
     onOpened: (reconciliationId: string) => void;
   } = $props();
 
-  const fieldPrefix = $props.id();
+  /**
+   * The row that takes the answer back off. A value rather than the empty string, because the one
+   * closed-choice field refuses a pick of "" — that is what stops a re-pick of the chosen row from
+   * silently clearing every other picker in the product.
+   */
+  const SUPERSEDES_NOTHING = "supersedes-nothing";
 
-  let supersedesReconciliationId = $state("");
+  let supersedesReconciliationId = $state(SUPERSEDES_NOTHING);
   let note = $state("");
   let failure = $state<StatedFailure | null>(null);
 
@@ -71,8 +80,8 @@
       .toSorted((left, right) => right.openedAt.localeCompare(left.openedAt)),
   );
 
-  const supersedeChoices = $derived<readonly ChoiceOption[]>(
-    existing.map((reconciliation) => ({
+  const supersedeChoices = $derived<readonly ChoiceOption[]>([
+    ...existing.map((reconciliation) => ({
       value: reconciliation.id,
       label: `Opened ${formatInstant(reconciliation.openedAt)}`,
       aside: reconciliationStandingLabel(reconciliation.status),
@@ -81,12 +90,19 @@
           ? "Closed, with the proof the firm attested to frozen on it. This one would supersede that attestation."
           : "Still open. This one would supersede it.",
     })),
-  );
+    {
+      value: SUPERSEDES_NOTHING,
+      label: "None",
+      meaning:
+        "This reconciliation supersedes none of the ones already opened over this period. All of them stand.",
+    },
+  ]);
 
   function reset(): void {
     // The most recent reconciliation of this statement is what a correction almost always replaces,
-    // and it is offered rather than imposed: the picker still holds every one of them.
-    supersedesReconciliationId = existing[0]?.id ?? "";
+    // and it is offered rather than imposed: the picker still holds every one of them, and the row
+    // that supersedes nothing.
+    supersedesReconciliationId = existing[0]?.id ?? SUPERSEDES_NOTHING;
     note = "";
     failure = null;
     submissionKey = crypto.randomUUID();
@@ -101,7 +117,7 @@
       {
         statementId: statement.id,
         supersedesReconciliationId:
-          supersedesReconciliationId === "" ? null : supersedesReconciliationId,
+          supersedesReconciliationId === SUPERSEDES_NOTHING ? null : supersedesReconciliationId,
         note: note.trim() === "" ? null : note.trim(),
       },
       submissionKey,
@@ -144,12 +160,11 @@
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
       <DefinitionList.Root>
-        <DefinitionList.Row term="Period">{statementPeriodText(statement)}</DefinitionList.Row>
         <DefinitionList.Row term="Opening Balance">
-          {money(statement.openingBalanceMinor)}
+          <span class="tabular-nums">{money(statement.openingBalanceMinor)}</span>
         </DefinitionList.Row>
         <DefinitionList.Row term="Closing Balance">
-          {money(statement.closingBalanceMinor)}
+          <span class="tabular-nums">{money(statement.closingBalanceMinor)}</span>
         </DefinitionList.Row>
         <DefinitionList.Row term="Reference" empty={statement.statementReference === null}>
           {statement.statementReference ?? ""}
@@ -157,21 +172,21 @@
       </DefinitionList.Root>
 
       {#if existing.length > 0}
-        <div class="flex flex-col gap-8">
-          <Label for="{fieldPrefix}-supersedes">Supersedes</Label>
-          <ChoicePicker
-            inputId="{fieldPrefix}-supersedes"
-            label="Supersedes"
-            options={supersedeChoices}
-            value={supersedesReconciliationId}
-            disabled={busy}
-            onchange={(next) => (supersedesReconciliationId = next)}
-          />
-          <p class="mc-form-description">
-            This period has been reconciled before. A correction is a new reconciliation that
-            supersedes the old one, so what the firm attested to then stays on the record.
-          </p>
-        </div>
+        <LabelledField
+          label="Supersedes"
+          hint="This period has been reconciled before. A correction is a new reconciliation that supersedes the old one, so what the firm attested to then stays on the record."
+        >
+          {#snippet children({ props })}
+            <ChoicePicker
+              inputId={props.id}
+              label="Supersedes"
+              options={supersedeChoices}
+              value={supersedesReconciliationId}
+              disabled={busy}
+              onchange={(next) => (supersedesReconciliationId = next)}
+            />
+          {/snippet}
+        </LabelledField>
       {/if}
 
       <LabelledField label="Note" hint="Why this reconciliation is being opened, where that is worth recording.">

@@ -92,7 +92,7 @@
 <ActionDialog
   bind:open
   kind="form"
-  heading="Open the Cushion"
+  heading="Open Cushion"
   {subtitle}
   commitLabel="Open Cushion"
   commitBusyLabel="Opening"

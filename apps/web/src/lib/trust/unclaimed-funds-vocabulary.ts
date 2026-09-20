@@ -22,6 +22,7 @@
 import type { ChoiceOption } from "$lib/components/choice-picker.ts";
 import type { SheetMatter } from "$lib/time/time-sheet-model.ts";
 import type { TrustContactChannel, TrustContactOutcome, TrustReviewOutcome } from "./trust-api.ts";
+import { matterNameText } from "./trust-vocabulary.ts";
 
 // ---- the window the reader states ---------------------------------------------------------------
 
@@ -55,10 +56,13 @@ export const MATTER_NAME_READING = "Reading the firm's matters.";
 export const MATTER_NAME_UNREADABLE =
   "This matter is not in the firm's matters as they were read, so its number is not shown.";
 
-/** A matter as a reader says it: its number, then its title. */
+/**
+ * A matter as a reader says it, from the one assembly every Trust surface shares
+ * (trust-vocabulary.ts). What this adds is the stand-in a heading takes where the record names
+ * neither: nothing, because a window's heading has the subtitle's reference beneath it.
+ */
 export function matterHeading(matterNumber: string | null, matterTitle: string | null): string {
-  if (matterNumber === null) return matterTitle ?? "";
-  return matterTitle === null ? matterNumber : `${matterNumber} · ${matterTitle}`;
+  return matterNameText(matterNumber, matterTitle) ?? "";
 }
 
 /**
@@ -277,3 +281,28 @@ export const TRUST_MOVEMENT_HINT =
 /** Why the field stands refused on the other three outcomes rather than disappearing. */
 export const TRUST_MOVEMENT_NOT_ASKED =
   "Only a distribution to the owner attaches a payment. The other three outcomes close the file without one.";
+
+/** Why the field is refused while the matter's own ledger is still arriving. */
+export const TRUST_MOVEMENT_LEDGER_READING = "Reading this matter's trust ledger.";
+
+/** Why it is refused where the ledger answered and holds no payment out to attach. */
+export const TRUST_MOVEMENT_NONE_TO_ATTACH =
+  "This matter's trust ledger holds no payment out in this account, so there is none to attach. Post the distribution on the ordinary authorized path first.";
+
+/** Why it is refused where the ledger could not be read at all. */
+export const TRUST_MOVEMENT_LEDGER_UNREADABLE =
+  "This matter's trust ledger could not be read, so its payments out cannot be offered. Nothing about the file has changed.";
+
+/** What the window's Trust Movement row says where the ledger that names the payment failed. */
+export const ATTACHED_MOVEMENT_UNREADABLE =
+  "The payment this file closed over is not named. The file itself is unaffected, and so is the payment.";
+
+/** What that row says where the ledger answered and does not carry the payment the file names. */
+export const ATTACHED_MOVEMENT_NOT_ON_LEDGER = "Not on this matter's ledger as read";
+
+/** Why that is a fact about the record rather than a failed read, on the hover. */
+export const ATTACHED_MOVEMENT_NOT_ON_LEDGER_MEANING =
+  "The file names a payment that this matter's ledger in this account does not carry. The payment stays on the firm's record; what cannot be stated here is its day, its payee and its amount.";
+
+/** What the row says while the ledger that names the payment is still being read. */
+export const ATTACHED_MOVEMENT_READING = "Reading this matter's trust ledger.";

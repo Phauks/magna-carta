@@ -257,7 +257,7 @@ describe("the body closing a round composes", () => {
     expect(readTrustUnclaimedFundsClosure({ ...CLOSURE, trustMovementId: " " })).toEqual({
       kind: "refused",
       reason:
-        "Name the trust movement that paid the owner. Closing attaches a payment that already posted; it moves nothing.",
+        "Choose the trust movement that paid the owner. Closing attaches a payment that already posted; it moves nothing.",
     });
   });
 

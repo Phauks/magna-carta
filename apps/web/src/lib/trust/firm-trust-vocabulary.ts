@@ -13,9 +13,16 @@
  * MONEY IS CONVERTED IN EXACTLY ONE PLACE ON THIS SURFACE. `trustMoneyText` is the only function
  * here that touches minor units, so the whole screen changes its mind about how an amount reads by
  * changing one line. How many minor units make a major unit is a property of the CURRENCY and this
- * function cannot see one — it is a stand-in for carrying the value as Money through
- * packages/money, which apps/web cannot reach today, and it is written as one call so that when it
- * can the migration is a single edit.
+ * function cannot see one, which is why the division is a debt rather than a detail.
+ *
+ * WHAT IT WAITS ON IS A FORMATTER THAT TAKES MINOR UNITS, not a package. @magna-carta/money is
+ * reachable from here now and holds the amount exactly; what it cannot do is print one, because
+ * printing is the design system's
+ * (packages/design-system/src/lib/formatters/money.ts), and that formatter is contracted to take a
+ * number in the currency's MAJOR unit. Going through the package to satisfy it would mean turning
+ * an exact Money back into a float, which is worse than the division it would replace. So the one
+ * conversion stands, on its own line, until the design system offers a minor-unit formatter — and
+ * then it is a single edit.
  *
  * NOTHING HERE READS A RECORD APART. These are words, not judgments about what a reader may do:
  * who can act on a request, and what a posture means, live in firm-trust-model.ts.
@@ -123,11 +130,19 @@ export function balancedLabel(balanced: boolean): string {
 export const FROZEN_PROOF_MEANING =
   "The three-way proof as it stood when the period was closed: what the firm attested to then, not what is true now.";
 
+/*
+ * What the panel's two "recorded" lists say when the account has none.
+ *
+ * ONE GRAMMAR FOR BOTH, and the same one the queue's own empty line uses ("Nothing is waiting."):
+ * the present tense states what the record HOLDS, where the perfect tense states something about
+ * its history that these reads do not actually know.
+ */
+
 /** What the reconciliations list says when the account has none. */
-export const NO_RECONCILIATIONS = "No reconciliation has been recorded.";
+export const NO_RECONCILIATIONS = "No reconciliation is recorded.";
 
 /** What the statements list says when the account has none. */
-export const NO_STATEMENTS = "No statement has been recorded.";
+export const NO_STATEMENTS = "No statement is recorded.";
 
 // ---- the firm's own money in a trust account ----------------------------------------------------
 

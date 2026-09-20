@@ -292,11 +292,21 @@
 
   // ---- what else this reader may do ----------------------------------------------------------------
 
-  /** Recording and importing a statement, and opening a reconciliation over one. */
+  /**
+   * Recording and importing a statement, opening a reconciliation over one, and every act on a
+   * diligence file over a quiet client ledger.
+   *
+   * ONE CAPABILITY, SO ONE SENTENCE. The acts differ and the permission does not, and a section
+   * that worked out its own wording would leave one control on this panel saying something
+   * different from the five beside it about the same account.
+   */
   const manageRefusal = $derived.by((): string | undefined => {
     if (permissions === null) return "Reading your session.";
     if (!permissions.includes(TRUST_PERMISSIONS.manage)) {
-      return permissionRefusal("Recording a statement or a reconciliation", TRUST_PERMISSIONS.manage);
+      return permissionRefusal(
+        "Recording a statement, a reconciliation or a diligence file",
+        TRUST_PERMISSIONS.manage,
+      );
     }
     return undefined;
   });

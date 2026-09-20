@@ -164,9 +164,17 @@ export function verdictMeaning(balanced: boolean): string {
 
 // ---- the two sides -----------------------------------------------------------------------------
 
-/** Which way a recorded entry moved the bank balance. The sign is the record's, never inferred. */
+/**
+ * Which way a recorded entry moved the bank balance, in the BANK'S own two words.
+ *
+ * The sign is the record's and is never inferred; what is decided here is only what to call it. It
+ * reads Deposit and Withdrawal rather than In and Out because the workbench's other side — the
+ * lines the bank actually posted — says exactly that, and an entry the firm recorded is a statement
+ * about the same account: a reader matching one against the other should not have to translate a
+ * second vocabulary on every row.
+ */
 export function bankItemDirectionLabel(item: TrustBankItem): string {
-  return item.bankDeltaMinor < 0 ? "Out" : "In";
+  return item.bankDeltaMinor < 0 ? "Withdrawal" : "Deposit";
 }
 
 /** What a recorded entry IS, from what the record carries about it. */

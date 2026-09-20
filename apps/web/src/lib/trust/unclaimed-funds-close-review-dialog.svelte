@@ -4,9 +4,15 @@
    *
    * CLOSING MOVES NO MONEY, INCLUDING WHEN IT CLOSES AS A DISTRIBUTION. Paying the owner is an
    * ordinary payment out, proposed and authorized on the ordinary path; what this panel does is
-   * ATTACH that movement to the file, which is why it takes an identifier and not an amount, a
-   * payee, a day or a method. The field's own line says so, beside the field, because that is the
-   * one thing a reader could otherwise believe this panel is doing.
+   * ATTACH that movement to the file, which is why it names a movement and not an amount, a payee,
+   * a day or a method. The field's own line says so, beside the field, because that is the one
+   * thing a reader could otherwise believe this panel is doing.
+   *
+   * THE MOVEMENT IS PICKED, NEVER TYPED. Its identifier is what the platform joins on; nobody can
+   * read one, check one or quote one, and a free-text box for one is a box whose only possible
+   * wrong answer is silent — a handle that is well formed and belongs to somebody else's payment.
+   * So the matter's own ledger is read and its payments out are offered as what they are: the day,
+   * the payee and the amount.
    *
    * THE MOVEMENT FIELD STANDS REFUSED ON THE OTHER THREE OUTCOMES rather than disappearing: a
    * control that vanishes reflows the panel under the hand of the person filling it in, and the
@@ -21,7 +27,6 @@
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import type { RecordSubject } from "@magna-carta/design-system/record-reference";
-  import Input from "@magna-carta/design-system/input";
   import LabelledField from "@magna-carta/design-system/labelled-field";
   import Textarea from "@magna-carta/design-system/textarea";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
@@ -30,6 +35,8 @@
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { closeTrustUnclaimedFundsReview, type TrustReviewOutcome } from "./trust-api.ts";
   import { fieldRefusal } from "./trust-write-requests.ts";
+  import { MatterTrustLedger } from "./matter-trust-ledger.svelte.ts";
+  import { disbursementChoices } from "./trust-vocabulary.ts";
   import {
     readTrustUnclaimedFundsClosure,
     trustMovementIsRequired,
@@ -37,6 +44,9 @@
   import {
     TRUST_MOVEMENT_HINT,
     TRUST_MOVEMENT_LABEL,
+    TRUST_MOVEMENT_LEDGER_READING,
+    TRUST_MOVEMENT_LEDGER_UNREADABLE,
+    TRUST_MOVEMENT_NONE_TO_ATTACH,
     TRUST_MOVEMENT_NOT_ASKED,
     reviewOutcomeChoices,
     reviewOutcomeMeaning,
@@ -45,15 +55,24 @@
   let {
     open = $bindable(false),
     reviewId,
+    trustAccountId,
+    matterId,
     matterNumber,
     matterTitle,
+    money,
     onClosed,
   }: {
     open?: boolean;
     /** The file being closed, or null while none is open in the window. */
     reviewId: string | null;
+    /** The account the quiet ledger sits in: half of what names the ledger to read. */
+    trustAccountId: string | null;
+    /** The matter whose ledger holds the payment, or null while the window holds no file. */
+    matterId: string | null;
     matterNumber: string | null;
     matterTitle: string | null;
+    /** How an amount reads, from the surface's own money vocabulary. */
+    money: (amountMinor: number) => string;
     /** The round closed: the window re-reads the file and the section re-reads the ledgers. */
     onClosed: () => void;
   } = $props();
@@ -67,6 +86,19 @@
 
   const outcomeChoices = reviewOutcomeChoices();
 
+  /*
+   * The matter's own trust ledger, for the payments out this file could be closed over. It is read
+   * while the panel stands rather than when the outcome is chosen: a reader who picks "distributed
+   * to the owner" should find the payments already there, not a field that starts loading.
+   */
+  const ledger = new MatterTrustLedger();
+
+  $effect(() => {
+    ledger.read(fetch, open ? matterId : null, open ? trustAccountId : null);
+  });
+
+  const movementChoices = $derived(disbursementChoices(ledger.ledger, money));
+
   function reset(): void {
     outcome = "search_continues";
     trustMovementId = "";
@@ -76,6 +108,21 @@
   }
 
   const movementWanted = $derived(trustMovementIsRequired(outcome));
+
+  /**
+   * Why the movement cannot be picked, or undefined while it can.
+   *
+   * The field stands refused rather than disappearing on every one of these, so choosing an outcome
+   * never reflows the panel under the hand of the person filling it in, and the hover says which of
+   * the four facts is in the way.
+   */
+  const movementRefusal = $derived.by((): string | undefined => {
+    if (!movementWanted) return TRUST_MOVEMENT_NOT_ASKED;
+    if (ledger.reading) return TRUST_MOVEMENT_LEDGER_READING;
+    if (ledger.failure !== null) return TRUST_MOVEMENT_LEDGER_UNREADABLE;
+    if (movementChoices.length === 0) return TRUST_MOVEMENT_NONE_TO_ATTACH;
+    return undefined;
+  });
 
   const reading = $derived(readTrustUnclaimedFundsClosure({ outcome, trustMovementId, note }));
 
@@ -162,15 +209,16 @@
 
       <LabelledField
         label={TRUST_MOVEMENT_LABEL}
-        hint={movementWanted ? TRUST_MOVEMENT_HINT : TRUST_MOVEMENT_NOT_ASKED}
+        hint={movementRefusal ?? TRUST_MOVEMENT_HINT}
         error={fieldRefusal(serverProblem, "trustMovementId")}
       >
         {#snippet children({ props })}
-          <Input
-            {...props}
-            placeholder={placeholderOf(TRUST_MOVEMENT_LABEL)}
-            disabled={busy || !movementWanted}
-            title={movementWanted ? undefined : TRUST_MOVEMENT_NOT_ASKED}
+          <ChoicePicker
+            inputId={props.id}
+            label={TRUST_MOVEMENT_LABEL}
+            options={movementChoices}
+            disabled={busy || movementRefusal !== undefined}
+            title={movementRefusal}
             bind:value={trustMovementId}
           />
         {/snippet}

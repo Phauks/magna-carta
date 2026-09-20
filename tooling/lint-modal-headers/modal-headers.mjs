@@ -79,6 +79,7 @@ export const ACT_VERBS = new Set([
   "file",
   "finalize",
   "fold",
+  "fund",
   "import",
   "invite",
   "issue",

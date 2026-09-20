@@ -15,8 +15,10 @@
    * that changing it here would change it only here.
    *
    * EACH READ FAILS ON ITS OWN. A firm whose statements cannot be read still has an approval queue
-   * somebody owes an answer to, so a failed read puts one line in its own section and leaves the
-   * rest of the panel standing. The register behind the panel is unaffected either way.
+   * somebody owes an answer to, so a failed read stands inside its own section — through the one
+   * failure device, which carries the whole failure record, the Error ID and the way to ask again —
+   * and leaves the rest of the panel standing. The register behind the panel is unaffected either
+   * way.
    *
    * EACH SECTION IS ITS OWN COMPONENT WHERE IT CARRIES ACTS OF ITS OWN. A section with a list, a
    * failure, an empty state and two or three panels behind its controls is a file's worth of
@@ -84,7 +86,12 @@
     officeName: (locationId: string) => string | null;
     money: (amountMinor: number) => string;
     currency: string;
-    /** Why this reader may not record, import or reconcile, or undefined while they may. */
+    /**
+     * Why this reader may not record, import, reconcile or work a diligence file, or undefined
+     * while they may. One capability governs all of them, so it is one sentence read off the
+     * session once by the screen: a section working out its own would be a second answer to the
+     * same question, and the two would drift.
+     */
     manageRefusal: string | undefined;
     /** Why this reader may not act on the bank-charge cushion, or undefined while they may. */
     firmFundsRefusal: string | undefined;
@@ -182,9 +189,14 @@
           failed={trust.requestsFailure !== null}
         >
           {#snippet failure()}
-            <FirmTrustReadFailure
-              sentence="The approval queue could not be read, so what is waiting is not shown. Nothing was decided."
-            />
+            {#if trust.requestsFailure !== null}
+              <FirmTrustReadFailure
+                failure={trust.requestsFailure}
+                title="The Approval Queue Could Not Be Read"
+                fallback="What is waiting on this account is not shown. Nothing was decided by this failure."
+                onRetry={() => trust.reloadQueue(fetch, account.id)}
+              />
+            {/if}
           {/snippet}
 
           {#each queue as request (request.id)}
@@ -210,7 +222,7 @@
 
       <!-- RECONCILIATIONS — most recently opened first, each linking to its own workbench. -->
       <DetailsPanel.Section label="Reconciliations">
-        <FirmTrustSectionReconciliations {trust} {members} {money} />
+        <FirmTrustSectionReconciliations {account} {trust} {members} {money} />
       </DetailsPanel.Section>
 
       <!-- STATEMENTS — most recent period first, as the institution reported it, with the acts
@@ -233,9 +245,9 @@
           trustAccountId={account.id}
           currency={account.currency}
           timeZone={account.timeZone}
-          permissions={viewer.permissions}
           {members}
           {money}
+          {manageRefusal}
         />
       </DetailsPanel.Section>
     {/if}
@@ -249,9 +261,14 @@
         failed={trust.policyFailure !== null}
       >
         {#snippet failure()}
-          <FirmTrustReadFailure
-            sentence="The firm's authorization posture could not be read, so the rule in force is not shown. It still governs every payment out."
-          />
+          {#if trust.policyFailure !== null}
+            <FirmTrustReadFailure
+              failure={trust.policyFailure}
+              title="The Authorization Posture Could Not Be Read"
+              fallback="The rule in force is not shown. It still governs every payment out of a client ledger."
+              onRetry={() => trust.reloadPolicy(fetch)}
+            />
+          {/if}
         {/snippet}
 
         <DefinitionList.Root>

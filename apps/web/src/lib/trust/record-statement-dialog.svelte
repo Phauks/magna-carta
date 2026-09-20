@@ -25,12 +25,12 @@
    */
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
+  import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import * as Alert from "@magna-carta/design-system/alert";
   import * as DefinitionList from "@magna-carta/design-system/definition-list";
   import Button from "@magna-carta/design-system/button";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import Input from "@magna-carta/design-system/input";
-  import Label from "@magna-carta/design-system/label";
   import LabelledField from "@magna-carta/design-system/labelled-field";
   import { DatePicker } from "@magna-carta/design-system/date-picker";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
@@ -55,12 +55,15 @@
   let {
     open = $bindable(false),
     trustAccountId,
+    accountName,
     currency,
     timeZone,
     onRecorded,
   }: {
     open?: boolean;
     trustAccountId: string;
+    /** What the account is called, so the panel names the record it is writing against. */
+    accountName: string;
     /** The account's currency, so every figure on the panel reads in the account's own money. */
     currency: string;
     /** The holding office's zone: the day the account's month ends in. */
@@ -68,8 +71,6 @@
     /** The statement was recorded. The surface re-reads its statements and selects this one. */
     onRecorded: (statementId: string) => void;
   } = $props();
-
-  const fieldPrefix = $props.id();
 
   let periodStart = $state("");
   let periodEnd = $state("");
@@ -83,6 +84,10 @@
   let submissionKey = "";
 
   const money = (amountMinor: number): string => trustMoneyText(amountMinor, currency);
+
+  /* WHICH ACCOUNT THIS PERIOD IS BEING RECORDED AGAINST. A statement is a fact about one bank
+     account, and a panel that names none could be writing against any of the firm's. */
+  const subtitle = $derived<RecordSubject>({ facts: [accountName] });
 
   /** A blank line, posted on the day the period starts so the field opens inside the period. */
   function blankLine(postedOn: string): TrustStatementLineDraft {
@@ -170,6 +175,7 @@
   bind:open
   kind="form"
   heading="Record Statement"
+  {subtitle}
   commitLabel="Record Statement"
   commitBusyLabel="Recording"
   {commitRefusal}
@@ -286,20 +292,21 @@
                 disabled={busy}
               />
 
-              <div class="flex flex-col gap-8">
-                <Label for="{fieldPrefix}-direction-{line.key}">Direction</Label>
-                <ChoicePicker
-                  inputId="{fieldPrefix}-direction-{line.key}"
-                  label="Direction"
-                  options={STATEMENT_DIRECTION_CHOICES}
-                  value={line.direction}
-                  disabled={busy}
-                  onchange={(next) =>
-                    changeLine(line.key, {
-                      direction: next === "withdrawal" ? "withdrawal" : "deposit",
-                    })}
-                />
-              </div>
+              <LabelledField label="Direction" error={fieldRefusal(problem, "direction")}>
+                {#snippet children({ props })}
+                  <ChoicePicker
+                    inputId={props.id}
+                    label="Direction"
+                    options={STATEMENT_DIRECTION_CHOICES}
+                    value={line.direction}
+                    disabled={busy}
+                    onchange={(next) =>
+                      changeLine(line.key, {
+                        direction: next === "withdrawal" ? "withdrawal" : "deposit",
+                      })}
+                  />
+                {/snippet}
+              </LabelledField>
 
               <LabelledField label="Amount">
                 {#snippet children({ props })}
@@ -371,16 +378,20 @@
     <div class="flex flex-col gap-16">
       <DefinitionList.Root>
         <DefinitionList.Row term="Lines">{String(lines.length)}</DefinitionList.Row>
-        <DefinitionList.Row term="Deposits">{money(totals.depositTotalMinor)}</DefinitionList.Row>
+        <DefinitionList.Row term="Deposits">
+          <span class="tabular-nums">{money(totals.depositTotalMinor)}</span>
+        </DefinitionList.Row>
         <DefinitionList.Row term="Withdrawals">
-          {money(totals.withdrawalTotalMinor)}
+          <span class="tabular-nums">{money(totals.withdrawalTotalMinor)}</span>
         </DefinitionList.Row>
         <DefinitionList.Row
           term="Implied Closing"
           empty={totals.impliedClosingMinor === null}
           title="The opening balance, plus what the lines pay in, less what they pay out."
         >
-          {totals.impliedClosingMinor === null ? "" : money(totals.impliedClosingMinor)}
+          <span class="tabular-nums">
+            {totals.impliedClosingMinor === null ? "" : money(totals.impliedClosingMinor)}
+          </span>
         </DefinitionList.Row>
         {#if totals.impliedClosingMinor === null}
           <DefinitionList.Empty term="Implied Closing">

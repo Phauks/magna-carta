@@ -24,26 +24,22 @@
    * to show. A reader meets the shape of what is coming rather than a sentence on the canvas.
    *
    * THE READ FAILS ON ITS OWN. A firm whose quiet ledgers cannot be read still has everything else
-   * in the panel, so a failure puts one line inside this section and leaves the rest standing.
+   * in the panel, so a failure stands inside this section, through the panel's one failure device,
+   * and leaves the rest of it standing.
    */
   import Button from "@magna-carta/design-system/button";
-  import * as Alert from "@magna-carta/design-system/alert";
   import * as DefinitionList from "@magna-carta/design-system/definition-list";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { DatePicker } from "@magna-carta/design-system/date-picker";
   import type { Failure } from "$lib/api/problem.ts";
   import { LatestOnly } from "$lib/api/latest-only.ts";
   import { civilDateTextOrEmpty, civilDateValue } from "$lib/dates";
-  import { permissionRefusal } from "$lib/access/refusal.ts";
   import type { FirmMemberSummary } from "$lib/members/members-api.ts";
   import { moneySectionHref } from "$lib/money/index.ts";
   import { FirmMatters } from "$lib/time/firm-matters.svelte.ts";
-  import {
-    TRUST_PERMISSIONS,
-    readDormantTrustBalances,
-    type TrustDormantBalance,
-  } from "./trust-api.ts";
+  import { readDormantTrustBalances, type TrustDormantBalance } from "./trust-api.ts";
   import { dayText } from "./firm-trust-vocabulary.ts";
+  import FirmTrustReadFailure from "./firm-trust-read-failure.svelte";
   import UnclaimedFundsOpenReviewDialog from "./unclaimed-funds-open-review-dialog.svelte";
   import UnclaimedFundsReviewWindow from "./unclaimed-funds-review-window.svelte";
   import { dormantBalancesInOrder } from "./unclaimed-funds-requests.ts";
@@ -61,9 +57,9 @@
     trustAccountId,
     currency,
     timeZone,
-    permissions,
     members,
     money,
+    manageRefusal,
   }: {
     /** The account whose client ledgers are being read. */
     trustAccountId: string;
@@ -71,11 +67,15 @@
     currency: string;
     /** The account's own zone: the day an attempt was made is the firm's day, not the reader's. */
     timeZone: string;
-    /** What this account may do, or null while that is still being read. */
-    permissions: readonly string[] | null;
     /** The firm's roster, for turning a user identifier into a name. Null while it is being read. */
     members: readonly FirmMemberSummary[] | null;
     money: (amountMinor: number) => string;
+    /**
+     * Why this reader may not open a file, record an attempt or close a round, or undefined while
+     * they may. The screen reads it off the session once for every control on this panel, so this
+     * section never says anything about a capability in words of its own.
+     */
+    manageRefusal: string | undefined;
   } = $props();
 
   /** The day the reader states. Deliberately empty: there is no period this section may assume. */
@@ -146,15 +146,6 @@
     void matters.load(fetch);
   });
 
-  /** Whether this account holds the capability the three acts need, and what to say while it does not. */
-  const mayManage = $derived(permissions !== null && permissions.includes(TRUST_PERMISSIONS.manage));
-  const readingPermissions = $derived(permissions === null);
-
-  function manageRefusal(act: string): string | undefined {
-    if (readingPermissions) return "Reading what this account may do.";
-    return mayManage ? undefined : permissionRefusal(act, TRUST_PERMISSIONS.manage);
-  }
-
   /**
    * What the Balance row's hover says where the ledger is served in a currency the account is not
    * held in. It is a fact about the money rather than a formatting detail, so it is stated instead
@@ -190,12 +181,6 @@
   }
 </script>
 
-{#snippet failureLine(sentence: string)}
-  <Alert.Root variant="warning">
-    <Alert.Description>{sentence}</Alert.Description>
-  </Alert.Root>
-{/snippet}
-
 <div class="flex flex-col gap-16">
   <!-- THE WINDOW THE READER STATES. No default, because the period a firm answers to is the
        state's and the kind of money's, and a pre-filled day would be this screen asserting one. -->
@@ -213,7 +198,14 @@
     class="flex flex-col gap-16"
   >
     {#snippet failure()}
-      {@render failureLine(DORMANT_BALANCES_UNREADABLE)}
+      {#if balancesFailure !== null}
+        <FirmTrustReadFailure
+          failure={balancesFailure}
+          title="The Quiet Ledgers Could Not Be Read"
+          fallback={DORMANT_BALANCES_UNREADABLE}
+          onRetry={() => readBalances(trustAccountId, quietOnOrBefore)}
+        />
+      {/if}
     {/snippet}
 
     {#each rows as balance (balance.trustLedgerNodeId)}
@@ -248,12 +240,11 @@
 
         <div class="flex flex-wrap items-center gap-8">
           {#if balance.openReviewId === null}
-            {@const refusal = manageRefusal("Opening a review")}
             <Button
               variant="secondary"
               size="sm"
-              disabled={refusal !== undefined}
-              title={refusal}
+              disabled={manageRefusal !== undefined}
+              title={manageRefusal}
               onclick={() => startOpening(balance)}
             >
               Open Review
@@ -294,12 +285,14 @@
 <UnclaimedFundsReviewWindow
   bind:open={windowOpen}
   reviewId={windowReviewId}
+  {trustAccountId}
+  matterId={subjectBalance?.matterId ?? null}
   matterNumber={subjectMatterNumber}
   matterTitle={subjectMatterTitle}
   {timeZone}
   {members}
   {money}
-  attemptRefusal={manageRefusal("Recording a contact attempt")}
-  closureRefusal={manageRefusal("Closing a review")}
+  attemptRefusal={manageRefusal}
+  closureRefusal={manageRefusal}
   onWritten={() => readBalances(trustAccountId, quietOnOrBefore)}
 />

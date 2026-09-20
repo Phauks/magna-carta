@@ -183,6 +183,12 @@ export class FirmTrust {
     void this.#readStatements(fetchImpl, trustAccountId, this.#accountReads.attempt());
   }
 
+  /** Read the reconciliations again, after a failed read of them. */
+  reloadReconciliations(fetchImpl: typeof fetch, trustAccountId: string): void {
+    if (trustAccountId !== this.#showing) return;
+    void this.#readReconciliations(fetchImpl, trustAccountId, this.#accountReads.attempt());
+  }
+
   async #readQueue(
     fetchImpl: typeof fetch,
     trustAccountId: string,
@@ -269,6 +275,16 @@ export class FirmTrust {
   }
 
   // ---- the firm's posture -----------------------------------------------------------------------
+
+  /**
+   * Read the firm's posture again, after a change or after a failed read.
+   *
+   * It supersedes for the same reason the first read does: the answer a reader must end up looking
+   * at is the one asked for LAST, whatever order the two came back in.
+   */
+  reloadPolicy(fetchImpl: typeof fetch): void {
+    void this.loadPolicy(fetchImpl);
+  }
 
   /** Read the firm's authorization posture. Read again after a change, which is why it supersedes. */
   async loadPolicy(fetchImpl: typeof fetch): Promise<void> {

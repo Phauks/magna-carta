@@ -24,6 +24,7 @@
   import type { FirmTrust } from "./firm-trust.svelte.ts";
   import { reconciliationRows } from "./firm-trust-model.ts";
   import { memberDisplay } from "./trust-member-names.ts";
+  import type { TrustAccountListing } from "./trust-api.ts";
   import {
     FROZEN_PROOF_MEANING,
     NO_RECONCILIATIONS,
@@ -33,10 +34,13 @@
   } from "./firm-trust-vocabulary.ts";
 
   let {
+    account,
     trust,
     members,
     money,
   }: {
+    /** The account whose reconciliations these are, for the read this section asks for again. */
+    account: TrustAccountListing;
     /** The store the reconciliations and statements reads land in, each with its own failure. */
     trust: FirmTrust;
     /** The firm's roster, for turning a user identifier into a name. Null while it is being read. */
@@ -60,9 +64,14 @@
   failed={trust.reconciliationsFailure !== null}
 >
   {#snippet failure()}
-    <FirmTrustReadFailure
-      sentence="This account's reconciliations could not be read, so none is shown. The record itself is unaffected."
-    />
+    {#if trust.reconciliationsFailure !== null}
+      <FirmTrustReadFailure
+        failure={trust.reconciliationsFailure}
+        title="This Account's Reconciliations Could Not Be Read"
+        fallback="No reconciliation the account holds is shown. The record itself is unaffected."
+        onRetry={() => trust.reloadReconciliations(fetch, account.id)}
+      />
+    {/if}
   {/snippet}
 
   {#each rows as row (row.reconciliation.id)}
@@ -101,13 +110,15 @@
         {proof === null ? "" : String(proof.unmatchedItemCount)}
       </DefinitionList.Row>
       <DefinitionList.Row term="Adjusted Bank" empty={proof === null}>
-        {proof === null ? "" : money(proof.adjustedBankMinor)}
+        <span class="tabular-nums">{proof === null ? "" : money(proof.adjustedBankMinor)}</span>
       </DefinitionList.Row>
       <DefinitionList.Row term="Book Balance" empty={proof === null}>
-        {proof === null ? "" : money(proof.bookBalanceMinor)}
+        <span class="tabular-nums">{proof === null ? "" : money(proof.bookBalanceMinor)}</span>
       </DefinitionList.Row>
       <DefinitionList.Row term="Client Ledgers" empty={proof === null}>
-        {proof === null ? "" : money(proof.clientLedgerTotalMinor)}
+        <span class="tabular-nums">
+          {proof === null ? "" : money(proof.clientLedgerTotalMinor)}
+        </span>
       </DefinitionList.Row>
     </DefinitionList.Root>
   {:else}

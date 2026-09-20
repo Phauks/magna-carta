@@ -27,6 +27,7 @@
    */
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
+  import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as DefinitionList from "@magna-carta/design-system/definition-list";
   import FieldLabel from "@magna-carta/design-system/field-label";
@@ -66,12 +67,15 @@
   let {
     open = $bindable(false),
     trustAccountId,
+    accountName,
     currency,
     timeZone,
     onRecorded,
   }: {
     open?: boolean;
     trustAccountId: string;
+    /** What the account is called, so the panel names the record it is writing against. */
+    accountName: string;
     /** The account's currency, so every figure on the panel reads in the account's own money. */
     currency: string;
     /** The holding office's zone: the day the account's month ends in. */
@@ -98,6 +102,10 @@
   let submissionKey = "";
 
   const money = (amountMinor: number): string => trustMoneyText(amountMinor, currency);
+
+  /* WHICH ACCOUNT THIS FILE IS BEING READ INTO. A statement is a fact about one bank account, and a
+     panel that names none could be importing into any of the firm's. */
+  const subtitle = $derived<RecordSubject>({ facts: [accountName] });
 
   function reset(): void {
     const period = previousCalendarMonth(timeZone);
@@ -266,6 +274,7 @@
   bind:open
   kind="form"
   heading="Import Statement"
+  {subtitle}
   commitLabel="Import Statement"
   commitBusyLabel="Importing"
   {commitRefusal}
@@ -299,17 +308,18 @@
         </DefinitionList.Root>
       </div>
 
-      <div class="flex flex-col gap-8">
-        <Label for="{fieldPrefix}-date-format">Date Format</Label>
-        <ChoicePicker
-          inputId="{fieldPrefix}-date-format"
-          label="Date Format"
-          options={STATEMENT_DATE_FORMAT_CHOICES}
-          value={dateFormat}
-          disabled={busy || previewing}
-          onchange={changeDateFormat}
-        />
-      </div>
+      <LabelledField label="Date Format" error={fieldRefusal(problem, "dateFormat")}>
+        {#snippet children({ props })}
+          <ChoicePicker
+            inputId={props.id}
+            label="Date Format"
+            options={STATEMENT_DATE_FORMAT_CHOICES}
+            value={dateFormat}
+            disabled={busy || previewing}
+            onchange={changeDateFormat}
+          />
+        {/snippet}
+      </LabelledField>
 
       <div class="grid gap-12 sm:grid-cols-2">
         <DatePicker
@@ -402,19 +412,18 @@
             {preview === null ? "" : String(preview.rejections.length)}
           </DefinitionList.Row>
           <DefinitionList.Row term="Deposits" empty={preview === null}>
-            {preview === null ? "" : money(preview.depositTotalMinor)}
+            <span class="tabular-nums">
+              {preview === null ? "" : money(preview.depositTotalMinor)}
+            </span>
           </DefinitionList.Row>
           <DefinitionList.Row term="Withdrawals" empty={preview === null}>
-            {preview === null ? "" : money(preview.withdrawalTotalMinor)}
+            <span class="tabular-nums">
+              {preview === null ? "" : money(preview.withdrawalTotalMinor)}
+            </span>
           </DefinitionList.Row>
           <DefinitionList.Row term="Days Covered" empty={dateSpan === null}>
             {dateSpan ?? ""}
           </DefinitionList.Row>
-          <DefinitionList.Empty term="What the File Holds">
-            {preview === null
-              ? "Preview the file to read what it holds. Nothing is stored by a preview."
-              : "Nothing above has been stored. Import Statement is what records it."}
-          </DefinitionList.Empty>
         </DefinitionList.Root>
 
         <div class="flex flex-col gap-8">

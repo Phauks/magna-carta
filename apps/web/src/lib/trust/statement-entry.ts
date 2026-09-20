@@ -14,7 +14,10 @@
  * the request to send or the one sentence to show, and a line's refusal carries its number.
  *
  * THE AMOUNT IS READ BY THE ONE PARSER THE MONEY SURFACES SHARE ($lib/billing/amount-entry.ts):
- * digits in, whole cents out, never a float.
+ * digits in, whole cents out, never a float. WHAT IS THEN DONE WITH THOSE CENTS IS
+ * @magna-carta/money'S, not this file's: the lines are carried as Money and added through the
+ * package's own exact-integer arithmetic, so the totals beside the fields and the ledger the firm
+ * answers for cannot come to two different answers about one period.
  *
  * THE IMPORT QUOTES THE PREVIEW BACK. Nothing is stored by a preview; what it hands over is a
  * fingerprint of the file it read, and the import carries that fingerprint so a file edited between
@@ -35,6 +38,11 @@ import {
   viewerTimeZone,
   zonedReading,
 } from "@magna-carta/civil-time/time-zone";
+// `fromMinor` and `toMinor` rather than `money` and a snapshot: they are the same two functions
+// under the names the money package gives its minor-unit boundary, and "money" is what every panel
+// on this surface calls the function that turns an amount into words.
+import { fromMinor, toMinor } from "@magna-carta/money/format";
+import { add, currencyFromCode, subtract, sum, zero, type Money } from "@magna-carta/money/money";
 import { readAmountMinor } from "$lib/billing/amount-entry.ts";
 import type { ChoiceOption } from "$lib/components/choice-picker.ts";
 import type { TrustRequestReading } from "./trust-write-requests.ts";
@@ -45,6 +53,17 @@ import type {
   TrustStatementImportPreview,
   TrustStatementImportRequest,
 } from "./trust-api.ts";
+
+/**
+ * The currency a statement is recorded in.
+ *
+ * The contract takes one today, and the two requests composed below state it; the totals are added
+ * up in that same one rather than in a second opinion about which currency the panel is in. It is
+ * one constant because how many minor units make a major unit is a property of the CURRENCY, and a
+ * second spelling of the code is a second place for that to be answered.
+ */
+const STATEMENT_CURRENCY_CODE = "USD";
+const STATEMENT_CURRENCY = currencyFromCode(STATEMENT_CURRENCY_CODE);
 
 // ---- the period a statement covers -------------------------------------------------------------
 
@@ -122,8 +141,8 @@ export function statementTotals(
   openingBalanceText: string,
   lines: readonly TrustStatementLineDraft[],
 ): StatementTotals {
-  let depositTotalMinor = 0;
-  let withdrawalTotalMinor = 0;
+  const deposits: Money[] = [];
+  const withdrawals: Money[] = [];
   let everyLineReads = true;
   for (const line of lines) {
     const reading = readAmountMinor(line.amountText);
@@ -131,15 +150,24 @@ export function statementTotals(
       everyLineReads = false;
       continue;
     }
-    if (line.direction === "deposit") depositTotalMinor += reading.minor;
-    else withdrawalTotalMinor += reading.minor;
+    const amount = fromMinor(reading.minor, STATEMENT_CURRENCY);
+    if (line.direction === "deposit") deposits.push(amount);
+    else withdrawals.push(amount);
   }
+  // `sum` cannot infer a currency from an empty list, and a statement with no deposits is an
+  // ordinary statement, so the empty case takes the account's own zero rather than a bare 0.
+  const depositTotal = deposits.length === 0 ? zero(STATEMENT_CURRENCY) : sum(deposits);
+  const withdrawalTotal = withdrawals.length === 0 ? zero(STATEMENT_CURRENCY) : sum(withdrawals);
   const opening = readAmountMinor(openingBalanceText);
-  const impliedClosingMinor =
+  const impliedClosing =
     everyLineReads && opening.kind === "amount"
-      ? opening.minor + depositTotalMinor - withdrawalTotalMinor
+      ? subtract(add(fromMinor(opening.minor, STATEMENT_CURRENCY), depositTotal), withdrawalTotal)
       : null;
-  return { depositTotalMinor, withdrawalTotalMinor, impliedClosingMinor };
+  return {
+    depositTotalMinor: toMinor(depositTotal),
+    withdrawalTotalMinor: toMinor(withdrawalTotal),
+    impliedClosingMinor: impliedClosing === null ? null : toMinor(impliedClosing),
+  };
 }
 
 /**
@@ -279,7 +307,7 @@ export function readTrustBankStatementEntry(
       periodEnd: draft.periodEnd,
       openingBalanceMinor: balances.request.openingBalanceMinor,
       closingBalanceMinor: balances.request.closingBalanceMinor,
-      currency: "USD",
+      currency: STATEMENT_CURRENCY_CODE,
       statementReference: orNull(draft.statementReference),
       lines,
     },
@@ -316,7 +344,11 @@ export function readTrustStatementPreviewRequest(
   }
   return {
     kind: "request",
-    request: { fileText: draft.fileText, dateFormat: draft.dateFormat, currency: "USD" },
+    request: {
+      fileText: draft.fileText,
+      dateFormat: draft.dateFormat,
+      currency: STATEMENT_CURRENCY_CODE,
+    },
   };
 }
 
@@ -357,7 +389,7 @@ export function readTrustStatementImportRequest(
       periodEnd: draft.periodEnd,
       openingBalanceMinor: balances.request.openingBalanceMinor,
       closingBalanceMinor: balances.request.closingBalanceMinor,
-      currency: "USD",
+      currency: STATEMENT_CURRENCY_CODE,
       statementReference: orNull(draft.statementReference),
       fileText: draft.fileText,
       dateFormat: draft.dateFormat,

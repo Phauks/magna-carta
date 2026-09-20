@@ -32,8 +32,8 @@
   import * as Masthead from "@magna-carta/design-system/masthead";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import FieldLabel from "@magna-carta/design-system/field-label";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import Link2 from "@lucide/svelte/icons/link-2";
   import Undo2 from "@lucide/svelte/icons/undo-2";
@@ -53,6 +53,7 @@
   import { memberDisplay } from "$lib/trust/trust-member-names.ts";
   import {
     FROZEN_PROOF_MEANING,
+    dayText,
     reconciliationStandingLabel,
     statementPeriodText,
     trustMoneyText,
@@ -71,6 +72,8 @@
   import {
     candidatesForLine,
     closeReading,
+    countedPhrase,
+    disagreementLegLabel,
     disagreementRows,
     matchRefusal,
     matchStandingLabel,
@@ -126,9 +129,15 @@
   const currency = $derived(proof?.currency ?? statement?.currency ?? "USD");
   const money = (amountMinor: number): string => trustMoneyText(amountMinor, currency);
 
-  const periodText = $derived(
-    statement === null ? (proof?.asOfDate ?? "") : statementPeriodText(statement),
-  );
+  /*
+   * The period, in the bank's own two days where the statement was read, and in the day the proof
+   * is as of where it was not. Both go through the design system's own day formatter: a recorded
+   * day a reader sees is never the stored text.
+   */
+  const periodText = $derived.by((): string => {
+    if (statement !== null) return statementPeriodText(statement);
+    return proof === null ? "" : dayText(proof.asOfDate);
+  });
 
   const asMember = (identifier: string): string =>
     memberDisplay(identifier, firmRoster.members).text;
@@ -274,7 +283,7 @@
     {:else}
       <Badge
         variant="accent"
-        title={`Why this is a candidate for the chosen line. The bank posted it ${String(mark.dayGap)} day(s) from the day it was recorded.`}
+        title={`Why this is a candidate for the chosen line. The bank posted it ${countedPhrase(mark.dayGap, "day", "days")} from the day it was recorded.`}
       >
         {mark.text}
       </Badge>
@@ -325,7 +334,7 @@
   <DefinitionList.Root>
     {#each figures as figure (figure.identifier)}
       <DefinitionList.Row term={figure.label} empty={figure.value === null} title={figure.meaning}>
-        {figure.value ?? ""}
+        <span class="tabular-nums">{figure.value ?? ""}</span>
       </DefinitionList.Row>
     {/each}
     <DefinitionList.Row
@@ -335,12 +344,70 @@
     >
       {balanced === null ? "" : verdictLabel(balanced)}
     </DefinitionList.Row>
-    {#if balanced === null}
-      <DefinitionList.Empty term="The Proof">
-        The three-way proof fills in once this reconciliation has been read.
-      </DefinitionList.Empty>
-    {/if}
   </DefinitionList.Root>
+{/snippet}
+
+<!-- WHAT THE PROOF WILL LOOK LIKE, while it is being read: the same six terms and the same
+     verdict, standing empty. The region draws them as bones, so the figures land in a frame the
+     reader already has rather than arriving after a sentence about waiting. -->
+{#snippet proofFixture()}
+  <div class="flex flex-col gap-16">
+    {@render proofList(proofFigures(null, money), null, undefined)}
+    <div class="flex flex-col gap-8">
+      <FieldLabel as="p">Disagreements</FieldLabel>
+      <DefinitionList.Root>
+        <DefinitionList.Row term={disagreementLegLabel("bank-to-book")} empty />
+        <DefinitionList.Row term={disagreementLegLabel("book-to-client")} empty />
+      </DefinitionList.Root>
+    </div>
+  </div>
+{/snippet}
+
+<!-- THE DESCRIPTION IS THE ROW'S SECOND LINE ON BOTH SIDES. It is the one field on a line far
+     longer than everything beside it: as a column it is truncated to a few words, which is not a
+     description, or wide enough to push the facts a reader matches on off the pane. -->
+{#snippet lineDescription(line: TrustBankStatementLine)}
+  {line.description}
+{/snippet}
+
+{#snippet itemDescription(item: TrustBankItem)}
+  {item.description}
+{/snippet}
+
+{#snippet twoSidesFailure()}
+  {#if workbench.suggestionsFailure !== null}
+    <FailureNotice
+      failure={workbench.suggestionsFailure}
+      title="The Two Sides Could Not Be Read"
+      fallback="What this period has not accounted for is not shown. Nothing was matched or unmatched by this failure."
+      onRetry={() => workbench.reread(fetch, data.reconciliationId)}
+    />
+  {/if}
+{/snippet}
+
+<!-- The two tables in the shape they will hold: their header rows over the rows they are about to
+     take, in the grid's own loading treatment. -->
+{#snippet twoSidesFixture()}
+  <div class="grid gap-16 xl:grid-cols-2">
+    <div class="flex min-w-0 flex-col gap-8">
+      <FieldLabel as="p">Unmatched Statement Lines</FieldLabel>
+      <DataTable.Grid
+        grid={lineGrid}
+        caption="The statement lines this reconciliation has not accounted for"
+        loading
+        density="compact"
+      />
+    </div>
+    <div class="flex min-w-0 flex-col gap-8">
+      <FieldLabel as="p">Outstanding Recorded Items</FieldLabel>
+      <DataTable.Grid
+        grid={itemGrid}
+        caption="The entries the firm recorded that no statement line clears"
+        loading
+        density="compact"
+      />
+    </div>
+  </div>
 {/snippet}
 
 <ScreenHeader title="Reconciliation" back="trust" class="mb-24">
@@ -365,17 +432,22 @@
   {/snippet}
 </ScreenHeader>
 
-{#if workbench.notFound}
-  <EmptyState title="No Such Reconciliation">
-    This address names no reconciliation on the firm's record. It may have been opened against
-    another firm, or the link may be mistyped.
-  </EmptyState>
-{:else if workbench.reconciliationFailure !== null}
+{#if workbench.reconciliationFailure !== null}
+  <!-- A 404 IS A FAILURE WITH A PROBLEM DOCUMENT, NOT AN ABSENCE OF DATA. An address that names no
+       reconciliation and a service briefly out of step after a release both answer 404, they mean
+       entirely different things to the reader, and the difference is on the record itself — so the
+       record is handed over whole and the words come from it. There is nothing to retry: the
+       remedy the guidance names for a record that is not there is none, and none is drawn. -->
   <FailureNotice
     failure={workbench.reconciliationFailure}
-    title="The Reconciliation Could Not Be Read"
-    fallback="The record itself is unaffected: nothing was changed by this failure, and every match and every figure the period carries is still on the firm's record."
-    onRetry={() => workbench.retryReconciliation(fetch, data.reconciliationId)}
+    subject="This reconciliation"
+    title={workbench.notFound ? undefined : "The Reconciliation Could Not Be Read"}
+    fallback={workbench.notFound
+      ? undefined
+      : "The record itself is unaffected: nothing was changed by this failure, and every match and every figure the period carries is still on the firm's record."}
+    onRetry={workbench.notFound
+      ? undefined
+      : () => workbench.retryReconciliation(fetch, data.reconciliationId)}
   />
 {:else}
   <div class="flex flex-col gap-24">
@@ -385,43 +457,49 @@
       <Card.Header>
         <Card.Title>The Proof</Card.Title>
       </Card.Header>
-      <Card.Content class="flex flex-col gap-16">
-        {#if reconciliation !== null && reconciliation.frozenProof !== null}
-          <div class="grid gap-16 lg:grid-cols-2">
-            <div class="flex flex-col gap-8">
-              <FieldLabel as="p">What the Firm Attested To</FieldLabel>
-              {@render proofList(
-                proofFigures(reconciliation.frozenProof, money),
-                reconciliation.frozenProof.balanced,
-                FROZEN_PROOF_MEANING,
-              )}
+      <Card.Content>
+        <LoadingRegion
+          loading={proof === null}
+          refreshing={workbench.refreshing}
+          label="Reading this period's three-way proof"
+          fixture={proofFixture}
+          class="flex flex-col gap-16"
+        >
+          {#if reconciliation !== null && reconciliation.frozenProof !== null}
+            <div class="grid gap-16 lg:grid-cols-2">
+              <div class="flex flex-col gap-8">
+                <FieldLabel as="p">What the Firm Attested To</FieldLabel>
+                {@render proofList(
+                  proofFigures(reconciliation.frozenProof, money),
+                  reconciliation.frozenProof.balanced,
+                  FROZEN_PROOF_MEANING,
+                )}
+              </div>
+              <div class="flex flex-col gap-8">
+                <FieldLabel as="p">As It Stands Now</FieldLabel>
+                {@render proofList(proofFigures(proof, money), proof?.balanced ?? null, undefined)}
+              </div>
             </div>
-            <div class="flex flex-col gap-8">
-              <FieldLabel as="p">As It Stands Now</FieldLabel>
-              {@render proofList(proofFigures(proof, money), proof?.balanced ?? null, undefined)}
-            </div>
-          </div>
-        {:else}
-          {@render proofList(proofFigures(proof, money), proof?.balanced ?? null, undefined)}
-        {/if}
+          {:else}
+            {@render proofList(proofFigures(proof, money), proof?.balanced ?? null, undefined)}
+          {/if}
 
-        <div class="flex flex-col gap-8">
-          <FieldLabel as="p">Disagreements</FieldLabel>
-          <DefinitionList.Root>
-            {#each disagreementRows(proof, money) as row (row.identifier)}
-              <DefinitionList.Row term={row.label} title={row.meaning}>
-                {row.difference}
-              </DefinitionList.Row>
-            {/each}
-            {#if disagreementRows(proof, money).length === 0}
-              <DefinitionList.Empty term="Disagreements">
-                {proof === null
-                  ? "Which legs disagree, and by how much, is stated once this reconciliation has been read."
-                  : "No leg of the proof disagrees for this period."}
-              </DefinitionList.Empty>
-            {/if}
-          </DefinitionList.Root>
-        </div>
+          <div class="flex flex-col gap-8">
+            <FieldLabel as="p">Disagreements</FieldLabel>
+            <DefinitionList.Root>
+              {#each disagreementRows(proof, money) as row (row.identifier)}
+                <DefinitionList.Row term={row.label} title={row.meaning}>
+                  <span class="tabular-nums">{row.difference}</span>
+                </DefinitionList.Row>
+              {/each}
+              {#if disagreementRows(proof, money).length === 0}
+                <DefinitionList.Empty term="Disagreements">
+                  No leg of the proof disagrees for this period.
+                </DefinitionList.Empty>
+              {/if}
+            </DefinitionList.Root>
+          </div>
+        </LoadingRegion>
       </Card.Content>
     </Card.Root>
 
@@ -454,21 +532,21 @@
           </Button>
         </div>
 
-        {#if workbench.suggestionsFailure !== null}
-          <FailureNotice
-            failure={workbench.suggestionsFailure}
-            title="The Two Sides Could Not Be Read"
-            fallback="What this period has not accounted for is not shown. Nothing was matched or unmatched by this failure."
-            onRetry={() => workbench.reread(fetch, data.reconciliationId)}
-          />
-        {:else}
+        <LoadingRegion
+          loading={workbench.suggestions === null && workbench.suggestionsFailure === null}
+          refreshing={workbench.refreshing}
+          failed={workbench.suggestionsFailure !== null}
+          failure={twoSidesFailure}
+          label="Reading what this period has not accounted for"
+          fixture={twoSidesFixture}
+        >
           <div class="grid gap-16 xl:grid-cols-2">
             <div class="flex min-w-0 flex-col gap-8">
               <FieldLabel as="p">Unmatched Statement Lines</FieldLabel>
               <DataTable.Grid
                 grid={lineGrid}
                 caption="The statement lines this reconciliation has not accounted for"
-                loading={workbench.suggestions === null}
+                rowDetail={lineDescription}
                 density="compact"
               />
               <DataTable.GridFooter grid={lineGrid} />
@@ -480,13 +558,13 @@
                 grid={itemGrid}
                 cell={itemCell}
                 caption="The entries the firm recorded that no statement line clears"
-                loading={workbench.suggestions === null}
+                rowDetail={itemDescription}
                 density="compact"
               />
               <DataTable.GridFooter grid={itemGrid} />
             </div>
           </div>
-        {/if}
+        </LoadingRegion>
       </Card.Content>
     </Card.Root>
 
@@ -536,6 +614,7 @@
   reconciliationId={data.reconciliationId}
   match={withdrawingMatch}
   {money}
+  {periodText}
   submissionKey={withdrawSubmissionKey}
   onWithdrawn={recordedSomething}
 />

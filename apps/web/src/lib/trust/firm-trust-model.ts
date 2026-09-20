@@ -32,6 +32,7 @@ import type {
   TrustReconciliation,
 } from "./trust-api.ts";
 import { trustMoneyText } from "./firm-trust-vocabulary.ts";
+import { matterNameText } from "./trust-vocabulary.ts";
 
 /* The verb policy is the matter's ledger's as much as this screen's; both import it from here. */
 export {
@@ -139,16 +140,13 @@ export function positionReading(
 /**
  * The matter behind a queued request, as one line: its number, then its title.
  *
- * The number leads because it is what somebody reads back down a telephone, and the title follows
- * because it is what a reader recognises. Where the queue served neither — a request whose matter
- * the read could not name — the line says what it is rather than printing the ledger node's handle
- * at somebody; the row is still a link, because the matter is still there to open.
+ * The assembly is the one every Trust surface shares (trust-vocabulary.ts). What this adds is the
+ * stand-in: where the queue served neither — a request whose matter the read could not name — the
+ * line says what it is rather than printing the ledger node's handle at somebody, and the row is
+ * still a link, because the matter is still there to open.
  */
 export function requestMatterText(request: TrustPendingRequest): string {
-  const parts = [request.matterNumber, request.matterTitle]
-    .map((part) => part?.trim() ?? "")
-    .filter((part) => part !== "");
-  return parts.length === 0 ? "The matter" : parts.join(" · ");
+  return matterNameText(request.matterNumber, request.matterTitle) ?? "The matter";
 }
 
 // ---- statements and reconciliations ---------------------------------------------------------------

@@ -12,6 +12,12 @@
  * EVERY COLUMN A SIDE CAN ANSWER IS DECLARED AND SHOWN. A column that starts hidden is a column
  * nobody who did not write the screen can find, and a reference or a counterparty is often the only
  * thing distinguishing two lines a bank posted on one day for one amount.
+ *
+ * THE DESCRIPTION IS NOT AMONG THEM, AND THAT IS THE RULE RATHER THAN AN OMISSION. What the bank
+ * called a line, and what the firm called an entry, are each far longer than every fact beside them
+ * put together: as a column either is truncated to a few words, which is not a description, or wide
+ * enough to push the facts a reader matches on off the pane. Both are the row's own second line,
+ * through the grid's `rowDetail`, which is where the workbench passes them.
  */
 import type { GridColumn } from "@magna-carta/design-system/data-table";
 import type {
@@ -30,7 +36,6 @@ export const STATEMENT_LINE_COLUMN_IDENTIFIERS = {
   postedOn: "postedOn",
   direction: "direction",
   amount: "amount",
-  description: "description",
   reference: "reference",
   counterparty: "counterparty",
 } as const;
@@ -39,7 +44,6 @@ export const BANK_ITEM_COLUMN_IDENTIFIERS = {
   effectiveDate: "effectiveDate",
   direction: "direction",
   amount: "amount",
-  description: "description",
   reference: "reference",
   counterparty: "counterparty",
   kind: "kind",
@@ -75,11 +79,16 @@ export const MATCH_INITIAL_SORT = {
   direction: "ascending",
 } as const;
 
-/** The two directions a bank posts in, so a period with only deposits can still ask for withdrawals. */
+/**
+ * The two directions, in the BANK'S own words, on both sides of the workbench.
+ *
+ * Reconciling is reading two columns against each other, and a reader doing it had to translate In
+ * to Deposit and Out to Withdrawal on every row. Both sides are statements about the same bank
+ * account — one the bank has posted, one the firm expects it to — so they read the same two words,
+ * and a recorded entry's sign is mapped onto them rather than given a vocabulary of its own.
+ * Declared here so a period with only deposits can still be asked for withdrawals.
+ */
 export const DIRECTION_FILTER_VALUES: readonly string[] = ["Deposit", "Withdrawal"];
-
-/** The two directions a recorded entry moves the bank balance in. */
-export const BANK_DIRECTION_FILTER_VALUES: readonly string[] = ["In", "Out"];
 
 /** The two standings a recorded match can be in. */
 export const MATCH_STANDING_FILTER_VALUES: readonly string[] = ["Standing", "Withdrawn"];
@@ -129,13 +138,6 @@ export function statementLineColumns(
       text: (line) => options.money(line.amountMinor),
     },
     {
-      id: STATEMENT_LINE_COLUMN_IDENTIFIERS.description,
-      label: "Description",
-      type: "text",
-      filter: "text",
-      value: (line) => line.description,
-    },
-    {
       id: STATEMENT_LINE_COLUMN_IDENTIFIERS.reference,
       label: "Reference",
       type: "text",
@@ -173,7 +175,7 @@ export function bankItemColumns(
       label: "Direction",
       type: "text",
       filter: "set",
-      filterValues: BANK_DIRECTION_FILTER_VALUES,
+      filterValues: DIRECTION_FILTER_VALUES,
       value: (item) => bankItemDirectionLabel(item),
     },
     {
@@ -186,13 +188,6 @@ export function bankItemColumns(
       filter: "none",
       value: (item) => item.bankDeltaMinor,
       text: (item) => options.money(item.bankDeltaMinor),
-    },
-    {
-      id: BANK_ITEM_COLUMN_IDENTIFIERS.description,
-      label: "Description",
-      type: "text",
-      filter: "text",
-      value: (item) => item.description,
     },
     {
       id: BANK_ITEM_COLUMN_IDENTIFIERS.reference,
