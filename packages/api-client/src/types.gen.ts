@@ -386,6 +386,14 @@ export type SafeBrowseSessionProbe = {
     elapsedMilliseconds: number;
 };
 
+export type SafeBrowseLiveView = {
+    finalUrl: string;
+    screenshotBase64: string;
+    title?: string;
+    links: Array<string>;
+    sessionContinued: boolean;
+};
+
 export type DecryptionInspectResponse = {
     format: 'pdf' | 'zip' | 'ooxml';
     hash: string;
@@ -9075,6 +9083,82 @@ export type SafeBrowseSessionProbeResponses = {
 };
 
 export type SafeBrowseSessionProbeResponse = SafeBrowseSessionProbeResponses[keyof SafeBrowseSessionProbeResponses];
+
+export type SafeBrowseLiveNavigateData = {
+    body: {
+        url: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/safe-browse/live/navigate';
+};
+
+export type SafeBrowseLiveNavigateErrors = {
+    /**
+     * The target URL resolves to a non-public address (SSRF guard rejected it)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:safeBrowse
+     */
+    403: Problem;
+    /**
+     * The page did not finish rendering (type page-render-failed)
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The remote browser is unavailable or at capacity
+     */
+    502: Problem;
+};
+
+export type SafeBrowseLiveNavigateError = SafeBrowseLiveNavigateErrors[keyof SafeBrowseLiveNavigateErrors];
+
+export type SafeBrowseLiveNavigateResponses = {
+    /**
+     * Where the browser landed
+     */
+    200: SafeBrowseLiveView;
+};
+
+export type SafeBrowseLiveNavigateResponse = SafeBrowseLiveNavigateResponses[keyof SafeBrowseLiveNavigateResponses];
+
+export type SafeBrowseLiveCloseData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/safe-browse/live/close';
+};
+
+export type SafeBrowseLiveCloseErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:safeBrowse
+     */
+    403: Problem;
+};
+
+export type SafeBrowseLiveCloseError = SafeBrowseLiveCloseErrors[keyof SafeBrowseLiveCloseErrors];
+
+export type SafeBrowseLiveCloseResponses = {
+    /**
+     * The session is ended
+     */
+    204: void;
+};
+
+export type SafeBrowseLiveCloseResponse = SafeBrowseLiveCloseResponses[keyof SafeBrowseLiveCloseResponses];
 
 export type DecryptionInspectData = {
     body: {
