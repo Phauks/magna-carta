@@ -745,7 +745,8 @@ describe("continuance: the record shows what was continued from what", () => {
     });
     const toSide = await get(`/api/v1/firm-events/${firmEventId}/links`);
     expect(toSide.status).toBe(200);
-    expect((await toSide.json()).data.map((link) => link.id)).toEqual([linkId]);
+    const toSideBody = (await toSide.json()) as { data: { id: string }[] };
+    expect(toSideBody.data.map((link) => link.id)).toEqual([linkId]);
 
     const duplicate = await post("/api/v1/event-links", {
       fromFirmEventId: firmEventId,
@@ -999,6 +1000,7 @@ describe("scheduling a meeting on an event", () => {
     // And nothing moved: the setting is still on, which is the whole point of refusing rather than
     // cancelling and leaving the room running.
     const detail = await get(`/api/v1/events/${body.id}`);
-    expect((await detail.json()).event.status).toBe("scheduled");
+    const detailBody = (await detail.json()) as { event: { status: string } };
+    expect(detailBody.event.status).toBe("scheduled");
   });
 });
