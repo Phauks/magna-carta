@@ -3283,8 +3283,9 @@ export type PatchCalendarSettingsRequest = {
     weekStartsOn?: CalendarWeekStartsOn;
 };
 
-export type CalendarCreatedResponse = {
+export type CalendarEventRecordedResponse = {
     id: string;
+    meetingId: string | null;
 };
 
 export type CreateMatterEventRequest = {
@@ -3302,6 +3303,7 @@ export type CreateMatterEventRequest = {
     courtReference?: string | null;
     recurrenceRule?: string | null;
     participants?: Array<MatterEventParticipantInput>;
+    meeting?: CalendarEventMeetingInput;
 };
 
 export type MatterEventParticipantInput = {
@@ -3312,8 +3314,13 @@ export type MatterEventParticipantInput = {
     role?: string | null;
 };
 
-export type CalendarAckResponse = {
+export type CalendarEventMeetingInput = {
+    medium: 'video' | 'audio';
+} | null;
+
+export type CalendarEventUpdatedResponse = {
     ok: true;
+    meetingId: string | null;
 };
 
 export type UpdateMatterEventRequest = {
@@ -3331,10 +3338,19 @@ export type UpdateMatterEventRequest = {
     courtReference?: string | null;
     recurrenceRule?: string | null;
     participants?: Array<MatterEventParticipantInput>;
+    meeting?: CalendarEventMeetingInput;
+};
+
+export type CalendarAckResponse = {
+    ok: true;
 };
 
 export type CancelEventRequest = {
     statusReason?: string | null;
+};
+
+export type CalendarCreatedResponse = {
+    id: string;
 };
 
 export type CreateMatterDeadlineRequest = {
@@ -3427,6 +3443,7 @@ export type CreateFirmEventRequest = {
     conferenceUrl?: string | null;
     recurrenceRule?: string | null;
     participants?: Array<MatterEventParticipantInput>;
+    meeting?: CalendarEventMeetingInput;
 };
 
 export type UpdateFirmEventRequest = {
@@ -3445,6 +3462,7 @@ export type UpdateFirmEventRequest = {
     conferenceUrl?: string | null;
     recurrenceRule?: string | null;
     participants?: Array<MatterEventParticipantInput>;
+    meeting?: CalendarEventMeetingInput;
 };
 
 export type FirmResourceList = {
@@ -3816,6 +3834,27 @@ export type MeetingAttendanceEntry = {
     userId: string;
     joinedAt: string;
     leftAt: string | null;
+};
+
+export type MeetingMessage = {
+    id: string;
+    meetingId: string;
+    participantKind: 'member' | 'guest';
+    participantId: string;
+    userId: string | null;
+    sentAt: string;
+    body: string;
+    redactedAt: string | null;
+    redactedByUserId: string | null;
+};
+
+export type SendMeetingMessageRequest = {
+    body: string;
+};
+
+export type MeetingMessagePage = {
+    data: Array<MeetingMessage>;
+    nextCursor: string | null;
 };
 
 export type MatterSearchAnswer = {
@@ -18786,9 +18825,9 @@ export type CalendarCreateEventError = CalendarCreateEventErrors[keyof CalendarC
 
 export type CalendarCreateEventResponses = {
     /**
-     * The recorded event
+     * The recorded event, with its meeting where one was asked for
      */
-    201: CalendarCreatedResponse;
+    201: CalendarEventRecordedResponse;
 };
 
 export type CalendarCreateEventResponse = CalendarCreateEventResponses[keyof CalendarCreateEventResponses];
@@ -18879,9 +18918,9 @@ export type CalendarUpdateEventError = CalendarUpdateEventErrors[keyof CalendarU
 
 export type CalendarUpdateEventResponses = {
     /**
-     * The event was updated
+     * The event was updated, with its meeting where it has one
      */
-    200: CalendarAckResponse;
+    200: CalendarEventUpdatedResponse;
 };
 
 export type CalendarUpdateEventResponse = CalendarUpdateEventResponses[keyof CalendarUpdateEventResponses];
@@ -19687,9 +19726,9 @@ export type CalendarCreateFirmEventError = CalendarCreateFirmEventErrors[keyof C
 
 export type CalendarCreateFirmEventResponses = {
     /**
-     * The recorded firm event
+     * The recorded firm event, with its meeting where one was asked for
      */
-    201: CalendarCreatedResponse;
+    201: CalendarEventRecordedResponse;
 };
 
 export type CalendarCreateFirmEventResponse = CalendarCreateFirmEventResponses[keyof CalendarCreateFirmEventResponses];
@@ -19780,9 +19819,9 @@ export type CalendarUpdateFirmEventError = CalendarUpdateFirmEventErrors[keyof C
 
 export type CalendarUpdateFirmEventResponses = {
     /**
-     * The firm event was updated
+     * The firm event was updated, with its meeting where it has one
      */
-    200: CalendarAckResponse;
+    200: CalendarEventUpdatedResponse;
 };
 
 export type CalendarUpdateFirmEventResponse = CalendarUpdateFirmEventResponses[keyof CalendarUpdateFirmEventResponses];
@@ -21904,6 +21943,157 @@ export type MeetingsSocketErrors = {
 };
 
 export type MeetingsSocketError = MeetingsSocketErrors[keyof MeetingsSocketErrors];
+
+export type MeetingsListMessagesData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: {
+        cursor?: string;
+        since?: string;
+    };
+    url: '/api/v1/meetings/{meetingId}/messages';
+};
+
+export type MeetingsListMessagesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting — or no message in it — this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsListMessagesError = MeetingsListMessagesErrors[keyof MeetingsListMessagesErrors];
+
+export type MeetingsListMessagesResponses = {
+    /**
+     * One page of this meeting's chat
+     */
+    200: MeetingMessagePage;
+};
+
+export type MeetingsListMessagesResponse = MeetingsListMessagesResponses[keyof MeetingsListMessagesResponses];
+
+export type MeetingsSendMessageData = {
+    body: SendMeetingMessageRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/messages';
+};
+
+export type MeetingsSendMessageErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting — or no message in it — this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the caller is not in it, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The message is empty, or longer than a message may be
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsSendMessageError = MeetingsSendMessageErrors[keyof MeetingsSendMessageErrors];
+
+export type MeetingsSendMessageResponses = {
+    /**
+     * The message is on the record
+     */
+    201: MeetingMessage;
+};
+
+export type MeetingsSendMessageResponse = MeetingsSendMessageResponses[keyof MeetingsSendMessageResponses];
+
+export type MeetingsRedactMessageData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+        messageId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/messages/{messageId}/redact';
+};
+
+export type MeetingsRedactMessageErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting — or no message in it — this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the caller is not in it, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The message is empty, or longer than a message may be
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsRedactMessageError = MeetingsRedactMessageErrors[keyof MeetingsRedactMessageErrors];
+
+export type MeetingsRedactMessageResponses = {
+    /**
+     * The message has been taken back
+     */
+    200: MeetingMessage;
+};
+
+export type MeetingsRedactMessageResponse = MeetingsRedactMessageResponses[keyof MeetingsRedactMessageResponses];
 
 export type MatterSearchSearchData = {
     body?: never;

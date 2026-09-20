@@ -14,6 +14,7 @@
 import type {
   CalendarEvent,
   CreateEventRequest,
+  EventMeetingInput,
   EventParticipant,
   ParticipantInput,
   ParticipantKind,
@@ -42,6 +43,42 @@ export interface ParticipantDraft {
   readonly role: string;
 }
 
+/**
+ * WHETHER THE SETTING IS ALSO A MEETING, and what kind. Scheduling a meeting here is recording an
+ * event with a medium on it — there is no second form and no second record — so this is one more
+ * answer on the form somebody was filling in anyway, and the entry window offers Join from the
+ * moment the event exists.
+ *
+ * `none` is the answer for almost every event: a hearing happens in a courtroom.
+ */
+export type MeetingChoice = "none" | "video" | "audio";
+
+export const MEETING_CHOICE_OPTIONS: readonly { value: MeetingChoice; label: string }[] = [
+  { value: "none", label: "None" },
+  { value: "video", label: "Video meeting" },
+  { value: "audio", label: "Audio call" },
+];
+
+export function isMeetingChoice(value: string): value is MeetingChoice {
+  return MEETING_CHOICE_OPTIONS.some((option) => option.value === value);
+}
+
+/**
+ * What the form says under the choice, once one is made.
+ *
+ * It states the limit of what this does in the words a member needs, because the alternative is
+ * discovering it from a client who never arrived: only colleagues are invited, and a client or
+ * another party from the Directory has no way in yet.
+ */
+export const MEETING_GUESTS_SENTENCE =
+  "Everyone at the firm on this event is invited. A client or another party from the Directory is " +
+  "not sent a way in yet.";
+
+/** The meeting an event draft sends, or null where it carries none. */
+export function meetingInput(choice: MeetingChoice): EventMeetingInput | null {
+  return choice === "none" ? null : { medium: choice };
+}
+
 /** The dates, times and zone every kind of event shares. */
 export interface EventTimingDraft {
   startsOn: string | null;
@@ -67,9 +104,15 @@ export interface EventDraft extends EventTimingDraft {
    */
   recurrence: RecurrenceRule | null;
   participants: ParticipantDraft[];
+  /** Whether this setting is also a meeting, and what kind. */
+  meeting: MeetingChoice;
 }
 
-export function emptyEventDraft(timeZone: string, startsOn: string | null = null): EventDraft {
+export function emptyEventDraft(
+  timeZone: string,
+  startsOn: string | null = null,
+  meeting: MeetingChoice = "none",
+): EventDraft {
   return {
     title: "",
     eventTypeId: null,
@@ -84,6 +127,7 @@ export function emptyEventDraft(timeZone: string, startsOn: string | null = null
     courtReference: "",
     recurrence: null,
     participants: [],
+    meeting,
   };
 }
 
@@ -105,6 +149,7 @@ export const TIMING_FIELDS = {
 export const EVENT_FIELDS = {
   title: "title",
   conferenceUrl: "conferenceUrl",
+  meeting: "meeting",
 } as const;
 
 /**
@@ -200,7 +245,8 @@ export const EVENT_FORM_TABS: readonly { value: EventFormTab; label: string }[] 
 
 /** The tab a shortfall's field is on, so a refused save can open the tab that still needs an answer. */
 export function eventFormTabOf(field: string): EventFormTab {
-  if (field === EVENT_FIELDS.conferenceUrl) return "where";
+  // The meeting sits beside the conference link, because both answer where the setting is JOINED.
+  if (field === EVENT_FIELDS.conferenceUrl || field === EVENT_FIELDS.meeting) return "where";
   if (Object.values(TIMING_FIELDS).some((timingField) => timingField === field)) return "when";
   return "details";
 }
@@ -301,6 +347,7 @@ export function eventDraftStarted(draft: EventDraft, since: EventDraft): boolean
     draft.locationText !== since.locationText ||
     draft.conferenceUrl !== since.conferenceUrl ||
     draft.courtReference !== since.courtReference ||
+    draft.meeting !== since.meeting ||
     recurrenceChanged(draft.recurrence, since.recurrence) ||
     draft.participants.length !== since.participants.length ||
     draft.participants.some((participant, index) => {
@@ -354,6 +401,7 @@ export function eventDraftRequest(draft: EventDraft): CreateEventRequest {
     courtReference: optionalText(draft.courtReference),
     recurrenceRule: draft.recurrence === null ? null : formatRecurrence(draft.recurrence),
     participants: draft.participants.map(participantInput),
+    meeting: meetingInput(draft.meeting),
   };
 }
 
@@ -379,6 +427,10 @@ export function eventDraftFrom(
     participants: participants.map((participant) =>
       participantDraftFrom(participant, displayNames),
     ),
+    // A recorded event's meeting is a row of its own, read beside the event rather than off it, and
+    // a correction never takes one off — so the draft opens on None and choosing a medium ADDS a
+    // room where there is none. The entry window is what says one is already there.
+    meeting: "none",
   };
 }
 

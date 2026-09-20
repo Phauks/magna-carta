@@ -297,6 +297,24 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   first press removes one rather than isolating one; turning every kind off shows the whole window
   rather than an empty grid, because the one thing a calendar must not do is look empty when it is
   not.
+- **SCHEDULING A MEETING IS RECORDING AN EVENT WITH A MEDIUM ON IT.** The form's Where tab asks one
+  more question — Meeting: None, Video meeting, Audio call — and the save writes the meeting row
+  beside the event, in the same batch, so the entry window offers Join from the moment the event
+  exists. `MeetingChoice` and `meetingInput` are the draft's half; the request carries
+  `meeting: { medium } | null`, and null rather than absent because "no meeting" and "a client that
+  has not heard of meetings" must not be one answer. A CORRECTION never sends it
+  (`entry-updates.ts`): a meeting can be added when an event is recorded or edited from the record
+  form, and it is ended through its own act — an edit that closed a room as a side effect of moving
+  a hearing would be the one calendar correction that reached into a gathering. A recorded event's
+  draft therefore opens on None whatever its meeting is.
+- **AVAILABILITY IS A READ, AND WHAT IT PRINTS IS NEVER A TITLE.** `member-availability.ts` answers
+  what each colleague on the Who tab already has at the proposed hour, from the member filter the
+  server resolves in SQL — one read per colleague, for one day, only while the form is open. It
+  states and never refuses, on the resource booking's own posture: two things at once is routinely
+  correct. What it prints is the entry's own painted word, because the federated read declares
+  non-privileged labels by contract and a matter event's title on somebody else's availability line
+  would put one matter's content on another matter's form. "Asked" and "answered" are separate facts
+  in the component: a colleague whose read is still in flight must not read as free.
 - **One field group, rendered once.** The timing every event shares is `record-timing-fields.svelte`
   and the type question is `event-type-select.svelte`, in the record forms and in the entry window
   alike; a pane that draws its own copy of either drifts from the form within a round.

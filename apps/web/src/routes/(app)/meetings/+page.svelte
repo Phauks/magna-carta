@@ -17,13 +17,28 @@
    * THE READER'S OWN DAY IS THE READER'S. The upcoming scope is measured from a civil date, and the
    * server has no zone to derive one in, so the browser states its own — through the calendar's
    * helper, which resolves the zone once and falls back to UTC where a runtime cannot say.
+   *
+   * SCHEDULING FROM HERE OPENS THE CALENDAR'S OWN EVENT FORM, preset to a video meeting. A meeting
+   * is a calendar event with a medium on it — there is no second record and there must be no second
+   * form — so this screen contributes the way IN and nothing else: the context it hands the form is
+   * the one `calendarContext` already holds, because a second assembly of the roster, the type
+   * catalog and the firm's rooms would be a second answer to what the form is offering.
+   *
+   * THE CONTROL READS "NEW MEETING" RATHER THAN "SCHEDULE". Every screen that makes a record draws
+   * the design system's CreateControl and nothing else, and its label is New plus a noun. The verb
+   * the owner asked for lives in the tooltip, which is also where this screen says the one thing a
+   * reader arriving here needs to know: a meeting is recorded on the calendar as an event.
    */
   import { createInfiniteQuery } from "@tanstack/svelte-query";
   import { meetingsListInfiniteOptions } from "@magna-carta/api-client";
+  import CreateControl from "@magna-carta/design-system/create-control";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import { failureOf } from "$lib/api/api-client.ts";
   import { paged } from "$lib/api/screen-data.ts";
   import { todayCivil } from "$lib/calendar/calendar-window.ts";
+  import { calendarContext } from "$lib/calendar/calendar-context.svelte.ts";
+  import { calendarManageRefusal } from "$lib/calendar/calendar-permission.ts";
+  import RecordEventDialog from "$lib/calendar/record-event-dialog.svelte";
   import MeetingsScreen from "$lib/meetings/meetings-screen.svelte";
   import type { MeetingScope, MeetingSectionState } from "$lib/meetings/meeting-list.ts";
   import type { MeetingSummary } from "@magna-carta/api-client";
@@ -83,11 +98,57 @@
       .flatMap((section) => section.meetings ?? [])
       .every((meeting) => meeting.configured),
   );
+
+  /*
+   * The form's own context — the session, the roster, the type catalog, the firm's offices and its
+   * bookable rooms — read once and shared with every other calendar surface.
+   */
+  const context = calendarContext;
+  $effect(() => {
+    void context.load(fetch);
+  });
+
+  const scheduleRefusal = $derived(calendarManageRefusal("Scheduling a meeting", context));
+  let scheduleOpen = $state(false);
+
+  /*
+   * A scheduled meeting lands on the calendar, and the three lists here are reads of the server's
+   * own scopes — so the upcoming list is refetched rather than patched. Nothing is assumed about
+   * where the new row sorts.
+   */
+  function scheduled(): void {
+    void upcoming.refetch();
+  }
 </script>
 
 <svelte:head><title>Meetings · Magna Carta</title></svelte:head>
 
 <div class="flex flex-col gap-24">
-  <ScreenHeader title="Meetings" />
+  <ScreenHeader title="Meetings">
+    {#snippet actions()}
+      <CreateControl
+        noun="Meeting"
+        title="Schedule a meeting or a call. It is recorded on the calendar as an event."
+        refusal={scheduleRefusal}
+        onpress={() => (scheduleOpen = true)}
+      />
+    {/snippet}
+  </ScreenHeader>
   <MeetingsScreen {sections} {configured} />
 </div>
+
+<RecordEventDialog
+  bind:open={scheduleOpen}
+  matterId={null}
+  matters={context.matters}
+  mattersCapped={context.mattersCapped}
+  mattersReading={context.mattersReading}
+  eventTypes={context.eventTypes}
+  members={context.members}
+  locations={context.locations}
+  resources={context.resources}
+  preferredTimeZones={[context.readerTimeZone]}
+  initialDate={today}
+  initialMeeting="video"
+  onRecorded={scheduled}
+/>

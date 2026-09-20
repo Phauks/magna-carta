@@ -627,6 +627,23 @@ export const PROBLEM_TYPES = {
   // meeting's audio and video to go. A fact about the deployment rather than about the caller or
   // their firm, which is why it is not a 403: nobody here can fix it by being granted something.
   "meetings-not-configured": "meetings-not-configured",
+  // A calendar act refused because the event's meeting is running (HTTP 409): people are in the room
+  // right now. Its own type rather than the generic `conflict` because the remedy is a NAMED act the
+  // caller can take — end the meeting, then cancel the event — and a surface that can read the type
+  // can offer that act instead of restating a sentence. The opposite of `meeting-ended`: that one
+  // says the gathering is over, this one says it has not finished.
+  "meeting-in-progress": "meeting-in-progress",
+  // A chat message nothing can reach (HTTP 404): a handle naming no message, and a message that
+  // belongs to a different meeting from the one the caller was authorized against. One type for
+  // both, on the reasoning `meeting-not-found` above states — a message is reachable only through
+  // its meeting, so telling them apart would make the route an existence oracle for a room the
+  // caller cannot see into.
+  "meeting-message-not-found": "meeting-message-not-found",
+  // A chat message longer than a message may be (HTTP 422). Its own type rather than the generic
+  // `validation` because the remedy is a specific one a surface can act on — shorten it, or put the
+  // long thing on the file as a document — and because a message silently truncated to fit would be
+  // a record of something nobody said.
+  "meeting-message-too-long": "meeting-message-too-long",
 } as const;
 
 export type ProblemTypeKey = keyof typeof PROBLEM_TYPES;

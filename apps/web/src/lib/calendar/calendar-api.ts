@@ -323,6 +323,20 @@ export function listEventTypes(
 // Every write takes the caller's idempotency key: a retried submit must not put a second hearing
 // on the calendar, and the server refuses the call outright when the header is absent.
 
+/**
+ * THE MEETING AN EVENT CARRIES. Scheduling a meeting is recording an event with a medium on it:
+ * there is no second record and no second form, and the entry window offers Join from the moment
+ * the event exists rather than from the moment somebody presses Start.
+ *
+ * Absent or null means no meeting. On a correction it means "leave the meeting exactly as it
+ * stands" — a meeting is never taken off an event by an edit, because ending a gathering is an act
+ * with its own route.
+ */
+export interface EventMeetingInput {
+  /** Sound alone, or sound and pictures. Chosen once and never changed. */
+  medium: "video" | "audio";
+}
+
 export interface CreateEventRequest {
   eventTypeId?: string | null;
   title: string;
@@ -341,6 +355,7 @@ export interface CreateEventRequest {
   /** An RFC 5545 rule the record form wrote. The server refuses one it could not read back. */
   recurrenceRule?: string | null;
   participants?: ParticipantInput[];
+  meeting?: EventMeetingInput | null;
 }
 
 export type UpdateEventRequest = Partial<CreateEventRequest>;
@@ -377,6 +392,7 @@ export interface CreateFirmEventRequest {
   /** An RFC 5545 rule the record form wrote. The server refuses one it could not read back. */
   recurrenceRule?: string | null;
   participants?: ParticipantInput[];
+  meeting?: EventMeetingInput | null;
 }
 
 export type UpdateFirmEventRequest = Partial<CreateFirmEventRequest>;
@@ -423,12 +439,25 @@ export interface Acknowledged {
   ok: true;
 }
 
+/**
+ * A recorded event answers with the meeting it carries, so a caller that asked for one can open it
+ * without a second round trip to find out what it got. Null where the event has no meeting, which
+ * is almost every event.
+ */
+export interface RecordedEvent extends CreatedRecord {
+  meetingId: string | null;
+}
+
+export interface UpdatedEvent extends Acknowledged {
+  meetingId: string | null;
+}
+
 export function createMatterEvent(
   fetchImpl: typeof fetch,
   matterId: string,
   request: CreateEventRequest,
   idempotencyKey: string,
-): Promise<ApiOutcome<CreatedRecord>> {
+): Promise<ApiOutcome<RecordedEvent>> {
   return requestJson(fetchImpl, `/api/v1/matters/${encodeURIComponent(matterId)}/events`, {
     method: "POST",
     body: request,
@@ -442,7 +471,7 @@ export function updateMatterEvent(
   eventId: string,
   request: UpdateEventRequest,
   idempotencyKey: string,
-): Promise<ApiOutcome<Acknowledged>> {
+): Promise<ApiOutcome<UpdatedEvent>> {
   return requestJson(fetchImpl, `/api/v1/events/${encodeURIComponent(eventId)}`, {
     method: "PATCH",
     body: request,
@@ -553,7 +582,7 @@ export function createFirmEvent(
   fetchImpl: typeof fetch,
   request: CreateFirmEventRequest,
   idempotencyKey: string,
-): Promise<ApiOutcome<CreatedRecord>> {
+): Promise<ApiOutcome<RecordedEvent>> {
   return requestJson(fetchImpl, "/api/v1/firm-events", {
     method: "POST",
     body: request,
@@ -567,7 +596,7 @@ export function updateFirmEvent(
   firmEventId: string,
   request: UpdateFirmEventRequest,
   idempotencyKey: string,
-): Promise<ApiOutcome<Acknowledged>> {
+): Promise<ApiOutcome<UpdatedEvent>> {
   return requestJson(fetchImpl, `/api/v1/firm-events/${encodeURIComponent(firmEventId)}`, {
     method: "PATCH",
     body: request,

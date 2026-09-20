@@ -124,12 +124,41 @@ export async function createMeeting(
     };
   }
 
+  return {
+    ...openMeetingOnEvent(database, { ...input, matterId: event.matter_id }, options),
+    created: true,
+  };
+}
+
+/**
+ * The room itself, for a caller that has ALREADY answered the questions `createMeeting` reads the
+ * event to answer.
+ *
+ * There is exactly one such caller and it is the reason this is separate: scheduling a meeting is
+ * recording a calendar event with a medium on it, and the route that does both composes them into
+ * ONE batch — so at the moment the room is minted, the event it hangs on has been composed and not
+ * yet committed, and no read can see it. `createMeeting` is the entry point everywhere else and
+ * still answers the walled-matter question the only way it can be answered, by reading.
+ *
+ * It is exported under its own name rather than hidden behind an optional argument on
+ * `createMeeting`, because skipping that read is a decision a caller has to take deliberately: the
+ * caller is asserting that it has just written the event itself, under its own permission check, in
+ * the batch this insert is joining. Nothing else may use it — an id-addressed caller that skipped
+ * the read would be a hole in the gate a member's matter wall is believed to close.
+ *
+ * The event's uniqueness is still held underneath either way: one meeting per event is a partial
+ * unique index, so two batches racing to open a room on one event end with one room.
+ */
+export function openMeetingOnEvent(
+  database: SqlDatabase,
+  input: CreateMeetingInput & { readonly matterId: string | null },
+  options: MeetingServiceOptions,
+): { meetingId: MeetingId; effect: EffectWrite } {
   const now = options.clock.now();
   const meetingId = newIdentifier("meeting", options.randomSource);
   const medium = input.medium ?? DEFAULT_MEETING_MEDIUM;
   return {
     meetingId,
-    created: true,
     effect: {
       statements: [
         insertMeetingStatement(database, {
@@ -156,7 +185,7 @@ export async function createMeeting(
             // of gathering this was without saying anything about what happened in it.
             medium,
             eventId: input.eventId,
-            matterId: event.matter_id,
+            matterId: input.matterId,
           },
         }),
       ],

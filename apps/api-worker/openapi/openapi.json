@@ -13419,15 +13419,22 @@
           }
         }
       },
-      "CalendarCreatedResponse": {
+      "CalendarEventRecordedResponse": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string"
+          },
+          "meetingId": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
-          "id"
+          "id",
+          "meetingId"
         ]
       },
       "CreateMatterEventRequest": {
@@ -13525,6 +13532,9 @@
               "$ref": "#/components/schemas/MatterEventParticipantInput"
             },
             "maxItems": 50
+          },
+          "meeting": {
+            "$ref": "#/components/schemas/CalendarEventMeetingInput"
           }
         },
         "required": [
@@ -13579,7 +13589,25 @@
           "participantKind"
         ]
       },
-      "CalendarAckResponse": {
+      "CalendarEventMeetingInput": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "medium": {
+            "type": "string",
+            "enum": [
+              "video",
+              "audio"
+            ]
+          }
+        },
+        "required": [
+          "medium"
+        ]
+      },
+      "CalendarEventUpdatedResponse": {
         "type": "object",
         "properties": {
           "ok": {
@@ -13587,10 +13615,17 @@
             "enum": [
               true
             ]
+          },
+          "meetingId": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
-          "ok"
+          "ok",
+          "meetingId"
         ]
       },
       "UpdateMatterEventRequest": {
@@ -13688,8 +13723,25 @@
               "$ref": "#/components/schemas/MatterEventParticipantInput"
             },
             "maxItems": 50
+          },
+          "meeting": {
+            "$ref": "#/components/schemas/CalendarEventMeetingInput"
           }
         }
+      },
+      "CalendarAckResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "ok"
+        ]
       },
       "CancelEventRequest": {
         "type": "object",
@@ -13702,6 +13754,17 @@
             "maxLength": 2000
           }
         }
+      },
+      "CalendarCreatedResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
       },
       "CreateMatterDeadlineRequest": {
         "type": "object",
@@ -14169,6 +14232,9 @@
               "$ref": "#/components/schemas/MatterEventParticipantInput"
             },
             "maxItems": 50
+          },
+          "meeting": {
+            "$ref": "#/components/schemas/CalendarEventMeetingInput"
           }
         },
         "required": [
@@ -14279,6 +14345,9 @@
               "$ref": "#/components/schemas/MatterEventParticipantInput"
             },
             "maxItems": 50
+          },
+          "meeting": {
+            "$ref": "#/components/schemas/CalendarEventMeetingInput"
           }
         }
       },
@@ -15998,6 +16067,96 @@
           "userId",
           "joinedAt",
           "leftAt"
+        ]
+      },
+      "MeetingMessage": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "meetingId": {
+            "type": "string"
+          },
+          "participantKind": {
+            "type": "string",
+            "enum": [
+              "member",
+              "guest"
+            ]
+          },
+          "participantId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sentAt": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "redactedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "redactedByUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "meetingId",
+          "participantKind",
+          "participantId",
+          "userId",
+          "sentAt",
+          "body",
+          "redactedAt",
+          "redactedByUserId"
+        ]
+      },
+      "SendMeetingMessageRequest": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4064
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "MeetingMessagePage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingMessage"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
         ]
       },
       "MatterSearchAnswer": {
@@ -60815,7 +60974,7 @@
         }
       },
       "post": {
-        "description": "Records something that happened or will happen in the case: a hearing, a filing, service, an order, a deposition, a client meeting. A date is a plain calendar date and a time is separate and optional, because an all-day event is a real and common answer; the time zone is required and is the one the event happens in, which for a hearing is the court's and not the firm's.",
+        "description": "Records something that happened or will happen in the case: a hearing, a filing, service, an order, a deposition, a client meeting. A date is a plain calendar date and a time is separate and optional, because an all-day event is a real and common answer; the time zone is required and is the one the event happens in, which for a hearing is the court's and not the firm's. Answering `meeting` schedules a video meeting or an audio call in the same act: the room is opened on the event, the colleagues listed on it are invited, and everyone sees Join from now rather than from the moment somebody presses Start. Only members are invited — a client or another party from the Directory has no way in yet.",
         "operationId": "calendar.createEvent",
         "tags": [
           "calendar"
@@ -60865,11 +61024,11 @@
         },
         "responses": {
           "201": {
-            "description": "The recorded event",
+            "description": "The recorded event, with its meeting where one was asked for",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CalendarCreatedResponse"
+                  "$ref": "#/components/schemas/CalendarEventRecordedResponse"
                 }
               }
             }
@@ -61032,7 +61191,7 @@
         }
       },
       "patch": {
-        "description": "Edits a recorded event in place. A hearing continued to a new date is the same hearing on a new date: the record moves and the audit trail carries the move, rather than leaving two hearings on the calendar for every reader to work out which one counts. Supplying participants replaces the whole list; omitting them leaves it alone.",
+        "description": "Edits a recorded event in place. A hearing continued to a new date is the same hearing on a new date: the record moves and the audit trail carries the move, rather than leaving two hearings on the calendar for every reader to work out which one counts. Supplying participants replaces the whole list; omitting them leaves it alone. Moving an event keeps its meeting: a meeting carries no time of its own. Supplying `meeting` adds one to an event that has none; null or absent leaves the event's meeting exactly as it stands, because ending a gathering is an act of its own and never a side effect of a correction.",
         "operationId": "calendar.updateEvent",
         "tags": [
           "calendar"
@@ -61082,11 +61241,11 @@
         },
         "responses": {
           "200": {
-            "description": "The event was updated",
+            "description": "The event was updated, with its meeting where it has one",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CalendarAckResponse"
+                  "$ref": "#/components/schemas/CalendarEventUpdatedResponse"
                 }
               }
             }
@@ -61882,7 +62041,7 @@
     },
     "/api/v1/events/{eventId}/cancel": {
       "post": {
-        "description": "Marks an event cancelled, with an optional reason the record keeps. The record stays: a hearing that was taken off is a fact about the case, and a firm that has to show it was vacated cannot do that from a row that is gone. A hearing the court moved is continued, not cancelled — the continue operation records both settings.",
+        "description": "Marks an event cancelled, with an optional reason the record keeps. The record stays: a hearing that was taken off is a fact about the case, and a firm that has to show it was vacated cannot do that from a row that is gone. A hearing the court moved is continued, not cancelled — the continue operation records both settings. A meeting scheduled on the event ends with it, in the same batch. A meeting that is LIVE refuses the cancel: taking a room away from the people in it is not a side effect a calendar edit may have, so the meeting is ended first and the event cancelled after.",
         "operationId": "calendar.cancelEvent",
         "tags": [
           "calendar"
@@ -63076,7 +63235,7 @@
         }
       },
       "post": {
-        "description": "Records something the firm schedules for itself: a meeting, an office closure, training, a firm holiday, a reservation. An all-members audience puts it on everyone's calendar without keeping a list that goes stale with every hire; a participants audience puts it on the calendars of the people named.",
+        "description": "Records something the firm schedules for itself: a meeting, an office closure, training, a firm holiday, a reservation. An all-members audience puts it on everyone's calendar without keeping a list that goes stale with every hire; a participants audience puts it on the calendars of the people named. Answering `meeting` schedules a video meeting or an audio call in the same act, exactly as it does on a matter's event.",
         "operationId": "calendar.createFirmEvent",
         "tags": [
           "calendar"
@@ -63117,11 +63276,11 @@
         },
         "responses": {
           "201": {
-            "description": "The recorded firm event",
+            "description": "The recorded firm event, with its meeting where one was asked for",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CalendarCreatedResponse"
+                  "$ref": "#/components/schemas/CalendarEventRecordedResponse"
                 }
               }
             }
@@ -63284,7 +63443,7 @@
         }
       },
       "patch": {
-        "description": "Edits a firm event in place. A moved staff meeting is not procedural history — firm events keep simple edit semantics, and the audit trail carries the move. Supplying participants replaces the whole list; omitting them leaves it alone.",
+        "description": "Edits a firm event in place. A moved staff meeting is not procedural history — firm events keep simple edit semantics, and the audit trail carries the move. Supplying participants replaces the whole list; omitting them leaves it alone. A meeting on the event survives the edit; supplying `meeting` adds one where there is none.",
         "operationId": "calendar.updateFirmEvent",
         "tags": [
           "calendar"
@@ -63334,11 +63493,11 @@
         },
         "responses": {
           "200": {
-            "description": "The firm event was updated",
+            "description": "The firm event was updated, with its meeting where it has one",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CalendarAckResponse"
+                  "$ref": "#/components/schemas/CalendarEventUpdatedResponse"
                 }
               }
             }
@@ -63418,7 +63577,7 @@
     },
     "/api/v1/firm-events/{firmEventId}/cancel": {
       "post": {
-        "description": "Marks a firm event cancelled, with an optional reason. The record stays, and any room or vehicle booked for it frees itself: a booking blocks a resource only while its event is live, so cancelling releases the bookings with nothing further to do.",
+        "description": "Marks a firm event cancelled, with an optional reason. The record stays, and any room or vehicle booked for it frees itself: a booking blocks a resource only while its event is live, so cancelling releases the bookings with nothing further to do. A meeting scheduled on the event ends with it; a meeting that is LIVE refuses the cancel until it has been ended.",
         "operationId": "calendar.cancelFirmEvent",
         "tags": [
           "calendar"
@@ -68440,6 +68599,373 @@
           },
           "503": {
             "description": "This deployment cannot route a meeting's media",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/messages": {
+      "post": {
+        "description": "Says something in a meeting's chat, and keeps it on the record. Requires an open stay — being in the room is what makes a message sayable, so a member who has left is answered as one who is not in the meeting. The message is stored against that stay rather than against the member, so somebody who dropped off and dialled back in has each message attributed to the stay it was said from.",
+        "operationId": "meetings.sendMessage",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.sendMessage",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:join",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMeetingMessageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The message is on the record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingMessage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting — or no message in it — this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, the caller is not in it, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The message is empty, or longer than a message may be",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "A meeting's chat, oldest first — a conversation is read forwards, so the first page is the beginning of the meeting rather than the end of it. `since` is an instant a poller holds from its previous read and asks for what has been said after; the cursor walks a long transcript. A message that has been taken back is still returned, with an empty body beside the instant and the member that say it was removed.",
+        "operationId": "meetings.listMessages",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.listMessages",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:join",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": false,
+            "name": "since",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of this meeting's chat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingMessagePage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting — or no message in it — this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/messages/{messageId}/redact": {
+      "post": {
+        "description": "Takes a message back: the body is blanked and the row is kept, so the transcript says a message was there and that somebody removed it. The author may do this to their own words and a member holding meetings:host may do it to anybody's; a message already taken back answers 200 unchanged rather than moving the instant already on the record. Still available after the meeting has ended — the words outlive the gathering.",
+        "operationId": "meetings.redactMessage",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.redactMessage",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:join",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meetingMessage_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "messageId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The message has been taken back",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingMessage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting — or no message in it — this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, the caller is not in it, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The message is empty, or longer than a message may be",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
             "content": {
               "application/problem+json": {
                 "schema": {

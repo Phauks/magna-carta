@@ -25,6 +25,7 @@ let ownerCookie: string;
 let readOnlyCookie: string;
 let firmDatabase: ReturnType<typeof firmDatabaseFor>;
 let ownerUserId: UserId;
+let readOnlyUserId: UserId;
 let matterId: string;
 let secondMatterId: string;
 
@@ -115,6 +116,7 @@ beforeAll(async () => {
     firmId,
   });
   await mirrorMemberWithUnrelatedGrant(firmDatabase, readOnly.userId, "Calendar Reader");
+  readOnlyUserId = readOnly.userId;
   readOnlyCookie = await signInForSessionCookie("calendar-readonly@example.com");
 
   matterId = await createMatter("Smith v Jones");
@@ -147,7 +149,7 @@ describe("recording what happens in a case", () => {
     expect(detailBody.event.startsAtTime).toBe("09:00");
     // The court's zone, which for this firm is not its own.
     expect(detailBody.event.timeZone).toBe("America/Los_Angeles");
-    expect(detailBody.participants.map((row) => row.role).sort()).toEqual([
+    expect(detailBody.participants.map((row) => row.role).toSorted()).toEqual([
       "appearing counsel",
       "judge",
     ]);
@@ -306,7 +308,7 @@ describe("the matter timeline federates what is already recorded", () => {
     expect(sourceKeys.has("matterLifecycle")).toBe(true);
     // Newest first across heterogeneous time columns compared as text.
     const sortKeys = body.data.map((entry) => entry.sortKey);
-    expect([...sortKeys].sort().toReversed()).toEqual(sortKeys);
+    expect([...sortKeys].toSorted().toReversed()).toEqual(sortKeys);
     // The PROJECTION carries no privileged content — a label is a type code or a state, never a
     // title — and the matter-scoped read then NAMES its rows through each source's own describe,
     // behind that source's read capability, which this member holds.
@@ -743,9 +745,7 @@ describe("continuance: the record shows what was continued from what", () => {
     });
     const toSide = await get(`/api/v1/firm-events/${firmEventId}/links`);
     expect(toSide.status).toBe(200);
-    expect(
-      ((await toSide.json()) as { data: { id: string }[] }).data.map((link) => link.id),
-    ).toEqual([linkId]);
+    expect((await toSide.json()).data.map((link) => link.id)).toEqual([linkId]);
 
     const duplicate = await post("/api/v1/event-links", {
       fromFirmEventId: firmEventId,
@@ -763,5 +763,242 @@ describe("continuance: the record shows what was continued from what", () => {
 
     const unlinked = await del(`/api/v1/event-links/${linkId}`);
     expect(unlinked.status).toBe(200);
+  });
+});
+
+// SCHEDULING: a meeting is a calendar event with a medium on it, so the whole of it is driven here
+// through the two event write paths rather than through a scheduling surface of its own.
+//
+// The room is opened AFTER the event commits, because `createMeeting` reads the event through the
+// visibility predicate before it writes — so these assertions are also what holds that ordering: a
+// create that answered with a null meeting id would mean the second write never happened.
+describe("scheduling a meeting on an event", () => {
+  async function meetingRow(
+    eventId: string,
+    column: "matter_event_id" | "firm_event_id" = "matter_event_id",
+  ): Promise<{ id: string; medium: string; status: string } | undefined> {
+    const { results } = await firmDatabase
+      .prepare(`SELECT id, medium, status FROM meeting WHERE ${column} = ?1`)
+      .bind(eventId)
+      .all<{ id: string; medium: string; status: string }>();
+    return results[0];
+  }
+
+  async function invitations(): Promise<{ payload: string }[]> {
+    const { results } = await firmDatabase
+      .prepare(
+        "SELECT payload FROM outbox WHERE topic = 'calendar.event.meetingScheduled' ORDER BY created_at",
+      )
+      .all<{ payload: string }>();
+    return results;
+  }
+
+  it("opens the room the event asked for, with the medium it asked for", async () => {
+    const recorded = await post(`/api/v1/matters/${matterId}/events`, {
+      title: "Deposition preparation",
+      startsOn: "2026-10-05",
+      startsAtTime: "10:00",
+      timeZone: "America/Los_Angeles",
+      meeting: { medium: "video" },
+    });
+    expect(recorded.status).toBe(201);
+    const body = (await recorded.json()) as { id: string; meetingId: string | null };
+    expect(body.meetingId).not.toBeNull();
+
+    const row = await meetingRow(body.id);
+    expect(row?.id).toBe(body.meetingId);
+    expect(row?.medium).toBe("video");
+    // Scheduled, not live: nobody has walked into it. The first arrival is what makes a room live.
+    expect(row?.status).toBe("scheduled");
+  });
+
+  it("records a call as a call, and an event with no meeting as having none", async () => {
+    const call = await post(`/api/v1/matters/${matterId}/events`, {
+      title: "Call with opposing counsel",
+      startsOn: "2026-10-06",
+      startsAtTime: "11:00",
+      timeZone: "America/Los_Angeles",
+      meeting: { medium: "audio" },
+    });
+    const callBody = (await call.json()) as { id: string; meetingId: string | null };
+    expect((await meetingRow(callBody.id))?.medium).toBe("audio");
+
+    const hearing = await post(`/api/v1/matters/${matterId}/events`, {
+      title: "Hearing with no meeting on it",
+      startsOn: "2026-10-07",
+      timeZone: "America/Los_Angeles",
+    });
+    const hearingBody = (await hearing.json()) as { id: string; meetingId: string | null };
+    // Null rather than absent: "no meeting" and "an older server" must not be the same answer.
+    expect(hearingBody.meetingId).toBeNull();
+    expect(await meetingRow(hearingBody.id)).toBeUndefined();
+  });
+
+  it("opens one room however many times the save is repeated", async () => {
+    const key = crypto.randomUUID();
+    const first = await post(
+      `/api/v1/matters/${matterId}/events`,
+      {
+        title: "Settlement conference",
+        startsOn: "2026-10-08",
+        startsAtTime: "14:00",
+        timeZone: "America/Los_Angeles",
+        meeting: { medium: "video" },
+      },
+      ownerCookie,
+      key,
+    );
+    const firstBody = (await first.json()) as { id: string; meetingId: string | null };
+
+    // The same attempt, repeated: the record form mints its key per attempt and repeats it on a
+    // retry, so the event replays and the meeting step converges on the room already open.
+    const retried = await post(
+      `/api/v1/matters/${matterId}/events`,
+      {
+        title: "Settlement conference",
+        startsOn: "2026-10-08",
+        startsAtTime: "14:00",
+        timeZone: "America/Los_Angeles",
+        meeting: { medium: "video" },
+      },
+      ownerCookie,
+      key,
+    );
+    const retriedBody = (await retried.json()) as { id: string; meetingId: string | null };
+    expect(retriedBody).toEqual(firstBody);
+
+    // And a correction that asks again gets the same room rather than a second one — the medium is
+    // chosen once, because the people already in a room agreed to one thing.
+    const corrected = await patch(`/api/v1/events/${firstBody.id}`, {
+      startsAtTime: "15:00",
+      meeting: { medium: "audio" },
+    });
+    expect(corrected.status).toBe(200);
+    const correctedBody = (await corrected.json()) as { ok: true; meetingId: string | null };
+    expect(correctedBody.meetingId).toBe(firstBody.meetingId);
+    expect((await meetingRow(firstBody.id))?.medium).toBe("video");
+  });
+
+  it("invites the colleagues on the event and nobody else", async () => {
+    const before = (await invitations()).length;
+    const recorded = await post(`/api/v1/matters/${matterId}/events`, {
+      title: "Case strategy",
+      startsOn: "2026-10-09",
+      startsAtTime: "09:30",
+      timeZone: "America/Los_Angeles",
+      meeting: { medium: "video" },
+      participants: [
+        { participantKind: "member", memberUserId: readOnlyUserId },
+        // The actor is on the event and is not invited to the meeting they just scheduled.
+        { participantKind: "member", memberUserId: ownerUserId },
+        // Neither of these is a member, and neither has a way into a room yet.
+        { participantKind: "external", participantName: "Hon. A. Judge", role: "judge" },
+        {
+          participantKind: "entity",
+          entityId: "directoryPerson_client",
+          participantName: "Client",
+        },
+      ],
+    });
+    expect(recorded.status).toBe(201);
+    const body = (await recorded.json()) as { id: string; meetingId: string | null };
+
+    const raised = await invitations();
+    expect(raised).toHaveLength(before + 1);
+    const payload = JSON.parse(raised[raised.length - 1]?.payload ?? "{}") as {
+      matterEventId: string;
+      matterId: string;
+      meetingId: string;
+      medium: string;
+      invitedMemberUserIds: string[];
+    };
+    expect(payload.invitedMemberUserIds).toEqual([readOnlyUserId]);
+    expect(payload).toMatchObject({
+      matterEventId: body.id,
+      matterId,
+      meetingId: body.meetingId,
+      medium: "video",
+    });
+    // Identifiers and one closed label. The title of this event is a statement about the case.
+    expect(JSON.stringify(payload)).not.toContain("Case strategy");
+  });
+
+  it("raises nothing for an event with no colleague on it but the person scheduling", async () => {
+    const before = (await invitations()).length;
+    const recorded = await post(`/api/v1/matters/${matterId}/events`, {
+      title: "Reading the file",
+      startsOn: "2026-10-10",
+      timeZone: "America/Los_Angeles",
+      meeting: { medium: "video" },
+      participants: [{ participantKind: "member", memberUserId: ownerUserId }],
+    });
+    expect(recorded.status).toBe(201);
+    expect(await invitations()).toHaveLength(before);
+  });
+
+  it("schedules on a firm event too, and raises no invitation for it yet", async () => {
+    const before = (await invitations()).length;
+    const recorded = await post("/api/v1/firm-events", {
+      title: "All-hands",
+      startsOn: "2026-10-12",
+      startsAtTime: "08:30",
+      timeZone: "America/Los_Angeles",
+      meeting: { medium: "video" },
+      participants: [{ participantKind: "member", memberUserId: readOnlyUserId }],
+    });
+    expect(recorded.status).toBe(201);
+    const body = (await recorded.json()) as { id: string; meetingId: string | null };
+    expect(body.meetingId).not.toBeNull();
+    expect((await meetingRow(body.id, "firm_event_id"))?.medium).toBe("video");
+    // `notification_event.subject_kind` has no `firmEvent` value and widening a SQLite CHECK is a
+    // rebuild of a table `notification_recipient` points at, so the room exists and the invitation
+    // waits on that migration rather than on a decision.
+    expect(await invitations()).toHaveLength(before);
+  });
+
+  it("ends a scheduled meeting with the event it was on", async () => {
+    const recorded = await post(`/api/v1/matters/${matterId}/events`, {
+      title: "Mediation that came off",
+      startsOn: "2026-10-13",
+      startsAtTime: "13:00",
+      timeZone: "America/Los_Angeles",
+      meeting: { medium: "video" },
+    });
+    const body = (await recorded.json()) as { id: string; meetingId: string | null };
+
+    const cancelled = await post(`/api/v1/events/${body.id}/cancel`, {
+      statusReason: "Settled before the date",
+    });
+    expect(cancelled.status).toBe(200);
+    // A room nobody walked into, on a setting that is no longer happening, must not stay openable.
+    expect((await meetingRow(body.id))?.status).toBe("ended");
+  });
+
+  it("refuses to cancel an event whose meeting is running", async () => {
+    const recorded = await post(`/api/v1/matters/${matterId}/events`, {
+      title: "Deposition under way",
+      startsOn: "2026-10-14",
+      startsAtTime: "10:00",
+      timeZone: "America/Los_Angeles",
+      meeting: { medium: "video" },
+    });
+    const body = (await recorded.json()) as { id: string; meetingId: string | null };
+    // People are in the room. Reached by hand rather than by joining, because a join wants the media
+    // routing credentials this test pool deliberately does not carry.
+    await firmDatabase
+      .prepare("UPDATE meeting SET status = 'live', started_at = ?2 WHERE id = ?1")
+      .bind(body.meetingId, clock.now())
+      .run();
+
+    const refused = await post(`/api/v1/events/${body.id}/cancel`, { statusReason: null });
+    expect(refused.status).toBe(409);
+    const problem = (await refused.json()) as { type: string; detail: string };
+    expect(problem.type).toContain("meeting-in-progress");
+    expect(problem.detail).toContain("End the meeting first");
+
+    // And nothing moved: the setting is still on, which is the whole point of refusing rather than
+    // cancelling and leaving the room running.
+    const detail = await get(`/api/v1/events/${body.id}`);
+    expect((await detail.json()).event.status).toBe("scheduled");
   });
 });

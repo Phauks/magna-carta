@@ -431,7 +431,8 @@ redaction, retention, and a personal-data classification.
 meeting_message
   id                    text pk            -- meetingMessage_ handle
   meeting_id            text not null -> meeting.id
-  attendance_id         text not null -> meeting_attendance.id
+  participant_kind      text not null      -- 'member' | 'guest'  (CHECK)
+  participant_id        text not null      -- the stay, BY VALUE, no foreign key
   sent_at               text not null      -- instant
   body                  text not null      -- MAX_MEETING_MESSAGE_LENGTH = 4000
   redacted_at           text null          -- instant
@@ -460,14 +461,16 @@ person's clock said is not one ordering. The index is `(meeting_id, sent_at, id)
 
 ### Who may do what
 
-- **Post:** an OPEN stay. `readOpenAttendance` is the whole of the check — the same row the socket
+- **Post:** an OPEN MEMBER stay. `readOpenAttendance` is the whole of the check — the same row the socket
   upgrade demands and the same row the room's ceiling is counted over. A member who left cannot post
   into a meeting they are no longer in, and a member who never joined has nothing to post from.
 - **Read:** `meetings:join` plus the event's own visibility, composed through `readMeeting` /
   `readMeetingSummary` rather than a new clause. A meeting has no visibility rule of its own, and a
   second expression of the walled-matter question is a second place for it to be wrong.
 - **Redact:** `meetings:host`, or the author of the message — who is the member on the message's own
-  stay. A host moderates the room; a member takes back what they said.
+  stay. A host moderates the room; a member takes back what they said. A guest's message has no firm
+  member behind it, so it is the host's to moderate and nobody else's, which falls out of the
+  comparison rather than needing a branch.
 
 ### Routes (`apps/api-worker/src/routes/meeting-chat.ts`)
 
@@ -496,7 +499,7 @@ Object's transient storage holds it would be a record that empties when the room
 
 ### Personal data and the audit log
 
-`meeting_message.attendance_id` and `meeting_message.body` are `retain-under-matter` on the call and
+`meeting_message.participant_id` and `meeting_message.body` are `retain-under-matter` on the call and
 text log's line — what was said on a matter is part of what the matter record says happened — and
 the body is **content-level residue** for the residue report, exactly as a message body and a call
 summary are on `communication`. `redacted_by_user_id` is `pseudonymize-keep`: who removed something
