@@ -1,9 +1,9 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { LocationId, MatterId, MatterTypeId, UserId } from "@magna-carta/identifiers/types";
+import type { NumberingPurpose } from "@magna-carta/sequence-numbering/purposes";
 
-// Table names tracked against @magna-carta/database's schema by the schema-name-sync fitness test.
+// Table name tracked against @magna-carta/database's schema by the schema-name-sync fitness test.
 export const MATTER_TABLE = "matter";
-export const NUMBERING_SCHEME_TABLE = "numbering_scheme";
 
 // The lifecycle, in the order a matter passes through it. An intake draws its own number as soon as
 // it exists; it becomes a consultation when the firm's intake procedure lets it through (the
@@ -14,12 +14,16 @@ export const NUMBERING_SCHEME_TABLE = "numbering_scheme";
 // number is drawn or surrendered on either side of a hold.
 export type MatterStatus = "intake" | "consultation" | "open" | "hold" | "closed";
 
-// The three sequences a firm numbers, each with its own active scheme: the permanent matter number,
-// the tentative number a consultation carries, and the number an intake wears from the moment the
-// enquiry is written down. Kept apart so a rung that goes no further consumes nothing from a run it
-// never reached — a gap in the matter run reads as a lost file, and a consultation run pitted with
-// declined enquiries cannot be told apart from one with records missing.
-export type NumberingPurpose = "matter" | "consultation" | "intake";
+// The three sequences a matter's lifecycle draws from, each a purpose on the firm-wide numbering
+// register (@magna-carta/sequence-numbering/purposes) with its own active scheme: the permanent
+// matter number, the tentative number a consultation carries, and the number an intake wears from
+// the moment the enquiry is written down. Kept apart so a rung that goes no further consumes nothing
+// from a run it never reached — a gap in the matter run reads as a lost file, and a consultation
+// run pitted with declined enquiries cannot be told apart from one with records missing.
+export type MatterNumberingPurpose = Extract<
+  NumberingPurpose,
+  "matter" | "consultation" | "intake"
+>;
 
 // The mutable, caller-supplied matter fields (everything bar id, status, the number columns, and the
 // lifecycle timestamps the service owns). A full-row UPDATE keeps updateMatterFieldsStatement static.
@@ -295,17 +299,6 @@ export function renumberMatterStatement(
       `UPDATE ${MATTER_TABLE} SET matter_number = ?2, numbered_at = ?3, updated_at = ?3 WHERE id = ?1`,
     )
     .bind(id, matterNumber, numberedAt);
-}
-
-// The one active scheme for a purpose (a single active row per purpose is enforced in the scheme
-// write path). segments is the JSON the renderer parses via numberingSchemeSchema.
-export function selectActiveSchemeStatement(
-  database: SqlDatabase,
-  purpose: NumberingPurpose,
-): SqlStatement {
-  return database
-    .prepare(`SELECT id, segments FROM ${NUMBERING_SCHEME_TABLE} WHERE active = 1 AND purpose = ?1`)
-    .bind(purpose);
 }
 
 // A colliding matter_number aborts the draw batch on the UNIQUE index. Mirrors isIdempotencyKeyConflict.

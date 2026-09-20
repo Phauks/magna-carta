@@ -1193,6 +1193,9 @@ importers:
       '@magna-carta/matters':
         specifier: workspace:*
         version: link:../matters
+      '@magna-carta/sequence-numbering':
+        specifier: workspace:*
+        version: link:../sequence-numbering
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -1914,6 +1917,9 @@ importers:
       '@magna-carta/reporting':
         specifier: workspace:*
         version: link:../reporting
+      '@magna-carta/sequence-numbering':
+        specifier: workspace:*
+        version: link:../sequence-numbering
       '@magna-carta/tasks':
         specifier: workspace:*
         version: link:../tasks
@@ -2610,19 +2616,25 @@ importers:
       '@magna-carta/data-access':
         specifier: workspace:*
         version: link:../data-access
+      '@magna-carta/identifiers':
+        specifier: workspace:*
+        version: link:../identifiers
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@magna-carta/database':
         specifier: workspace:*
         version: link:../database
-      '@magna-carta/identifiers':
-        specifier: workspace:*
-        version: link:../identifiers
       '@magna-carta/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/node':
         specifier: 'catalog:'
         version: 26.1.2
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.2(@cloudflare/workers-types@5.20260713.1)(kysely@0.29.2)
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
         version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@26.1.2)(esbuild@0.28.2)(happy-dom@20.11.1)(jiti@2.7.0)(tsx@4.23.1)(typescript@6.0.3)(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)'

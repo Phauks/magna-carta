@@ -6,19 +6,27 @@
   "sideEffects": false,
   "exports": {
     "./counter-statements": "./src/counter-statements.ts",
-    "./bounded-retry": "./src/bounded-retry.ts"
+    "./bounded-retry": "./src/bounded-retry.ts",
+    "./segments": "./src/segments.ts",
+    "./render": "./src/render.ts",
+    "./purposes": "./src/purposes.ts",
+    "./scheme-statements": "./src/scheme-statements.ts",
+    "./scheme-service": "./src/scheme-service.ts",
+    "./scheme-draw": "./src/scheme-draw.ts"
   },
   "scripts": {
     "test": "vp test run"
   },
   "dependencies": {
-    "@magna-carta/data-access": "workspace:*"
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@magna-carta/database": "workspace:*",
-    "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/tsconfig": "workspace:*",
     "@types/node": "catalog:",
+    "drizzle-orm": "catalog:",
     "vitest": "catalog:"
   }
 }

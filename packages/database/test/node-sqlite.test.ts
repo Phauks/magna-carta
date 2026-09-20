@@ -89,6 +89,15 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         .map((grant) => grant.role_id)
         .toSorted(),
     ).toEqual(roles.map((row) => row.id).toSorted());
+    // matters:viewNumbering joins that universal set: how the firm's numbers are shaped is a fact
+    // every member reads off every record they open, so seeing the register is not a privilege.
+    // Changing it is, and stays matters:manageNumbering (Owner/Admin).
+    expect(
+      grants
+        .filter((grant) => grant.permission === "matters:viewNumbering")
+        .map((grant) => grant.role_id)
+        .toSorted(),
+    ).toEqual(roles.map((row) => row.id).toSorted());
     // firm:readMembers joins that universal set, and is the deliberate opposite of
     // firm:manageMembers above. Adding a person to the firm is Owner/Admin's; knowing who is
     // already in it is every seat's, because a screen that cannot name a colleague prints a raw
@@ -270,6 +279,9 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "matterAssets:manage",
         "matterAssets:read",
         "matters:create",
+        // How the firm's numbers are shaped is a fact every seat reads off every record, so the
+        // register's read reaches every role; changing it stays Owner/Admin.
+        "matters:viewNumbering",
         // Meetings follow the call log: a paralegal convenes the settlement conference and is in it,
         // so this seat carries both keys, where Billing joins and does not host.
         "meetings:host",
@@ -356,6 +368,8 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "firm:scanFile",
         "intake:read",
         "intake:record",
+        // The numbering register's read reaches every seat, on notifications:read's reasoning.
+        "matters:viewNumbering",
         // Being in the meeting about an unpaid invoice is ordinary work for this seat, on the same
         // line communications:read sits on directly above. Convening one is not, so meetings:host
         // is absent — the pair matches the read/log split exactly.
@@ -410,6 +424,8 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "firm:readMembers",
         "firm:reportIncident",
         "firm:scanFile",
+        // The numbering register's read reaches every seat, on notifications:read's reasoning.
+        "matters:viewNumbering",
         // Read-only carries it, where trust:read deliberately stops one seat short. The two are not
         // the same kind of read: a trust ledger is the record of money the firm holds for other
         // people, where a notification feed is the member's own, scoped to their own user id and

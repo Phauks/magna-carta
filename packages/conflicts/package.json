@@ -30,7 +30,8 @@
     "./candidate-bound": "./src/candidate-bound.ts",
     "./edge-classes": "./src/edge-classes.ts",
     "./waiver": "./src/waiver.ts",
-    "./check-run": "./src/check-run.ts"
+    "./check-run": "./src/check-run.ts",
+    "./check-numbering": "./src/check-numbering.ts"
   },
   "scripts": {
     "test": "vp test run"
@@ -43,6 +44,7 @@
     "@magna-carta/directory": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/matters": "workspace:*",
+    "@magna-carta/sequence-numbering": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

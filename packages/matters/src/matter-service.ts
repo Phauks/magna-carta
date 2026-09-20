@@ -58,28 +58,25 @@ import {
   releaseMatterStatement,
   reopenMatterStatement,
   renumberMatterStatement,
-  selectActiveSchemeStatement,
   selectMatterStatement,
   updateMatterFieldsStatement,
-  type NumberingPurpose,
+  type MatterNumberingPurpose,
 } from "./matter-statements.ts";
-import { sequenceOf } from "./numbering/sequences.ts";
+import { matterSequenceOf } from "./numbering/sequences.ts";
 import { drawWithBoundedRetry } from "@magna-carta/sequence-numbering/bounded-retry";
+import {
+  NumberingSchemeMissingError,
+  planSchemeDraw,
+  schemeDrawOpeningStatements,
+} from "@magna-carta/sequence-numbering/scheme-draw";
 import { insertMatterPartyStatement } from "@magna-carta/directory/statements";
 import { MATTER_PARTY_CLIENT_ROLE } from "./matter-party.ts";
 import {
   allocateCounterValueStatement,
-  ensureCounterRowStatement,
-  guardedIncrementStatement,
   MATTER_NUMBERING_TABLES,
-  readCounterValue,
 } from "./numbering/counter-statements.ts";
-import { deriveScopeKey, renderMatterNumber, type RenderContext } from "./numbering/render.ts";
-import {
-  type NumberSegment,
-  numberingSchemeSchema,
-  URL_SAFE_PATTERN,
-} from "./numbering/segments.ts";
+import type { RenderContext } from "@magna-carta/sequence-numbering/render";
+import { URL_SAFE_PATTERN } from "@magna-carta/sequence-numbering/segments";
 import { MatterValidationError } from "./validation.ts";
 
 // The matter shell on the ledger pattern, extended for number allocation: where a number is drawn,
@@ -224,34 +221,14 @@ async function loadMatter(database: SqlDatabase, id: MatterId): Promise<MatterRo
   };
 }
 
-interface ActiveScheme {
-  readonly segments: readonly NumberSegment[];
-  readonly startValue: number;
-}
-
-async function loadActiveScheme(
-  database: SqlDatabase,
-  purpose: NumberingPurpose,
-): Promise<ActiveScheme> {
-  const { results } = await selectActiveSchemeStatement(database, purpose).all<{
-    segments: string;
-  }>();
-  const row = results[0];
-  // What "no scheme configured" means is the sequence's own answer, held in SEQUENCES above.
-  if (row === undefined) {
-    const fallback = sequenceOf(purpose).fallbackScheme;
-    if (fallback !== null) {
-      return { segments: fallback, startValue: startValueOf(fallback) };
-    }
+// The scheme in force for a purpose is the shared draw planner's to load; only the translation of
+// "nothing in force" into this package's own refusal happens here, because the sentence a person
+// sees belongs to the route that answers them and that route maps MatterValidationError codes.
+function schemeMissingAsMatterRefusal(error: unknown): never {
+  if (error instanceof NumberingSchemeMissingError) {
     throw new MatterValidationError("scheme-missing", "no active numbering scheme is configured");
   }
-  const segments = numberingSchemeSchema.parse(JSON.parse(row.segments));
-  return { segments, startValue: startValueOf(segments) };
-}
-
-// numberingSchemeSchema guarantees exactly one counter; the start defaults to 1.
-function startValueOf(segments: readonly NumberSegment[]): number {
-  return segments.find((segment) => segment.kind === "counter")?.start ?? 1;
+  throw error;
 }
 
 // What a built mutation contributes to its batch plus the value it returns to the caller (and stores
@@ -328,12 +305,12 @@ async function runMatterDraw<T>(
   database: BatchDatabase,
   options: MatterServiceOptions,
   matterId: MatterId,
-  purpose: NumberingPurpose,
+  purpose: MatterNumberingPurpose,
   numberContext: NumberContext,
   build: (matterNumber: string, now: string) => BuiltMutation<T>,
   responseCode: number,
 ): Promise<T & ReplayFlag> {
-  const sequence = sequenceOf(purpose);
+  const sequence = matterSequenceOf(purpose);
   return await drawWithBoundedRetry(
     database,
     MATTER_NUMBERING_TABLES,
@@ -358,27 +335,38 @@ async function runMatterDraw<T>(
         newRecordId: options.idempotency?.newRecordId,
         now: () => options.clock.now(),
         effect: async () => {
-          const scheme = await loadActiveScheme(database, purpose);
           const context: RenderContext = { openedDate: options.clock.today(), ...numberContext };
-          // All three sequences count in the same tables; the prefix is what keeps them separate runs.
-          const scopeKey = sequence.scopePrefix + deriveScopeKey(scheme.segments, context);
-          const startValue = scheme.startValue;
-          const observed = (await readCounterValue(database, scopeKey)) ?? scheme.startValue;
+          // All three sequences count in the same tables; the purpose's prefix on the scope key is
+          // what keeps them separate runs, and the planner applies it.
+          const plan = await planSchemeDraw(
+            database,
+            purpose,
+            MATTER_NUMBERING_TABLES,
+            context,
+          ).catch(schemeMissingAsMatterRefusal);
           // Reported before the batch is composed, so a losing attempt can advance THIS scope's
           // counter out of band — the in-batch increment rolls back with everything else.
-          observe({ scopeKey, observedValue: observed, startValue });
-          const matterNumber = renderMatterNumber(scheme.segments, context, observed);
+          observe({
+            scopeKey: plan.scopeKey,
+            observedValue: plan.observedValue,
+            startValue: plan.startValue,
+          });
           const now = options.clock.now();
-          const built = build(matterNumber, now);
+          const built = build(plan.number, now);
           return {
             write: {
               statements: [
-                ensureCounterRowStatement(database, scopeKey, startValue),
-                guardedIncrementStatement(database, scopeKey, observed),
+                ...schemeDrawOpeningStatements(database, MATTER_NUMBERING_TABLES, plan),
                 ...built.statements,
                 // Last: matter_id is a foreign key, so the matter row this draw belongs to has to
                 // exist by the time the allocation lands (createMatter inserts it in this batch).
-                allocateCounterValueStatement(database, scopeKey, observed, matterId, now),
+                allocateCounterValueStatement(
+                  database,
+                  plan.scopeKey,
+                  plan.observedValue,
+                  matterId,
+                  now,
+                ),
               ],
               outboxMessages: built.outboxMessages,
             },

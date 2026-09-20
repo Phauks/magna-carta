@@ -1,31 +1,22 @@
-import type { NumberSegment } from "./segments.ts";
+import { purposeOf } from "@magna-carta/sequence-numbering/purposes";
 import {
   isConsultationNumberConflict,
   isIntakeNumberConflict,
   isMatterNumberConflict,
-  type NumberingPurpose,
+  type MatterNumberingPurpose,
 } from "../matter-statements.ts";
-import { CONSULTATION_SCOPE_PREFIX, DEFAULT_CONSULTATION_SCHEME } from "./consultation-scheme.ts";
-import { DEFAULT_INTAKE_SCHEME, INTAKE_SCOPE_PREFIX } from "./intake-scheme.ts";
 
 /*
- * What each sequence is, resolved in one table rather than in `purpose === "consultation"` branches.
- *
- * It was two branches while there were two sequences, and it read fine. A third made the shape of
- * the problem visible: the prefix, the label, the retryable collision and whether a default exists
- * are four facts ABOUT A SEQUENCE, and spread across four conditionals they can disagree — a fourth
- * run added later would have had to find all four. The table is also the argument: a reader can see
- * at a glance that every run but the matter run has a default, and why.
+ * What is MATTERS' OWN about each of its three sequences, resolved in one table rather than in
+ * `purpose === "consultation"` branches. What a sequence is — its label, its scope prefix, its
+ * default scheme and the parts it may use — lives on the firm-wide numbering register
+ * (@magna-carta/sequence-numbering/purposes), one row per purpose, so a fourth run is one row there
+ * rather than four edits here. The one fact that cannot leave this package is the rendered-string
+ * collision only this run's own partial unique index on the matter table can see.
  */
-export interface Sequence {
+export interface MatterSequence {
   /** What the run is called when a draw that could not converge has to be reported. */
   readonly label: string;
-  /**
-   * What keeps this run's counters separate from the others'. Empty for the matter run, which owns
-   * the unprefixed scope keys; the others namespace theirs. See the prefix constants for why no
-   * matter scope key can collide with a prefixed one.
-   */
-  readonly scopePrefix: string;
   /**
    * The rendered-string collision only this run's own partial unique index can see — a number a
    * court or a legacy system already assigned by hand, which drew no allocation row. Matched per
@@ -33,40 +24,15 @@ export interface Sequence {
    * number nobody had taken.
    */
   readonly isOwnConflict: (error: unknown) => boolean;
-  /**
-   * The scheme to render from when the firm has configured none, or null to refuse.
-   *
-   * Only the matter run refuses. A matter number is the firm's own file numbering and there is no
-   * defensible default — rendering one would stamp a shape the firm never chose onto a number that
-   * is then frozen. A consultation number and an intake number are scaffolding for a file that may
-   * never exist, and refusing to take an enquiry because nobody has visited the settings screen is
-   * the worse failure.
-   */
-  readonly fallbackScheme: readonly NumberSegment[] | null;
 }
 
-const SEQUENCES: Record<NumberingPurpose, Sequence> = {
-  matter: {
-    label: "matter number",
-    scopePrefix: "",
-    isOwnConflict: isMatterNumberConflict,
-    fallbackScheme: null,
-  },
-  consultation: {
-    label: "consultation number",
-    scopePrefix: CONSULTATION_SCOPE_PREFIX,
-    isOwnConflict: isConsultationNumberConflict,
-    fallbackScheme: DEFAULT_CONSULTATION_SCHEME,
-  },
-  intake: {
-    label: "intake number",
-    scopePrefix: INTAKE_SCOPE_PREFIX,
-    isOwnConflict: isIntakeNumberConflict,
-    fallbackScheme: DEFAULT_INTAKE_SCHEME,
-  },
+const OWN_CONFLICTS: Record<MatterNumberingPurpose, (error: unknown) => boolean> = {
+  matter: isMatterNumberConflict,
+  consultation: isConsultationNumberConflict,
+  intake: isIntakeNumberConflict,
 };
 
-/** What this sequence is. The one place any of its four facts is answered. */
-export function sequenceOf(purpose: NumberingPurpose): Sequence {
-  return SEQUENCES[purpose];
+/** What this sequence is to the matter shell. The one place its own collision is answered. */
+export function matterSequenceOf(purpose: MatterNumberingPurpose): MatterSequence {
+  return { label: purposeOf(purpose).label, isOwnConflict: OWN_CONFLICTS[purpose] };
 }

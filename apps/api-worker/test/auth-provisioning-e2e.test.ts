@@ -393,9 +393,10 @@ describe("end-to-end", () => {
         "matters:open",
         "matters:renumber",
         "matters:reopen",
+        "matters:viewNumbering",
         // meetings:join reaches Owner/Admin, Attorney, Paralegal and Billing; meetings:host stops
         // short of Billing — attending a meeting about a case is not the privilege that convening
-        // one is (20260918T182822_seed-meetings-permissions).
+        // one is (20260919T001020_seed-meetings-permissions).
         "meetings:host",
         "meetings:join",
         // The two matter-notes keys, each seeded to the same three practising seats — Owner/Admin,

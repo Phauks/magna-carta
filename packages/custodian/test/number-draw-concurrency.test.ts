@@ -5,12 +5,8 @@ import {
   isNumberAllocationConflict,
   readCounterValue,
 } from "../src/numbering/counter-statements.ts";
-import {
-  DEFAULT_CUSTODY_NUMBER_SCHEME,
-  deriveScopeKey,
-  renderCustodyItemNumber,
-  renderCustodyNumber,
-} from "../src/numbering/render.ts";
+import { renderCustodyItemNumber } from "../src/numbering/render.ts";
+import { setActiveNumberingScheme } from "@magna-carta/sequence-numbering/scheme-service";
 import { createCustodyPacket } from "../src/packet-service.ts";
 import { ACTOR, commit, migratedDatabase, options, seedMember } from "./support.ts";
 
@@ -29,19 +25,37 @@ async function scaffold() {
 }
 
 describe("the custody number shape", () => {
-  it("renders a firm prefix and a zero-padded sequence", () => {
-    expect(renderCustodyNumber(DEFAULT_CUSTODY_NUMBER_SCHEME, {}, 42)).toBe("CUS-00042");
-  });
+  // Firm-wide and prefixed by default: a globally unique number is easier to say over the phone
+  // and impossible to confuse. The shape is the firm's `custody_packet` scheme on the numbering
+  // register, so a firm that wants its numbers to restart each year writes that scheme and the next
+  // packet wears it.
+  it("renders the register's default until the firm writes its own scheme", async () => {
+    const { database, safe } = await scaffold();
+    const first = await createCustodyPacket(
+      database,
+      { name: "Deed", owners: [{ entityId: SMITH }], currentLocationId: safe },
+      { ...options, responsibleMemberId: ACTOR },
+    );
+    expect(first.custodyNumber).toBe("CUS-00001");
 
-  // A firm running two offices may want RNO-00042 and LVS-00042 to coexist, which is what the scope
-  // key mechanism does. Firm-wide is the default: a globally unique number is easier to say over the
-  // phone and impossible to confuse.
-  it("scopes per custody root only when the firm asks for it", () => {
-    const scoped = { ...DEFAULT_CUSTODY_NUMBER_SCHEME, prefix: undefined, scopeByRoot: true };
-    expect(deriveScopeKey(DEFAULT_CUSTODY_NUMBER_SCHEME, { rootCode: "RNO" })).toBe("");
-    expect(deriveScopeKey(scoped, { rootCode: "RNO" })).toBe("RNO");
-    expect(renderCustodyNumber(scoped, { rootCode: "RNO" }, 42)).toBe("RNO-00042");
-    expect(renderCustodyNumber(scoped, { rootCode: "LVS" }, 42)).toBe("LVS-00042");
+    const { effect } = setActiveNumberingScheme(
+      database,
+      [
+        { kind: "literal", text: "SAFE" },
+        { kind: "year", digits: 4, scoping: true },
+        { kind: "literal", text: "-" },
+        { kind: "counter", padWidth: 3 },
+      ],
+      { clock: options.clock, actorUserId: ACTOR },
+      "custody_packet",
+    );
+    await commit(database, effect);
+    const second = await createCustodyPacket(
+      database,
+      { name: "Will", owners: [{ entityId: SMITH }], currentLocationId: safe },
+      { ...options, responsibleMemberId: ACTOR },
+    );
+    expect(second.custodyNumber).toBe(`SAFE${options.clock.now().slice(0, 4)}-001`);
   });
 
   // An item's identity is only meaningful inside its packet, so its number is a packet-relative

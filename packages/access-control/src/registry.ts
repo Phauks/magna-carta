@@ -72,7 +72,11 @@ export const PERMISSIONS = [
   "matters:edit", // edit matter fields (title/description/type/location/attorney/client)
   "matters:renumber", // assign a manual/court/legacy number
   "matters:manageTypes", // create/deactivate matter types
-  "matters:manageNumbering", // edit the firm numbering scheme
+  "matters:manageNumbering", // edit the firm's numbering schemes
+  // Seeded to EVERY default role, Read-only included: how the firm's numbers are shaped is a fact
+  // every member reads off every record, so seeing the register is not a privilege — changing it
+  // is, and that stays matters:manageNumbering.
+  "matters:viewNumbering", // read the firm's numbering register: every sequence, and what is in force
   // Directory — persons, organizations, and their sensitive typed identifiers.
   "directory:edit", // create/edit directory entities, names, identifiers, edges, categories, merges, and matter-party links
   "directory:viewSensitiveIdentifiers", // decrypt and read an entity's protected identifier (SSN/EIN/DL/account/DOB) — audited

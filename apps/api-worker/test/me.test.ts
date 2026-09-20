@@ -224,10 +224,11 @@ describe("GET /api/v1/me", () => {
         "matters:open",
         "matters:renumber",
         "matters:reopen",
+        "matters:viewNumbering",
         // meetings:join reaches Owner/Admin, Attorney, Paralegal and Billing — being in a meeting
         // about a case is not a privilege of the seats that argue it; meetings:host stops short of
         // Billing, because convening and closing a meeting on a firm's calendar is the practising
-        // seats' act (20260918T182822_seed-meetings-permissions).
+        // seats' act (20260919T001020_seed-meetings-permissions).
         "meetings:host",
         "meetings:join",
         // Seeded onto EVERY default role including Read-only — the deliberate contrast with
