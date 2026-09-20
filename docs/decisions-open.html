@@ -159,7 +159,7 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
 <div class="wrap">
 <header style="display:flex;flex-direction:column;gap:13px">
   <p class="eyebrow">Magna Carta &middot; decisions</p>
-  <h1>66 questions the build is waiting on you to answer</h1>
+  <h1>67 questions the build is waiting on you to answer</h1>
   <p class="lede">Every one of these was recorded where the work stopped, by whoever stopped. They
   are gathered here with the answer boxes, sorted by what leaving them open actually costs. Write
   as much or as little as you want; a sentence is usually enough, and &ldquo;not yet&rdquo; is an
@@ -168,8 +168,8 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
   Nothing leaves this page on its own &mdash; when you are done, <strong>Copy the answers</strong>
   at the bottom and paste them into the conversation, and they get applied from there.</p>
   <div class="band" style="margin-top:8px">
-    <div class="k "><span>Open questions</span><b>66</b><em>Every one is on this page.</em></div>
-    <div class="k n"><span>Holding a build</span><b>31</b><em>Nothing is written behind these.</em></div>
+    <div class="k "><span>Open questions</span><b>67</b><em>Every one is on this page.</em></div>
+    <div class="k n"><span>Holding a build</span><b>32</b><em>Nothing is written behind these.</em></div>
     <div class="k y"><span>Not holding a build</span><b>35</b><em>Mostly built already; some are parked.</em></div>
     <div class="k g"><span>Answered here</span><b data-answered-count="">0</b><em>Saved in this browser until you copy them out.</em></div>
   </div>
@@ -178,14 +178,14 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
 
 <section class="controls" aria-label="Filters">
   <label class="field"><span>Area</span>
-    <select data-filter-area=""><option value="">All areas</option><option value="ai.md">AI &amp; Inference (2)</option><option value="auth.md">Authentication, Access Control &amp; Encryption (1)</option><option value="communications.md">Communications Layer (1)</option><option value="community.md">Community &amp; Feedback Forum (1)</option><option value="conflicts.md">Conflicts Check (1)</option><option value="core-domain.md">Core Domain — Directory, Matters &amp; Locations (5)</option><option value="custodian.md">Custodian (Safe Custody) (1)</option><option value="discovery.md">Discovery (e-discovery) (3)</option><option value="document-automation.md">Document Automation (3)</option><option value="documents.md">Documents (2)</option><option value="exhibits.md">Exhibits and Exhibit Lists (5)</option><option value="financial.md">Financial Core (12)</option><option value="intake.md">Client Intake / CRM (3)</option><option value="meetings.md">Meetings (2)</option><option value="notes.md">Matter Notes and Activity (2)</option><option value="notifications.md">Notifications (1)</option><option value="payments.md">Payments (6)</option><option value="product-updates.md">Product Updates &amp; User-Facing Documentation (1)</option><option value="reports.md">Reports (1)</option><option value="self-serve.md">Self-Serve Provisioning and Entitlements (5)</option><option value="tasks.md">Tasks and Workflows / Matter Plans (2)</option><option value="translation.md">Translation Services (6)</option></select></label>
+    <select data-filter-area=""><option value="">All areas</option><option value="ai.md">AI &amp; Inference (2)</option><option value="auth.md">Authentication, Access Control &amp; Encryption (1)</option><option value="communications.md">Communications Layer (1)</option><option value="community.md">Community &amp; Feedback Forum (1)</option><option value="conflicts.md">Conflicts Check (1)</option><option value="core-domain.md">Core Domain — Directory, Matters &amp; Locations (5)</option><option value="custodian.md">Custodian (Safe Custody) (1)</option><option value="discovery.md">Discovery (e-discovery) (3)</option><option value="document-automation.md">Document Automation (3)</option><option value="documents.md">Documents (2)</option><option value="exhibits.md">Exhibits and Exhibit Lists (5)</option><option value="financial.md">Financial Core (12)</option><option value="intake.md">Client Intake / CRM (3)</option><option value="meetings.md">Meetings (3)</option><option value="notes.md">Matter Notes and Activity (2)</option><option value="notifications.md">Notifications (1)</option><option value="payments.md">Payments (6)</option><option value="product-updates.md">Product Updates &amp; User-Facing Documentation (1)</option><option value="reports.md">Reports (1)</option><option value="self-serve.md">Self-Serve Provisioning and Entitlements (5)</option><option value="tasks.md">Tasks and Workflows / Matter Plans (2)</option><option value="translation.md">Translation Services (6)</option></select></label>
   <label class="toggle"><input type="checkbox" data-filter-unanswered="">
     <span>Only what I have not answered</span></label>
   <p class="count" data-visible-count="" role="status"></p>
 </section>
 
 <section class="group" data-group="blocking">
-  <h2>Nothing is built behind these <span class="ac">31</span></h2>
+  <h2>Nothing is built behind these <span class="ac">32</span></h2>
   <p class="lede">An answer here decides what gets written next. Until one lands, the work has no shape to take — so these are the questions that cost time by staying open.</p>
   <div class="cards">
     <article class="card" data-node="ai.consent" data-name="Client-consent model" data-area="ai.md">
@@ -337,6 +337,17 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="q">Is audio alone the right record for a law firm, or is video needed — and if it is, is it worth moving meetings onto RealtimeKit to get it managed rather than taking a C/C++ codec dependency?</p>
       <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
       <p class="scope">Server-side capture of a meeting into the matter file through the untrusted-file pipeline into R2; every participant is told "Recording in progress" when it starts and on arrival, audibly and on screen, and a recording mark stays on every screen for as long as it runs.</p>
+      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
+      <label class="answer"><span>Your answer</span>
+        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
+      <p class="saved" data-saved="" aria-live="polite"></p>
+    </article>
+    <article class="card" data-node="meetings.backgrounds-and-noise" data-name="Backgrounds and noise suppression" data-area="meetings.md">
+      <div class="chips"><span class="chip plan">Designed</span><span class="chip todo">Not built</span><code>meetings.backgrounds-and-noise</code></div>
+      <h3>Backgrounds and noise suppression</h3>
+      <p class="q">Asked only if both memory-safe segmentation runtimes miss the frame budget. Every off-the-shelf way of blurring a background in a browser — MediaPipe, ONNX Runtime Web, Transformers.js, the TensorFlow.js wasm backend — is C++ compiled to WebAssembly, which golden rule 14 says needs explicit consent. Do we adopt MediaPipe for background blur alone if the Rust and the TypeScript-and-WebGL paths both fall short, or ship without background blur and keep the audio effects, which need no such dependency? Media effects design, flag M1.</p>
+      <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
+      <p class="scope">A blurred or replaced background and microphone noise suppression, both in the browser, on the local track before it is published.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
         <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>

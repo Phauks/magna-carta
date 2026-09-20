@@ -43,10 +43,10 @@ not](#what-a-roll-up-is-not).
 | `shipped` | 326 | 46% |
 | `partial` | 124 | 17% |
 | `in-build` | 2 | 0% |
-| `designed` | 52 | 7% |
+| `designed` | 53 | 7% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
-| `not-started` | 147 | 21% |
+| `not-started` | 146 | 21% |
 | `deferred` | 38 | 5% |
 | `cut` | 4 | 1% |
 | **All statuses** | **713** | **100%** |
@@ -112,7 +112,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
 | Integrations & Plugins | 17 | 2 | 0 | 1 | 0 | 3 | 15 | 3 | 1 | 42 | 40% |
 | Maintenance Agents | 2 | 3 | 0 | 0 | 0 | 0 | 5 | 0 | 0 | 10 | 20% |
-| Meetings | 6 | 0 | 2 | 6 | 0 | 0 | 14 | 0 | 0 | 28 | 21% |
+| Meetings | 6 | 0 | 2 | 7 | 0 | 0 | 13 | 0 | 0 | 28 | 21% |
 | Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 12 | 58% |
 | Notifications | 4 | 6 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 14 | 29% |
 | Observability & Diagnostics | 14 | 0 | 0 | 0 | 0 | 0 | 4 | 2 | 0 | 20 | 70% |
@@ -127,7 +127,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 14 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 21 | 67% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **326** | **124** | **2** | **52** | **15** | **5** | **147** | **38** | **4** | **713** | **46%** |
+| **All areas** | **326** | **124** | **2** | **53** | **15** | **5** | **146** | **38** | **4** | **713** | **46%** |
 
 ## Where we have been
 
@@ -240,7 +240,7 @@ one.
 
 ## Waiting on you
 
-**31 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
+**32 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
 
 - **Client-consent model** (`ai.consent`) — **Not built.** Whether client consent for AI is taken once in the engagement letter or per matter. No AI feature reaches a client's data until this is settled.
 - **Feedback board** (`community.board`) — **Not built.** Two calls, both on the open pull request. Whether to ratify a named exception to the firm-scoped data rule, since a shared board is cross-firm by definition; and how a signed-in member's session reaches the community host, which is a different origin from the application.
@@ -256,6 +256,7 @@ one.
 - **Financial statements** (`financial.ledger.operating-gl.financial-statements`) — **Not built.** Are trust accounts on the firm's balance sheet? Correct accounting includes them — the firm holds an asset and an equal liability — and some accountants present a firm balance sheet without them; the recommendation is to include them in labelled sections that must net to zero, and to refuse the statement when they do not, because omitting them hides the one relationship an examiner checks. Also whether a derived cash-basis view is in scope here at all, which it is recommended not to be: the book is accrual and cannot be otherwise, and a cash view is not a tax basis and must never be presented as one. And who is seeded the capability to read statements, where a bookkeeper reads them and posts nothing. General ledger design, flags G16, G2 and G14.
 - **Public intake forms** (`intake.public-forms`) — **Not built.** Two things stand in front of an anonymous form. Whether it accepts attachments — the value is real (the contract, the letter they were served) and so is the surface, since it is an unidentified stranger writing into the untrusted-ingest and malware-scan pipeline at the firm's quarantine and storage cost. And whether Turnstile is switched on first: the verifier is built but dormant, and every unprotected pass is counted as unenforced rather than blocked, so a public form shipped ahead of the activation would ship in front of a bot control that is not actually running. Client intake design flags J3 and J11.
 - **Recording** (`meetings.recording`) — **Not built.** Is audio alone the right record for a law firm, or is video needed — and if it is, is it worth moving meetings onto RealtimeKit to get it managed rather than taking a C/C++ codec dependency?
+- **Backgrounds and noise suppression** (`meetings.backgrounds-and-noise`) — **Not built.** Asked only if both memory-safe segmentation runtimes miss the frame budget. Every off-the-shelf way of blurring a background in a browser — MediaPipe, ONNX Runtime Web, Transformers.js, the TensorFlow.js wasm backend — is C++ compiled to WebAssembly, which golden rule 14 says needs explicit consent. Do we adopt MediaPipe for background blur alone if the Rust and the TypeScript-and-WebGL paths both fall short, or ship without background blur and keep the audio effects, which need no such dependency? Media effects design, flag M1.
 - **A member's standing room** (`meetings.personal-room`) — **Not built.** Does a standing room fit a record that hangs every meeting from a calendar event, or does every meeting stay an event so the matter file stays complete?
 - **Firm-wide note search** (`notes.search.firm-wide`) — **Not built.** Neither existing index can take notes as it stands, and which one grows to fit is an owner call. The natural-language feed reserves work-product as a class its writer must never produce, and a note is exactly that; the keyword index takes a file or a review document fed from R2 objects, and a note is a database row. The third option is a note-only index. The snippet question is already answered (no snippet, notes design flag W6).
 - **Payments port** (`payments.port`) — **Not built.** Can both deposit destinations live inside one connection's credential payload, or must the registry's one-connection-per-category resolution widen? Payments design flag K9.
@@ -366,6 +367,7 @@ Decisions about a capability only. Account-side steps that no session can perfor
 - `meetings.waiting-room` · **Waiting room** — Arrivals held in a lobby until a host admits them, one by one or all; the door for external guests and late joiners. One lobby per meeting, because a firm holds several meetings at once.
 - `meetings.transcription` · **Live captions and transcript** — Captions during the meeting and a transcript afterwards, in the meeting's language and translated, behind the same consent gate as recording.
 - `meetings.summary` · **Meeting summary** — A summary and action items after a meeting, filed to the event with the meeting's own visibility, written from the transcript through the one model seam the assistant uses.
+- `meetings.backgrounds-and-noise` · **Backgrounds and noise suppression** — A blurred or replaced background and microphone noise suppression, both in the browser, on the local track before it is published.
 - `notes.search.firm-wide` · **Firm-wide note search** — Searching every matter's notes from one place, under the same visibility predicate the timeline composes, with no snippet.
 - `notes.entity-note` · **Notes on a Directory entity** — The same primitive keyed to a Directory entity, read on the entity's own surface.
 - `payments` · **Payments** — Payment acceptance as a swappable-adapter port, ACH-default with card fallback, structured so processor fees never touch trust.
@@ -1076,7 +1078,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `meetings.whiteboard` · `not-started` · **Whiteboard and annotation** — A shared drawing surface, and annotation over a shared screen.
   - `meetings.transcription` · `designed` · **Live captions and transcript** — Captions during the meeting and a transcript afterwards, in the meeting's language and translated, behind the same consent gate as recording. _Note: Sequenced with recording, under the same announcement-and-indicator consent mechanism the owner ruled for recording on 2026-09-20 — captions are announced as recording is. Speaker attribution comes from the track name rather than diarization, so the transcript names people instead of numbering them._
   - `meetings.summary` · `designed` · **Meeting summary** — A summary and action items after a meeting, filed to the event with the meeting's own visibility, written from the transcript through the one model seam the assistant uses. _Note: Written through InferencePort rather than as an assistant conversation, so a privileged transcript is never copied into a conversation history; it runs on the on-Cloudflare model path by default and reaches a frontier model only where the firm's AI-processing eligibility allows._
-  - `meetings.backgrounds-and-noise` · `not-started` · **Backgrounds and noise suppression** — A blurred or replaced background and microphone noise suppression, both in the browser.
+  - `meetings.backgrounds-and-noise` · `designed` · **Backgrounds and noise suppression** — A blurred or replaced background and microphone noise suppression, both in the browser, on the local track before it is published. _Note: The noise-suppression half raises no such question: nnnoiseless is RNNoise's network in safe Rust, on the same Rust-to-WASM precedent the PDF, decryption, email and seven-zip cores already take._
   - `meetings.webinars` · `not-started` · **Webinars** — A meeting where a few present and many watch — registration, view-only attendees, a panel — for a firm's seminars and client briefings.
   - `meetings.live-streaming` · `not-started` · **Live streaming** — A meeting broadcast to a streaming destination.
   - `meetings.scheduling` · `partial` · **Scheduling** — A member schedules a meeting or call from the product — picks the people (members and Directory contacts), the time and the medium, and the event and its meeting are created with invitations sent; availability read from the calendar; confirmation and reminders. _Note: High priority by the owner's direction of 2026-09-20 — sequenced directly behind host controls and the waiting room. Staff schedule as well as clients (2026-09-20)._

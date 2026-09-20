@@ -161,9 +161,12 @@
 
 - id: meetings.backgrounds-and-noise
   name: Backgrounds and noise suppression
-  scope: A blurred or replaced background and microphone noise suppression, both in the browser.
-  status: not-started
-  evidence: No code; both run on the local track before it is published, in TypeScript or Rust-to-WASM, never a native library.
+  scope: A blurred or replaced background and microphone noise suppression, both in the browser, on the local track before it is published.
+  status: designed
+  spec: docs/specs/2026-09-20-meetings-media-effects-design.md
+  evidence: No code. The design sequences three slices: the browser's own capture constraints and the media-effects seam first, then a Rust-to-WASM segmentation path measured against a TypeScript-and-WebGL fallback, then nnnoiseless in an AudioWorklet. The research behind it is docs/research/2026-09-20-browser-media-effects.md.
+  awaiting-owner: Asked only if both memory-safe segmentation runtimes miss the frame budget. Every off-the-shelf way of blurring a background in a browser — MediaPipe, ONNX Runtime Web, Transformers.js, the TensorFlow.js wasm backend — is C++ compiled to WebAssembly, which golden rule 14 says needs explicit consent. Do we adopt MediaPipe for background blur alone if the Rust and the TypeScript-and-WebGL paths both fall short, or ship without background blur and keep the audio effects, which need no such dependency? Media effects design, flag M1.
+  notes: The noise-suppression half raises no such question: nnnoiseless is RNNoise's network in safe Rust, on the same Rust-to-WASM precedent the PDF, decryption, email and seven-zip cores already take.
 
 - id: meetings.webinars
   name: Webinars
