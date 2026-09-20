@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "b847f895-1648-4a43-9b67-f0232b7974ad",
-  "prevId": "c1b7f892-50ba-467a-a4ff-d6529f971820",
+  "id": "ad9b32a5-25a0-4d56-bd8b-079f0422accb",
+  "prevId": "89b0b83a-236f-41cf-b032-fff023628b9f",
   "tables": {
     "account_balance": {
       "name": "account_balance",
@@ -1218,6 +1218,98 @@
         }
       }
     },
+    "conflicts_check_number_allocation": {
+      "name": "conflicts_check_number_allocation",
+      "columns": {
+        "scope_key": {
+          "name": "scope_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "drawn_value": {
+          "name": "drawn_value",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "check_id": {
+          "name": "check_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "allocated_at": {
+          "name": "allocated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "conflicts_check_number_allocation_check_index": {
+          "name": "conflicts_check_number_allocation_check_index",
+          "columns": [
+            "check_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "conflicts_check_number_allocation_check_id_conflicts_numbered_check_id_fk": {
+          "name": "conflicts_check_number_allocation_check_id_conflicts_numbered_check_id_fk",
+          "tableFrom": "conflicts_check_number_allocation",
+          "tableTo": "conflicts_numbered_check",
+          "columnsFrom": [
+            "check_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "conflicts_check_number_allocation_scope_key_drawn_value_pk": {
+          "columns": [
+            "scope_key",
+            "drawn_value"
+          ],
+          "name": "conflicts_check_number_allocation_scope_key_drawn_value_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "conflicts_check_number_counter": {
+      "name": "conflicts_check_number_counter",
+      "columns": {
+        "scope_key": {
+          "name": "scope_key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "next_value": {
+          "name": "next_value",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "conflicts_check_run": {
       "name": "conflicts_check_run",
       "columns": {
@@ -1660,13 +1752,6 @@
         }
       },
       "indexes": {
-        "conflicts_numbered_check_sequence_unique_index": {
-          "name": "conflicts_numbered_check_sequence_unique_index",
-          "columns": [
-            "check_sequence"
-          ],
-          "isUnique": true
-        },
         "conflicts_numbered_check_number_unique_index": {
           "name": "conflicts_numbered_check_number_unique_index",
           "columns": [
