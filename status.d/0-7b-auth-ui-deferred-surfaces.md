@@ -10,7 +10,7 @@ ui: in-progress
 load-profile: n/a
 tested: in-progress
 branch: main
-active-work: docs/active-work/claude/clever-heisenberg-xl3bri.md
+active-work:
 next: The step-up re-authentication the account surface is designed around (Better Auth's own freshness dial gates a listing and none of the writes, so it is not that mechanism), a Turnstile widget on the joining forms so the human-verification gate can be switched on (the server half exists; the owner's dashboard step is queued in docs/deploy-queue.md), the two-factor enrolment screens (now the only Soon seam left on the account surface), reset-password as one progressively-disclosed screen, a confirmation email that carries a link rather than a bare token, the Terms of Service and Privacy Policy pages the registration acknowledgements point at, and — still unbuilt server-side — passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice
 link-spec:
 link-plan:
