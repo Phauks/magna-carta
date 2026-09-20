@@ -70,17 +70,19 @@
   name: External guests
   scope: A signed one-time join link for a Directory entity on the event (client, opposing counsel, expert) — the tokenized-link assurance tier — ahead of the portal grant model.
   status: designed
-  spec: docs/specs/2026-09-18-meetings-design.md
-  evidence: No code; sequenced as slice 2 in the spec. Depends on nothing in the portal, and the portal grant model will subsume the link when it lands.
+  spec: docs/specs/2026-09-20-meetings-external-guests-design.md
+  evidence: No code; designed 2026-09-20 — a Directory entity on the event, a signed expiring link, a narrow guest lane at the chokepoint and a guest stay of its own. Sequenced after the waiting room, whose lobby is the door; the portal grant model will subsume the link when it lands.
   audience: public
   public-summary: Invite a client or another party to a meeting with a one-time link.
 
 - id: meetings.recording
   name: Recording
   scope: Server-side capture of a meeting into the matter file through the untrusted-file pipeline into R2; every participant is told "Recording in progress" when it starts and on arrival, audibly and on screen, and a recording mark stays on every screen for as long as it runs.
-  status: not-started
-  evidence: No code. Needs a media-processing container, which is a memory-safety consent conversation.
-  notes: The owner's ruling of 2026-09-20 — the announcement and the persistent indicator are the consent mechanism, on the precedent every conferencing product uses, so recording no longer waits on the jurisdiction-profile machinery. Late arrivals get the announcement too, and stopping is announced the same way.
+  status: designed
+  spec: docs/specs/2026-09-20-meetings-recording-and-transcription-design.md
+  evidence: No code. The design settles the path — the routing service's WebSocket adapter streams each audio track to a Durable Object we run, so no media-processing container and no C/C++ dependency is needed for audio.
+  notes: The owner's ruling of 2026-09-20 — the announcement and the persistent indicator are the consent mechanism, on the precedent every conferencing product uses, so recording no longer waits on the jurisdiction-profile machinery. Late arrivals get the announcement too, and stopping is announced the same way. Audio only — video cannot be recorded memory-safely today, and the three ways to get it are priced in the design.
+  awaiting-owner: Is audio alone the right record for a law firm, or is video needed — and if it is, is it worth moving meetings onto RealtimeKit to get it managed rather than taking a C/C++ codec dependency?
 
 - id: meetings.large-rooms
   name: Large rooms (300 participants)
@@ -144,15 +146,18 @@
 - id: meetings.transcription
   name: Live captions and transcript
   scope: Captions during the meeting and a transcript afterwards, in the meeting's language and translated, behind the same consent gate as recording.
-  status: not-started
-  evidence: No code; the audio never reaches a Worker today. Needs an audio leg from the routing service to a speech model.
-  notes: Sequenced with recording, under the same announcement-and-indicator consent mechanism the owner ruled for recording on 2026-09-20 — captions are announced as recording is.
+  status: designed
+  spec: docs/specs/2026-09-20-meetings-recording-and-transcription-design.md
+  evidence: No code; the audio never reaches a Worker today. The design names the audio leg — the routing service's WebSocket adapter — and the two speech models, both hosted on Cloudflare so the audio never leaves it.
+  notes: Sequenced with recording, under the same announcement-and-indicator consent mechanism the owner ruled for recording on 2026-09-20 — captions are announced as recording is. Speaker attribution comes from the track name rather than diarization, so the transcript names people instead of numbering them.
 
 - id: meetings.summary
   name: Meeting summary
-  scope: A summary and action items after a meeting, filed to the event, produced by Magnus from the transcript.
-  status: not-started
+  scope: A summary and action items after a meeting, filed to the event with the meeting's own visibility, written from the transcript through the one model seam the assistant uses.
+  status: designed
+  spec: docs/specs/2026-09-20-meetings-recording-and-transcription-design.md
   evidence: No code; depends on meetings.transcription.
+  notes: Written through InferencePort rather than as an assistant conversation, so a privileged transcript is never copied into a conversation history; it runs on the on-Cloudflare model path by default and reaches a frontier model only where the firm's AI-processing eligibility allows.
 
 - id: meetings.backgrounds-and-noise
   name: Backgrounds and noise suppression
@@ -175,9 +180,13 @@
 - id: meetings.scheduling
   name: Scheduling
   scope: A member schedules a meeting or call from the product — picks the people (members and Directory contacts), the time and the medium, and the event and its meeting are created with invitations sent; availability read from the calendar; confirmation and reminders.
-  status: not-started
-  evidence: No code; the calendar's event form and the intake desk's consultation scheduling are the seams.
-  notes: High priority by the owner's direction of 2026-09-20 — sequenced directly behind host controls and the waiting room. Staff schedule as well as clients (2026-09-20).
+  status: in-build
+  surface: screen
+  spec: docs/specs/2026-09-18-meetings-design.md
+  evidence: The Meeting choice in apps/web/src/lib/calendar/record-event-dialog.svelte over event-draft.ts and firm-event-draft.ts; the meeting field and its scheduling helpers in apps/api-worker/src/routes/calendar.ts; the invitation topic in packages/calendar/src/notifications.ts with the meetings.meeting.scheduled type and the named-members audience in packages/notifications; availability in apps/web/src/lib/calendar/member-availability.ts; New Meeting on apps/web/src/routes/(app)/meetings/+page.svelte.
+  audience: public
+  public-summary: Schedule a video meeting or a call from the calendar, invite your colleagues, and see who is already busy at that hour.
+  notes: High priority by the owner's direction of 2026-09-20 — sequenced directly behind host controls and the waiting room. Staff schedule as well as clients (2026-09-20). Firm events raise no invitation yet: notification_event.subject_kind is a SQLite CHECK with no firmEvent value, and widening it rebuilds a table notification_recipient points at. Reminders and Directory-guest invitations are the remaining halves.
 
 - id: meetings.scheduling.booking-pages
   name: Booking pages
