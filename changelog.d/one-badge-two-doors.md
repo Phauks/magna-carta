@@ -37,7 +37,7 @@ is what makes wiring the prefilter a no-op instead of a misclassification arrivi
 
 **What this does not do yet, on either side.** No surface shows an `active-content` badge to anyone —
 which is a narrower claim than "nothing reads the column", and the narrower one is what is true.
-`scan_detail` reaches a client on five file paths: two flagged-download refusals in `routes/files.ts`,
+`scan_detail` reaches a client on five file paths: two flagged-download refusals in `routes/files/files.ts`,
 and as `quarantineReason` on the file list, the file read, and the upload poll, which `apps/web`
 renders. All five are gated on a verdict the badge cannot have — `flagged` or `quarantined` — and
 every quarantine writer records its own reason rather than a badge, so no reader can reach one. The template column has no

@@ -9,7 +9,7 @@
   scope: A stranger founding a firm without a platform operator, the free evaluation tier and what it withholds, the entitlement mask that enforces it, the lifecycle of an abandoned tenant, and the seam a future payments integration fills.
   status: partial
   spec: docs/specs/2026-08-10-self-serve-firm-provisioning-and-entitlements.md
-  evidence: The provisioning half of the design is built — apps/api-worker/src/routes/registrations.ts and apps/api-worker/src/firm-provision-consumer.ts turn a confirmed registration into a real firm off the request path. The entitlement half is not: there is no tier catalog, no tier column, no quota ceiling and no upgrade-required refusal anywhere in the tree.
+  evidence: The provisioning half of the design is built — apps/api-worker/src/routes/session/registrations.ts and apps/api-worker/src/firm-provision-consumer.ts turn a confirmed registration into a real firm off the request path. The entitlement half is not: there is no tier catalog, no tier column, no quota ceiling and no upgrade-required refusal anywhere in the tree.
   audience: public
   public-name: Signing up and plans
   public-summary: Start a firm yourself, evaluate it free, and move to a paid plan later without any of your work moving anywhere.
@@ -23,8 +23,8 @@
   slices: 0-7b-auth-ui-deferred-surfaces
   adrs: ADR-0280
   spec: docs/specs/2026-08-10-self-serve-firm-provisioning-and-entitlements.md
-  evidence: apps/api-worker/src/routes/registrations.ts holds both stages behind the public surface and the shared attempt budget, answering identically whether an address is free or taken; apps/api-worker/src/firm-provision-consumer.ts runs the shipped provisioner off a transactional-outbox row, keyed by the registration handle rather than by the firm's name, with the human name in firm.display_name in packages/database/src/control-plane-schema.ts.
-  notes: Reachable end to end — apps/web/src/routes/register asks for an address and a password and nothing else, and register/confirm spends the emailed token through confirmRegistration, which now hands back a session so the visitor lands on the joining screen rather than at the front door. The three-way door fork is gone; register/firm and register/invitation survive unlinked, for a registration started before the reflow. The human-verification gate is mounted on this endpoint (enforceHumanVerification in apps/api-worker/src/routes/registrations.ts) but resolves to the not-configured verifier while TURNSTILE_SECRET_KEY is unset, and the default posture is fail-open, so the address-keyed attempt budget is what actually stands between the endpoint and a script today.
+  evidence: apps/api-worker/src/routes/session/registrations.ts holds both stages behind the public surface and the shared attempt budget, answering identically whether an address is free or taken; apps/api-worker/src/firm-provision-consumer.ts runs the shipped provisioner off a transactional-outbox row, keyed by the registration handle rather than by the firm's name, with the human name in firm.display_name in packages/database/src/control-plane-schema.ts.
+  notes: Reachable end to end — apps/web/src/routes/register asks for an address and a password and nothing else, and register/confirm spends the emailed token through confirmRegistration, which now hands back a session so the visitor lands on the joining screen rather than at the front door. The three-way door fork is gone; register/firm and register/invitation survive unlinked, for a registration started before the reflow. The human-verification gate is mounted on this endpoint (enforceHumanVerification in apps/api-worker/src/routes/session/registrations.ts) but resolves to the not-configured verifier while TURNSTILE_SECRET_KEY is unset, and the default posture is fail-open, so the address-keyed attempt budget is what actually stands between the endpoint and a script today.
 
 - id: self-serve.firm-lifecycle
   name: Firm lifecycle states
@@ -59,7 +59,7 @@
   status: designed
   adrs: ADR-0078
   spec: docs/specs/2026-08-10-self-serve-firm-provisioning-and-entitlements.md
-  evidence: The measurement is already built and reused rather than rebuilt — the incremental per-firm storage rollup behind apps/api-worker/src/routes/firm-usage.ts — and the checks at presign, at version commit and in each subsystem's create path are specified and unwritten.
+  evidence: The measurement is already built and reused rather than rebuilt — the incremental per-firm storage rollup behind apps/api-worker/src/routes/firm/firm-usage.ts — and the checks at presign, at version commit and in each subsystem's create path are specified and unwritten.
   awaiting-owner: The free tier's actual numbers: the storage ceiling, the member ceiling and the matter ceiling. This is the flag the founding-a-firm screen is waiting on — it already tells a visitor their firm starts on the free tier while nothing in the tree defines what that tier is, and the registration screen, the upgrade panel, the refusal body and the enforcement are all meant to read the same catalog so a limit cannot be right in one place and stale in another. Two recommendations on shape rather than value: the member ceiling is the single most effective anti-abuse limit and should be small, and the storage ceiling should be small enough that an abandoned free tenant's bytes are never individually worth worrying about. Self-serve provisioning design flag F1.
   notes: An over-quota firm is never deleted down to fit — new writes are refused and everything it already holds stays.
 
@@ -85,5 +85,5 @@
   scope: The single writer that moves a firm's tier, what a future payments integration must supply to call it, and what happens to a paid firm whose subscription lapses.
   status: designed
   spec: docs/specs/2026-08-10-self-serve-firm-provisioning-and-entitlements.md
-  evidence: The design defines the seam and builds none of it: one internal writer that sets the column, records the act and invalidates the cached resolution, reachable today from an operator-guarded route on the working template in apps/api-worker/src/routes/platform-release-channel.ts and tomorrow from a payments integration. Nothing writes a tier because no tier column exists.
+  evidence: The design defines the seam and builds none of it: one internal writer that sets the column, records the act and invalidates the cached resolution, reachable today from an operator-guarded route on the working template in apps/api-worker/src/routes/platform/platform-release-channel.ts and tomorrow from a payments integration. Nothing writes a tier because no tier column exists.
   notes: On upgrade nothing moves — the firm, its bucket, its database and every byte stay exactly where they are and one column changes, which is the property a shared workspace for free tenants would destroy. A lapsed paid firm is never reaped and is never downgraded to the free tier: it goes read-only with export open, indefinitely, because applying free-tier ceilings to a firm holding real matters means either destroying data to fit or leaving it permanently over-quota.

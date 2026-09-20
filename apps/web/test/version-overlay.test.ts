@@ -220,7 +220,7 @@ describe("the deployed unit a row names", () => {
    * the fleet on disk. All three are read here so a name can only be right by matching the thing
    * that deploys it — and so a worker added under apps/ cannot silently stay off the overlay.
    */
-  const rosterSource = repositoryFile("apps/api-worker/src/routes/meta-versions.ts");
+  const rosterSource = repositoryFile("apps/api-worker/src/routes/platform/meta-versions.ts");
   const rosterEntries = [
     ...rosterSource.matchAll(
       /\{ id: "(?<id>\w+)", service: "(?<service>[\w-]+)", binding: "(?<binding>\w+)" \}/g,

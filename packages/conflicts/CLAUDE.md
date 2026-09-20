@@ -304,7 +304,7 @@ and never calls external services.
 - Pure and synchronous per operation except for its own database reads: produces statements for the
   caller to run via the data-access layer; holds no D1 binding of its own and calls no external
   service.
-- The worker routes (`apps/api-worker/src/routes/conflicts.ts`) are the only callers of
+- The worker routes (`apps/api-worker/src/routes/directory/conflicts.ts`) are the only callers of
   `runConflictsCheck` / `recordDisposition` / `readMatterConflictsPosture` / `writeConflictsPolicy` —
   they own threading `env`, the actor, and idempotency.
 

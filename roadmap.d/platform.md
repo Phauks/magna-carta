@@ -64,7 +64,7 @@
   surface: internal
   slices: api-worker-domain-modules
   spec: docs/specs/2026-09-18-api-worker-domain-modules-design.md
-  evidence: apps/api-worker/src/bindings.ts + src/routes/domain-app.ts + the four fitness tests under apps/api-worker/test (route-table, route-hygiene-scan, route-shape-ratchet, http-background-boundary-scan); the route files themselves are still flat
+  evidence: apps/api-worker/src/routes/manifest.ts over 21 domain directories (each an index.ts, an operations.ts and its route files), src/routes/domain-app.ts, and the four fitness tests under apps/api-worker/test (route-table, route-hygiene-scan, route-shape-ratchet, http-background-boundary-scan); contract shapes still inline and the http/background split still to come
   notes: In flight on docs/active-work/claude/adoring-ride-fe94q5.md. Lazy per-domain loading deferred pending a recorded startup trend; the background orchestration stays in this Worker per the extraction rubric.
 
 - id: platform.workers-api.public-api-host
@@ -278,7 +278,7 @@
   status: shipped
   surface: internal
   adrs: ADR-0131
-  evidence: apps/api-worker/src/timer/, apps/api-worker/src/routes/bundle-status.ts, async bulk-download job DO
+  evidence: apps/api-worker/src/timer/, apps/api-worker/src/routes/files/bundle-status.ts, async bulk-download job DO
 
 - id: platform.client-state.global-server-push
   name: Global server-push layer

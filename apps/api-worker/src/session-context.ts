@@ -90,7 +90,7 @@ export async function resolveSession(
   let read = await getSessionWithRetry(auth, c.req.raw.headers, false);
   forwardSessionCookies(c, read.headers);
   // A FIRMLESS answer is re-read against the store before it is believed. Attaching a person's
-  // firm (founding one — routes/onboarding.ts, firm-provisioner.ts) is a direct control-plane
+  // firm (founding one — routes/session/onboarding.ts, firm-provisioner.ts) is a direct control-plane
   // write the library never observes, so a cached cookie can keep saying "no firm" for minutes
   // after the firm exists — which would wall the founder out of the app they just created.
   // Firmless sessions are rare and short-lived, so they simply never ride the cache; sessions

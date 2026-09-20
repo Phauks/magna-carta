@@ -20,7 +20,7 @@
 **Modified `packages/database/`:** `src/per-firm-schema.ts` (+3 tables), generated `drizzle/per-firm/0007_*.sql`.
 **Modified `packages/shipping/`:** `src/canonical.ts` (+ optional `idempotencyKey` on `BuyLabelRequest`), `src/easypost/adapter.ts` (send `Idempotency-Key`).
 **New `packages/data-access/`:** `src/shipment-statements.ts`, `src/shipment-service.ts`; tests `test/shipment-service.test.ts`.
-**New `apps/worker/`:** `src/shipping/secret-store.ts` (the `firm_secret` `CredentialStore` seam + injection), `src/shipping/registry.ts` (per-request registry builder), `src/routes/shipping.ts` (connection + shipment routes); test `test/shipping-e2e.test.ts`.
+**New `apps/worker/`:** `src/shipping/secret-store.ts` (the `firm_secret` `CredentialStore` seam + injection), `src/shipping/registry.ts` (per-request registry builder), `src/routes/communications/shipping.ts` (connection + shipment routes); test `test/shipping-e2e.test.ts`.
 **Modified `apps/worker/`:** `src/app.ts` (register routes + thread shipping deps), `src/access-control` registry (a `shipping:manage` permission — follow the existing permission-registry pattern).
 **Modified `packages/fixtures/`:** `src/load-profile/shipping-measurements.ts` + generation hook + smoke list.
 
@@ -867,14 +867,14 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 ## Task 8: Connection-management routes (connect / health / disconnect)
 
-**Files:** Create `apps/worker/src/routes/shipping.ts` (this task adds the connection routes; later tasks extend it). Modify `apps/worker/src/app.ts`.
+**Files:** Create `apps/worker/src/routes/communications/shipping.ts` (this task adds the connection routes; later tasks extend it). Modify `apps/worker/src/app.ts`.
 
 > This task introduces `registerShippingRoutes(app, chokepoint, deps)` where `deps` carries the injectable `secretStoreForFirm` and `httpClient` (Task 6). Connect stores the EasyPost child-user API key via `secretStore.putSecret`, then inserts the connection.
 
 - [ ] **Step 1: Write the connection routes**
 
 ```typescript
-// apps/worker/src/routes/shipping.ts
+// apps/worker/src/routes/communications/shipping.ts
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
@@ -985,7 +985,7 @@ export function registerShippingRoutes(
   );
 }
 
-// Minimal local helper — mirror the idempotency-conflict problem shape used in routes/locations.ts.
+// Minimal local helper — mirror the idempotency-conflict problem shape used in routes/matters/locations.ts.
 function problemForIdempotency(
   c: Parameters<ShippingApp["openapi"]>[1] extends (c: infer C, ...args: never[]) => unknown
     ? C
@@ -993,12 +993,12 @@ function problemForIdempotency(
   _result: unknown,
 ): never {
   throw new Error(
-    "replace with the shared idempotency-conflict problem helper used in routes/locations.ts",
+    "replace with the shared idempotency-conflict problem helper used in routes/matters/locations.ts",
   );
 }
 ```
 
-> **Build note:** copy the _exact_ idempotency-conflict handling (`problemResponseForIdempotencyConflict`, the `replayed` header) and the `userId` audit wiring from `apps/worker/src/routes/locations.ts` — the stub above marks where it goes. Keep this file consistent with that reference route. `userId` is read to satisfy the audited-route contract.
+> **Build note:** copy the _exact_ idempotency-conflict handling (`problemResponseForIdempotencyConflict`, the `replayed` header) and the `userId` audit wiring from `apps/worker/src/routes/matters/locations.ts` — the stub above marks where it goes. Keep this file consistent with that reference route. `userId` is read to satisfy the audited-route contract.
 
 - [ ] **Step 2: Register in `app.ts`**
 
@@ -1006,7 +1006,7 @@ In `apps/worker/src/app.ts`, extend `CreateAppOptions` and register the routes:
 
 ```typescript
 // add to CreateAppOptions:
-  shipping?: import("./routes/shipping.ts").ShippingRouteDeps;
+  shipping?: import("./routes/communications/shipping.ts").ShippingRouteDeps;
 ```
 
 ```typescript
@@ -1014,7 +1014,7 @@ In `apps/worker/src/app.ts`, extend `CreateAppOptions` and register the routes:
 if (options.shipping) registerShippingRoutes(app, chokepoint, options.shipping);
 ```
 
-Add the import: `import { registerShippingRoutes } from "./routes/shipping.ts";`. (Production wiring in `index.ts` passes `shipping: { secretStoreForFirm: firmSecretStoreNotYetAvailable, httpClient: fetchHttpClient() }` until 1·2 lands; tests pass a fake — Task 12.)
+Add the import: `import { registerShippingRoutes } from "./routes/communications/shipping.ts";`. (Production wiring in `index.ts` passes `shipping: { secretStoreForFirm: firmSecretStoreNotYetAvailable, httpClient: fetchHttpClient() }` until 1·2 lands; tests pass a fake — Task 12.)
 
 - [ ] **Step 3: Typecheck + commit**
 
@@ -1022,7 +1022,7 @@ Run: `pnpm check`
 Expected: PASS.
 
 ```bash
-git add apps/worker/src/routes/shipping.ts apps/worker/src/app.ts
+git add apps/worker/src/routes/communications/shipping.ts apps/worker/src/app.ts
 git commit -m "feat(worker): shipping connection-management connect route
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
@@ -1032,7 +1032,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 ## Task 9: Create-draft + rate-shop routes
 
-**Files:** Modify `apps/worker/src/routes/shipping.ts`.
+**Files:** Modify `apps/worker/src/routes/communications/shipping.ts`.
 
 - [ ] **Step 1: Add the address/parcel/options request schemas + the two routes**
 
@@ -1215,7 +1215,7 @@ Run: `pnpm check`
 Expected: PASS.
 
 ```bash
-git add apps/worker/src/routes/shipping.ts
+git add apps/worker/src/routes/communications/shipping.ts
 git commit -m "feat(worker): create-draft + rate-shop shipping routes
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
@@ -1225,7 +1225,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 ## Task 10: Purchase route (buy label, copy to R2, record)
 
-**Files:** Modify `apps/worker/src/routes/shipping.ts`.
+**Files:** Modify `apps/worker/src/routes/communications/shipping.ts`.
 
 - [ ] **Step 1: Add the purchase route**
 
@@ -1346,7 +1346,7 @@ Run: `pnpm check`
 Expected: PASS.
 
 ```bash
-git add apps/worker/src/routes/shipping.ts
+git add apps/worker/src/routes/communications/shipping.ts
 git commit -m "feat(worker): purchase route — buy label, store to R2, record postage + fee
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
@@ -1356,7 +1356,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 ## Task 11: Label download, tracking (pull), and refund routes
 
-**Files:** Modify `apps/worker/src/routes/shipping.ts`.
+**Files:** Modify `apps/worker/src/routes/communications/shipping.ts`.
 
 - [ ] **Step 1: Add the three routes**
 
@@ -1553,7 +1553,7 @@ Run: `pnpm check`
 Expected: PASS.
 
 ```bash
-git add apps/worker/src/routes/shipping.ts
+git add apps/worker/src/routes/communications/shipping.ts
 git commit -m "feat(worker): label download, pull-tracking, and refund shipping routes
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"

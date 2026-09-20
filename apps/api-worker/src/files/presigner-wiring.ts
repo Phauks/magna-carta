@@ -36,7 +36,7 @@ export function realR2Credentials(env: Bindings): RealR2Credentials | null {
 // credential set is absent, so presignerForEnv returns the dev presigner (worker-origin upload URLs)
 // rather than the SigV4 one. This is a FAIL-CLOSED signal, not a togglable flag: a production deploy
 // cannot sign a real presigned upload without those credentials (real uploads would be dead), so the
-// dev presigner being in use always implies real presigning is non-functional. routes/dev-r2-upload.ts
+// dev presigner being in use always implies real presigning is non-functional. routes/developer/dev-r2-upload.ts
 // serves its route only on this condition — the same predicate that selects the presigner, so the two
 // can never disagree and the route can never activate where a real presigned upload would work.
 export function devUploadEmulationActive(env: Bindings): boolean {

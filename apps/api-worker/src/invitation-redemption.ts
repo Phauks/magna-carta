@@ -11,8 +11,8 @@ import {
 // REDEEMING AN INVITATION — the lookup, the two budgets and the ONE refusal, in one place because
 // there are two routes that redeem and there must not be two answers.
 //
-// The anonymous route (routes/invitations.ts) creates the account as it redeems. The signed-in route
-// (routes/onboarding.ts) attaches the firm to an account that already exists, which is what joining
+// The anonymous route (routes/session/invitations.ts) creates the account as it redeems. The signed-in route
+// (routes/session/onboarding.ts) attaches the firm to an account that already exists, which is what joining
 // looks like once a person makes their account first. What differs is the WRITE. Everything before
 // it — which facts are compared, in what order, against what when nothing is found, what is spent,
 // and what a failure says — is identical by construction here rather than by two authors agreeing.

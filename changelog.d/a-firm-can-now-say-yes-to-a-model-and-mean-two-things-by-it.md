@@ -9,7 +9,7 @@ same thing: one of two gates is shut. Nothing could open either one. `magnus.ena
 model call, and no writer but the settings write path — so the honest closed state the surface
 renders was also a state a firm could not leave.** Settings · AI and the Assistant is that writer:
 `apps/web/src/routes/(app)/settings/ai` over `GET`/`PATCH /api/v1/firm/ai/settings`
-(`apps/api-worker/src/routes/firm-ai-settings.ts`), audited on the write.
+(`apps/api-worker/src/routes/firm/firm-ai-settings.ts`), audited on the write.
 
 **Two switches, because they are two questions, and the page refuses to collapse them.** The outer
 one asks whether this firm's content may be sent to a third-party model at all; the inner one asks

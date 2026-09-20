@@ -78,7 +78,7 @@ export function classifyResult(result: WhoisResult): "rdap" | "raw" | "empty" {
  * semantics, which no shared default could know.
  *
  * It deliberately never echoes the query or any resolved address: the 400 is generic on purpose —
- * the worker route (apps/api-worker/src/routes/whois.ts) keeps it that way as an SSRF guard, and the
+ * the worker route (apps/api-worker/src/routes/tools/whois.ts) keeps it that way as an SSRF guard, and the
  * UI must not undo that by reflecting the input back.
  */
 export function problemGuidance(problem: WhoisProblem): ProblemGuidance {

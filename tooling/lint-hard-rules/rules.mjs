@@ -49,7 +49,7 @@ export const HARD_RULES = [
     name: "import/no-cycle",
     code: "import(no-cycle)",
     plugins: ["--import-plugin"],
-    baseline: 36,
+    baseline: 16,
     summary: "a module that imports its way back to itself",
     why:
       "Sixty-one workspace packages and nothing looks for a cycle: the project-reference check " +

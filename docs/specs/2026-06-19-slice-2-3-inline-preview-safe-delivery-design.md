@@ -24,7 +24,7 @@ This spec is the implementation-grade design for slice 2·3 ([`ROADMAP.md`](../.
 
 **The spine of the slice** is `security.md` _Untrusted file handling_ threat #3 ([`docs/conventions/security.md`](../conventions/security.md)): a malicious SVG/HTML/scripted-PDF executes script in the _viewer's_ browser; server-side sandboxing cannot touch it, so the defense lives entirely in **where** the bytes are served, **what element consumes them**, and **what headers** frame them.
 
-**Preserved, not reinvented:** the per-file download ([`apps/worker/src/routes/files.ts`](../../apps/api-worker/src/routes/files.ts)) and bulk download ([`apps/worker/src/routes/downloads.ts`](../../apps/api-worker/src/routes/downloads.ts)) already mint a 300-second presigned R2 GET (`presignerForEnv` → `presignGet`) and 302-redirect the client straight to the R2 S3 host. Bytes already bypass the cookie context. 2·3 keeps that for the **download** case and adds a **preview** case on top.
+**Preserved, not reinvented:** the per-file download ([`apps/worker/src/routes/files/files.ts`](../../apps/api-worker/src/routes/files/files.ts)) and bulk download ([`apps/worker/src/routes/files/downloads.ts`](../../apps/api-worker/src/routes/files/downloads.ts)) already mint a 300-second presigned R2 GET (`presignerForEnv` → `presignGet`) and 302-redirect the client straight to the R2 S3 host. Bytes already bypass the cookie context. 2·3 keeps that for the **download** case and adds a **preview** case on top.
 
 ---
 
@@ -71,7 +71,7 @@ The cookieless handler must not traverse the `/api/v1` chokepoint: that chain re
 Browser (app.magnacarta.esq, session cookie)
    │  GET /api/v1/files/{id}/preview          ← NEW route, API origin, full chokepoint
    ▼
-API-origin Worker  (apps/worker/src/routes/files.ts)
+API-origin Worker  (apps/worker/src/routes/files/files.ts)
    │  chokepoint: tenancy → authn → RBAC (permission: null, a read) → rate-limit
    │  getCurrentCleanVersionForPreview(firm.firmDatabase, id)   (status='clean' gated)
    │    → r2_key, size_bytes, version_number,

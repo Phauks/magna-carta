@@ -226,7 +226,7 @@ delegate.
 - Depends on `@magna-carta/data-access`, `@magna-carta/database`, `@magna-carta/identifiers`,
   `@magna-carta/calendar` (the visible-matter predicate and the civil-date resolver, and nothing
   else), and `@magna-carta/matters` (the close-advisory shape alone).
-- The route layer (`apps/api-worker/src/routes/tasks.ts`) hands the service the firm-scoped database,
+- The route layer (`apps/api-worker/src/routes/notes-and-tasks/tasks.ts`) hands the service the firm-scoped database,
   the real clock, a crypto random source, and the authenticated actor — none of which is client input.
 - **The timeline source is not here.** A task joins the federated read as one declared entry in
   `packages/calendar/src/sources/all.ts`, keyed `matterTask`, which reads `matter_task` by table name.

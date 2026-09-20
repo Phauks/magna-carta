@@ -29,7 +29,7 @@ import { devUploadEmulationActive } from "./presigner-wiring.ts";
  * a mis-scoped key) it names, with the fix.
  *
  * Deliberately NOT here: a sweep, a cache on the firm row, or a mode object. The check runs when a
- * person asks (routes/upload-readiness.ts, run from the version panel with the other reads about
+ * person asks (routes/files/upload-readiness.ts, run from the version panel with the other reads about
  * what is running), and the report is the diagnosis. The other half of the same fault — a production deployment silently running the
  * development adapter — is closed by the deploy gate in wrangler.jsonc, which refuses to deploy
  * without the provisioner's credentials, not by code here.
@@ -69,8 +69,8 @@ export interface UploadReadiness {
 export const READINESS_PROBE_KEY = "__readiness_probe__";
 
 /**
- * The audit event a run of the check writes (routes/upload-readiness.ts), and the one the database
- * health read looks back for (routes/meta-database-health.ts) — so the version overlay can say when
+ * The audit event a run of the check writes (routes/files/upload-readiness.ts), and the one the database
+ * health read looks back for (routes/platform/meta-database-health.ts) — so the version overlay can say when
  * the firm was last checked and what was found, without the read acting on anything.
  */
 export const UPLOAD_READINESS_AUDIT_EVENT = "firm.upload_readiness_checked";

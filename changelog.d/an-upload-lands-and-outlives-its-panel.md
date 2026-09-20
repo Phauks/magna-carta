@@ -8,7 +8,7 @@ matter.** The reservation answered two spellings of one header — `Content-Type
 presigner's own `content-type` — and the browser's `Headers` merges those into a single doubled value
 (`application/pdf, application/pdf`), which is not the value the signature covers, so R2 refused the
 PUT with a signature mismatch. The same-origin development route never checks the signature, so the
-test pool passed throughout. `routes/uploads.ts` and the check-in route now pass the presigner's set
+test pool passed throughout. `routes/files/uploads.ts` and the check-in route now pass the presigner's set
 through untouched, the development presigner spells the same set, `putUploadBytes` collapses any
 duplicate that slips through, and a route test asserts the set through `Headers` itself. A
 reservation whose bytes never land is now given back: `uploadIntoFolder` and the document loop's

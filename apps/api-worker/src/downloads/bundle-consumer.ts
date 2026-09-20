@@ -112,7 +112,7 @@ async function buildOne(env: Bindings, message: BundleBuildMessage): Promise<voi
 
     // The plain client-zip lane: stream each entry's R2 object body through client-zip into a single
     // R2 object, then mark ready with that one artifact key. zipEntriesFromR2 fetches and skips reaped
-    // objects (shared with the inline download path in routes/downloads.ts).
+    // objects (shared with the inline download path in routes/files/downloads.ts).
     const key = `bundles/${message.manifestHash}.zip`;
     await putStreamMultipart(bucket, key, makeZip(zipEntriesFromR2(bucket, message.entries)));
     await coordinator.markReady(key);

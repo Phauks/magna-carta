@@ -46,15 +46,16 @@ const BACKGROUND_IMPORT =
 // Route modules that import a background module today, with where the shared piece should live.
 // Keyed `route file -> imported module`. Delete a line when the crossing is gone.
 export const ALLOWED_ROUTE_IMPORTS: Readonly<Record<string, string>> = {
-  "emails.ts":
-    "../emails/capture-consumer.ts — the EmailsCaptureMessage type wants an emails/capture-types.ts",
-  "file-scans.ts": "../files/ingest-consumer.ts — FILE_RESCAN_ACTION wants a files/ingest-types.ts",
-  "firms.ts":
-    "../request-path-sweep.ts — the scheduling helper is a request-path concern; rename it out of the sweep family",
-  "invitations.ts": "../request-path-sweep.ts — as firms.ts",
-  "members.ts": "../request-path-sweep.ts — as firms.ts",
-  "onboarding.ts": "../request-path-sweep.ts — as firms.ts",
-  "registrations.ts": "../request-path-sweep.ts — as firms.ts",
+  "email/emails.ts":
+    "../../emails/capture-consumer.ts — the EmailsCaptureMessage type wants an emails/capture-types.ts",
+  "files/file-scans.ts":
+    "../../files/ingest-consumer.ts — FILE_RESCAN_ACTION wants a files/ingest-types.ts",
+  "platform/firms.ts":
+    "../../request-path-sweep.ts — the scheduling helper is a request-path concern; rename it out of the sweep family",
+  "session/invitations.ts": "../../request-path-sweep.ts — as platform/firms.ts",
+  "session/members.ts": "../../request-path-sweep.ts — as platform/firms.ts",
+  "session/onboarding.ts": "../../request-path-sweep.ts — as platform/firms.ts",
+  "session/registrations.ts": "../../request-path-sweep.ts — as platform/firms.ts",
 };
 
 function sourceFileName(modulePath: string): string {

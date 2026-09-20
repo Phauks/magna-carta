@@ -26,7 +26,7 @@ impl IdentifyEngine {
 
 /// The raw identification facts the container returns — no verdict, no extension recommendation. Field
 /// names and JSON shape match the app-side `RawIdentifyResult` the worker re-validates with zod
-/// (`apps/api-worker/src/routes/file-type.ts`); the app decides the extension verdict from these facts.
+/// (`apps/api-worker/src/routes/files/file-type.ts`); the app decides the extension verdict from these facts.
 #[derive(Debug, Serialize, PartialEq)]
 pub struct RawIdentifyResult {
     pub label: String,

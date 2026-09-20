@@ -395,11 +395,11 @@ git commit -m "feat(conversions): CONVERSION queue consumer"
 
 **Files:**
 
-- Create: `apps/worker/src/routes/conversions.ts`
+- Create: `apps/worker/src/routes/documents/conversions.ts`
 
 **Interfaces:**
 
-- Consumes: the chokepoint helpers + `defineOpenAPIRoute`/`RouteMeta`/`Problem` (read `apps/worker/src/routes/bundle-status.ts` + `routes/uploads.ts` and mirror the imports + `register…Route(app, chokepoint)` shape exactly); `presignerForEnv` (`presignPut`/`presignGet`); `newIdentifier` from `@magna-carta/identifiers`; `findPath` + `getFormat` from `@magna-carta/conversion`.
+- Consumes: the chokepoint helpers + `defineOpenAPIRoute`/`RouteMeta`/`Problem` (read `apps/worker/src/routes/files/bundle-status.ts` + `routes/files/uploads.ts` and mirror the imports + `register…Route(app, chokepoint)` shape exactly); `presignerForEnv` (`presignPut`/`presignGet`); `newIdentifier` from `@magna-carta/identifiers`; `findPath` + `getFormat` from `@magna-carta/conversion`.
 - Produces: `export function registerConversionRoutes(app, chokepoint): void` registering three routes.
 
 All three share this `RouteMeta` base (copy field-for-field from `bundle-status.ts`, changing only `operationId`, `permission`, `resource`):
@@ -409,7 +409,7 @@ All three share this `RouteMeta` base (copy field-for-field from `bundle-status.
 
 - [ ] **Step 2: Implement the routes**
 
-Route A — `POST /api/v1/conversions/upload`: mint `jobId = newIdentifier("cnv")`; the source key is `conversions/<firmId>/<jobId>/source`; return `{ jobId, uploadUrl: await presignerForEnv(c.env).presignPut(bucket, sourceKey, 300), sourceKey }`. (Mirror `routes/uploads.ts` for the presignPut call + `requireBucket(firm.bucketName)`.)
+Route A — `POST /api/v1/conversions/upload`: mint `jobId = newIdentifier("cnv")`; the source key is `conversions/<firmId>/<jobId>/source`; return `{ jobId, uploadUrl: await presignerForEnv(c.env).presignPut(bucket, sourceKey, 300), sourceKey }`. (Mirror `routes/files/uploads.ts` for the presignPut call + `requireBucket(firm.bucketName)`.)
 
 Route B — `POST /api/v1/conversions` with body `{ jobId, sourceKey, from, to }` (validated by a zod schema): reject with 422 if `getFormat(from)`/`getFormat(to)` is undefined or `findPath(from, to)` is not ok; the result key is `conversions/<firmId>/<jobId>/result`; create the DO `c.env.CONVERSION_JOB.get(idFromName(\`${firmId}:${jobId}\`))`and call`start({ firmId, jobId, sourceKey, resultKey, from, to })`; return `202 { jobId, status: "queued" }`.
 
@@ -421,7 +421,7 @@ Each route uses `requireChokepointFirmId(c)` for the firm id (never the path) �
 - [ ] **Step 4: Commit**
 
 ```bash
-git add apps/worker/src/routes/conversions.ts apps/worker/test/conversions-routes.test.ts
+git add apps/worker/src/routes/documents/conversions.ts apps/worker/test/conversions-routes.test.ts
 git commit -m "feat(conversions): upload-presign, submit, and status routes"
 ```
 

@@ -5,7 +5,7 @@ import type { BrowserRenderer, RedirectProbe } from "@magna-carta/safe-browse/ty
 import { RendererFailure } from "@magna-carta/safe-browse";
 import { SsrfRejection } from "@magna-carta/integrations/safe-target";
 import { createApp } from "../src/app.ts";
-import { createBrowserRenderer } from "../src/routes/safe-browse.ts";
+import { createBrowserRenderer } from "../src/routes/tools/safe-browse.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,

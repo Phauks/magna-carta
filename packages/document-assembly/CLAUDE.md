@@ -3,8 +3,8 @@
 Pure TypeScript engine for **document automation**: prepare an uploaded `.docx` into a registrable
 template version, and merge a registered template against a matter into a filed document. No D1
 binding, no Hono, no `env`, no Svelte, no network — the caller hands in a firm-scoped database handle
-and gets typed results back. Consumed by `apps/api-worker/src/routes/templates.ts`,
-`apps/api-worker/src/routes/assemblies.ts`, and `apps/api-worker/src/assemblies/assembly-consumer.ts`.
+and gets typed results back. Consumed by `apps/api-worker/src/routes/documents/templates.ts`,
+`apps/api-worker/src/routes/documents/assemblies.ts`, and `apps/api-worker/src/assemblies/assembly-consumer.ts`.
 Design: `docs/specs/2026-08-04-document-automation-design.md`.
 
 ## Shape

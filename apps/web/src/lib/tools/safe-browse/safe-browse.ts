@@ -1,7 +1,7 @@
 /*
  * Safe website viewer — the fetch-and-classify seam for the Safe Website Viewer page. The suspect
  * page is rendered in Cloudflare's isolated remote browser by the worker route
- * (apps/api-worker/src/routes/safe-browse.ts); what arrives here is already inert — a base64
+ * (apps/api-worker/src/routes/tools/safe-browse.ts); what arrives here is already inert — a base64
  * screenshot and plain text — and this module keeps it that way: nothing in the view is ever
  * re-rendered as live markup, and the page's outbound links are shown as text, never as anchors.
  *

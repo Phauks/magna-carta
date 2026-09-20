@@ -14,7 +14,7 @@
    * the correct behaviour rather than a bug to work around.
    *
    * ONE CALL AT THE END. The route takes the person and the firm together
-   * (apps/api-worker/src/routes/registrations.ts), so nothing is sent until the second step is
+   * (apps/api-worker/src/routes/session/registrations.ts), so nothing is sent until the second step is
    * complete; the split between the two forms is a reading order, not a round trip.
    *
    * A TAKEN ADDRESS AND A FREE ONE ANSWER IDENTICALLY, and this page must keep it that way. The

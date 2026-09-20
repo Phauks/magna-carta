@@ -95,7 +95,7 @@ var(--bits-floating-anchor-width)` and pass `align` straight through to Bits UI,
 | O1  | **Offices are settable, from Settings, and there can be several.** Each carries its address, its contact information and its location. There is no way to do this in the product today, which is why it could not be found. | settled |
 
 **What the code says today.** The whole subsystem is built except the screen. `packages/locations/`
-owns validation and the service; `apps/api-worker/src/routes/locations.ts` exposes create, update,
+owns validation and the service; `apps/api-worker/src/routes/matters/locations.ts` exposes create, update,
 close, set-addresses, member assignment and the letterhead logo, with reads open to any firm member
 and writes behind `locations:manage`. A location carries a name, jurisdiction, IANA time zone,
 numbering code, letterhead address block, footer and remit-to; each of its addresses carries kind,
@@ -136,7 +136,7 @@ first is what lets both stop being free text.
   `settings/versions/+page.svelte` states that "the backend components ... have no aggregated
   versions endpoint yet" and works around it by decomposing the scan-policy histogram's composite
   `engine/<code>+yara-rules/<tag>+clamav-db/<db>` string behind `firm:manageScanPolicy`, leaving
-  em-dash seams for everything else. Meanwhile `apps/api-worker/src/routes/meta-versions.ts` serves
+  em-dash seams for everything else. Meanwhile `apps/api-worker/src/routes/platform/meta-versions.ts` serves
   `GET /api/v1/meta/versions` — "what is running, across the whole deployment" — and the version
   chip in the app shell (`apps/web/src/lib/versions/`) already reads it, renders a row per
   Cloudflare Worker, folds the fleet, flags an API/web sync mismatch, notices an upstream deploy,

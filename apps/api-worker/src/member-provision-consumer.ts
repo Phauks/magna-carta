@@ -12,7 +12,7 @@ import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import type { Bindings } from "./bindings.ts";
 import { firmDatabaseFor } from "./firm-database/firm-database-proxy.ts";
 
-// The member.provision payload as the producers write it (routes/members.ts invite,
+// The member.provision payload as the producers write it (routes/session/members.ts invite,
 // firm-provisioner.ts owner activation): ids + non-privileged fields only.
 interface MemberProvisionPayload {
   readonly userId: UserId;

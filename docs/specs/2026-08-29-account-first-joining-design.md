@@ -24,8 +24,8 @@ links, federation), which belongs to the unified-identity design and is untouche
   correct rather than merely convenient.
 - `ADR-0280` (joining the platform), `ADR-0003` (tenancy), `ADR-0067` (route metadata at the
   chokepoint), `ADR-0052` (the reserved cross-firm 404).
-- The neutral-refusal posture already built into `routes/registrations.ts` and
-  `routes/invitations.ts`. Nothing here may weaken it, and one new route inherits it whole.
+- The neutral-refusal posture already built into `routes/session/registrations.ts` and
+  `routes/session/invitations.ts`. Nothing here may weaken it, and one new route inherits it whole.
 
 ---
 
@@ -449,8 +449,8 @@ deletion, and it is a deletion of two files rather than an unpicking.
 
 ## Sources
 
-Read against the tree on 2026-08-29: `apps/api-worker/src/routes/registrations.ts`,
-`routes/invitations.ts`, `routes/me.ts`, `src/auth.ts`, `src/firm-provisioner.ts`,
+Read against the tree on 2026-08-29: `apps/api-worker/src/routes/session/registrations.ts`,
+`routes/session/invitations.ts`, `routes/session/me.ts`, `src/auth.ts`, `src/firm-provisioner.ts`,
 `src/firm-provision-consumer.ts`, `src/chokepoint/chokepoint.ts`, `src/contracts/route-meta.ts`,
 `packages/database/src/control-plane-schema.ts`, and the joining surface under
 `apps/web/src/routes/register/` and `apps/web/src/lib/auth/`.

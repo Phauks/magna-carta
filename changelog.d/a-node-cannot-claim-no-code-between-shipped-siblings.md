@@ -15,7 +15,7 @@ named no path at all; `financial.trust.close-rule` named the hook file, which ex
 matters node correctly accounts for, and made its absence claim about a symbol rather than a path.
 Both were silent by construction, and both sat at `not-started` over `packages/trust`'s
 reconciliation, matching, statement-import and three-way-proof modules, over
-`apps/api-worker/src/routes/trust-reconciliation.ts`, and over a close precondition registered in the
+`apps/api-worker/src/routes/trust/trust-reconciliation.ts`, and over a close precondition registered in the
 matter composition root and tested at two layers.
 
 **The new rule reads no prose.** A node carries `slices:`; a `status.d/<slug>.md` fragment carries

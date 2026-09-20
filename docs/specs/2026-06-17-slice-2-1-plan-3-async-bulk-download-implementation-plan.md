@@ -4,7 +4,7 @@
 
 **Goal:** Past the live-stream threshold, build a bulk-download ZIP as an R2 artifact in the background — a Durable-Object-coordinated, single-flight, content-addressed build with a short-lived signed URL — instead of streaming it inline on the request.
 
-**Architecture:** The bulk-download route (`apps/worker/src/routes/downloads.ts`) resolves a selection to version-pinned clean entries exactly as today. Below the threshold it keeps streaming inline. Above either threshold knob it computes a **manifest hash** (content-addressed over the sorted entry keys), asks a `BundleBuildCoordinator` Durable Object (keyed `firmId:manifestHash`) to build it, and returns `202` with a job handle. The DO is the single-flight coordinator: the first request enqueues a `bundle-build` message and arms a stuck-job alarm; identical concurrent requests share the one build. A `bundle-build` queue consumer streams the R2 object bodies through `client-zip` into a single R2 object at `bundles/<manifestHash>.zip` (the firm's own bucket), then marks the DO ready. The client polls a status endpoint for the signed URL. A native R2 lifecycle rule expires the artifacts. This introduces the **first Durable Object** in the codebase.
+**Architecture:** The bulk-download route (`apps/worker/src/routes/files/downloads.ts`) resolves a selection to version-pinned clean entries exactly as today. Below the threshold it keeps streaming inline. Above either threshold knob it computes a **manifest hash** (content-addressed over the sorted entry keys), asks a `BundleBuildCoordinator` Durable Object (keyed `firmId:manifestHash`) to build it, and returns `202` with a job handle. The DO is the single-flight coordinator: the first request enqueues a `bundle-build` message and arms a stuck-job alarm; identical concurrent requests share the one build. A `bundle-build` queue consumer streams the R2 object bodies through `client-zip` into a single R2 object at `bundles/<manifestHash>.zip` (the firm's own bucket), then marks the DO ready. The client polls a status endpoint for the signed URL. A native R2 lifecycle rule expires the artifacts. This introduces the **first Durable Object** in the codebase.
 
 **Tech Stack:** TypeScript (ESM, `.ts` imports), Cloudflare Durable Objects (SQLite-backed) + Queues + R2 + R2 lifecycle rules, `client-zip` (already a dependency), Hono + `@hono/zod-openapi`, Vitest + `cloudflare:test`. Builds on `@magna-carta/file-manager`, `apps/worker` downloads route + presigner.
 
@@ -32,11 +32,11 @@
 - `src/downloads/bundle-coordinator.ts` — `BundleBuildCoordinator extends DurableObject` (the state machine + alarm).
 - `src/downloads/bundle-consumer.ts` — the `bundle-build` queue consumer (R2→zip→R2).
 - `src/downloads/bundle-types.ts` — the shared `BundleJobState`, `BundleBuildMessage`, and the DO RPC interface.
-- `src/routes/bundle-status.ts` — `GET /api/v1/downloads/bundles/{manifestHash}`.
+- `src/routes/files/bundle-status.ts` — `GET /api/v1/downloads/bundles/{manifestHash}`.
 
 **Modified `apps/worker/`:**
 
-- `src/routes/downloads.ts` — threshold routing to the DO; `202` with the job handle.
+- `src/routes/files/downloads.ts` — threshold routing to the DO; `202` with the job handle.
 - `src/index.ts` — export `BundleBuildCoordinator`; bind the `bundle-build` consumer; register the status route.
 - `src/app.ts` — add `BUNDLE_COORDINATOR: DurableObjectNamespace` and `BUNDLE_BUILD` queue to `Bindings`.
 - `wrangler.jsonc` — the DO binding + `new_sqlite_classes` migration, the `bundle-build` producer + consumer, and (deploy runbook) the `bundles/` lifecycle rule.
@@ -320,7 +320,7 @@ git commit -m "feat(worker): bundle-build queue consumer (R2 -> client-zip -> R2
 
 ## Task 5: Threshold routing in the downloads route
 
-**Files:** Modify `apps/worker/src/routes/downloads.ts`. Test: `apps/worker/test/downloads.test.ts` (extend).
+**Files:** Modify `apps/worker/src/routes/files/downloads.ts`. Test: `apps/worker/test/downloads.test.ts` (extend).
 
 **Interfaces:**
 
@@ -339,7 +339,7 @@ git commit -m "feat(worker): bundle-build queue consumer (R2 -> client-zip -> R2
 - [ ] **Step 4: Run (PASS) + commit**
 
 ```bash
-git add apps/worker/src/routes/downloads.ts apps/worker/test/downloads.test.ts
+git add apps/worker/src/routes/files/downloads.ts apps/worker/test/downloads.test.ts
 git commit -m "feat(worker): route large bulk downloads to the async build job"
 ```
 
@@ -347,7 +347,7 @@ git commit -m "feat(worker): route large bulk downloads to the async build job"
 
 ## Task 6: The bundle-status poll endpoint
 
-**Files:** Create `apps/worker/src/routes/bundle-status.ts`; modify `apps/worker/src/index.ts`. Test: `apps/worker/test/bundle-status.test.ts`.
+**Files:** Create `apps/worker/src/routes/files/bundle-status.ts`; modify `apps/worker/src/index.ts`. Test: `apps/worker/test/bundle-status.test.ts`.
 
 **Interfaces:**
 
@@ -363,7 +363,7 @@ git commit -m "feat(worker): route large bulk downloads to the async build job"
 - [ ] **Step 4: Run (PASS) + commit**
 
 ```bash
-git add apps/worker/src/routes/bundle-status.ts apps/worker/src/index.ts apps/worker/test/bundle-status.test.ts
+git add apps/worker/src/routes/files/bundle-status.ts apps/worker/src/index.ts apps/worker/test/bundle-status.test.ts
 git commit -m "feat(worker): bundle-status poll endpoint with a fresh signed URL"
 ```
 

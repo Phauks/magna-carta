@@ -251,7 +251,7 @@ export function defineOpenAPIRoute<P extends string, R extends DescribedRouteCon
   // as the firm's verbatim original stores a corrupted copy that hashes to nothing. The supported
   // form for such a route is `idempotency: "optional"` plus the handler running runIdempotentEffect
   // itself, fingerprinted over the bytes it actually received — see
-  // apps/api-worker/src/routes/emails.ts, which does exactly that. This is a startup failure rather than
+  // apps/api-worker/src/routes/email/emails.ts, which does exactly that. This is a startup failure rather than
   // a review convention because the corruption is silent at every layer below it.
   const nonJsonBodyTypes = nonJsonRequestBodyMediaTypes(routeConfig);
   if (meta.idempotency === "required" && nonJsonBodyTypes.length > 0) {

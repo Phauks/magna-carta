@@ -45,7 +45,7 @@ Sorting every direct `env.R2` use into firm-scoped and platform-scoped comes **b
 not after. An adapter only the resolver's callers use would leave every direct reader on the bound
 bucket, which is the silent-loss failure the seam exists to prevent — and the sort cannot be done per
 module, because a module can resolve the firm's bucket name for a signed URL and read bytes through
-the binding in the same handler. `routes/downloads.ts` did exactly that: it resolved the pair,
+the binding in the same handler. `routes/files/downloads.ts` did exactly that: it resolved the pair,
 discarded the handle, checked the *platform* bucket for a cached artifact, and presigned the result
 against the *firm* bucket name. The guard's throw was the only thing hiding it; resolving the
 divergence without fixing it first would have turned a loud refusal into a 200 carrying a URL for an

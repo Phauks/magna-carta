@@ -44,7 +44,19 @@ routes requests through the chokepoint into those packages.
   hold is `docs/specs/2026-09-18-api-worker-domain-modules-design.md`.
 - `src/chokepoint/` — the ordered enforcement middleware + its ports; `defineOpenAPIRoute` carries each
   route's `RouteMeta`, and `chokepointMiddleware` enforces it. No per-handler auth discipline.
-- `src/routes/` — one module per surface; each is a route-bundle registered in `app.ts`.
+- `src/routes/<domain>/` — one directory per domain, each a sub-app: `index.ts` exports
+  `mount<Domain>(app, chokepoint, deps)`, which builds its router through `createDomainApp`, registers
+  the domain's route files in the order Hono must match them, and mounts at the root;
+  `operations.ts` is the committed list of operation ids the module registers (regenerate with
+  `pnpm --filter @magna-carta/api-worker run emit-domain-operations`; the conformance suite mounts
+  each module alone and holds it to its list); a `CLAUDE.md` beside them carries that surface's own
+  rules. `src/routes/manifest.ts` is the ordered list app.ts iterates, and the only place a domain is
+  named. `src/routes/shared/` holds what two domains share (the platform-admin guard, the image
+  helpers, the member-provision topic) — a domain module never imports another domain's directory.
+  Two route families stay in app.ts by design: the token-guarded hosts (`/wopi/*`,
+  `/search-objects/*`) and the cookieless preview serve, which are outside the chokepoint and whose
+  position in the registration order is load-bearing; the health probe and the plugin loop mount
+  there too.
 - `src/firm-database/` — the `FirmDatabase` Durable Object (one per firm, `idFromName(firmId)`,
   self-migrating the per-firm lineage on wake) and its worker-side proxy: `firm-database-proxy.ts`
   exports `firmDatabaseFor(firmId, env)` which returns a DO-backed `SqlDatabase` handle. All ~185
@@ -73,7 +85,7 @@ routes requests through the chokepoint into those packages.
   **Three states, not two, and only the first two are verdicts.** No binding at all → the engine-less
   adapter's honest `unscanned`/`no-engine`. Bound and answering → a real verdict. Bound and answering
   5xx — a placeholder worker, a Container that is not up — → `ScanFaultError`, which the ingest
-  consumer retries on, and which `routes/scan-diagnose.ts` and `routes/templates.ts` both answer as a
+  consumer retries on, and which `routes/files/scan-diagnose.ts` and `routes/documents/templates.ts` both answer as a
   `503`, because a member asking whether a file is safe — or registering a template — must not be
   handed an Error ID for an engine that is simply not there. On the template path the scan runs inside
   `runIdempotentEffect`, whose callback owes a write and a response code rather than a `Response`, so
@@ -88,76 +100,22 @@ routes requests through the chokepoint into those packages.
   `pnpm --filter @magna-carta/api-worker run emit-openapi`, then regenerate the client
   (`pnpm --filter @magna-carta/api-client run generate`). A byte-exact test gates drift.
 
-## Firm scan-policy settings API
+## Per-surface rules live beside their module
 
-`src/routes/scan-policy.ts` exposes `GET /api/v1/firm/scan-policy` (returns the resolved `{scanPolicy, flaggedTreatment, stepUpReauthOnFlagged}`) and `PATCH /api/v1/firm/scan-policy` (writes any subset). Both require `firm:manageScanPolicy` (Owner + Admin). The route reads/writes via the `scan-policy-settings.ts` helpers in `@magna-carta/file-manager`; the ingest consumer (`src/files/`) calls those same helpers at queue-consume time, so ingest and the API always agree on defaults. The `downloads.ts` route reads `flaggedTreatment` at access time — a policy change takes effect on the next request without re-ingest.
-
-## Upload readiness — the diagnosis for the one hop the Worker cannot see
-
-`src/files/upload-readiness.ts` answers "can this firm upload?" from the server. The browser's
-presigned PUT bypasses every Worker (it must: the request-body cap forbids proxying bytes), so a
-refusal there reaches no log and the file manager can only say storage did not answer — while five
-different faults produce that one symptom. `verifyUploadReadiness` checks each precondition where a
-failure has a status code, in the order they must hold, and the report is the diagnosis:
-`bucket-recorded`, `bucket-exists`, then the three settings the provisioner owns
-(`event-notifications`, `lifecycle-rules`, `cors-policy` — **re-applied**, not diffed, because a
-whole-set PUT costs what a read costs and leaves the bucket right), then `key-can-sign` — a signed
-HEAD for an object that does not exist, made through `resolveFirmBucket` so it carries exactly the
-credential a presigned URL carries; 404 is the affirmative answer, 403 the signature of a token
-scoped to one bucket. `POST /api/v1/firm/upload-readiness` (`routes/upload-readiness.ts`,
-`firm:manageScanPolicy`, audited) runs it from the version panel (the chip at the top right), with the other reads about what is running; the report is the panel's _Upload readiness_ section there.
-
-Rules for this surface:
-
-- **The report never says `ok` for a thing it did not look at.** Under the development adapter
-  the account checks are `not-applicable`, stated as such; the provider's `kind` is the fact the
-  report reads, never an inference from calls that all succeeded.
-- **It repairs what is idempotent and names what is not.** A missing bucket is reported with the
-  cause (the development adapter) and is NOT created — a sweep that creates buckets the provisioner
-  should have would hide the fault it exists to expose. A mis-scoped key is reported with the
-  re-mint.
-- **The other half is the deploy gate, not code.** `wrangler.jsonc` requires
-  `CLOUDFLARE_API_TOKEN_FIRM_PROVISIONER` and `CLOUDFLARE_ACCOUNT_ID`, so a deployment cannot run
-  the development adapters against real firms; there is deliberately no mode object, no daily
-  sweep and no cached readiness on the firm row.
-
-## Notification settings — two routes, two tiers, two permissions
-
-`src/routes/notification-preferences.ts` is the MEMBER's own matrix (and the firm's trust-compliance
-designation); `src/routes/firm-notification-policy.ts` is the FIRM's tier — the per-category in-app
-floor, the retention window the nightly sweep reads, and the local hour the hourly digest pass asks
-each firm about. They write the same two scoped-setting keys at different tiers and share one merge
-(`mergeNotificationPreferences` in `@magna-carta/notifications`), so "clear this channel" has one
-meaning.
-
-**The permission split is the point, and it is not interchangeable.** The member route rides
-`notifications:read`, which is seeded to EVERY default role including Read-only because reading one's
-own feed is not a privilege. The firm route rides `firm:manageNotificationPolicy`, Owner/Admin only.
-Putting the firm tier on the member key would let any member raise the floor for every colleague and
-shorten the whole firm's retention window; `test/firm-notification-policy-routes.test.ts` seeds
-exactly that member and asserts 403 on both verbs. A third notification setting that binds anybody
-but the actor belongs on the firm route, not on the member one.
-
-Two things this surface must keep doing:
-
-- **Write the firm tier and nothing else.** An administrator changing firm policy must not be
-  silently changing their own preferences. The test asserts a firm-tier `scoped_setting` row and zero
-  user-tier rows for the actor.
-- **Refuse an out-of-range window or hour rather than clamping.** A firm that asked for five years
-  and silently got one would believe it had the first. The bound is on the request schema as well as
-  on the setting definition, so the caller gets a 422 they can act on rather than a 500.
-
-Not reachable from either route: the firm's email detail-level ceiling
-(`notifications.emailDetailLevel`), which has no write statement in either tier. Building only the
-firm half would let a firm raise what its members' mail carries with no member lever to lower it,
-which is the asymmetry `@magna-carta/notifications` exists to prevent — it wants both halves at once.
+The rules that bind one surface are in that domain's own note: `src/routes/firm/CLAUDE.md` (the
+scan-policy settings, the release-channel doors and the flag catalog), `src/routes/files/CLAUDE.md`
+(upload readiness), `src/routes/notifications/CLAUDE.md` (the two tiers and their permissions),
+`src/routes/session/CLAUDE.md` (human verification on the anonymous writes), and
+`src/routes/timekeeping/CLAUDE.md` (the two time-entry guards). This note keeps what binds the whole
+Worker.
 
 ## Local rules
 
 - **Every `/api/v1` route goes through the chokepoint.** Register with `defineOpenAPIRoute` + a full
   `RouteMeta`; a route mounted without meta (or naming an unregistered permission) throws at startup.
   Changing a route's responses or any `x-mc-*` meta changes the contract — re-emit the snapshot and the
-  client in the same commit, and update the conformance not-vacuous operation list when adding a route.
+  client in the same commit, and regenerate the domain's `operations.ts` when adding a route
+  (`pnpm --filter @magna-carta/api-worker run emit-domain-operations`).
 - **A `files:*` capability binds to `resource: "matter"`** (file objects are matter-rooted), enforced by
   the conformance suite — even for a firm-scoped read like the bundle-status poll.
 - **Every object written into a firm's bucket carries its dimensions.** Build them with
@@ -194,7 +152,7 @@ which is the asymmetry `@magna-carta/notifications` exists to prevent — it wan
 Past the live-download threshold (`liveMaxFileCount` **or** `liveMaxTotalBytes`), the bulk download is
 built in the background instead of streamed inline:
 
-1. **`POST /api/v1/downloads/zip`** (`routes/downloads.ts`) resolves the selection to version-pinned
+1. **`POST /api/v1/downloads/zip`** (`routes/files/downloads.ts`) resolves the selection to version-pinned
    clean entries, content-addresses them into a **manifest hash** (`bundleManifestHash`), and `HEAD`s
    `bundles/<hash>.zip`. If the artifact exists → `200` with a fresh signed URL. Otherwise it asks the
    coordinator to build and returns `202 { jobId: hash, status }`. (Single file → `302`; under threshold
@@ -205,7 +163,7 @@ built in the background instead of streamed inline:
 3. **The `bundle-build` consumer** (`downloads/bundle-consumer.ts`) streams each entry's R2 body through
    `client-zip` into `bundles/<hash>.zip` (multipart), then `markReady`; a throw `markFailed`s + retries
    (dead-letters after max attempts). A build that never reports back is failed by the alarm.
-4. **`GET /api/v1/downloads/bundles/{manifestHash}`** (`routes/bundle-status.ts`) polls the coordinator;
+4. **`GET /api/v1/downloads/bundles/{manifestHash}`** (`routes/files/bundle-status.ts`) polls the coordinator;
    a ready job mints a fresh short-TTL signed GET. The DO name carries the **session** firm id, so a firm
    can only ever read its own job — never another firm's by guessing a hash.
 
@@ -443,75 +401,6 @@ by the discovery processing consumer once a document is `processed`. Local rules
   (`indexMessageCorpus`), so a message in flight across the deploy that introduced them still routes
   where it was going. The same shape is on the compaction message.
 
-## Human verification — built, wired, and dormant until a secret exists
-
-`src/human-verification/` gates the two anonymous WRITES — `POST /api/v1/registrations` and `POST
-/api/v1/invitations/redemptions` — on a Cloudflare Turnstile solution presented in the
-`X-Human-Verification-Token` header. `resolveHumanVerificationPort(env)` selects by the presence of
-`TURNSTILE_SECRET_KEY`, on the same terms `resolveScanPort` selects an engine; absent (every
-environment today) it returns `verifierNotConfigured` and both endpoints serve exactly as before.
-Activation steps and their ordering live in [`docs/deploy-queue.md`](../../docs/deploy-queue.md).
-
-Local rules for this surface:
-
-- **Three outcomes, and only two of them are about the caller.** `verified`/`refused` are verdicts;
-  `unavailable` is a fact about this deployment. Never collapse the third into either — as a pass it
-  makes any outbound failure a bypass, as a refusal it blames a visitor for our outage.
-- **The gate is called from the HANDLER, not mounted as route middleware.** Route-specific middleware
-  runs ahead of the chokepoint, so a gate there would make an outbound call before the IP-keyed rate
-  limit had a say. Adding it to a third route means one call at the top of that handler.
-- **Never a 500.** A refusal is `403`; a live verifier that will not answer, or that rejects our
-  secret, is a retryable `503`. An Error ID for a fault the caller cannot act on is the failure mode
-  this replaced.
-- **A dormant gate is counted, not silent.** Every decision — the unprotected passes most of all —
-  records one `human_verification.decided` point. Adding a path that returns without recording is the
-  one change that would put this back where it started.
-- **The token never reaches a log, a counter dimension, an error message, or a URL.** It is a bearer
-  credential; the telemetry catalogs give it no field, and nothing should add one.
-- **Better Auth's `/api/auth/*` endpoints are deliberately not gated** — the shipped sign-in screen
-  mints no token, so gating them would break a working surface.
-
-## Time entries — the two guards that read something other than the row
-
-Two acts on `src/routes/time-entries.ts` decide on a fact the `time_entry` row does not carry, and
-both would be silently wrong if a future change looked only at the row:
-
-- **`POST .../{id}/unvoid` asks the AUDIT TRAIL whether the entry was converted into a cost.** That
-  conversion moves the entry's value onto a cost record and voids the time in the same batch, so the
-  firm cannot count the work twice; restoring the time afterwards would undo the protective half of
-  the act. The link between the two records exists **only** as the `time_entry.converted_to_cost`
-  audit event — no column on either row names the other — so that is what the handler reads, and the
-  service takes the ANSWER (`{ convertedToCost }`) rather than the database, which is what keeps the
-  rule testable without one. If a `source_time_entry_id` column ever lands on `cost_entry`, move the
-  guard onto it.
-- **`PATCH .../{id}` re-derives the money columns, and the inputs are three, not one.** An entry's
-  amount is its billed duration times its rate. The work date re-asks the rate chain; a new
-  `overrideRateE4` sets it directly; and a new `rawDurationMinutes` changes the other side of the
-  product — that third one used to be missed entirely, so an entry corrected from one hour to two
-  stayed billed at one. A patch touching any of the three re-rounds, re-resolves and re-multiplies;
-  one touching none of them leaves every money column exactly where it stood. The re-resolution also
-  carries a STANDING override forward (an entry whose `rate_source` is `override` already holds it
-  in `rate_e4`), so an unrelated edit cannot quietly hand the entry back to the card's rate.
-
-`GET .../rounding-policy` is registered **before** the `GET .../{id}` route on purpose: Hono matches
-in registration order, so moving it lets the dynamic `:id` pattern claim "rounding-policy" and the
-request comes back 422 for a malformed entry handle. Same rule as `quick-add-preview`.
-
-## Release channels — the two doors and the flag catalog
-
-A firm's `release_channel` (`stable | beta | alpha`) is stored on the control-plane `firm` row and is read into every session. Two routes write it:
-
-- **Beta door:** `PUT /api/v1/firm/release-channel` — accepts only `{ stable, beta }`; backed by `firm:manageReleaseChannel` enforced at the chokepoint; requires an explicit consent payload recorded in the per-firm `audit_log`.
-- **Alpha door:** a secret-guarded platform endpoint (same lane as `POST /v1/firms`); writes any channel value; no firm-session required; audit goes to the control-plane `auth_audit`.
-
-**Adding a feature flag.** To gate a new feature behind a release channel:
-
-1. Add an entry to `FLAG_CATALOG` in `@magna-carta/feature-flags` — keyed by the flag key, with `defaultValue` (the safe default = stable behavior), `stage: "alpha" | "beta" | "stable"`, and a `description`.
-2. Add a matching boolean flag in the Flagship dashboard with a targeting rule: `channel in [beta, alpha]` (or `[alpha]` for alpha-only), optionally with a `%` rollout.
-3. Call `getBooleanValue(flagKey, false, context)` (or `evaluateCatalog`) in the route or session handler. Stable behavior is always the default — the second argument must equal what a `stable` firm would see.
-
-**The `FLAGS` binding is a production deploy-time wiring step.** The local Miniflare test pool does not support the Flagship binding shape. The `env.FLAGS` binding is declared **optional** in `wrangler.jsonc`; when absent, `resolveFlagEvaluator` returns the `defaultOffEvaluator` (all flags off, the safe stable default). Tests that need a specific flag on inject a `FlagEvaluator` fake directly — no Flagship account required. This means the fail-safe is structural: any test environment or local dev session silently sees stable behavior for every flag unless a fake is injected.
-
 ## Gotchas
 
 - A declared queue **consumer** with no exported handler fails the deploy; a declared **producer** does
@@ -531,7 +420,7 @@ A firm's `release_channel` (`stable | beta | alpha`) is stored on the control-pl
   capped at a minute) under a ten-retry budget in `wrangler.jsonc` — three immediate retries used to
   meet the same cold engine three times running and dead-letter a file a member was watching, who
   then waited for the five-minute redrive.
-- **A member's re-scan request (`FILE_RESCAN_ACTION`, `routes/file-scans.ts`) is the one re-scan
+- **A member's re-scan request (`FILE_RESCAN_ACTION`, `routes/files/file-scans.ts`) is the one re-scan
   that ignores engine staleness and the dedup cache.** The access-triggered and per-matter re-scans
   run only when the version's recorded engine is stale and reuse a cached result for the same bytes;
   a request carries its audit id, keys its idempotency on it, and scans the bytes afresh, so

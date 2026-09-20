@@ -8,7 +8,7 @@ only waiting could fix.**
 
 The malware scan has three states and only two of them are verdicts: no engine wired at all is an
 honest `unscanned`/`no-engine`, an engine that answers is a real verdict, and an engine that is bound
-but will not answer is a **fault**. `routes/scan-diagnose.ts` already answered that third state with a
+but will not answer is a **fault**. `routes/files/scan-diagnose.ts` already answered that third state with a
 retryable `503`, on the reasoning that a member asking whether a file is safe must not be sent to
 support over a Container that is simply not up.
 

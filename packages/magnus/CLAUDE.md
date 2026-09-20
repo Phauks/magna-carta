@@ -112,7 +112,7 @@ registered there; this file states what they mean for the code, not where they w
 
 - Depends on `@magna-carta/data-access` (effect batches, the audit builder, cursor pagination, the
   firm-setting accessor), `@magna-carta/identifiers`, and `zod`. Nothing else.
-- Consumed by `apps/api-worker/src/routes/magnus.ts` (the surface), `apps/api-worker/src/magnus/` (consent,
+- Consumed by `apps/api-worker/src/routes/magnus/magnus.ts` (the surface), `apps/api-worker/src/magnus/` (consent,
   the queue consumer, the push object), and `apps/api-worker/src/costs/recoverable-charge-consumer.ts`
   (the outbox topic hand-off).
 - Produces statements; the caller commits them. This package holds no database handle and crosses no
@@ -140,7 +140,7 @@ registered there; this file states what they mean for the code, not where they w
 - **Both surfaces exist now: the member's and the firm's.** A member reaches the assistant from the
   sidebar destination and from a matter's own section, and accepts the disclosure there. A firm opens
   the two consent settings at **Settings · AI and the Assistant** — `apps/web/src/routes/(app)/settings/ai`
-  over `GET`/`PATCH /api/v1/firm/ai/settings` (`apps/api-worker/src/routes/firm-ai-settings.ts`), behind
+  over `GET`/`PATCH /api/v1/firm/ai/settings` (`apps/api-worker/src/routes/firm/firm-ai-settings.ts`), behind
   `firm:manageAiSettings`, which is Owner/Admin alone by seed and is deliberately NOT `magnus:converse`:
   asking the assistant a question is ordinary work, deciding for the whole firm that privileged content
   may leave for a third-party provider is not. That route is the only writer of the pair

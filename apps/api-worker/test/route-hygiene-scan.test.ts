@@ -15,9 +15,9 @@ import { describe, expect, it } from "vitest";
 //    passes its own middleware array instead is a route with per-handler auth discipline, which is
 //    the thing the chokepoint exists to make impossible. A genuine exception — none exists today —
 //    carries an inline `fitness:allow-no-chokepoint` marker with its reason on the line above.
-// 3. A DOMAIN MODULE NEVER IMPORTS ANOTHER DOMAIN'S ENTRY. Once routes live in
-//    src/routes/<domain>/, a module reaching into a sibling's index.ts is two domains fused by an
-//    import; what they share goes under src/routes/shared/ instead.
+// 3. A DOMAIN MODULE NEVER IMPORTS ANOTHER DOMAIN'S FILES. A route module under src/routes/<domain>/
+//    reaching into a sibling domain's directory is two domains fused by an import; what they share
+//    goes under src/routes/shared/ instead, which is the one sibling directory any module may reach.
 //
 // The worker's tests run inside the workerd pool, whose node:fs cannot read the host source tree, so
 // the sources are pulled in as raw text at build time. import.meta.glob is a Vite build-time macro: it
@@ -94,7 +94,7 @@ export function registrationsWithoutChokepoint(sources: Record<string, string>):
 
 export function crossDomainImports(sources: Record<string, string>): string[] {
   const findings: string[] = [];
-  const importPattern = /from\s+"\.\.\/([a-z0-9-]+)\/(?:index\.ts)?"/g;
+  const importPattern = /from\s+"\.\.\/([a-z0-9-]+)\/[^"]*"/g;
   for (const [modulePath, source] of Object.entries(sources)) {
     const file = routeFileName(modulePath);
     const segments = file.split("/");
@@ -106,7 +106,7 @@ export function crossDomainImports(sources: Record<string, string>): string[] {
       const target = match[1];
       if (target === domain || target === "shared") continue;
       findings.push(
-        `${file} imports the ${target} domain's entry — move what they share under src/routes/shared/`,
+        `${file} imports from the ${target} domain — move what they share under src/routes/shared/`,
       );
     }
   }

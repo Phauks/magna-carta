@@ -60,7 +60,7 @@ const ALLOW_LISTED_WRITE_SITES = new Set(
   [
     // The incident-intake route: seals the description through composeProtectedWrite, then binds the
     // returned ciphertext value into its INSERT — it never SELECTs the ciphertext to decrypt.
-    "apps/api-worker/src/routes/incidents.ts",
+    "apps/api-worker/src/routes/platform/incidents.ts",
     // The backfill sweep: seals pre-slice plaintext through the chokepoint, UPDATEs the ciphertext
     // column, and selects rows by `description_ciphertext IS NULL` — it never decrypts.
     "apps/api-worker/src/scheduled.ts",

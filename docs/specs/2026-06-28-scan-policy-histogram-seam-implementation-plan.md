@@ -249,7 +249,7 @@ if (request.method === "GET" && url.pathname === "/rules/score-histogram") {
 
 **Files:**
 
-- Modify: `apps/worker/src/routes/scan-policy.ts` (add the GET sub-route)
+- Modify: `apps/worker/src/routes/firm/scan-policy.ts` (add the GET sub-route)
 - Test: `apps/worker/test/scan-policy.test.ts` (no-engine + authz)
 - Regenerate: `apps/worker/openapi/openapi.json`, `packages/api-client/src/*`
 
@@ -295,7 +295,7 @@ it("score-histogram returns 403 for a member without firm:manageScanPolicy", asy
 
 - [ ] **Step 2: Run them, expect failure** — `cd apps/worker && vp test run scan-policy` → the two new tests FAIL (404/route missing).
 
-- [ ] **Step 3: Implement** the route in `apps/worker/src/routes/scan-policy.ts`. Define the response zod
+- [ ] **Step 3: Implement** the route in `apps/worker/src/routes/firm/scan-policy.ts`. Define the response zod
       schema (camelCase, `engineVersion`/`minScoreGate` nullable), a `RouteMeta`
       (`operationId: "firm.scanPolicy.scoreHistogram"`, `surface: "app"`, `authenticated: true`,
       `permission: "firm:manageScanPolicy"`, `resource: "firm"`, `audited: false`, `idempotency: "optional"`,
@@ -330,7 +330,7 @@ does (mirror its chokepoint middleware + response wiring). Confirm `SCAN_SERVICE
       `pnpm --filter @magna-carta/worker run emit-openapi && pnpm run generate-client`.
       Then `cd apps/worker && vp test run conformance` → PASS (snapshot in sync).
 
-- [ ] **Step 6: Commit** — `git add apps/worker/src/routes/scan-policy.ts apps/worker/test/scan-policy.test.ts apps/worker/openapi/openapi.json packages/api-client/src` then commit `feat(scan-policy): GET firm/scan-policy/score-histogram (no-engine-graceful)`.
+- [ ] **Step 6: Commit** — `git add apps/worker/src/routes/firm/scan-policy.ts apps/worker/test/scan-policy.test.ts apps/worker/openapi/openapi.json packages/api-client/src` then commit `feat(scan-policy): GET firm/scan-policy/score-histogram (no-engine-graceful)`.
 
 ---
 

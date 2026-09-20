@@ -13,7 +13,7 @@
  * Seeding is a "setup" project (a dependency of the chromium project), not a globalSetup hook, so it is
  * guaranteed to run AFTER the webServer is confirmed up — Playwright waits for the webServer url before
  * running any project, setup projects included. It POSTs to the dev-only /api/__dev/seed route (see
- * apps/api-worker/src/routes/dev-seed.ts) and writes the returned credentials for the specs to read.
+ * apps/api-worker/src/routes/developer/dev-seed.ts) and writes the returned credentials for the specs to read.
  */
 import path from "node:path";
 import { fileURLToPath } from "node:url";

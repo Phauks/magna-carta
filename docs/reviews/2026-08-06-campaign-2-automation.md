@@ -8,7 +8,7 @@
 - `packages/document-assembly/` — the expression language and its aggregates, custom-field bindings,
   directory role sources, protected-value bindings, letterhead image emission, and the
   subject-by-facet catalog registry.
-- The email add-in client API (`apps/api-worker/src/routes/email-add-in.ts`),
+- The email add-in client API (`apps/api-worker/src/routes/email/email-add-in.ts`),
   `packages/email-filing/src/auto-file-rules.ts` and its statements, and the DKIM verifier
   (`packages/email-filing/src/dkim.ts`).
 - Composite text extraction — the worker adapter (`apps/api-worker/src/search/text-extraction.ts`), the
@@ -237,7 +237,7 @@ gate.
 
 **Fixed in #PR.** Both database-truncating paths over-fetch a bounded multiple and then filter: the typed-query signal requests `limit * WALL_FILTER_OVERFETCH_MULTIPLE` before the wall filter, and `readRecentFilingTargets` does the same before slicing back to `targetLimit`.
 
-**`apps/api-worker/src/routes/email-add-in.ts:393`, `:459`**
+**`apps/api-worker/src/routes/email/email-add-in.ts:393`, `:459`**
 
 The route states its invariant plainly at `:47-52` and again at `:399-400`: "a matter the member
 cannot see contributes no suggestion, no reason, and no count", and "the wall filter runs BEFORE the

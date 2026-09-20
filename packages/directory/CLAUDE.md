@@ -113,7 +113,7 @@
 
 - Depends on: `@magna-carta/data-access` (effect batches, `composeProtectedWrite`/`readProtected`/`blindIndexValue`, `protectedField` registry), `@magna-carta/database` (per-firm schema), `@magna-carta/identifiers`, `words/double-metaphone` (pinned).
 - Pure and synchronous per operation: produces statements for the caller to run via the data-access layer; holds no D1 binding and performs no I/O of its own.
-- The worker routes (`apps/api-worker/src/routes/directory.ts`) are the only callers of `runDirectoryEffect` — they own threading `env`, the actor, and the crypto context.
+- The worker routes (`apps/api-worker/src/routes/directory/directory.ts`) are the only callers of `runDirectoryEffect` — they own threading `env`, the actor, and the crypto context.
 
 ## Gotchas
 

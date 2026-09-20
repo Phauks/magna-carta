@@ -40,7 +40,7 @@
 **Worker (`apps/worker/`):**
 
 - `src/file-integrity/worker-sink.ts` — the real `crypto.DigestStream`-backed `DigestSink` factory + `toHex`.
-- `src/routes/file-integrity.ts` — the `hash` and `verify` routes + `registerFileIntegrityRoutes`.
+- `src/routes/files/file-integrity.ts` — the `hash` and `verify` routes + `registerFileIntegrityRoutes`.
 - `src/app.ts` — register the routes (one line).
 - `test/file-integrity.test.ts` — Workers-pool route tests.
 
@@ -948,7 +948,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 **Files:**
 
 - Create: `apps/worker/src/file-integrity/worker-sink.ts`
-- Create: `apps/worker/src/routes/file-integrity.ts` (the `hash` route + `registerFileIntegrityRoutes`; the `verify` route is added in Task 9)
+- Create: `apps/worker/src/routes/files/file-integrity.ts` (the `hash` route + `registerFileIntegrityRoutes`; the `verify` route is added in Task 9)
 - Modify: `apps/worker/src/app.ts` (register the routes)
 - Test: `apps/worker/test/file-integrity.test.ts`
 
@@ -1050,7 +1050,7 @@ export function createWorkerDigestSink(algorithm: HashAlgorithm): DigestSink {
 
 - [ ] **Step 4: Implement the `hash` route + registration**
 
-`apps/worker/src/routes/file-integrity.ts`:
+`apps/worker/src/routes/files/file-integrity.ts`:
 
 ```typescript
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
@@ -1201,7 +1201,7 @@ export function registerFileIntegrityRoutes(app: FileIntegrityApp, chokepoint: C
 In `apps/worker/src/app.ts`, import and call (placing it near the other tool route registrations such as `registerWhoisRoute`):
 
 ```typescript
-import { registerFileIntegrityRoutes } from "./routes/file-integrity.ts";
+import { registerFileIntegrityRoutes } from "./routes/files/file-integrity.ts";
 // ... in the registration body, alongside registerFirmUsageRoute(app, chokepoint); :
 registerFileIntegrityRoutes(app, chokepoint);
 ```
@@ -1223,7 +1223,7 @@ Expected: the contract gains `fileIntegrity.hash`; the client regenerates withou
 - [ ] **Step 8: Commit**
 
 ```bash
-git add apps/worker/src/file-integrity/worker-sink.ts apps/worker/src/routes/file-integrity.ts apps/worker/src/app.ts apps/worker/test/file-integrity.test.ts
+git add apps/worker/src/file-integrity/worker-sink.ts apps/worker/src/routes/files/file-integrity.ts apps/worker/src/app.ts apps/worker/test/file-integrity.test.ts
 git add -A apps/worker/src/contracts apps/worker/openapi packages/api-client  # whatever the regen touched — verify with git status first
 git commit -m "feat(worker): file-integrity hash route (streamed body, five digests)
 
@@ -1238,7 +1238,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 **Files:**
 
-- Modify: `apps/worker/src/routes/file-integrity.ts` (add the `verify` route to `registerFileIntegrityRoutes`)
+- Modify: `apps/worker/src/routes/files/file-integrity.ts` (add the `verify` route to `registerFileIntegrityRoutes`)
 - Test: `apps/worker/test/file-integrity.test.ts` (add verify cases)
 
 **Interfaces:**
@@ -1307,7 +1307,7 @@ Expected: FAIL — `/verify` returns 404.
 
 - [ ] **Step 3: Add the verify route**
 
-Extend `apps/worker/src/routes/file-integrity.ts`. Add imports at the top:
+Extend `apps/worker/src/routes/files/file-integrity.ts`. Add imports at the top:
 
 ```typescript
 import { compareToBaseline } from "@magna-carta/file-integrity/compare";
@@ -1319,7 +1319,7 @@ import { getCurrentVersionForIntegrity } from "@magna-carta/file-manager/queries
 import { requireChokepointUserId } from "../chokepoint/context-accessors.ts";
 ```
 
-> Confirm the exact import specifiers against the real `exports` maps (`@magna-carta/data-access` for `effect-batch`/`audit-statements`, `@magna-carta/identifiers` for `newIdentifier`) by reading a route that already uses them, e.g. `apps/worker/src/routes/downloads.ts`.
+> Confirm the exact import specifiers against the real `exports` maps (`@magna-carta/data-access` for `effect-batch`/`audit-statements`, `@magna-carta/identifiers` for `newIdentifier`) by reading a route that already uses them, e.g. `apps/worker/src/routes/files/downloads.ts`.
 
 Add the schemas and the route definition:
 
@@ -1519,7 +1519,7 @@ pnpm --filter @magna-carta/api-client run generate
 - [ ] **Step 6: Commit**
 
 ```bash
-git add apps/worker/src/routes/file-integrity.ts apps/worker/test/file-integrity.test.ts
+git add apps/worker/src/routes/files/file-integrity.ts apps/worker/test/file-integrity.test.ts
 git add -A   # plus the regen output — verify with git status first
 git commit -m "feat(worker): file-integrity verify route with chain-of-custody audit and receipt
 

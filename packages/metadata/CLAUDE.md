@@ -3,7 +3,7 @@
 Pure TypeScript engine for the **Metadata Inspector & Scrubber** Tools-area utility: detect a file's
 format, report the metadata + content-bearing artifacts it carries (the inspector), and return a cleaned
 copy to a chosen degree (the scrubber). No D1, no Hono, no `env`, no Svelte, no network — fully
-unit-testable. Consumed by `apps/api-worker/src/routes/metadata.ts`; a future matter-action can consume the
+unit-testable. Consumed by `apps/api-worker/src/routes/files/metadata.ts`; a future matter-action can consume the
 same `MetadataPort` directly. Design: `docs/specs/2026-06-22-metadata-tool-design.md`.
 
 - **Shape.** `detect(bytes)` → format → a `MetadataEngine` (`src/ooxml/` for `.docx`, `src/image/` for

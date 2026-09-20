@@ -491,7 +491,7 @@ one. The domains/records read above is the reliable answer; a browser is the rel
 it is running, over its service binding, on the `/__version` route in `packages/build-identity`.
 The roster is the **whole fleet** — every `apps/*/wrangler.jsonc` worker except the app Worker
 itself, pinned by a fitness test in `apps/web/test/version-overlay.test.ts` — so adding a worker
-under `apps/` means rostering it in `apps/api-worker/src/routes/meta-versions.ts` in the same
+under `apps/` means rostering it in `apps/api-worker/src/routes/platform/meta-versions.ts` in the same
 commit, and usually adding a service binding for the probe (see the version-read-only trio in the
 app Worker's `services` array; a binding must name a worker that exists on the account or the app
 Worker's own deploy fails, which is why `EMAIL_SERVICE` waits for `magna-carta-email` to ship). The
@@ -692,7 +692,7 @@ curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
 
 The File Manager upload is a direct-to-R2 ceremony: the browser `PUT`s bytes straight to a presigned R2 S3 URL (`<account>.r2.cloudflarestorage.com`), never through the Worker. That is a **cross-origin** request from the app origin to the R2 endpoint, so the bucket must carry a **CORS configuration** or the browser's preflight fails and no bytes land. Multipart additionally needs the `ETag` **response** header exposed — the client reads each part's `ETag` to build the completion manifest, and a browser cannot read a response header CORS does not expose. This is bucket configuration, not committed code (like the `bundles/` lifecycle rule in §10); it is applied **out-of-band against the bucket by the owner, not by CI**, and no committed code can substitute for it.
 
-The development R2 upload route (`apps/api-worker/src/routes/dev-r2-upload.ts`) is **same-origin** and therefore exercises no CORS — a green local suite proves nothing about this step. **The acceptance gate is one real upload against a real bucket in a preview environment, including a file large enough to take the multipart path** (exercising `uploads.signPart` and the `ETag` read). Until that passes, CORS is unverified no matter how green the local run is.
+The development R2 upload route (`apps/api-worker/src/routes/developer/dev-r2-upload.ts`) is **same-origin** and therefore exercises no CORS — a green local suite proves nothing about this step. **The acceptance gate is one real upload against a real bucket in a preview environment, including a file large enough to take the multipart path** (exercising `uploads.signPart` and the `ETag` read). Until that passes, CORS is unverified no matter how green the local run is.
 
 **Who applies it, and to which bucket.** Since 2026-09-03 firm provisioning applies the policy itself: `firm-resource-provider.ts` PUTs the rule set onto every new firm's bucket in the same unconditional step as its notifications and expiry rules, so a firm provisioned from now on takes browser uploads without an operator touching the dashboard. What stays an operator step is **every bucket that existed before that date** — the shared platform bucket, and the firm buckets provisioned before the step existed. The first production upload (2026-09-03) failed on exactly this: the firm's bucket carried no policy at all, the preflight was refused, and the app could only report that nothing answered. **Reading a bucket's policy is the check** (`GET /accounts/{account}/r2/buckets/{bucket}/cors`; "The CORS configuration does not exist" means uploads from a browser cannot work against it).
 

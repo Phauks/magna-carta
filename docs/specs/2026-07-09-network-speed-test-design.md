@@ -116,10 +116,10 @@ Frontend, under `apps/web/`:
 
 Backend, under `apps/worker/`:
 
-| File                             | Role                                            |
-| -------------------------------- | ----------------------------------------------- |
-| `src/routes/tools-connection.ts` | The connection route (pattern: `firm-usage.ts`) |
-| `src/app.ts`                     | One registration line                           |
+| File                                   | Role                                            |
+| -------------------------------------- | ----------------------------------------------- |
+| `src/routes/tools/tools-connection.ts` | The connection route (pattern: `firm-usage.ts`) |
+| `src/app.ts`                           | One registration line                           |
 
 **Contract obligations.** A new route changes the emitted OpenAPI document, so
 `apps/worker/test/contracts/openapi-snapshot.test.ts` must be updated and the typed API

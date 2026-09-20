@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bindings } from "../src/bindings.ts";
-import { resolveChannelAndFlags } from "../src/routes/me.ts";
+import { resolveChannelAndFlags } from "../src/routes/session/me.ts";
 import type { FirmId } from "@magna-carta/identifiers/types";
 
 // A control-plane binding whose channel read throws (e.g. "no such column: release_channel").

@@ -29,11 +29,11 @@ fetch:
 
 - **Upload** — direct-to-R2 via the presigner: a single-shot presigned PUT at or below the firm's
   threshold, a **multipart-resumable session** above it (sign-part / complete / abort). Reference
-  implementation: [`apps/api-worker/src/routes/uploads.ts`](../../apps/api-worker/src/routes/uploads.ts) over
+  implementation: [`apps/api-worker/src/routes/files/uploads.ts`](../../apps/api-worker/src/routes/files/uploads.ts) over
   [`apps/api-worker/src/files/presign.ts`](../../apps/api-worker/src/files/presign.ts).
 - **Download** — a presigned GET (a 302 to a real URL), so the browser's own download manager owns
   pause, resume, and speed. Reference: the single-file and over-threshold paths in
-  [`apps/api-worker/src/routes/downloads.ts`](../../apps/api-worker/src/routes/downloads.ts).
+  [`apps/api-worker/src/routes/files/downloads.ts`](../../apps/api-worker/src/routes/files/downloads.ts).
 - **Inline / seekable serving** — HTTP Range with If-Range conditional resume and ETag. Reference:
   [`apps/api-worker/src/files/preview-serve.ts`](../../apps/api-worker/src/files/preview-serve.ts).
 

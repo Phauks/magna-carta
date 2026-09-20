@@ -10,7 +10,7 @@
   status: partial
   slices: 3-6-financial-reporting
   spec: docs/specs/2026-09-07-report-screen-design.md
-  evidence: packages/reporting holds the temporal contract, the completeness declaration and the trust-compliance pack; apps/api-worker/src/routes/reports.ts serves it; apps/web/src/lib/reports/report-registry.ts declares every report and the /reports and /reports/<id> screens render from it. The financial, productivity and operational families are declared at stage soon and unbuilt, and the delivery surface is unbuilt.
+  evidence: packages/reporting holds the temporal contract, the completeness declaration and the trust-compliance pack; apps/api-worker/src/routes/billing/reports.ts serves it; apps/web/src/lib/reports/report-registry.ts declares every report and the /reports and /reports/<id> screens render from it. The financial, productivity and operational families are declared at stage soon and unbuilt, and the delivery surface is unbuilt.
   audience: public
   public-summary: Reports on money, time, trust compliance and productivity — on screen, exported, or sent to you on a schedule.
   notes: Owner scoped all four families with the bar-audit pack first; nine questions flagged for the owner in the design.

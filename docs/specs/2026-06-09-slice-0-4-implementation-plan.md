@@ -264,11 +264,11 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
 
 - [ ] `src/session-context.ts`: `resolveSession(auth, c)` → `{ userId, firmId } | null` from `auth.api.getSession({ headers })`; null → RFC 9457 401 problem (api.md shape). This is the chokepoint's first link (spec §7) — a plain function used by handlers, not yet a global middleware.
 - [ ] `src/firm-binding-resolver.ts`: `resolveFirmDatabase(env, databaseIdentifier)` — dev: lookup table `{ DB_FIRM_POOL_1: env.DB_FIRM_POOL_1, … }`; unknown id → null (→ 404 path).
-- [ ] `src/routes/me.ts`: `createRoute` GET `/api/v1/me` (`x-mc-*` metadata + native `operationId: "me.get"` — the spike finding), handler: resolveSession → firm row (registry) → member permission reads (Task 6) → `effectivePermissions` → `{ user, firm: { id, name }, permissions: [...] }`.
+- [ ] `src/routes/session/me.ts`: `createRoute` GET `/api/v1/me` (`x-mc-*` metadata + native `operationId: "me.get"` — the spike finding), handler: resolveSession → firm row (registry) → member permission reads (Task 6) → `effectivePermissions` → `{ user, firm: { id, name }, permissions: [...] }`.
 - [ ] Integration tests: no cookie → 401 problem+json; logged-in user → firm + permissions include the role seeds; a user whose firm row is missing/foreign → 404 (cross-firm reserve, ADR-0052).
 - [ ] Commit `feat(worker): resolveSession + GET /v1/me with effective permissions`.
 
-### Task 11: Invite endpoint (`src/routes/members.ts`)
+### Task 11: Invite endpoint (`src/routes/session/members.ts`)
 
 - [ ] **Build-time verification step (decided #6):** confirm password-reset works for a user row with no credential account on the pinned version (write the failing/passing integration test first — it decides the path). Path A (expected): direct-insert. Path B (fallback): admin plugin `createUser` + separate outbox enqueue. Record the landed path as an ADR-0073 amendment in Task 15. The rest of this task assumes Path A.
 - [ ] `POST /api/v1/members` (`operationId: "members.invite"`, `idempotency: required`, `audited`): resolveSession → require `firm:manageMembers` (via Task 10's permission reads + `effectivePermissions`; lacking → 403 problem) → `runIdempotentEffect` against **control-plane** D1 composing: user INSERT (usr\_ handle, email, name, `firm_id`, unverified), outbox row `member.provision` `{ userId, firmId, displayName, roleName: null }`, `auth_audit` `member.invited` — one batch → then `auth.api.requestPasswordReset` (the activation email through the port).

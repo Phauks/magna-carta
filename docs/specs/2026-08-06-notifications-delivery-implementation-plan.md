@@ -149,7 +149,7 @@ preferences (every category is on, which is the recommended default), no email, 
 - [ ] `src/read-statements.ts`: ONE shared function resolving a member's visible notifications, taking
       the visible-matter predicate as a REQUIRED argument and composing it into the `WHERE` before the
       `LIMIT`. The feed page, the unread count, and (in slice 4) the digest all call it.
-- [ ] Routes in `apps/worker/src/routes/notifications.ts`, every one through the chokepoint with full
+- [ ] Routes in `apps/worker/src/routes/notifications/notifications.ts`, every one through the chokepoint with full
       route metadata: `GET /api/v1/notifications` (keyset, platform cursor, `category`/`state` filters,
       refusing an unknown category rather than ignoring it), `GET /api/v1/notifications/unread-count`,
       `POST /api/v1/notifications/{notificationRecipientId}/read`, `.../dismiss`, and

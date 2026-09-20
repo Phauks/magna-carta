@@ -15,7 +15,7 @@ import {
   signInForSessionCookie,
 } from "./support/test-auth.ts";
 
-// The development-only R2 upload route (routes/dev-r2-upload.ts) stands in for direct-to-R2 uploads
+// The development-only R2 upload route (routes/developer/dev-r2-upload.ts) stands in for direct-to-R2 uploads
 // under `wrangler dev`, where no presigned R2 host resolves and no R2 object-create event fires. It
 // writes bytes to object storage, so it is guarded three ways. These tests pin each guard:
 //   1. Real-credential absence — a production-shaped env (the full R2 S3 credential set present) does

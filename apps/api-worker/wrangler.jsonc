@@ -42,7 +42,7 @@
   //   /search-objects/* — the keyword engine's ranged-read surface
   //                       (apps/api-worker/src/search/split-object-host.ts), cookieless for the same
   //                       reason: the caller is a Container holding no session.
-  //   /__dev/*          — the throwaway local demo page (apps/api-worker/src/routes/dev-web-tools-demo.ts),
+  //   /__dev/*          — the throwaway local demo page (apps/api-worker/src/routes/developer/dev-web-tools-demo.ts),
   //                       which answers 404 unless DEV_DEMO_TOOLS is set.
   // It stays an explicit list rather than inverting to `true` with exceptions so the SPA's own files
   // keep being served by the asset server — free, and off this Worker's CPU and invocation count.

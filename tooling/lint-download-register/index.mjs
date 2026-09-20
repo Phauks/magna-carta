@@ -78,11 +78,11 @@ const NOT_A_MEMBER_DOWNLOAD = new Map([
       "anybody on its own",
   ],
   [
-    "apps/api-worker/src/routes/dev-seed.ts",
+    "apps/api-worker/src/routes/developer/dev-seed.ts",
     "development seeding, compiled out of a deployment; there is no member on the other end",
   ],
   [
-    "apps/api-worker/src/routes/downloads-register.ts",
+    "apps/api-worker/src/routes/files/downloads-register.ts",
     "the register's OWN fetch route. Taking an item again records the format on the row that is " +
       "already there — writing a second row would make the register grow every time somebody read it",
   ],

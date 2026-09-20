@@ -10,7 +10,7 @@ call, a call fires for a batch that rolled back, and it fired from only one of t
 
 `packages/email-filing/src/topics.ts` is new and holds `EMAIL_FILED_TOPIC` in the frozen topic-set
 shape the matters, conflicts, directory and file-manager packages already use. The staff accept route
-(`apps/api-worker/src/routes/emails.ts`) and the capture consumer (`apps/api-worker/src/emails/capture-consumer.ts`)
+(`apps/api-worker/src/routes/email/emails.ts`) and the capture consumer (`apps/api-worker/src/emails/capture-consumer.ts`)
 each write the row beside the link change, so the row exists exactly when the filing does and rolls
 back with it. One registry entry subscribes: `category: email`, `audience: matter-team` — the
 responsible member plus everyone currently assigned, which resolves properly now that

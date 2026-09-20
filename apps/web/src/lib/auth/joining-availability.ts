@@ -12,7 +12,7 @@
  * would expect them to end are written down here so the screens can say it instead of leaving
  * somebody to discover it by clicking.
  *
- * Verified against apps/api-worker/src/routes/registrations.ts, apps/api-worker/src/routes/invitations.ts
+ * Verified against apps/api-worker/src/routes/session/registrations.ts, apps/api-worker/src/routes/session/invitations.ts
  * and apps/api-worker/src/email-port.ts. Delete an entry, or move it to `live`, when the gap closes;
  * every consumer follows from here rather than from a flag flipped in several screens.
  */

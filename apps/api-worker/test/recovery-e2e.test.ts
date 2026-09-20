@@ -51,7 +51,7 @@ const PDF_FIXTURE_BASE64 =
   "IDUgMCBSCj4+CnN0YXJ0eHJlZgo0NzYKJSVFT0YK";
 
 // Wrangler bundles .wasm imports as WebAssembly.Module — the same ambient-declared cast
-// routes/recovery.ts uses, so recoveryTier() below can initialise the engine from the compiled
+// routes/files/recovery.ts uses, so recoveryTier() below can initialise the engine from the compiled
 // module rather than attempting a network fetch under workerd.
 const decryptionWasm = decryptionWasmModule as unknown as WebAssembly.Module;
 
@@ -152,7 +152,7 @@ function batchOf(message: RecoveryShardMessage): MessageBatch<RecoveryShardMessa
   } as unknown as MessageBatch<RecoveryShardMessage>;
 }
 
-const RECOVERY_SHARD_COUNT = 4; // matches routes/recovery.ts's RECOVERY_SHARD_COUNT
+const RECOVERY_SHARD_COUNT = 4; // matches routes/files/recovery.ts's RECOVERY_SHARD_COUNT
 
 describe("recovery end-to-end: cfCapable happy path (button -> tier router -> fan-out -> first-hit -> password)", () => {
   let jobId = "";

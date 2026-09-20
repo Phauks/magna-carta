@@ -116,7 +116,7 @@
   scope: One timer at a time bound to a matter (+ optional UTBMS code + narrative), start/pause/stop, server-persisted state surviving tab close and following across devices, always-visible timer bar.
   status: partial
   slices: 3-1-time-tracking-wip-rate-engine
-  evidence: apps/api-worker/src/timer/live-timer-durable-object.ts + timer-runtime.ts + routes/timer.ts (the codebase's first Durable Object); atomic stop-commit fix on main
+  evidence: apps/api-worker/src/timer/live-timer-durable-object.ts + timer-runtime.ts + routes/timekeeping/timer.ts (the codebase's first Durable Object); atomic stop-commit fix on main
   notes: Server-side timer shipped; the global timer bar is UI, not built.
 
 - id: financial.time.capture.timer.offline-desktop
@@ -132,7 +132,7 @@
   status: partial
   surface: awaiting-screen
   slices: 3-1-time-tracking-wip-rate-engine
-  evidence: time-entry-service.ts + quick-add-parser.ts + routes/time-entries.ts
+  evidence: time-entry-service.ts + quick-add-parser.ts + routes/timekeeping/time-entries.ts
   notes: Backend shipped; entry UI not built.
 
 - id: financial.time.capture.weekly-grid
@@ -174,7 +174,7 @@
   status: shipped
   surface: awaiting-screen
   slices: 3-1-time-tracking-wip-rate-engine
-  evidence: rate-resolution.ts, rate-service.ts, rate-validation.ts + routes/rate-cards.ts
+  evidence: rate-resolution.ts, rate-service.ts, rate-validation.ts + routes/timekeeping/rate-cards.ts
 
 - id: financial.time.narrative
   name: Narrative ergonomics
@@ -182,7 +182,7 @@
   status: partial
   surface: awaiting-screen
   slices: 3-1-time-tracking-wip-rate-engine
-  evidence: narrative-template-service.ts + routes/narrative-templates.ts
+  evidence: narrative-template-service.ts + routes/timekeeping/narrative-templates.ts
   notes: Template store shipped; expansion/reuse ergonomics are capture-UI behaviors, not built.
 
 - id: financial.time.lifecycle
@@ -209,7 +209,7 @@
   status: partial
   surface: awaiting-screen
   slices: 3-1-time-tracking-wip-rate-engine
-  evidence: my-day.ts (target shortfall + un-logged-day detection) + routes/my-day.ts; time.target_daily/monthly/annual_hours settings
+  evidence: my-day.ts (target shortfall + un-logged-day detection) + routes/notes-and-tasks/my-day.ts; time.target_daily/monthly/annual_hours settings
   notes: Backend shipped; the My Day view is UI, not built; calendar overlay is a deferred Calendar-subsystem seam.
 
 - id: financial.time.period-ledger
@@ -234,7 +234,7 @@
   status: shipped
   surface: awaiting-screen
   slices: 3-1-time-tracking-wip-rate-engine
-  evidence: utbms-catalog.ts, utbms-service.ts + routes/utbms-codes.ts; isEBillingMatter enforcement in time-entry-service.ts
+  evidence: utbms-catalog.ts, utbms-service.ts + routes/timekeeping/utbms-codes.ts; isEBillingMatter enforcement in time-entry-service.ts
 
 - id: financial.time.passive-capture
   name: Passive/automatic time capture
@@ -282,7 +282,7 @@
   surface: awaiting-screen
   slices: 3-2-trust-accounting-jurisdiction-compliance
   spec: docs/specs/2026-08-12-trust-bank-charges-and-unclaimed-funds.md
-  evidence: packages/trust/src/firm-funds.ts (the per-account enablement, the deposit, the charge, the position read) behind assertTrustFirmFundsComposition in packages/trust/src/composition-guard.ts, which admits exactly two lines and refuses everything the general door refuses; the trust_firm_funds_movement table carries no client, matter, node or payee column, so a record of the category cannot describe somebody else's money; apps/api-worker/src/routes/trust-firm-funds.ts over the 20260812T000000_trust-firm-funds-and-unclaimed-funds and 20260812T000001_seed-trust-firm-funds-permission per-firm migrations, on a trust:firmFunds capability seeded to Owner/Admin alone
+  evidence: packages/trust/src/firm-funds.ts (the per-account enablement, the deposit, the charge, the position read) behind assertTrustFirmFundsComposition in packages/trust/src/composition-guard.ts, which admits exactly two lines and refuses everything the general door refuses; the trust_firm_funds_movement table carries no client, matter, node or payee column, so a record of the category cannot describe somebody else's money; apps/api-worker/src/routes/trust/trust-firm-funds.ts over the 20260812T000000_trust-firm-funds-and-unclaimed-funds and 20260812T000001_seed-trust-firm-funds-permission per-firm migrations, on a trust:firmFunds capability seeded to Owner/Admin alone
   notes: Backend only, no screen. Owner-directed and deliberately incomplete in one direction - the rule text authorizes the deposit and is silent on taking it back out, so there is no movement that withdraws surplus firm funds and none that pays a person. Refused outright on a pooled interest-bearing account, which the corpus records as exempt from the charges it would pay.
 
 - id: financial.trust.unclaimed-funds
@@ -292,7 +292,7 @@
   surface: awaiting-screen
   slices: 3-2-trust-accounting-jurisdiction-compliance
   spec: docs/specs/2026-08-12-trust-bank-charges-and-unclaimed-funds.md
-  evidence: packages/trust/src/unclaimed-funds.ts holds readDormantTrustBalances (the only definition of dormancy anywhere - a comparison against a date the caller states, never a stored flag), the review, its contact attempts and its closure, plus the review read; five routes in apps/api-worker/src/routes/trust-unclaimed-funds.ts over the 20260812T000000_trust-firm-funds-and-unclaimed-funds per-firm migration; a trigger independently refuses a closure naming a payment out of another client's ledger
+  evidence: packages/trust/src/unclaimed-funds.ts holds readDormantTrustBalances (the only definition of dormancy anywhere - a comparison against a date the caller states, never a stored flag), the review, its contact attempts and its closure, plus the review read; five routes in apps/api-worker/src/routes/trust/trust-unclaimed-funds.ts over the 20260812T000000_trust-firm-funds-and-unclaimed-funds per-firm migration; a trigger independently refuses a closure naming a payment out of another client's ledger
   notes: Backend only, no screen. Nothing on this path moves money - the closure takes a trust_movement that already posted and receives no amount, payee, date or method, so the manual-confirmation gate is the absence of the inputs rather than a check somebody could remove. Deliberately not an escheat feature - the researched jurisdiction exempts designated client trust accounts from the state presumption outright, so no deadline, countdown or required-by date is ever surfaced.
 
 - id: financial.trust.no-commingling
@@ -338,7 +338,7 @@
   surface: awaiting-screen
   slices: 3-2-trust-accounting-jurisdiction-compliance
   adrs: ADR-0246
-  evidence: the whole workflow is on main behind routes — packages/trust/src/bank-statements.ts (the recorded period and its lines), packages/trust/src/statement-import.ts (a preview that stores nothing, then a confirmation quoting the preview's fingerprint), packages/trust/src/matching.ts (ranked candidates a person confirms; nothing matches on its own), packages/trust/src/three-way-proof.ts (the statement, book and client-ledger legs plus the firm-funds cushion, computed from dated rows), and packages/trust/src/reconciliation.ts (open, the frozen close, the proof read) over apps/api-worker/src/routes/trust-reconciliation.ts and the 20260805T200000_trust-reconciliation per-firm migration
+  evidence: the whole workflow is on main behind routes — packages/trust/src/bank-statements.ts (the recorded period and its lines), packages/trust/src/statement-import.ts (a preview that stores nothing, then a confirmation quoting the preview's fingerprint), packages/trust/src/matching.ts (ranked candidates a person confirms; nothing matches on its own), packages/trust/src/three-way-proof.ts (the statement, book and client-ledger legs plus the firm-funds cushion, computed from dated rows), and packages/trust/src/reconciliation.ts (open, the frozen close, the proof read) over apps/api-worker/src/routes/trust/trust-reconciliation.ts and the 20260805T200000_trust-reconciliation per-firm migration
   awaiting-owner: The PDF import path is designed and unbuilt behind four calls about a firm's money. Whether a statement whose rows do not foot to its parsed closing balance is refused outright, or imported with the discrepancy recorded — refusing sends a firm with an irregular statement back to typing the month by hand, allowing it puts a difference into the bank leg of the proof that nobody can attribute to a trust problem or a parse error. Whether a scanned statement may produce stored lines at all, or recognition may only assist a person typing, which costs the firms with paper statements the most. Whether one statement line may match several ledger entries — a single deposit slip covering three cheques reads today as one match plus two items outstanding, so a firm that batches deposits has a period that can never balance, and this is the one flag the design makes no recommendation on. And how long the source PDF is kept, given it is a client's bank activity by name and amount, and whether a subject erasure request reaches it while the trust-record retention obligation runs. Trust PDF statement import design, flags S1, S2, S4 and S5.
   notes: No screen: the matter trust section is still the stub at apps/web/src/routes/(app)/matters/[id]/trust/+page.svelte, so matching, the outstanding lists and the proof are API-only. Import is the guided CSV path; a banking-plugin import still depends on an unbuilt banking integration.
 
@@ -348,14 +348,14 @@
   status: shipped
   surface: internal
   slices: 3-2-trust-accounting-jurisdiction-compliance
-  evidence: packages/trust/src/close-precondition.ts exports matterTrustClosePrecondition and readMatterTrustPositions, registered on the matter shell's hook by the composition root in apps/api-worker/src/routes/matters.ts; the same question is re-asked inside the close batch by refuseMatterCloseWithTrustBalanceStatement, so a deposit landing mid-close aborts it, and packages/trust/test/close-precondition.test.ts covers both layers
+  evidence: packages/trust/src/close-precondition.ts exports matterTrustClosePrecondition and readMatterTrustPositions, registered on the matter shell's hook by the composition root in apps/api-worker/src/routes/matters/matters.ts; the same question is re-asked inside the close batch by refuseMatterCloseWithTrustBalanceStatement, so a deposit landing mid-close aborts it, and packages/trust/test/close-precondition.test.ts covers both layers
   notes: Backend only, and nothing more is promised - the capability is a refusal carried by the matter close route, not a screen. The "all bills paid" half of the scope is deliberately not registered: an uncollectable receivable's lawful exit is a write-off, and the money the firm owes back is covered instead by matterClientCreditClosePrecondition in packages/billing/src/close-precondition.ts.
 
 - id: financial.billing
   name: Billing and invoicing
   scope: Bill generation combining time/fees, costs, and taxes across the four fee models, with a draft-to-finalize lifecycle.
   status: partial
-  evidence: the invoice spine (draft, claim, finalize, post, number), all four fee models, the corrections after finalization, and the delivery record are on main (packages/billing-core, packages/billing) behind apps/api-worker/src/routes/billing.ts; tax computation, the renderer and LEDES export are not built
+  evidence: the invoice spine (draft, claim, finalize, post, number), all four fee models, the corrections after finalization, and the delivery record are on main (packages/billing-core, packages/billing) behind apps/api-worker/src/routes/billing/billing.ts; tax computation, the renderer and LEDES export are not built
   audience: public
   public-name: Billing and invoices
   public-summary: Raise a bill on any fee arrangement, apply trust money to it, correct it afterwards without editing it, and send it out.
@@ -428,7 +428,7 @@
   status: partial
   surface: awaiting-screen
   slices: 3-4-billing-and-invoicing
-  evidence: packages/billing/src/draft.ts composes an invoice from claimed time and cost work-in-progress over the invoice, invoice_line and invoice_wip_claim tables in packages/database/src/per-firm-schema.ts, each line carrying its kind and tax treatment, behind the draft and line routes in apps/api-worker/src/routes/billing.ts.
+  evidence: packages/billing/src/draft.ts composes an invoice from claimed time and cost work-in-progress over the invoice, invoice_line and invoice_wip_claim tables in packages/database/src/per-firm-schema.ts, each line carrying its kind and tax treatment, behind the draft and line routes in apps/api-worker/src/routes/billing/billing.ts.
   notes: Partial because tax is a declared line kind and a posting role with nothing computing it — a rate table and a jurisdiction resolution have to land before a bill can carry tax it worked out itself. Backend only, no screen.
 
 - id: financial.billing.firm-register
@@ -459,7 +459,7 @@
   status: partial
   surface: awaiting-screen
   slices: 3-4-billing-and-invoicing
-  evidence: the invoice_delivery table and its append-only, finalized-bill and not-before-issue triggers in the 20260817T000000_billing-invoice-delivery per-firm migration, recordInvoiceDelivery in packages/billing/src/delivery.ts, readInvoiceDeliveries / readInvoiceDeliveryState / readInvoiceDeliveryStates in packages/billing/src/statements.ts (the state also rides readInvoiceDetail), and the record and list routes in apps/api-worker/src/routes/billing.ts
+  evidence: the invoice_delivery table and its append-only, finalized-bill and not-before-issue triggers in the 20260817T000000_billing-invoice-delivery per-firm migration, recordInvoiceDelivery in packages/billing/src/delivery.ts, readInvoiceDeliveries / readInvoiceDeliveryState / readInvoiceDeliveryStates in packages/billing/src/statements.ts (the state also rides readInvoiceDetail), and the record and list routes in apps/api-worker/src/routes/billing/billing.ts
   audience: public
   public-name: Recording that a bill went out
   public-summary: Record how and when a client was given a bill — by post, by hand, or by an email you sent yourself — so you can always show whether the bill reached them.
@@ -478,7 +478,7 @@
   status: shipped
   surface: internal
   slices: 3-4-billing-and-invoicing
-  evidence: finalizeInvoice in packages/billing/src/finalize.ts locks every claimed entry into billed through the shared freeze contract, resolves each line's posting role (fee income, client costs advanced for a hard cost, cost-recovery income for a soft one, tax payable, fee adjustments) and writes the receivable ledger entry in the same batch, guarded so an entry that moved underneath the read fails the commit rather than leaving a finalized invoice with an unlocked entry; served by the finalize route in apps/api-worker/src/routes/billing.ts.
+  evidence: finalizeInvoice in packages/billing/src/finalize.ts locks every claimed entry into billed through the shared freeze contract, resolves each line's posting role (fee income, client costs advanced for a hard cost, cost-recovery income for a soft one, tax payable, fee adjustments) and writes the receivable ledger entry in the same batch, guarded so an entry that moved underneath the read fails the commit rather than leaving a finalized invoice with an unlocked entry; served by the finalize route in apps/api-worker/src/routes/billing/billing.ts.
   notes: Backend only, no screen.
 
 - id: financial.billing.ledes
@@ -561,7 +561,7 @@
   status: partial
   slices: 3-3-costs-expenses-disbursements
   spec: docs/specs/2026-09-07-fee-work-in-progress-store-design.md
-  evidence: the fee_entry table and its two indexes in packages/database/src/per-firm-schema.ts; packages/fees (capture, update, the whole chain over @magna-carta/billing-core's assertTransition, and the draft delete); apps/api-worker/src/routes/fees.ts serving both listing shapes; feeEntryToClaimable in packages/billing/src/draft.ts composing the flat_fee line
+  evidence: the fee_entry table and its two indexes in packages/database/src/per-firm-schema.ts; packages/fees (capture, update, the whole chain over @magna-carta/billing-core's assertTransition, and the draft delete); apps/api-worker/src/routes/timekeeping/fees.ts serving both listing shapes; feeEntryToClaimable in packages/billing/src/draft.ts composing the flat_fee line
   audience: public
   public-name: Recorded fees
   public-summary: Record a flat charge for professional services on a matter, and bill it like any other work in progress.
@@ -595,7 +595,7 @@
   status: partial
   surface: screen
   slices: 3-3-costs-expenses-disbursements
-  evidence: the from/to span on GET /api/v1/fees (apps/api-worker/src/routes/fees.ts) over the fee_entry service-date index, and apps/web/src/routes/(app)/fees/+page.svelte on the matter ledger's own column declaration with its Matter column brought forward (firmFeeColumns); the sidebar destination is shipped at stage alpha
+  evidence: the from/to span on GET /api/v1/fees (apps/api-worker/src/routes/timekeeping/fees.ts) over the fee_entry service-date index, and apps/web/src/routes/(app)/fees/+page.svelte on the matter ledger's own column declaration with its Matter column brought forward (firmFeeColumns); the sidebar destination is shipped at stage alpha
   audience: public
   public-name: What the firm charged for its work
   public-summary: See every flat charge the firm made in a month, across all its matters, and how much is still waiting on a bill.
@@ -620,7 +620,7 @@
   surface: screen
   slices: 3-3-costs-expenses-disbursements
   spec: docs/specs/2026-09-07-firm-money-surfaces-design.md
-  evidence: the from/to span on GET /api/v1/costs (apps/api-worker/src/routes/costs.ts) over the new cost_entry incurred-date index, and apps/web/src/routes/(app)/costs/+page.svelte on the matter ledger's own column declaration with its Matter column brought forward
+  evidence: the from/to span on GET /api/v1/costs (apps/api-worker/src/routes/billing/costs.ts) over the new cost_entry incurred-date index, and apps/web/src/routes/(app)/costs/+page.svelte on the matter ledger's own column declaration with its Matter column brought forward
   audience: public
   public-name: What the firm has laid out
   public-summary: See every cost the firm advanced in a month, across all its matters, and how much is still waiting on a bill.

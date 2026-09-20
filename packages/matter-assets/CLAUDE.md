@@ -112,7 +112,7 @@ An asset's third type layer — the firm's own fields — is `custom_field.targe
 scoped per class through the engine's existing `attachment_id` column. **Nothing in this package
 touches it**: no table, no statement, no service, and no import. The engine owns the definition, the
 caps, the value history, the archive-as-absence rule, and the handle-not-name binding, and the
-composition happens one level up in `apps/api-worker/src/routes/matter-assets.ts`, which reads
+composition happens one level up in `apps/api-worker/src/routes/matters/matter-assets.ts`, which reads
 `readCustomFieldValuesForScope` with the asset's class as the attachment. That keeps this package's
 "depends on no other domain package" rule intact and keeps a firm's own field on an asset the same
 object it is on a matter, rather than a second key/value system inside a second register.
@@ -147,7 +147,7 @@ is on the asset, so Custodian never grows a matter-scoped column and never learn
   `@magna-carta/money`. It depends on no other domain package: a Directory entity, a stored file, and
   a custody item all arrive as handles, following the `matter_party` precedent of an id column with
   no cross-domain foreign key.
-- The route layer (`apps/api-worker/src/routes/matter-assets.ts`) hands every service the firm-scoped
+- The route layer (`apps/api-worker/src/routes/matters/matter-assets.ts`) hands every service the firm-scoped
   database, the real clock, a crypto random source, the authenticated actor, and — for the sealed
   identifier alone — the firm key provider. None of those is client input.
 

@@ -4,7 +4,7 @@
 //   vp run worker-dev          # in one terminal — the local app (Miniflare D1/R2/Queues)
 //   pnpm run seed-dev-firm     # in another — provisions firm + owner + matter + files
 //
-// The seed route (apps/api-worker/src/routes/dev-seed.ts) is development-only: it serves ONLY when the
+// The seed route (apps/api-worker/src/routes/developer/dev-seed.ts) is development-only: it serves ONLY when the
 // real R2 S3 credential set is absent, so it is a bare 404 in production. Re-running is idempotent —
 // it resumes the same tenant rather than duplicating it.
 //

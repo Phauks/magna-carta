@@ -221,7 +221,7 @@ produced it forbids.
   `zod` (for the one firm-setting definition). It depends on no other domain package: a file, a file
   version, an email message, and a Directory entity all arrive as handles, following the
   `matter_party` precedent of an id column with no cross-domain foreign key.
-- The route layer (`apps/api-worker/src/routes/discovery.ts`) hands every service the firm-scoped
+- The route layer (`apps/api-worker/src/routes/discovery/discovery.ts`) hands every service the firm-scoped
   database, the real clock, a crypto random source, and the authenticated actor. None of those is
   client input. The firm's document ceiling is read there and passed in, so this package reads no
   configuration of its own.

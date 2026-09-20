@@ -10,11 +10,12 @@
     "deploy": "wrangler deploy",
     "emit-openapi": "node scripts/emit-openapi.mts",
     "emit-r2-cors": "node scripts/emit-r2-cors.mts",
-    "test": "vp test run"
+    "test": "vp test run",
+    "emit-domain-operations": "node scripts/emit-domain-operations.mts"
   },
   "dependencies": {
-    "@cloudflare/puppeteer": "catalog:",
     "@cloudflare/containers": "catalog:",
+    "@cloudflare/puppeteer": "catalog:",
     "@hono/zod-openapi": "catalog:",
     "@magna-carta/access-control": "workspace:*",
     "@magna-carta/ai-detection": "workspace:*",

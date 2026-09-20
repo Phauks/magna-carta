@@ -78,8 +78,8 @@ suffixes, published as three `x-mc-*` headers, and refusing outright while a loc
 key derivation, its "one ladder across every credential" rule, and its refusal-replaces-the-answer
 behaviour are the pattern every method in this design inherits.
 
-**The joining routes.** `routes/registrations.ts` (three doors; only `foundFirm` writes; the
-address-in-use difference goes to the mailbox, never to the caller) and `routes/invitations.ts` (three
+**The joining routes.** `routes/session/registrations.ts` (three doors; only `foundFirm` writes; the
+address-in-use difference goes to the mailbox, never to the caller) and `routes/session/invitations.ts` (three
 facts folded into one stored verifier; one neutral refusal built in one function; the invitation's own
 ladder runs but is never spoken aloud). Both are already correct on enumeration, and both are the
 reference implementations for section 9.
@@ -321,7 +321,7 @@ Everything in the rest of this document is a constraint on that arrow.
 
 The white paper already says the right thing: portal accounts are "a **distinct external principal
 type** (never staff RBAC), linked to the per-firm Directory entity through the firm registry." The
-build did not do that. `routes/invitations.ts` writes the same `INSERT INTO "user"` for both invitation
+build did not do that. `routes/session/invitations.ts` writes the same `INSERT INTO "user"` for both invitation
 kinds, differing only in which row of `invitation` records the kind, and the community board — the first
 surface that needed the distinction — had to reconstruct it with a correlated subquery over invitation
 history.
