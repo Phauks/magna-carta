@@ -208,6 +208,13 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   // resource the rows in the queue do not have. The matter-scoped read still composes the
   // visible-matter predicate; the binding decides which root the chokepoint resolves.
   communications: "firm",
+  // meetings:* governs the room a member opens on a calendar event. It binds the FIRM on the
+  // communications:* reasoning immediately above and for the identical structural reason: a meeting
+  // hangs from an event, and a FIRM event belongs to no matter at all — a staff meeting is real firm
+  // work on no client file — so a matter cannot be the tenancy root of a record that need not have
+  // one. The matter question is still asked: every read composes the visible-matter predicate, which
+  // is what makes a walled matter's event unreachable.
+  meetings: "firm",
   // customFields:* governs firm-defined fields on matter/entity records; its routes carry the
   // matter resource (the nearest tenancy root — custom fields extend matter/entity records).
   customFields: "matter",
@@ -1228,6 +1235,16 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "me.removePhoto",
       "me.setName",
       "me.setPhoto",
+      "meetings.attendance",
+      "meetings.end",
+      "meetings.get",
+      "meetings.getForEvent",
+      "meetings.getForFirmEvent",
+      "meetings.join",
+      "meetings.leave",
+      "meetings.list",
+      "meetings.socket",
+      "meetings.start",
       "members.deactivate",
       "members.invite",
       "members.list",
@@ -1377,6 +1394,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "trust.listReconciliations",
       "trust.listTrustAccounts",
       "trust.matterLedger",
+      "trust.openAccount",
       "trust.openFirmFunds",
       "trust.openReconciliation",
       "trust.openUnclaimedFundsReview",

@@ -152,8 +152,36 @@
     {
       "idx": 21,
       "version": "6",
+      "when": 1789756101207,
+      "tag": "20260919T001019_meetings-hang-from-a-calendar-event",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1789756102000,
+      "tag": "20260919T001020_seed-meetings-permissions",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1789770657617,
+      "tag": "20260919T001021_one-open-stay-per-member",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1789773300000,
+      "tag": "20260919T001022_a-meeting-has-a-medium",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
       "when": 1789772147196,
-      "tag": "20260918T225547_member-photo",
+      "tag": "20260920T182353_member-photo",
       "breakpoints": true
     }
   ]

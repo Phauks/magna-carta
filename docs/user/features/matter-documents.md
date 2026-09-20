@@ -272,6 +272,10 @@ first button on the editor's bar, the arrow with the matter's number beside it (
 "Matter", for a matter that has no number yet). It saves first and then takes you back with the
 document selected; closing the document from the editor's own menu does the same.
 
+The editor's **Help › About** names the editor's own versions and, beneath them, the Magna Carta
+build serving the document, which is what to quote when reporting a problem from inside the
+editor.
+
 ## Saving a new version
 
 In the panel, under **Save a new version**, drop the edited document in and press **Save new

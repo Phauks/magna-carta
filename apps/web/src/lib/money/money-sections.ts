@@ -92,18 +92,20 @@ export function billHref(matterId: string, invoiceId: string): string {
 }
 
 /**
- * The FIRM-wide surface a money section has a sibling on, or null where it has none yet.
+ * The FIRM-wide surface a money section has a sibling on, or null while that surface is unbuilt.
  *
- * Four of the five now exist at both scopes — a matter's Time, Fees, Costs and Billing each have a
+ * All five exist at both scopes — a matter's Time, Fees, Costs, Billing and Trust each have a
  * firm-wide screen answering the question the matter's own section cannot: what the whole firm
- * recorded this week, charged this month, advanced this month, or is owed. The toolbar's way out is
- * what makes that pair discoverable rather than something a member finds by noticing a sidebar row;
- * without it the two scopes are two places that happen to be about the same thing.
+ * recorded this week, charged this month, advanced this month, is owed, or holds for its clients.
+ * The toolbar's way out is what makes that pair discoverable rather than something a member finds
+ * by noticing a sidebar row; without it the two scopes are two places that happen to be about the
+ * same thing.
  *
  * The addresses come from the sidebar's own registry rather than being spelled here, so a section
- * cannot point at a destination the sidebar calls something else or that has moved. Trust's is
- * announced and unbuilt, so it answers null and the toolbar renders nothing rather than a link to a
- * Soon page.
+ * cannot point at a destination the sidebar calls something else or that has moved. A destination
+ * that is announced and not yet shipped answers null on the same registry's word, so the toolbar
+ * renders nothing rather than a link to a Soon page: naming the section here and letting the
+ * shipped flag decide is what stops the two from being two separate answers.
  */
 export function moneySectionFirmDestination(slug: MoneySectionSlug): DestinationId | null {
   const named: Readonly<Record<MoneySectionSlug, DestinationId | null>> = {
@@ -111,7 +113,7 @@ export function moneySectionFirmDestination(slug: MoneySectionSlug): Destination
     fees: "fees",
     costs: "costs",
     billing: "billing",
-    trust: null,
+    trust: "trust",
   };
   const destinationId = named[slug];
   if (destinationId === null) return null;

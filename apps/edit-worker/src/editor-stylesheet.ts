@@ -46,6 +46,9 @@ export const EDITOR_STYLESHEET = `/* Magna Carta: the platform's presence on the
 html[data-theme='dark'] .notebookbar-shortcuts-bar .${HOST_BUTTON_CLASS} img {
   filter: invert(0.9);
 }
+#magna-carta-build {
+  margin-block-start: 1em;
+}
 `;
 
 /** The one element edit: the link, appended to the page's head. */
