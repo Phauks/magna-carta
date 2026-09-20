@@ -16,5 +16,6 @@ buy wizard, and a dedicated postage-account settings page.
 `apps/api-worker/src/plugins/secret-store.ts` no longer exists — it is `credential-store.ts` here.
 
 One change sits outside the area and is unrelated to shipping: `packages/magnus/src/limits.ts`
-carried a literal U+FFFD inside a regex literal, which hangs the linter's parser and silently took
-the whole-repository lint pass down with it. It is escaped here because this stream is what found it.
+carried a literal U+FFFD in a `u`-flagged regex that is used, which hangs the linter indefinitely and
+silently took the whole-repository lint pass down with it. It is escaped here because this stream is
+what found it.
