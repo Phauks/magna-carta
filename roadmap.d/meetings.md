@@ -103,9 +103,10 @@
 
 - id: meetings.waiting-room
   name: Waiting room
-  scope: Arrivals held in a lobby until a host admits them, one by one or all; the door for external guests and late joiners.
+  scope: Arrivals held in a lobby until a host admits them, one by one or all; the door for external guests and late joiners. One lobby per meeting, because a firm holds several meetings at once.
   status: not-started
   evidence: No code; join admits anyone the event admits. Sequenced with external guests, whose door it is.
+  notes: The owner's ruling of 2026-09-20 — meetings run concurrently, so the lobby belongs to the meeting, never to the firm.
 
 - id: meetings.reactions
   name: Raise hand and reactions
@@ -115,10 +116,10 @@
 
 - id: meetings.chat
   name: In-meeting chat
-  scope: Text between participants during a meeting.
+  scope: Text between participants during a meeting, kept on the record as the meeting's first stored content — filed under the event with the attendance.
   status: not-started
   evidence: No code.
-  awaiting-owner: Is in-meeting chat kept on the record, or does it vanish with the room? Today the meeting stores nothing anyone said, and a kept chat is the first content a meeting would hold.
+  notes: The owner's ruling of 2026-09-20 — chat is kept on the record. The meeting therefore stores content for the first time, which means the chat rows carry the same redaction, retention and PII treatment as a filed email, and the audit row still carries identifiers only.
 
 - id: meetings.breakout-rooms
   name: Breakout rooms

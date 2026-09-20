@@ -371,3 +371,9 @@ archival and data-loss-prevention APIs, and information barriers. Each gap is a 
 (built), attendance on the record (built), phone (the communications layer's own port), single
 sign-on and managed domains (the platform's auth), and information barriers (the conflicts
 subsystem's walls, which every meeting already honours through the event).
+
+Two rulings taken on 2026-09-20 after the measurement: **in-meeting chat is kept on the record**,
+so a chat is the meeting's first stored content and carries a filed email's redaction, retention
+and personal-data treatment; and **a firm runs several meetings at once** — one meeting per event
+already allows it, and it means every per-meeting surface that follows (the waiting room first) is
+one per meeting, never one per firm.
