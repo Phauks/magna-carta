@@ -12,9 +12,11 @@ import { describe, expect, it } from "vitest";
 import { formatDate, formatDateRange, formatMonth } from "../src/lib/formatters/civil-date.ts";
 import { formatClock, formatDuration } from "../src/lib/formatters/duration.ts";
 import {
+  describeTimeZone,
   formatInstant,
   formatInstantDate,
   formatTimeOfDay,
+  formatTimeZone,
   instantAttribute,
   readInstant,
 } from "../src/lib/formatters/instant.ts";
@@ -362,5 +364,49 @@ describe("readsAsFieldName", () => {
   it("rejects nothing at all", () => {
     expect(readsAsFieldName("")).toBe(false);
     expect(readsAsFieldName("   ")).toBe(false);
+  });
+});
+
+describe("a zone, described", () => {
+  const JANUARY = new Date("2026-01-15T12:00:00Z");
+  const JULY = new Date("2026-07-15T12:00:00Z");
+
+  it("reads as one line of the same shape for every zone: offset, name, place", () => {
+    expect(formatTimeZone("America/Los_Angeles", JANUARY)).toBe(
+      "(UTC-08:00) Pacific Standard Time · Los Angeles",
+    );
+    expect(formatTimeZone("Asia/Kolkata", JANUARY)).toBe(
+      "(UTC+05:30) India Standard Time · Kolkata",
+    );
+    expect(formatTimeZone("Europe/London", JANUARY)).toBe(
+      "(UTC+00:00) Greenwich Mean Time · London",
+    );
+  });
+
+  it("states the offset and the name on the day, so the clocks changing changes both", () => {
+    const winter = describeTimeZone("America/Los_Angeles", JANUARY);
+    const summer = describeTimeZone("America/Los_Angeles", JULY);
+    expect(winter.offset).toBe("UTC-08:00");
+    expect(winter.abbreviation).toBe("PST");
+    expect(summer.offset).toBe("UTC-07:00");
+    expect(summer.abbreviation).toBe("PDT");
+    expect(summer.name).toBe("Pacific Daylight Time");
+    expect(winter.genericName).toBe("Pacific Time");
+    expect(winter.offsetMinutes).toBe(-8 * 60);
+  });
+
+  it("gives a zone with no letters of its own the offset as its short form", () => {
+    const kolkata = describeTimeZone("Asia/Kolkata", JANUARY);
+    expect(kolkata.abbreviation).toBe("UTC+05:30");
+    expect(kolkata.offsetMinutes).toBe(5 * 60 + 30);
+    expect(kolkata.place).toBe("Kolkata");
+  });
+
+  it("names the city with the identifier's spaces put back", () => {
+    expect(describeTimeZone("America/Argentina/Buenos_Aires", JANUARY).place).toBe("Buenos Aires");
+  });
+
+  it("shows a zone this runtime cannot resolve as what it is, rather than as nothing", () => {
+    expect(formatTimeZone("Mars/Olympus_Mons", JANUARY)).toBe("Mars/Olympus_Mons");
   });
 });

@@ -107,8 +107,13 @@
   }
 
   function when(booking: EventBooking): string {
-    const starts = formatWallClock(booking.startsAtTime, booking.timeZone, readerTimeZone);
-    const ends = formatWallClock(booking.endsAtTime, booking.timeZone, readerTimeZone);
+    const starts = formatWallClock(
+      booking.startsAtTime,
+      booking.timeZone,
+      readerTimeZone,
+      booking.startsOn,
+    );
+    const ends = formatWallClock(booking.endsAtTime, booking.timeZone, readerTimeZone, booking.startsOn);
     return `${booking.startsOn}${starts === null ? "" : ` ${starts}`}${ends === null ? "" : ` to ${ends}`}`;
   }
 

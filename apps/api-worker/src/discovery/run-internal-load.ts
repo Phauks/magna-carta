@@ -17,7 +17,10 @@ import {
   resolveEmailSelection,
   resolveFileSelection,
 } from "@magna-carta/discovery/internal-lane";
-import { transitionDiscoveryLoadStatement } from "@magna-carta/discovery/load-statements";
+import {
+  readDiscoveryLoad,
+  transitionDiscoveryLoadStatement,
+} from "@magna-carta/discovery/load-statements";
 import type { ReviewDocumentAllocation } from "@magna-carta/discovery/review-document-statements";
 import type {
   DiscoveryLoadId,
@@ -102,25 +105,39 @@ export async function runInternalLoadTurn(options: {
     await coordinator.markAllocated(allocatedCount);
     // The load moves on to processing only once every row it will ever hold is committed. A load
     // that advanced mid-fan-out would report a count nobody could reconcile against.
-    await commitEffectBatch(
-      database,
-      {
-        statements: [
-          guarded(
-            transitionDiscoveryLoadStatement(
-              database,
-              context.discoveryLoadId,
-              "loading",
-              "processing",
-              now,
+    //
+    // THE TRANSITION IS ASKED FOR ONLY WHILE THERE IS ONE TO MAKE, which is what lets a re-run of
+    // the same selection converge instead of being refused. A retried run re-derives the same plan,
+    // finds the cursor already at its end, writes no rows — and used to arrive here anyway and
+    // attempt `loading -> processing` a second time. The guard is doing its job when it refuses
+    // that, because the load is already `processing`; the fault is asking. The refusal surfaced as
+    // a 409 on the one path the whole cursor design exists to make safe to repeat.
+    //
+    // The read is on the completion path only, and only where the alternative is a wrong answer.
+    // The guard stays on the statement: a load that is neither `loading` nor already past it has
+    // had something happen to it that this turn must not paper over.
+    const load = await readDiscoveryLoad(database, context.discoveryLoadId);
+    if (load?.state === "loading") {
+      await commitEffectBatch(
+        database,
+        {
+          statements: [
+            guarded(
+              transitionDiscoveryLoadStatement(
+                database,
+                context.discoveryLoadId,
+                "loading",
+                "processing",
+                now,
+              ),
+              "discovery-load.transition",
             ),
-            "discovery-load.transition",
-          ),
-        ],
-        outboxMessages: [],
-      },
-      { now: options.now },
-    );
+          ],
+          outboxMessages: [],
+        },
+        { now: options.now },
+      );
+    }
   }
   return { plannedCount: allocations.length, allocatedCount, cursor, complete };
 }

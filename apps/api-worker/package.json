@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@cloudflare/containers": "catalog:",
+    "@cloudflare/puppeteer": "catalog:",
     "@hono/zod-openapi": "catalog:",
     "@magna-carta/access-control": "workspace:*",
     "@magna-carta/ai-detection": "workspace:*",

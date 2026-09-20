@@ -1,27 +1,43 @@
 /*
- * The numbering surface, as this app calls it: the firm's active scheme for each of its two
- * sequences, replacing one, previewing a candidate against a sample matter, and setting one
- * matter's number by hand. Shapes are spelled here rather than imported from the generated client,
- * the same way every other module in this directory keeps its own reading of the contract.
+ * The numbering surface, as this app calls it: every number the firm issues from the one register,
+ * the firm's active scheme for one purpose, replacing one, previewing a candidate against the
+ * sample record, and setting one matter's number by hand. Shapes are spelled here rather than
+ * imported from the generated client, the same way every other module in this directory keeps its
+ * own reading of the contract.
  */
 import { requestJson, type ApiOutcome } from "$lib/api/request.ts";
 import type {
-  NumberingPurpose,
+  NumberingPurposeRecord,
   NumberingSampleContext,
   NumberSegment,
+  SchemeNumberingPurpose,
 } from "./numbering-scheme.ts";
+
+export interface NumberingSchemesListing {
+  /** Every purpose, in the order the screen lists them. */
+  purposes: NumberingPurposeRecord[];
+  /** The sample every example was rendered against; the editor previews against the same one. */
+  sample: NumberingSampleContext;
+}
+
+/** Every number the firm issues, with what is in force for each. */
+export function readNumberingSchemes(
+  fetchImpl: typeof fetch,
+): Promise<ApiOutcome<NumberingSchemesListing>> {
+  return requestJson(fetchImpl, "/api/v1/numbering-schemes");
+}
 
 export interface NumberingSchemeRecord {
   /** The active template, or null where the firm has configured nothing and no default applies. */
   segments: NumberSegment[] | null;
-  purpose: NumberingPurpose;
-  /** True where the segments are the built-in consultation sequence rendering until the firm sets its own. */
+  purpose: SchemeNumberingPurpose;
+  /** True where the segments are the built-in sequence rendering until the firm sets its own. */
   usingDefault: boolean;
 }
 
 export function readNumberingScheme(
   fetchImpl: typeof fetch,
-  purpose: NumberingPurpose,
+  purpose: SchemeNumberingPurpose,
 ): Promise<ApiOutcome<NumberingSchemeRecord>> {
   return requestJson(fetchImpl, `/api/v1/numbering-scheme?purpose=${purpose}`);
 }
@@ -32,10 +48,10 @@ export function readNumberingScheme(
  */
 export function setNumberingScheme(
   fetchImpl: typeof fetch,
-  purpose: NumberingPurpose,
+  purpose: SchemeNumberingPurpose,
   segments: readonly NumberSegment[],
   idempotencyKey: string,
-): Promise<ApiOutcome<{ segments: NumberSegment[]; purpose?: NumberingPurpose }>> {
+): Promise<ApiOutcome<{ segments: NumberSegment[]; purpose?: SchemeNumberingPurpose }>> {
   return requestJson(fetchImpl, "/api/v1/numbering-scheme", {
     method: "PUT",
     idempotencyKey,
@@ -49,16 +65,20 @@ export interface NumberingPreview {
   scopeKey: string;
 }
 
-/** Render a candidate against the sample matter. Pure on the server: nothing is drawn or written. */
+/**
+ * Render a candidate against the sample record. Pure on the server: nothing is drawn or written.
+ * Named for its purpose so a part the sequence cannot use is refused here, beside the list.
+ */
 export function previewNumberingScheme(
   fetchImpl: typeof fetch,
+  purpose: SchemeNumberingPurpose,
   segments: readonly NumberSegment[],
   context: NumberingSampleContext,
   counterValue = 1,
 ): Promise<ApiOutcome<NumberingPreview>> {
   return requestJson(fetchImpl, "/api/v1/numbering-scheme/preview", {
     method: "POST",
-    body: { segments, counterValue, context },
+    body: { segments, purpose, counterValue, context },
   });
 }
 

@@ -7,7 +7,6 @@ import {
   matterNumberAllocation,
   matterNumberCounter,
   matterType,
-  numberingScheme,
 } from "@magna-carta/database/per-firm-schema";
 import { describe, expect, it } from "vitest";
 import {
@@ -22,13 +21,11 @@ import {
 import { listConsultationsStatement, listMattersStatement } from "../src/queries.ts";
 import {
   MATTER_TABLE,
-  NUMBERING_SCHEME_TABLE,
   closeMatterStatement,
   insertMatterStatement,
   openMatterStatement,
   renumberMatterStatement,
   reopenMatterStatement,
-  selectActiveSchemeStatement,
   selectMatterStatement,
   updateMatterFieldsStatement,
 } from "../src/matter-statements.ts";
@@ -83,7 +80,6 @@ const FIELDS = {
 describe("schema name sync (matters SQL pinned to @magna-carta/database)", () => {
   it("table name constants match the drizzle schema", () => {
     expect(getTableConfig(matter).name).toBe(MATTER_TABLE);
-    expect(getTableConfig(numberingScheme).name).toBe(NUMBERING_SCHEME_TABLE);
     expect(getTableConfig(matterNumberCounter).name).toBe(MATTER_NUMBER_COUNTER_TABLE);
     expect(getTableConfig(matterNumberAllocation).name).toBe(MATTER_NUMBER_ALLOCATION_TABLE);
   });
@@ -114,14 +110,8 @@ describe("schema name sync (matters SQL pinned to @magna-carta/database)", () =>
     expectOnlyKnownIdentifiers(sql, new Set([MATTER_TABLE, ...columnsOf(matter)]), "matter");
   });
 
-  it("every column the scheme + counter SQL names exists in the schema", () => {
+  it("every column the counter SQL names exists in the schema", () => {
     const stub = stubDatabase();
-    const schemeSql = sqlOf(selectActiveSchemeStatement(stub, "matter"));
-    expectOnlyKnownIdentifiers(
-      schemeSql,
-      new Set([NUMBERING_SCHEME_TABLE, ...columnsOf(numberingScheme)]),
-      "scheme",
-    );
     const counterStatements = [
       sqlOf(ensureCounterRowStatement(stub, "k", 1)),
       sqlOf(guardedIncrementStatement(stub, "k", 1)),

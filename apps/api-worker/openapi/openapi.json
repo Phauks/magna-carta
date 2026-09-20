@@ -1506,6 +1506,69 @@
           "links"
         ]
       },
+      "SafeBrowseSessionProbe": {
+        "type": "object",
+        "properties": {
+          "supported": {
+            "type": "boolean"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "ok": {
+                  "type": "boolean"
+                },
+                "detail": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "ok"
+              ]
+            }
+          },
+          "sessionsBefore": {
+            "type": "number"
+          },
+          "maxConcurrentSessions": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "allowedBrowserAcquisitions": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "sessionReused": {
+            "type": "boolean"
+          },
+          "cdpAttached": {
+            "type": "boolean"
+          },
+          "elapsedMilliseconds": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "supported",
+          "steps",
+          "sessionsBefore",
+          "maxConcurrentSessions",
+          "allowedBrowserAcquisitions",
+          "sessionReused",
+          "cdpAttached",
+          "elapsedMilliseconds"
+        ]
+      },
       "DecryptionInspectResponse": {
         "type": "object",
         "properties": {
@@ -6873,9 +6936,82 @@
           "assignments"
         ]
       },
-      "NumberingSchemeResponse": {
+      "NumberingSchemesResponse": {
         "type": "object",
         "properties": {
+          "purposes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NumberingListedPurpose"
+            }
+          },
+          "sample": {
+            "$ref": "#/components/schemas/NumberingSampleContext"
+          }
+        },
+        "required": [
+          "purposes",
+          "sample"
+        ]
+      },
+      "NumberingListedPurpose": {
+        "type": "object",
+        "properties": {
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "matter",
+              "consultation",
+              "intake",
+              "conflicts_check",
+              "custody_packet",
+              "invoice",
+              "time_entry",
+              "communication"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "subjects": {
+            "type": "string"
+          },
+          "drawnWhen": {
+            "type": "string"
+          },
+          "formulation": {
+            "type": "string",
+            "enum": [
+              "scheme",
+              "fixed"
+            ]
+          },
+          "segmentKinds": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "literal",
+                "counter",
+                "year",
+                "date_opened",
+                "location_code",
+                "matter_type_code",
+                "client_code",
+                "staff_initials",
+                "client_name"
+              ]
+            }
+          },
           "segments": {
             "type": [
               "array",
@@ -6885,21 +7021,38 @@
               "$ref": "#/components/schemas/NumberSegment"
             }
           },
-          "purpose": {
-            "type": "string",
-            "enum": [
-              "matter",
-              "consultation"
+          "usingDefault": {
+            "type": [
+              "boolean",
+              "null"
             ]
           },
-          "usingDefault": {
-            "type": "boolean"
+          "fixedShape": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "example": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
-          "segments",
           "purpose",
-          "usingDefault"
+          "title",
+          "label",
+          "subject",
+          "subjects",
+          "drawnWhen",
+          "formulation",
+          "segmentKinds",
+          "segments",
+          "usingDefault",
+          "fixedShape",
+          "example"
         ]
       },
       "NumberSegment": {
@@ -7084,6 +7237,70 @@
           }
         ]
       },
+      "NumberingSampleContext": {
+        "type": "object",
+        "properties": {
+          "openedDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "locationCode": {
+            "type": "string"
+          },
+          "matterTypeCode": {
+            "type": "string"
+          },
+          "clientCode": {
+            "type": "string"
+          },
+          "staffInitials": {
+            "type": "string"
+          },
+          "clientName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "openedDate",
+          "locationCode",
+          "matterTypeCode",
+          "clientCode",
+          "staffInitials",
+          "clientName"
+        ]
+      },
+      "NumberingSchemeResponse": {
+        "type": "object",
+        "properties": {
+          "segments": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/NumberSegment"
+            }
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "matter",
+              "consultation",
+              "intake",
+              "conflicts_check",
+              "custody_packet"
+            ]
+          },
+          "usingDefault": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "segments",
+          "purpose",
+          "usingDefault"
+        ]
+      },
       "NumberingScheme": {
         "type": "object",
         "properties": {
@@ -7098,7 +7315,9 @@
             "enum": [
               "matter",
               "consultation",
-              "intake"
+              "intake",
+              "conflicts_check",
+              "custody_packet"
             ],
             "default": "matter"
           }
@@ -7130,6 +7349,17 @@
             "items": {
               "$ref": "#/components/schemas/NumberSegment"
             }
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "matter",
+              "consultation",
+              "intake",
+              "conflicts_check",
+              "custody_packet"
+            ],
+            "default": "matter"
           },
           "counterValue": {
             "type": "integer",
@@ -8156,6 +8386,9 @@
               "edit",
               "view"
             ]
+          },
+          "recordsChanges": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -8163,7 +8396,8 @@
           "editorOrigin",
           "accessToken",
           "accessTokenTtl",
-          "capability"
+          "capability",
+          "recordsChanges"
         ]
       },
       "EditOpenProgressResponse": {
@@ -8770,6 +9004,25 @@
             ]
           },
           "stepUpReauthOnFlagged": {
+            "type": "boolean"
+          }
+        }
+      },
+      "EditingPolicyResponse": {
+        "type": "object",
+        "properties": {
+          "recordChanges": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "recordChanges"
+        ]
+      },
+      "PatchEditingPolicyRequest": {
+        "type": "object",
+        "properties": {
+          "recordChanges": {
             "type": "boolean"
           }
         }
@@ -37302,6 +37555,70 @@
         }
       }
     },
+    "/api/v1/safe-browse/session-probe": {
+      "post": {
+        "description": "Diagnostic: acquire a browser session against a fixed inert address, disconnect, reconnect to the same session, navigate again, and attach a CDP session — reporting each step. Answers whether this deployment can support interactive remote browsing. Navigates only to a constant held in the route; it accepts no target and is not a browsing endpoint.",
+        "operationId": "safeBrowse.sessionProbe",
+        "tags": [
+          "safeBrowse"
+        ],
+        "x-mc-operationId": "safeBrowse.sessionProbe",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:safeBrowse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "safeBrowse"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The probe ran; the report says how far it got",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SafeBrowseSessionProbe"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks tools:safeBrowse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/decryption/inspect": {
       "post": {
         "description": "Detect the encrypted format of an uploaded file (base64) and extract a hashcat-compatible recovery hash for offline password recovery. Requires explicit attestation that the requester holds the file legitimately. Nothing is stored; only a redacted audit record is written.",
@@ -50915,9 +51232,83 @@
         }
       }
     },
+    "/api/v1/numbering-schemes": {
+      "get": {
+        "description": "Lists every number the firm issues, from the one numbering register: matter, consultation, intake, conflicts check and custody numbers, whose shape the firm writes as a scheme, and invoice, time entry and call numbers, whose shape is fixed. Each scheme-shaped purpose carries the parts it may use, what is in force (the firm's scheme or the built-in default), and an example rendered against the sample record returned beside the list.",
+        "operationId": "numbering.list",
+        "tags": [
+          "numbering"
+        ],
+        "x-mc-operationId": "numbering.list",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "matters:viewNumbering",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "numbering"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "Every purpose on the register, and the sample the examples render against",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NumberingSchemesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks matters:viewNumbering",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/numbering-scheme": {
       "get": {
-        "description": "Returns the firm's active numbering scheme for one purpose (the ordered segment template): 'matter' for matter numbers, 'consultation' for the tentative numbers consultations carry, 'intake' for the numbers enquiries wear from the moment they are written down. Returns null segments when none is configured and no default applies; usingDefault marks a built-in sequence that renders until the firm sets its own.",
+        "description": "Returns the firm's active numbering scheme for one purpose (the ordered segment template): 'matter' for matter numbers, 'consultation' for the tentative numbers consultations carry, 'intake' for the numbers enquiries wear from the moment they are written down, 'conflicts_check' for conflicts check numbers, 'custody_packet' for custody numbers. Returns null segments when none is configured and no default applies; usingDefault marks a built-in sequence that renders until the firm sets its own.",
         "operationId": "numbering.get",
         "tags": [
           "numbering"
@@ -50925,7 +51316,7 @@
         "x-mc-operationId": "numbering.get",
         "x-mc-surface": "app",
         "x-mc-authenticated": true,
-        "x-mc-permission": "matters:manageNumbering",
+        "x-mc-permission": "matters:viewNumbering",
         "x-mc-resource": "matter",
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
@@ -50942,7 +51333,9 @@
               "enum": [
                 "matter",
                 "consultation",
-                "intake"
+                "intake",
+                "conflicts_check",
+                "custody_packet"
               ],
               "default": "matter"
             },
@@ -50973,7 +51366,7 @@
             }
           },
           "403": {
-            "description": "The session member lacks matters:manageNumbering",
+            "description": "The session member lacks matters:viewNumbering",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -51005,7 +51398,7 @@
         }
       },
       "put": {
-        "description": "Replaces the firm's active numbering scheme for one purpose (matter numbers, or the consultation sequence). The prior scheme of that purpose is retained but deactivated (numbers already drawn are frozen — a scheme change affects only later matters). Rejects a scheme without exactly one counter segment.",
+        "description": "Replaces the firm's active numbering scheme for one purpose. The prior scheme of that purpose is retained but deactivated (numbers already drawn are frozen — a scheme change affects only records numbered after it). Rejects a scheme without exactly one counter segment, or one using a part the purpose cannot render (a conflicts check has no client code).",
         "operationId": "numbering.set",
         "tags": [
           "numbering"
@@ -51106,7 +51499,7 @@
             }
           },
           "422": {
-            "description": "The scheme is invalid (not exactly one counter), or the Idempotency-Key was reused",
+            "description": "The scheme is invalid (not exactly one counter, or a part this purpose cannot use), or the Idempotency-Key was reused",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -51130,7 +51523,7 @@
     },
     "/api/v1/numbering-scheme/preview": {
       "post": {
-        "description": "Renders a candidate numbering scheme against a sample context and counter value, returning the example number and its derived counter scope key. Pure: it writes nothing and never touches a counter.",
+        "description": "Renders a candidate numbering scheme against a sample context and counter value, returning the example number and its derived counter scope key. Pure: it writes nothing and never touches a counter. Refuses a part the named purpose cannot use.",
         "operationId": "numbering.preview",
         "tags": [
           "numbering"
@@ -54278,6 +54671,203 @@
           },
           "404": {
             "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/firm/editing-policy": {
+      "get": {
+        "description": "The firm's editing policy: whether every document opened in the browser editor records its changes.",
+        "operationId": "editingPolicy.get",
+        "tags": [
+          "editingPolicy"
+        ],
+        "x-mc-operationId": "editingPolicy.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageEditingPolicy",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "editingPolicy"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's editing policy, resolved with its defaults",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditingPolicyResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:manageEditingPolicy",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "description": "Updates the firm's editing policy. Only the supplied fields change; the change is audited.",
+        "operationId": "editingPolicy.update",
+        "tags": [
+          "editingPolicy"
+        ],
+        "x-mc-operationId": "editingPolicy.update",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageEditingPolicy",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "editingPolicy"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchEditingPolicyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The firm's editing policy after the change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditingPolicyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing on a write",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:manageEditingPolicy",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is invalid, or the Idempotency-Key was reused with a different body",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -107682,6 +108272,9 @@
     },
     {
       "name": "downloads"
+    },
+    {
+      "name": "editingPolicy"
     },
     {
       "name": "emailInspector"

@@ -227,14 +227,13 @@
           <div class="flex flex-col">
             {#each chosen as target (target.matterId)}
               {@const standing = standings[target.matterId]}
-              <!-- The track sizes ride an inline grid-template rather than an arbitrary Tailwind
-                   value: golden rule 2 admits no off-token utility, and a declared template is the
-                   house form for a two-track row (the Directory's section grids take it too). -->
+              <!-- The label takes the width and the reporting column takes what it needs; a
+                   full-width line beneath wraps under both. Flex rather than a grid with an
+                   arbitrary track, which the off-token scan refuses. -->
               <div
-                class="grid items-start gap-x-12 gap-y-4 border-b border-border-subtle py-8"
-                style="grid-template-columns: minmax(0, 1fr) auto"
+                class="flex flex-wrap items-start gap-x-12 gap-y-4 border-b border-border-subtle py-8"
               >
-                <span class="text-sm tabular-nums">{target.label}</span>
+                <span class="min-w-0 flex-1 text-sm tabular-nums">{target.label}</span>
                 {#if standing === undefined}
                   {#if !busy && !done}
                     <Button
@@ -251,20 +250,20 @@
                   {/if}
                 {:else}
                   <span
-                    class="text-sm text-text-muted"
+                    class="shrink-0 text-sm text-text-muted"
                     role="status"
                     aria-live={isSettled(standing) ? "off" : "polite"}
                   >
                     {standingLine(standing)}
                   </span>
                   {#each blankLines(standing) as line (line)}
-                    <span class="col-span-2 text-xs text-text-muted">{line}</span>
+                    <span class="basis-full text-xs text-text-muted">{line}</span>
                   {/each}
                   {#if done}
                     {@const openHref = documentHref(standing)}
                     {@const filesHref = matterFilesHref(target, standing)}
                     {#if openHref !== null || filesHref !== null}
-                      <span class="col-span-2 flex flex-wrap gap-12 text-sm">
+                      <span class="flex basis-full flex-wrap gap-12 text-sm">
                         {#if openHref !== null}
                           <a class="underline underline-offset-2" href={openHref}>Open the document</a>
                         {/if}

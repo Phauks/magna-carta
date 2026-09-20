@@ -39,9 +39,12 @@ and a firm event. The backend it consumes is `packages/calendar` behind
 - `calendar-rail.svelte` — the rail those two render as: a checkbox per calendar, a three-state
   checkbox per folder, and the palette behind the colour pip. It is the CONTENT of the design
   system's navigation column and draws no column of its own
-- `location-picker.svelte` — WHERE a setting is held, as the product's dropdown-with-add over the
-  firm's own offices and their rooms, grouped by office, keeping a courthouse nobody has a record of;
-  `room-location.ts` — which room a written location names, and the name to write for one
+- `location-picker.svelte` — WHERE a setting is held, as the product's dropdown-with-add over four
+  kinds of place: the firm's offices with their street addresses, their rooms grouped by office,
+  the directory's organizations (a court, opposing counsel's firm) through the one directory search,
+  and anything typed — an address, a place nobody has a record of — kept as it was typed;
+  `room-location.ts` — which room a written location names, the name to write for one, and
+  `OfficePlace`, the office shape the field offers
 - `participant-role-field.svelte` — WHAT somebody is at a setting, as the same dropdown-with-add
   over `PARTICIPANT_ROLE_OPTIONS`, keeping a role the list has never heard of; the vocabulary and
   the collapse onto an offered spelling are `calendar-vocabulary.ts`'s
@@ -49,7 +52,10 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   in `@magna-carta/civil-time/recurrence`; `recurrence-sentence.ts` — what that rule says in
   English, which is the one home for those words
 - `day-schedule.svelte` — the day being booked, in a record form's context pane. `CalendarView` with
-  a day view and no toolbar; never a second calendar
+  a day view, no toolbar and the Calendars menu; never a second calendar
+- `calendar-menu.svelte` — the rail's folders and rows as a dropdown of checkboxes, for a calendar
+  with no room for a rail that still has to answer "who is busy". It reads and writes the SAME
+  selection the rail does through the same controller
 - `calendar-entries.ts` — the projection to `CalendarGridEntry`, and the day order
 - `calendar-reads.ts` — the read plan per scope: which reads, walked to the end or the ceiling,
   failing independently; how each read's failure is titled and described
@@ -77,13 +83,15 @@ and a firm event. The backend it consumes is `packages/calendar` behind
     Relate dialog and its failures
   - `entry-rooms-tab.svelte` — the Rooms tab, owning its bookings read, its Book a Room dialog and
     its failures
-- `record-event-dialog.svelte` (the ONE event form, matter or firm), `record-deadline-dialog.svelte`,
-  `participant-picker.svelte`, `record-timing-fields.svelte`, `event-type-select.svelte`,
-  `recurrence-field.svelte`,
+- `record-event-dialog.svelte` (the ONE event form — a matter's, the firm's or one staff member's —
+  in four tabs), `record-deadline-dialog.svelte`, `participant-picker.svelte`,
+  `record-timing-fields.svelte`, `event-type-select.svelte`, `recurrence-field.svelte`,
   `time-zone-picker.svelte` — the `ActionDialog` forms and the field groups they share with the
-  entry window, over the pure draft models `event-draft.ts`, `deadline-draft.ts`,
+  entry window, over the pure draft models `event-draft.ts` (which also holds the form's tabs, the
+  owner vocabulary, the all-day reading and the participant bundles), `deadline-draft.ts`,
   `firm-event-draft.ts`, `continue-draft.ts`, `draft-text.ts` (the readings of typed text every
-  draft shares) and `time-zone-options.ts`
+  draft shares) and `time-zone-options.ts` (the zone list in the display vocabulary's ONE line, and
+  the search over it)
 
 ## Local conventions
 
@@ -203,14 +211,68 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   a reader had to know before opening anything whether the thing they were recording was firm
   business, and had to close one panel and open the other on finding out they had guessed wrong.
   They asked nearly the same questions in nearly the same order and drifted anyway (owner: "firm
-  events and events should be the exact same"). **Two choices and no third** (owner ruling): Matter
-  writes a `matter_event`, Firm writes a `firm_event`, and there is no None because there is no
-  third table for one to land in — a personal appointment is a firm event with only the one person
-  on it, which is what the `participants` audience already means. What the choice reveals is only
-  what genuinely differs: Matter reveals the matter picker beside it; Firm reveals the audience and
-  the office (a real foreign key there, because it is what says which rooms are nearby) and hides
-  the court reference, which a firm meeting has no court for. The Record menu offers two kinds, not
-  three: a third item would be a second way to open one panel.
+  events and events should be the exact same"). **Three owners over two records** (owner,
+  2026-09-18, widening the 2026-09-16 ruling of two choices): A matter writes a `matter_event`; the
+  firm and a staff member both write a `firm_event`, because a person's own appointment is a firm
+  event with only that person on it — the `participants` audience already means exactly that — and
+  a third table for one would put two records on the calendar that nothing could tell apart. The
+  staff arm is `withMemberListed`: the people-listed audience with that member first, whether or
+  not the reader also picked them. The control is the product's one field for a closed choice
+  (`ChoicePicker`, a combobox, never a select), and the SECOND FIELD ON ITS LINE IS ONE SLOT for
+  the rest of the answer — which matter, which member, or who sees a firm event — so switching
+  between them moves nothing beneath (owner: "changing between firm and matter causes reflow").
+  What differs by owner sits on the tab the answer belongs to and in the same slot as its
+  counterpart: the court reference on Where for a matter, the office (a real foreign key, because
+  it is what says which rooms are nearby) on Where for the firm. The Record menu offers two kinds,
+  not three: a third item would be a second way to open one panel.
+- **THE FORM'S LEFT SIDE IS FOUR TABS — Details, When, Where, Who — and the tabs are the draft's.**
+  One column of every question scrolled beside the day being booked (owner, 2026-09-18: "reorganize
+  the left side into tabs, which allows for having individual locations for all the various items").
+  `EVENT_FORM_TABS` and `eventFormTabOf` in `event-draft.ts` say which tab an answer is on, so the
+  arrangement is asserted without a browser and the dialog renders it. The description's grab corner
+  is off (`resizable={false}`): dragging it only pushed the tabs and the footer around.
+- **ALL DAY IS A SWITCH, AND THE RECORD STILL STORES AN EMPTY TIME FOR IT.** A date with no time has
+  always meant all day; what was missing was the way to say so, and a person recording a three-day
+  trial typed hours into both ends because the form offered nothing else (owner, 2026-09-18).
+  `readsAsAllDay` and `asAllDay` are the draft's reading; `record-timing-fields.svelte` reads it
+  once when it mounts — not as a derived, because a blank form whose date has just been chosen has
+  no hours yet either, and a switch that flipped itself on then would disable the time field the
+  reader was reaching for — and choosing it clears the times and holds the time fields disabled in
+  place rather than removing them.
+- **A RUN OF DAYS IS DRAWN IN THE BAND ABOVE THE HOURS, NEVER ON THE AXIS.** The grid's own rule
+  (`inAllDayBand` in the design system's `day-axis.ts`): a three-day trial spans the band the way it
+  spans the month, with its hours on the chip as text. It used to be cut into a piece per day and
+  laid on the axis, which drew it as three full columns reaching above and below the working hours
+  (owner, 2026-09-18) — and, because each piece carried a day-suffixed id, a press on one found no
+  record and could not open it. The pieces are gone, so the id a chip carries is the record's own
+  again and `recordKeyOf` strips only the lane.
+- **A ZONE READS AS ONE LINE EVERYWHERE, AND AN HOUR CARRIES ITS CODE.** The list read "PST ·
+  America / Los Angeles" beside "GMT+5:30 · Asia / Kolkata", the field at rest and the print sheet
+  said "America / Los Angeles", and a chip said "(America/Los_Angeles)" (owner, 2026-09-18: "time
+  zone formattings seem all different and unstandardized. you don't even have PST"). `formatTimeZone`
+  in the design system's display vocabulary is the one line — "(UTC-08:00) Pacific Standard Time ·
+  Los Angeles", the offset from UTC, the name on the day, the city — and `describeTimeZone` is the
+  four faces behind it; `timeZoneLabel` here is that line, and `timeZoneOptions` orders the rest
+  west to east with a haystack the search matches by code, name, place, offset or identifier, so
+  "PST" finds Los Angeles. `formatWallClock` prints the CODE on the record's day ("5:00 PM PST")
+  where the zone is not the reader's, never the identifier. The field is named **Time zone** in
+  full; "Zone" alone read as a question about a place.
+- **A RE-PICK OF THE CHOSEN ROW IS A CONFIRMATION, NEVER A DESELECT.** The combobox primitive's
+  default clears the value when the selected item is picked again and leaves the list open, so the
+  next click outside settled an empty field (owner, 2026-09-18: "if I select an item and try to
+  click outside the dropdown, it reverts to an empty field"). Every picker here that clears itself
+  through a row of its own — the matter, member, zone, location and participant pickers — passes
+  `allowDeselect={false}`; `$lib/components/choice-picker.svelte` already did.
+- **THE CHIPS ARE BUNDLED BY SOURCE, in the picker's own words: Staff, Directory, Other.** One list
+  of names said nothing about which were colleagues, which the firm's records and which typed once
+  (owner, 2026-09-18). `participantsBySource` in `event-draft.ts` is the grouping; an empty bundle
+  is not drawn.
+- **THE DAY BEING BOOKED CARRIES THE CALENDARS MENU, and it is the rail's selection.** Availability
+  is a question about particular calendars, and the pane painted whatever the reader last had on
+  with no way to change it without closing the form (owner, 2026-09-18). `calendar-menu.svelte`
+  is the rail's folders and rows as a dropdown, reading and writing the same per-browser selection
+  through the same controller, so the pane and the screen never disagree; `CalendarView` draws it
+  on `calendarMenu` where there is no toolbar and the scope is the firm's side.
 - **A SHORTFALL KNOWS WHICH FIELD IT IS ABOUT, and the field says it too.** The commit's refusal
   was one sentence at the weak end of the bar, which tells a reader what is wrong and leaves them to
   find the field — a glance on a short form, a hunt on one asking about a matter, a title, a type,
@@ -313,7 +375,8 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   the civil-date sort key always has, and it is what a day grid places by. A title never will.
 - **The grid is civil, and so is the HOUR.** An entry sits on the civil day its row names, at the
   hour its row names, in the row's own zone; the grid never converts either. Only the wall-clock
-  text carries a zone, and only where it is not the reader's (`formatWallClock`); `startMinute` is
+  text carries a zone, as its code on that day and only where it is not the reader's
+  (`formatWallClock`); `startMinute` is
   the same clock as a number, in the record's own zone, because a day grid cannot read one back out
   of somebody else's formatting. Converting would move a nine o'clock hearing to the eleven o'clock
   row for a reader two zones east, which is the one thing a calendar of court settings must never

@@ -371,6 +371,21 @@ export type SafeWebsiteView = {
     links: Array<string>;
 };
 
+export type SafeBrowseSessionProbe = {
+    supported: boolean;
+    steps: Array<{
+        name: string;
+        ok: boolean;
+        detail?: string;
+    }>;
+    sessionsBefore: number;
+    maxConcurrentSessions: number | null;
+    allowedBrowserAcquisitions: number | null;
+    sessionReused: boolean;
+    cdpAttached: boolean;
+    elapsedMilliseconds: number;
+};
+
 export type DecryptionInspectResponse = {
     format: 'pdf' | 'zip' | 'ooxml';
     hash: string;
@@ -1708,10 +1723,24 @@ export type MemberLocationsRequest = {
     }>;
 };
 
-export type NumberingSchemeResponse = {
+export type NumberingSchemesResponse = {
+    purposes: Array<NumberingListedPurpose>;
+    sample: NumberingSampleContext;
+};
+
+export type NumberingListedPurpose = {
+    purpose: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication';
+    title: string;
+    label: string;
+    subject: string;
+    subjects: string;
+    drawnWhen: string;
+    formulation: 'scheme' | 'fixed';
+    segmentKinds: Array<'literal' | 'counter' | 'year' | 'date_opened' | 'location_code' | 'matter_type_code' | 'client_code' | 'staff_initials' | 'client_name'> | null;
     segments: Array<NumberSegment> | null;
-    purpose: 'matter' | 'consultation';
-    usingDefault: boolean;
+    usingDefault: boolean | null;
+    fixedShape: string | null;
+    example: string | null;
 };
 
 export type NumberSegment = {
@@ -1745,9 +1774,24 @@ export type NumberSegment = {
     scoping?: boolean;
 };
 
+export type NumberingSampleContext = {
+    openedDate: string;
+    locationCode: string;
+    matterTypeCode: string;
+    clientCode: string;
+    staffInitials: string;
+    clientName: string;
+};
+
+export type NumberingSchemeResponse = {
+    segments: Array<NumberSegment> | null;
+    purpose: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet';
+    usingDefault: boolean;
+};
+
 export type NumberingScheme = {
     segments: Array<NumberSegment>;
-    purpose?: 'matter' | 'consultation' | 'intake';
+    purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet';
 };
 
 export type NumberingPreviewResponse = {
@@ -1757,6 +1801,7 @@ export type NumberingPreviewResponse = {
 
 export type NumberingPreviewRequest = {
     segments: Array<NumberSegment>;
+    purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet';
     counterValue?: number;
     context?: {
         openedDate?: string;
@@ -1986,6 +2031,7 @@ export type SessionLaunchResponse = {
     accessToken: string;
     accessTokenTtl: number;
     capability: 'edit' | 'view';
+    recordsChanges: boolean;
 };
 
 export type EditOpenProgressResponse = {
@@ -2126,6 +2172,14 @@ export type PatchScanPolicyRequest = {
     };
     flaggedTreatment?: 'block' | 'informed-access' | 'allow-and-flag';
     stepUpReauthOnFlagged?: boolean;
+};
+
+export type EditingPolicyResponse = {
+    recordChanges: boolean;
+};
+
+export type PatchEditingPolicyRequest = {
+    recordChanges?: boolean;
 };
 
 export type BundleStatus = {
@@ -8937,6 +8991,39 @@ export type SafeBrowseStreamResponses = {
 
 export type SafeBrowseStreamResponse = SafeBrowseStreamResponses[keyof SafeBrowseStreamResponses];
 
+export type SafeBrowseSessionProbeData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/safe-browse/session-probe';
+};
+
+export type SafeBrowseSessionProbeErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:safeBrowse
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SafeBrowseSessionProbeError = SafeBrowseSessionProbeErrors[keyof SafeBrowseSessionProbeErrors];
+
+export type SafeBrowseSessionProbeResponses = {
+    /**
+     * The probe ran; the report says how far it got
+     */
+    200: SafeBrowseSessionProbe;
+};
+
+export type SafeBrowseSessionProbeResponse = SafeBrowseSessionProbeResponses[keyof SafeBrowseSessionProbeResponses];
+
 export type DecryptionInspectData = {
     body: {
         fileBase64: string;
@@ -14614,11 +14701,48 @@ export type LocationsAssignMemberResponses = {
 
 export type LocationsAssignMemberResponse = LocationsAssignMemberResponses[keyof LocationsAssignMemberResponses];
 
+export type NumberingListData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/numbering-schemes';
+};
+
+export type NumberingListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks matters:viewNumbering
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NumberingListError = NumberingListErrors[keyof NumberingListErrors];
+
+export type NumberingListResponses = {
+    /**
+     * Every purpose on the register, and the sample the examples render against
+     */
+    200: NumberingSchemesResponse;
+};
+
+export type NumberingListResponse = NumberingListResponses[keyof NumberingListResponses];
+
 export type NumberingGetData = {
     body?: never;
     path?: never;
     query?: {
-        purpose?: 'matter' | 'consultation' | 'intake';
+        purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet';
     };
     url: '/api/v1/numbering-scheme';
 };
@@ -14629,7 +14753,7 @@ export type NumberingGetErrors = {
      */
     401: Problem;
     /**
-     * The session member lacks matters:manageNumbering
+     * The session member lacks matters:viewNumbering
      */
     403: Problem;
     /**
@@ -14685,7 +14809,7 @@ export type NumberingSetErrors = {
      */
     409: Problem;
     /**
-     * The scheme is invalid (not exactly one counter), or the Idempotency-Key was reused
+     * The scheme is invalid (not exactly one counter, or a part this purpose cannot use), or the Idempotency-Key was reused
      */
     422: Problem;
     /**
@@ -16067,6 +16191,95 @@ export type ScanPolicyScoreHistogramResponses = {
 };
 
 export type ScanPolicyScoreHistogramResponse = ScanPolicyScoreHistogramResponses[keyof ScanPolicyScoreHistogramResponses];
+
+export type EditingPolicyGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/editing-policy';
+};
+
+export type EditingPolicyGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageEditingPolicy
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EditingPolicyGetError = EditingPolicyGetErrors[keyof EditingPolicyGetErrors];
+
+export type EditingPolicyGetResponses = {
+    /**
+     * The firm's editing policy, resolved with its defaults
+     */
+    200: EditingPolicyResponse;
+};
+
+export type EditingPolicyGetResponse = EditingPolicyGetResponses[keyof EditingPolicyGetResponses];
+
+export type EditingPolicyUpdateData = {
+    body: PatchEditingPolicyRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/editing-policy';
+};
+
+export type EditingPolicyUpdateErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageEditingPolicy
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EditingPolicyUpdateError = EditingPolicyUpdateErrors[keyof EditingPolicyUpdateErrors];
+
+export type EditingPolicyUpdateResponses = {
+    /**
+     * The firm's editing policy after the change
+     */
+    200: EditingPolicyResponse;
+};
+
+export type EditingPolicyUpdateResponse = EditingPolicyUpdateResponses[keyof EditingPolicyUpdateResponses];
 
 export type DownloadsBundleStatusData = {
     body?: never;

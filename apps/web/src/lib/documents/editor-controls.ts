@@ -41,12 +41,20 @@ export interface EditorButton {
   readonly imgurl: string;
 }
 
-/** The back-to-matter button, labelled with the matter it returns to. */
-export function backToMatterButton(matterTitle: string): EditorButton {
+/**
+ * The back-to-matter button: the arrow, then the matter's number as its word, since the number is
+ * how a member knows a matter at a glance and the bar has room for one short word. A matter
+ * without a number yet (a consultation, an intake) is named "Matter"; the hover text carries the
+ * title either way.
+ */
+export function backToMatterButton(matter: {
+  readonly title: string;
+  readonly number?: string | null;
+}): EditorButton {
   return {
     id: BACK_TO_MATTER_BUTTON_ID,
-    label: "Matter",
-    hint: `Back to ${matterTitle}`,
+    label: matter.number ?? "Matter",
+    hint: `Back to ${matter.title}`,
     imgurl: BACK_ICON_DATA_URL,
   };
 }
@@ -85,6 +93,20 @@ export function saveBeforeLeavingMessage(): string {
     Notify: true,
     DontSaveIfUnmodified: true,
     DontTerminateEdit: true,
+  });
+}
+
+/**
+ * Turns the showing of tracked changes off, once the document is up. Under the firm's policy every
+ * document records its changes (the host keeps the recording control out of reach), and a page a
+ * member types on should look the way it always did: the marks are there, and the editor's own
+ * Review tab shows them to anybody who asks. `Send_UNO_Command` carries the editor's command with
+ * its argument in the editor's typed form.
+ */
+export function hideTrackedChangesMessage(): string {
+  return message("Send_UNO_Command", {
+    Command: ".uno:ShowTrackedChanges",
+    Args: { ShowTrackedChanges: { type: "boolean", value: false } },
   });
 }
 

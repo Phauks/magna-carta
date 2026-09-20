@@ -35,6 +35,10 @@ catalog:
   # Network Speed Test tool (apps/web). Cloudflare's own client-side measurement engine, on their
   # default ladder, so the numbers are comparable to speed.cloudflare.com.
   "@cloudflare/speedtest": 1.13.0
+  # Browser Sessions for the safe website viewer's interactive mode (apps/api-worker). The quick
+  # actions reached through env.BROWSER cannot hold a session across requests; this fork of
+  # puppeteer-core speaks CDP to the same binding and can. Apache-2.0.
+  "@cloudflare/puppeteer": 1.4.0
   # The type-check compiler for the project-references build graph (`tsc -b tsconfig.build.json`).
   # Distinct from vp's bundled tsc: this is the engine our `vp run typecheck` task owns, and the swap
   # point for the TypeScript 7 native compiler (tsgo) later. See docs/conventions/build-performance.md.
