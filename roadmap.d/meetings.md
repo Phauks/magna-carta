@@ -123,8 +123,9 @@
 - id: meetings.reactions
   name: Raise hand and reactions
   scope: A raised hand the host sees in order, and a small closed set of reactions, relayed as presence rather than stored.
-  status: not-started
-  evidence: No code; the presence frame large rooms add carries speaking and muted only.
+  status: designed
+  spec: docs/specs/2026-09-20-meetings-reactions-and-polls-design.md
+  evidence: No code; designed 2026-09-20 — a hand on the presence frame and on the roster with the room stamping the instant, six named reactions drawn as Lucide glyphs, and a per-second coalescing bucket so a room of three hundred applauding costs one frame a second. Nothing reaches the record, so the slice adds no table and no personal-data registration. Sequenced after host controls, whose grant authorizes lowering the room's hands.
 
 - id: meetings.chat
   name: In-meeting chat
@@ -142,8 +143,10 @@
 - id: meetings.polls
   name: Polls and questions
   scope: A host asks the room a question and sees the answers; a question queue the host works through.
-  status: not-started
-  evidence: No code.
+  status: designed
+  spec: docs/specs/2026-09-20-meetings-reactions-and-polls-design.md
+  evidence: No code; designed 2026-09-20 — four tables on chat's own terms, routes as the record with the room relaying the tallies, and an anonymous poll that splits what was chosen from who answered so the count stays honest without naming anybody. Sequenced after host controls, whose grant gates opening, closing and marking a question answered.
+  notes: The meeting's second stored content after chat, so the poll question, the option labels and a question's body carry a filed message's retention, redaction and personal-data treatment, and no audit row ever carries which option was chosen.
 
 - id: meetings.whiteboard
   name: Whiteboard and annotation

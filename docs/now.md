@@ -43,10 +43,10 @@ not](#what-a-roll-up-is-not).
 | `shipped` | 328 | 46% |
 | `partial` | 124 | 17% |
 | `in-build` | 1 | 0% |
-| `designed` | 53 | 7% |
+| `designed` | 55 | 8% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
-| `not-started` | 146 | 21% |
+| `not-started` | 144 | 20% |
 | `deferred` | 38 | 5% |
 | `cut` | 4 | 1% |
 | **All statuses** | **714** | **100%** |
@@ -112,7 +112,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
 | Integrations & Plugins | 17 | 2 | 0 | 1 | 0 | 3 | 15 | 3 | 1 | 42 | 40% |
 | Maintenance Agents | 2 | 3 | 0 | 0 | 0 | 0 | 5 | 0 | 0 | 10 | 20% |
-| Meetings | 8 | 0 | 1 | 7 | 0 | 0 | 13 | 0 | 0 | 29 | 28% |
+| Meetings | 8 | 0 | 1 | 9 | 0 | 0 | 11 | 0 | 0 | 29 | 28% |
 | Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 12 | 58% |
 | Notifications | 4 | 6 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 14 | 29% |
 | Observability & Diagnostics | 14 | 0 | 0 | 0 | 0 | 0 | 4 | 2 | 0 | 20 | 70% |
@@ -127,7 +127,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 14 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 21 | 67% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **328** | **124** | **1** | **53** | **15** | **5** | **146** | **38** | **4** | **714** | **46%** |
+| **All areas** | **328** | **124** | **1** | **55** | **15** | **5** | **144** | **38** | **4** | **714** | **46%** |
 
 ## Where we have been
 
@@ -364,6 +364,8 @@ Decisions about a capability only. Account-side steps that no session can perfor
 - `meetings.recording` · **Recording** — Server-side capture of a meeting into the matter file through the untrusted-file pipeline into R2; every participant is told "Recording in progress" when it starts and on arrival, audibly and on screen, and a recording mark stays on every screen for as long as it runs.
 - `meetings.host-controls` · **Host controls** — Mute one or all, remove a participant, lock the room, hand hosting to a co-host, spotlight a participant for everyone.
 - `meetings.waiting-room` · **Waiting room** — Arrivals held in a lobby until a host admits them, one by one or all; the door for external guests and late joiners. One lobby per meeting, because a firm holds several meetings at once.
+- `meetings.reactions` · **Raise hand and reactions** — A raised hand the host sees in order, and a small closed set of reactions, relayed as presence rather than stored.
+- `meetings.polls` · **Polls and questions** — A host asks the room a question and sees the answers; a question queue the host works through.
 - `meetings.transcription` · **Live captions and transcript** — Captions during the meeting and a transcript afterwards, in the meeting's language and translated, behind the same consent gate as recording.
 - `meetings.summary` · **Meeting summary** — A summary and action items after a meeting, filed to the event with the meeting's own visibility, written from the transcript through the one model seam the assistant uses.
 - `meetings.backgrounds-and-noise` · **Backgrounds and noise suppression** — A blurred or replaced background and microphone noise suppression, both in the browser, on the local track before it is published.
@@ -1071,10 +1073,10 @@ to change a line here, edit the node in its area file and re-run the build.
   - `meetings.large-rooms` · `shipped` · **Large rooms (300 participants)** — The cap lifted to 300 — simulcast cameras, a subscription policy that pulls only the tiles shown and the people talking, roster deltas instead of full broadcasts, relayed speaking presence, a paged gallery, speaker view and pin. _Note: The owner's target of 2026-09-20 is the capacity Zoom sells on its Business tier._
   - `meetings.host-controls` · `designed` · **Host controls** — Mute one or all, remove a participant, lock the room, hand hosting to a co-host, spotlight a participant for everyone.
   - `meetings.waiting-room` · `designed` · **Waiting room** — Arrivals held in a lobby until a host admits them, one by one or all; the door for external guests and late joiners. One lobby per meeting, because a firm holds several meetings at once. _Note: The owner's ruling of 2026-09-20 — meetings run concurrently, so the lobby belongs to the meeting, never to the firm._
-  - `meetings.reactions` · `not-started` · **Raise hand and reactions** — A raised hand the host sees in order, and a small closed set of reactions, relayed as presence rather than stored.
+  - `meetings.reactions` · `designed` · **Raise hand and reactions** — A raised hand the host sees in order, and a small closed set of reactions, relayed as presence rather than stored.
   - `meetings.chat` · `not-started` · **In-meeting chat** — Text between participants during a meeting, kept on the record as the meeting's first stored content — filed under the event with the attendance. _Note: The owner's ruling of 2026-09-20 — chat is kept on the record. The meeting therefore stores content for the first time, which means the chat rows carry the same redaction, retention and PII treatment as a filed email, and the audit row still carries identifiers only._
   - `meetings.breakout-rooms` · `not-started` · **Breakout rooms** — A host splits the room into smaller rooms and brings them back; each is a room of its own under the same meeting.
-  - `meetings.polls` · `not-started` · **Polls and questions** — A host asks the room a question and sees the answers; a question queue the host works through.
+  - `meetings.polls` · `designed` · **Polls and questions** — A host asks the room a question and sees the answers; a question queue the host works through. _Note: The meeting's second stored content after chat, so the poll question, the option labels and a question's body carry a filed message's retention, redaction and personal-data treatment, and no audit row ever carries which option was chosen._
   - `meetings.whiteboard` · `not-started` · **Whiteboard and annotation** — A shared drawing surface, and annotation over a shared screen.
   - `meetings.transcription` · `designed` · **Live captions and transcript** — Captions during the meeting and a transcript afterwards, in the meeting's language and translated, behind the same consent gate as recording. _Note: Sequenced with recording, under the same announcement-and-indicator consent mechanism the owner ruled for recording on 2026-09-20 — captions are announced as recording is. Speaker attribution comes from the track name rather than diarization, so the transcript names people instead of numbering them._
   - `meetings.summary` · `designed` · **Meeting summary** — A summary and action items after a meeting, filed to the event with the meeting's own visibility, written from the transcript through the one model seam the assistant uses. _Note: Written through InferencePort rather than as an assistant conversation, so a privileged transcript is never copied into a conversation history; it runs on the on-Cloudflare model path by default and reaches a frontier model only where the firm's AI-processing eligibility allows._
