@@ -44,6 +44,32 @@ const sessionDescription = z.object({
   sdp: z.string().min(1),
 });
 
+// WHEN A ROSTER IS CHEAPER WHOLE THAN AS A DIFFERENCE. Below this many participants the full list
+// is smaller than the bookkeeping a difference costs on both ends, and a browser that has the whole
+// list cannot be wrong about it. Above it, a full roster on every arrival is quadratic in the room:
+// three hundred people each joining and each telling three hundred sockets is ninety thousand
+// frames of the whole list, for three hundred facts. So the room sends what changed instead.
+//
+// Sixteen is the tile count a gallery page shows, which is the size at which a browser stops being
+// able to draw everybody anyway.
+export const ROSTER_DELTA_THRESHOLD = 16;
+
+// The most layer changes one frame may carry. A browser re-chooses layers when its gallery page
+// turns or its window resizes, so a frame is naturally the size of a page of tiles; thirty-two is
+// two such pages, and a ceiling is what stops a client asking the routing service to reshape an
+// unbounded number of streams in one message.
+export const MAX_LAYER_TRACKS = 32;
+
+// WHICH OF A PUBLISHER'S SIMULCAST LAYERS A SUBSCRIBER WANTS: full, half or quarter resolution. A
+// camera publishes all three, and the choice is the subscriber's because only the subscriber knows
+// how large it is drawing the tile — a browser showing sixteen tiles wants sixteen quarter-size
+// streams, not sixteen full ones. `rid` is the routing service's own name for the identifier that
+// distinguishes the layers, and it is spelled its way here so the value travels unchanged.
+const preferredRidSchema = z.enum(["f", "h", "q"]);
+
+/** Full, half or quarter of a publisher's camera — the three layers a camera offers. */
+export type PreferredRid = z.infer<typeof preferredRidSchema>;
+
 const versioned = { v: z.literal(MEETING_PROTOCOL_VERSION) };
 
 // What the browser is publishing, carried on its own offer. `mid` is the media section the track
@@ -75,11 +101,54 @@ const subscribeFrame = z.object({
       z.object({
         sessionId: z.string().min(1).max(200),
         trackName: z.string().min(1).max(200),
+        // Which layer to start on. Optional, because a microphone and a screen share have only one
+        // layer to send and naming one for them would be a preference about nothing; absent, the
+        // room asks the routing service for the track without a simulcast preference at all.
+        preferredRid: preferredRidSchema.optional(),
       }),
     )
     .min(1)
     .max(64),
 });
+
+// A CHANGE OF MIND ABOUT AN EXISTING SUBSCRIPTION, and the reason it is not a second `subscribe`:
+// the media is already flowing, and asking for it again would build a new transceiver and a new
+// media section for a stream the browser is already receiving. This says "keep sending it, send it
+// smaller", which the routing service answers on the section it is already using.
+//
+// Each entry names the track the way a subscription does — by the session that PUBLISHED it and the
+// track's own name — plus the media section the receiving browser put it in, which is the handle
+// the routing service accepts for changing it.
+const layerFrame = z.object({
+  ...versioned,
+  type: z.literal("layer"),
+  tracks: z
+    .array(
+      z.object({
+        sessionId: z.string().min(1).max(200),
+        trackName: z.string().min(1).max(200),
+        mid: z.string().min(1).max(32),
+        preferredRid: preferredRidSchema,
+      }),
+    )
+    .min(1)
+    .max(MAX_LAYER_TRACKS),
+});
+
+// WHO IS TALKING IS A FACT THE ROOM RELAYS, NOT ONE EVERY BROWSER MEASURES. A browser measures its
+// OWN microphone — nothing else can, once it stops pulling everybody's audio — and states the two
+// facts a tile shows. Sent on transitions only: a level is not news, a change of level is.
+const presenceFrame = z.object({
+  ...versioned,
+  type: z.literal("presence"),
+  speaking: z.boolean(),
+  muted: z.boolean(),
+});
+
+// A BROWSER THAT SUSPECTS IT HAS MISSED SOMETHING, asking for the whole list again. It exists
+// because the room stops sending full rosters above the threshold: a client applying differences
+// has no way back to the truth on its own, and reconnecting to get one would cost it every track.
+const syncFrame = z.object({ ...versioned, type: z.literal("sync") });
 
 const renegotiateFrame = z.object({
   ...versioned,
@@ -104,6 +173,9 @@ const pingFrame = z.object({ type: z.literal("ping") });
 export const MeetingClientFrame = z.union([
   publishFrame,
   subscribeFrame,
+  layerFrame,
+  presenceFrame,
+  syncFrame,
   renegotiateFrame,
   closeFrame,
   leaveFrame,
@@ -198,6 +270,9 @@ export function parseMeetingClientFrame(
   const known =
     type === "publish" ||
     type === "subscribe" ||
+    type === "layer" ||
+    type === "presence" ||
+    type === "sync" ||
     type === "renegotiate" ||
     type === "close" ||
     type === "leave" ||
@@ -221,6 +296,12 @@ export interface RosterParticipant {
   // A browser needs it to ask for their tracks, and there is nothing to ask for until it exists.
   readonly sfuSessionId: string | null;
   readonly tracks: readonly { readonly trackName: string; readonly kind: string }[];
+  // The two facts a tile shows about somebody whose audio this browser may not even be pulling.
+  // They ride on the roster as well as on their own delta frame so that a browser arriving in a
+  // room already in progress sees who is talking and who is muted immediately, rather than being
+  // blank until each of them next changes.
+  readonly speaking: boolean;
+  readonly muted: boolean;
 }
 
 function frame(body: Record<string, unknown>): string {
@@ -278,9 +359,66 @@ export function closedFrame(
   return frame({ type: "closed", sessionDescription: sessionDescriptionValue ?? null });
 }
 
-/** Who is in the room now — sent to everybody after any change to it. */
+/**
+ * Who is in the room now, whole.
+ *
+ * Still sent, and in two places only: as the answer to a `sync`, and as the ordinary broadcast in a
+ * room at or below `ROSTER_DELTA_THRESHOLD`, where the list is smaller than the difference. A
+ * `welcome` carries the same list inline, because a socket that has just arrived holds nothing to
+ * apply a difference to.
+ */
 export function rosterFrame(participants: readonly RosterParticipant[]): string {
   return frame({ type: "roster", participants });
+}
+
+/**
+ * WHAT CHANGED ABOUT THE ROOM, for a room too large to restate.
+ *
+ * `left` carries participant handles rather than whole entries: the receiver already holds
+ * everything it knows about them, and the only fact being sent is that it should stop.
+ *
+ * All three lists are always present, empty where nothing of that kind happened, so a client reads
+ * three arrays rather than branching on which keys arrived.
+ */
+export function rosterDeltaFrame(
+  joined: readonly RosterParticipant[],
+  left: readonly string[],
+  updated: readonly RosterParticipant[],
+): string {
+  return frame({ type: "roster-delta", joined, left, updated });
+}
+
+/**
+ * One participant's speaking and muted state, relayed to everybody else.
+ *
+ * Carries the whole of what it is about rather than a change to it, which is what makes the room's
+ * throttle safe: a frame that is not sent loses nothing a later one does not restate. `at` is the
+ * instant the room relayed it, so a client receiving two out of order can tell which is current.
+ */
+export function presenceDeltaFrame(
+  participantId: string,
+  speaking: boolean,
+  muted: boolean,
+  at: string,
+): string {
+  return frame({ type: "presence", participantId, speaking, muted, at });
+}
+
+/**
+ * What the routing service did with each requested layer change.
+ *
+ * One entry per track the browser ASKED about, in the order it asked, so a client can pair the
+ * answer with its request without matching on anything. `errorCode` is present only where the
+ * service refused that one section; the rest are now sending the layer that was asked for.
+ */
+export function layeredFrame(
+  tracks: readonly {
+    readonly mid: string;
+    readonly preferredRid: PreferredRid;
+    readonly errorCode?: string;
+  }[],
+): string {
+  return frame({ type: "layered", tracks });
 }
 
 /** The meeting is over. Sent to every socket, which then closes normally. */

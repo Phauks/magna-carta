@@ -531,11 +531,11 @@ export interface InsertAttendanceInput {
 // The INSERT is a SELECT with a WHERE rather than a VALUES, so the count of who is present is taken
 // by the database at the instant of the write. The service's own count, read a round trip earlier,
 // settles the ordinary case and says so with a reason a member can read; it cannot settle the case
-// it was not there for — twelve seats and three browsers pressing Join together, where every one of
-// them reads eleven and every one of them is right. A row inserted past the ceiling is a
-// thirteenth tile nobody's layout has and a cap that means nothing thereafter, so the write is
-// GUARDED: it matches no row, and the whole batch — the stay, the live flip, the audit — rolls back
-// rather than half-landing.
+// it was not there for — one seat left and three browsers pressing Join together, where every one
+// of them reads the same free seat and every one of them is right. A row inserted past the ceiling
+// is a tile nobody's layout has and a cap that means nothing thereafter, so the write is GUARDED:
+// it matches no row, and the whole batch — the stay, the live flip, the audit — rolls back rather
+// than half-landing.
 //
 // `?5` is bound rather than interpolated even though it is a constant on this side: the ceiling is
 // the domain's number and travels as data, so a reader never has to ask whether the SQL was built

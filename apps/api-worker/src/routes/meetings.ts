@@ -284,8 +284,8 @@ function writeMeta(
     resource: "firm",
     audited: true,
     // Required. A retried join must not open a second stay for one person — the roster would count
-    // them twice against a room that holds twelve, and their record would say they were in the
-    // meeting twice over without ever having left.
+    // them twice against the room's ceiling, and their record would say they were in the meeting
+    // twice over without ever having left.
     idempotency: "required",
     idempotencyStore: "firm",
     rateLimit,

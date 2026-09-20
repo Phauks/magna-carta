@@ -74,7 +74,14 @@ Somebody whose connection drops and who dials back in was in the room twice; a f
 say they were present through a gap they were absent for. So who is in the room right now is "the
 rows whose `left_at` is null" — counted on every read rather than kept as a column, because a stored
 count is a second answer the rows already give, and the two disagree the first time a socket closes
-without a leave. `MAX_MEETING_PARTICIPANTS` is measured against exactly that count.
+without a leave. `MAX_MEETING_PARTICIPANTS` — **300** — is measured against exactly that count.
+
+The number is a product decision rather than a limit of the routing layer, and it moved from twelve
+to three hundred once the two ends could carry a room that size: each browser pulls video only for
+the tiles it shows and audio only for the people talking, cameras publish three simulcast layers, and
+the signaling room sends what changed rather than the whole roster. None of that is this package's —
+it is the Worker's room and the browser's client — but the ceiling this package holds is what those
+three make honest, so a change to it belongs with a change to them.
 
 A join by somebody who already has an **open** stay returns that stay rather than opening a second
 one, so a reconnecting browser occupies one seat and a leave has one row to close.
@@ -83,7 +90,7 @@ one, so a reconnecting browser occupies one seat and a leave has one row to clos
 Both rules that a read-then-write cannot span are in the schema, and both are partial on the open
 stay because the closed ones are the record: a unique index on `(meeting_id, user_id) WHERE left_at
 IS NULL`, and the ceiling as the attendance insert's own `WHERE`, marked `guarded()` so a batch past
-it rolls back whole rather than seating a thirteenth person. The service's own count still runs, and
+it rolls back whole rather than seating somebody past the ceiling. The service's own count still runs, and
 still produces the REASON a member reads — it just no longer produces the limit. The route maps the
 guard label (`JOIN_CAPACITY_GUARD`) and the two constraint predicates
 (`isOpenStayConflict`, `isMeetingPerEventConflict`) onto the answers the member wanted, which is the

@@ -741,7 +741,9 @@ the offset is coalesced to one write per frame. The rows carry a **grip** now, b
 cursor only answers once the pointer is already on the row. And the Soon badge on an unbuilt tool was
 invisible: it rode inside the label, which carries the row's overflow, so every long row clipped it —
 the row is a three-track grid now and the trailing column never shrinks. |
-| Meetings — slice 1, members-only meetings from a calendar event | [-] | [x] Claude | [x] | [x] Claude | [x] Claude | [-] | [x] Claude | A member starts a meeting on a calendar event and other members join from the same place: media goes browser to Cloudflare Realtime selective forwarding unit, signaling is a `MeetingRoom` Durable Object per meeting, and the record keeps who was in the room and when and nothing that was said. |
+| Meetings — members-only meetings and calls from a calendar event, in rooms of up to three hundred | [-] | [x] Claude | [x] | [~] Claude | [~] Claude | [-] | [~] Claude | A member starts a meeting on a calendar event and other members join from the same place: media goes browser to Cloudflare Realtime selective forwarding unit, signaling is a `MeetingRoom` Durable Object per meeting, and the record keeps who was in the room and when and nothing that was said.
+
+Slice 3 lifts the room from twelve people to three hundred, which is work on the two ends rather than in the routing service: each browser pulls video only for the tiles it shows and audio only for the people talking, cameras publish three simulcast layers and subscribers choose between them, the room sends what changed rather than the whole roster above sixteen participants, and who is talking is measured by each browser and relayed by the room. |
 
 ## Phase 3 — Financial Core (slice map firmed up; per-slice rows as cycles open)
 

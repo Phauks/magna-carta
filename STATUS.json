@@ -2593,7 +2593,7 @@
       "notes": "The owner's navigation round of 2026-09-16, worked end to end.\n\n**The rail was one long list with a heading on it.** Workspace held fourteen rows, from Home to\nCustodian, which put \"your morning\" in the same list as \"the firm's evidence\". It is five groups now,\neach answering one question: **Favorites** (the member's own shortcuts), **My Desk** (what is on MY\nplate — the day, the alerts, the tasks, the diary, the assistant), **Workspace** (the firm's work,\nwhich is matters and everything hanging off one), **Money**, **Firm**, **Tools**.\n\n**The Tools area is gone, and the tools are not.** A tool was reached through a two-sided /tools\nscreen until a fortnight ago and through a /tools index after that; both are retired. Every tool is a\ntop-level ability now — its own address at `/<id>`, its own rail row, one press from wherever the\nreader is, the whole canvas when it opens. The index's two worthwhile parts, the descriptors and the\nsearch, were never the index's: they belong to the presentation layer, and the command palette has\nrendered them all along from one keystroke with no navigation first.\n\n**Nine rows under one heading is a wall, so the rail grew a second level.** A CLUSTER is a row with a\nglyph, a name and a chevron whose members tuck beneath it — `Sidebar.MenuTrigger` and\n`Sidebar.MenuSub` in the design system, `navigation/clusters.ts` as the registry. It is a fold and\nnever a screen: nothing is reached through one, which is the whole difference between this and the\nsub-page it replaced. A cluster holding one row is seated as a plain row, because a chevron hiding\none thing costs a press and saves nothing. The mechanism is general — any group may fold — and the\neight catalog subject groups became four on the same ruling: Records, Internet, Mailing, Files. Eight\nheadings over nine tools is a heading per tool. Within a cluster the tools sort alphabetically, which\nis how somebody with a name in mind actually scans.\n\n**Two rows changed sides.** The File Workbench went back into the catalog, in the Files cluster — it\nhad been promoted to a hand-written Firm destination precisely because the old area charged a\nnavigation to reach it, and that reason is gone. **Firm Usage** went the other way, out of the\ncatalog and into Firm beside Reports: a tool is a utility a member RUNS, and this runs nothing; it is\nthe firm reading its own records. It kept the `tools:firmUsage` key that gates it, which is what\n`Destination.permission` is for.\n\n**One symbol had been answering two questions.** Customize's star meant \"show this row\"; it is an\n**eye** now, which is the plain word for visible-here. The star means what a star means everywhere\nelse: a **favorite**. A favorite is any address at all — a matter, a tool, a client's record, a\nsection deep inside one — saved by the person standing on it, because the platform cannot know which\nof ten thousand matters somebody opens every morning. The gesture reaches every page without a single\nscreen opting in, because it lives in the one header component every screen builds its title from.\nFavorites lead the rail; a favorite is keyed by pathname, borrows its glyph from the area it sits in,\nand is dragged into the order the member wants like any other row.\n\n**Three defects the owner reported in the same breath.** The drag-to-reorder stutter was three\nstacked faults: the slot size was measured off a row's height and rows have a gap between them, so\nevery slot was short; `Math.round` flipped the landing index at exactly half a row, which is where a\nhand rests while it decides; and every pointer event wrote state, several times per frame. It\nmeasures the real pitch from two rows, the landing index is sticky with a dead band either side, and\nthe offset is coalesced to one write per frame. The rows carry a **grip** now, because the grab\ncursor only answers once the pointer is already on the row. And the Soon badge on an unbuilt tool was\ninvisible: it rode inside the label, which carries the row's overflow, so every long row clipped it —\nthe row is a three-track grid now and the trailing column never shrinks."
     },
     {
-      "slice": "Meetings — slice 1, members-only meetings from a calendar event",
+      "slice": "Meetings — members-only meetings and calls from a calendar event, in rooms of up to three hundred",
       "group": "cross-cutting",
       "order": 45,
       "stages": {
@@ -2608,31 +2608,31 @@
           "state": "done"
         },
         "built": {
-          "state": "done",
+          "state": "in-progress",
           "by": "Claude"
         },
         "ui": {
-          "state": "done",
+          "state": "in-progress",
           "by": "Claude"
         },
         "load-profile": {
           "state": "n/a"
         },
         "tested": {
-          "state": "done",
+          "state": "in-progress",
           "by": "Claude"
         }
       },
       "branch": "claude/focused-edison-ylxfiy",
-      "activeWork": null,
-      "next": "External guests on a signed one-time join link, then recording behind the jurisdiction consent gate, dial-in once the telephony port has an adapter, and the active-speaker layout that lifts the twelve-participant cap",
+      "activeWork": "docs/active-work/claude/focused-edison-ylxfiy.md",
+      "next": "Host controls — mute a participant, mute everybody, remove somebody from the room, and co-hosts to share the doing of it; a room of three hundred is the size at which a meeting needs somebody able to run it. Then external guests on a signed one-time join link, breakout rooms and a waiting room, and dial-in once the telephony port has an adapter",
       "links": {
         "spec": "docs/specs/2026-09-18-meetings-design.md",
         "plan": null,
         "adrs": []
       },
       "blockedBy": [],
-      "notes": "A member starts a meeting on a calendar event and other members join from the same place: media goes browser to Cloudflare Realtime selective forwarding unit, signaling is a `MeetingRoom` Durable Object per meeting, and the record keeps who was in the room and when and nothing that was said."
+      "notes": "A member starts a meeting on a calendar event and other members join from the same place: media goes browser to Cloudflare Realtime selective forwarding unit, signaling is a `MeetingRoom` Durable Object per meeting, and the record keeps who was in the room and when and nothing that was said.\n\nSlice 3 lifts the room from twelve people to three hundred, which is work on the two ends rather than in the routing service: each browser pulls video only for the tiles it shows and audio only for the people talking, cameras publish three simulcast layers and subscribers choose between them, the room sends what changed rather than the whole roster above sixteen participants, and who is talking is measured by each browser and relayed by the room."
     },
     {
       "slice": "3·1 — Time tracking + WIP + rate engine",

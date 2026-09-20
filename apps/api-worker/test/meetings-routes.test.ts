@@ -29,7 +29,7 @@ import {
 //     Billing and meetings:host deliberately not, so a Billing member can be in a meeting and cannot
 //     open or close one. Asserted against that seat rather than against a direct grant, because the
 //     seeds are what decides the seat.
-//   - THE SIGNALING SOCKET NEEDS AN OPEN STAY. The room's roster and the twelve-person cap are both
+//   - THE SIGNALING SOCKET NEEDS AN OPEN STAY. The room's roster and the participant cap are both
 //     counted over attendance, so a socket that did not need one would be a way past both.
 //
 // The routing credentials are supplied as an ENVIRONMENT OVERRIDE rather than put in a shared
@@ -157,8 +157,8 @@ async function startMeetingOn(eventId: string): Promise<string> {
 
 /**
  * Fills a room with fabricated members' open stays, so the cap can be met without standing up a
- * dozen sessions. The rows are what the cap is counted over, so this is the same room state a dozen
- * real joins produce.
+ * session per seat. The rows are what the cap is counted over, so this is the same room state that
+ * many real joins produce.
  */
 async function fillRoomTo(meetingId: string, occupants: number): Promise<void> {
   const now = new Date().toISOString();
@@ -391,13 +391,14 @@ describe("arriving, and leaving a record of it", () => {
     expect((await readJson<JoinedMeeting>(response)).displayName).toBe("Meetings Bookkeeper");
   });
 
-  it("answers the thirteenth arrival with a full room rather than a server error", async () => {
+  it("answers the arrival past the cap with a full room rather than a server error", async () => {
     const meetingId = await freshMeeting();
     await fillRoomTo(meetingId, MAX_MEETING_PARTICIPANTS - 1);
 
-    // ONE SEAT, TWO ARRIVALS. Whichever way the two land — both counting eleven and the insert's
-    // guard refusing the loser, or the second counting twelve and refusing itself — the answer the
-    // member gets is the same one, and it is never an Error ID for a batch they cannot see.
+    // ONE SEAT, TWO ARRIVALS. Whichever way the two land — both counting the free seat and the
+    // insert's guard refusing the loser, or the second counting a full room and refusing itself —
+    // the answer the member gets is the same one, and it is never an Error ID for a batch they
+    // cannot see.
     const [first, second] = await Promise.all([
       post(`/api/v1/meetings/${meetingId}/join`, ownerCookie),
       post(`/api/v1/meetings/${meetingId}/join`, billingCookie),
@@ -406,7 +407,7 @@ describe("arriving, and leaving a record of it", () => {
     const refused = first.status === 409 ? first : second;
     expect((await readJson<{ type: string }>(refused)).type).toContain("meeting-room-full");
 
-    // And the room holds exactly its dozen, never a thirteenth.
+    // And the room holds exactly its ceiling, never one past it.
     const summary = await readJson<MeetingSummary>(
       await get(`/api/v1/meetings/${meetingId}`, ownerCookie),
     );

@@ -3,6 +3,7 @@ import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import type { FirmEventId, MatterEventId, MatterId, UserId } from "@magna-carta/identifiers/types";
+import { MAX_MEETING_PARTICIPANTS } from "../src/types.ts";
 
 // Shared scaffolding for the meetings package tests: a migrated in-memory per-firm database, a fixed
 // clock, and the one-line commit every service test needs (the services return effects; the caller
@@ -11,11 +12,13 @@ import type { FirmEventId, MatterEventId, MatterId, UserId } from "@magna-carta/
 export const HOST = "user_meetingHost0000" as UserId;
 export const GUEST = "user_meetingGuest000" as UserId;
 
-// Enough members to fill a room and then some. The cap is twelve, so thirteen is what it takes to
-// prove the thirteenth person is refused rather than merely unlucky.
+// Enough members to fill a room and then some — the cap, and one more. Derived from the constant
+// rather than written down, because the two have to move together: a fixture one short of the
+// ceiling proves the arrival past it is refused by never making it, which is a test that passes for
+// the wrong reason.
 export const CROWD: readonly UserId[] = Array.from(
-  { length: 13 },
-  (_unused, index) => `user_meetingCrowd${String(index).padStart(2, "0")}` as UserId,
+  { length: MAX_MEETING_PARTICIPANTS + 1 },
+  (_unused, index) => `user_meetingCrowd${String(index).padStart(4, "0")}` as UserId,
 );
 
 // Two matters: the ordinary one, and the platform-owned holding matter the custody register creates,

@@ -65,15 +65,19 @@ export type MeetingDepartureReason = (typeof MEETING_DEPARTURE_REASONS)[number];
 
 // THE ROOM'S CEILING, counted over the open attendance rows rather than over the sockets.
 //
-// Twelve is a product decision and not a limit of the routing layer: the selective forwarding unit
-// scales far past it, but the tile layout, the bandwidth adaptation and the active-speaker detection
-// that make a large room usable are their own work. A cap that refuses the thirteenth person with a
-// clear reason is honest; a room that admits fifty and degrades for all of them is not.
+// Three hundred is a product decision and not a limit of the routing layer: the selective forwarding
+// unit forwards whatever it is asked for, and the whole of the work a room this size needed was on
+// the two ends. Each browser pulls video only for the tiles it is showing and audio only for the
+// people talking; cameras publish three simulcast layers, so a small tile costs a small stream; and
+// the signaling room sends what CHANGED rather than the whole roster, because a full roster to three
+// hundred sockets on every one of three hundred arrivals is ninety thousand frames. Until those
+// existed, a low cap was the honest number — a room that admits three hundred and degrades for all
+// of them is not a room that holds three hundred.
 //
 // Counted over ATTENDANCE, which is what makes the number mean anything: a participant is somebody
 // with an open stay, so a browser that reconnects occupies one seat rather than two, and a member
 // who closed their laptop without leaving frees theirs when the meeting ends.
-export const MAX_MEETING_PARTICIPANTS = 12;
+export const MAX_MEETING_PARTICIPANTS = 300;
 
 // ---------------------------------------------------------------------------------------------
 // The stored rows, in the database's own column names.

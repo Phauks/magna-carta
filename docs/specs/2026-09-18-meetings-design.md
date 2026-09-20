@@ -227,6 +227,39 @@ Problem types: `meeting-not-found` (404, and the same for an event the member ma
   `MeetingSummary` carries it on every read including the list. The socket upgrade passes it inward
   off the meeting row, and a `publish` naming anything but an audio track in a call is `refused` with
   a new reason `track-kind-refused`, socket kept open and nothing asked of the routing service.
+- **The large-room frames** (§11), all additive and nothing renamed. Client → room: `presence`
+  `{ speaking, muted }`, sent on transitions only; `layer` `{ tracks: [{ sessionId, trackName, mid,
+preferredRid }] }`, 1–32 entries, which reaches `PUT tracks/update` on the ASKER's own session
+  carrying `simulcast: { preferredRid, priorityOrdering: "asciibetical", ridNotAvailable:
+"asciibetical" }`; and `sync`, which asks for the whole list back. `subscribe` tracks gain an
+  optional `preferredRid` forwarded as the same `simulcast` object, omitted entirely when absent.
+  Room → client: `roster-delta` `{ joined, left, updated }`, where `left` carries participant handles
+  alone; `presence` `{ participantId, speaking, muted, at }`; and `layered`
+  `{ tracks: [{ mid, preferredRid, errorCode? }] }`, one entry per requested track in request order.
+  `RosterParticipant` gains `speaking` and `muted` on `welcome`, `roster` and `roster-delta` alike.
+  A `layer` naming a pair this room is not carrying is `refused` with `unknown-track`, through the
+  same check a `subscribe` answers to.
+- **`sync` and `presence` are answered before the routing client is resolved.** Both are about the
+  roster alone, so both go on working in a deployment whose media credentials went away under an open
+  meeting — and a `sync` that needed the routing service would be unanswerable exactly when a client
+  most needs the list.
+- **A presence transition inside the throttle window is DROPPED, not deferred**, and the two booleans
+  are stored either way. A presence frame carries the whole of what it is about rather than a change
+  to it, so an unsent frame loses nothing a later one restates, and `welcome`, a `sync` answer and
+  every roster frame read the current record. Deferring would mean arming the room's one alarm at
+  sub-second range beside a minute-long grace and a day-long marker, which for three hundred people
+  costs about what relaying everything costs. A frame restating what the room already holds is not a
+  transition and is not relayed.
+- **The roster is read at most once per inbound frame.** `storedParticipants()` returns a `Map` and
+  every caller takes it — the roster check, the difference builder and the threshold count all read
+  the one result. In a room of three hundred that read is three hundred keys, so a second one doubles
+  the cost of the busiest thing the room does.
+- **The threshold is measured against the roster AFTER the change**, from that same read, so a room
+  crossing sixteen announces the crossing in the form its new size calls for. A client therefore
+  accepts both shapes at any size, which it must anyway: it cannot know how many people were in the
+  room at the instant the room decided.
+- **A rejoin is announced as `updated`, not `joined`** — everybody else already holds that tile and
+  is holding subscriptions against it, and what they need is the reset.
 
 ## 7b. Audio calls (owner direction, 2026-09-18)
 
@@ -409,7 +442,7 @@ meeting_message
   INDEX (meeting_id, sent_at, id)
 ```
 
-**It hangs from the STAY, not from the member.** `attendance_id` is who said it *at the time*: a
+**It hangs from the STAY, not from the member.** `attendance_id` is who said it _at the time_: a
 message is tied to being in the room, which is the fact that made it sayable. The member is reached
 through the stay, so a colleague who dropped and dialled back in has their two stays' messages
 attributed to the stay each was actually said in — the same reason attendance is a row per stay
@@ -438,11 +471,11 @@ person's clock said is not one ordering. The index is `(meeting_id, sent_at, id)
 
 ### Routes (`apps/api-worker/src/routes/meeting-chat.ts`)
 
-| method | path                                                     | permission      | does                                                      |
-| ------ | -------------------------------------------------------- | --------------- | --------------------------------------------------------- |
-| POST   | `/api/v1/meetings/{meetingId}/messages`                  | `meetings:join` | body `{ body }`, idempotent; 201 with the stored message  |
-| GET    | `/api/v1/meetings/{meetingId}/messages`                  | `meetings:join` | cursor-paged, ascending by `(sent_at, id)`, with `since`  |
-| POST   | `/api/v1/meetings/{meetingId}/messages/{messageId}/redact` | `meetings:join` | 200; blanks the body, keeps the row                       |
+| method | path                                                       | permission      | does                                                     |
+| ------ | ---------------------------------------------------------- | --------------- | -------------------------------------------------------- |
+| POST   | `/api/v1/meetings/{meetingId}/messages`                    | `meetings:join` | body `{ body }`, idempotent; 201 with the stored message |
+| GET    | `/api/v1/meetings/{meetingId}/messages`                    | `meetings:join` | cursor-paged, ascending by `(sent_at, id)`, with `since` |
+| POST   | `/api/v1/meetings/{meetingId}/messages/{messageId}/redact` | `meetings:join` | 200; blanks the body, keeps the row                      |
 
 Problem types: `meeting-message-not-found` (404, and the same for a message in a meeting the member
 may not reach), `meeting-not-joined` (409, reused — posting without an open stay is the same answer

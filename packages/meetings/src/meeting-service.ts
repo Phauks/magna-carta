@@ -187,15 +187,15 @@ export async function joinMeeting(
     return { attendanceId: open.id, effect: { statements: [], outboxMessages: [] } };
   }
 
-  // THE CAP, counted over the open stays at this moment rather than over anything stored. Twelve is
-  // a product decision about what a tile grid can show and hear, not a limit of the routing layer;
-  // refusing the thirteenth person with a reason is honest, and a room that admits everybody and
-  // degrades for all of them is not.
+  // THE CAP, counted over the open stays at this moment rather than over anything stored. The
+  // number is a product decision about what a tile grid and a browser's bandwidth can carry, not a
+  // limit of the routing layer; refusing the arrival past it with a reason is honest, and a room
+  // that admits everybody and degrades for all of them is not.
   //
   // This read is what produces the REASON. It cannot produce the limit: it is a round trip earlier
-  // than the write, so a dozen browsers pressing Join together all read eleven and all pass. The
-  // insert carries the same count in its own WHERE and is guarded, which is what actually holds the
-  // ceiling — see insertAttendanceUnderCapStatement.
+  // than the write, so a dozen browsers pressing Join together all read the same free seat and all
+  // pass. The insert carries the same count in its own WHERE and is guarded, which is what actually
+  // holds the ceiling — see insertAttendanceUnderCapStatement.
   const present = await countOpenAttendance(database, meetingId);
   if (present >= MAX_MEETING_PARTICIPANTS) {
     refuse(

@@ -189,7 +189,7 @@ describe("arriving", () => {
     ).toHaveLength(1);
   });
 
-  it("refuses the thirteenth person, counting the stays that are still open", async () => {
+  it("refuses the arrival past the cap, counting the stays that are still open", async () => {
     const database = fresh();
     const meetingId = await start(database);
     const ticking = tickingClock();
@@ -445,7 +445,7 @@ describe("a meeting has a medium, and it is decided once", () => {
 });
 
 describe("the races the read-then-write cannot span", () => {
-  it("refuses the thirteenth stay at the DATABASE, so a concurrent join cannot slip past the count", async () => {
+  it("refuses the stay past the cap at the DATABASE, so a concurrent join cannot slip past the count", async () => {
     const database = fresh();
     const meetingId = await start(database);
     const ticking = tickingClock();
@@ -454,9 +454,9 @@ describe("the races the read-then-write cannot span", () => {
     }
 
     // The effect is built while there is still a seat free and committed after there is not, which
-    // is exactly what two browsers joining together produce: both services read eleven, both pass.
-    // Staged here by building the thirteenth join against a room of eleven and filling the twelfth
-    // seat before the commit.
+    // is exactly what two browsers joining together produce: both services read one seat free, both
+    // pass. Staged here by freeing a seat, building a join against the room while it is free, and
+    // filling it from elsewhere before the commit.
     const spare = CROWD[MAX_MEETING_PARTICIPANTS] as (typeof CROWD)[number];
     const leaving = await leaveMeeting(
       database.database,
@@ -472,12 +472,21 @@ describe("the races the read-then-write cannot span", () => {
     expect(refused).toBeInstanceOf(GuardedWriteRefusedError);
     expect((refused as GuardedWriteRefusedError).guard).toBe(JOIN_CAPACITY_GUARD);
 
-    // The WHOLE batch rolled back: no stay, and no audit row saying somebody arrived.
-    const stays = await listAttendance(database.database, meetingId, {
-      limit: MAX_ATTENDANCE_PAGE_SIZE,
-    });
-    expect(stays.filter((stay) => stay.left_at === null)).toHaveLength(MAX_MEETING_PARTICIPANTS);
-    expect(stays.some((stay) => stay.user_id === spare)).toBe(false);
+    // The WHOLE batch rolled back: no stay, and no audit row saying somebody arrived. Counted in
+    // SQL rather than read through the attendance page, which is a page — a room at the ceiling
+    // holds more stays than one of those carries, and a walk of them would be testing pagination.
+    const summary = await readMeetingSummary(database.database, meetingId, visibility);
+    expect(summary?.liveCount).toBe(MAX_MEETING_PARTICIPANTS);
+    const spareStays = database.raw
+      .prepare(`SELECT COUNT(*) AS present FROM meeting_attendance WHERE user_id = ?`)
+      .get(spare) as { present: number };
+    expect(spareStays.present).toBe(0);
+    const spareArrivals = database.raw
+      .prepare(
+        `SELECT COUNT(*) AS present FROM audit_log WHERE event = 'meetings.meeting.joined' AND actor_user_id = ?`,
+      )
+      .get(spare) as { present: number };
+    expect(spareArrivals.present).toBe(0);
   });
 
   it("refuses a second OPEN stay for one member, and allows a second closed one", async () => {

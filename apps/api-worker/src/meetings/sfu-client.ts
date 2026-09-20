@@ -30,6 +30,28 @@ export interface SfuSessionDescription {
 /** Which side of the routing service a track sits on: published by this browser, or forwarded to it. */
 export type SfuTrackLocation = "local" | "remote";
 
+/**
+ * WHICH SIMULCAST LAYER TO FORWARD, and what to do when it is not there.
+ *
+ * A camera publishes three layers at once; this is the subscriber's side of that, and it is the
+ * whole of what the routing service needs to pick one. Both fallbacks are `asciibetical` because
+ * the layer identifiers are chosen so that their alphabetical order IS their size order — `f` full,
+ * `h` half, `q` quarter — so "the next one along" means "the next size down" without the service
+ * being told anything about what the names mean. A publisher who has not started their camera yet
+ * has no layers at all, and `ridNotAvailable` is what keeps that a smaller picture rather than a
+ * refused subscription.
+ */
+export interface SfuSimulcastPreference {
+  readonly preferredRid: string;
+  readonly priorityOrdering: "asciibetical";
+  readonly ridNotAvailable: "asciibetical";
+}
+
+/** The simulcast preference for one layer choice, built in one place so the two fallbacks agree. */
+export function simulcastPreferenceFor(preferredRid: string): SfuSimulcastPreference {
+  return { preferredRid, priorityOrdering: "asciibetical", ridNotAvailable: "asciibetical" };
+}
+
 export interface SfuTrackRequest {
   readonly location: SfuTrackLocation;
   readonly trackName?: string;
@@ -38,6 +60,26 @@ export interface SfuTrackRequest {
   // where the session is the one being addressed.
   readonly sessionId?: string;
   readonly kind?: string;
+  // Only ever set on a remote subscription, and only for a track that has layers to choose between.
+  // Omitted rather than defaulted: a preference the caller did not express must not become one the
+  // service acts on.
+  readonly simulcast?: SfuSimulcastPreference;
+}
+
+/** One already-forwarded track being asked to send a different layer, named by ITS media section. */
+export interface SfuTrackUpdateRequest {
+  readonly mid: string;
+  readonly simulcast: SfuSimulcastPreference;
+}
+
+/** What the service said about one section it was asked to change. */
+export interface SfuUpdatedTrack {
+  readonly mid?: string;
+  readonly errorCode?: string;
+}
+
+export interface SfuUpdateTracksResponse {
+  readonly tracks: readonly SfuUpdatedTrack[];
 }
 
 // What the service says about one track it was asked to add. Every field is optional because an
@@ -161,6 +203,26 @@ export class SfuClient {
       "renegotiate",
     );
     return { sessionDescription: sessionDescriptionField(body) };
+  }
+
+  /**
+   * Changes which layer already-forwarded tracks send, without touching the subscription itself.
+   *
+   * This is the call that makes a large room affordable: a browser paging through a gallery is
+   * re-sizing streams it is already receiving, and asking for them again instead would renegotiate
+   * the connection for media that is already arriving.
+   */
+  async updateTracks(
+    sessionId: string,
+    request: { readonly tracks: readonly SfuTrackUpdateRequest[] },
+  ): Promise<SfuUpdateTracksResponse> {
+    const body = await this.call(
+      `sessions/${encodeURIComponent(sessionId)}/tracks/update`,
+      "PUT",
+      request,
+      "update-tracks",
+    );
+    return { tracks: updatedTracks(body) };
   }
 
   /** Stops routing the named tracks — what a member turning their camera off eventually reaches. */
@@ -307,6 +369,13 @@ function trackResults(source: Record<string, unknown>): SfuTrackResult[] {
     sessionId: stringField(entry, "sessionId"),
     errorCode: stringField(entry, "errorCode"),
     errorDescription: stringField(entry, "errorDescription"),
+  }));
+}
+
+function updatedTracks(source: Record<string, unknown>): SfuUpdatedTrack[] {
+  return objectEntries(source, "tracks").map((entry) => ({
+    mid: stringField(entry, "mid"),
+    errorCode: stringField(entry, "errorCode"),
   }));
 }
 

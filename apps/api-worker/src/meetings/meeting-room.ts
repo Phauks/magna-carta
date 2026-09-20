@@ -11,15 +11,19 @@ import { realtimeLoggerFor, recordRealtimeFailure } from "../realtime/realtime-f
 import {
   closedFrame,
   endedFrame,
+  layeredFrame,
   MEETING_PROTOCOL_VERSION,
   NORMAL_CLOSE_CODE,
   parseMeetingClientFrame,
   PONG_FRAME,
   PING_FRAME,
+  presenceDeltaFrame,
   publishedFrame,
   refusedFrame,
   renegotiatedFrame,
+  rosterDeltaFrame,
   rosterFrame,
+  ROSTER_DELTA_THRESHOLD,
   subscribedFrame,
   UNSERVICEABLE_CLOSE_CODE,
   welcomeFrame,
@@ -27,7 +31,12 @@ import {
   type MeetingRefusalReason,
   type RosterParticipant,
 } from "./meeting-room-protocol.ts";
-import { sfuClientForEnv, SfuUnavailableError, type SfuClient } from "./sfu-client.ts";
+import {
+  sfuClientForEnv,
+  SfuUnavailableError,
+  simulcastPreferenceFor,
+  type SfuClient,
+} from "./sfu-client.ts";
 
 // One meeting's signaling room, keyed `${firmId}:${meetingId}` and addressed by the SESSION firm id
 // at the route — never by a path value, so a firm can no more signal into another firm's meeting
@@ -108,6 +117,24 @@ const ENDED_RETENTION_HOURS = 24;
 // subscription every other participant in the room is invited to make.
 const MAX_TRACKS_PER_PARTICIPANT = 8;
 
+// HOW OFTEN ONE PARTICIPANT'S SPEAKING AND MUTED STATE IS RELAYED TO THE REST OF THE ROOM.
+//
+// A browser sends these on transitions only, but a transition is cheap to produce: somebody tapping
+// their microphone, or a voice moving across the detector's threshold, can transition several times
+// a second, and every one of them would be a frame to everybody else in a room of three hundred.
+//
+// A TRANSITION INSIDE THE WINDOW IS DROPPED, NOT DEFERRED, and the stored state is kept current
+// either way. That is safe because a presence frame carries the WHOLE of what it is about rather
+// than a change to it: a frame that is not sent loses nothing a later one does not restate, and the
+// participant record — which `welcome`, a `sync` answer and any roster frame carrying this person
+// all read — holds the latest values from the instant they arrive. Deferring instead would mean
+// arming this object's one alarm at sub-second range, on a room that otherwise sleeps between a
+// minute-long grace and a day-long marker; every suppressed transition would re-arm it, so a room
+// of three hundred would be woken about as often as simply relaying everything. What the drop costs
+// is the last transition of a burst arriving late — the tile ordering is a moment stale — which is
+// the cheaper of the two mistakes for a fact that exists to rank tiles.
+const PRESENCE_RELAY_INTERVAL_MILLISECONDS = 1000;
+
 // The separator between a participant's handle and the name they gave a track. A track name is the
 // pair, and the roster is how every other browser resolves one to a tile.
 const TRACK_NAME_SEPARATOR = ":";
@@ -162,6 +189,92 @@ interface StoredParticipant {
   // MEASURED FROM HERE, per person, which is the only place it can be measured from: a deadline kept
   // for the room is one person's grace spent on everybody.
   readonly socketLostAt: string | null;
+  // The two facts every other browser draws on this person's tile, measured by their own browser
+  // and relayed by the room. Kept here rather than derived from anything the room can see: once a
+  // browser stops pulling three hundred audio tracks, nothing but that browser knows whether its
+  // own microphone is carrying a voice.
+  readonly speaking: boolean;
+  readonly muted: boolean;
+  // When the room last RELAYED this participant's presence — not when it last changed. It is the
+  // throttle's whole state: a transition arriving inside the window updates the two booleans above
+  // and leaves this alone, so the next one out of the window is relayed immediately.
+  readonly presenceAt: string | null;
+}
+
+/**
+ * What changed about the roster, in the shape a client applies to the list it is holding.
+ *
+ * Every path that changes the roster knows exactly who it changed — that is the whole reason a
+ * difference can be sent at all — so this is built at the call site rather than computed by
+ * comparing two lists, which would cost the room a second read of three hundred keys to learn what
+ * it already knew.
+ */
+interface RosterChange {
+  readonly joined?: readonly RosterParticipant[];
+  readonly left?: readonly string[];
+  readonly updated?: readonly RosterParticipant[];
+}
+
+/** The frames that reach the routing service, which is every one the room does not answer itself. */
+type SignalingFrame = Exclude<
+  MeetingClientFrame,
+  { type: "ping" } | { type: "leave" } | { type: "sync" } | { type: "presence" }
+>;
+
+/** One roster entry as everybody else sees it, from the participant as the room stores them. */
+function rosterEntryFor(participantId: string, participant: StoredParticipant): RosterParticipant {
+  return {
+    participantId,
+    userId: participant.userId,
+    displayName: participant.displayName,
+    sfuSessionId: participant.sfuSessionId,
+    speaking: participant.speaking,
+    muted: participant.muted,
+    // The media section is the room's own handle for closing a track and is deliberately not on
+    // the wire: a subscriber names a track by its publisher's session and its name, so a section
+    // number would be a field every browser could read and none could use.
+    tracks: participant.tracks.map((track) => ({
+      trackName: track.trackName,
+      kind: track.kind,
+    })),
+  };
+}
+
+/**
+ * Whether every (session, track) pair named here is one THIS room is carrying.
+ *
+ * THE ROSTER IS THE WHOLE OF WHAT MAY BE ASKED FOR. The routing service takes any session handle
+ * from any caller holding this application's credential — it has no notion of a meeting — so a pair
+ * that is not on this room's roster is either a browser working from a roster that has moved on, or
+ * an attempt to pull somebody else's meeting into this one. Both are refused, and the WHOLE frame is
+ * refused rather than the offending pair: a browser that got some of what it asked for and no word
+ * about the rest has no way to tell which tile is missing.
+ *
+ * Taken over the one roster read the frame already paid for, rather than reading storage again.
+ */
+function namesOnlyRosterTracks(
+  attendanceId: string,
+  stored: ReadonlyMap<string, StoredParticipant>,
+  tracks: readonly { readonly sessionId: string; readonly trackName: string }[],
+): boolean {
+  const publishedTracks = new Map<string, Set<string>>();
+  for (const participant of stored.values()) {
+    if (participant.sfuSessionId === null) continue;
+    publishedTracks.set(
+      participant.sfuSessionId,
+      new Set(participant.tracks.map((track) => track.trackName)),
+    );
+  }
+  const ownSession = stored.get(attendanceId)?.sfuSessionId;
+  for (const track of tracks) {
+    // Naming one's own session is not a leak and is still refused: the browser already has that
+    // media, the service answers it with a loop, and the only thing it can produce is echo.
+    if (ownSession !== null && ownSession !== undefined && track.sessionId === ownSession) {
+      return false;
+    }
+    if (publishedTracks.get(track.sessionId)?.has(track.trackName) !== true) return false;
+  }
+  return true;
 }
 
 /** Which meeting, in which firm, this room is the signaling side of. */
@@ -308,6 +421,15 @@ export class MeetingRoom extends DurableObject<Bindings> {
         // A socket is open again, so whatever grace was running for this stay is over. Left set, the
         // sweep would close the record of somebody who is sitting in the meeting.
         socketLostAt: null,
+        // CARRIED FORWARD RATHER THAN RESET, because these are facts about the PERSON and the person
+        // has not changed — only their connection has. A member who was muted when their tunnel
+        // dropped is still muted, and blanking it would show them as open microphones to everybody
+        // until they next happened to toggle something.
+        speaking: existing?.speaking ?? false,
+        muted: existing?.muted ?? false,
+        // The throttle does start again: the returning browser's first statement about itself is
+        // the one the room most wants relayed, not the one it most wants to hold back.
+        presenceAt: null,
       });
       return existing;
     });
@@ -316,13 +438,26 @@ export class MeetingRoom extends DurableObject<Bindings> {
     // go quiet. Its close handler finds this newer socket and arms nothing.
     for (const older of superseded) this.refuseAndClose(older, "superseded");
 
-    const roster = await this.roster();
-    server.send(welcomeFrame(attachment.attendanceId, roster));
+    const stored = await this.storedParticipants();
+    // A SOCKET THAT HAS JUST ARRIVED HOLDS NOTHING TO APPLY A DIFFERENCE TO, so the welcome carries
+    // the whole list however large the room is. It is the one frame in the protocol that always does.
+    server.send(welcomeFrame(attachment.attendanceId, this.rosterFrom(stored)));
+
     // Everybody else learns there is a new tile to draw — and, on a rejoin, that the tracks they were
     // subscribed to are gone, which is what stops them holding a subscription to a session that will
-    // never send again. The arriving socket already has the roster on its welcome, so it is not sent
-    // the same list twice.
-    this.broadcast(rosterFrame(roster), server);
+    // never send again. The arriving socket already has the roster on its welcome, so it is not told
+    // about itself twice.
+    const arrived = stored.get(attachment.attendanceId);
+    if (arrived !== undefined) {
+      const entry = rosterEntryFor(attachment.attendanceId, arrived);
+      this.announceRoster(
+        stored,
+        // A rejoin is not an arrival: everybody else already has this tile and is holding
+        // subscriptions against it, and what they need is the reset, not a second copy.
+        previous === undefined ? { joined: [entry] } : { updated: [entry] },
+        server,
+      );
+    }
 
     // Last, and best-effort: the predecessor's session is nobody's now, and the routing service goes
     // on forwarding and billing it until it is told otherwise.
@@ -358,6 +493,28 @@ export class MeetingRoom extends DurableObject<Bindings> {
     if (parsed.frame.type === "leave") {
       await this.releaseParticipant(attachment.attendanceId);
       socket.close(NORMAL_CLOSE_CODE, "left the meeting");
+      return;
+    }
+
+    // THE TWO FRAMES THAT ASK NOTHING OF THE ROUTING SERVICE, answered before it is even resolved.
+    // A browser that has lost track of who is in the room, and a browser saying whether its own
+    // microphone is carrying a voice, are both about the roster alone — and both must go on working
+    // in a deployment whose media credentials went away under an open meeting.
+    if (parsed.frame.type === "sync") {
+      // ONE SOCKET, and the whole list. This is the way back to the truth for a client that has been
+      // applying differences: without it, a browser that suspects a gap could only reconnect, which
+      // costs it every track it holds.
+      socket.send(rosterFrame(this.rosterFrom(await this.storedParticipants())));
+      return;
+    }
+
+    if (parsed.frame.type === "presence") {
+      await this.relayPresence(
+        socket,
+        attachment.attendanceId,
+        parsed.frame.speaking,
+        parsed.frame.muted,
+      );
       return;
     }
 
@@ -476,7 +633,7 @@ export class MeetingRoom extends DurableObject<Bindings> {
 
     // Last, and best-effort: the record is already right, and a routing service that will not answer
     // must not be able to make it wrong.
-    await this.releaseMedia(departing.map(([, participant]) => participant));
+    await this.releaseMedia([...departing.values()]);
   }
 
   /**
@@ -500,14 +657,20 @@ export class MeetingRoom extends DurableObject<Bindings> {
   private async handleSignalingFrame(
     socket: WebSocket,
     attachment: MeetingSocketAttachment,
-    frame: Exclude<MeetingClientFrame, { type: "ping" } | { type: "leave" }>,
+    frame: SignalingFrame,
     sfu: SfuClient,
   ): Promise<void> {
     // EVERYTHING THE ROSTER CAN DECIDE IS DECIDED FIRST, before a routing session exists and before
     // anything is asked of the service. A frame the room will not act on must not cost a session at
-    // the service, and — for a subscription — must not be forwarded even once: the service would
-    // honour it, because it has no idea which meeting a session belongs to.
-    const refusal = await this.refuseFrame(attachment.attendanceId, frame);
+    // the service, and — for a subscription or a layer change — must not be forwarded even once: the
+    // service would honour it, because it has no idea which meeting a session belongs to.
+    //
+    // THE ROSTER IS READ AT MOST ONCE PER FRAME, and only by the two frames that name somebody
+    // else's tracks. In a room of three hundred that read is three hundred keys, so a second one for
+    // the same frame doubles the cost of the busiest thing the room does.
+    const namesOthersTracks = frame.type === "subscribe" || frame.type === "layer";
+    const stored = namesOthersTracks ? await this.storedParticipants() : null;
+    const refusal = await this.refuseFrame(attachment.attendanceId, frame, stored);
     if (refusal !== null) {
       socket.send(refusedFrame(refusal));
       return;
@@ -564,9 +727,46 @@ export class MeetingRoom extends DurableObject<Bindings> {
           confirmed.map((track) => ({ trackName: track.trackName, mid: track.mid })),
         ),
       );
-      // The roster is what tells everybody else there is something new to ask for.
+      // The roster is what tells everybody else there is something new to ask for — and the session
+      // this participant now publishes through, which a first publish is what creates.
       await this.recordPublishedTracks(attachment.attendanceId, confirmed);
-      this.broadcast(rosterFrame(await this.roster()));
+      await this.announceParticipantUpdated(attachment.attendanceId);
+      return;
+    }
+
+    if (frame.type === "layer") {
+      // NOT A SECOND SUBSCRIPTION. The media is already flowing to this browser; what has changed is
+      // how large it is drawing the tile. Asking for the track again would build a second media
+      // section for a stream it is already receiving, and renegotiate the connection to do it — so a
+      // gallery page turning would cost every tile on the page a renegotiation.
+      const answer = await sfu.updateTracks(sessionId, {
+        tracks: frame.tracks.map((track) => ({
+          mid: track.mid,
+          simulcast: simulcastPreferenceFor(track.preferredRid),
+        })),
+      });
+      // Answered from what the browser ASKED, with the service's refusals matched onto it, so there
+      // is one reply entry per request in request order. The service names the sections it could not
+      // change and says nothing about the rest, which is not a list a client can pair up by itself.
+      const refusedByMid = new Map(
+        answer.tracks.flatMap((track) =>
+          track.mid === undefined || track.errorCode === undefined
+            ? []
+            : [[track.mid, track.errorCode] as const],
+        ),
+      );
+      socket.send(
+        layeredFrame(
+          frame.tracks.map((track) => {
+            const errorCode = refusedByMid.get(track.mid);
+            return {
+              mid: track.mid,
+              preferredRid: track.preferredRid,
+              ...(errorCode === undefined ? {} : { errorCode }),
+            };
+          }),
+        ),
+      );
       return;
     }
 
@@ -578,6 +778,12 @@ export class MeetingRoom extends DurableObject<Bindings> {
           location: "remote" as const,
           sessionId: track.sessionId,
           trackName: track.trackName,
+          // OMITTED WHEN THE BROWSER NAMED NONE, rather than defaulted to a layer: a microphone and
+          // a screen share publish one layer each, and stating a preference between layers that do
+          // not exist would be an instruction the service has to reconcile for no reason.
+          ...(track.preferredRid === undefined
+            ? {}
+            : { simulcast: simulcastPreferenceFor(track.preferredRid) }),
         })),
       });
       socket.send(
@@ -629,7 +835,8 @@ export class MeetingRoom extends DurableObject<Bindings> {
    */
   private async refuseFrame(
     attendanceId: string,
-    frame: Exclude<MeetingClientFrame, { type: "ping" } | { type: "leave" }>,
+    frame: SignalingFrame,
+    stored: ReadonlyMap<string, StoredParticipant> | null,
   ): Promise<MeetingRefusalReason | null> {
     if (frame.type === "publish") {
       // A CALL IS SOUND, AND THE ROOM IS WHERE THAT HOLDS. The medium is chosen when the meeting is
@@ -658,36 +865,12 @@ export class MeetingRoom extends DurableObject<Bindings> {
       return names.size > MAX_TRACKS_PER_PARTICIPANT ? "track-limit-reached" : null;
     }
 
-    if (frame.type !== "subscribe") return null;
-
-    // THE ROSTER IS THE WHOLE OF WHAT MAY BE ASKED FOR. The routing service takes any session handle
-    // from any caller holding this application's credential — it has no notion of a meeting — so a
-    // pair that is not on THIS room's roster is either a browser working from a roster that has
-    // moved on, or an attempt to pull somebody else's meeting into this one. Both are refused the
-    // same way, and the whole frame is refused rather than the offending pair: a browser that got
-    // some of what it asked for and no word about the rest has no way to tell which tile is
-    // missing.
-    const stored = await this.storedParticipants();
-    const publishedTracks = new Map<string, Set<string>>();
-    for (const [, participant] of stored) {
-      if (participant.sfuSessionId === null) continue;
-      publishedTracks.set(
-        participant.sfuSessionId,
-        new Set(participant.tracks.map((track) => track.trackName)),
-      );
-    }
-    const ownSession = (await this.readParticipant(attendanceId))?.sfuSessionId;
-    for (const track of frame.tracks) {
-      // Subscribing to one's own session is not a leak and is still refused: the browser already has
-      // that media, the service answers it with a loop, and the only thing it can produce is echo.
-      if (ownSession !== null && ownSession !== undefined && track.sessionId === ownSession) {
-        return "unknown-track";
-      }
-      if (publishedTracks.get(track.sessionId)?.has(track.trackName) !== true) {
-        return "unknown-track";
-      }
-    }
-    return null;
+    // A subscription and a layer change both name somebody ELSE's track, so both answer to the
+    // roster and both answer to it the same way — one check, so the two can never drift into
+    // disagreeing about what may be asked for.
+    if (frame.type !== "subscribe" && frame.type !== "layer") return null;
+    if (stored === null) return "unknown-track";
+    return namesOnlyRosterTracks(attendanceId, stored, frame.tracks) ? null : "unknown-track";
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -755,7 +938,50 @@ export class MeetingRoom extends DurableObject<Bindings> {
       await this.putParticipant(attendanceId, { ...participant, tracks: kept });
       return true;
     });
-    if (changed) this.broadcast(rosterFrame(await this.roster()));
+    if (changed) await this.announceParticipantUpdated(attendanceId);
+  }
+
+  /**
+   * Records what a browser says about its own microphone, and relays it to the rest of the room.
+   *
+   * THE STORE ALWAYS HAPPENS; THE RELAY IS THROTTLED. Which of the two the window governs is the
+   * whole design: the participant record is what `welcome`, a `sync` answer and every roster frame
+   * read, so holding the store back would make the throttle a source of wrong answers rather than
+   * of fewer frames.
+   *
+   * The sender is not told what it just said.
+   */
+  private async relayPresence(
+    socket: WebSocket,
+    attendanceId: string,
+    speaking: boolean,
+    muted: boolean,
+  ): Promise<void> {
+    const now = Date.now();
+    const relayAt = await this.ctx.blockConcurrencyWhile(async () => {
+      const participant = await this.readParticipant(attendanceId);
+      if (participant === undefined) return null;
+      // A frame restating what the room already holds is not a transition, whatever the browser
+      // believes, and relaying it would spend a frame on every other socket to say nothing.
+      if (participant.speaking === speaking && participant.muted === muted) return null;
+      const lastRelay =
+        participant.presenceAt === null ? Number.NaN : Date.parse(participant.presenceAt);
+      const due =
+        Number.isNaN(lastRelay) || now - lastRelay >= PRESENCE_RELAY_INTERVAL_MILLISECONDS;
+      const at = new Date(now).toISOString();
+      await this.putParticipant(attendanceId, {
+        ...participant,
+        speaking,
+        muted,
+        presenceAt: due ? at : participant.presenceAt,
+      });
+      return due ? at : null;
+    });
+    if (relayAt === null) return;
+    // Its own frame rather than a roster difference: this is the one change to a participant that
+    // happens while nothing else about them has, and wrapping two booleans in a roster entry would
+    // carry their name, their session and every track they publish to say one of them moved.
+    this.broadcast(presenceDeltaFrame(attendanceId, speaking, muted, relayAt), socket);
   }
 
   private async readParticipant(attendanceId: string): Promise<StoredParticipant | undefined> {
@@ -769,13 +995,18 @@ export class MeetingRoom extends DurableObject<Bindings> {
     await this.ctx.storage.put(`${PARTICIPANT_PREFIX}${attendanceId}`, participant);
   }
 
-  /** Every roster entry, paired with the stay it belongs to. */
-  private async storedParticipants(): Promise<[string, StoredParticipant][]> {
+  /**
+   * Every roster entry, keyed by the stay it belongs to.
+   *
+   * THE ONE EXPENSIVE READ IN THE ROOM, and the reason every caller is written to take the result
+   * rather than to call this again: in a room of three hundred it is three hundred keys, and a
+   * frame that read it twice would double the cost of the thing the room does most.
+   */
+  private async storedParticipants(): Promise<Map<string, StoredParticipant>> {
     const stored = await this.ctx.storage.list<StoredParticipant>({ prefix: PARTICIPANT_PREFIX });
-    return [...stored].map(([key, participant]) => [
-      key.slice(PARTICIPANT_PREFIX.length),
-      participant,
-    ]);
+    return new Map(
+      [...stored].map(([key, participant]) => [key.slice(PARTICIPANT_PREFIX.length), participant]),
+    );
   }
 
   // A participant the room is letting go of on purpose — they pressed Leave, or the route closed
@@ -791,24 +1022,46 @@ export class MeetingRoom extends DurableObject<Bindings> {
     const participant = await this.readParticipant(attendanceId);
     const removed = await this.ctx.storage.delete(`${PARTICIPANT_PREFIX}${attendanceId}`);
     if (!removed) return;
-    this.broadcast(rosterFrame(await this.roster()));
+    this.announceRoster(await this.storedParticipants(), { left: [attendanceId] });
     if (participant !== undefined) await this.releaseMedia([participant]);
   }
 
-  private async roster(): Promise<RosterParticipant[]> {
-    return (await this.storedParticipants()).map(([participantId, participant]) => ({
-      participantId,
-      userId: participant.userId,
-      displayName: participant.displayName,
-      sfuSessionId: participant.sfuSessionId,
-      // The media section is the room's own handle for closing a track and is deliberately not on
-      // the wire: a subscriber names a track by its publisher's session and its name, so a section
-      // number would be a field every browser could read and none could use.
-      tracks: participant.tracks.map((track) => ({
-        trackName: track.trackName,
-        kind: track.kind,
-      })),
-    }));
+  private rosterFrom(stored: ReadonlyMap<string, StoredParticipant>): RosterParticipant[] {
+    return [...stored].map(([participantId, participant]) =>
+      rosterEntryFor(participantId, participant),
+    );
+  }
+
+  /**
+   * Tells the room what changed — as the difference, or as the whole list in a room small enough
+   * that the whole list is the cheaper of the two.
+   *
+   * THE COUNT IS TAKEN AFTER THE CHANGE, from the read the caller already made, so a room crossing
+   * the threshold announces that change in the form the new size calls for rather than the old one.
+   * A client therefore has to accept both shapes at any size, which it must anyway: it cannot know
+   * how many people were in the room at the instant the room decided.
+   */
+  private announceRoster(
+    stored: ReadonlyMap<string, StoredParticipant>,
+    change: RosterChange,
+    except?: WebSocket,
+  ): void {
+    const payload =
+      stored.size > ROSTER_DELTA_THRESHOLD
+        ? rosterDeltaFrame(change.joined ?? [], change.left ?? [], change.updated ?? [])
+        : rosterFrame(this.rosterFrom(stored));
+    this.broadcast(payload, except);
+  }
+
+  /** One participant's entry has changed — a session opened, a track published or stopped. */
+  private async announceParticipantUpdated(attendanceId: string): Promise<void> {
+    const stored = await this.storedParticipants();
+    const participant = stored.get(attendanceId);
+    // Gone between the write and this read — they left, or the meeting ended under them. Their
+    // departure is announced by whichever path removed them, and announcing an update to an entry
+    // that no longer exists would tell every browser to draw a tile for somebody who is not here.
+    if (participant === undefined) return;
+    this.announceRoster(stored, { updated: [rosterEntryFor(attendanceId, participant)] });
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -886,7 +1139,7 @@ export class MeetingRoom extends DurableObject<Bindings> {
    */
   private async sweepParticipantsPastTheirGrace(now: number): Promise<void> {
     const stored = await this.storedParticipants();
-    const lost = stored.filter(([attendanceId, participant]) => {
+    const lost = [...stored].filter(([attendanceId, participant]) => {
       const deadline = this.graceDeadlineOf(attendanceId, participant);
       return deadline !== null && deadline <= now;
     });
@@ -896,10 +1149,14 @@ export class MeetingRoom extends DurableObject<Bindings> {
     // three, so it is written while there is still something naming who it is about; the media is
     // last because a routing service that will not answer must not leave a stay open.
     for (const [attendanceId] of lost) await this.closeStay(attendanceId);
+    const remaining = new Map(stored);
     for (const [attendanceId] of lost) {
       await this.ctx.storage.delete(`${PARTICIPANT_PREFIX}${attendanceId}`);
+      remaining.delete(attendanceId);
     }
-    this.broadcast(rosterFrame(await this.roster()));
+    // What is left is derived from the read this sweep already made rather than read again: the
+    // sweep knows exactly who it removed, which is the whole of what the room has to be told.
+    this.announceRoster(remaining, { left: lost.map(([attendanceId]) => attendanceId) });
     await this.releaseMedia(lost.map(([, participant]) => participant));
   }
 
