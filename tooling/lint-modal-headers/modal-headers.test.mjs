@@ -95,6 +95,13 @@ describe("the heading names the act", () => {
     expect(problemsFor("Withdraw Payment Out")).toEqual([]);
     expect(problemsFor("Transfer to Another Matter")).toEqual([]);
   });
+
+  it("names importing, which is what a panel over a published file does", () => {
+    // A bank statement reaches the platform two ways — typed in, or read out of the file the
+    // institution publishes — and the second one's commit does not "record" or "add": it imports.
+    expect(problemsFor("Import Statement")).toEqual([]);
+    expect(ACT_VERBS.has("import")).toBe(true);
+  });
 });
 
 describe("a fact is not a sentence", () => {

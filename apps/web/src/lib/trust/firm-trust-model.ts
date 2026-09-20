@@ -11,6 +11,11 @@
  * than here: trust-request-verbs.ts holds it, and this file re-exports it so a reader of the firm's
  * screen still finds the verbs where the rest of that screen's judgments are.
  *
+ * A POSITION IS SIX FIGURES, AND ONE OF THEM CAN BE ABSENT RATHER THAN NOTHING. Which of them is
+ * which is a judgment about client money — a zero and an absence read alike on a screen and mean
+ * entirely different things on a trust account — so it is decided here, where it can be asserted,
+ * rather than inside the markup that prints it.
+ *
  * A RECONCILIATION KNOWS ITS STATEMENT BY IDENTIFIER, AND A READER KNOWS IT BY ITS PERIOD. The two
  * reads are separate on the contract, so the join happens here; a reconciliation whose statement is
  * not among the ones read says so rather than printing a handle at somebody.
@@ -20,6 +25,7 @@
  */
 import type {
   TrustAccountListing,
+  TrustAccountPosition,
   TrustAuthorizationPolicyVersion,
   TrustBankStatement,
   TrustPendingRequest,
@@ -84,6 +90,65 @@ export function queueInOrder(
   requests: readonly TrustPendingRequest[],
 ): readonly TrustPendingRequest[] {
   return requests.toSorted((left, right) => left.requestedAt.localeCompare(right.requestedAt));
+}
+
+// ---- what an account holds today -----------------------------------------------------------------
+
+/** One figure of the Position section: its name, and the figure in the words a reader reads. */
+export interface TrustPositionFigure {
+  readonly label: string;
+  readonly text: string;
+}
+
+/**
+ * The Position section, decided away from the panel.
+ *
+ * FIVE FIGURES ARE ALWAYS ANSWERABLE AND THE SIXTH IS NOT. The book balance, what the client
+ * ledgers come to, what is under hold, how many matter ledgers there are and how many requests are
+ * waiting are facts of every account, zeroes included — a zero is an answer, and a row that stood
+ * empty rather than saying "$0.00" would read as a figure nobody could reach. The firm's own
+ * cushion is the exception: an account where the carve-out was never opened has no balance at all,
+ * which is a different statement from a balance of nothing, so it answers null here and the section
+ * says the cushion is not open rather than printing a zero the firm never put there.
+ */
+export interface TrustPositionReading {
+  /** The civil day the figures are as of, in the account's own zone. */
+  readonly asOfDate: string;
+  readonly figures: readonly TrustPositionFigure[];
+  /** The cushion's balance, or null where the carve-out was never opened on this account. */
+  readonly firmFundsText: string | null;
+}
+
+export function positionReading(
+  position: TrustAccountPosition,
+  money: (amountMinor: number) => string,
+): TrustPositionReading {
+  return {
+    asOfDate: position.asOfDate,
+    figures: [
+      { label: "Book Balance", text: money(position.bookBalanceMinor) },
+      { label: "Client Ledgers", text: money(position.clientLedgerTotalMinor) },
+      { label: "Held", text: money(position.heldMinor) },
+      { label: "Matter Ledgers", text: String(position.matterLedgerCount) },
+      { label: "Awaiting", text: String(position.pendingRequestCount) },
+    ],
+    firmFundsText: position.firmFundsMinor === null ? null : money(position.firmFundsMinor),
+  };
+}
+
+/**
+ * The matter behind a queued request, as one line: its number, then its title.
+ *
+ * The number leads because it is what somebody reads back down a telephone, and the title follows
+ * because it is what a reader recognises. Where the queue served neither — a request whose matter
+ * the read could not name — the line says what it is rather than printing the ledger node's handle
+ * at somebody; the row is still a link, because the matter is still there to open.
+ */
+export function requestMatterText(request: TrustPendingRequest): string {
+  const parts = [request.matterNumber, request.matterTitle]
+    .map((part) => part?.trim() ?? "")
+    .filter((part) => part !== "");
+  return parts.length === 0 ? "The matter" : parts.join(" · ");
 }
 
 // ---- statements and reconciliations ---------------------------------------------------------------

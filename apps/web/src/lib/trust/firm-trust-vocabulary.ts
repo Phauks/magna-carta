@@ -87,6 +87,16 @@ export function requestKindMeaning(kind: TrustRequestKind): string {
 /** What the queue says when nobody is waiting on anybody. */
 export const QUEUE_EMPTY = "Nothing is waiting.";
 
+/**
+ * What the Matter row says on a request that stands against no matter.
+ *
+ * The queue is read per account, and an account's ledger tree holds nodes that are not matter
+ * leaves — the firm's own bank-charge cushion is one. A request against one of those has no matter
+ * to open, which is a fact about the record rather than something missing from it.
+ */
+export const REQUEST_NOT_A_MATTER_LEDGER =
+  "This request stands against a ledger that belongs to no matter, so there is no matter to open.";
+
 // ---- statements and reconciliations ------------------------------------------------------------
 
 /** The period a statement covers, as one reading. */

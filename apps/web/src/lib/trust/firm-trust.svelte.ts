@@ -1,19 +1,25 @@
 /*
  * What the firm's Trust screen reads, in one place.
  *
- * SIX READS, SIX FAILURES, AND ONLY ONE OF THEM IS THE SCREEN. The roster of accounts is the
+ * SEVEN READS, SEVEN FAILURES, AND ONLY ONE OF THEM IS THE SCREEN. The roster of accounts is the
  * screen's subject: without it there is no register and no panel, so its failure is the screen's.
- * The queue, the statements, the reconciliations, the cushion and the firm's posture each answer a
- * different question about ONE account, and a firm whose statements cannot be read still has an
- * approval queue somebody owes an answer to. So each keeps its own failure and its own absence, and
- * a section that cannot be read goes quiet on its own while the rest of the panel stands.
+ * The queue, the position, the statements, the reconciliations, the cushion and the firm's posture
+ * each answer a different question about ONE account, and a firm whose statements cannot be read
+ * still has an approval queue somebody owes an answer to. So each keeps its own failure and its own
+ * absence, and a section that cannot be read goes quiet on its own while the rest of the panel
+ * stands.
  *
  * EVERY PER-ACCOUNT READ IS GUARDED AGAINST ITS OWN PREDECESSOR. A reader selecting three accounts
  * in quick succession starts three sets of reads, and nothing about the order they come back in is
  * under anyone's control — the slower answer is frequently the first one asked for. Written
  * unguarded, the panel shows the previous account's queue under the current account's name and
- * looks exactly like a panel that loaded correctly. One guard covers the four reads together
- * because they share one subject: the account selected.
+ * looks exactly like a panel that loaded correctly. One guard covers the reads that arrive with the
+ * selection, because they share one subject: the account selected.
+ *
+ * THE POSITION CARRIES A GUARD OF ITS OWN, because it is the one read every write asks for again.
+ * A deposit into the cushion re-reads the position while the selection's own read may still be in
+ * flight, and the figures the reader must end up looking at are the ones asked for AFTER the money
+ * moved. Its own guard is what lets the later read supersede the earlier one instead of racing it.
  *
  * A 404 ON THE CUSHION IS AN ANSWER, NOT A FAILURE. The bank-charge carve-out is something a firm
  * opts into, so an account that never opened one answers 404 and the section says the cushion is
@@ -31,9 +37,11 @@ import {
   listTrustAccounts,
   listTrustBankStatements,
   listTrustReconciliations,
+  readTrustAccountPosition,
   readTrustAuthorizationPolicy,
   readTrustFirmFunds,
   type TrustAccountListing,
+  type TrustAccountPosition,
   type TrustAuthorizationPolicy,
   type TrustBankStatement,
   type TrustFirmFundsPosition,
@@ -57,6 +65,10 @@ export class FirmTrust {
   requests = $state<readonly TrustPendingRequest[] | null>(null);
   requestsFailure = $state<Failure | null>(null);
 
+  /** What the selected account holds today: the bank's book balance and what stands against it. */
+  position = $state<TrustAccountPosition | null>(null);
+  positionFailure = $state<Failure | null>(null);
+
   statements = $state<readonly TrustBankStatement[] | null>(null);
   statementsFailure = $state<Failure | null>(null);
 
@@ -72,6 +84,7 @@ export class FirmTrust {
 
   #rosterReads = new LatestOnly();
   #accountReads = new LatestOnly();
+  #positionReads = new LatestOnly();
   #policyReads = new LatestOnly();
 
   /** Which account the four per-account reads were last started for. */
@@ -107,15 +120,18 @@ export class FirmTrust {
    * Read everything the panel says about one account.
    *
    * Calling it again for the account already showing does nothing, so an effect that re-runs
-   * because something else on the screen changed does not spend four requests saying the same
+   * because something else on the screen changed does not spend five requests saying the same
    * thing. A reader who wants the queue again after deciding something asks for the queue.
    */
   selectAccount(fetchImpl: typeof fetch, trustAccountId: string | null): void {
     if (trustAccountId === this.#showing) return;
     this.#showing = trustAccountId;
     this.#accountReads.supersede();
+    this.#positionReads.supersede();
     this.requests = null;
     this.requestsFailure = null;
+    this.position = null;
+    this.positionFailure = null;
     this.statements = null;
     this.statementsFailure = null;
     this.reconciliations = null;
@@ -128,6 +144,7 @@ export class FirmTrust {
     void this.#readStatements(fetchImpl, trustAccountId, attempt);
     void this.#readReconciliations(fetchImpl, trustAccountId, attempt);
     void this.#readCushion(fetchImpl, trustAccountId, attempt);
+    void this.#readPosition(fetchImpl, trustAccountId, this.#positionReads.attempt());
   }
 
   /**
@@ -140,6 +157,30 @@ export class FirmTrust {
   reloadQueue(fetchImpl: typeof fetch, trustAccountId: string): void {
     if (trustAccountId !== this.#showing) return;
     void this.#readQueue(fetchImpl, trustAccountId, this.#accountReads.attempt());
+  }
+
+  /**
+   * Read the position again, after anything that moved money on the account.
+   *
+   * It BEGINS rather than merely attempting: this read is asked for because the figures on screen
+   * are known to be out of date, so it must win over a position read that was already in flight
+   * when the write landed — which is the one ordering where the older answer is the wrong one.
+   */
+  reloadPosition(fetchImpl: typeof fetch, trustAccountId: string): void {
+    if (trustAccountId !== this.#showing) return;
+    void this.#readPosition(fetchImpl, trustAccountId, this.#positionReads.begin());
+  }
+
+  /** Read the cushion again, after opening it, funding it or recording a charge against it. */
+  reloadCushion(fetchImpl: typeof fetch, trustAccountId: string): void {
+    if (trustAccountId !== this.#showing) return;
+    void this.#readCushion(fetchImpl, trustAccountId, this.#accountReads.attempt());
+  }
+
+  /** Read the statements again, after one was recorded or imported. */
+  reloadStatements(fetchImpl: typeof fetch, trustAccountId: string): void {
+    if (trustAccountId !== this.#showing) return;
+    void this.#readStatements(fetchImpl, trustAccountId, this.#accountReads.attempt());
   }
 
   async #readQueue(
@@ -156,6 +197,22 @@ export class FirmTrust {
     }
     this.requests = null;
     this.requestsFailure = outcome.failure;
+  }
+
+  async #readPosition(
+    fetchImpl: typeof fetch,
+    trustAccountId: string,
+    attempt: ReadAttempt,
+  ): Promise<void> {
+    const outcome = await readTrustAccountPosition(fetchImpl, trustAccountId);
+    if (!attempt.current) return;
+    if (outcome.kind === "ok") {
+      this.position = outcome.value;
+      this.positionFailure = null;
+      return;
+    }
+    this.position = null;
+    this.positionFailure = outcome.failure;
   }
 
   async #readStatements(

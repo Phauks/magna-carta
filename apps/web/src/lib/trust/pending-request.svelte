@@ -13,17 +13,23 @@
    * the capability sees the same verbs disabled with the reason.
    *
    * THE MATTER ROW IS THE FIRM'S QUESTION ALONE. A matter's own section already knows which matter
-   * it is, so the row stands only where the queue spans the firm — and there it says what it is
-   * waiting on rather than printing the ledger node's handle at somebody.
+   * it is, so the row stands only where the queue spans the firm — and there it is the way THROUGH
+   * to that matter's own Trust section, because a member deciding whether to release money is as
+   * often going to look at the ledger it would leave. A request standing against a ledger that
+   * belongs to no matter says so in the row rather than printing the node's handle at somebody.
    */
   import Button from "@magna-carta/design-system/button";
   import * as DefinitionList from "@magna-carta/design-system/definition-list";
   import { formatInstant } from "@magna-carta/design-system/formatters";
-  import { soonDependencySentence } from "@magna-carta/design-system/maturity";
   import type { FirmMemberSummary } from "$lib/members/members-api.ts";
-  import { firmTrustGapReason } from "./firm-trust-gaps.ts";
+  import { moneySectionHref } from "$lib/money/index.ts";
   import { memberDisplay } from "./trust-member-names.ts";
-  import { requestKindLabel, requestKindMeaning } from "./firm-trust-vocabulary.ts";
+  import { requestMatterText } from "./firm-trust-model.ts";
+  import {
+    REQUEST_NOT_A_MATTER_LEDGER,
+    requestKindLabel,
+    requestKindMeaning,
+  } from "./firm-trust-vocabulary.ts";
   import type { TrustPendingRequest } from "./trust-api.ts";
   import {
     requestActions,
@@ -51,7 +57,10 @@
   } = $props();
 
   const requester = $derived(memberDisplay(request.requestedBy, members));
-  const matterReason = soonDependencySentence(firmTrustGapReason("requestMatter"));
+  /** The matter's own Trust section, where the ledger this payment would leave is read. */
+  const matterHref = $derived(
+    request.matterId === null ? null : moneySectionHref(request.matterId, "trust"),
+  );
 </script>
 
 <div class="flex flex-col gap-8">
@@ -72,10 +81,15 @@
       <span class="tabular-nums">{formatInstant(request.requestedAt)}</span>
     </DefinitionList.Row>
     {#if showMatter}
-      <!-- The row stands and says what it waits on, in the row itself: a fact a reader cannot have
-           is not something to leave on a hover. -->
-      <DefinitionList.Row term="Matter" empty />
-      <DefinitionList.Empty term="Matter">{matterReason}</DefinitionList.Empty>
+      <DefinitionList.Row term="Matter" empty={matterHref === null}>
+        {#if matterHref !== null}
+          <a class="underline underline-offset-2" href={matterHref}>{requestMatterText(request)}</a>
+        {/if}
+      </DefinitionList.Row>
+      {#if matterHref === null}
+        <!-- The fact stands in the row itself: a reader on a touch device never reaches a hover. -->
+        <DefinitionList.Empty term="Matter">{REQUEST_NOT_A_MATTER_LEDGER}</DefinitionList.Empty>
+      {/if}
     {/if}
   </DefinitionList.Root>
 
