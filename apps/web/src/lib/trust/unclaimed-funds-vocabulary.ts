@@ -21,11 +21,7 @@
  */
 import type { ChoiceOption } from "$lib/components/choice-picker.ts";
 import type { SheetMatter } from "$lib/time/time-sheet-model.ts";
-import type {
-  TrustContactChannel,
-  TrustContactOutcome,
-  TrustReviewOutcome,
-} from "./trust-api.ts";
+import type { TrustContactChannel, TrustContactOutcome, TrustReviewOutcome } from "./trust-api.ts";
 
 // ---- the window the reader states ---------------------------------------------------------------
 

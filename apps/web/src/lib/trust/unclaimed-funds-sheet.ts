@@ -9,10 +9,7 @@
  * IT SAYS NOTHING THE FILE DOES NOT HOLD. Every line comes off the review record, in the same words
  * the window shows, so the paper and the screen can never disagree about what the firm did.
  */
-import type {
-  PrintSheetDocument,
-  PrintSheetSection,
-} from "@magna-carta/design-system/print-sheet";
+import type { PrintSheetDocument, PrintSheetSection } from "@magna-carta/design-system/print-sheet";
 import { formatDate, formatInstant } from "@magna-carta/design-system/formatters";
 import type { TrustUnclaimedFundsReview } from "./trust-api.ts";
 import {
@@ -99,7 +96,12 @@ export function unclaimedFundsReviewSheet(
       ],
     });
     if (closure.note !== null) {
-      sections.push({ id: "closing-note", title: "Closing Note", kind: "text", text: closure.note });
+      sections.push({
+        id: "closing-note",
+        title: "Closing Note",
+        kind: "text",
+        text: closure.note,
+      });
     }
   }
 
