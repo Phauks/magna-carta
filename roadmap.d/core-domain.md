@@ -147,7 +147,7 @@
   status: partial
   surface: internal
   evidence: packages/address-lookup holds the port and the deferred implementation — AddressLookupPort with suggest/resolve, typed outcomes that never throw, and deferredAddressLookupPort() answering engine-not-implemented to everything, the same wired-but-dormant shape resolveSearchIndexPort takes. No engine.
-  notes: Partial because the seam exists and the engine does not. The intended engine is an index over the open address corpora reusing crates/search-core and the R2 range-reader containers/search already runs, which keeps every query inside the tenancy; a hosted provider is a disclosure decision the owner has not made. no-coverage is a first-class outcome because the open corpora cover countries very unevenly.
+  notes: Partial because the seam exists and the engine does not. Two candidate engines, and the owner's 2026-09-20 ruling that an address may leave the tenancy means they now compete on cost rather than on confidentiality: a self-hosted index over the open address corpora reusing crates/search-core and the R2 range-reader containers/search already runs (no per-lookup fee, but an index build and a refresh cadence), or a hosted provider (no build, a per-lookup rate). AddressLookupPort is indifferent to which wins. no-coverage is a first-class outcome because the open corpora cover countries very unevenly.
 
 - id: directory.duplicates
   name: Duplicate detection

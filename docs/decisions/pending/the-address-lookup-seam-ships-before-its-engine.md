@@ -57,8 +57,12 @@ port, and conflating the two would put a deliverability claim on an affidavit th
 the open address corpora, built offline and range-read out of R2 by a pure-Rust container — reusing
 `crates/search-core` and the `HttpRangeReader` that `containers/search` already runs, which is what
 keeps the index's size bounded by R2 rather than by the 20 GB a Cloudflare container can hold on
-disk. Every query stays inside the tenancy. A hosted provider is a different thing and a disclosure
-the owner has not authorised; nothing here calls out, and no dependency is added.
+disk. Every query stays inside the tenancy. Nothing here calls out, and no dependency is added.
+
+_Amended 2026-09-20:_ the owner has since authorised an address to leave the tenancy, so a hosted
+provider is no longer refused on confidentiality grounds and the two candidate engines compete on
+cost and operational surface instead. Nothing in this decision changes — the port was built to be
+indifferent to which side wins, which is the property that makes the choice cheap to defer.
 
 **Considered and rejected:** building the engine first and the port with it (the surface then waits
 on a container, and the call sites get written twice); a boolean `available` flag instead of a
