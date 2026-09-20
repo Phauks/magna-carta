@@ -546,14 +546,26 @@ const DESTINATION_LIST = [
     defaultShown: true,
   },
   {
+    // The firm's own trust register: every account it holds, at which bank, under which office and
+    // which state's rules, with one account's work beside it. It is the read a matter's Trust
+    // section cannot give — a matter knows its own ledger, and no amount of visiting matters says
+    // what the firm holds or what is waiting on somebody's approval this morning.
+    //
+    // Alpha, not ready. It reads: the accounts, the approval queue on one of them, the bank
+    // statements and reconciliations recorded against it, the firm's bank-charge cushion, and the
+    // authorization posture that governs money leaving any client ledger. It acts: opening an
+    // account; approving, rejecting and withdrawing a waiting request; changing the posture.
+    // Recording and importing a statement, the reconciliation workbench, the three cushion forms
+    // and the unclaimed-funds file are still to come, and each renders where the design puts it,
+    // disabled, naming what it waits on.
     id: "trust",
     label: "Trust",
     href: "/trust",
     icon: Landmark,
     description: "Client money held in trust, to the penny.",
     group: "money",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    stage: "alpha",
     defaultShown: true,
   },
   // Firm — the firm about itself.

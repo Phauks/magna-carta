@@ -26297,6 +26297,52 @@
           "timeZone"
         ]
       },
+      "TrustAccountOpening": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "locationId": {
+            "type": "string",
+            "pattern": "^location_[A-Za-z0-9_-]{21}$"
+          },
+          "bankName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "accountNumberLastFour": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}$"
+          },
+          "iolta": {
+            "type": "boolean"
+          },
+          "openedOn": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "USD"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "locationId",
+          "openedOn",
+          "currency"
+        ]
+      },
       "TrustPendingDisbursementRequestsResponse": {
         "type": "object",
         "properties": {
@@ -91848,6 +91894,129 @@
           },
           "404": {
             "description": "The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Opens a trust account and binds it to one of the firm's offices. The jurisdiction is the office's own and is never chosen here, because the rules require a trust account to sit in the state of the lawyer's office — naming it separately would be a second answer to a question the office already settles. An office that has no jurisdiction recorded still opens an account, and every movement on that account is refused until the office records one, so recording the office's state is what makes the account usable rather than something to redo here. Only the last four digits of the bank account number are taken, because that is all the platform stores of it. The account is pooled interest-bearing unless the firm says otherwise. A retried open returns the account the first call opened rather than opening a second one, which is why the idempotency key is required.",
+        "operationId": "trust.openAccount",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.openAccount",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrustAccountOpening"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The trust account is open",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustAccountListing"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the movement exceeds the client ledger's available balance, or the disbursement request has already been decided",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request",
             "content": {
               "application/problem+json": {
                 "schema": {
