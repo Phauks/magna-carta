@@ -50,7 +50,7 @@
     {
       "class_name": "DocumentEditorContainer",
       "image": "../../containers/collabora/Dockerfile",
-      "instance_type": "standard-2",
+      "instance_type": "standard-4",
     },
   ],
   "durable_objects": {
