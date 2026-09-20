@@ -116,7 +116,10 @@ const liveCloseMeta: RouteMeta = {
   authenticated: true,
   permission: "tools:safeBrowse",
   resource: "firm",
-  audited: false,
+  // Audited on the same terms as the navigate: ending a session closes a browser the firm was
+  // paying to hold, which is a real act on a real resource rather than housekeeping. The
+  // non-mutating-POST allow-list is for posts that change nothing, and this changes something.
+  audited: true,
   idempotency: "optional",
   rateLimit: "default",
 };
