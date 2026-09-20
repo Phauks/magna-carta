@@ -11,9 +11,14 @@ import {
 import {
   MAX_MEETING_FRAME_BYTES,
   PING_FRAME,
+  PONG_FRAME,
   ROSTER_DELTA_THRESHOLD,
-} from "../src/meetings/meeting-room-protocol.ts";
-import { setSfuFetchForTests } from "../src/meetings/sfu-client.ts";
+} from "@magna-carta/meeting-protocol/frames";
+import {
+  PING_FRAME as PROGRESS_PING_FRAME,
+  PONG_FRAME as PROGRESS_PONG_FRAME,
+} from "../src/progress/job-progress-protocol.ts";
+import { setSfuFetchForTests } from "../src/meetings/sfu/sfu-client.ts";
 
 // The meeting's signaling protocol, against a fake media routing service.
 //
@@ -398,6 +403,22 @@ describe("the seam this whole file drives the room through", () => {
     const mode = (import.meta as { env?: { MODE?: string } }).env?.MODE;
     expect(mode).toBe("test");
     // And the whole file is the proof of the other half: every frame below came back from the fake.
+  });
+});
+
+describe("the keepalive pair, which is declared twice and must stay one string", () => {
+  it("matches the progress protocol's byte for byte", () => {
+    // The two live apart because a browser bundle cannot import from a Worker: the meeting
+    // protocol package restates what apps/api-worker/src/progress/job-progress-protocol.ts
+    // declares. Both are registered with the runtime's WebSocket auto-response, which matches the
+    // request frame BYTE-FOR-BYTE — so one of them edited by a character silently costs every idle
+    // participant a full wake of a hibernating room, with nothing failing.
+    //
+    // THIS FILE IS THE ONLY PLACE BOTH ARE REACHABLE AT ONCE. The package's own tests run in the
+    // node pool, where the Worker module is not importable; this suite runs inside the Worker pool
+    // and imports the package as the room does.
+    expect(PING_FRAME).toBe(PROGRESS_PING_FRAME);
+    expect(PONG_FRAME).toBe(PROGRESS_PONG_FRAME);
   });
 });
 

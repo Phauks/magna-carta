@@ -14,7 +14,8 @@
  * does not pull its own picture back from the unit — the local preview is the capture itself, and
  * the screen pins it beside whatever page is showing rather than paging it with the rest.
  */
-import type { MeetingMedium, MeetingTrackKind } from "./meeting-client.svelte.ts";
+import type { MeetingMedium, PreferredRid } from "@magna-carta/meeting-protocol/types";
+import type { MeetingTrackKind } from "./signaling.ts";
 
 /** The most cameras pulled at once, however many tiles a page holds. */
 export const MAX_VIDEO_SUBSCRIPTIONS = 16;
@@ -43,8 +44,13 @@ export const SPEAKER_VIEW_PAGE_SIZE = 1 + SPEAKER_VIEW_STRIP_SIZE;
  */
 export const SPEAKER_MEMORY_MILLISECONDS = 5 * 60 * 1000;
 
-/** Which simulcast layer a subscriber asks for: full, half or quarter resolution. */
-export type PreferredRid = "f" | "h" | "q";
+/**
+ * Which simulcast layer a subscriber asks for: full, half or quarter resolution.
+ *
+ * Re-exported rather than restated — it is a value on the wire, so its one home is the protocol
+ * package both ends import.
+ */
+export type { PreferredRid };
 
 /*
  * The bands the gallery's order is built from, best first: what this member asked to keep on screen,
@@ -215,7 +221,7 @@ function galleryOrder(
     return ROSTER_BAND;
   };
 
-  return [...others].sort((left, right) => {
+  return [...others].toSorted((left, right) => {
     const leftBand = band(left);
     const bands = leftBand - band(right);
     if (bands !== 0) return bands;

@@ -11,7 +11,7 @@
  * tile drawing a picture nobody asked the unit for, or a picture arriving with no tile to put it
  * in. The grid draws `plan.shown`, in order, and nothing else.
  */
-import type { MeetingClient, MeetingParticipant } from "./meeting-client.svelte.ts";
+import type { MeetingClient, MeetingParticipant } from "../client/meeting-client.svelte.ts";
 
 /** One tile on the grid. */
 export interface MeetingTileModel {

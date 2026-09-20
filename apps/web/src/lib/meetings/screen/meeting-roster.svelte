@@ -25,7 +25,7 @@
   import NoResults from "@magna-carta/design-system/no-results";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import { participantInitials, participantName } from "./meeting-tiles.ts";
-  import type { MeetingParticipant } from "./meeting-client.svelte.ts";
+  import type { MeetingParticipant } from "../client/meeting-client.svelte.ts";
 
   /**
    * How many people a member can find by reading. Past it, the rail offers the search control.

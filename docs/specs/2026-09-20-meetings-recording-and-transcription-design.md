@@ -126,7 +126,7 @@ Three things happen together when `recording.state === "started"` arrives (from 
 
 1. **A tone, synthesized, not shipped.** Two short notes from the **Web Audio API** on the
    `AudioContext` the meeting screen already owns for speaking detection
-   (`apps/web/src/lib/meetings/audio-level-meter.ts`). Synthesizing it beats bundling a sound file:
+   (`apps/web/src/lib/meetings/client/audio-level-meter.ts`). Synthesizing it beats bundling a sound file:
    no asset, no codec, no decode, nothing to get lost in a build, and it is byte-identical on every
    browser. Autoplay policy is satisfied because the member pressed Join, which is the gesture that
    unlocked that context.
@@ -808,7 +808,7 @@ The recording exists, everyone is told, nothing is filed yet.
 - `packages/meetings/src/settings.ts` (new), `src/types.ts`, `src/validation.ts`,
   `src/recording-statements.ts` (new), `src/recording-service.ts` (new), `src/pcm-frame.ts` (new)
 - `apps/api-worker/src/meetings/meeting-recorder.ts` (new), `sfu-client.ts` (adapter calls),
-  `meeting-room.ts` + `meeting-room-protocol.ts` (the `recording` frame, `welcome`, notice batching)
+  `meeting-room.ts` + `packages/meeting-protocol/src/frames.ts` (the `recording` frame, `welcome`, notice batching)
 - `apps/api-worker/src/routes/meetings.ts` — start, stop, list, notices
 - `apps/api-worker/src/routes/meeting-sink.ts` (new), wired in `app.ts`; `MEETING_RECORDER` binding
   and `MEETING_SINK_SIGNING_KEY` in `wrangler.jsonc`
@@ -849,7 +849,7 @@ The recording exists, everyone is told, nothing is filed yet.
 ### R4 — live captions
 
 - `apps/api-worker/src/meetings/caption-session.ts` (new); `meeting-recorder.ts` forks speaking
-  frames; `meeting-room-protocol.ts` + `meeting-room.ts` gain the `caption` frame
+  frames; `packages/meeting-protocol/src/frames.ts` + `meeting-room.ts` gain the `caption` frame
 - `apps/web/src/lib/meetings/caption-strip.svelte` (new), `meeting-client.svelte.ts`,
   `meeting-controls.svelte`
 - Tests: `apps/api-worker/test/meeting-captions.test.ts`,
@@ -866,7 +866,7 @@ The recording exists, everyone is told, nothing is filed yet.
   `apps/api-worker/test/meeting-summary.test.ts`
 
 **Shared files, and who owns them.** `apps/api-worker/src/routes/meetings.ts`,
-`meeting-room-protocol.ts`, `meeting-room.ts`, `packages/meetings/src/types.ts` and
+`packages/meeting-protocol/src/frames.ts`, `meeting-room.ts`, `packages/meetings/src/types.ts` and
 `apps/web/src/lib/meetings/meetings-api.ts` are touched by more than one slice. Run the slices in
 order, or give those five files to one agent for the whole run — the repository's own rule is that a
 file has exactly one owner, and these are the five that will otherwise cost a serial repair job.

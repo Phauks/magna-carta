@@ -43,12 +43,12 @@
     refusalStatement,
     SUPERSEDED_REASON,
     type MeetingMedium,
-  } from "$lib/meetings/meeting-client.svelte.ts";
-  import { meetingTiles, sharedScreenTile, spotlightTile } from "$lib/meetings/meeting-tiles.ts";
-  import MeetingAudio from "$lib/meetings/meeting-audio.svelte";
-  import MeetingGrid from "$lib/meetings/meeting-grid.svelte";
-  import MeetingControls from "$lib/meetings/meeting-controls.svelte";
-  import MeetingRoster from "$lib/meetings/meeting-roster.svelte";
+  } from "$lib/meetings/client/meeting-client.svelte.ts";
+  import { meetingTiles, sharedScreenTile, spotlightTile } from "$lib/meetings/screen/meeting-tiles.ts";
+  import MeetingAudio from "$lib/meetings/screen/meeting-audio.svelte";
+  import MeetingGrid from "$lib/meetings/screen/meeting-grid.svelte";
+  import MeetingControls from "$lib/meetings/screen/meeting-controls.svelte";
+  import MeetingRoster from "$lib/meetings/screen/meeting-roster.svelte";
   import {
     endMeeting,
     eventAddress,

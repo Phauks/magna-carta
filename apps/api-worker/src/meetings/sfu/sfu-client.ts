@@ -1,4 +1,4 @@
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../../app.ts";
 
 // The client for Cloudflare Realtime's selective forwarding unit — the service that routes a
 // meeting's audio, video and screen-share tracks between browsers.

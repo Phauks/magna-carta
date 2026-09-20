@@ -16,10 +16,10 @@
  */
 import { flushSync, mount, unmount, type ComponentProps } from "svelte";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import MeetingTile from "../src/lib/meetings/meeting-tile.svelte";
-import MeetingAudio from "../src/lib/meetings/meeting-audio.svelte";
+import MeetingTile from "../src/lib/meetings/screen/meeting-tile.svelte";
+import MeetingAudio from "../src/lib/meetings/screen/meeting-audio.svelte";
 import MeetingControls from "./meeting-controls-harness.svelte";
-import { participantInitials } from "../src/lib/meetings/meeting-tiles.ts";
+import { participantInitials } from "../src/lib/meetings/screen/meeting-tiles.ts";
 
 let target: HTMLElement;
 let instance: Record<string, unknown> | undefined;

@@ -1,0 +1,872 @@
+/*
+ * The browser half of a meeting: one RTCPeerConnection, one signaling socket, and the state a
+ * screen renders from.
+ *
+ * WHAT TALKS TO WHAT. Media never crosses a Worker. This client publishes its own microphone,
+ * camera and screen to the Cloudflare Realtime selective forwarding unit and pulls everybody
+ * else's back from it; the meeting room on the server is a broker that holds the roster and speaks
+ * to the unit on this browser's behalf. So every frame here is signaling — an offer, an answer, a
+ * list of track names — and never a byte of anybody's picture or voice.
+ *
+ * THIS FILE IS THE COMPOSITION, and the state. Every concern of a meeting lives in its own module
+ * beside it — the socket and the frames (signaling.ts), the peer connection and the serialized
+ * chain (negotiation.ts), what is coming in against what the plan wants (subscriptions.ts, over the
+ * pure policy in subscription-policy.ts), what is captured and how it is offered (capture.ts,
+ * through the effects stage in media-effects.ts), and what this browser says about its own
+ * microphone (presence.ts). What is HERE is the runes state a screen renders from and the wiring
+ * that turns one module's answer into another's question. A new concern is a new module, not another
+ * field on this class.
+ *
+ * ONE PEER CONNECTION, TRACKS NAMED BY WHO OWNS THEM. A track is named `<participantId>:<kind>`,
+ * which is what lets a roster frame naming somebody else's tracks be turned into a pull without a
+ * second lookup, and what lets a returned mid be traced back to the participant whose picture it
+ * carries. A screen share is a second local video track under the `screen` kind rather than a
+ * second connection: one connection is one negotiation, and two would have to be kept in step.
+ *
+ * EVERY EXTERNAL EDGE IS A CONSTRUCTOR SEAM. Creating the peer connection, opening the socket,
+ * capturing media and making an empty stream all arrive as functions, so the whole state machine
+ * runs under a test with fakes and the browser's own objects are only ever reached from
+ * `browserMeetingSeams()`. Nothing in this file touches `navigator` or `window`.
+ *
+ * RECONNECTION IS NOT IN THIS SLICE. A socket that closes without the room having said the meeting
+ * ended is a failure with the reason `socket-closed`, and the screen offers the way back in. A
+ * client that silently re-dialled would re-open an attendance row nobody asked for, and attendance
+ * is a record of who was actually in the room.
+ */
+import type { MeetingMedium } from "@magna-carta/meeting-protocol/types";
+import { createBrowserAudioLevelMeter, type AudioLevelMeter } from "./audio-level-meter.ts";
+import {
+  captureLocalMedia,
+  captureScreenShare,
+  offerCapturedTracks,
+  offerScreenTrack,
+} from "./capture.ts";
+import type { EffectedCapture } from "./media-effects.ts";
+import { MeetingNegotiation } from "./negotiation.ts";
+import { MeetingPresence } from "./presence.ts";
+import {
+  isRecord,
+  MeetingSignaling,
+  namesAScreen,
+  readIdentifiers,
+  readParticipants,
+  readPreferredRid,
+  readSessionDescription,
+  readString,
+  readSubscribedTracks,
+  type MeetingParticipant,
+  type MeetingRefusal,
+  type MeetingTrack,
+  type MeetingTrackKind,
+} from "./signaling.ts";
+import {
+  MeetingSubscriptions,
+  RECONCILE_DEBOUNCE_MILLISECONDS,
+  type SubscriptionHost,
+} from "./subscriptions.ts";
+import {
+  GALLERY_PAGE_SIZE,
+  SPEAKER_VIEW_PAGE_SIZE,
+  subscriptionPolicy,
+  type PreferredRid,
+  type SubscriptionPlan,
+} from "./subscription-policy.ts";
+
+export { RECONCILE_DEBOUNCE_MILLISECONDS };
+export type { MeetingMedium, MeetingParticipant, MeetingRefusal, MeetingTrack, MeetingTrackKind };
+
+/** The reason recorded when the signaling socket goes away without the meeting having ended. */
+export const SOCKET_CLOSED_REASON = "socket-closed";
+
+/**
+ * The reason a socket is closed because the SAME member opened a newer one: a second tab, or a
+ * rejoin after a drop. The room keeps one live socket per stay and the newest wins, so this one is
+ * over — and the stay it was holding now belongs to the socket that superseded it, which is why a
+ * screen meeting this must not offer to walk back in and must not close the stay on its way out.
+ */
+export const SUPERSEDED_REASON = "superseded";
+
+/**
+ * The refusals that END this browser's meeting. Everything else the room refuses is a setback: it
+ * keeps the socket open, the roster keeps arriving, and the member is still in the room. Treating a
+ * malformed frame or an unreachable unit as the end of a meeting throws somebody out of a room they
+ * are still in, over a frame they never saw.
+ */
+const FATAL_REFUSAL_REASONS = new Set(["not-a-participant", "meeting-ended", SUPERSEDED_REASON]);
+
+/**
+ * The refusals that mean the tracks just asked for are not coming: the unit could not be reached, or
+ * the room does not hold a track under the name it was asked for. Those tracks stop counting as
+ * pulled, so the next roster asks for them again rather than waiting on media that was never sent.
+ *
+ * The room's other refusals are deliberately NOT here. A name refused as somebody else's, and a
+ * track the room will not carry, are both about what THIS browser tried to publish — un-marking a
+ * subscription over either would ask again for something nobody refused.
+ */
+const REFUSALS_THAT_LOSE_A_SUBSCRIPTION = new Set(["sfu-unavailable", "unknown-track"]);
+
+/** Where a meeting stands from this browser's point of view. */
+export type MeetingState = "idle" | "joining" | "live" | "ended" | "failed";
+
+/** What the join route answered with, plus where the room's socket lives. */
+export interface MeetingJoinRequest {
+  readonly meetingId: string;
+  readonly participantId: string;
+  readonly iceServers: readonly RTCIceServer[];
+  readonly socketUrl: string;
+  /**
+   * What this room carries. Left out, it is a video meeting — which is what every meeting was
+   * before calls existed, and what the record says for every meeting opened before that day.
+   */
+  readonly medium?: MeetingMedium;
+}
+
+/**
+ * The edges this client reaches the outside world through. Every one of them is supplied, so the
+ * state machine has no ambient dependency on a browser.
+ */
+export interface MeetingClientSeams {
+  createPeerConnection: (configuration: RTCConfiguration) => RTCPeerConnection;
+  openSocket: (url: string) => WebSocket;
+  getUserMedia: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
+  getDisplayMedia: (constraints: DisplayMediaStreamOptions) => Promise<MediaStream>;
+  /** An empty stream to gather one participant's incoming tracks into. */
+  createMediaStream: () => MediaStream;
+  /**
+   * A running measurement of whether one captured track is carrying speech. Only ever this
+   * browser's own microphone: who else is talking is a fact the room relays.
+   */
+  createAudioLevelMeter: (track: MediaStreamTrack) => AudioLevelMeter;
+}
+
+/** The seams as a real browser supplies them. */
+export function browserMeetingSeams(): MeetingClientSeams {
+  return {
+    createPeerConnection: (configuration) => new RTCPeerConnection(configuration),
+    openSocket: (url) => new WebSocket(url),
+    getUserMedia: (constraints) => navigator.mediaDevices.getUserMedia(constraints),
+    getDisplayMedia: (constraints) => navigator.mediaDevices.getDisplayMedia(constraints),
+    createMediaStream: () => new MediaStream(),
+    createAudioLevelMeter: (track) => createBrowserAudioLevelMeter(track),
+  };
+}
+
+/**
+ * What a refusal the meeting survived reads as, in words a member can act on.
+ *
+ * The reasons themselves are the room's own vocabulary — a member should never be shown
+ * `malformed-frame` — and they group by what the reader can do about it: wait, because it will be
+ * asked for again; or report it, because the Error ID beside the sentence is what support needs.
+ */
+export function refusalStatement(refusal: MeetingRefusal): string {
+  switch (refusal.reason) {
+    case SUPERSEDED_REASON:
+      // The one fatal reason with a sentence here, because it is the one a member CAUSED and can
+      // understand: the meeting is still running and they are still in it, somewhere else.
+      return "You joined this meeting again from another tab or window, so this one has closed.";
+    case "sfu-unavailable":
+      return "The service that carries the pictures and sound could not be reached. What was asked for will be asked for again.";
+    case "unknown-track":
+      return "Somebody's picture or sound was asked for under a name the room no longer holds. It will be asked for again.";
+    case "foreign-track-name":
+      // A publish under a name that is not this browser's own. Nothing the member did causes it and
+      // nothing they can do fixes it, so the sentence says what is missing and the Error ID beside
+      // it is what carries the rest.
+      return "Something this page offered the room was named wrongly, so it is not being sent. Nobody else can see or hear it.";
+    case "track-limit-reached":
+      return "The room will not carry any more from one person, so this was not added. Stopping a screen share makes room for it.";
+    case "track-kind-refused":
+      // The room is a CALL. Nothing here can change that — the medium is settled when the room is
+      // opened, because everybody in it agreed to the same thing.
+      return "This is a call, so only sound is carried in it. Nothing you can see was sent.";
+    case "malformed-frame":
+    case "frame-too-large":
+    case "binary-unsupported":
+    case "unknown-frame":
+      return "The room did not understand something this page sent, and ignored it.";
+    default:
+      return "The room refused something this page asked for, and carried on without it.";
+  }
+}
+
+export class MeetingClient {
+  /** Where the meeting stands. The screen renders from this and nothing else. */
+  state = $state<MeetingState>("idle");
+  /**
+   * Why it failed: the reason the room refused with, or `socket-closed` where the signaling socket
+   * went away on its own. Null while nothing has failed.
+   */
+  failureReason = $state<string | null>(null);
+  /** Everybody in the room, this browser included, as the roster last stated them. */
+  participants = $state<readonly MeetingParticipant[]>([]);
+  /** This browser's own camera and microphone. Null until `publish` has captured them. */
+  localStream = $state<MediaStream | null>(null);
+  /** This browser's screen share. Null unless one is running. */
+  screenStream = $state<MediaStream | null>(null);
+  /** One stream per other participant, holding their camera and microphone as they are pulled. */
+  remoteStreams = $state<ReadonlyMap<string, MediaStream>>(new Map());
+  /**
+   * One stream per other participant who is sharing a screen.
+   *
+   * It is kept apart from the camera stream on purpose: a video element plays the first video
+   * track of the stream it is given, so a share folded in beside a camera would make the two tiles
+   * a coin toss over which picture each one drew.
+   */
+  remoteScreens = $state<ReadonlyMap<string, MediaStream>>(new Map());
+  /** Whether the local microphone is sending. Capture is unchanged either way. */
+  microphoneOn = $state(true);
+  /** Whether the local camera is sending. */
+  cameraOn = $state(true);
+  /** Whether a screen share is running. */
+  sharing = $state(false);
+  /**
+   * Why the camera or microphone could not be captured, where that is what happened. A refusal
+   * here does NOT end the meeting: a member who declined the camera is still in the room and can
+   * still see and hear everybody else, and the screen says what is missing.
+   */
+  captureRefusal = $state<string | null>(null);
+  /**
+   * The room's last refusal that the meeting survived, for the screen to state. A refusal here is
+   * about one frame, not about the meeting: the socket is open, the roster is still arriving, and
+   * whatever was asked for can be asked for again.
+   */
+  lastRefusal = $state<MeetingRefusal | null>(null);
+  /**
+   * The last negotiation step that did not finish, in the words a member reads. Nothing here ends
+   * the meeting either — the connection is where the failed step left it and the next frame is
+   * still worth applying — but a step that fails silently is a picture that never arrives with
+   * nothing on the screen saying so.
+   */
+  lastProblem = $state<string | null>(null);
+
+  /** This browser's own participant, as the room named it. */
+  participantId = $state<string | null>(null);
+  /** The meeting being attended. */
+  meetingId = $state<string | null>(null);
+  /**
+   * What this room carries, as the join stated it. It decides what is captured and what is offered,
+   * and it never changes while a meeting is open — the room refuses a picture published into a call,
+   * so a client that changed its mind would only be refused.
+   */
+  medium = $state<MeetingMedium>("video");
+
+  /** The gallery page being shown, counted from zero. */
+  page = $state(0);
+  /**
+   * Whoever this member has pinned, in the order they pinned them. It is LOCAL: pinning changes
+   * what this browser pulls and where it draws somebody, and says nothing to anybody else in the
+   * room — a member cannot rearrange a colleague's screen.
+   */
+  pinned = $state<readonly string[]>([]);
+  /** Whether the room is drawn as one large speaker with a strip, rather than an even gallery. */
+  speakerView = $state(false);
+
+  /**
+   * When each participant was last heard speaking, on THIS browser's clock.
+   *
+   * The presence frame carries the room's own `at`, and it is deliberately not what is stored: the
+   * room's clock and this browser's clock are not the same clock, and an ordering built from a
+   * mixture of the two puts somebody who spoke a moment ago behind somebody who spoke a minute ago
+   * on a machine whose time is out. What matters is the order the frames arrived in, which is what
+   * stamping them here records.
+   */
+  #lastSpokeAt = $state<ReadonlyMap<string, number>>(new Map());
+
+  /** Everybody but this browser — the people the gallery pages over. */
+  readonly others = $derived(
+    this.participants.filter((participant) => participant.participantId !== this.participantId),
+  );
+
+  /**
+   * What should be coming in, and what the gallery should be drawing. Everything the screen renders
+   * about who is shown, and everything `reconcile` asks the room for, comes from here.
+   */
+  readonly plan: SubscriptionPlan = $derived(
+    subscriptionPolicy({
+      medium: this.medium,
+      self: this.participantId ?? "",
+      participants: this.participants.map((participant) => ({
+        participantId: participant.participantId,
+        sfuSessionId: participant.sfuSessionId,
+        tracks: participant.tracks,
+        speaking: participant.speaking,
+        muted: participant.muted,
+        lastSpokeAt: this.#lastSpokeAt.get(participant.participantId) ?? null,
+      })),
+      pinned: this.pinned,
+      page: this.page,
+      pageSize: this.speakerView ? SPEAKER_VIEW_PAGE_SIZE : GALLERY_PAGE_SIZE,
+      now: Date.now(),
+    }),
+  );
+
+  /** How many gallery pages the room takes. Always at least one. */
+  readonly pages = $derived(this.plan.pages);
+  /** The participants drawn on this page, in order. This browser's own preview is not among them. */
+  readonly shown = $derived(this.plan.shown);
+
+  readonly #seams: MeetingClientSeams;
+  readonly #signaling: MeetingSignaling;
+  readonly #negotiation: MeetingNegotiation;
+  readonly #subscriptions: MeetingSubscriptions;
+  readonly #presence = new MeetingPresence();
+
+  /** What the effects stage handed back for this browser's own capture. Null before one. */
+  #capture: EffectedCapture | null = null;
+  /** The screen share's transceiver mid, which is what closing it names. */
+  #screenMid: string | null = null;
+  /** True once this browser asked to leave, so the socket closing is expected rather than a fault. */
+  #leaving = false;
+
+  constructor(seams: MeetingClientSeams) {
+    this.#seams = seams;
+    this.#negotiation = new MeetingNegotiation((problem) => {
+      this.lastProblem = problem;
+    });
+    const host: SubscriptionHost = {
+      plan: () => this.plan,
+      isLive: () => this.state === "live",
+      send: (frame) => this.#signaling.send(frame),
+      attachRemoteTrack: (participantId, trackName, track) =>
+        this.#attachRemoteTrack(participantId, trackName, track),
+      detachRemoteTrack: (participantId, screen, media) =>
+        this.#detachRemoteTrack(participantId, screen, media),
+      releaseRemote: (participantId, screen) => this.#releaseRemote(participantId, screen),
+      remoteOwners: (screen) => [...(screen ? this.remoteScreens : this.remoteStreams).keys()],
+    };
+    this.#subscriptions = new MeetingSubscriptions(host);
+    this.#signaling = new MeetingSignaling(seams.openSocket, {
+      welcome: (frame) => this.#handleWelcome(frame),
+      roster: (frame) => this.#adoptRoster(readParticipants(frame.participants)),
+      rosterDelta: (frame) => this.#handleRosterDelta(frame),
+      presence: (frame) => this.#handlePresence(frame),
+      layered: (frame) => this.#handleLayered(frame),
+      published: (frame) =>
+        void this.#negotiation.enqueue(
+          "The room's answer to what you are sending was not applied.",
+          () => this.#negotiation.applyRemote(readSessionDescription(frame.sessionDescription)),
+        ),
+      subscribed: (frame) =>
+        void this.#negotiation.enqueue("Somebody else's picture and sound did not come in.", () =>
+          this.#handleSubscribed(frame),
+        ),
+      // The room accepted the answer this browser sent and the exchange is closed: there is nothing
+      // to apply and nothing owed back. Wired explicitly rather than left to fall through, because
+      // a frame with no handler and a frame whose handler has nothing to do read identically from
+      // outside and mean opposite things — the first is a wire the two ends disagree about.
+      renegotiated: () => {},
+      closed: (frame) =>
+        void this.#negotiation.enqueue(
+          "The room's change to what is being sent was not applied.",
+          () => this.#answerIfOffered(readSessionDescription(frame.sessionDescription)),
+        ),
+      ended: () => {
+        this.#leaving = true;
+        this.state = "ended";
+        this.#teardown();
+      },
+      refused: (frame) => this.#handleRefused(frame),
+      lost: () => {
+        if (this.#leaving || this.state === "ended" || this.state === "failed") return;
+        this.#fail(SOCKET_CLOSED_REASON);
+      },
+    });
+  }
+
+  /** Open the peer connection and the signaling socket. The room answers with `welcome`. */
+  join(request: MeetingJoinRequest): void {
+    if (this.state === "joining" || this.state === "live") return;
+    this.#reset();
+    this.state = "joining";
+    this.meetingId = request.meetingId;
+    this.participantId = request.participantId;
+    this.medium = request.medium ?? "video";
+    this.#negotiation.open(
+      this.#seams.createPeerConnection({ iceServers: [...request.iceServers] }),
+    );
+    this.#signaling.open(request.socketUrl);
+  }
+
+  /**
+   * Capture what this room carries and offer it to the unit: the microphone and camera in a meeting,
+   * the microphone alone in a call.
+   *
+   * The mids are read AFTER the local description is set, because that is when the browser assigns
+   * them; read before, every track would be named with a null mid and the unit would have nothing
+   * to match the offer's media sections against.
+   *
+   * THE OFFER IS MADE IN THE NEGOTIATION QUEUE, not beside it. Capturing is slow and an incoming
+   * offer from the unit can land in the middle of it; two session descriptions applied at once is an
+   * invalid-state error the browser raises from whichever one lost, and the one that loses is
+   * usually this one — a member who publishes as somebody else joins is then in the room seeing
+   * everybody while nobody sees them.
+   */
+  async publish(): Promise<void> {
+    const peerConnection = this.#negotiation.connection;
+    if (peerConnection === null || this.localStream !== null) return;
+
+    const wantsPicture = this.medium === "video";
+    const captured = await captureLocalMedia(this.#seams, this.medium);
+    if (captured === null) {
+      this.captureRefusal = wantsPicture
+        ? "The microphone and camera are not available in this browser."
+        : "The microphone is not available in this browser.";
+      return;
+    }
+    const stream = captured.stream;
+    this.#capture = captured;
+    this.localStream = stream;
+    this.captureRefusal = null;
+    this.microphoneOn = stream.getAudioTracks().length > 0;
+    this.cameraOn = stream.getVideoTracks().length > 0;
+    this.#presence.watch(
+      stream,
+      (track) => this.#seams.createAudioLevelMeter(track),
+      () => this.microphoneOn,
+      (speaking, muted) => this.#announcePresence(speaking, muted),
+    );
+
+    const notOffered = wantsPicture
+      ? "Your camera and microphone were not offered to the room."
+      : "Your microphone was not offered to the room.";
+    await this.#negotiation.enqueue(notOffered, async () => {
+      const offered = offerCapturedTracks(peerConnection, stream, wantsPicture);
+      const sessionDescription = await this.#negotiation.offer(peerConnection);
+      this.#signaling.send({
+        type: "publish",
+        sessionDescription,
+        tracks: offered.map((entry) => ({
+          trackName: this.#trackName(entry.kind),
+          mid: entry.transceiver.mid,
+          kind: entry.kind,
+        })),
+      });
+    });
+  }
+
+  /**
+   * Make the plan true: ask for what should be coming in, close what should not, and move the layer
+   * of anything the plan now wants at a different size.
+   */
+  reconcile(): void {
+    this.#subscriptions.reconcile();
+  }
+
+  /** Show a different page of the gallery. Out of range is clamped rather than refused. */
+  setPage(page: number): void {
+    const next = Math.min(Math.max(0, Math.floor(page)), this.pages - 1);
+    if (next === this.page) return;
+    this.page = next;
+    this.#subscriptions.schedule();
+  }
+
+  /**
+   * Keep somebody on screen whatever the room does.
+   *
+   * It moves them to the front of the order, which is the first page — so the gallery goes there
+   * too. Pinning somebody on page eleven and watching them vanish from page eleven is the one
+   * outcome a member would read as the control not working.
+   */
+  pin(participantId: string): void {
+    if (this.pinned.includes(participantId)) return;
+    this.pinned = [...this.pinned, participantId];
+    this.page = 0;
+    this.#subscriptions.schedule();
+  }
+
+  /** Stop keeping somebody on screen. They fall back to wherever the room's own order puts them. */
+  unpin(participantId: string): void {
+    if (!this.pinned.includes(participantId)) return;
+    this.pinned = this.pinned.filter((pinned) => pinned !== participantId);
+    this.#subscriptions.schedule();
+  }
+
+  /** Whether this member is holding somebody on screen. */
+  isPinned(participantId: string): boolean {
+    return this.pinned.includes(participantId);
+  }
+
+  /** Swap between the even gallery and one large speaker with a strip of recent ones beside it. */
+  toggleSpeakerView(): void {
+    this.speakerView = !this.speakerView;
+    this.page = 0;
+    this.#subscriptions.schedule();
+  }
+
+  /**
+   * Capture a screen or a window and publish it as a second video track.
+   *
+   * A CALL REFUSES THIS HERE, not at the room. A screen share is a video track, the room would
+   * refuse it (`track-kind-refused`), and the picker would already have been opened and a screen
+   * already chosen by then — so the refusal is stated before anybody is asked to choose anything.
+   */
+  async shareScreen(): Promise<void> {
+    const peerConnection = this.#negotiation.connection;
+    if (peerConnection === null || this.sharing) return;
+    if (this.medium !== "video") {
+      this.lastProblem = "This is a call, so there is no picture in it to share a screen into.";
+      return;
+    }
+
+    const stream = await captureScreenShare(this.#seams);
+    if (stream === null) return;
+    const [track] = stream.getVideoTracks();
+    if (track === undefined) return;
+
+    this.screenStream = stream;
+    this.sharing = true;
+    // Stopping the share from the browser's own control is the same act as pressing Stop here, so
+    // it runs the same path rather than leaving the room believing the share is still up.
+    track.addEventListener("ended", () => {
+      void this.stopSharing();
+    });
+
+    // In the queue for the reason `publish` is: the picker is open for as long as the member takes
+    // to choose a window, and whatever the room sends in the meantime is a description this would
+    // otherwise collide with.
+    await this.#negotiation.enqueue("Your screen was not offered to the room.", async () => {
+      const transceiver = offerScreenTrack(peerConnection, track);
+      const sessionDescription = await this.#negotiation.offer(peerConnection);
+      this.#screenMid = transceiver.mid;
+      this.#signaling.send({
+        type: "publish",
+        sessionDescription,
+        tracks: [{ trackName: this.#trackName("screen"), mid: transceiver.mid, kind: "screen" }],
+      });
+    });
+  }
+
+  /** Stop sharing and tell the room which media section went away. */
+  async stopSharing(): Promise<void> {
+    if (!this.sharing) return;
+    this.sharing = false;
+    const stream = this.screenStream;
+    this.screenStream = null;
+    if (stream !== null) for (const track of stream.getTracks()) track.stop();
+    const mid = this.#screenMid;
+    this.#screenMid = null;
+    if (mid !== null) this.#signaling.send({ type: "close", mids: [mid] });
+  }
+
+  /** Mute or unmute the microphone. The track stays captured, so nothing renegotiates. */
+  toggleMicrophone(): void {
+    if (this.localStream === null) return;
+    const next = !this.microphoneOn;
+    this.#capture?.setSourceEnabled("audio", next);
+    this.microphoneOn = next;
+    // Muting is a fact about this browser that the room cannot measure: the track keeps arriving,
+    // carrying silence, so nothing downstream would ever know. Either way the answer to "is this
+    // person speaking" starts again at no — muted, they are not; unmuted, the meter says so within
+    // its own hysteresis rather than this browser assuming the last answer still holds.
+    this.#announcePresence(false, !next);
+  }
+
+  /** Turn the camera picture off or on. A call has no camera, so there is nothing to turn. */
+  toggleCamera(): void {
+    if (this.localStream === null || this.medium !== "video") return;
+    const next = !this.cameraOn;
+    this.#capture?.setSourceEnabled("video", next);
+    this.cameraOn = next;
+  }
+
+  /** Leave the room: tell it, stop every local capture, and close everything down. */
+  leave(): void {
+    if (this.state === "ended" || this.state === "failed") return;
+    this.#leaving = true;
+    this.#signaling.send({ type: "leave" });
+    this.state = "ended";
+    this.#teardown();
+  }
+
+  /** Drop everything without telling the room. For a surface going away mid-meeting. */
+  dispose(): void {
+    this.#leaving = true;
+    this.#teardown();
+  }
+
+  /**
+   * Tell the room what this browser's microphone is doing — ON TRANSITIONS ONLY.
+   *
+   * Recorded locally as well as sent, so this member's own tile answers immediately instead of
+   * waiting for the room to relay their own voice back to them.
+   */
+  #announcePresence(speaking: boolean, muted: boolean): void {
+    if (!this.#presence.isTransition(speaking, muted)) return;
+    this.#presence.noteAnnounced(speaking, muted);
+    const self = this.participantId;
+    if (self !== null) this.#recordPresence(self, speaking, muted);
+    this.#signaling.send({ type: "presence", speaking, muted });
+    this.#subscriptions.schedule();
+  }
+
+  #trackName(kind: MeetingTrackKind): string {
+    return `${this.participantId ?? ""}:${kind}`;
+  }
+
+  #handleWelcome(frame: Record<string, unknown>): void {
+    const participantId = readString(frame, "participantId");
+    if (participantId !== null) this.participantId = participantId;
+    this.state = "live";
+    this.#adoptRoster(readParticipants(frame.roster));
+  }
+
+  /** Take the roster as stated, forget what it no longer names, and pull whatever the plan wants. */
+  #adoptRoster(participants: readonly MeetingParticipant[]): void {
+    this.participants = participants;
+    this.#subscriptions.forgetWhatTheRosterNoLongerNames(participants);
+    this.#subscriptions.schedule();
+  }
+
+  /**
+   * Apply what changed rather than being told the whole room again.
+   *
+   * A full roster to three hundred sockets on every one of three hundred joins is ninety thousand
+   * frames of a list nobody's screen can show at once, so above a threshold the room sends only the
+   * difference. The cost of that is that this browser can be wrong without knowing: a delta that
+   * updates or removes somebody it has never heard of means a frame went missing, and the only
+   * honest answer is to ask for the whole list again rather than carry on from a roster with a hole
+   * in it.
+   */
+  #handleRosterDelta(frame: Record<string, unknown>): void {
+    const byIdentifier = new Map(
+      this.participants.map((participant) => [participant.participantId, participant] as const),
+    );
+    let gap = false;
+
+    for (const participant of readParticipants(frame.joined)) {
+      byIdentifier.set(participant.participantId, participant);
+    }
+    for (const participant of readParticipants(frame.updated)) {
+      if (!byIdentifier.has(participant.participantId)) gap = true;
+      byIdentifier.set(participant.participantId, participant);
+    }
+    for (const participantId of readIdentifiers(frame.left)) {
+      if (!byIdentifier.delete(participantId)) gap = true;
+    }
+
+    this.#adoptRoster([...byIdentifier.values()]);
+    if (gap) this.#signaling.requestSync();
+  }
+
+  /**
+   * Somebody started or stopped talking, or turned their microphone off.
+   *
+   * It is what the gallery's order is built from, so it arrives as its own small frame rather than
+   * as a roster: a room where a dozen people take turns speaking would otherwise be re-stating
+   * three hundred participant records every second to carry two booleans.
+   */
+  #handlePresence(frame: Record<string, unknown>): void {
+    const participantId = readString(frame, "participantId");
+    if (participantId === null) return;
+    const known = this.#recordPresence(
+      participantId,
+      frame.speaking === true,
+      frame.muted === true,
+    );
+    // Presence about somebody this browser has never heard of is the same gap a delta shows, by a
+    // different route: their join went missing.
+    if (!known) this.#signaling.requestSync();
+    this.#subscriptions.schedule();
+  }
+
+  /**
+   * Note what somebody's microphone is doing. Answers whether the roster knows them at all.
+   *
+   * The moment they STOP is recorded as well as the moment they start, because "who spoke most
+   * recently" is what orders the gallery — and the person who just finished a sentence is the one a
+   * member is most likely to want to keep looking at.
+   */
+  #recordPresence(participantId: string, speaking: boolean, muted: boolean): boolean {
+    let known = false;
+    let wasSpeaking = false;
+    this.participants = this.participants.map((participant) => {
+      if (participant.participantId !== participantId) return participant;
+      known = true;
+      wasSpeaking = participant.speaking;
+      return { ...participant, speaking, muted };
+    });
+    if (speaking || wasSpeaking) {
+      const stamped = new Map(this.#lastSpokeAt);
+      stamped.set(participantId, Date.now());
+      this.#lastSpokeAt = stamped;
+    }
+    return known;
+  }
+
+  /** The room's answer to a layer change, handed on to what is keeping track of the layers. */
+  #handleLayered(frame: Record<string, unknown>): void {
+    if (!Array.isArray(frame.tracks)) return;
+    const moved: { mid: string; preferredRid: PreferredRid }[] = [];
+    for (const entry of frame.tracks) {
+      if (!isRecord(entry)) continue;
+      if (readString(entry, "errorCode") !== null) continue;
+      const mid = readString(entry, "mid");
+      const preferredRid = readPreferredRid(entry.preferredRid);
+      if (mid === null || preferredRid === null) continue;
+      moved.push({ mid, preferredRid });
+    }
+    this.#subscriptions.noteLayered(moved);
+  }
+
+  async #handleSubscribed(frame: Record<string, unknown>): Promise<void> {
+    const peerConnection = this.#negotiation.connection;
+    const offer = readSessionDescription(frame.sessionDescription);
+    const tracks = readSubscribedTracks(frame.tracks);
+
+    /*
+     * A pull the unit could not serve comes back with no description at all, and one that needed no
+     * renegotiation says so in the flag. Either way no media arrives on this frame, so the tracks
+     * stop counting as pulled: left marked, they would never be asked for again and the tile they
+     * belong to would stay black for the rest of the meeting.
+     */
+    if (
+      peerConnection === null ||
+      offer === null ||
+      frame.requiresImmediateRenegotiation === false
+    ) {
+      this.#subscriptions.forgetSubscribed(tracks);
+      return;
+    }
+    await peerConnection.setRemoteDescription(offer);
+
+    // The mids are only meaningful once the offer is applied: before it, the transceivers the
+    // unit's media sections map onto do not exist on this connection at all.
+    for (const entry of tracks) {
+      if (entry.mid === null) continue;
+      this.#subscriptions.clearPending(entry);
+      const track = this.#negotiation.transceiverFor(entry.mid)?.receiver.track;
+      if (track === undefined || track === null) continue;
+      this.#subscriptions.noteArrival(entry, entry.mid, track);
+    }
+    // Anything the plan wanted at a different layer was waiting on these mids.
+    this.#subscriptions.schedule();
+
+    this.#signaling.send({
+      type: "renegotiate",
+      sessionDescription: await this.#negotiation.answer(peerConnection),
+    });
+  }
+
+  /**
+   * What a refusal means: the end of this browser's meeting for the two reasons that are, and a
+   * statement on the screen for every other one, because the room kept the socket open.
+   */
+  #handleRefused(frame: Record<string, unknown>): void {
+    const reason = readString(frame, "reason") ?? "refused";
+    if (FATAL_REFUSAL_REASONS.has(reason)) {
+      this.#fail(reason);
+      return;
+    }
+    this.lastRefusal = { reason, errorId: readString(frame, "errorId") };
+    if (REFUSALS_THAT_LOSE_A_SUBSCRIPTION.has(reason)) this.#subscriptions.forgetPending();
+  }
+
+  /** Answer an offer the room only sometimes sends — closing a track may or may not need one. */
+  async #answerIfOffered(
+    sessionDescription: { readonly type: RTCSdpType; readonly sdp: string } | null,
+  ): Promise<void> {
+    const peerConnection = this.#negotiation.connection;
+    if (peerConnection === null || sessionDescription === null) return;
+    await peerConnection.setRemoteDescription(sessionDescription);
+    this.#signaling.send({
+      type: "renegotiate",
+      sessionDescription: await this.#negotiation.answer(peerConnection),
+    });
+  }
+
+  #attachRemoteTrack(participantId: string, trackName: string, track: MediaStreamTrack): void {
+    const screen = namesAScreen(trackName);
+    const held = screen ? this.remoteScreens : this.remoteStreams;
+    const stream = held.get(participantId) ?? this.#seams.createMediaStream();
+    stream.addTrack(track);
+    const next = new Map(held);
+    next.set(participantId, stream);
+    if (screen) this.remoteScreens = next;
+    else this.remoteStreams = next;
+  }
+
+  /**
+   * Take one track out of the stream it was gathered into, and stop it. Where it was the last
+   * track a participant had, the stream goes too.
+   */
+  #detachRemoteTrack(
+    participantId: string,
+    screen: boolean,
+    media: MediaStreamTrack | undefined,
+  ): void {
+    const held = screen ? this.remoteScreens : this.remoteStreams;
+    const stream = held.get(participantId);
+    if (stream === undefined) return;
+    if (media !== undefined) {
+      stream.removeTrack(media);
+      media.stop();
+    }
+    const next = new Map(held);
+    if (stream.getTracks().length === 0) next.delete(participantId);
+    else next.set(participantId, stream);
+    if (screen) this.remoteScreens = next;
+    else this.remoteStreams = next;
+  }
+
+  /** Stop holding a participant's incoming media, and stop the tracks it was made of. */
+  #releaseRemote(participantId: string, screen: boolean): void {
+    const held = screen ? this.remoteScreens : this.remoteStreams;
+    const stream = held.get(participantId);
+    if (stream === undefined) return;
+    for (const track of stream.getTracks()) track.stop();
+    const next = new Map(held);
+    next.delete(participantId);
+    if (screen) this.remoteScreens = next;
+    else this.remoteStreams = next;
+  }
+
+  /*
+   * The standing is recorded BEFORE anything is torn down, because closing the socket is what fires
+   * the close handler that would otherwise come straight back here and fail a second time.
+   */
+  #fail(reason: string): void {
+    if (this.state === "failed" || this.state === "ended") return;
+    this.failureReason = reason;
+    this.state = "failed";
+    this.#teardown();
+  }
+
+  #teardown(): void {
+    this.#subscriptions.stopScheduling();
+    this.#presence.stop();
+    this.#capture?.close();
+    this.#capture = null;
+    const screen = this.screenStream;
+    if (screen !== null) for (const track of screen.getTracks()) track.stop();
+    this.localStream = null;
+    this.screenStream = null;
+    this.sharing = false;
+    this.#screenMid = null;
+    this.remoteStreams = new Map();
+    this.remoteScreens = new Map();
+    this.#negotiation.close();
+    this.#signaling.close();
+  }
+
+  #reset(): void {
+    this.failureReason = null;
+    this.captureRefusal = null;
+    this.lastRefusal = null;
+    this.lastProblem = null;
+    this.participants = [];
+    this.remoteStreams = new Map();
+    this.remoteScreens = new Map();
+    this.microphoneOn = true;
+    this.cameraOn = true;
+    this.sharing = false;
+    this.#leaving = false;
+    this.#screenMid = null;
+    this.page = 0;
+    this.pinned = [];
+    this.speakerView = false;
+    this.#lastSpokeAt = new Map();
+    this.#subscriptions.clear();
+    this.#signaling.reset();
+    this.#presence.stop();
+  }
+}

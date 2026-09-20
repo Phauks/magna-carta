@@ -24,8 +24,8 @@ import {
   SUPERSEDED_REASON,
   type MeetingClientSeams,
   type MeetingMedium,
-} from "$lib/meetings/meeting-client.svelte.ts";
-import { meetingTiles, sharedScreenTile } from "$lib/meetings/meeting-tiles.ts";
+} from "$lib/meetings/client/meeting-client.svelte.ts";
+import { meetingTiles, sharedScreenTile } from "$lib/meetings/screen/meeting-tiles.ts";
 import { leaveMeetingOnDeparture } from "$lib/api/departure-write.ts";
 
 /** Lets every queued negotiation step settle; each one is a handful of microtasks deep. */

@@ -22,7 +22,7 @@ import {
   subscriptionPolicy,
   type SubscriptionPolicyInput,
   type SubscriptionPolicyParticipant,
-} from "$lib/meetings/subscription-policy.ts";
+} from "$lib/meetings/client/subscription-policy.ts";
 
 const NOW = 1_800_000_000_000;
 

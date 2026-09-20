@@ -2,7 +2,7 @@ import { newCorrelationId, newErrorId } from "@magna-carta/telemetry/ids";
 import { operationFailed } from "@magna-carta/telemetry/events";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Logger } from "@magna-carta/telemetry/logger";
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../../app.ts";
 
 // Recording a failure of Cloudflare Realtime — the media routing service and the relay-credential
 // service — through the one standard pipeline, and handing back the Error ID the member is shown.

@@ -313,7 +313,7 @@ What is genuinely new in `apps/web` is two files: the arrival route and a device
 - `apps/web/src/lib/meetings/meeting-lobby.svelte` — the waiting-room stream's waiting surface, reused; a guest sees the same thing a waiting member sees.
 - `apps/web/src/lib/meetings/meeting-lobby-panel.svelte` — the host's lobby rows gain the guest mark and the invited name beside the typed one.
 - `apps/web/src/lib/meetings/guest-api.ts` — **new**; the four guest calls.
-- `apps/web/src/lib/meetings/meeting-roster.svelte` — `showIdentifiers`.
+- `apps/web/src/lib/meetings/screen/meeting-roster.svelte` — `showIdentifiers`.
 - `apps/web/src/lib/api/socket-url.ts` — `guestMeetingSocketUrl`.
 - `apps/web/src/lib/meetings/meeting-guests-panel.svelte` — **new**; the host's Guests panel.
 - `apps/web/src/routes/(app)/meetings/[id]/+page.svelte`, `apps/web/src/lib/meetings/meeting-entry-action.svelte` — the panel's two entrances.

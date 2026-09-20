@@ -35,7 +35,7 @@
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import type { RecordSubject } from "@magna-carta/design-system/record-reference";
-  import type { MeetingMedium } from "./meeting-client.svelte.ts";
+  import type { MeetingMedium } from "@magna-carta/meeting-protocol/types";
   import type { Snippet } from "svelte";
 
   let {

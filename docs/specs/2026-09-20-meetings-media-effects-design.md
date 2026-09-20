@@ -135,7 +135,16 @@ table stakes, for the cost of a constraint object and a read-back.
 ## 5. The seam: `MediaEffects`, between capture and publish
 
 One new module, pure TypeScript, no Svelte, no browser globals except through what it is handed:
-`apps/web/src/lib/meetings/media-effects.ts`.
+`apps/web/src/lib/meetings/client/media-effects.ts`.
+
+**Built 2026-09-20, as the seam only.** The structural slice put this module in place with
+`applyEffects`, `setSourceEnabled` and `close`, and `passThroughEffects()` as the identity over the
+captured stream — so `capture.ts` already runs capture → effects → publish and nothing downstream has
+to be moved when a stage that actually processes arrives. What is NOT built is everything that
+reports: `AppliedEffects`, `update`, the audio read-backs of section 4.2 and the blur probe of
+section 4.3. Those are answers about processing, and nothing processes yet. The client also takes the
+stage from `capture.ts` rather than through `MeetingClientSeams`; the seam member in 5.1 lands with
+slice 1, when there is a settings object worth injecting.
 
 ```ts
 export interface MediaEffectSettings {
@@ -354,7 +363,7 @@ blurred every time on that machine without touching the menu again.
 ## 9. The screen
 
 One new control and one new panel, both in the existing control bar
-(`apps/web/src/lib/meetings/meeting-controls.svelte`), **beside the camera control** and before screen
+(`apps/web/src/lib/meetings/screen/meeting-controls.svelte`), **beside the camera control** and before screen
 share:
 
 - **Trigger**: a `dropdown-menu` on the design system's `Button`, Lucide `sliders-horizontal`, tooltip
@@ -400,10 +409,10 @@ contract or the room protocol, in any slice.
 
 | File                                                                        | Change                                                                                                                                                                                                                                  |
 | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/web/src/lib/meetings/media-effects.ts`                                | **New.** The seam, the constraint builder, the read-backs, `passThroughEffects`                                                                                                                                                         |
+| `apps/web/src/lib/meetings/client/media-effects.ts`                                | **New.** The seam, the constraint builder, the read-backs, `passThroughEffects`                                                                                                                                                         |
 | `apps/web/src/lib/meetings/meeting-effects-preference.svelte.ts`            | **New.** The persisted preference                                                                                                                                                                                                       |
 | `apps/web/src/lib/meetings/meeting-client.svelte.ts`                        | `MeetingClientSeams` gains `createMediaEffects`; `publish()` captures through the constraint builder and the stage; `appliedEffects` state; `leave()` closes the stage; `toggleCamera`/`toggleMicrophone` go through `setSourceEnabled` |
-| `apps/web/src/lib/meetings/meeting-controls.svelte`                         | The Effects trigger and panel                                                                                                                                                                                                           |
+| `apps/web/src/lib/meetings/screen/meeting-controls.svelte`                         | The Effects trigger and panel                                                                                                                                                                                                           |
 | `apps/web/src/routes/(app)/meetings/[id]/+page.svelte`                      | Wires the preference and `appliedEffects` into the control bar                                                                                                                                                                          |
 | `apps/web/test/media-effects.test.ts`, `meeting-effects-preference.test.ts` | **New.**                                                                                                                                                                                                                                |
 | `apps/web/test/meeting-client.test.ts`, `meeting-controls.test.ts`          | Extended                                                                                                                                                                                                                                |

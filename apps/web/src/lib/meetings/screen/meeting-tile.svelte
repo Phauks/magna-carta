@@ -29,7 +29,7 @@
   import * as Avatar from "@magna-carta/design-system/avatar";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
   import { participantInitials } from "./meeting-tiles.ts";
-  import type { MeetingMedium } from "./meeting-client.svelte.ts";
+  import type { MeetingMedium } from "@magna-carta/meeting-protocol/types";
 
   let {
     stream = null,

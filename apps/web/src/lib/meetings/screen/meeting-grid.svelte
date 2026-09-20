@@ -17,7 +17,7 @@
   import Button from "@magna-carta/design-system/button";
   import MeetingTile from "./meeting-tile.svelte";
   import type { MeetingTileModel } from "./meeting-tiles.ts";
-  import type { MeetingMedium } from "./meeting-client.svelte.ts";
+  import type { MeetingMedium } from "@magna-carta/meeting-protocol/types";
 
   let {
     tiles,

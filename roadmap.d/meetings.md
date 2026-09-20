@@ -28,7 +28,15 @@
   status: shipped
   surface: internal
   spec: docs/specs/2026-09-18-meetings-design.md
-  evidence: apps/api-worker/src/meetings/meeting-room.ts, meeting-room-protocol.ts, sfu-client.ts; MEETING_ROOM binding in apps/api-worker/wrangler.jsonc.
+  evidence: apps/api-worker/src/meetings/meeting-room.ts over the concern modules in apps/api-worker/src/meetings/room, the Realtime clients in apps/api-worker/src/meetings/sfu, and the wire in packages/meeting-protocol; MEETING_ROOM binding in apps/api-worker/wrangler.jsonc.
+
+- id: meetings.structure
+  name: Structure for growth
+  scope: The wire as one shared package imported by the room and the browser alike, with a fitness function holding that every frame has a handler at each end; the signaling room split into concern modules under an orchestrating Durable Object; the browser client split the same way, with a media-effects stage seamed in at capture.
+  status: shipped
+  surface: internal
+  spec: docs/specs/2026-09-18-meetings-design.md
+  evidence: packages/meeting-protocol (frames, types, and the frames-have-handlers fitness function), apps/api-worker/src/meetings/room and apps/api-worker/src/meetings/sfu under the orchestrating meeting-room.ts, and apps/web/src/lib/meetings/client and apps/web/src/lib/meetings/screen; area notes in both directories.
 
 - id: meetings.api
   name: Meetings API
@@ -44,7 +52,7 @@
   status: shipped
   surface: screen
   spec: docs/specs/2026-09-18-meetings-design.md
-  evidence: apps/web/src/lib/meetings/meeting-client.svelte.ts, apps/web/src/routes/(app)/meetings/+page.svelte and apps/web/src/routes/(app)/meetings/[id]/.
+  evidence: apps/web/src/lib/meetings/client/meeting-client.svelte.ts with the tiles and controls in apps/web/src/lib/meetings/screen, apps/web/src/routes/(app)/meetings/+page.svelte and apps/web/src/routes/(app)/meetings/[id]/.
   audience: public
   public-summary: Start a meeting from any calendar event and join it in one click.
 
@@ -54,7 +62,7 @@
   status: shipped
   surface: screen
   spec: docs/specs/2026-09-18-meetings-design.md
-  evidence: shareScreen() in apps/web/src/lib/meetings/meeting-client.svelte.ts.
+  evidence: shareScreen() in apps/web/src/lib/meetings/client/meeting-client.svelte.ts, over the capture in apps/web/src/lib/meetings/client/capture.ts.
 
 - id: meetings.audio-calls
   name: Audio calls
@@ -62,7 +70,7 @@
   status: shipped
   surface: screen
   spec: docs/specs/2026-09-18-meetings-design.md
-  evidence: The medium column on meeting in packages/database/src/per-firm-schema.ts, the track-kind check in apps/api-worker/src/meetings/meeting-room.ts, and Start Call in apps/web/src/lib/meetings/meeting-entry-action.svelte.
+  evidence: The medium column on meeting in packages/database/src/per-firm-schema.ts, the track-kind check in apps/api-worker/src/meetings/room/room-frames.ts, and Start Call in apps/web/src/lib/meetings/meeting-entry-action.svelte.
   audience: public
   public-summary: Start a voice call from any calendar event when a camera is more than the conversation needs.
 
@@ -90,7 +98,7 @@
   status: shipped
   surface: screen
   spec: docs/specs/2026-09-18-meetings-design.md
-  evidence: MAX_MEETING_PARTICIPANTS in packages/meetings/src/types.ts; the policy in apps/web/src/lib/meetings/subscription-policy.ts; roster-delta and presence frames in apps/api-worker/src/meetings/meeting-room-protocol.ts.
+  evidence: MAX_MEETING_PARTICIPANTS in packages/meetings/src/types.ts; the policy in apps/web/src/lib/meetings/client/subscription-policy.ts; roster-delta and presence frames in packages/meeting-protocol/src/frames.ts.
   audience: public
   public-summary: Hold a meeting of up to three hundred people, with the gallery showing who is talking.
   notes: The owner's target of 2026-09-20 is the capacity Zoom sells on its Business tier.

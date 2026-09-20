@@ -699,3 +699,41 @@ room into an object that knows everything.
   guests land dark and are turned on per firm.
 - **Area notes** for the room and the client directories, which the package-level rule does not
   reach.
+
+### Amendments taken during the build
+
+The structural slice landed 2026-09-20 with the tests' assertions unchanged. What differs from the
+sketch above:
+
+- **The module map, as built.** The room is `apps/api-worker/src/meetings/meeting-room.ts` (the
+  Durable Object, reduced to wiring, plus the socket door `routes/meetings.ts` knocks on) over
+  `room/room-state.ts` (storage AND the per-socket attachment — the two places a fact may live in a
+  hibernating room — plus `RoomContext` and the failure recorder every module uses),
+  `room/room-roster.ts`, `room/room-presence.ts`, `room/room-media.ts`, `room/room-lifecycle.ts` and
+  `room/room-frames.ts`. The browser is `apps/web/src/lib/meetings/client/meeting-client.svelte.ts`
+  over `signaling.ts`, `negotiation.ts`, `subscriptions.ts`, `subscription-policy.ts`, `capture.ts`,
+  `media-effects.ts`, `presence.ts` and `audio-level-meter.ts`; the screen pieces are under
+  `screen/`.
+- **The SFU client and the relay credentials moved under the room**, to
+  `apps/api-worker/src/meetings/sfu/` (`sfu-client.ts`, `turn-credentials.ts`,
+  `realtime-failure.ts`). The `src/realtime/` directory is gone — both services are Cloudflare
+  Realtime and both are reached only from a meeting or from the connection tool, so a second
+  top-level directory for them named a boundary that was not there.
+- **The effects stage is `client/media-effects.ts`, not `meetings/media-effects.ts`.** It belongs to
+  the state machine, not beside the list page. Only the identity `passThroughEffects()` and the seam
+  are built: `applyEffects`, `setSourceEnabled` and `close`. `AppliedEffects` and `update` are NOT —
+  they are answers about processing, and nothing processes yet.
+- **The wire types are declared in the protocol package**, not re-exported from
+  `@magna-carta/meetings`. That package reaches a database and a browser bundle cannot take one, so
+  `MeetingMedium` is two identical string unions that meet at the seam carrying them; the protocol's
+  is the browser's, the domain's is the record's.
+- **The list page was left where it was.** `meeting-list.ts`, `meeting-list-section.svelte`,
+  `meetings-screen.svelte`, `meetings-api.ts` and `meeting-entry-action.svelte` stayed at the top of
+  `lib/meetings/`; the `list/` directory the sketch names is worth its churn when the page grows, and
+  a scheduling slice was open in those files. `meeting-client.svelte.ts` at the old path is a
+  re-export, so the two modules outside the room keep taking `MeetingMedium` from where they always
+  did.
+- **The fitness function found a real gap on its first run.** `renegotiated` — the room's
+  acknowledgement of a browser's answer — had no handler in the browser at all; it fell through the
+  receive switch's `default`. It is now wired explicitly and does nothing, which is a different
+  statement from not being wired.

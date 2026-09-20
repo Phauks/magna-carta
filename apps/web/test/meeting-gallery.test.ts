@@ -16,9 +16,9 @@
 import { flushSync, mount, unmount } from "svelte";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import Gallery from "./meeting-gallery-harness.svelte";
-import MeetingRoster from "../src/lib/meetings/meeting-roster.svelte";
-import type { MeetingTileModel } from "../src/lib/meetings/meeting-tiles.ts";
-import type { MeetingParticipant } from "../src/lib/meetings/meeting-client.svelte.ts";
+import MeetingRoster from "../src/lib/meetings/screen/meeting-roster.svelte";
+import type { MeetingTileModel } from "../src/lib/meetings/screen/meeting-tiles.ts";
+import type { MeetingParticipant } from "../src/lib/meetings/client/meeting-client.svelte.ts";
 
 let target: HTMLElement;
 let instance: Record<string, unknown> | undefined;

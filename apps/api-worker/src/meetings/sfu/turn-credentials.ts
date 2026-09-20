@@ -1,4 +1,4 @@
-import type { Bindings } from "../app.ts";
+import type { Bindings } from "../../app.ts";
 
 // Minting relay credentials from Cloudflare Realtime's TURN service, in ONE home.
 //
@@ -13,7 +13,7 @@ import type { Bindings } from "../app.ts";
 // THE KEY NEVER LEAVES THIS WORKER, and the upstream text never leaves this module: the body can
 // echo the key id, so the result carries a LABEL for what went wrong and none of what was said. The
 // media-routing client takes the same posture with its own credential for the same reason
-// (../meetings/sfu-client.ts).
+// (./sfu-client.ts).
 //
 // `fetch` is a parameter rather than the global so a test drives every branch without a network and
 // without the real credentials existing anywhere.
@@ -126,7 +126,7 @@ function iceServersFrom(payload: unknown): IceServer[] {
       typeof urls === "string"
         ? urls
         : Array.isArray(urls) && urls.every((one) => typeof one === "string")
-          ? (urls as string[])
+          ? urls
           : null;
     if (addresses === null) continue;
     parsed.push({

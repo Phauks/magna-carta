@@ -56,9 +56,9 @@ import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
 import { isWebSocketUpgrade } from "../progress/job-progress-sockets.ts";
 import { meetingSocketRequest } from "../meetings/meeting-room.ts";
-import { sfuClientForEnv } from "../meetings/sfu-client.ts";
-import { recordRealtimeFailure } from "../realtime/realtime-failure.ts";
-import { generateIceServers } from "../realtime/turn-credentials.ts";
+import { sfuClientForEnv } from "../meetings/sfu/sfu-client.ts";
+import { recordRealtimeFailure } from "../meetings/sfu/realtime-failure.ts";
+import { generateIceServers } from "../meetings/sfu/turn-credentials.ts";
 
 // The meeting's HTTP surface: start a room on a calendar event, arrive, leave, close it, read who
 // was in it, and upgrade into the room's signaling socket.
@@ -735,7 +735,7 @@ export function registerMeetingsRoutes(
           async () => {
             const started = await createMeeting(
               firm.firmDatabase,
-              { eventKind: eventKind as MeetingEventKind, eventId, medium },
+              { eventKind: eventKind, eventId, medium },
               serviceOptions(userId),
             );
             return {
@@ -756,7 +756,7 @@ export function registerMeetingsRoutes(
         if (!isMeetingPerEventConflict(caught)) throw caught;
         const existing = await readMeetingForEvent(
           firm.firmDatabase,
-          eventKind as MeetingEventKind,
+          eventKind,
           eventId,
           visibleMatterPredicate(),
         );
@@ -902,11 +902,7 @@ export function registerMeetingsRoutes(
         // over: the stay the other request opened is theirs, and handing it back is the same answer
         // the ordinary second join gives.
         if (!isOpenStayConflict(caught)) throw caught;
-        const open = await readOpenAttendance(
-          firm.firmDatabase,
-          meetingId as MeetingId,
-          userId as UserId,
-        );
+        const open = await readOpenAttendance(firm.firmDatabase, meetingId as MeetingId, userId);
         if (open === undefined) throw caught;
         outcome = { ok: true as const, value: { participantId: open.id }, responseCode: 200 };
       }
@@ -935,11 +931,7 @@ export function registerMeetingsRoutes(
 
       // The stay the write is about to close, read before it closes: the room's roster is keyed by
       // it, and after the commit there is nothing left to name.
-      const open = await readOpenAttendance(
-        firm.firmDatabase,
-        meetingId as MeetingId,
-        userId as UserId,
-      );
+      const open = await readOpenAttendance(firm.firmDatabase, meetingId as MeetingId, userId);
 
       const outcome = await commitEffect<{ ok: true }>(
         c,
@@ -1079,11 +1071,7 @@ export function registerMeetingsRoutes(
       // THE OPEN STAY IS THE TICKET. Signaling on a meeting the caller has not joined would put them
       // on the roster without a record of their being there, and the cap is counted over stays — so
       // a socket that did not need one would be a way past it.
-      const open = await readOpenAttendance(
-        firm.firmDatabase,
-        meetingId as MeetingId,
-        userId as UserId,
-      );
+      const open = await readOpenAttendance(firm.firmDatabase, meetingId as MeetingId, userId);
       if (open === undefined) {
         return problemJson(c, {
           type: "meeting-not-joined",

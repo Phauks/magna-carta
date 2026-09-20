@@ -369,7 +369,7 @@ Backend:
 - `packages/meetings/src/meeting-service.ts` — the starter's grant on create, `grantHosting`, `revokeHosting`, `claimHosting`, `removeParticipant`, `setLocked`, `requireHostGrant`; `endMeeting` gains the grant check
 - `packages/meetings/CLAUDE.md` — the grant rule and the route/frame split
 - `packages/meetings/test/meeting-service.test.ts` (and a new `host-grants.test.ts`)
-- `apps/api-worker/src/meetings/meeting-room-protocol.ts` — the four client frames, `room-state`, `muted`, `unmute-requested`, `hostRole` on the roster, the two refusal reasons
+- `packages/meeting-protocol/src/frames.ts` — the four client frames, `room-state`, `muted`, `unmute-requested`, `hostRole` on the roster, the two refusal reasons
 - `apps/api-worker/src/meetings/meeting-room.ts` — the host-frame handling, the stored role, `hostingChanged`, `participantRemoved`, `roomStateChanged`, the spotlight record
 - `apps/api-worker/src/routes/meetings.ts` — the five routes, `locked` on the summary, the grant check on end
 - `apps/api-worker/openapi/openapi.json` (emitted) and `packages/api-client` (generated)
@@ -379,10 +379,10 @@ Backend:
 Web:
 
 - `apps/web/src/lib/meetings/meeting-client.svelte.ts` — the host acts as frames, `muted` / `unmute-requested` / `room-state` handling, the audio republish, the fatal `removed`
-- `apps/web/src/lib/meetings/subscription-policy.ts` — the spotlight band and its layer
+- `apps/web/src/lib/meetings/client/subscription-policy.ts` — the spotlight band and its layer
 - `apps/web/src/lib/meetings/meeting-host-menu.svelte` (new) — the per-tile and per-row menu
-- `apps/web/src/lib/meetings/meeting-controls.svelte` — the Host controls menu
-- `apps/web/src/lib/meetings/meeting-tile.svelte`, `meeting-roster.svelte` — the menu and the badges
+- `apps/web/src/lib/meetings/screen/meeting-controls.svelte` — the Host controls menu
+- `apps/web/src/lib/meetings/screen/meeting-tile.svelte`, `meeting-roster.svelte` — the menu and the badges
 - `apps/web/src/lib/meetings/meetings-api.ts` — the five writes
 - `apps/web/src/routes/(app)/meetings/[id]/+page.svelte` — the hosting read, the removed state, the locked word
 - `apps/web/src/lib/meetings/meeting-entry-action.svelte` — Locked on the Join control
@@ -401,7 +401,7 @@ Backend:
 - `packages/meetings/src/meeting-service.ts` — `joinMeeting` takes the lobby branch, `admitParticipants`, `denyParticipants`, `setLobby`; the claim-admits rule
 - `packages/meetings/CLAUDE.md` — the door, the predicates, the guard that moved
 - `packages/meetings/test/lobby.test.ts` (new)
-- `apps/api-worker/src/meetings/meeting-room-protocol.ts` — `lobby`, `admitted`, `waiting`, the two refusal reasons
+- `packages/meeting-protocol/src/frames.ts` — `lobby`, `admitted`, `waiting`, the two refusal reasons
 - `apps/api-worker/src/meetings/meeting-room.ts` — the lobby state, the `waiting:` prefix, `participantsAdmitted`, `participantsDenied`
 - `apps/api-worker/src/routes/meetings.ts` — the four lobby routes, `lobby` on Start and on the summary, `waiting` on the join answer, `waiting` on the socket attachment
 - `apps/api-worker/openapi/openapi.json` (emitted) and `packages/api-client` (generated)
@@ -413,7 +413,7 @@ Web:
 - `apps/web/src/lib/meetings/meeting-client.svelte.ts` — the `waiting` state, the `lobby` and `admitted` frames, the deferred peer connection
 - `apps/web/src/lib/meetings/meeting-lobby-panel.svelte` (new) — the host's sheet
 - `apps/web/src/lib/meetings/meeting-lobby-wait.svelte` (new) — the waiting screen
-- `apps/web/src/lib/meetings/meeting-controls.svelte` — the Waiting room item and its badge
+- `apps/web/src/lib/meetings/screen/meeting-controls.svelte` — the Waiting room item and its badge
 - `apps/web/src/lib/meetings/meetings-api.ts` — the four lobby writes
 - `apps/web/src/routes/(app)/meetings/[id]/+page.svelte` — the waiting branch and the denied state
 - `apps/web/src/lib/meetings/meeting-entry-action.svelte` — the lobby switch at Start
