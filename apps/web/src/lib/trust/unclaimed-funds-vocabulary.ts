@@ -132,7 +132,7 @@ export function contactChannelLabel(channel: TrustContactChannel): string {
       return "Email";
     case "record_review":
       return "Review of the firm's own records";
-    case "other":
+    default:
       return "Other";
   }
 }
@@ -181,7 +181,7 @@ export function contactOutcomeLabel(outcome: TrustContactOutcome): string {
       return "Declined";
     case "wrong_contact":
       return "Wrong contact";
-    case "other":
+    default:
       return "Other";
   }
 }
@@ -239,7 +239,7 @@ export function reviewOutcomeLabel(outcome: TrustReviewOutcome): string {
       return "Resolved without a distribution";
     case "not_dormant":
       return "Not dormant";
-    case "search_continues":
+    default:
       return "The search continues";
   }
 }
@@ -253,7 +253,7 @@ export function reviewOutcomeMeaning(outcome: TrustReviewOutcome): string {
       return "The ledger was settled another way: the money was applied, returned or accounted for without a distribution to the owner.";
     case "not_dormant":
       return "The ledger was not unclaimed after all. The money stays where it is.";
-    case "search_continues":
+    default:
       return "This round of diligence is over and the search is not. A later round opens a new file.";
   }
 }

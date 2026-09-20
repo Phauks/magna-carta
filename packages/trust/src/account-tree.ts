@@ -1,5 +1,5 @@
 import type { EffectWrite, EffectStatement } from "@magna-carta/data-access/effect-batch";
-import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { OutboxMessage } from "@magna-carta/data-access/outbox-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";

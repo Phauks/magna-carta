@@ -52,7 +52,7 @@ import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../contracts/common.ts";
 import { cursorQuery, paginated } from "../contracts/pagination.ts";
-import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
+import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
 import { problemResponseForLedgerRefusal } from "../ledger-refusal-problems.ts";
