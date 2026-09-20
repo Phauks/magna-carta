@@ -35,6 +35,7 @@
  */
 import type { MeetingMedium } from "@magna-carta/meeting-protocol/types";
 import { createBrowserAudioLevelMeter, type AudioLevelMeter } from "./audio-level-meter.ts";
+import { MeetingClock } from "./meeting-clock.svelte.ts";
 import {
   captureLocalMedia,
   captureScreenShare,
@@ -66,6 +67,7 @@ import {
 } from "./subscriptions.ts";
 import {
   GALLERY_PAGE_SIZE,
+  MAX_VIDEO_SUBSCRIPTIONS,
   SPEAKER_VIEW_PAGE_SIZE,
   subscriptionPolicy,
   type PreferredRid,
@@ -77,6 +79,17 @@ export type { MeetingMedium, MeetingParticipant, MeetingRefusal, MeetingTrack, M
 
 /** The reason recorded when the signaling socket goes away without the meeting having ended. */
 export const SOCKET_CLOSED_REASON = "socket-closed";
+
+/**
+ * The reason recorded when the room speaks a version of the protocol this page does not.
+ *
+ * It is the one failure a member can fix themselves and the only one where carrying on is worse
+ * than stopping: every frame after the first mismatched one is being read against the wrong shape,
+ * so a field that moved reads as a field that is missing and the room looks empty rather than
+ * incompatible. A page left open across a deploy is how this happens, and reloading is the whole
+ * remedy.
+ */
+export const PROTOCOL_MISMATCH_REASON = "protocol-mismatch";
 
 /**
  * The reason a socket is closed because the SAME member opened a newer one: a second tab, or a
@@ -95,18 +108,45 @@ export const SUPERSEDED_REASON = "superseded";
 const FATAL_REFUSAL_REASONS = new Set(["not-a-participant", "meeting-ended", SUPERSEDED_REASON]);
 
 /**
- * The refusals that mean the tracks just asked for are not coming: the unit could not be reached, or
- * the room does not hold a track under the name it was asked for. Those tracks stop counting as
- * pulled, so the next roster asks for them again rather than waiting on media that was never sent.
+ * The refusals that mean the tracks just asked for are not coming: the unit could not be reached,
+ * the room does not hold a track under the name it was asked for, or the room could not read the
+ * frame that asked at all. Those tracks stop counting as pulled, so the next roster asks for them
+ * again rather than waiting on media that was never sent.
+ *
+ * A frame the room could not read is the same outcome by a different route, and it was the one
+ * missing here: a `subscribe` refused as malformed or as too large is a frame that was never
+ * applied, while every track it named stays marked as coming in for the rest of the meeting. The
+ * tiles it was for then stay black and nothing asks again, which is precisely the silent failure
+ * this set exists to prevent.
  *
  * The room's other refusals are deliberately NOT here. A name refused as somebody else's, and a
  * track the room will not carry, are both about what THIS browser tried to publish — un-marking a
  * subscription over either would ask again for something nobody refused.
  */
-const REFUSALS_THAT_LOSE_A_SUBSCRIPTION = new Set(["sfu-unavailable", "unknown-track"]);
+const REFUSALS_THAT_LOSE_A_SUBSCRIPTION = new Set([
+  "sfu-unavailable",
+  "unknown-track",
+  "malformed-frame",
+  "frame-too-large",
+]);
 
 /** Where a meeting stands from this browser's point of view. */
 export type MeetingState = "idle" | "joining" | "live" | "ended" | "failed";
+
+/**
+ * What one person's microphone is doing, as the room last relayed it.
+ *
+ * It is held APART from the roster rather than folded into it. A roster row is three hundred
+ * people's names, handles and track lists, and it changes when somebody joins or leaves; these two
+ * booleans change every time anybody in the room starts or stops talking, which in a discussion is
+ * many times a second. Folded in, every one of those frames replaced the whole roster array — three
+ * hundred fresh objects, and every surface reading the roster re-rendered — to carry one boolean
+ * about one person.
+ */
+export interface MeetingPresenceFact {
+  readonly speaking: boolean;
+  readonly muted: boolean;
+}
 
 /** What the join route answered with, plus where the room's socket lives. */
 export interface MeetingJoinRequest {
@@ -272,6 +312,18 @@ export class MeetingClient {
    */
   #lastSpokeAt = $state<ReadonlyMap<string, number>>(new Map());
 
+  /**
+   * What each participant's microphone is doing, as the presence frames have stated it.
+   *
+   * Beside the roster and never inside it: see `MeetingPresenceFact`. A participant with no entry
+   * here has had nothing said about them since the last roster, so the roster's own two booleans
+   * are the answer — which is what `presenceOf` resolves.
+   */
+  #presenceByParticipant = $state<ReadonlyMap<string, MeetingPresenceFact>>(new Map());
+
+  /** The clock the plan ages recent speakers against, ticking for as long as the meeting is live. */
+  readonly #clock = new MeetingClock();
+
   /** Everybody but this browser — the people the gallery pages over. */
   readonly others = $derived(
     this.participants.filter((participant) => participant.participantId !== this.participantId),
@@ -285,18 +337,25 @@ export class MeetingClient {
     subscriptionPolicy({
       medium: this.medium,
       self: this.participantId ?? "",
-      participants: this.participants.map((participant) => ({
-        participantId: participant.participantId,
-        sfuSessionId: participant.sfuSessionId,
-        tracks: participant.tracks,
-        speaking: participant.speaking,
-        muted: participant.muted,
-        lastSpokeAt: this.#lastSpokeAt.get(participant.participantId) ?? null,
-      })),
+      participants: this.participants.map((participant) => {
+        const presence = this.presenceOf(participant);
+        return {
+          participantId: participant.participantId,
+          sfuSessionId: participant.sfuSessionId,
+          tracks: participant.tracks,
+          speaking: presence.speaking,
+          muted: presence.muted,
+          lastSpokeAt: this.#lastSpokeAt.get(participant.participantId) ?? null,
+        };
+      }),
       pinned: this.pinned,
       page: this.page,
       pageSize: this.speakerView ? SPEAKER_VIEW_PAGE_SIZE : GALLERY_PAGE_SIZE,
-      now: Date.now(),
+      // The room's own ticking clock, never `Date.now()` read here. The policy ages a speaker out
+      // of the recent-speakers band five minutes after they stop, and read straight off the system
+      // clock that window would only ever close when some OTHER change made this be worked out
+      // again — so in a room that has gone quiet it never closes at all. meeting-clock.svelte.ts.
+      now: this.#clock.now,
     }),
   );
 
@@ -366,6 +425,9 @@ export class MeetingClient {
         this.#teardown();
       },
       refused: (frame) => this.#handleRefused(frame),
+      // A room speaking a protocol this page does not know. Nothing is retried and nothing is read
+      // further: the screen says to reload, which is the whole remedy.
+      incompatible: () => this.#fail(PROTOCOL_MISMATCH_REASON),
       lost: () => {
         if (this.#leaving || this.state === "ended" || this.state === "failed") return;
         this.#fail(SOCKET_CLOSED_REASON);
@@ -381,10 +443,29 @@ export class MeetingClient {
     this.meetingId = request.meetingId;
     this.participantId = request.participantId;
     this.medium = request.medium ?? "video";
+    // The clock starts with the meeting, because what it ages — who spoke recently — starts being
+    // recorded the moment the first roster arrives.
+    this.#clock.start(() => this.#subscriptions.schedule());
     this.#negotiation.open(
       this.#seams.createPeerConnection({ iceServers: [...request.iceServers] }),
     );
     this.#signaling.open(request.socketUrl);
+  }
+
+  /**
+   * What somebody's microphone is doing: what the presence frames have said where any have, and
+   * what the roster itself stated where none have.
+   *
+   * Every surface that draws a speaking or a muted mark asks HERE rather than reading the two
+   * booleans off a roster row, because the roster row is only ever as current as the last roster.
+   */
+  presenceOf(participant: MeetingParticipant): MeetingPresenceFact {
+    return (
+      this.#presenceByParticipant.get(participant.participantId) ?? {
+        speaking: participant.speaking,
+        muted: participant.muted,
+      }
+    );
   }
 
   /**
@@ -466,9 +547,20 @@ export class MeetingClient {
    * It moves them to the front of the order, which is the first page — so the gallery goes there
    * too. Pinning somebody on page eleven and watching them vanish from page eleven is the one
    * outcome a member would read as the control not working.
+   *
+   * THERE IS A CEILING, AND IT IS THE CAMERA CAP. A browser pulls at most `MAX_VIDEO_SUBSCRIPTIONS`
+   * cameras, so a seventeenth pin is a person the first page cannot draw and the connection will
+   * not fetch: they would sit pinned, off every page and with nothing coming in, which reads as the
+   * pin having silently failed. It is said instead, and nothing is pinned.
    */
   pin(participantId: string): void {
     if (this.pinned.includes(participantId)) return;
+    if (this.pinned.length >= MAX_VIDEO_SUBSCRIPTIONS) {
+      // The number comes from the cap itself rather than being spelled out, so the sentence cannot
+      // go on saying sixteen after the cap has moved.
+      this.lastProblem = `Only ${MAX_VIDEO_SUBSCRIPTIONS} people can be kept on screen at once. Unpin somebody to keep somebody else.`;
+      return;
+    }
     this.pinned = [...this.pinned, participantId];
     this.page = 0;
     this.#subscriptions.schedule();
@@ -613,8 +705,27 @@ export class MeetingClient {
   /** Take the roster as stated, forget what it no longer names, and pull whatever the plan wants. */
   #adoptRoster(participants: readonly MeetingParticipant[]): void {
     this.participants = participants;
+    this.#forgetPresenceOfWhoeverLeft(participants);
     this.#subscriptions.forgetWhatTheRosterNoLongerNames(participants);
     this.#subscriptions.schedule();
+  }
+
+  /**
+   * Drop what the presence frames said about people the roster no longer names.
+   *
+   * Presence arrives for whoever the room relays it about, including — for one frame, before the
+   * sync answers — somebody this browser has not been told about yet. Left to accumulate, that map
+   * is the one thing in a long meeting that only ever grows. Rebuilt only where something actually
+   * went, so an unchanged roster does not make the plan be worked out again for nothing.
+   */
+  #forgetPresenceOfWhoeverLeft(participants: readonly MeetingParticipant[]): void {
+    if (this.#presenceByParticipant.size === 0) return;
+    const present = new Set(participants.map((participant) => participant.participantId));
+    const kept = new Map(
+      [...this.#presenceByParticipant].filter(([participantId]) => present.has(participantId)),
+    );
+    if (kept.size === this.#presenceByParticipant.size) return;
+    this.#presenceByParticipant = kept;
   }
 
   /**
@@ -677,14 +788,18 @@ export class MeetingClient {
    * member is most likely to want to keep looking at.
    */
   #recordPresence(participantId: string, speaking: boolean, muted: boolean): boolean {
-    let known = false;
-    let wasSpeaking = false;
-    this.participants = this.participants.map((participant) => {
-      if (participant.participantId !== participantId) return participant;
-      known = true;
-      wasSpeaking = participant.speaking;
-      return { ...participant, speaking, muted };
-    });
+    const onRoster = this.participants.find(
+      (participant) => participant.participantId === participantId,
+    );
+    const known = onRoster !== undefined;
+    const wasSpeaking =
+      this.#presenceByParticipant.get(participantId)?.speaking ?? onRoster?.speaking === true;
+    // The roster array is left exactly as it was. A presence frame is two booleans about one
+    // person, and rebuilding three hundred roster rows to carry them re-rendered every surface
+    // reading the roster — many times a second in a discussion.
+    const stated = new Map(this.#presenceByParticipant);
+    stated.set(participantId, { speaking, muted });
+    this.#presenceByParticipant = stated;
     if (speaking || wasSpeaking) {
       const stamped = new Map(this.#lastSpokeAt);
       stamped.set(participantId, Date.now());
@@ -833,6 +948,7 @@ export class MeetingClient {
 
   #teardown(): void {
     this.#subscriptions.stopScheduling();
+    this.#clock.stop();
     this.#presence.stop();
     this.#capture?.close();
     this.#capture = null;
@@ -865,6 +981,7 @@ export class MeetingClient {
     this.pinned = [];
     this.speakerView = false;
     this.#lastSpokeAt = new Map();
+    this.#presenceByParticipant = new Map();
     this.#subscriptions.clear();
     this.#signaling.reset();
     this.#presence.stop();

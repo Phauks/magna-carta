@@ -84,7 +84,7 @@
     isEventOwner,
     isMeetingChoice,
     MEETING_CHOICE_OPTIONS,
-    MEETING_GUESTS_SENTENCE,
+    meetingGuestsSentence,
     withMemberListed,
     type EventDraft,
     type EventFormTab,
@@ -614,8 +614,11 @@
           />
           {#if draft.meeting !== "none"}
             <!-- Said here rather than discovered later from a client who never arrived: only
-                 colleagues are invited, because an external guest has no way in yet. -->
-            <p class="text-sm text-text-muted">{MEETING_GUESTS_SENTENCE}</p>
+                 colleagues are invited, because an external guest has no way in yet. It is the
+                 record's own sentence, because a firm event tells NOBODY yet — a form promising a
+                 message nothing sends would stop a member doing the one thing that gets their
+                 colleagues into the room. -->
+            <p class="text-sm text-text-muted">{meetingGuestsSentence(owner)}</p>
           {/if}
         </div>
 
@@ -660,6 +663,7 @@
           <!-- A read, never a refusal: the platform does not referee whether two things at once are
                wrong, and it does not decide who a member may book over. -->
           <MemberAvailability
+            {open}
             participants={draft.participants}
             timing={draft}
             context={calendarContext.entryContext}

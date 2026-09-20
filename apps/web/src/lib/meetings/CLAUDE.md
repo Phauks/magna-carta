@@ -27,6 +27,10 @@ edge is a constructor seam, so the whole machine runs under a test with fakes.
   bookkeeping keyed by session AND name, the reconcile pass, the debounce window, and layer changes.
 - `subscription-policy.ts` — the pure function that decides what should be coming in and what the
   gallery draws. Facts in, a plan out; a room of three hundred is a unit test rather than a rehearsal.
+- `meeting-clock.svelte.ts` — the ticking `now` the policy ages recent speakers against. It exists
+  because the five-minute window is the one input to the plan that nothing in the room changes: read
+  off the system clock as the plan is worked out, it only closes when something else happens, so a
+  room that has gone quiet never lets its last speaker go.
 - `capture.ts` — what this browser captures and how it is offered: the constraints a medium calls
   for, the camera's three simulcast layers, the screen share's single one.
 - `media-effects.ts` — the stage between capture and publish. The identity today; the seam is here so
@@ -69,3 +73,18 @@ so those modules can take the `MeetingMedium` union without reaching into the ro
   roster arriving and the member in the room, with a sentence on the screen.
 - **Screen components take models, not the client.** `meeting-tiles.ts` is the one projection from
   the client's state to what is drawn, so a component never reads the state machine directly.
+- **Who is talking is held BESIDE the roster, never in it.** A roster row is a person's name, handle
+  and track list and changes when somebody joins or leaves; `speaking` and `muted` change every time
+  anybody starts or stops talking, which in a discussion is many times a second. Folded in, one
+  presence frame replaced all three hundred rows and re-rendered every surface reading them. The
+  client keeps them in their own map and `presenceOf` is how a surface asks — a mark drawn straight
+  off a roster row is only ever as current as the last roster.
+- **A MUTE MARK COMES FROM THE ROSTER, NEVER FROM A STREAM.** A browser pulls more microphones than
+  it draws tiles and ranks the two differently, so a stream with no audio track in it is the
+  ordinary state of somebody whose camera is on this page and whose voice is not among the ones
+  being pulled. Reading that absence as "Muted" tells the room somebody is silent who is talking.
+- **Nothing the room says about its contents is read before `welcome`.** A `presence` or a delta
+  landing in that gap names somebody an empty roster does not hold, which is the shape of a frame
+  gone missing — so the client asks for the whole list again, and every browser joining at the top
+  of the hour does it at once. Only the frames about the socket itself (the hello, a refusal, the
+  meeting ending) mean anything before it.

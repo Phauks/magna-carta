@@ -37,11 +37,22 @@
   let {
     participants,
     ownParticipantId = null,
+    presenceOf = (participant) => participant,
   }: {
     /** Everybody the roster names, this browser included. */
     participants: readonly MeetingParticipant[];
     /** Which of them is this browser, so its row can say so. */
     ownParticipantId?: string | null;
+    /**
+     * What one person's microphone is doing, which the client holds BESIDE the roster: a roster row
+     * is only ever as current as the last roster, and who is talking changes many times a second.
+     * The default reads the row's own two booleans, which is what a fixed list of participants —
+     * a gallery, a test — carries.
+     */
+    presenceOf?: (participant: MeetingParticipant) => {
+      readonly speaking: boolean;
+      readonly muted: boolean;
+    };
   } = $props();
 
   let query = $state("");
@@ -68,8 +79,9 @@
   <ul class="mc-scrollbar flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto">
     {#each shown as participant (participant.participantId)}
       {@const name = participantName(participant)}
+      {@const presence = presenceOf(participant)}
       {@const silent =
-        participant.muted || !participant.tracks.some((track) => track.kind === "audio")}
+        presence.muted || !participant.tracks.some((track) => track.kind === "audio")}
       {@const shares = participant.tracks.some((track) => track.kind === "screen")}
       <li class="flex items-center gap-8">
         <Avatar.Root>
@@ -83,7 +95,7 @@
         {#if shares}
           <ScreenShare class="size-16 text-text-muted" aria-label="Sharing a screen" />
         {/if}
-        {#if participant.speaking}
+        {#if presence.speaking}
           <!-- The one place a row carries the accent: somebody is talking right now, which is the
                fact a member scans this list for while somebody is talking. -->
           <AudioLines class="size-16 text-accent-default" aria-label="Speaking" />

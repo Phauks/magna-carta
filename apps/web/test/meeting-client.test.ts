@@ -19,12 +19,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   MeetingClient,
+  PROTOCOL_MISMATCH_REASON,
   RECONCILE_DEBOUNCE_MILLISECONDS,
   refusalStatement,
   SUPERSEDED_REASON,
   type MeetingClientSeams,
   type MeetingMedium,
 } from "$lib/meetings/client/meeting-client.svelte.ts";
+import { MAX_VIDEO_SUBSCRIPTIONS } from "$lib/meetings/client/subscription-policy.ts";
 import { meetingTiles, sharedScreenTile } from "$lib/meetings/screen/meeting-tiles.ts";
 import { leaveMeetingOnDeparture } from "$lib/api/departure-write.ts";
 
@@ -47,6 +49,32 @@ async function settle(remaining = 20): Promise<void> {
 async function reconciled(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, RECONCILE_DEBOUNCE_MILLISECONDS + 20));
   await settle();
+}
+
+/** The tracks a frame that carries them names, in the order it names them. */
+function trackNamesOf(frame: Record<string, unknown> | undefined): string[] {
+  return ((frame?.tracks ?? []) as { trackName: string }[]).map((track) => track.trackName);
+}
+
+/** How often the room is answered while a case is waiting out minutes on a fake clock. */
+const PONG_EVERY_MILLISECONDS = 15_000;
+
+/**
+ * Lets minutes pass on a FAKE clock while the room stays connected.
+ *
+ * A case about a five-minute window cannot wait five real minutes, and the client's own reading of
+ * the clock only moves on its tick — so time here is advanced rather than waited out. The pongs are
+ * not decoration: the keepalive fails a socket that misses two pings in a row, so a room that went
+ * unanswered for five minutes would be a closed socket rather than an idle meeting.
+ */
+async function minutesPassed(harnessed: Harness, milliseconds: number): Promise<void> {
+  if (milliseconds <= 0) {
+    await settle();
+    return;
+  }
+  await vi.advanceTimersByTimeAsync(Math.min(milliseconds, PONG_EVERY_MILLISECONDS));
+  harnessed.socket.deliver('{"type":"pong"}');
+  await minutesPassed(harnessed, milliseconds - PONG_EVERY_MILLISECONDS);
 }
 
 class FakeTrack {
@@ -283,7 +311,16 @@ interface Harness {
  */
 const opened: MeetingClient[] = [];
 
-function harness(participantId = "attendance_1", medium: MeetingMedium = "video"): Harness {
+function harness(
+  participantId = "attendance_1",
+  medium: MeetingMedium = "video",
+  /**
+   * Whether the room has said hello yet. False leaves the socket open and un-welcomed, which is the
+   * window every browser is in for as long as the room takes to answer a join — and the window a
+   * frame arriving early has to be judged in.
+   */
+  welcomed = true,
+): Harness {
   const socket = new FakeSocket();
   const peerConnection = new FakePeerConnection();
   /*
@@ -317,7 +354,7 @@ function harness(participantId = "attendance_1", medium: MeetingMedium = "video"
     medium,
   });
   socket.accept();
-  socket.deliver({ v: 1, type: "welcome", participantId, roster: [] });
+  if (welcomed) socket.deliver({ v: 1, type: "welcome", participantId, roster: [] });
 
   return {
     client,
@@ -1107,9 +1144,12 @@ describe("who is talking", () => {
     await reconciled();
 
     expect(client.shown[0]).toBe("attendance_39");
-    expect(client.participants.find((one) => one.participantId === "attendance_39")?.speaking).toBe(
-      true,
-    );
+    // Who is talking is held BESIDE the roster rather than folded into it, so it is asked for
+    // rather than read off a roster row — see the presence case further down.
+    const speaker = client.participants.find((one) => one.participantId === "attendance_39");
+    expect(speaker).toBeDefined();
+    if (speaker === undefined) return;
+    expect(client.presenceOf(speaker).speaking).toBe(true);
     // And their camera is now among the ones being pulled, which is the point of the re-ordering.
     const pulled = socket.framesOfType("subscribe").at(-1)?.tracks as { trackName: string }[];
     expect(pulled.map((track) => track.trackName)).toContain("attendance_39:video");
@@ -1233,5 +1273,198 @@ describe("what a large room pulls", () => {
     client.unpin("attendance_39");
     await reconciled();
     expect(client.shown[0]).not.toBe("attendance_39");
+  });
+});
+
+describe("what the passing of time does on its own", () => {
+  it("ages a speaker out of the band, and closes what was being pulled for them", async () => {
+    /*
+     * The five-minute window the policy ages speakers against is the one input to the plan that
+     * nothing in the room changes. Read straight off the system clock as the plan is worked out, it
+     * only ever closes when something ELSE happens — so in a room that has gone quiet the last
+     * person to say anything holds the front of the gallery, and the camera pulled for them stays
+     * pulled, for the rest of the meeting.
+     */
+    // The clock itself is faked as well as the timers: what decays here is a span between two
+    // readings of `Date.now()`, so a fake interval over a real clock would tick five minutes' worth
+    // of times and never move the window at all.
+    vi.useFakeTimers({
+      toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"],
+    });
+    const harnessed = await (async (): Promise<Harness> => {
+      const opening = harness();
+      opening.socket.deliver({ v: 1, type: "roster", participants: many(40) });
+      await minutesPassed(opening, RECONCILE_DEBOUNCE_MILLISECONDS + 20);
+      return opening;
+    })();
+    const { client, socket } = harnessed;
+
+    // Somebody far down the roster says something, and stops. Nothing but the recent-speakers band
+    // puts them on the first page: the roster's own order has them thirty-eighth.
+    socket.deliver({
+      v: 1,
+      type: "presence",
+      participantId: "attendance_39",
+      speaking: true,
+      muted: false,
+      at: "2026-09-20T15:00:00.000Z",
+    });
+    socket.deliver({
+      v: 1,
+      type: "presence",
+      participantId: "attendance_39",
+      speaking: false,
+      muted: false,
+      at: "2026-09-20T15:00:04.000Z",
+    });
+    await minutesPassed(harnessed, RECONCILE_DEBOUNCE_MILLISECONDS + 20);
+
+    expect(client.shown[0]).toBe("attendance_39");
+    expect(client.plan.video.map((track) => track.participantId)).toContain("attendance_39");
+
+    // The room answers the pull, so the media section their picture arrives on is known — which is
+    // what closing it will name.
+    socket.deliver({
+      v: 1,
+      type: "subscribed",
+      sessionDescription: { type: "offer", sdp: "unit-offer mids=41" },
+      tracks: [{ sessionId: "session_39", trackName: "attendance_39:video", mid: "41" }],
+    });
+    await settle();
+    await minutesPassed(harnessed, RECONCILE_DEBOUNCE_MILLISECONDS + 20);
+
+    // Six minutes of nothing at all: no frame, no roster, no gesture. Only the clock.
+    await minutesPassed(harnessed, 6 * 60 * 1000);
+
+    expect(client.shown).not.toContain("attendance_39");
+    expect(client.plan.video.map((track) => track.participantId)).not.toContain("attendance_39");
+    const closed = socket.framesOfType("close").flatMap((frame) => frame.mids as string[]);
+    expect(closed).toContain("41");
+  });
+});
+
+describe("a presence frame and the roster it is about", () => {
+  it("leaves the roster exactly as it was, and still says who is talking", async () => {
+    // Three hundred fresh participant objects per presence frame is three hundred rows re-rendered
+    // to carry two booleans about one person, many times a second in a discussion.
+    const { client, socket } = harness();
+    socket.deliver({ v: 1, type: "roster", participants: many(40) });
+    await reconciled();
+    const roster = client.participants;
+
+    socket.deliver({
+      v: 1,
+      type: "presence",
+      participantId: "attendance_9",
+      speaking: true,
+      muted: false,
+      at: "2026-09-20T15:00:00.000Z",
+    });
+    await reconciled();
+
+    expect(client.participants).toBe(roster);
+    const speaker = client.participants.find((one) => one.participantId === "attendance_9");
+    expect(speaker).toBeDefined();
+    if (speaker === undefined) return;
+    // The fact still reached everything that draws it, by the route beside the roster.
+    expect(client.presenceOf(speaker).speaking).toBe(true);
+    expect(client.shown[0]).toBe("attendance_9");
+  });
+});
+
+describe("what arrives before the room has said hello", () => {
+  it("is ignored, rather than read as a roster with a hole in it", () => {
+    /*
+     * A `presence` or a delta landing before `welcome` names somebody the empty roster does not
+     * hold, which is exactly the shape of a frame gone missing — so the browser asks for the whole
+     * list again. Every browser joining at the top of the hour does that at once, over a roster
+     * that was always about to arrive.
+     */
+    const { client, socket } = harness("attendance_1", "video", false);
+
+    socket.deliver({
+      v: 1,
+      type: "presence",
+      participantId: "attendance_9",
+      speaking: true,
+      muted: false,
+      at: "2026-09-20T15:00:00.000Z",
+    });
+    socket.deliver({ v: 1, type: "roster-delta", joined: [], updated: [], left: ["attendance_9"] });
+
+    expect(socket.framesOfType("sync")).toHaveLength(0);
+    expect(client.state).toBe("joining");
+
+    socket.deliver({ v: 1, type: "welcome", participantId: "attendance_1", roster: many(3) });
+    expect(client.state).toBe("live");
+    expect(client.participants).toHaveLength(3);
+  });
+
+  it("lets through the frames that are about the socket rather than the room", () => {
+    // A room that refuses the join, or that ends under a socket waiting for its welcome, has to be
+    // heard: those are the reasons the welcome is never coming.
+    const { client, socket } = harness("attendance_1", "video", false);
+    socket.deliver({ v: 1, type: "refused", reason: "not-a-participant", errorId: "err_1" });
+
+    expect(client.state).toBe("failed");
+    expect(client.failureReason).toBe("not-a-participant");
+  });
+});
+
+describe("a room speaking a protocol this page does not", () => {
+  it("stops, rather than reading every frame after it against the wrong shape", () => {
+    const { client, socket } = harness();
+
+    socket.deliver({ v: 2, type: "roster", participants: many(3) });
+
+    expect(client.state).toBe("failed");
+    expect(client.failureReason).toBe(PROTOCOL_MISMATCH_REASON);
+    // Nothing of the frame was applied. A field that moved reads as a field that is missing, so a
+    // roster read against the wrong shape is worse than no roster at all.
+    expect(client.participants).toHaveLength(0);
+  });
+});
+
+describe("a frame the room could not read", () => {
+  it("un-marks the tracks it asked for, so the next roster asks again", async () => {
+    const { client, socket } = harness();
+    socket.deliver({ v: 1, type: "roster", participants: many(3) });
+    await reconciled();
+    const first = socket.framesOfType("subscribe");
+    expect(first).toHaveLength(1);
+
+    // The room could not read the frame, so nothing it named is coming. Left marked as pulled,
+    // those tiles stay black for the rest of the meeting and nothing asks again.
+    socket.deliver({ v: 1, type: "refused", reason: "malformed-frame", errorId: "err_1" });
+    expect(client.state).toBe("live");
+
+    socket.deliver({ v: 1, type: "roster", participants: many(3) });
+    await reconciled();
+
+    const asked = socket.framesOfType("subscribe");
+    expect(asked).toHaveLength(2);
+    expect(trackNamesOf(asked[1])).toEqual(trackNamesOf(first[0]));
+  });
+});
+
+describe("keeping people on screen", () => {
+  it("refuses a pin past the camera cap rather than pinning somebody nothing will draw", async () => {
+    // A seventeenth pin is somebody the first page cannot draw and the connection will not fetch:
+    // they would sit pinned, off every page, with nothing coming in — which reads as the control
+    // having silently failed.
+    const { client, socket } = harness();
+    socket.deliver({ v: 1, type: "roster", participants: many(40) });
+    await reconciled();
+
+    for (let ordinal = 2; ordinal < 2 + MAX_VIDEO_SUBSCRIPTIONS; ordinal += 1) {
+      client.pin(`attendance_${ordinal}`);
+    }
+    expect(client.pinned).toHaveLength(MAX_VIDEO_SUBSCRIPTIONS);
+    expect(client.lastProblem).toBeNull();
+
+    client.pin("attendance_30");
+    expect(client.pinned).toHaveLength(MAX_VIDEO_SUBSCRIPTIONS);
+    expect(client.pinned).not.toContain("attendance_30");
+    expect(client.lastProblem).toContain("kept on screen");
   });
 });

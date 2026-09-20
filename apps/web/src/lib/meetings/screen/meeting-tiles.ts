@@ -89,7 +89,7 @@ export function meetingTiles(client: MeetingClient, localName: string): MeetingT
       stream: client.localStream,
       local: true,
       microphoneOff: !client.microphoneOn,
-      speaking: own?.speaking === true,
+      speaking: own !== undefined && client.presenceOf(own).speaking,
       pinned: false,
       videoPulled: client.localStream !== null && client.localStream.getVideoTracks().length > 0,
     },
@@ -103,14 +103,17 @@ export function meetingTiles(client: MeetingClient, localName: string): MeetingT
   for (const participantId of client.shown) {
     const participant = byIdentifier.get(participantId);
     if (participant === undefined) continue;
+    // Whether a microphone is on is asked of the client rather than read off the roster row: the
+    // presence frames are held beside the roster, so the row is only as current as the last roster.
+    const presence = client.presenceOf(participant);
     tiles.push({
       key: participantId,
       participantId,
       name: participantName(participant),
       stream: client.remoteStreams.get(participantId) ?? null,
       local: false,
-      microphoneOff: participant.muted || !publishesAudio(participant),
-      speaking: participant.speaking,
+      microphoneOff: presence.muted || !publishesAudio(participant),
+      speaking: presence.speaking,
       pinned: client.isPinned(participantId),
       videoPulled: withVideo.has(participantId),
     });

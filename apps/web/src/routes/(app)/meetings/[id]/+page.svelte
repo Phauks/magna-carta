@@ -40,6 +40,7 @@
   import {
     MeetingClient,
     browserMeetingSeams,
+    PROTOCOL_MISMATCH_REASON,
     refusalStatement,
     SUPERSEDED_REASON,
     type MeetingMedium,
@@ -319,6 +320,12 @@
    */
   const superseded = $derived(client.failureReason === SUPERSEDED_REASON);
   /*
+   * The room is speaking a protocol this page does not know — a page left open across a deploy.
+   * There is no Rejoin for it: the same page code would meet the same room again. Reloading is the
+   * whole remedy, and it is the one thing the member can do themselves.
+   */
+  const outOfDate = $derived(client.failureReason === PROTOCOL_MISMATCH_REASON);
+  /*
    * What this room IS, named on the header's own line beside the day and the count — because a call
    * and a meeting look different the moment you are in one (no picture, no share) and a reader
    * arriving at the address should know which they are about to join before they are in it.
@@ -401,6 +408,19 @@
           </Alert.Root>
           <Button variant="secondary" href={backAddress}>Back to the Event</Button>
         </div>
+      {:else if outOfDate}
+        <!-- No Rejoin: this page and this room disagree about the wire, and pressing it would
+             reach the same disagreement again. The way out is a reload, which is what it says. -->
+        <div class="flex flex-col items-start gap-8">
+          <Alert.Root variant="warning">
+            <Alert.Title>This Page Is Out of Date</Alert.Title>
+            <Alert.Description>
+              This page was open while the meeting service was updated, so it no longer understands
+              what the room is sending. Reload the page to join.
+            </Alert.Description>
+          </Alert.Root>
+          <Button variant="secondary" href={backAddress}>Back to the Event</Button>
+        </div>
       {:else if client.state === "failed"}
         <div class="flex flex-col items-start gap-8">
           <Alert.Root variant="warning">
@@ -466,6 +486,7 @@
           <MeetingRoster
             participants={client.participants}
             ownParticipantId={client.participantId}
+            presenceOf={(participant) => client.presenceOf(participant)}
           />
         </aside>
       </div>

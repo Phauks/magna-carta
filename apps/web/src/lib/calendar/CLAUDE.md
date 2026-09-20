@@ -22,6 +22,8 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   "see the rest" link points
 - `calendar-api.ts` — every read and write, mirroring the contract; the shared label helpers and
   the closed lists a catalog offers (`FIRM_RESOURCE_KINDS`, `EVENT_TYPE_CATEGORIES`)
+- `availability-reads.svelte.ts` — which colleague-days the availability line has asked about, what
+  came back, and what a closing form forgets; `member-availability.svelte` renders it
 - `calendar-permission.ts` — what this account may do on the calendar, said once: the one wording
   of the calendar-manage refusal every writing surface uses
 - `calendar-vocabulary.ts` — how each kind reads: word, tone, the type catalog by code; the
@@ -306,7 +308,24 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   (`entry-updates.ts`): a meeting can be added when an event is recorded or edited from the record
   form, and it is ended through its own act — an edit that closed a room as a side effect of moving
   a hearing would be the one calendar correction that reached into a gathering. A recorded event's
-  draft therefore opens on None whatever its meeting is.
+  draft therefore opens on None whatever its meeting is. **What the form promises about who is told
+  is the RECORD's own sentence** (`meetingGuestsSentence`): a matter event invites the colleagues on
+  it, and a firm event — which is what the firm arm and a staff member's own event both write —
+  tells nobody at all yet, so the line says to tell them. A form promising an invitation nothing
+  sends stops a member short of the one thing that actually gets their colleagues into the room.
+- **What has been asked about and what came back is `availability-reads.svelte.ts`.** The component
+  renders it and decides none of it. Three facts stay apart there: "asked" (not reactive — it stops
+  a second request and paints nothing), "answered", and whether the form is still open. A read that
+  did NOT come back un-marks its pair, so the next pass asks again rather than leaving the line
+  blank for the rest of the form's life; nothing survives the form closing, because availability is
+  a claim about a particular hour of a particular day and a cached "Free" from an hour ago is the
+  one answer that would be believed without being checked; and a read still in flight when the form
+  closes belongs to the round that asked for it and never fills in the next one.
+- **A FIRM EVENT COUNTS AS BUSY.** `availabilityEntryFromTimelineRow` is the grid's projection plus
+  the firm-event arm the grid deliberately leaves out — the grid skips it because the firm's own
+  listing is read beside it and carries the title, and availability has no second read to defer to.
+  Dropped, a colleague sitting in a firm-wide training read as "Free". It paints the source's own
+  declared label (the type and the audience, in the product's words), never a title.
 - **AVAILABILITY IS A READ, AND WHAT IT PRINTS IS NEVER A TITLE.** `member-availability.ts` answers
   what each colleague on the Who tab already has at the proposed hour, from the member filter the
   server resolves in SQL — one read per colleague, for one day, only while the form is open. It

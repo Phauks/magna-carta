@@ -18,6 +18,7 @@ import { flushSync, mount, unmount, type ComponentProps } from "svelte";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import MeetingTile from "../src/lib/meetings/screen/meeting-tile.svelte";
 import MeetingAudio from "../src/lib/meetings/screen/meeting-audio.svelte";
+import MeetingAudioHarness from "./meeting-audio-harness.svelte";
 import MeetingControls from "./meeting-controls-harness.svelte";
 import { participantInitials } from "../src/lib/meetings/screen/meeting-tiles.ts";
 
@@ -90,6 +91,34 @@ describe("the sound of the room", () => {
     for (const element of target.querySelectorAll("audio")) {
       expect(element.autoplay).toBe(true);
     }
+  });
+
+  it("plays a voice that arrived after the element was made", () => {
+    // A pull is answered one track at a time, so a participant's camera can land before their
+    // microphone — and both are gathered into the SAME stream object. An element pointed at that
+    // object once, while it held only a picture, plays nothing for the rest of the meeting, and the
+    // person whose voice arrived second is never heard.
+    const stream = new MediaStream([{ kind: "video" } as unknown as MediaStreamTrack]);
+    const harness = mount(MeetingAudioHarness, { target, props: {} });
+    instance = harness;
+    harness.hold("attendance_2", stream);
+    flushSync();
+
+    const element = target.querySelector("audio");
+    expect(element).not.toBeNull();
+    if (element === null) return;
+    // Nothing to play yet: a stream carrying only a picture has no voice in it.
+    expect(element.srcObject).toBeNull();
+
+    // Their microphone lands second, into the same stream, and the client replaces the map.
+    stream.addTrack({ kind: "audio" } as unknown as MediaStreamTrack);
+    harness.hold("attendance_2", stream);
+    flushSync();
+
+    // The same element, now pointed at the stream the voice landed in.
+    expect(target.querySelectorAll("audio")).toHaveLength(1);
+    expect(target.querySelector("audio")).toBe(element);
+    expect(element.srcObject).toBe(stream);
   });
 });
 

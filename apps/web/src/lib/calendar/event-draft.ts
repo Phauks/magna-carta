@@ -64,7 +64,7 @@ export function isMeetingChoice(value: string): value is MeetingChoice {
 }
 
 /**
- * What the form says under the choice, once one is made.
+ * What the form says under the choice, once one is made, where the event belongs to a MATTER.
  *
  * It states the limit of what this does in the words a member needs, because the alternative is
  * discovering it from a client who never arrived: only colleagues are invited, and a client or
@@ -73,6 +73,26 @@ export function isMeetingChoice(value: string): value is MeetingChoice {
 export const MEETING_GUESTS_SENTENCE =
   "Everyone at the firm on this event is invited. A client or another party from the Directory is " +
   "not sent a way in yet.";
+
+/**
+ * And where it belongs to the FIRM or to one staff member, which is the other record this form
+ * writes — and where nobody is told anything at all.
+ *
+ * A firm event raises no invitation yet: the notification subject the invitation is written against
+ * has no firm-event value, and adding one is a table rebuild that cannot run against a firm
+ * database holding data. The meeting is still scheduled, created, joinable and on everybody's
+ * calendar; it is the telling that waits. Saying "everyone on this event is invited" here would be
+ * the form promising a message nothing sends — and a member who read that would stop short of the
+ * one thing that actually gets their colleagues into the room, which is telling them.
+ */
+export const FIRM_MEETING_GUESTS_SENTENCE =
+  "Nobody is notified about a firm meeting yet, so tell the people on it yourself. The room is on " +
+  "their calendar with the event, and they join it from there.";
+
+/** Which of the two the form shows, which is decided by the record it is about to write. */
+export function meetingGuestsSentence(owner: EventOwner): string {
+  return owner === "matter" ? MEETING_GUESTS_SENTENCE : FIRM_MEETING_GUESTS_SENTENCE;
+}
 
 /** The meeting an event draft sends, or null where it carries none. */
 export function meetingInput(choice: MeetingChoice): EventMeetingInput | null {

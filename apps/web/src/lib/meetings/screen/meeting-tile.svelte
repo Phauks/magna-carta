@@ -16,6 +16,14 @@
    * cap, so in a large room most people are a name and their initials — that is the ordinary state
    * of the room, not a failure and not a wait, and a spinner would say the opposite of both.
    *
+   * WHAT IS PULLED IS NOT WHAT IS MUTED, and the mark is never inferred from the stream. A browser
+   * pulls sound for the people who have been talking and pictures for the people on this page, and
+   * the two lists are ranked differently on purpose — so a colleague drawn here with their camera
+   * coming in and their microphone not is perfectly ordinary, and their stream carries no audio
+   * track. Reading that absence as "Muted" tells the room somebody is silent who is not, which is
+   * the one thing a mute mark must never get wrong. Whether a microphone is off is a fact the
+   * ROSTER states, and `meeting-tiles.ts` is where it is worked out.
+   *
    * THE NAME STRIP IS CHROME, and it wears the chrome register rather than the canvas's. The strip
    * lies over a picture whose colours nothing can predict, so it needs a surface of its own; the
    * work happening in the tile is the picture, and the identity stays at its edge.
@@ -47,9 +55,10 @@
     /** Who this is, as the roster states them. */
     name: string;
     /**
-     * Their microphone is off. A stream carrying no audio track says the same thing on its own, so
-     * either answer draws the mark. Null for a tile that is not a person at all — a screen share,
-     * which has no microphone to report and must not read as somebody sitting there muted.
+     * Their microphone is off, as the roster states it. It is the ONLY thing that draws the mark —
+     * the stream is not consulted, because a voice this browser has not pulled is not a voice that
+     * has been turned off. Null for a tile that is not a person at all — a screen share, which has
+     * no microphone to report and must not read as somebody sitting there muted.
      */
     microphoneOff?: boolean | null;
     /**
@@ -81,10 +90,8 @@
     };
   });
 
-  const silent = $derived(
-    microphoneOff === true ||
-      (microphoneOff !== null && stream !== null && stream.getAudioTracks().length === 0),
-  );
+  /** Whether the mute mark is drawn. The roster's answer, and nothing the stream implies. */
+  const silent = $derived(microphoneOff === true);
   /** Whether a picture was asked for at all: a call has none, and most of a large room has none. */
   const drawsPicture = $derived(medium === "video" && videoPulled);
   const showsPicture = $derived(

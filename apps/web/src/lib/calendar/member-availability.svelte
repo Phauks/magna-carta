@@ -14,7 +14,12 @@
    * WHAT IT PRINTS IS NEVER A TITLE — member-availability.ts states why at length.
    */
   import { readFirmCalendar } from "./calendar-api.ts";
-  import { entryFromTimelineRow, type CalendarEntry, type EntryContext } from "./calendar-entries.ts";
+  import { AvailabilityReads } from "./availability-reads.svelte.ts";
+  import {
+    availabilityEntryFromTimelineRow,
+    type CalendarEntry,
+    type EntryContext,
+  } from "./calendar-entries.ts";
   import {
     availabilitySentence,
     busyLabels,
@@ -28,6 +33,7 @@
     participants,
     timing,
     context,
+    open = true,
   }: {
     /** The people on the draft. Only the colleagues among them are asked about. */
     participants: readonly ParticipantDraft[];
@@ -35,61 +41,52 @@
     timing: EventTimingDraft;
     /** What the projection needs to paint a row: the numbers, the type catalog, the reader's zone. */
     context: EntryContext;
+    /**
+     * Whether the form asking is open. Nothing read here survives it closing: availability is a
+     * claim about a particular hour of a particular day, and a form reopened later is a fresh
+     * question — the day may have filled up since, and the read that failed may now succeed.
+     */
+    open?: boolean;
   } = $props();
 
   const occurrence = $derived(proposedOccurrenceOf(timing));
   const colleagues = $derived(memberParticipantsOf(participants));
 
-  /*
-   * What each colleague's day holds, keyed by member and day, and filled only when a read comes
-   * BACK. Which reads have been asked for is a separate, non-reactive set on purpose: a member
-   * whose read is still in flight must not read as free, so "asked" and "answered" cannot be the
-   * same fact.
-   *
-   * Keyed per member and per day, so adding a person asks about that person and moving the date
-   * asks again about everybody — and neither re-asks about a pair already in hand.
+  /**
+   * What has been asked about and what came back. The bookkeeping is
+   * `availability-reads.svelte.ts` — "asked" and "answered" are separate facts there, a read that
+   * failed is asked again, and a closed form is forgotten.
    */
-  let entriesByKey = $state<Record<string, readonly CalendarEntry[]>>({});
-  const asked = new Set<string>();
-
-  function keyOf(userId: string, date: string): string {
-    return `${userId}@${date}`;
-  }
+  const reads = new AvailabilityReads();
 
   $effect(() => {
-    const date = occurrence?.date;
-    if (date === undefined) return;
-    for (const colleague of colleagues) {
-      const key = keyOf(colleague.userId, date);
-      if (asked.has(key)) continue;
-      asked.add(key);
-      void readOneDay(colleague.userId, date, key);
-    }
+    reads.refresh(open, colleagues, occurrence?.date ?? null, readOneDay);
   });
 
-  async function readOneDay(userId: string, date: string, key: string): Promise<void> {
+  async function readOneDay(
+    userId: string,
+    date: string,
+  ): Promise<readonly CalendarEntry[] | null> {
     const outcome = await readFirmCalendar(fetch, {
       from: date,
       to: date,
       side: "all",
       memberId: userId,
     });
-    // A read that failed leaves the line blank rather than claiming the colleague is free. The
-    // form is not blocked on it either way: this is an answer to a question, not a gate.
-    if (outcome.kind !== "ok") return;
-    const entries = outcome.value.data.flatMap((row) => {
-      const entry = entryFromTimelineRow(row, context);
+    // Null rather than an empty day: a read that did not come back must not claim the colleague is
+    // free, and it is the answer that gets asked again.
+    if (outcome.kind !== "ok") return null;
+    return outcome.value.data.flatMap((row) => {
+      const entry = availabilityEntryFromTimelineRow(row, context);
       return entry === null ? [] : [entry];
     });
-    entriesByKey[key] = entries;
   }
 
   const availability = $derived.by((): readonly MemberAvailability[] => {
     const proposed = occurrence;
     if (proposed === null) return [];
     return colleagues.map((colleague) => {
-      const key = keyOf(colleague.userId, proposed.date);
-      const entries = entriesByKey[key];
+      const entries = reads.entriesFor(colleague.userId, proposed.date);
       return {
         userId: colleague.userId,
         displayName: colleague.displayName,

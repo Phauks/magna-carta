@@ -195,11 +195,31 @@ export interface RoomFrameHandlers {
   ended(frame: Record<string, unknown>): void;
   refused(frame: Record<string, unknown>): void;
   /**
+   * A frame arrived stating a protocol version this page does not speak. Not a frame type — the
+   * room's whole vocabulary is in question, so what follows is the client's to decide.
+   */
+  incompatible(version: number): void;
+  /**
    * The socket went away, or the keepalive gave up on it. Whether that is a failure is the
    * client's to say: a socket closing under a member who pressed Leave is the expected end.
    */
   lost(): void;
 }
+
+/**
+ * The room frames that mean something before `welcome` has arrived.
+ *
+ * EVERYTHING ELSE IS READ AGAINST A ROSTER THIS BROWSER HAS NOT BEEN GIVEN YET. A `presence` or a
+ * `roster-delta` landing in that gap names somebody the empty roster does not hold, which is
+ * exactly the shape of a frame gone missing — so the client asks for the whole list again. Every
+ * browser joining at the top of the hour does that at once, over a roster that was always about to
+ * arrive, which is a sync storm the room has to answer three hundred times for nothing.
+ *
+ * The three here are the frames that are about the socket rather than about the room's contents: the
+ * hello itself, a refusal (which may be the reason there will never be a hello), and the meeting
+ * having ended under it.
+ */
+const FRAMES_BEFORE_WELCOME = new Set(["welcome", "refused", "ended", "pong"]);
 
 export class MeetingSignaling {
   readonly #openSocket: (url: string) => WebSocket;
@@ -213,6 +233,8 @@ export class MeetingSignaling {
   #missedPongs = 0;
   /** True while a `sync` has gone out and no full roster has come back, so one gap asks once. */
   #syncAsked = false;
+  /** Whether the room has said hello. Almost nothing it sends means anything before it has. */
+  #welcomed = false;
 
   constructor(openSocket: (url: string) => WebSocket, handlers: RoomFrameHandlers) {
     this.#openSocket = openSocket;
@@ -220,6 +242,7 @@ export class MeetingSignaling {
   }
 
   open(url: string): void {
+    this.#welcomed = false;
     const socket = this.#openSocket(url);
     this.#socket = socket;
     socket.addEventListener("open", () => {
@@ -277,6 +300,7 @@ export class MeetingSignaling {
     this.#missedPongs = 0;
     this.#outbox = [];
     this.#syncAsked = false;
+    this.#welcomed = false;
   }
 
   receive(data: unknown): void {
@@ -292,14 +316,33 @@ export class MeetingSignaling {
       return;
     }
     if (!isRecord(parsed)) return;
+
+    /*
+     * THE VERSION IS READ, because the protocol promises it rides on every frame in both directions
+     * and a promise nothing checks is not one. A room speaking a version this page does not know is
+     * not a frame to skip and carry on from: every frame after it is being read against the wrong
+     * shape, so a field that moved reads as a field that is missing and the room looks empty rather
+     * than incompatible. A frame stating NO version is left alone — the keepalive pair carries none
+     * by design, and there is nothing to disagree with.
+     */
+    const version = parsed.v;
+    if (typeof version === "number" && version !== MEETING_PROTOCOL_VERSION) {
+      this.#handlers.incompatible(version);
+      return;
+    }
+
     const type = readString(parsed, "type");
     if (type === null) return;
+    // Nothing about the room's contents is read before the room has said who this is and what it
+    // holds — FRAMES_BEFORE_WELCOME says why at length.
+    if (!this.#welcomed && !FRAMES_BEFORE_WELCOME.has(type)) return;
 
     switch (type) {
       case "pong":
         this.#missedPongs = 0;
         return;
       case "welcome":
+        this.#welcomed = true;
         this.#handlers.welcome(parsed);
         return;
       case "roster":

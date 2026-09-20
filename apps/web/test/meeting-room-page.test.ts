@@ -283,6 +283,10 @@ describe("a large room", () => {
     const socket = sockets[0];
     expect(socket).toBeDefined();
 
+    // The room says hello before it says anything about who is in it, and the screen reads it in
+    // that order: nothing about the room's contents is taken from a socket that has not been
+    // welcomed, because a frame landing in that gap names people an empty roster cannot hold.
+    socket?.deliver({ v: 1, type: "welcome", participantId: "attendance_1", roster: [] });
     socket?.deliver({
       v: 1,
       type: "roster",

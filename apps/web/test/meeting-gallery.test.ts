@@ -155,6 +155,31 @@ describe("the marks a tile carries", () => {
     expect(speaking[0]?.textContent).toContain("Member 3");
   });
 
+  it("marks muted from the roster, never from a voice this browser has not pulled", () => {
+    // A browser pulls twenty-four microphones and draws sixteen tiles, ranked differently on
+    // purpose — so a colleague whose camera is on this page while their voice is not among the ones
+    // being pulled has a stream carrying a picture and no audio track at all. Reading that absence
+    // as "Muted" tells the room somebody is silent who is talking.
+    const camera = new MediaStream([{ kind: "video" } as unknown as MediaStreamTrack]);
+    instance = mount(Gallery, {
+      target,
+      props: {
+        tiles: [
+          tile(2, { name: "Rosalind Chase", stream: camera, microphoneOff: false }),
+          tile(3, { name: "Marcus Webb", stream: camera, microphoneOff: true }),
+        ],
+      },
+    });
+    flushSync();
+
+    const figures = [...target.querySelectorAll("figure")];
+    const unmuted = figures.find((one) => one.textContent?.includes("Rosalind Chase"));
+    const muted = figures.find((one) => one.textContent?.includes("Marcus Webb"));
+    expect(unmuted?.textContent).not.toContain("Muted");
+    // The roster saying so is what draws it, and it still does.
+    expect(muted?.textContent).toContain("Muted");
+  });
+
   it("offers a pin on a person's tile, and says which way it goes", () => {
     const pinned: string[] = [];
     instance = mount(Gallery, {

@@ -13,7 +13,13 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import type { CalendarEntry } from "$lib/calendar/calendar-entries.ts";
+import { AvailabilityReads } from "$lib/calendar/availability-reads.svelte.ts";
+import {
+  availabilityEntryFromTimelineRow,
+  type CalendarEntry,
+  type EntryContext,
+} from "$lib/calendar/calendar-entries.ts";
+import type { TimelineEntry } from "$lib/calendar/calendar-api.ts";
 import {
   emptyEventDraft,
   eventDraftFrom,
@@ -22,8 +28,11 @@ import {
   eventFormTabOf,
   EVENT_FIELDS,
   isMeetingChoice,
+  meetingGuestsSentence,
   meetingInput,
   memberParticipant,
+  FIRM_MEETING_GUESTS_SENTENCE,
+  MEETING_GUESTS_SENTENCE,
   entityParticipant,
   externalParticipant,
   MEETING_CHOICE_OPTIONS,
@@ -190,10 +199,192 @@ describe("who is already busy at the hour the form proposes", () => {
   });
 });
 
+/** Lets a read that has already resolved reach the bookkeeping that was waiting on it. */
+async function settled(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+const ANA = { userId: "user_a", displayName: "Ana Marsh" };
+const DAY = "2026-10-05";
+
+describe("the reads behind the availability line", () => {
+  it("asks once per colleague and day, and asks again after a close and a reopen", async () => {
+    // The answer is a claim about a particular hour of a particular day. A form reopened later is a
+    // fresh question — the day may have filled up since — and a cached "Free" from an hour ago is
+    // the one answer that would be believed without being checked.
+    const asked: string[] = [];
+    const reads = new AvailabilityReads();
+    const answer = (userId: string, date: string) => {
+      asked.push(`${userId}@${date}`);
+      return Promise.resolve<readonly CalendarEntry[]>([]);
+    };
+
+    reads.refresh(true, [ANA], DAY, answer);
+    await settled();
+    reads.refresh(true, [ANA], DAY, answer);
+    expect(asked).toEqual([`user_a@${DAY}`]);
+    expect(reads.entriesFor("user_a", DAY)).toEqual([]);
+
+    reads.refresh(false, [ANA], DAY, answer);
+    // Nothing read survives the form closing, so nothing is painted from it either.
+    expect(reads.entriesFor("user_a", DAY)).toBeUndefined();
+
+    reads.refresh(true, [ANA], DAY, answer);
+    expect(asked).toEqual([`user_a@${DAY}`, `user_a@${DAY}`]);
+  });
+
+  it("asks again after a read that did not come back", async () => {
+    // A failure that stayed marked as asked meant the one thing that could never happen again was
+    // asking: the line stayed blank for the rest of the form's life, with nothing saying why.
+    const asked: string[] = [];
+    const reads = new AvailabilityReads();
+    let answers = false;
+    const answer = (userId: string, date: string) => {
+      asked.push(`${userId}@${date}`);
+      return Promise.resolve<readonly CalendarEntry[] | null>(answers ? [] : null);
+    };
+
+    reads.refresh(true, [ANA], DAY, answer);
+    await settled();
+    // Blank rather than free: a read that did not come back claims nothing about the colleague.
+    expect(reads.entriesFor("user_a", DAY)).toBeUndefined();
+
+    answers = true;
+    reads.refresh(true, [ANA], DAY, answer);
+    await settled();
+
+    expect(asked).toHaveLength(2);
+    expect(reads.entriesFor("user_a", DAY)).toEqual([]);
+  });
+
+  it("does not fill in a form that closed while the read was still in flight", async () => {
+    const reads = new AvailabilityReads();
+    let release: (entries: readonly CalendarEntry[]) => void = () => {};
+    const answer = () =>
+      new Promise<readonly CalendarEntry[]>((resolve) => {
+        release = resolve;
+      });
+
+    reads.refresh(true, [ANA], DAY, answer);
+    reads.refresh(false, [ANA], DAY, answer);
+    release([]);
+    await settled();
+
+    expect(reads.entriesFor("user_a", DAY)).toBeUndefined();
+  });
+});
+
+const AVAILABILITY_CONTEXT: EntryContext = {
+  matterNumbers: new Map(),
+  eventTypesByCode: new Map(),
+  readerTimeZone: ZONE,
+};
+
+function timelineRow(overrides: Partial<TimelineEntry>): TimelineEntry {
+  return {
+    sourceKey: "firmEvent",
+    kind: "firmEvent",
+    sortKey: DAY,
+    rowId: "firmEvent_1",
+    matterId: null,
+    actorUserId: null,
+    label: "Firm meeting · all_members",
+    link: "/calendar/firm-events?entry=firmEvent_1",
+    timeOfDay: "10:00",
+    timeZone: ZONE,
+    ...overrides,
+  };
+}
+
+describe("a firm event on a colleague's day", () => {
+  it("reads as busy rather than as free", () => {
+    // The grid skips a federated firm-event row because the firm's own listing is read beside it
+    // and carries the title. Availability has no second read to defer to, so dropping the row put
+    // "Free" beside somebody sitting in a firm-wide training.
+    const entry = availabilityEntryFromTimelineRow(timelineRow({}), AVAILABILITY_CONTEXT);
+    expect(entry).not.toBeNull();
+    if (entry === null) return;
+    expect(entry.kind).toBe("firmEvent");
+    expect(entry.recordId).toBe("firmEvent_1");
+    // The source's own declared label, with the audience read into the product's word. Never a
+    // title: what a firm event is called is not the platform's to put on another form.
+    expect(entry.label).toBe("Firm meeting · Everyone");
+
+    expect(busyLabels([entry], { date: DAY, startMinute: 600, endMinute: 660 })).toEqual([
+      "Firm meeting · Everyone",
+    ]);
+  });
+
+  it("says what it can where the source declared no type, and paints an unknown word as it came", () => {
+    const untyped = availabilityEntryFromTimelineRow(
+      timelineRow({ label: "participants" }),
+      AVAILABILITY_CONTEXT,
+    );
+    expect(untyped?.label).toBe("Firm event · Participants");
+
+    // A source that has learned an audience this build has not should read oddly rather than be
+    // dropped: a colleague who is busy is busy whatever the word beside it says.
+    const unknown = availabilityEntryFromTimelineRow(
+      timelineRow({ label: "Firm meeting · partners_only" }),
+      AVAILABILITY_CONTEXT,
+    );
+    expect(unknown?.label).toBe("Firm meeting · partners_only");
+  });
+
+  it("leaves every other row to the projection the grid already uses", () => {
+    const hearing = availabilityEntryFromTimelineRow(
+      timelineRow({
+        sourceKey: "matterEvent",
+        kind: "event",
+        label: "HEARING",
+        matterId: "matter_1",
+      }),
+      AVAILABILITY_CONTEXT,
+    );
+    expect(hearing?.kind).toBe("event");
+    // A deadline is still skipped: it is read by its own path, which carries its title.
+    expect(
+      availabilityEntryFromTimelineRow(timelineRow({ kind: "deadline" }), AVAILABILITY_CONTEXT),
+    ).toBeNull();
+  });
+});
+
 const MEETINGS_PAGE = readFileSync(
   fileURLToPath(new URL("../src/routes/(app)/meetings/+page.svelte", import.meta.url)),
   "utf8",
 );
+
+const EVENT_FORM = readFileSync(
+  fileURLToPath(new URL("../src/lib/calendar/record-event-dialog.svelte", import.meta.url)),
+  "utf8",
+);
+
+describe("what the form promises about who is told", () => {
+  it("says the colleagues on a matter event are invited, and that a client is not", () => {
+    expect(meetingGuestsSentence("matter")).toBe(MEETING_GUESTS_SENTENCE);
+    expect(MEETING_GUESTS_SENTENCE).toContain("invited");
+  });
+
+  it("says a firm meeting tells nobody, because nothing sends that message yet", () => {
+    // The notification subject an invitation is written against has no firm-event value, and
+    // widening it is a rebuild of a table that cannot be rebuilt against a firm database holding
+    // data. The meeting is scheduled, created, joinable and on everybody's calendar; it is the
+    // telling that waits. A form promising an invitation here would stop a member short of the one
+    // thing that actually gets their colleagues into the room, which is telling them.
+    for (const owner of ["firm", "staff"] as const) {
+      const said = meetingGuestsSentence(owner);
+      expect(said).toBe(FIRM_MEETING_GUESTS_SENTENCE);
+      expect(said).not.toContain("invited");
+      expect(said).toContain("tell the people on it yourself");
+    }
+  });
+
+  it("renders the sentence the record it is about to write earns", () => {
+    // The one wiring fact with no value to assert it through: which of the two sentences the form
+    // puts on the screen. A regression here is a promise the product does not keep.
+    expect(EVENT_FORM).toContain("meetingGuestsSentence(owner)");
+  });
+});
 
 describe("the Meetings page offers the act", () => {
   it("draws the product's one create control rather than a button of its own", () => {
