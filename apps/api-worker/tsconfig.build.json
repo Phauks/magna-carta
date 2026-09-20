@@ -132,6 +132,9 @@
       "path": "../../packages/matters/tsconfig.build.json"
     },
     {
+      "path": "../../packages/meetings/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/metadata/tsconfig.build.json"
     },
     {

@@ -1541,6 +1541,20 @@ Append an entry under the round it came from, then promote the generalizable par
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
 
+### 2026-09-18 — a Communications group
+
+The owner, placing Meetings in the left sidebar:
+
+- **"We should likely combine it into a new section called communications to encompass this,
+  messaging, and potentially other items."** Messaging had been one row among the firm's work, and
+  a second row for meetings beside it would have made the Workspace group answer two questions at
+  once. A sixth group now sits between Workspace and Money, holding the channels the firm reaches
+  people through — calls and texts, video meetings — with room for the ones ahead (a client's
+  messages through the portal, a firm mailbox). It generalizes the rule of two days earlier: **a
+  group answers one question, and a row that answers a different one is the start of a new group,
+  not the end of a long one.** Messaging keeps its stored id, because a member's stars are filed
+  under it; only its group moved.
+
 ### 2026-09-17 — a star, the settings column, the Directory's search, and the calendar on a laptop
 
 The owner's round over the deployed site, in one message. What was said, and what each part

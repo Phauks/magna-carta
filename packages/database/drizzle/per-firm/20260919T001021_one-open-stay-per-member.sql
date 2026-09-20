@@ -1,0 +1,14 @@
+-- AT MOST ONE OPEN STAY PER MEMBER PER MEETING.
+--
+-- The join path already reads for an existing open stay and hands it back rather than opening a
+-- second one, which is right about every case it is present for. It is a round trip early for the
+-- one it is not: a double-clicked button opens two joins that both read nothing and both insert.
+-- Two open rows for one person are two seats against a room that holds twelve, two tiles for one
+-- face, and a leave that closes one of them and leaves the other running for as long as the record
+-- lasts.
+--
+-- PARTIAL, on `left_at IS NULL`, and that is the whole shape of the rule: attendance is a row per
+-- stay, so a member who genuinely left and came back must have as many CLOSED rows as they had
+-- stays, and only the open one is unique. A plain unique index on the pair would make the second
+-- arrival impossible and the record wrong in the other direction.
+CREATE UNIQUE INDEX `meeting_attendance_open_stay_unique_index` ON `meeting_attendance` (`meeting_id`,`user_id`) WHERE "meeting_attendance"."left_at" IS NULL;
