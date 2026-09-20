@@ -102,7 +102,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <div class="wrap">
 <header style="display:flex;flex-direction:column;gap:13px">
   <p class="eyebrow">Magna Carta &middot; feature ledger</p>
-  <h1>856 things, and where every one of them stands</h1>
+  <h1>857 things, and where every one of them stands</h1>
   <p class="lede">Every node in <code>roadmap.d/</code>, at its real status — not banded, not curated, not
   summarised. This is the build instrument: what is done, what is moving, what has not been started.</p>
 </header>
@@ -124,7 +124,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
   </div>
   <p class="legend"><span><i class="sw" style="background:var(--done)"></i><b>326</b> Shipped</span><span><i class="sw" style="background:var(--part)"></i><b>124</b> Partial</span><span><i class="sw" style="background:var(--live)"></i><b>1</b> In build</span><span><i class="sw" style="background:var(--plan)"></i><b>47</b> Designed</span><span><i class="sw" style="background:var(--plan)"></i><b>15</b> Planned</span><span><i class="sw" style="background:var(--plan)"></i><b>5</b> Researching</span><span><i class="sw" style="background:var(--todo)"></i><b>152</b> Not started</span><span><i class="sw" style="background:var(--park)"></i><b>38</b> Deferred</span><span><i class="sw" style="background:var(--park)"></i><b>4</b> Cut</span></p>
   <p style="color:var(--soft);font-size:13.5px;max-width:70ch">Counted over the 712
-  nodes that are units of work. The other 144 are roll-up parents
+  nodes that are units of work. The other 145 are roll-up parents
   &mdash; a node another node sits beneath &mdash; and a parent goes <em>partial</em> the moment its
   children stop agreeing, so counting them here would add the same work twice under a status nobody
   chose. Every node, parents included, is listed further down.</p>
@@ -177,13 +177,13 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 
 <section style="display:flex;flex-direction:column;gap:6px">
   <h2>Every node</h2>
-  <p class="lede">All 856, in ledger order, indented by depth. Filter by status or search the
+  <p class="lede">All 857, in ledger order, indented by depth. Filter by status or search the
   names, ids and scope text.</p>
   <div class="controls">
-    <button class="f" data-s="shipped" aria-pressed="false">Shipped <b>345</b></button><button class="f" data-s="partial" aria-pressed="false">Partial <b>236</b></button><button class="f" data-s="in-build" aria-pressed="false">In build <b>1</b></button><button class="f" data-s="designed" aria-pressed="false">Designed <b>53</b></button><button class="f" data-s="planned" aria-pressed="false">Planned <b>16</b></button><button class="f" data-s="researching" aria-pressed="false">Researching <b>6</b></button><button class="f" data-s="not-started" aria-pressed="false">Not started <b>157</b></button><button class="f" data-s="deferred" aria-pressed="false">Deferred <b>38</b></button><button class="f" data-s="cut" aria-pressed="false">Cut <b>4</b></button>
+    <button class="f" data-s="shipped" aria-pressed="false">Shipped <b>345</b></button><button class="f" data-s="partial" aria-pressed="false">Partial <b>236</b></button><button class="f" data-s="in-build" aria-pressed="false">In build <b>1</b></button><button class="f" data-s="designed" aria-pressed="false">Designed <b>53</b></button><button class="f" data-s="planned" aria-pressed="false">Planned <b>16</b></button><button class="f" data-s="researching" aria-pressed="false">Researching <b>6</b></button><button class="f" data-s="not-started" aria-pressed="false">Not started <b>158</b></button><button class="f" data-s="deferred" aria-pressed="false">Deferred <b>38</b></button><button class="f" data-s="cut" aria-pressed="false">Cut <b>4</b></button>
     <button class="f" id="clear" aria-pressed="true">All</button>
     <input id="q" type="search" placeholder="Search names, ids, scope" aria-label="Search the register">
-    <span id="hits">856 shown</span>
+    <span id="hits">857 shown</span>
   </div>
 <section class="area" id="area-ai.md">
 <h3>AI &amp; Inference <span class="ac">18 of 30 shipped</span></h3>
@@ -3524,10 +3524,15 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <p>A meeting broadcast to a streaming destination.</p>
 </li><li class="n d1" data-s="not-started">
 <span class="chip todo">Not started</span>
-<span class="nm">Scheduling and booking pages</span>
-<code>meetings.booking-pages</code>
-<p>A member's booking page a client picks a time on, creating the event and its meeting or call; availability read from the calendar; confirmation and reminders.</p>
-<p class="note">High priority by the owner's direction of 2026-09-20 — sequenced directly behind host controls and the waiting room.</p>
+<span class="nm">Scheduling</span>
+<code>meetings.scheduling</code>
+<p>A member schedules a meeting or call from the product — picks the people (members and Directory contacts), the time and the medium, and the event and its meeting are created with invitations sent; availability read from the calendar; confirmation and reminders.</p>
+<p class="note">High priority by the owner's direction of 2026-09-20 — sequenced directly behind host controls and the waiting room. Staff schedule as well as clients (2026-09-20).</p>
+</li><li class="n d2" data-s="not-started">
+<span class="chip todo">Not started</span>
+<span class="nm">Booking pages</span>
+<code>meetings.scheduling.booking-pages</code>
+<p>A member's booking page a client picks a time on, creating the event and its meeting or call the same way a member's own scheduling does.</p>
 </li><li class="n d1" data-s="not-started">
 <span class="chip todo">Not started</span>
 <span class="nm">A member's standing room</span>

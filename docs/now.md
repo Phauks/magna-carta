@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 856 nodes of the feature ledger in
+is the complete register rather than a digest: all 857 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,8 +21,8 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**856 capabilities across 32 areas.** Every one of them is listed in [the register](#the-register)
-below. 144 of them are roll-up parents — a node another node sits beneath — and the totals here
+**857 capabilities across 32 areas.** Every one of them is listed in [the register](#the-register)
+below. 145 of them are roll-up parents — a node another node sits beneath — and the totals here
 count the **712 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
@@ -53,7 +53,7 @@ not](#what-a-roll-up-is-not).
 
 ### What a roll-up is not
 
-**144 of the 856 nodes are parents, and 112 of those parents are `partial`.** A parent's status is a
+**145 of the 857 nodes are parents, and 112 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -1072,7 +1072,8 @@ to change a line here, edit the node in its area file and re-run the build.
   - `meetings.backgrounds-and-noise` · `not-started` · **Backgrounds and noise suppression** — A blurred or replaced background and microphone noise suppression, both in the browser.
   - `meetings.webinars` · `not-started` · **Webinars** — A meeting where a few present and many watch — registration, view-only attendees, a panel — for a firm's seminars and client briefings.
   - `meetings.live-streaming` · `not-started` · **Live streaming** — A meeting broadcast to a streaming destination.
-  - `meetings.booking-pages` · `not-started` · **Scheduling and booking pages** — A member's booking page a client picks a time on, creating the event and its meeting or call; availability read from the calendar; confirmation and reminders. _Note: High priority by the owner's direction of 2026-09-20 — sequenced directly behind host controls and the waiting room._
+  - `meetings.scheduling` · `not-started` · **Scheduling** — A member schedules a meeting or call from the product — picks the people (members and Directory contacts), the time and the medium, and the event and its meeting are created with invitations sent; availability read from the calendar; confirmation and reminders. _Note: High priority by the owner's direction of 2026-09-20 — sequenced directly behind host controls and the waiting room. Staff schedule as well as clients (2026-09-20)._
+    - `meetings.scheduling.booking-pages` · `not-started` · **Booking pages** — A member's booking page a client picks a time on, creating the event and its meeting or call the same way a member's own scheduling does.
   - `meetings.personal-room` · `not-started` · **A member's standing room** — A room a member always has, joined by a stable link, not tied to a calendar event.
   - `meetings.end-to-end-encryption` · `not-started` · **End-to-end encryption** — Media the routing service cannot read — keys agreed between browsers, frames encrypted before they leave.
   - `meetings.usage-reporting` · `not-started` · **Meetings usage and quality** — How much the firm meets, by member and matter, and how the connections held up — in Reports and Firm Usage.

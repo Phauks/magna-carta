@@ -170,12 +170,18 @@
   status: not-started
   evidence: No code.
 
-- id: meetings.booking-pages
-  name: Scheduling and booking pages
-  scope: A member's booking page a client picks a time on, creating the event and its meeting or call; availability read from the calendar; confirmation and reminders.
+- id: meetings.scheduling
+  name: Scheduling
+  scope: A member schedules a meeting or call from the product — picks the people (members and Directory contacts), the time and the medium, and the event and its meeting are created with invitations sent; availability read from the calendar; confirmation and reminders.
   status: not-started
-  evidence: No code; the intake desk already schedules a consultation by hand, which is the seam.
-  notes: High priority by the owner's direction of 2026-09-20 — sequenced directly behind host controls and the waiting room.
+  evidence: No code; the calendar's event form and the intake desk's consultation scheduling are the seams.
+  notes: High priority by the owner's direction of 2026-09-20 — sequenced directly behind host controls and the waiting room. Staff schedule as well as clients (2026-09-20).
+
+- id: meetings.scheduling.booking-pages
+  name: Booking pages
+  scope: A member's booking page a client picks a time on, creating the event and its meeting or call the same way a member's own scheduling does.
+  status: not-started
+  evidence: No code.
 
 - id: meetings.personal-room
   name: A member's standing room
