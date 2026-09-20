@@ -454,3 +454,132 @@ describe("trust reconciliation routes", () => {
     expect(listed.status).toBe(403);
   });
 });
+
+// The record of what members asserted about a period, and what became of each assertion. The
+// suggestion surface answers what is still unaccounted for; this one answers who said what.
+describe("the matches recorded on a reconciliation", () => {
+  interface MatchRow {
+    id: string;
+    statementLineId: string;
+    ledgerEntryId: string;
+    recordedBy: string;
+    recordedAt: string;
+    withdrawnBy: string | null;
+    withdrawnAt: string | null;
+    line: { id: string; amountMinor: number; description: string };
+    item: { ledgerEntryId: string; bankDeltaMinor: number; movementKind: string | null };
+  }
+
+  const matchesOf = async (reconciliationId: string): Promise<MatchRow[]> => {
+    const response = await get(`/api/v1/trust/reconciliations/${reconciliationId}/matches`);
+    expect(response.status).toBe(200);
+    return (await readJson<{ matches: MatchRow[] }>(response)).matches;
+  };
+
+  it("lists a recorded match with the line and the item it pairs, then what withdrew it", async () => {
+    const matterId = await openMatter("Match Record Matter", "entity_record");
+    const deposit = await depositInto(matterId, 175000);
+
+    const recorded = await post("/api/v1/trust/bank-statements", {
+      trustAccountId,
+      ...PERIOD(),
+      openingBalanceMinor: 0,
+      closingBalanceMinor: 175000,
+      currency: "USD",
+      statementReference: "STMT-MATCHES",
+      lines: [
+        {
+          postedOn: todayInUtc(),
+          direction: "deposit",
+          amountMinor: 175000,
+          description: "DEPOSIT CHECK 1041",
+          reference: "1041",
+          counterpartyName: "Webb Holdings",
+        },
+      ],
+    });
+    const { trustBankStatementId } = (await recorded.json()) as { trustBankStatementId: string };
+    const opened = await post("/api/v1/trust/reconciliations", {
+      statementId: trustBankStatementId,
+    });
+    const { trustReconciliationId } = (await opened.json()) as { trustReconciliationId: string };
+
+    // Nothing has been asserted yet, so there is nothing on the record.
+    expect(await matchesOf(trustReconciliationId)).toEqual([]);
+
+    const lines = await get(`/api/v1/trust/bank-statements/${trustBankStatementId}/lines`);
+    const { lines: statementLines } = (await lines.json()) as { lines: { id: string }[] };
+    const statementLineId = statementLines[0]?.id;
+    const matched = await post(`/api/v1/trust/reconciliations/${trustReconciliationId}/matches`, {
+      statementLineId,
+      ledgerEntryId: deposit.ledgerEntryId,
+    });
+    expect(matched.status).toBe(201);
+    const { trustReconciliationMatchId } = (await matched.json()) as {
+      trustReconciliationMatchId: string;
+    };
+
+    const standing = await matchesOf(trustReconciliationId);
+    expect(standing).toHaveLength(1);
+    const match = standing[0];
+    expect(match).toMatchObject({
+      id: trustReconciliationMatchId,
+      statementLineId,
+      // The book side is a ledger entry rather than a movement, which is what lets an earned-fee
+      // transfer out of trust — which records no movement at all — be matched like anything else.
+      ledgerEntryId: deposit.ledgerEntryId,
+      recordedBy: ownerUserId,
+      withdrawnBy: null,
+      withdrawnAt: null,
+    });
+    // Both ends are served beside the assertion, so a reader sees the two rows somebody said were
+    // the same event rather than two identifiers to go and look up.
+    expect(match?.line).toMatchObject({
+      id: statementLineId,
+      amountMinor: 175000,
+      description: "DEPOSIT CHECK 1041",
+    });
+    expect(match?.item).toMatchObject({
+      ledgerEntryId: deposit.ledgerEntryId,
+      // Signed from the account holder's side: the deposit put money into the bank account.
+      bankDeltaMinor: 175000,
+      movementKind: "deposit",
+    });
+    expect(match?.recordedAt).not.toBe("");
+
+    const withdrawn = await post(
+      `/api/v1/trust/reconciliations/${trustReconciliationId}/matches/${trustReconciliationMatchId}/withdrawal`,
+      undefined,
+    );
+    expect(withdrawn.status).toBe(201);
+
+    // The assertion stays on the record and says who took it back. The withdrawal is a row of its
+    // own in the table and is deliberately not listed as a second match.
+    const afterWithdrawal = await matchesOf(trustReconciliationId);
+    expect(afterWithdrawal).toHaveLength(1);
+    expect(afterWithdrawal[0]).toMatchObject({
+      id: trustReconciliationMatchId,
+      recordedBy: ownerUserId,
+      withdrawnBy: ownerUserId,
+    });
+    expect(afterWithdrawal[0]?.withdrawnAt).toEqual(expect.any(String));
+  });
+
+  it("answers a reconciliation the firm does not have with 404", async () => {
+    const response = await get(
+      `/api/v1/trust/reconciliations/${newIdentifier("trustReconciliation")}/matches`,
+    );
+    expect(response.status).toBe(404);
+    expect((await readJson<ProblemBody>(response)).type).toBe(
+      "https://api.magnacarta.esq/problems/not-found",
+    );
+  });
+
+  it("refuses the read to a member without the trust capability", async () => {
+    const response = await get(
+      `/api/v1/trust/reconciliations/${newIdentifier("trustReconciliation")}/matches`,
+      noTrustCookie,
+    );
+    expect(response.status).toBe(403);
+  });
+});

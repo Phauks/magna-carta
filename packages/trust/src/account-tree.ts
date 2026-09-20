@@ -23,6 +23,7 @@ import {
   insertTrustAccountStatement,
   insertTrustLedgerNodeStatement,
   selectTrustAccountStatement,
+  selectTrustAccountTimeZoneStatement,
   selectTrustAccountsPageStatement,
   selectTrustClientNodeStatement,
   selectTrustMatterNodeStatement,
@@ -185,6 +186,32 @@ export async function listTrustAccounts(
     })),
     nextCursor: results.length > limit && last ? encodeCursor(last.created_at, last.id) : null,
   };
+}
+
+/**
+ * The IANA zone RECORDED on one account's holding office, or null where the office recorded none.
+ * Resolved to a zone by the caller through the platform's one resolver, exactly as the listing's
+ * `locationTimeZone` is — this read exists for the caller holding an account identifier and no
+ * listing, which is any surface asked for a figure "as at today" on one account.
+ *
+ * `.all()` + `results[0]`, never `.first()` — the one-row read convention. No row means the firm has
+ * no such trust account, which is the same refusal every other read of an unknown account raises.
+ */
+export async function readTrustAccountOfficeTimeZone(
+  database: SqlDatabase,
+  trustAccountId: TrustAccountId,
+): Promise<string | null> {
+  const { results } = await selectTrustAccountTimeZoneStatement(database, trustAccountId).all<{
+    location_time_zone: string | null;
+  }>();
+  const row = results[0];
+  if (!row) {
+    throw new TrustValidationError(
+      "unknown-trust-account",
+      `no such trust account: ${trustAccountId}`,
+    );
+  }
+  return row.location_time_zone;
 }
 
 export function assertTrustAccountOpen(account: TrustAccountSnapshot): void {

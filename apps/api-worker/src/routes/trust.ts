@@ -1,4 +1,5 @@
 import { CIVIL_DATE_PATTERN, todayInUtc } from "@magna-carta/civil-time/civil-date";
+import { zonedReading } from "@magna-carta/civil-time/time-zone";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
@@ -10,10 +11,12 @@ import { selectLocationStatement } from "@magna-carta/locations/statements";
 import { readMatterClientEntityId } from "@magna-carta/matters/matter-party";
 import { currencyFromCode, money } from "@magna-carta/money/money";
 import { timeZoneForLocation } from "@magna-carta/document-assembly/resolve";
+import { readTrustAccountPosition } from "@magna-carta/trust/account-position";
 import {
   listTrustAccounts,
   loadMatterTrustLeaf,
   openTrustAccount,
+  readTrustAccountOfficeTimeZone,
 } from "@magna-carta/trust/account-tree";
 import {
   composeTrustAuthorizationPolicyChange,
@@ -36,7 +39,7 @@ import {
 } from "@magna-carta/trust/movements";
 import { selectTrustMovementsForNodeStatement } from "@magna-carta/trust/statements";
 import { TrustValidationError } from "@magna-carta/trust/trust-validation";
-import type { TrustDisbursementRequestSnapshot } from "@magna-carta/trust/types";
+import type { TrustPendingDisbursementRequestSnapshot } from "@magna-carta/trust/types";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
@@ -197,6 +200,28 @@ const MovementRecord = z
   })
   .openapi("TrustMovementRecord");
 
+// Where one trust account stands today: the bank leaf's own book balance, what the client ledgers
+// under it come to, what is under hold, the firm's cushion where the account has one, and how much
+// is waiting. Every money figure is computed from dated ledger rows at the moment of asking — the
+// same computation a reconciliation's proof is built on — rather than read off a stored total.
+const TrustAccountPosition = z
+  .object({
+    trustAccountId: z.string(),
+    currency: z.string(),
+    // The civil day the figures are as of, resolved in the HOLDING OFFICE'S zone: a firm three hours
+    // west of the server must not be shown tomorrow's position.
+    asOfDate: z.string(),
+    bookBalanceMinor: z.number().int(),
+    clientLedgerTotalMinor: z.number().int(),
+    heldMinor: z.number().int(),
+    // Null — not zero — on an account that never opened the bank-charge carve-out: the cushion is a
+    // thing a firm opts into, and a zero would say it is open and empty.
+    firmFundsMinor: z.number().int().nullable(),
+    matterLedgerCount: z.number().int(),
+    pendingRequestCount: z.number().int(),
+  })
+  .openapi("TrustAccountPosition");
+
 const PendingDisbursementRequest = z
   .object({
     id: z.string(),
@@ -215,6 +240,12 @@ const PendingDisbursementRequest = z
     effectiveDate: z.string(),
     requestedBy: z.string(),
     requestedAt: z.string(),
+    // The matter whose ledger the money would leave, resolved from the request's own node: an
+    // approver reading a payee and an amount cannot otherwise tell whose money is being paid out.
+    // All three are null on a request filed against a node that is not a matter leaf.
+    matterId: z.string().nullable(),
+    matterNumber: z.string().nullable(),
+    matterTitle: z.string().nullable(),
   })
   .openapi("TrustPendingDisbursementRequest");
 
@@ -311,6 +342,9 @@ const disbursementRequestParam = z.object({
   requestId: identifierPathParam("trustDisbursementRequest", "requestId"),
 });
 const trustAccountQuery = z.object({ trustAccountId: identifierField("trustAccount") });
+const trustAccountParam = z.object({
+  trustAccountId: identifierPathParam("trustAccount", "trustAccountId"),
+});
 
 const errorResponses = {
   400: {
@@ -615,6 +649,37 @@ const openTrustAccountRoute = defineOpenAPIRoute(
   },
 );
 
+const trustAccountPositionRoute = defineOpenAPIRoute(
+  {
+    operationId: "trust.accountPosition",
+    surface: "app",
+    authenticated: true,
+    permission: READ,
+    resource: "firm",
+    audited: false,
+    idempotency: "optional",
+    rateLimit: "default",
+  },
+  {
+    method: "get",
+    path: "/api/v1/trust/accounts/{trustAccountId}/position",
+    description:
+      "Returns where one trust account stands as of today in the holding office's own time zone: the trust bank account's book balance, the sum of every client ledger under it, how much of that is under disputed-funds holds, the firm's bank-charge cushion where the account has one, how many client ledgers the account carries, and how many payments out are waiting on a decision. Every money figure is computed from dated ledger rows at the moment of asking — the same computation a reconciliation's proof is built on — never read off a stored total, so the figure shown on an account and the figure a period attests to can never come from two different definitions. The cushion reads as null rather than zero on an account that never opened the carve-out, because the firm keeping its own money there is something a firm opts into.",
+    request: { params: trustAccountParam },
+    responses: {
+      200: {
+        description: "The account's position as of today in its office's zone",
+        content: { "application/json": { schema: TrustAccountPosition } },
+      },
+      401: readErrorResponses[401],
+      403: readErrorResponses[403],
+      404: readErrorResponses[404],
+      422: readErrorResponses[422],
+      429: readErrorResponses[429],
+    },
+  },
+);
+
 const pendingDisbursementRequestsRoute = defineOpenAPIRoute(
   {
     operationId: "trust.listDisbursementRequests",
@@ -891,7 +956,7 @@ function rowToMovement(row: MovementRow): z.infer<typeof MovementRecord> {
 }
 
 function toPendingRequest(
-  request: TrustDisbursementRequestSnapshot,
+  request: TrustPendingDisbursementRequestSnapshot,
 ): z.infer<typeof PendingDisbursementRequest> {
   return {
     id: request.id,
@@ -907,6 +972,9 @@ function toPendingRequest(
     effectiveDate: request.effectiveDate,
     requestedBy: request.requestedBy,
     requestedAt: request.requestedAt,
+    matterId: request.matterId,
+    matterNumber: request.matterNumber,
+    matterTitle: request.matterTitle,
   };
 }
 
@@ -1223,6 +1291,61 @@ export function registerTrustRoutes(app: TrustApp, chokepoint: Chokepoint): void
           },
         };
       });
+    },
+  );
+
+  // GET /api/v1/trust/accounts/{trustAccountId}/position — where the account stands today
+  app.openapi(
+    {
+      ...trustAccountPositionRoute,
+      middleware: chokepointMiddleware(chokepoint, trustAccountPositionRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { trustAccountId } = c.req.valid("param");
+      // The only refusal a read of an account can raise is "no such account", which is a 404 —
+      // spelled out here rather than routed through the write-path mapping, whose other statuses
+      // this route does not declare and could not honestly return.
+      try {
+        // The day is the OFFICE'S, resolved through the platform's one zone resolver exactly as the
+        // account listing resolves it. Asking UTC instead would show a firm in the west tomorrow's
+        // position for several hours every evening.
+        const timeZone = timeZoneForLocation({
+          timeZone: await readTrustAccountOfficeTimeZone(
+            firm.firmDatabase,
+            trustAccountId as TrustAccountId,
+          ),
+        });
+        const position = await readTrustAccountPosition(
+          firm.firmDatabase,
+          trustAccountId as TrustAccountId,
+          zonedReading(Date.now(), timeZone).civilDate,
+        );
+        return c.json(
+          {
+            trustAccountId: position.trustAccountId,
+            currency: position.currency,
+            asOfDate: position.asOfDate,
+            bookBalanceMinor: position.bookBalanceMinor,
+            clientLedgerTotalMinor: position.clientLedgerTotalMinor,
+            heldMinor: position.heldMinor,
+            firmFundsMinor: position.firmFundsMinor,
+            matterLedgerCount: position.matterLedgerCount,
+            pendingRequestCount: position.pendingRequestCount,
+          },
+          200,
+        );
+      } catch (caught) {
+        if (caught instanceof TrustValidationError) {
+          return problemJson(c, {
+            type: "not-found",
+            title: "Not found",
+            status: 404,
+            detail: caught.message,
+          });
+        }
+        throw caught;
+      }
     },
   );
 
