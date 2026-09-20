@@ -1,0 +1,10 @@
+---
+category: Added
+audience: public
+---
+
+**Trust, second round.** The reconciliation workbench lands on the firm's Trust screen and its own route (`apps/web/src/routes/(app)/trust/reconciliations/[reconciliationId]`): a statement recorded by hand with its lines, or imported through the preview-then-confirm pair quoting the preview's fingerprint; a reconciliation opened on a statement; the three-way proof as it stands beside what a closed one froze; unmatched lines beside outstanding items with the suggestions' signals marked; matching and withdrawing by hand; closing the proof balanced or not. The cushion's three acts are forms behind `trust:firmFunds`. The unclaimed-funds file is a section of the account's record, reading dormancy against a day the reader states. Three backend additions: `GET /api/v1/trust/accounts/{id}/position` (book, client total, held, cushion, counts, from dated rows through the proof's own leg computation), `GET /api/v1/trust/reconciliations/{id}/matches` (withdrawals included), and the matter's number and title on each queued request.
+
+## Public
+
+**Reconcile a trust account, and see where it stands.** On the firm's **Trust** screen each account now states its position: the bank's book balance, what the client ledgers come to, what is under hold, and the firm's own bank-charge cushion. **Record Statement** enters a bank statement with its lines; **Import Statement** reads one from a file and shows you exactly what it found before anything is stored. **Reconcile** opens a reconciliation on a statement: the proof at the top, the bank's unmatched lines on one side and your recorded items on the other, suggested pairings marked with their reasons, and you record each match yourself. Closing freezes the proof, whether or not the period balanced. The cushion can be opened, funded and charged from the same screen, and **Unclaimed Funds** lists the client ledgers that have sat quiet since a day you choose, with the diligence file for each: the review, every attempt to reach the owner, and how the round ended.
