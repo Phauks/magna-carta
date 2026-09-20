@@ -32,7 +32,6 @@
   import Badge from "@magna-carta/design-system/badge";
   import CreateControl from "@magna-carta/design-system/create-control";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { page } from "$app/state";
   import { replaceState } from "$app/navigation";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
@@ -382,7 +381,6 @@
       <ScreenSearch
         bind:value={searchText}
         label="Search the firm's trust accounts"
-        placeholder={placeholderOf("Search the firm's trust accounts")}
         fieldClass="w-2xs sm:w-xs"
         onsearch={(next) => {
           appliedSearch = next;
