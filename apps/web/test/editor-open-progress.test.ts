@@ -1,18 +1,25 @@
 import { describe, expect, it } from "vitest";
 import {
   currentStage,
-  elapsedLabel,
   freshMarks,
   marked,
   OPEN_PROGRESS_POLL_MILLISECONDS,
   OPEN_STAGES,
+  feedSteps,
+  openFeed,
+  openPace,
   openRows,
   openSteps,
   openTrace,
   refusal,
+  RETRY_AFTER_MILLISECONDS,
+  RUNNING_LONG_SENTENCE,
   stageDone,
   stalledSentence,
   stoppedLabel,
+  TYPICAL_OPEN_MILLISECONDS,
+  usualTimeSentence,
+  usualTimeWords,
   type OpenMarks,
   type OpenStage,
 } from "../src/lib/documents/editor-open-progress.ts";
@@ -266,12 +273,85 @@ describe("openRows and openTrace", () => {
   });
 });
 
-describe("the elapsed line", () => {
-  it("counts whole seconds so far", () => {
-    expect(elapsedLabel(STARTED_AT, at(12.9))).toBe("12 seconds so far");
-    expect(elapsedLabel(STARTED_AT, STARTED_AT)).toBe("0 seconds so far");
+describe("openFeed", () => {
+  it("streams each finished stage as the line it left, then what is happening now", () => {
+    const lines = openFeed(reached("frame"), at(31));
+    expect(lines.map((line) => [line.status, line.text, line.at])).toEqual([
+      ["done", "Editing session opened.", "0.4 s"],
+      ["done", "Editor started.", "28.1 s"],
+      ["done", "Editor loaded.", "29.6 s"],
+      [
+        "active",
+        "The editor is asking about the document: its name, its size, who you are.",
+        "31.0 s",
+      ],
+    ]);
+    // As ProgressSteps draws it: the words as the label, the stamp as the note.
+    expect(feedSteps(lines)[0]).toEqual({
+      label: "Editing session opened.",
+      status: "done",
+      note: "0.4 s",
+    });
   });
 
+  it("says nothing of the stages still to come, so the feed only ever grows", () => {
+    const fresh = openFeed(freshMarks(STARTED_AT), at(2));
+    expect(fresh).toHaveLength(1);
+    expect(fresh[0]).toMatchObject({ stage: "session", status: "active", at: "2.0 s" });
+    expect(openFeed(reached("shown"), at(34))).toHaveLength(OPEN_STAGES.length);
+    expect(openFeed(reached("shown"), at(34)).every((line) => line.status === "done")).toBe(true);
+  });
+
+  it("stamps a stage the poll never marked with the later mark that proved it", () => {
+    // The frame reported itself before the poll caught up on the editor's load: the editor stage
+    // happened no later than the frame's mark, and a line without a time is a line without a fact.
+    const frameOnly = marked(marked(freshMarks(STARTED_AT), "session", at(0.4)), "frame", at(29.6));
+    const lines = openFeed(frameOnly, at(30));
+    expect(lines[1]).toMatchObject({ stage: "editor", status: "done", at: "29.6 s" });
+  });
+
+  it("ends on the stopped stage's name once the open has been called off, never the sentence", () => {
+    // The notice beneath the feed says what went wrong, once; the feed says where.
+    const lines = openFeed(reached("frame"), at(90), "information");
+    expect(lines.at(-1)).toEqual({
+      stage: "information",
+      status: "failed",
+      text: "Asking the host about the document",
+      at: "90.0 s",
+    });
+    expect(lines.some((line) => line.status === "active")).toBe(false);
+  });
+});
+
+describe("openPace", () => {
+  it("fills over the usual open and says what the usual time is", () => {
+    const pace = openPace(STARTED_AT, at(12));
+    expect(pace).toEqual({
+      elapsedMilliseconds: 12_000,
+      sentence: "Usually about half a minute.",
+      overdue: false,
+    });
+    expect(TYPICAL_OPEN_MILLISECONDS).toBe(30_000);
+    // The words are read off the constant, so retuning it retunes the sentence.
+    expect(usualTimeSentence()).toBe(`Usually ${usualTimeWords(TYPICAL_OPEN_MILLISECONDS)}.`);
+    expect(usualTimeWords(60_000)).toBe("about a minute");
+    expect(usualTimeWords(45_000)).toBe("about 45 seconds");
+  });
+
+  it("stops at full past the usual time and says the open is running long", () => {
+    const pace = openPace(STARTED_AT, at(40));
+    expect(pace.elapsedMilliseconds).toBe(TYPICAL_OPEN_MILLISECONDS);
+    expect(pace.overdue).toBe(true);
+    expect(pace.sentence).toBe(RUNNING_LONG_SENTENCE);
+  });
+
+  it("offers Retry only well after the usual open, not at it", () => {
+    expect(RETRY_AFTER_MILLISECONDS).toBe(45_000);
+    expect(RETRY_AFTER_MILLISECONDS).toBeGreaterThan(TYPICAL_OPEN_MILLISECONDS);
+  });
+});
+
+describe("the stopped line", () => {
   it("says how long a stopped open ran", () => {
     expect(stoppedLabel(STARTED_AT, at(90))).toBe("Stopped after 90 seconds");
   });

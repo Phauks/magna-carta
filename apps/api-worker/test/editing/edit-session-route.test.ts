@@ -113,12 +113,16 @@ describe("POST /api/v1/documents/{fileId}/edit-session", () => {
       editorOrigin: string;
       accessToken: string;
       accessTokenTtl: number;
+      recordsChanges: boolean;
     };
     // The editor URL carries the host's WOPISrc pointing back at this file's WOPI endpoint.
     expect(body.editorUrl).toContain("WOPISrc=");
     expect(decodeURIComponent(body.editorUrl)).toContain(`/wopi/files/${fileId}`);
     expect(body.editorOrigin).toBe(new URL(body.editorUrl).origin);
     expect(body.accessTokenTtl).toBeGreaterThan(Date.parse(ISO));
+    // The firm's editing policy defaults to recording, and the launch says so for the screen that
+    // hides the marks once the document is up.
+    expect(body.recordsChanges).toBe(true);
 
     const claims = await verifyEditToken(body.accessToken, env);
     expect(claims.fileId).toBe(fileId);

@@ -36,6 +36,10 @@ export default defineConfig({
       // `.svelte` importer fails at import analysis before a `vi.mock` can answer for it. The stub
       // is a plain object a test sets the address on (test/stubs/app-state.ts).
       "$app/state": fileURLToPath(new URL("./test/stubs/app-state.ts", import.meta.url)),
+      // Its twin, for the same reason: a component that navigates imports `$app/navigation`, and a
+      // test cannot mock what Vite cannot resolve. The stub records where a component went
+      // (test/stubs/app-navigation.ts) and goes nowhere itself.
+      "$app/navigation": fileURLToPath(new URL("./test/stubs/app-navigation.ts", import.meta.url)),
     },
     // A test that mounts a component (opted into happy-dom per file) needs Svelte's CLIENT build:
     // under the default node conditions `svelte` resolves to its server entry, where `mount` is
