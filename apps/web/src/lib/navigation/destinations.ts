@@ -55,13 +55,21 @@ import Settings from "@lucide/svelte/icons/settings";
 import Vault from "@lucide/svelte/icons/vault";
 import ShieldAlert from "@lucide/svelte/icons/shield-alert";
 import MessageSquare from "@lucide/svelte/icons/message-square";
+import Video from "@lucide/svelte/icons/video";
 import ChartColumn from "@lucide/svelte/icons/chart-column";
 import ChartPie from "@lucide/svelte/icons/chart-pie";
 import Sparkles from "@lucide/svelte/icons/sparkles";
 import ListChecks from "@lucide/svelte/icons/list-checks";
 import HandCoins from "@lucide/svelte/icons/hand-coins";
 
-export type DestinationGroup = "favorites" | "desk" | "work" | "money" | "firm" | "tools";
+export type DestinationGroup =
+  | "favorites"
+  | "desk"
+  | "work"
+  | "communications"
+  | "money"
+  | "firm"
+  | "tools";
 
 export interface Destination {
   readonly id: string;
@@ -165,6 +173,11 @@ export const DESTINATION_GROUPS: ReadonlyArray<{ id: DestinationGroup; label: st
   { id: "favorites", label: "Favorites" },
   { id: "desk", label: "My Desk" },
   { id: "work", label: "Workspace" },
+  // Every channel the firm talks through, in one place (owner ruling, 2026-09-18): calls and texts
+  // today, meetings beside them, and whatever else carries a conversation — a row for each is a
+  // row a member scans past in the workspace, where the question is "what is the firm working on"
+  // rather than "how do I reach somebody".
+  { id: "communications", label: "Communications" },
   { id: "money", label: "Money" },
   { id: "firm", label: "Firm" },
   { id: "tools", label: "Tools" },
@@ -361,13 +374,28 @@ const DESTINATION_LIST = [
     href: "/messaging",
     icon: MessageSquare,
     description: "Calls and texts with clients, logged against their matters.",
-    group: "work",
+    group: "communications",
     shipped: true,
     // The log reads and records what a member writes down. Nothing is sent or received yet: the
     // carrier adapter that writes these same rows by itself, and the recording and transcript that
     // hang off a call, are the rungs after this one.
     stage: "alpha",
     defaultShown: true,
+  },
+  {
+    // Video meetings, started from a calendar event and listed here so a member can see what is
+    // live and get back into a room without finding the event first. Gated by the join key rather
+    // than shown to every seat: a member who cannot join a meeting has nothing to open here.
+    id: "meetings",
+    label: "Meetings",
+    href: "/meetings",
+    icon: Video,
+    description: "Video meetings on the firm's calendar — live now, ahead, and recently ended.",
+    group: "communications",
+    shipped: true,
+    stage: "alpha",
+    defaultShown: true,
+    permission: assertPermission("meetings:join"),
   },
   {
     // The firm's template library: the documents that belong to the FIRM rather than to any one

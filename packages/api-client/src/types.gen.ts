@@ -3756,6 +3756,68 @@ export type UpdateCommunicationRequest = {
     summary?: string | null;
 };
 
+export type StartedMeeting = {
+    id: string;
+    created: boolean;
+};
+
+export type StartMeetingRequest = {
+    eventKind: 'matter' | 'firm';
+    eventId: string;
+    medium?: 'video' | 'audio';
+};
+
+export type MeetingSummaryPage = {
+    data: Array<MeetingSummary>;
+    nextCursor: string | null;
+};
+
+export type MeetingSummary = {
+    id: string;
+    eventKind: 'matter' | 'firm';
+    eventId: string;
+    matterId: string | null;
+    title: string;
+    startsOn: string;
+    startsAtTime: string | null;
+    endsAtTime: string | null;
+    timeZone: string;
+    status: 'scheduled' | 'live' | 'ended';
+    startedAt: string | null;
+    endedAt: string | null;
+    medium: 'video' | 'audio';
+    liveCount: number;
+    configured: boolean;
+};
+
+export type JoinedMeeting = {
+    participantId: string;
+    displayName: string;
+    iceServers: Array<MeetingIceServer>;
+};
+
+export type MeetingIceServer = {
+    urls: string | Array<string>;
+    username?: string;
+    credential?: string;
+};
+
+export type MeetingAcknowledged = {
+    ok: true;
+};
+
+export type MeetingAttendancePage = {
+    data: Array<MeetingAttendanceEntry>;
+    nextCursor: string | null;
+};
+
+export type MeetingAttendanceEntry = {
+    id: string;
+    userId: string;
+    joinedAt: string;
+    leftAt: string | null;
+};
+
 export type MatterSearchAnswer = {
     matterId: string;
     query: string;
@@ -21363,6 +21425,485 @@ export type CommunicationsSetDispositionResponses = {
 };
 
 export type CommunicationsSetDispositionResponse = CommunicationsSetDispositionResponses[keyof CommunicationsSetDispositionResponses];
+
+export type MeetingsListData = {
+    body?: never;
+    path?: never;
+    query: {
+        cursor?: string;
+        scope: 'live' | 'upcoming' | 'recent';
+        today?: string;
+    };
+    url: '/api/v1/meetings';
+};
+
+export type MeetingsListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The upcoming scope was asked for without the caller's own day
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsListError = MeetingsListErrors[keyof MeetingsListErrors];
+
+export type MeetingsListResponses = {
+    /**
+     * One page of meetings in this scope
+     */
+    200: MeetingSummaryPage;
+};
+
+export type MeetingsListResponse = MeetingsListResponses[keyof MeetingsListResponses];
+
+export type MeetingsStartData = {
+    body: StartMeetingRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/meetings';
+};
+
+export type MeetingsStartErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the room is full, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+    /**
+     * This deployment cannot route a meeting's media
+     */
+    503: Problem;
+};
+
+export type MeetingsStartError = MeetingsStartErrors[keyof MeetingsStartErrors];
+
+export type MeetingsStartResponses = {
+    /**
+     * The event already had a meeting
+     */
+    200: StartedMeeting;
+    /**
+     * The meeting was started
+     */
+    201: StartedMeeting;
+};
+
+export type MeetingsStartResponse = MeetingsStartResponses[keyof MeetingsStartResponses];
+
+export type MeetingsGetData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}';
+};
+
+export type MeetingsGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsGetError = MeetingsGetErrors[keyof MeetingsGetErrors];
+
+export type MeetingsGetResponses = {
+    /**
+     * The meeting
+     */
+    200: MeetingSummary;
+};
+
+export type MeetingsGetResponse = MeetingsGetResponses[keyof MeetingsGetResponses];
+
+export type MeetingsGetForEventData = {
+    body?: never;
+    path: {
+        eventId: string;
+    };
+    query?: never;
+    url: '/api/v1/events/{eventId}/meeting';
+};
+
+export type MeetingsGetForEventErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsGetForEventError = MeetingsGetForEventErrors[keyof MeetingsGetForEventErrors];
+
+export type MeetingsGetForEventResponses = {
+    /**
+     * The event's meeting
+     */
+    200: MeetingSummary;
+};
+
+export type MeetingsGetForEventResponse = MeetingsGetForEventResponses[keyof MeetingsGetForEventResponses];
+
+export type MeetingsGetForFirmEventData = {
+    body?: never;
+    path: {
+        firmEventId: string;
+    };
+    query?: never;
+    url: '/api/v1/firm-events/{firmEventId}/meeting';
+};
+
+export type MeetingsGetForFirmEventErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsGetForFirmEventError = MeetingsGetForFirmEventErrors[keyof MeetingsGetForFirmEventErrors];
+
+export type MeetingsGetForFirmEventResponses = {
+    /**
+     * The firm event's meeting
+     */
+    200: MeetingSummary;
+};
+
+export type MeetingsGetForFirmEventResponse = MeetingsGetForFirmEventResponses[keyof MeetingsGetForFirmEventResponses];
+
+export type MeetingsJoinData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/join';
+};
+
+export type MeetingsJoinErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the room is full, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+    /**
+     * This deployment cannot route a meeting's media
+     */
+    503: Problem;
+};
+
+export type MeetingsJoinError = MeetingsJoinErrors[keyof MeetingsJoinErrors];
+
+export type MeetingsJoinResponses = {
+    /**
+     * The caller is in the meeting
+     */
+    200: JoinedMeeting;
+};
+
+export type MeetingsJoinResponse = MeetingsJoinResponses[keyof MeetingsJoinResponses];
+
+export type MeetingsLeaveData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/leave';
+};
+
+export type MeetingsLeaveErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the room is full, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+    /**
+     * This deployment cannot route a meeting's media
+     */
+    503: Problem;
+};
+
+export type MeetingsLeaveError = MeetingsLeaveErrors[keyof MeetingsLeaveErrors];
+
+export type MeetingsLeaveResponses = {
+    /**
+     * The caller has left
+     */
+    200: MeetingAcknowledged;
+};
+
+export type MeetingsLeaveResponse = MeetingsLeaveResponses[keyof MeetingsLeaveResponses];
+
+export type MeetingsEndData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/end';
+};
+
+export type MeetingsEndErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the room is full, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+    /**
+     * This deployment cannot route a meeting's media
+     */
+    503: Problem;
+};
+
+export type MeetingsEndError = MeetingsEndErrors[keyof MeetingsEndErrors];
+
+export type MeetingsEndResponses = {
+    /**
+     * The meeting has ended
+     */
+    200: MeetingAcknowledged;
+};
+
+export type MeetingsEndResponse = MeetingsEndResponses[keyof MeetingsEndResponses];
+
+export type MeetingsAttendanceData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/meetings/{meetingId}/attendance';
+};
+
+export type MeetingsAttendanceErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsAttendanceError = MeetingsAttendanceErrors[keyof MeetingsAttendanceErrors];
+
+export type MeetingsAttendanceResponses = {
+    /**
+     * One page of this meeting's stays
+     */
+    200: MeetingAttendancePage;
+};
+
+export type MeetingsAttendanceResponse = MeetingsAttendanceResponses[keyof MeetingsAttendanceResponses];
+
+export type MeetingsSocketData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/socket';
+};
+
+export type MeetingsSocketErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, or the caller has not joined it
+     */
+    409: Problem;
+    /**
+     * The request did not ask to upgrade to a WebSocket
+     */
+    426: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+    /**
+     * This deployment cannot route a meeting's media
+     */
+    503: Problem;
+};
+
+export type MeetingsSocketError = MeetingsSocketErrors[keyof MeetingsSocketErrors];
 
 export type MatterSearchSearchData = {
     body?: never;

@@ -13,8 +13,8 @@
     "test": "vp test run"
   },
   "dependencies": {
-    "@cloudflare/puppeteer": "catalog:",
     "@cloudflare/containers": "catalog:",
+    "@cloudflare/puppeteer": "catalog:",
     "@hono/zod-openapi": "catalog:",
     "@magna-carta/access-control": "workspace:*",
     "@magna-carta/ai-detection": "workspace:*",
@@ -55,6 +55,7 @@
     "@magna-carta/matter-assets": "workspace:*",
     "@magna-carta/matter-search": "workspace:*",
     "@magna-carta/matters": "workspace:*",
+    "@magna-carta/meetings": "workspace:*",
     "@magna-carta/metadata": "workspace:*",
     "@magna-carta/money": "workspace:*",
     "@magna-carta/notes": "workspace:*",

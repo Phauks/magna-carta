@@ -12,8 +12,10 @@ The rows are gathered under headings, and each heading answers one question.
   [Saving a page to Favorites](#saving-a-page-to-favorites).
 - **My Desk** — what is on your plate: Home, Notifications, Tasks, Calendar and
   [Magnus](asking-magnus.md).
-- **Workspace** — the firm's work: Matters, Intake, Conflicts Check, Directory, Messaging,
-  Documents, Forms, Discovery and Custodian.
+- **Workspace** — the firm's work: Matters, Intake, Conflicts Check, Directory, Documents,
+  Forms, Discovery and Custodian.
+- **Communications** — how the firm reaches people: [Messaging](calls-and-texts.md) and
+  [Meetings](meetings.md).
 - **Money** — Time, Fees, Costs, Billing and Trust.
 - **Firm** — the firm about itself: Reports and Firm Usage.
 - **Tools** — the utilities that are not about one matter. See [Tools](#tools).
