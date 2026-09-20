@@ -28,6 +28,7 @@
    * lies over a picture whose colours nothing can predict, so it needs a surface of its own; the
    * work happening in the tile is the picture, and the identity stays at its edge.
    */
+  import Focus from "@lucide/svelte/icons/focus";
   import MicOff from "@lucide/svelte/icons/mic-off";
   import Pin from "@lucide/svelte/icons/pin";
   import PinOff from "@lucide/svelte/icons/pin-off";
@@ -38,8 +39,10 @@
   import * as Tooltip from "@magna-carta/design-system/tooltip";
   import MeetingQualityMark from "./meeting-quality-mark.svelte";
   import { participantInitials } from "./meeting-tiles.ts";
+  import { hostRoleLabel, SPOTLIGHT_LABEL } from "./meeting-host-labels.ts";
   import type { ConnectionQuality } from "$lib/meetings/client/connection-quality.ts";
-  import type { MeetingMedium } from "@magna-carta/meeting-protocol/types";
+  import type { MeetingHostRole, MeetingMedium } from "@magna-carta/meeting-protocol/types";
+  import type { Snippet } from "svelte";
 
   let {
     stream = null,
@@ -50,7 +53,10 @@
     pinned = false,
     videoPulled = true,
     quality = "unknown",
+    hostRole = null,
+    spotlighted = false,
     onPin,
+    menu,
     class: className = "",
   }: {
     /** The media to show. Null before anything has been pulled for this participant. */
@@ -81,8 +87,23 @@
      * local preview carries it too, because the answer is often "me".
      */
     quality?: ConnectionQuality;
+    /**
+     * Whether this person is running the meeting, and in which of the two ways.
+     *
+     * The badge is drawn for EVERYBODY, not only for a host reading the room: a member looking for
+     * whoever to ask for the floor should not have to open a menu they do not have.
+     */
+    hostRole?: MeetingHostRole | null;
+    /** A host has put them on every screen in the room. */
+    spotlighted?: boolean;
     /** Offered on a person's tile; a screen share has nobody to pin. */
     onPin?: () => void;
+    /**
+     * The host's own menu for this person, where the member reading is running the meeting. Absent
+     * for everybody else — not disabled, because for a member who is not hosting it could not
+     * happen here at all.
+     */
+    menu?: Snippet;
     class?: string;
   } = $props();
 
@@ -111,6 +132,7 @@
 <figure
   data-speaking={speaking ? "true" : undefined}
   data-pinned={pinned ? "true" : undefined}
+  data-spotlighted={spotlighted ? "true" : undefined}
   class="relative flex min-h-0 min-w-0 overflow-hidden rounded-lg border bg-surface-sunken {speaking
     ? 'border-accent-default'
     : 'border-border-default'} {className}"
@@ -146,6 +168,14 @@
   >
     <span class="min-w-0 flex-1 truncate text-sm text-chrome-text" title={name}>{name}</span>
     <MeetingQualityMark {quality} register="chrome" />
+    {#if spotlighted}
+      <!-- The one mark on the strip that says something about the ROOM rather than about this
+           person: a host decided everybody is looking at them. -->
+      <Focus class="size-16 text-accent-default" aria-label={SPOTLIGHT_LABEL} />
+    {/if}
+    {#if hostRole !== null}
+      <Badge variant="neutral" caps>{hostRoleLabel(hostRole)}</Badge>
+    {/if}
     {#if silent}
       <Badge variant="neutral">
         <MicOff class="size-12" aria-hidden="true" />
@@ -176,5 +206,6 @@
         <Tooltip.Content side="top">{pinned ? "Unpin" : "Keep on screen"}</Tooltip.Content>
       </Tooltip.Root>
     {/if}
+    {@render menu?.()}
   </figcaption>
 </figure>

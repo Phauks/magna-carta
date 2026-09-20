@@ -1799,3 +1799,276 @@ describe("a roster row about somebody who has rejoined", () => {
     expect(client.presenceOf(talking).speaking).toBe(true);
   });
 });
+
+/*
+ * RUNNING THE MEETING FROM INSIDE IT.
+ *
+ * Every case below is about a directive that reaches somebody else's browser, or about what this
+ * one does when a directive reaches it — which is the half that cannot be got right by inspection.
+ * A host's mute closes the track at the routing service, so coming back is a republish and not a
+ * flag; a request to unmute must change nothing at all until the member answers it; and a removal
+ * is the end of this browser's meeting with no way back in.
+ */
+
+/** A roster naming this browser and one other person, with whatever grants a case is about. */
+function rosterWithRoles(
+  own: "host" | "co-host" | null,
+  hers: "host" | "co-host" | null = null,
+): Record<string, unknown> {
+  return {
+    v: 1,
+    type: "roster",
+    participants: [
+      {
+        participantId: "attendance_1",
+        userId: "user_1",
+        displayName: "You",
+        sfuSessionId: "session_1",
+        tracks: [],
+        hostRole: own,
+      },
+      {
+        participantId: "attendance_2",
+        userId: "user_2",
+        displayName: "Rosalind Chase",
+        sfuSessionId: "session_2",
+        tracks: HER_TRACKS,
+        hostRole: hers,
+      },
+    ],
+  };
+}
+
+describe("the directives a host sends", () => {
+  it("names the stay on the wire, one frame per act", () => {
+    const { client, socket } = harness();
+
+    client.mute("attendance_2");
+    client.muteAll();
+    client.askToUnmute("attendance_2");
+    client.spotlight("attendance_2");
+    client.spotlight(null);
+
+    expect(socket.framesOfType("mute")).toEqual([
+      { v: 1, type: "mute", participantId: "attendance_2" },
+    ]);
+    expect(socket.framesOfType("mute-all")).toEqual([{ v: 1, type: "mute-all" }]);
+    expect(socket.framesOfType("ask-to-unmute")).toEqual([
+      { v: 1, type: "ask-to-unmute", participantId: "attendance_2" },
+    ]);
+    // Clearing is the same frame with nothing named, rather than a second frame type: the room
+    // holds one fact and this replaces it.
+    expect(socket.framesOfType("spotlight")).toEqual([
+      { v: 1, type: "spotlight", participantId: "attendance_2" },
+      { v: 1, type: "spotlight", participantId: null },
+    ]);
+  });
+});
+
+describe("who is running the meeting", () => {
+  it("is read off the roster, so a grant written mid-meeting arrives with the next one", () => {
+    const { client, socket } = harness();
+    expect(client.myRole).toBeNull();
+    expect(client.hosting).toBe(false);
+
+    socket.deliver(rosterWithRoles("co-host", "host"));
+
+    expect(client.myRole).toBe("co-host");
+    expect(client.hosting).toBe(true);
+    expect(client.others[0]?.hostRole).toBe("host");
+
+    // Withdrawn, and the badge and every menu behind it go on the next roster rather than on a
+    // reload: the room rewrites its stored roles and broadcasts.
+    socket.deliver(rosterWithRoles(null, "host"));
+    expect(client.myRole).toBeNull();
+    expect(client.hosting).toBe(false);
+  });
+});
+
+describe("what the room says about itself", () => {
+  it("arrives on the welcome, because a new socket has nothing to apply a change to", () => {
+    const socket = new FakeSocket();
+    const seams = {
+      createPeerConnection: () => new FakePeerConnection(),
+      openSocket: () => socket,
+      getUserMedia: () => Promise.resolve(new FakeStream([])),
+      getDisplayMedia: () => Promise.resolve(new FakeStream([])),
+      createMediaStream: () => new FakeStream([]),
+      createAudioLevelMeter: () => new FakeAudioLevelMeter(),
+    } as unknown as MeetingClientSeams;
+    const client = new MeetingClient(seams);
+    opened.push(client);
+    client.join({
+      meetingId: "meeting_1",
+      participantId: "attendance_1",
+      iceServers: [],
+      socketUrl: "wss://example.test/socket",
+    });
+    socket.accept();
+    socket.deliver({
+      v: 1,
+      type: "welcome",
+      participantId: "attendance_1",
+      roster: [],
+      roomState: {
+        spotlight: {
+          participantId: "attendance_2",
+          by: "attendance_9",
+          at: "2026-09-20T10:00:00.000Z",
+        },
+        locked: true,
+      },
+    });
+
+    expect(client.roomState.locked).toBe(true);
+    expect(client.roomState.spotlight?.participantId).toBe("attendance_2");
+  });
+
+  it("is replaced whole by each room-state frame, and orders the gallery by it", async () => {
+    const { client, socket } = harness();
+    socket.deliver(rosterOf("session_2", HER_TRACKS));
+    await reconciled();
+
+    socket.deliver({
+      v: 1,
+      type: "room-state",
+      spotlight: {
+        participantId: "attendance_2",
+        by: "attendance_1",
+        at: "2026-09-20T10:00:00.000Z",
+      },
+      locked: false,
+    });
+
+    expect(client.roomState.spotlight?.participantId).toBe("attendance_2");
+    expect(client.shown[0]).toBe("attendance_2");
+    // The mark the tile draws comes from the same fact, so the order and the mark cannot disagree.
+    expect(
+      meetingTiles(client, "You").find((tile) => tile.key === "attendance_2")?.spotlighted,
+    ).toBe(true);
+
+    socket.deliver({ v: 1, type: "room-state", spotlight: null, locked: true });
+
+    expect(client.roomState.spotlight).toBeNull();
+    expect(client.roomState.locked).toBe(true);
+  });
+});
+
+describe("a host muting this browser", () => {
+  it("says what happened rather than leaving a microphone dead with nothing on screen", async () => {
+    const { client, captured, socket } = harness();
+    await client.publish();
+    expect(client.microphoneOn).toBe(true);
+
+    socket.deliver({ v: 1, type: "muted", by: "attendance_9", at: "2026-09-20T10:00:00.000Z" });
+
+    expect(client.microphoneOn).toBe(false);
+    expect(client.lastNotice).toBe("A host muted you.");
+    expect(client.mutedBy?.by).toBe("attendance_9");
+    // The device stops feeding a track that no longer goes anywhere.
+    expect(captured.getAudioTracks()[0]?.enabled).toBe(false);
+    // And the room is told this browser is muted, which is what every other tile draws from.
+    expect(socket.framesOfType("presence").at(-1)).toMatchObject({ speaking: false, muted: true });
+  });
+
+  it("REPUBLISHES on the way back, because the track is gone and not merely silent", async () => {
+    const { client, socket, captured } = harness();
+    await client.publish();
+    expect(socket.framesOfType("publish")).toHaveLength(1);
+
+    socket.deliver({ v: 1, type: "muted", by: "attendance_9", at: "2026-09-20T10:00:00.000Z" });
+    client.toggleMicrophone();
+    await settle();
+
+    // A second offer, on a media section of its own, naming this browser's own microphone. A client
+    // that only flipped `enabled` would sit showing itself as sending with nobody able to hear it
+    // for the rest of the meeting, and nothing anywhere would say so.
+    const publishes = socket.framesOfType("publish");
+    expect(publishes).toHaveLength(2);
+    expect(publishes[1]?.tracks).toEqual([
+      { trackName: "attendance_1:audio", mid: "2", kind: "audio" },
+    ]);
+    expect(client.microphoneOn).toBe(true);
+    expect(captured.getAudioTracks()[0]?.enabled).toBe(true);
+    expect(client.lastNotice).toBeNull();
+
+    // And the member's OWN mute afterwards is still the cheap one: nothing renegotiates.
+    client.toggleMicrophone();
+    client.toggleMicrophone();
+    await settle();
+    expect(socket.framesOfType("publish")).toHaveLength(2);
+  });
+});
+
+describe("a host asking this browser to unmute", () => {
+  it("changes nothing at all until the member answers", async () => {
+    const { client, socket, captured } = harness();
+    await client.publish();
+    client.toggleMicrophone();
+    expect(client.microphoneOn).toBe(false);
+
+    socket.deliver({
+      v: 1,
+      type: "unmute-requested",
+      by: "attendance_9",
+      at: "2026-09-20T10:00:00.000Z",
+    });
+
+    // The question is on the screen and the microphone is exactly where the member left it. There
+    // is no frame in this protocol that could do otherwise, and that absence is the design.
+    expect(client.unmuteRequest?.by).toBe("attendance_9");
+    expect(client.microphoneOn).toBe(false);
+    expect(captured.getAudioTracks()[0]?.enabled).toBe(false);
+
+    client.declineUnmuteRequest();
+    expect(client.unmuteRequest).toBeNull();
+    expect(client.microphoneOn).toBe(false);
+  });
+
+  it("is answered by the ordinary control, which clears the question", async () => {
+    const { client, socket } = harness();
+    await client.publish();
+    client.toggleMicrophone();
+    socket.deliver({
+      v: 1,
+      type: "unmute-requested",
+      by: "attendance_9",
+      at: "2026-09-20T10:00:00.000Z",
+    });
+
+    client.toggleMicrophone();
+
+    expect(client.microphoneOn).toBe(true);
+    expect(client.unmuteRequest).toBeNull();
+  });
+});
+
+describe("a directive from somebody holding no grant", () => {
+  it("is a notice and not the end of anything, and not a fault in the wire either", () => {
+    const { client, socket } = harness();
+
+    socket.deliver({ v: 1, type: "refused", reason: "not-host" });
+
+    expect(client.state).toBe("live");
+    expect(client.lastNotice).toContain("not running this meeting");
+    // Deliberately NOT the band that reports a frame the room could not read: nothing is wrong with
+    // this browser, and the member is still in the meeting.
+    expect(client.lastRefusal).toBeNull();
+  });
+});
+
+describe("a host putting this member out of the meeting", () => {
+  it("ends it here, and there is nothing to retry", async () => {
+    const { client, socket, peerConnection, captured } = harness();
+    await client.publish();
+
+    socket.deliver({ v: 1, type: "refused", reason: "removed" });
+
+    expect(client.state).toBe("failed");
+    expect(client.failureReason).toBe("removed");
+    // Torn down like any other ending: the record says they are not in the room, and the join path
+    // refuses them while the meeting runs.
+    expect(captured.getTracks().every((track) => track.stopped)).toBe(true);
+    expect(peerConnection.closed).toBe(true);
+  });
+});

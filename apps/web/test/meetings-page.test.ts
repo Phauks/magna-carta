@@ -41,6 +41,7 @@ function meeting(overrides: Partial<MeetingSummary> = {}): MeetingSummary {
     medium: "video",
     liveCount: 3,
     locked: false,
+    lobby: "off",
     configured: true,
     ...overrides,
   };

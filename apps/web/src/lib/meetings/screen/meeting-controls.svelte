@@ -21,16 +21,21 @@
    * the product asks acts in. Only one of the two wears the loud register, because a band with two
    * red controls tells a reader nothing about which one is the dangerous one.
    */
+  import Focus from "@lucide/svelte/icons/focus";
+  import Lock from "@lucide/svelte/icons/lock";
+  import LockOpen from "@lucide/svelte/icons/lock-open";
   import Mic from "@lucide/svelte/icons/mic";
   import Presentation from "@lucide/svelte/icons/presentation";
   import MicOff from "@lucide/svelte/icons/mic-off";
   import PhoneOff from "@lucide/svelte/icons/phone-off";
   import ScreenShare from "@lucide/svelte/icons/screen-share";
   import ScreenShareOff from "@lucide/svelte/icons/screen-share-off";
+  import ShieldUser from "@lucide/svelte/icons/shield-user";
   import Square from "@lucide/svelte/icons/square";
   import Video from "@lucide/svelte/icons/video";
   import VideoOff from "@lucide/svelte/icons/video-off";
-  import Button from "@magna-carta/design-system/button";
+  import Button, { buttonClasses } from "@magna-carta/design-system/button";
+  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
@@ -45,11 +50,18 @@
     speakerView = false,
     medium = "video",
     canEnd = false,
+    hosting = false,
+    locked = false,
+    spotlighted = false,
     subtitle = {},
     onToggleMicrophone,
     onToggleCamera,
     onToggleSharing,
     onToggleSpeakerView,
+    onMuteAll,
+    onSetLocked,
+    onClearSpotlight,
+    onOpenHosts,
     onLeave,
     onEnd,
     connection,
@@ -64,6 +76,19 @@
     medium?: MeetingMedium;
     /** Whether this member may end the meeting for everybody. */
     canEnd?: boolean;
+    /**
+     * Whether this member is running the meeting, and therefore whether the band carries the menu
+     * of acts over the whole room at all.
+     *
+     * A NON-HOST SEES NONE OF IT: absent, not disabled, on this band's own standing rule. A band
+     * that grew five controls only three people in the room can use would cost every other member
+     * the space, and a disabled control would say "this could happen here" when it could not.
+     */
+    hosting?: boolean;
+    /** Whether the door is shut, which is what the menu's item says next. */
+    locked?: boolean;
+    /** Whether anybody is on every screen in the room, which is what makes clearing it offerable. */
+    spotlighted?: boolean;
     /** Which meeting is being ended, for the confirmation panel to name. */
     subtitle?: RecordSubject;
     onToggleMicrophone: () => void;
@@ -71,6 +96,14 @@
     onToggleSharing: () => void;
     /** Swap between the even gallery and the large speaker. Absent where it is not offered. */
     onToggleSpeakerView?: () => void;
+    /** Silence everybody who is neither this member nor a host or co-host. */
+    onMuteAll?: () => void;
+    /** Shut the door, or open it again. */
+    onSetLocked?: (locked: boolean) => void;
+    /** Take whoever is on every screen off it. */
+    onClearSpotlight?: () => void;
+    /** Open the panel naming who is running this meeting. */
+    onOpenHosts?: () => void;
     /**
      * The connection control, which the room screen supplies because the panel behind it is built
      * from what the room's own diagnostics hold. The band owns WHERE it sits; the control owns what
@@ -191,6 +224,49 @@
        pressed state: the band's other controls change what the room is doing, and this one only
        shows what it is already doing. -->
   {@render connection?.()}
+
+  {#if hosting}
+    <!-- ONE MENU RATHER THAN A ROW OF NEW GLYPHS. The acts over the whole room are four, and four
+         more controls in a band every member reads would cost everybody else the space so that
+         three people could save a click. -->
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger
+        class={buttonClasses({ variant: "secondary", size: "default" })}
+        aria-label="Host controls"
+      >
+        <ShieldUser class="size-16" aria-hidden="true" />
+        Host Controls
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content align="end" style="inline-size: var(--mc-size-popover)">
+        <DropdownMenu.Item onSelect={() => onMuteAll?.()}>
+          <MicOff class="size-16 shrink-0" aria-hidden="true" />
+          Mute Everyone
+        </DropdownMenu.Item>
+        <DropdownMenu.Item onSelect={() => onSetLocked?.(!locked)}>
+          {#if locked}
+            <LockOpen class="size-16 shrink-0" aria-hidden="true" />
+            Unlock the Room
+          {:else}
+            <Lock class="size-16 shrink-0" aria-hidden="true" />
+            Lock the Room
+          {/if}
+        </DropdownMenu.Item>
+        {#if spotlighted}
+          <!-- Offered only while somebody is on every screen: an item that clears nothing is an
+               item that teaches a reader the menu does not mean what it says. -->
+          <DropdownMenu.Item onSelect={() => onClearSpotlight?.()}>
+            <Focus class="size-16 shrink-0" aria-hidden="true" />
+            Stop Spotlighting
+          </DropdownMenu.Item>
+        {/if}
+        <DropdownMenu.Separator />
+        <DropdownMenu.Item onSelect={() => onOpenHosts?.()}>
+          <ShieldUser class="size-16 shrink-0" aria-hidden="true" />
+          Hosts
+        </DropdownMenu.Item>
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
+  {/if}
 
   <Button variant="destructive" onclick={onLeave}>
     <PhoneOff class="size-16" aria-hidden="true" />

@@ -20,6 +20,7 @@ import {
   TRACK_NAME_SEPARATOR,
   type PreferredRid,
 } from "@magna-carta/meeting-protocol/frames";
+import type { MeetingHostRole } from "@magna-carta/meeting-protocol/types";
 import { noOperationDiagnosticsSink, type DiagnosticsSink } from "./diagnostics.svelte.ts";
 
 /** How long between keepalive pings. */
@@ -73,6 +74,16 @@ export interface MeetingParticipant {
   readonly speaking: boolean;
   /** Their microphone is off, so nothing is coming from it whatever anybody's meter says. */
   readonly muted: boolean;
+  /**
+   * Whether this person is running the meeting, and in which of the two ways. Null for everybody
+   * else, which is most of the room.
+   *
+   * It rides on the roster rather than only on the socket holding the grant because every browser
+   * draws the badge, and because a host's own screen decides from it which items a tile's menu
+   * offers. The room reads it from the STORED participant record and rewrites those records after a
+   * hosting route commits, so a grant withdrawn mid-meeting reaches every screen on the next roster.
+   */
+  readonly hostRole: MeetingHostRole | null;
 }
 
 /**
@@ -139,6 +150,11 @@ function readTrackKind(value: unknown): MeetingTrackKind {
   return value === "audio" || value === "screen" ? value : "video";
 }
 
+/** Which of the two ways somebody is running the meeting. Null for anything else a frame says. */
+export function readHostRole(value: unknown): MeetingHostRole | null {
+  return value === "host" || value === "co-host" ? value : null;
+}
+
 export function readParticipants(value: unknown): readonly MeetingParticipant[] {
   if (!Array.isArray(value)) return [];
   const participants: MeetingParticipant[] = [];
@@ -164,6 +180,9 @@ export function readParticipants(value: unknown): readonly MeetingParticipant[] 
       // muted" — the state a roster without the two booleans always meant.
       speaking: entry.speaking === true,
       muted: entry.muted === true,
+      // Absent is "not running this meeting", which is what a roster without the field always meant
+      // and what is true of everybody but one or two people in any room.
+      hostRole: readHostRole(entry.hostRole),
     });
   }
   return participants;
@@ -211,6 +230,16 @@ export interface RoomFrameHandlers {
   subscribed(frame: Record<string, unknown>): void;
   renegotiated(frame: Record<string, unknown>): void;
   closed(frame: Record<string, unknown>): void;
+  /**
+   * What is true of the ROOM rather than of anybody in it: who is on every screen, and whether the
+   * door is shut. Carried on the `welcome` as well, because a socket that has just arrived holds
+   * nothing to apply a change to.
+   */
+  roomState(frame: Record<string, unknown>): void;
+  /** A host closed this browser's microphone upstream. Sent to the muted participant alone. */
+  muted(frame: Record<string, unknown>): void;
+  /** A host asked this member to unmute. A request — nothing happens until the member chooses. */
+  unmuteRequested(frame: Record<string, unknown>): void;
   ended(frame: Record<string, unknown>): void;
   refused(frame: Record<string, unknown>): void;
   /**
@@ -445,6 +474,15 @@ export class MeetingSignaling {
         return;
       case "closed":
         this.#handlers.closed(parsed);
+        return;
+      case "room-state":
+        this.#handlers.roomState(parsed);
+        return;
+      case "muted":
+        this.#handlers.muted(parsed);
+        return;
+      case "unmute-requested":
+        this.#handlers.unmuteRequested(parsed);
         return;
       case "ended":
         this.#diagnostics.note({ kind: "ended" });

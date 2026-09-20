@@ -121,6 +121,25 @@ export function offerCapturedTracks(
   return offered;
 }
 
+/**
+ * Put the microphone on the connection AGAIN, after a host closed it upstream.
+ *
+ * A HOST'S MUTE GENUINELY TAKES THE TRACK AWAY. The room closes it at the routing service, which is
+ * what makes a mute a mute rather than a request the browser could decline by ignoring it — so
+ * un-muting afterwards cannot be a flipped `enabled` flag on a track nothing is carrying any more.
+ * It is a fresh media section, a fresh offer, and a fresh `publish` naming it.
+ *
+ * The device's own track is untouched by any of that: the close happened at the far end, so what goes
+ * up the new section is the microphone the member has had open all along, and nothing asks them for
+ * permission a second time. One layer, because sound has no resolution to step down.
+ */
+export function offerMicrophoneTrack(
+  peerConnection: RTCPeerConnection,
+  track: MediaStreamTrack,
+): RTCRtpTransceiver {
+  return peerConnection.addTransceiver(track, { direction: "sendonly" });
+}
+
 /** Put a screen share on the connection: one video track, one layer. */
 export function offerScreenTrack(
   peerConnection: RTCPeerConnection,

@@ -19,14 +19,18 @@
    * this row does not have.
    */
   import AudioLines from "@lucide/svelte/icons/audio-lines";
+  import Focus from "@lucide/svelte/icons/focus";
   import MicOff from "@lucide/svelte/icons/mic-off";
   import ScreenShare from "@lucide/svelte/icons/screen-share";
   import * as Avatar from "@magna-carta/design-system/avatar";
+  import Badge from "@magna-carta/design-system/badge";
   import NoResults from "@magna-carta/design-system/no-results";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import MeetingQualityMark from "./meeting-quality-mark.svelte";
+  import { hostRoleLabel, SPOTLIGHT_LABEL } from "./meeting-host-labels.ts";
   import { participantInitials, participantName } from "./meeting-tiles.ts";
   import type { ConnectionQuality, MeetingParticipant } from "../client/meeting-client.svelte.ts";
+  import type { Snippet } from "svelte";
 
   /**
    * How many people a member can find by reading. Past it, the rail offers the search control.
@@ -40,6 +44,8 @@
     ownParticipantId = null,
     presenceOf = (participant) => participant,
     qualityOf = () => "unknown",
+    spotlightedParticipantId = null,
+    hostMenu,
   }: {
     /** Everybody the roster names, this browser included. */
     participants: readonly MeetingParticipant[];
@@ -61,6 +67,16 @@
      * is "not measured", which is what a fixed list of participants can honestly say.
      */
     qualityOf?: (participant: MeetingParticipant) => ConnectionQuality;
+    /** Whoever a host put on every screen in the room, where anybody is. */
+    spotlightedParticipantId?: string | null;
+    /**
+     * The host's own menu for one row, where the member reading is running the meeting.
+     *
+     * THIS IS WHERE A HOST OF A LARGE ROOM ACTUALLY FINDS SOMEBODY. Sixteen of three hundred people
+     * have a tile; all three hundred have a row, and the row can be searched. Absent for a member
+     * who is not hosting, and absent on their own row.
+     */
+    hostMenu?: Snippet<[MeetingParticipant]>;
   } = $props();
 
   let query = $state("");
@@ -100,7 +116,13 @@
               class="text-text-muted">&nbsp;(you)</span
             >{/if}
         </span>
+        {#if participant.hostRole !== null}
+          <Badge variant="neutral" caps>{hostRoleLabel(participant.hostRole)}</Badge>
+        {/if}
         <MeetingQualityMark quality={qualityOf(participant)} />
+        {#if participant.participantId === spotlightedParticipantId}
+          <Focus class="size-16 text-accent-default" aria-label={SPOTLIGHT_LABEL} />
+        {/if}
         {#if shares}
           <ScreenShare class="size-16 text-text-muted" aria-label="Sharing a screen" />
         {/if}
@@ -110,6 +132,9 @@
           <AudioLines class="size-16 text-accent-default" aria-label="Speaking" />
         {:else if silent}
           <MicOff class="size-16 text-text-muted" aria-label="Microphone off" />
+        {/if}
+        {#if participant.participantId !== ownParticipantId}
+          {@render hostMenu?.(participant)}
         {/if}
       </li>
     {:else}

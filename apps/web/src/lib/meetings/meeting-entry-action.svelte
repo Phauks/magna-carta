@@ -19,6 +19,7 @@
    * server — the entry's meeting is read behind that same permission, and asking anyway bought them
    * a refusal on every entry window they opened.
    */
+  import Lock from "@lucide/svelte/icons/lock";
   import Phone from "@lucide/svelte/icons/phone";
   import Video from "@lucide/svelte/icons/video";
   import Button from "@magna-carta/design-system/button";
@@ -114,10 +115,31 @@
 
   /** What the running room is called, which is what its Join control has to say. */
   const joinLabel = $derived(running?.medium === "audio" ? "Join Call" : "Join Meeting");
+
+  /*
+   * A room whose host has shut the door.
+   *
+   * THE CONTROL SAYS SO BEFORE THE CLICK RATHER THAN AFTER IT, which is the whole reason the summary
+   * carries the fact: a Join that opens the room screen and is refused there has walked a member
+   * through two screens to tell them what one word could. It is disabled with the reason rather than
+   * absent, because this IS something that could happen here — the door opens again the moment a
+   * host unlocks it, and a control that vanished would leave a reader wondering what they missed.
+   */
+  const locked = $derived(running !== null && running.locked);
+  const lockedReason = $derived(
+    running?.medium === "audio"
+      ? "A host has locked this call, so nobody else can come in."
+      : "A host has locked this meeting, so nobody else can come in.",
+  );
 </script>
 
 {#if canJoin && configured}
-  {#if running !== null}
+  {#if locked}
+    <Button variant="secondary" disabled title={lockedReason}>
+      <Lock class="size-16" aria-hidden="true" />
+      Locked
+    </Button>
+  {:else if running !== null}
     <Button
       variant="secondary"
       title={running.medium === "audio"

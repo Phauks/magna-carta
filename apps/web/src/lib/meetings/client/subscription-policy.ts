@@ -53,13 +53,19 @@ export const SPEAKER_MEMORY_MILLISECONDS = 5 * 60 * 1000;
 export type { PreferredRid };
 
 /*
- * The bands the gallery's order is built from, best first: what this member asked to keep on screen,
- * then what the room is looking at, then who has been talking, then everybody else.
+ * The bands the gallery's order is built from, best first: whoever a host put on every screen in the
+ * room, then what this member asked to keep on screen, then what is being shared, then who has been
+ * talking, then everybody else.
+ *
+ * THE SPOTLIGHT OUTRANKS A PIN, and that is the whole difference between the two. A pin is one member
+ * arranging their own gallery and says nothing to anybody; a spotlight is the host deciding what the
+ * room is looking at. A member may still pin somebody else — the spotlight simply comes first.
  */
-const PINNED_BAND = 0;
-const SHARING_BAND = 1;
-const SPEAKERS_BAND = 2;
-const ROSTER_BAND = 3;
+const SPOTLIGHT_BAND = 0;
+const PINNED_BAND = 1;
+const SHARING_BAND = 2;
+const SPEAKERS_BAND = 3;
+const ROSTER_BAND = 4;
 
 /** Up to this many tiles on a page, the full layer is worth its bandwidth. */
 const FULL_LAYER_TILE_LIMIT = 4;
@@ -95,6 +101,12 @@ export interface SubscriptionPolicyInput {
   readonly participants: readonly SubscriptionPolicyParticipant[];
   /** Participants this member has pinned, in the order they pinned them. Local to this browser. */
   readonly pinned: readonly string[];
+  /**
+   * Whoever a host put on every screen in the room, or null. A fact about the ROOM, which is why it
+   * outranks a pin and why the spotlit camera is asked for at the full layer whatever the page's
+   * tile count would otherwise choose: everybody is looking at it.
+   */
+  readonly spotlight: string | null;
   /** The gallery page being shown, counted from zero. Out of range is clamped, never refused. */
   readonly page: number;
   /** How many tiles the page holds: `GALLERY_PAGE_SIZE`, or speaker view's large tile and strip. */
@@ -215,6 +227,7 @@ function galleryOrder(
 
   /** Which band a participant sorts into. Lower comes first. */
   const band = (participant: SubscriptionPolicyParticipant): number => {
+    if (participant.participantId === input.spotlight) return SPOTLIGHT_BAND;
     if (pinnedIndex.has(participant.participantId)) return PINNED_BAND;
     if (sharer !== null && participant.participantId === sharer.participantId) return SHARING_BAND;
     if (spokeRecently(participant, input.now)) return SPEAKERS_BAND;
@@ -317,7 +330,10 @@ export function subscriptionPolicy(input: SubscriptionPolicyInput): Subscription
       sessionId,
       trackName: track.trackName,
       participantId: participant.participantId,
-      preferredRid,
+      // The spotlit camera is asked for whole however many tiles the page holds. Everybody in the
+      // room is looking at it, and a quarter-resolution picture of the one person the host put on
+      // every screen is the one place the tile-count rule gives the wrong answer.
+      preferredRid: participant.participantId === input.spotlight ? "f" : preferredRid,
     });
   }
 

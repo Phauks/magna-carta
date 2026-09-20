@@ -42,8 +42,25 @@ import {
   captureLocalMedia,
   captureScreenShare,
   offerCapturedTracks,
+  offerMicrophoneTrack,
   offerScreenTrack,
 } from "./capture.ts";
+import {
+  askToUnmuteDirective,
+  mayActOn,
+  mayRunTheMeeting,
+  muteAllDirective,
+  muteDirective,
+  MUTED_BY_HOST_NOTICE,
+  NOT_HOSTING_NOTICE,
+  OPEN_ROOM_STATE,
+  readDirective,
+  readRoomState,
+  spotlightDirective,
+  type MeetingDirective,
+  type MeetingHostRole,
+  type MeetingRoomState,
+} from "./host-controls.ts";
 import type { EffectedCapture } from "./media-effects.ts";
 import { MeetingNegotiation } from "./negotiation.ts";
 import { MeetingPresence } from "./presence.ts";
@@ -77,11 +94,15 @@ import {
 } from "./subscription-policy.ts";
 
 export { RECONCILE_DEBOUNCE_MILLISECONDS };
+export { mayActOn, mayRunTheMeeting };
 export type {
   ConnectionQuality,
+  MeetingDirective,
+  MeetingHostRole,
   MeetingMedium,
   MeetingParticipant,
   MeetingRefusal,
+  MeetingRoomState,
   MeetingTrack,
   MeetingTrackKind,
 };
@@ -109,12 +130,29 @@ export const PROTOCOL_MISMATCH_REASON = "protocol-mismatch";
 export const SUPERSEDED_REASON = "superseded";
 
 /**
+ * The reason a socket is closed because a host put this member out of the meeting.
+ *
+ * Fatal, and there is no way back in from this screen: the record now says they are not in the room,
+ * the join path refuses a member barred from this meeting, and offering Rejoin would be the screen
+ * inviting somebody to be told no. It is the MEETING they are barred from and not the event.
+ */
+export const REMOVED_REASON = "removed";
+
+/**
  * The refusals that END this browser's meeting. Everything else the room refuses is a setback: it
  * keeps the socket open, the roster keeps arriving, and the member is still in the room. Treating a
  * malformed frame or an unreachable unit as the end of a meeting throws somebody out of a room they
  * are still in, over a frame they never saw.
  */
-const FATAL_REFUSAL_REASONS = new Set(["not-a-participant", "meeting-ended", SUPERSEDED_REASON]);
+const FATAL_REFUSAL_REASONS = new Set([
+  "not-a-participant",
+  "meeting-ended",
+  SUPERSEDED_REASON,
+  REMOVED_REASON,
+]);
+
+/** A host frame from a socket holding no grant. The socket stays open; the member is told. */
+const NOT_HOST_REASON = "not-host";
 
 /**
  * The refusals that mean the tracks just asked for are not coming: the unit could not be reached,
@@ -287,6 +325,30 @@ export class MeetingClient {
    * nothing on the screen saying so.
    */
   lastProblem = $state<string | null>(null);
+  /**
+   * What a host did TO this member, in the words they read.
+   *
+   * It is not a refusal and not a fault: a microphone that goes dead with nothing on screen is read
+   * as a broken machine, so the screen says what happened. Cleared by the member's own next act on
+   * the thing it is about.
+   */
+  lastNotice = $state<string | null>(null);
+  /**
+   * A host has ASKED this member to unmute, and nothing has happened yet.
+   *
+   * There is no frame in this protocol that opens somebody's microphone, and that absence is the
+   * design: the member may be in a room with a client, on a call they muted themselves for precisely
+   * so that the next two minutes were not in the meeting. Their screen offers Unmute and Stay muted,
+   * and this is what it renders from.
+   */
+  unmuteRequest = $state<MeetingDirective | null>(null);
+  /** Who last muted this member, and when. Null while no host has. */
+  mutedBy = $state<MeetingDirective | null>(null);
+  /**
+   * What is true of the room rather than of anybody in it: who is on every screen, and whether the
+   * door is shut. Replaced whole by each `room-state`, and carried inline on the `welcome`.
+   */
+  roomState = $state<MeetingRoomState>(OPEN_ROOM_STATE);
 
   /** This browser's own participant, as the room named it. */
   participantId = $state<string | null>(null);
@@ -348,6 +410,22 @@ export class MeetingClient {
   );
 
   /**
+   * Whether this member is running this meeting, and in which of the two ways.
+   *
+   * Read off the ROSTER rather than held as a fact of its own, because the roster is where a grant
+   * written or withdrawn during the meeting arrives: the hosting routes rewrite the room's stored
+   * records and the room broadcasts the change, so a co-host whose grant was withdrawn loses their
+   * menus on the next roster rather than on their next reload.
+   */
+  readonly myRole = $derived<MeetingHostRole | null>(
+    this.participants.find((participant) => participant.participantId === this.participantId)
+      ?.hostRole ?? null,
+  );
+
+  /** Whether this member may run the meeting at all. What every host surface is shown behind. */
+  readonly hosting = $derived(mayRunTheMeeting(this.myRole));
+
+  /**
    * What should be coming in, and what the gallery should be drawing. Everything the screen renders
    * about who is shown, and everything `reconcile` asks the room for, comes from here.
    */
@@ -367,6 +445,9 @@ export class MeetingClient {
         };
       }),
       pinned: this.pinned,
+      // A fact about the ROOM, which is why it outranks this member's own pins rather than sitting
+      // among them: a pin arranges one screen, a spotlight arranges every screen at once.
+      spotlight: this.roomState.spotlight?.participantId ?? null,
       page: this.page,
       pageSize: this.speakerView ? SPEAKER_VIEW_PAGE_SIZE : GALLERY_PAGE_SIZE,
       // The room's own ticking clock, never `Date.now()` read here. The policy ages a speaker out
@@ -392,6 +473,15 @@ export class MeetingClient {
   #capture: EffectedCapture | null = null;
   /** The screen share's transceiver mid, which is what closing it names. */
   #screenMid: string | null = null;
+  /**
+   * True while this browser's microphone is closed AT THE ROUTING SERVICE because a host muted it.
+   *
+   * It is what makes un-muting afterwards a republish rather than a flipped flag. A member's own
+   * mute leaves the track up and carrying silence, so flipping `enabled` back is the whole of it; a
+   * host's mute takes the track away at the far end, and a browser that only flipped a flag would
+   * show itself as sending while nobody could hear it for the rest of the meeting.
+   */
+  #microphoneClosedUpstream = false;
   /** True once this browser asked to leave, so the socket closing is expected rather than a fault. */
   #leaving = false;
 
@@ -443,6 +533,11 @@ export class MeetingClient {
             "The room's change to what is being sent was not applied.",
             () => this.#answerIfOffered(readSessionDescription(frame.sessionDescription)),
           ),
+        roomState: (frame) => this.#handleRoomState(frame),
+        muted: (frame) => this.#handleMuted(frame),
+        unmuteRequested: (frame) => {
+          this.unmuteRequest = readDirective(frame);
+        },
         ended: () => {
           this.#leaving = true;
           this.state = "ended";
@@ -676,6 +771,37 @@ export class MeetingClient {
     });
   }
 
+  /**
+   * Offer the microphone again after a host closed it at the routing service.
+   *
+   * IN THE NEGOTIATION QUEUE, like every other offer: an incoming description from the unit can land
+   * in the middle of this one, and two applied at once is an invalid-state error the browser reports
+   * from whichever lost — which here would leave the member believing they had come back.
+   *
+   * The device's own track is what goes up the new section. Nothing stopped it: the close happened
+   * at the far end, so the member is not asked for their microphone a second time.
+   */
+  async #republishMicrophone(): Promise<void> {
+    const peerConnection = this.#negotiation.connection;
+    const stream = this.localStream;
+    if (peerConnection === null || stream === null) return;
+    const [track] = stream.getAudioTracks();
+    if (track === undefined) return;
+
+    await this.#negotiation.enqueue(
+      "Your microphone was not offered to the room again.",
+      async () => {
+        const transceiver = offerMicrophoneTrack(peerConnection, track);
+        const sessionDescription = await this.#negotiation.offer(peerConnection);
+        this.#signaling.send({
+          type: "publish",
+          sessionDescription,
+          tracks: [{ trackName: this.#trackName("audio"), mid: transceiver.mid, kind: "audio" }],
+        });
+      },
+    );
+  }
+
   /** Stop sharing and tell the room which media section went away. */
   async stopSharing(): Promise<void> {
     if (!this.sharing) return;
@@ -688,17 +814,71 @@ export class MeetingClient {
     if (mid !== null) this.#signaling.send({ type: "close", mids: [mid] });
   }
 
-  /** Mute or unmute the microphone. The track stays captured, so nothing renegotiates. */
+  /**
+   * Mute or unmute the microphone.
+   *
+   * TWO KINDS OF MUTE MEET HERE, and they undo differently. This member's own mute leaves the track
+   * up and carrying silence, so turning it back on is the source being re-enabled and nothing
+   * renegotiates. A HOST's mute closed the track at the routing service, so there is nothing left to
+   * re-enable: coming back is a fresh media section, a fresh offer and a fresh `publish`. A browser
+   * that flipped a flag in that case would show itself as sending with nobody able to hear it, which
+   * is the one failure this control must never have.
+   */
   toggleMicrophone(): void {
     if (this.localStream === null) return;
     const next = !this.microphoneOn;
     this.#capture?.setSourceEnabled("audio", next);
     this.microphoneOn = next;
+    if (next) {
+      // The member has answered whatever they were told, whichever way it was put to them.
+      this.lastNotice = null;
+      this.unmuteRequest = null;
+      if (this.#microphoneClosedUpstream) {
+        this.#microphoneClosedUpstream = false;
+        void this.#republishMicrophone();
+      }
+    }
     // Muting is a fact about this browser that the room cannot measure: the track keeps arriving,
     // carrying silence, so nothing downstream would ever know. Either way the answer to "is this
     // person speaking" starts again at no — muted, they are not; unmuted, the meter says so within
     // its own hysteresis rather than this browser assuming the last answer still holds.
     this.#announcePresence(false, !next);
+  }
+
+  /**
+   * Leave the microphone where it is, and let go of the request to open it.
+   *
+   * The other half of what an asked member is offered. It says nothing to the host — there is
+   * nothing to acknowledge, because they asked — and it exists so that the prompt has a way out
+   * that is not the member doing what they were asked.
+   */
+  declineUnmuteRequest(): void {
+    this.unmuteRequest = null;
+  }
+
+  /** Silence one participant: the room closes their audio upstream and tells them who did it. */
+  mute(participantId: string): void {
+    this.#signaling.send(muteDirective(participantId));
+  }
+
+  /**
+   * Silence everybody who is neither this member nor a host or co-host.
+   *
+   * WHO THAT IS, IS THE ROOM'S ANSWER. A client sending one directive per name off its own roster
+   * would be acting on a list it may be a frame behind on, and would silence the person pressing it.
+   */
+  muteAll(): void {
+    this.#signaling.send(muteAllDirective());
+  }
+
+  /** Ask somebody to unmute. A request their screen offers them, and never a forced unmute. */
+  askToUnmute(participantId: string): void {
+    this.#signaling.send(askToUnmuteDirective(participantId));
+  }
+
+  /** Put one participant on every screen in the room, or clear whoever is on them. */
+  spotlight(participantId: string | null): void {
+    this.#signaling.send(spotlightDirective(participantId));
   }
 
   /** Turn the camera picture off or on. A call has no camera, so there is nothing to turn. */
@@ -747,7 +927,40 @@ export class MeetingClient {
     const participantId = readString(frame, "participantId");
     if (participantId !== null) this.participantId = participantId;
     this.state = "live";
+    // The room's own facts ride inline for the reason the whole roster does: a socket that has just
+    // arrived holds nothing to apply a change to, so it cannot be told about a spotlight as one.
+    this.roomState = readRoomState(frame.roomState);
     this.#adoptRoster(readParticipants(frame.roster));
+  }
+
+  /** What the room now says about itself, replacing what this browser held. */
+  #handleRoomState(frame: Record<string, unknown>): void {
+    this.roomState = readRoomState(frame);
+    // Who is on every screen is the first band of the plan, so a spotlight changes what is pulled
+    // and at which layer — not only what is drawn.
+    this.#subscriptions.schedule();
+  }
+
+  /**
+   * A host closed this browser's microphone at the routing service.
+   *
+   * The track is GONE rather than silenced, which is what the flag below records: the member's own
+   * control now has to republish, and a browser that flipped `enabled` back would sit showing itself
+   * as sending with nobody able to hear it. The source is disabled as well, so the member is not
+   * still feeding a device into a track that no longer goes anywhere.
+   */
+  #handleMuted(frame: Record<string, unknown>): void {
+    // Who did it rides on the frame and is deliberately not in the sentence. The person whose
+    // microphone went dead needs to know that a host did it and that their own control brings it
+    // back; naming the host is an invitation to argue with somebody who is clearing the floor.
+    this.mutedBy = readDirective(frame);
+    this.#microphoneClosedUpstream = true;
+    this.#capture?.setSourceEnabled("audio", false);
+    this.microphoneOn = false;
+    this.lastNotice = MUTED_BY_HOST_NOTICE;
+    // Whoever asked is answered: a request to unmute that a mute overtook is no longer a question.
+    this.unmuteRequest = null;
+    this.#announcePresence(false, true);
   }
 
   /**
@@ -964,6 +1177,15 @@ export class MeetingClient {
       this.#fail(reason);
       return;
     }
+    // A directive from a socket holding no grant is not a fault in the wire and does not belong in
+    // the band that reports one: the member is in the meeting, everything else they can do still
+    // works, and what they cannot do is run it. Ordinarily they never see this at all — the menus
+    // that send these frames are absent for somebody who is not hosting — so it is the answer to a
+    // grant withdrawn between the menu opening and the item being pressed.
+    if (reason === NOT_HOST_REASON) {
+      this.lastNotice = NOT_HOSTING_NOTICE;
+      return;
+    }
     this.lastRefusal = { reason, errorId: readString(frame, "errorId") };
     if (REFUSALS_THAT_LOSE_A_SUBSCRIPTION.has(reason)) this.#subscriptions.forgetPending();
   }
@@ -1067,6 +1289,11 @@ export class MeetingClient {
     this.captureRefusal = null;
     this.lastRefusal = null;
     this.lastProblem = null;
+    this.lastNotice = null;
+    this.unmuteRequest = null;
+    this.mutedBy = null;
+    this.roomState = OPEN_ROOM_STATE;
+    this.#microphoneClosedUpstream = false;
     this.participants = [];
     this.remoteStreams = new Map();
     this.remoteScreens = new Map();

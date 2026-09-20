@@ -36,6 +36,9 @@ edge is a constructor seam, so the whole machine runs under a test with fakes.
 - `media-effects.ts` — the stage between capture and publish. The identity today; the seam is here so
   that a processing stage does not have to be retrofitted into every caller that reaches for
   `localStream`.
+- `host-controls.ts` — running the meeting from inside it: the four directives a host sends, the
+  reader for what the room says about itself, and the two sentences a member reads when a host acts on
+  them. A concern is a module, so none of it is a set of fields on the client.
 - `presence.ts` — the meter on this browser's own microphone, and the transition test that keeps a
   presence frame from being sent twice.
 - `audio-level-meter.ts` — the analyser itself, which is a device and therefore a seam.
@@ -52,8 +55,13 @@ edge is a constructor seam, so the whole machine runs under a test with fakes.
 `meeting-connection.ts` projects its diagnostics into the connection surface's models;
 `meeting-grid.svelte`, `meeting-tile.svelte`, `meeting-roster.svelte`, `meeting-controls.svelte`,
 `meeting-quality-mark.svelte`, `meeting-connection-panel.svelte` and `meeting-audio.svelte` draw
-them. The room screen itself is
+them, and `meeting-host-labels.ts` is the one home for what a role and a spotlight are CALLED, because
+four surfaces drawing the same badge is four spellings of "Co-host". The room screen itself is
 `src/routes/(app)/meetings/[id]/+page.svelte`.
+
+**Beside them, running the meeting:** `meeting-host-menu.svelte` (the per-tile and per-row menu, one
+component for both places) and `meeting-hosts-panel.svelte` (who holds a grant, and the claim). Both
+take models and handlers rather than the client, like every other screen component here.
 
 **Beside them, and not part of the room:** `meetings-api.ts` (every read and write, mirroring the
 contract), `meeting-list.ts` / `meeting-list-section.svelte` / `meetings-screen.svelte` (the Meetings
@@ -78,9 +86,20 @@ so those modules can take the `MeetingMedium` union without reaching into the ro
 - **Every external edge is a seam on `MeetingClientSeams`.** The peer connection, the socket,
   capture, the empty stream, the level meter. Adding a browser global anywhere in `client/` is what
   makes the next case untestable.
-- **A refusal is not the end of a meeting unless it says so.** Three reasons end it
-  (`not-a-participant`, `meeting-ended`, `superseded`); every other one leaves the socket open, the
-  roster arriving and the member in the room, with a sentence on the screen.
+- **A refusal is not the end of a meeting unless it says so.** Four reasons end it
+  (`not-a-participant`, `meeting-ended`, `superseded`, `removed`); every other one leaves the socket
+  open, the roster arriving and the member in the room, with a sentence on the screen. `not-host` is
+  the one that is neither: nothing is wrong with this browser and nothing was refused about the
+  meeting, so it is a notice rather than the band that reports a frame the room could not read.
+- **A HOST'S MUTE TAKES THE TRACK AWAY; THIS MEMBER'S OWN MUTE DOES NOT.** The room closes the audio
+  at the routing service, which is what makes it a mute rather than a request the browser could
+  decline by ignoring it — so coming back is a fresh media section, a fresh offer and a fresh
+  `publish`, and `#microphoneClosedUpstream` is what tells the two apart. A client that flipped
+  `enabled` back would show itself as sending with nobody able to hear it for the rest of the
+  meeting, and nothing anywhere would say so.
+- **Who is running the meeting is read off the ROSTER, never held as a fact of its own.** The hosting
+  routes rewrite the room's stored records and the room broadcasts, so a grant withdrawn mid-meeting
+  takes the menus with it on the next roster rather than on a reload.
 - **Screen components take models, not the client.** `meeting-tiles.ts` is the one projection from
   the client's state to what is drawn, so a component never reads the state machine directly.
 - **Who is talking is held BESIDE the roster, never in it.** A roster row is a person's name, handle

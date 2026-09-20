@@ -72,6 +72,7 @@ const RUNNING_MEETING = {
   endedAt: null,
   medium: "video",
   liveCount: 0,
+  locked: false,
   configured: true,
 };
 
@@ -133,6 +134,22 @@ describe("a member who may join", () => {
     const rendered = await draw();
 
     expect(rendered.querySelector("button")?.textContent?.trim()).toBe("Join Call (0)");
+  });
+});
+
+describe("a room whose host has shut the door", () => {
+  it("says so before the click rather than after it, and offers no way in", async () => {
+    sessionHolding(["meetings:join"]);
+    answerWith(200, { ...RUNNING_MEETING, locked: true });
+
+    const rendered = await draw();
+
+    // Disabled with the reason, not absent: the door opens again the moment a host unlocks it, and
+    // a control that vanished would leave a reader wondering what they had missed.
+    const control = rendered.querySelector("button");
+    expect(control?.textContent?.trim()).toBe("Locked");
+    expect(control?.disabled).toBe(true);
+    expect(control?.getAttribute("title")).toContain("locked");
   });
 });
 

@@ -18,6 +18,7 @@
   import MeetingTile from "./meeting-tile.svelte";
   import type { MeetingTileModel } from "./meeting-tiles.ts";
   import type { MeetingMedium } from "@magna-carta/meeting-protocol/types";
+  import type { Snippet } from "svelte";
 
   let {
     tiles,
@@ -29,6 +30,7 @@
     roomSize = 0,
     onPage,
     onPin,
+    hostMenu,
   }: {
     /** The people on this page, this browser's own preview first. */
     tiles: readonly MeetingTileModel[];
@@ -51,6 +53,14 @@
     onPage?: (page: number) => void;
     /** Pin or unpin somebody. Absent where pinning is not offered. */
     onPin?: (participantId: string) => void;
+    /**
+     * The host's own menu for one tile, where the member reading is running the meeting.
+     *
+     * The grid does not decide who gets one: it is handed a snippet and renders it wherever a person
+     * is drawn, so the one place the question "may this member act on that one" is answered is the
+     * screen that holds the roles. Absent for everybody else.
+     */
+    hostMenu?: Snippet<[MeetingTileModel]>;
   } = $props();
 
   /** What takes the large slot, where anything does. */
@@ -78,11 +88,21 @@
     pinned={tile.pinned}
     videoPulled={tile.videoPulled}
     quality={tile.quality}
+    hostRole={tile.hostRole}
+    spotlighted={tile.spotlighted}
     onPin={onPin === undefined || tile.participantId === null || tile.local
       ? undefined
       : () => onPin(tile.participantId ?? "")}
     {medium}
-  />
+  >
+    {#snippet menu()}
+      <!-- A screen share has nobody to act on, and nobody acts on themselves through this: leaving
+           is how a person leaves. -->
+      {#if tile.participantId !== null && !tile.local}
+        {@render hostMenu?.(tile)}
+      {/if}
+    {/snippet}
+  </MeetingTile>
 {/snippet}
 
 <div class="flex h-full min-h-0 flex-col gap-16">
@@ -96,8 +116,16 @@
       pinned={large.pinned}
       videoPulled={large.videoPulled}
       quality={large.quality}
+      hostRole={large.hostRole}
+      spotlighted={large.spotlighted}
       {medium}
-    />
+    >
+      {#snippet menu()}
+        {#if large.participantId !== null && !large.local}
+          {@render hostMenu?.(large)}
+        {/if}
+      {/snippet}
+    </MeetingTile>
     <div
       class="mc-scrollbar grid min-h-0 shrink-0 basis-1/4 auto-rows-fr grid-cols-3 gap-16 overflow-y-auto sm:grid-cols-4 xl:grid-cols-6"
     >

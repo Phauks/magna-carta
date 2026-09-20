@@ -42,10 +42,20 @@
     browserMeetingSeams,
     PROTOCOL_MISMATCH_REASON,
     refusalStatement,
+    REMOVED_REASON,
     SUPERSEDED_REASON,
     type MeetingMedium,
+    type MeetingParticipant,
   } from "$lib/meetings/client/meeting-client.svelte.ts";
-  import { meetingTiles, sharedScreenTile, spotlightTile } from "$lib/meetings/screen/meeting-tiles.ts";
+  import {
+    meetingTiles,
+    participantName,
+    sharedScreenTile,
+    speakerViewTile,
+    type MeetingTileModel,
+  } from "$lib/meetings/screen/meeting-tiles.ts";
+  import MeetingHostMenu from "$lib/meetings/meeting-host-menu.svelte";
+  import MeetingHostsPanel from "$lib/meetings/meeting-hosts-panel.svelte";
   import MeetingAudio from "$lib/meetings/screen/meeting-audio.svelte";
   import MeetingGrid from "$lib/meetings/screen/meeting-grid.svelte";
   import MeetingControls from "$lib/meetings/screen/meeting-controls.svelte";
@@ -59,10 +69,17 @@
   import {
     endMeeting,
     eventAddress,
+    grantMeetingHosting,
     joinMeeting,
     leaveMeeting,
+    readMeetingHosts,
+    refusedAs,
+    removeMeetingParticipant,
+    revokeMeetingHosting,
+    setMeetingLocked,
     type MeetingWrite,
   } from "$lib/meetings/meetings-api.ts";
+  import type { MeetingHostGrant } from "@magna-carta/api-client";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import type { Failure } from "$lib/api/problem.ts";
   import type { RecordSubject } from "@magna-carta/design-system/record-reference";
@@ -234,6 +251,93 @@
     depart();
   });
 
+  /*
+   * RUNNING THE MEETING. Everything below is a host act, and the split between the two kinds is the
+   * one the design settles: the acts that leave nothing behind go out as frames on the socket and
+   * are instant, and the acts somebody could later ask "who did that" about are routes with audit
+   * rows. A member who is not hosting sees none of the controls that reach either.
+   */
+
+  /** The refusal the last hosting write came back with, rendered where the act was asked for. */
+  let hostingRefusal = $state<Failure | null>(null);
+  /** Whether the panel naming who runs this meeting is open. */
+  let hostsOpen = $state(false);
+  /** The live grants, or null while the read is in flight. */
+  let hostGrants = $state<readonly MeetingHostGrant[] | null>(null);
+  let hostsReading = $state(false);
+  let hostsFailure = $state<Failure | null>(null);
+
+  /** How this member runs the meeting, as the roster states it. Null for most of the room. */
+  const myRole = $derived(client.myRole);
+
+  /*
+   * Read who is hosting when the panel opens, and never before.
+   *
+   * It is not in the page's own screen data because nothing outside this panel asks it: every badge
+   * on every tile comes off the roster the socket is already carrying, which is also the only place
+   * a grant written mid-meeting arrives promptly. The read is for the panel's own list of WHEN each
+   * grant was written, which the roster does not carry.
+   */
+  $effect(() => {
+    if (!hostsOpen) return;
+    void refreshHosts();
+  });
+
+  async function refreshHosts(): Promise<void> {
+    hostsReading = true;
+    const outcome = await readMeetingHosts(meetingId);
+    hostsReading = false;
+    if (outcome.kind === "ok") {
+      hostGrants = outcome.value;
+      hostsFailure = null;
+      return;
+    }
+    hostsFailure = outcome.failure;
+  }
+
+  /** What a member is called, out of the roster this browser already holds. */
+  function nameOfMember(userId: string): string {
+    const participant = client.participants.find((one) => one.userId === userId);
+    return participant === undefined ? "Somebody who has left" : participantName(participant);
+  }
+
+  /**
+   * Whether this room has nobody running it, so a key-holder may take it.
+   *
+   * Read off the ROSTER rather than off the grants: a grant belonging to somebody who is not in the
+   * room is exactly the state the claim exists to end, and the roster is the one list that says who
+   * is actually here.
+   */
+  const hostless = $derived(
+    client.state === "live" &&
+      client.participants.length > 0 &&
+      !client.participants.some((participant) => participant.hostRole !== null),
+  );
+  const canClaim = $derived(canHost && hostless);
+
+  /** Run a hosting write and keep whatever it refused, for the surface that asked. */
+  async function hostingWrite(
+    act: () => Promise<MeetingWrite<unknown>>,
+  ): Promise<ActionOutcome> {
+    hostingRefusal = null;
+    const outcome = await act();
+    if (outcome.kind === "ok") {
+      // The room rewrites its stored roles and broadcasts, so the badges and the menus follow from
+      // the roster rather than from anything held here. The panel's own list is the exception: it
+      // carries when each grant was written, which no frame does.
+      if (hostsOpen) void refreshHosts();
+      return "committed";
+    }
+    hostingRefusal = outcome.failure;
+    return "refused";
+  }
+
+  function claimHosting(): void {
+    const userId = sessionPermissions.session?.user.id;
+    if (userId === undefined) return;
+    void hostingWrite(() => grantMeetingHosting(meetingId, userId, "host"));
+  }
+
   async function end(): Promise<ActionOutcome> {
     endRefusal = null;
     const outcome: MeetingWrite<unknown> = await endMeeting(meetingId);
@@ -310,7 +414,7 @@
    * gallery, and none in a call: a call has no picture to make large.
    */
   const spotlight = $derived(
-    client.speakerView && client.medium === "video" ? spotlightTile(tiles) : null,
+    client.speakerView && client.medium === "video" ? speakerViewTile(tiles) : null,
   );
 
   /*
@@ -318,6 +422,17 @@
    * browser arrived — somebody following a link to a meeting that ended last Tuesday.
    */
   const over = $derived(client.state === "ended" || summary?.status === "ended");
+  /*
+   * A host put this member out of the room, or refused them at the door because they had been.
+   *
+   * Two routes to one state and both end here: the socket refusal while they were in it, and the
+   * join's own 409 for somebody following a link back to a meeting they are barred from. There is no
+   * Rejoin either way — the join would be refused, and offering it would be the screen inviting a
+   * member to be told no.
+   */
+  const removed = $derived(
+    client.failureReason === REMOVED_REASON || refusedAs(joinFailure, "meeting-removed"),
+  );
   const unconfigured = $derived(summary !== null && !summary.configured);
   /*
    * This socket lost the stay to a newer one of this member's own. The meeting is NOT over — it is
@@ -345,6 +460,71 @@
   const wireEvents = $derived(connectionEvents(client.diagnostics.recent));
 </script>
 
+<!--
+  The host's menu for one person, written once and rendered in the two places a host finds somebody:
+  a tile, and a row in the rail. The rail is the one that matters in a large room — sixteen of three
+  hundred people have a tile, and all three hundred have a row that can be searched.
+-->
+{#snippet hostMenuFor(
+  participantId: string,
+  userId: string | null,
+  name: string,
+  targetRole: MeetingParticipant["hostRole"],
+)}
+  <MeetingHostMenu
+    {name}
+    viewerRole={myRole}
+    {targetRole}
+    spotlighted={client.roomState.spotlight?.participantId === participantId}
+    onMute={() => client.mute(participantId)}
+    onAskToUnmute={() => client.askToUnmute(participantId)}
+    onSpotlight={(wanted) => client.spotlight(wanted ? participantId : null)}
+    onMakeCoHost={() =>
+      userId === null
+        ? undefined
+        : void hostingWrite(() => grantMeetingHosting(meetingId, userId, "co-host"))}
+    onWithdrawCoHost={() =>
+      userId === null
+        ? undefined
+        : void hostingWrite(() => revokeMeetingHosting(meetingId, userId))}
+    onHandHosting={() =>
+      userId === null
+        ? Promise.resolve<ActionOutcome>("refused")
+        : hostingWrite(() => grantMeetingHosting(meetingId, userId, "host"))}
+    onRemove={() => hostingWrite(() => removeMeetingParticipant(meetingId, participantId))}
+  >
+    {#snippet writeFailure()}
+      {@render hostingFailure()}
+    {/snippet}
+  </MeetingHostMenu>
+{/snippet}
+
+{#snippet tileMenu(tile: MeetingTileModel)}
+  {@render hostMenuFor(tile.participantId ?? "", tile.userId, tile.name, tile.hostRole)}
+{/snippet}
+
+{#snippet rowMenu(participant: MeetingParticipant)}
+  {@render hostMenuFor(
+    participant.participantId,
+    participant.userId,
+    participantName(participant),
+    participant.hostRole,
+  )}
+{/snippet}
+
+<!-- One reading of a refused hosting write, rendered wherever the act was asked for. -->
+{#snippet hostingFailure()}
+  {#if hostingRefusal !== null}
+    <FailureNotice
+      failure={hostingRefusal}
+      subject="This meeting"
+      title="Nothing Changed"
+      fallback="That did not happen."
+      whenSilent="Nothing answered, so nothing changed in this meeting."
+    />
+  {/if}
+{/snippet}
+
 <svelte:head><title>{title} · Magna Carta</title></svelte:head>
 
 <svelte:window onpagehide={departOnUnload} onbeforeunload={departOnUnload} />
@@ -358,6 +538,11 @@
           <span>{endsAt === null ? startsAt : `${startsAt} to ${endsAt}`} {zoneCode}</span>
         {/if}
         <span>{kindWord}</span>
+        {#if client.roomState.locked}
+          <!-- On the line that already carries the day and the head count, because whether the
+               door is shut is a fact about the room rather than an act anybody here can take. -->
+          <span>Locked</span>
+        {/if}
         <span>{summary.liveCount === 1 ? "1 in the room" : `${summary.liveCount} in the room`}</span>
       {/if}
     {/snippet}
@@ -390,6 +575,14 @@
     {:else if over}
       <EmptyState title="Meeting Ended">
         The room is closed. Who was in it and for how long stays on the record.
+        {#snippet actions()}
+          <Button variant="secondary" href={backAddress}>Back to the Event</Button>
+        {/snippet}
+      </EmptyState>
+    {:else if removed}
+      <EmptyState title="You Were Removed From This Meeting">
+        A host took you out of the room. You cannot come back into this meeting, and the record
+        keeps when your stay began and when it ended.
         {#snippet actions()}
           <Button variant="secondary" href={backAddress}>Back to the Event</Button>
         {/snippet}
@@ -472,6 +665,36 @@
         </Alert.Root>
       {/if}
 
+      <!-- WHAT A HOST DID TO THIS MEMBER, and it is not an error. A microphone that goes dead with
+           nothing on screen is read as a broken machine, so the room says what happened; the way
+           back is the ordinary microphone control, which republishes. -->
+      {#if client.lastNotice !== null}
+        <Alert.Root variant="info">
+          <Alert.Title>Your Microphone</Alert.Title>
+          <Alert.Description>{client.lastNotice}</Alert.Description>
+        </Alert.Root>
+      {/if}
+
+      <!-- ASKED, NOT OPENED. Nothing on this platform can turn somebody's microphone on from
+           another member's click, so the request arrives as a question with no default: the member
+           may be in a room with a client, on a call they muted themselves for. -->
+      {#if client.unmuteRequest !== null}
+        <div class="flex flex-col items-start gap-8">
+          <Alert.Root variant="info">
+            <Alert.Title>A Host Asked You to Unmute</Alert.Title>
+            <Alert.Description>
+              Nothing has changed. Your microphone stays off until you turn it on.
+            </Alert.Description>
+          </Alert.Root>
+          <div class="flex flex-wrap items-center gap-8">
+            <Button variant="secondary" onclick={() => client.toggleMicrophone()}>Unmute</Button>
+            <Button variant="ghost" onclick={() => client.declineUnmuteRequest()}>
+              Stay Muted
+            </Button>
+          </div>
+        </div>
+      {/if}
+
       <!-- Every voice the room is sending, played once and out of sight. It sits outside the grid
            because the people heard are not the people shown: whoever speaks from another page is
            pulled and played while their tile is nowhere on this one. -->
@@ -492,6 +715,7 @@
               client.isPinned(participantId)
                 ? client.unpin(participantId)
                 : client.pin(participantId)}
+            hostMenu={myRole === null ? undefined : tileMenu}
           />
         </div>
         <aside class="hidden min-h-0 w-3xs shrink-0 lg:block">
@@ -500,6 +724,8 @@
             ownParticipantId={client.participantId}
             presenceOf={(participant) => client.presenceOf(participant)}
             qualityOf={(participant) => client.qualityOf(participant.participantId)}
+            spotlightedParticipantId={client.roomState.spotlight?.participantId ?? null}
+            hostMenu={myRole === null ? undefined : rowMenu}
           />
         </aside>
       </div>
@@ -511,11 +737,18 @@
         speakerView={client.speakerView}
         medium={client.medium}
         canEnd={canHost}
+        hosting={myRole !== null}
+        locked={client.roomState.locked}
+        spotlighted={client.roomState.spotlight !== null}
         subtitle={endSubject}
         onToggleMicrophone={() => client.toggleMicrophone()}
         onToggleCamera={() => client.toggleCamera()}
         onToggleSharing={toggleSharing}
         onToggleSpeakerView={() => client.toggleSpeakerView()}
+        onMuteAll={() => client.muteAll()}
+        onSetLocked={(wanted) => void hostingWrite(() => setMeetingLocked(meetingId, wanted))}
+        onClearSpotlight={() => client.spotlight(null)}
+        onOpenHosts={() => (hostsOpen = true)}
         onLeave={() => void leave()}
         onEnd={end}
       >
@@ -529,16 +762,58 @@
 
         {#snippet endFailure()}
           {#if endRefusal !== null}
+            <!-- AN AUTHORITY ANSWER RATHER THAN A PERMISSION ONE. The member holds the key; what
+                 they do not hold is a grant on this room. Somebody hosting it can hand it to them,
+                 and where nobody is running it at all they may take it. -->
             <FailureNotice
               failure={endRefusal}
               subject="This meeting"
-              title="Nothing Changed"
-              fallback="The meeting was not ended."
+              title={refusedAs(endRefusal, "meeting-not-host")
+                ? "You Are Not Hosting This Meeting"
+                : "Nothing Changed"}
+              fallback={refusedAs(endRefusal, "meeting-not-host")
+                ? "Only somebody hosting this meeting can end it."
+                : "The meeting was not ended."}
               whenSilent="Nothing answered. The meeting was not ended and is still running."
             />
+            {#if refusedAs(endRefusal, "meeting-not-host") && canClaim}
+              <Button variant="secondary" onclick={claimHosting}>Claim Hosting</Button>
+            {/if}
           {/if}
         {/snippet}
       </MeetingControls>
+
+      <!-- Who is running this meeting. Open to everybody in the room — the grants read rides on the
+           permission to JOIN, because everybody a decision governs may know who makes it — and what
+           changes with the reader is only what they may do here. -->
+      <MeetingHostsPanel
+        bind:open={hostsOpen}
+        subject={endSubject}
+        grants={hostGrants}
+        loading={hostsReading && hostGrants === null}
+        failed={hostsFailure !== null}
+        nameOf={nameOfMember}
+        canWithdraw={myRole === "host"}
+        {canClaim}
+        onWithdraw={(userId) => void hostingWrite(() => revokeMeetingHosting(meetingId, userId))}
+        onClaim={claimHosting}
+      >
+        {#snippet readFailure()}
+          {#if hostsFailure !== null}
+            <FailureNotice
+              failure={hostsFailure}
+              subject="This meeting"
+              fallback="Who is hosting this meeting could not be read."
+              whenSilent="Nothing answered. Who is hosting this meeting could not be read."
+              onRetry={() => void refreshHosts()}
+            />
+          {/if}
+        {/snippet}
+
+        {#snippet writeFailure()}
+          {@render hostingFailure()}
+        {/snippet}
+      </MeetingHostsPanel>
     {/if}
   </LoadingRegion>
 </div>

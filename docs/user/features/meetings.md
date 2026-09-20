@@ -36,8 +36,9 @@ lives beside the documents and the correspondence rather than in somebody's memo
 3. Your browser asks to use your microphone and camera. Say yes, and everybody who joins after you can
    see and hear you. You can turn either off once you are in.
 
-The first person to press the button is the one who starts the meeting; everybody else gets **Join
-meeting** in the same place from then on. Opening a room from an event needs the permission to host
+The first person to press the button is the one who starts the meeting, and they are the host of it
+until they hand it to somebody else; everybody else gets **Join meeting** in the same place from then
+on. Opening a room from an event needs the permission to host
 meetings, so a member who may join meetings but not host them sees **Join meeting** once somebody
 else has started one and nothing before that.
 
@@ -166,10 +167,90 @@ anybody else is looking at. Press it again to let them go.
 It narrows the list as you type and answers the question a long list cannot: whether somebody has
 arrived yet.
 
+## Running a meeting as a host
+
+Somebody runs every meeting, and in most meetings nobody has to think about it: whoever pressed
+**Start meeting** is the host, and that is the end of it. In a room of thirty it matters. A line is
+carrying a building site, somebody is in the room who should not be, everybody has arrived and the
+door should be shut, one person is presenting and should be on every screen. The controls below are
+for that, and only the people running the meeting see them.
+
+**Being the host is about this meeting, not about your seat at the firm.** Your firm decides who may
+open a meeting at all; who is running THIS one is a separate thing, written on the meeting itself,
+and it changes during the meeting as you hand it over or name somebody to help. So a partner who may
+start meetings has no say over a meeting they are not hosting, and a paralegal handed a room runs it
+for as long as they hold it. The badges on the tiles and down the side of the room say who that is,
+and everybody can see them — you should not have to open a menu to find out who to ask for the floor.
+
+**Co-hosts share the work.** **Host controls** on somebody's tile or their row offers **Make
+co-host**, and a co-host can do everything below except decide who runs the room: naming another
+co-host, withdrawing one and handing the meeting over stay with the host, and a co-host cannot
+remove the host or mute them with **Mute everyone**. Withdraw a co-host from the same menu, or from
+the list of hosts. It lasts for this meeting and says nothing about any other.
+
+**Handing the meeting over** is **Hand hosting over** on the person's menu. They run it from then on
+and you become a co-host. It asks first, because taking it back needs them to hand it to you.
+
+**A room nobody is running can be claimed.** Hosting does not pass on its own when a host leaves — a
+host whose connection drops for a minute has not stopped hosting, and a meeting that reassigned
+itself would hand your client call to whoever happened to be next in the list. So when the host has
+gone and nobody else is running the room, anybody at the firm who may start meetings can open **Host
+controls › Hosts** and press **Claim hosting**. The record says the room was claimed rather than
+handed over, because nobody gave it. While somebody IS running the meeting the control is not
+offered: a room already has a host.
+
+### Quieting the room
+
+**Mute** on somebody's menu turns their microphone off. It is a real mute and not a request: their
+sound stops reaching the room whatever their browser does, and their screen says a host muted them.
+They can turn their own microphone back on whenever they like — muting somebody is how you deal with
+a noisy line, not a way to keep them quiet.
+
+**Mute everyone** in **Host controls** does the same for the whole room at once, leaving you and any
+co-hosts able to speak. It is what you press before you start talking, not a setting: anybody can
+unmute themselves straight afterwards.
+
+**Ask to unmute** is the opposite, and it is deliberately not the obvious thing. Nothing in Magna
+Carta can open somebody's microphone from your click. The person you ask sees a line saying you
+asked, with **Unmute** and **Stay muted** beside it, and nothing at all happens until they choose.
+They may be sitting with a client, on a call they muted themselves for precisely so that the next
+two minutes were not in the meeting, and a microphone opened for them would put that conversation
+into the room with nothing in front of them to say it had happened. You will see no acknowledgement
+either way, because there is nothing to acknowledge: you asked.
+
+### Putting one person on every screen
+
+**Spotlight for everyone** puts one person in the large slot on every screen in the room, ahead of
+anything anybody has pinned, and asks for their picture at full size however many tiles are on the
+page. Use it for whoever is presenting. It is the difference between a spotlight and a pin: pinning
+arranges your own screen and says nothing to anybody, spotlighting decides what the room is looking
+at. A spotlit tile carries a mark so nobody has to guess why somebody jumped to the front.
+
+**Stop spotlighting** clears it, from the same menu or from **Host controls**. It clears itself when
+the person leaves, and it is gone when the meeting ends.
+
+### Who is in the room, and who is not
+
+**Remove from the meeting** takes somebody out of the room. It asks first, because it is not a step
+you can take back: their screen says a host removed them, they cannot rejoin this meeting, and the
+record keeps when their stay began and when it ended. It is this MEETING they are out of and nothing
+else — a new meeting on the same event is a new room, and their place on the calendar entry is
+untouched. A co-host cannot remove the host, and nobody removes themselves this way: **Leave** is how
+a person leaves.
+
+**Lock the room** shuts the door. Nobody new can come in, everybody already in the room stays exactly
+where they are, and the event and the Meetings page both say **Locked** instead of offering a way in
+— so a colleague arriving late learns it from the entry rather than from being turned away after
+pressing Join. **Unlock the room** opens it again. Locking is what you do once everybody has
+arrived and the matter turns confidential.
+
 ## Ending a meeting
 
-If you started the meeting, the control bar also carries **End meeting**. It ends the meeting for
-everybody: the room closes, every tile goes, and everyone still in it is returned to the event.
+The control bar carries **End meeting** for whoever is running the meeting. It ends it for everybody:
+the room closes, every tile goes, and everyone still in it is returned to the event. If you hold the
+permission to start meetings but are not hosting this one, the screen says so rather than ending it —
+somebody hosting it can hand it to you, and where nobody is running the room at all you can claim it
+and then end it.
 
 **Leave** and **End meeting** are different acts and it is worth keeping them apart. Leaving takes you
 out of a meeting that carries on; ending closes it for the room. If the person who started the meeting
@@ -182,7 +263,12 @@ including none.
 Once the meeting has ended, the event shows who was in the room: a line per person with the time they
 joined and the time they left. Somebody who dropped out and came back shows twice, which is the honest
 account of what happened. When a host ends a meeting, everybody still in the room is recorded as
-leaving at that one moment.
+leaving at that one moment, and somebody a host removed is recorded as leaving when they were removed.
+
+What the record does NOT keep is the running of the meeting: who muted whom, who was spotlighted, how
+often the floor was cleared. Those are the mechanics of a conversation and they go when the room does.
+Putting somebody out of a meeting, shutting the door and changing who is running the room are the
+three that stay, because each of them is a thing somebody may later need to ask about.
 
 That is the whole of it. There is no duration you can bill from directly and no note of what was
 discussed — if the meeting is worth an entry on the file, record your time and write a matter note the

@@ -48,6 +48,7 @@ const SUMMARY = {
   endedAt: null,
   medium: "video",
   liveCount: 1,
+  locked: false,
   configured: true,
 };
 
@@ -274,6 +275,215 @@ describe("a newer socket for the same stay", () => {
     await settle();
     expect(leaveRequests()).toHaveLength(0);
     expect(joinRequests()).toHaveLength(1);
+  });
+});
+
+/** Say hello, then state the room's roster, in the order a browser is allowed to read them. */
+function welcomeWith(
+  socket: FakeSocket | undefined,
+  participants: Record<string, unknown>[],
+  roomState: Record<string, unknown> = { spotlight: null, locked: false },
+): void {
+  socket?.deliver({ v: 1, type: "welcome", participantId: "attendance_1", roster: [], roomState });
+  socket?.deliver({ v: 1, type: "roster", participants });
+}
+
+/** This browser and one colleague, with whatever grants a case is about. */
+function roomOfTwo(own: string | null): Record<string, unknown>[] {
+  return [
+    {
+      participantId: "attendance_1",
+      userId: "usr_1",
+      displayName: "You",
+      sfuSessionId: "session_1",
+      tracks: [],
+      hostRole: own,
+    },
+    {
+      participantId: "attendance_2",
+      userId: "usr_2",
+      displayName: "Rosalind Chase",
+      sfuSessionId: "session_2",
+      tracks: [],
+      hostRole: null,
+    },
+  ];
+}
+
+describe("running the meeting", () => {
+  it("offers nothing of it to a member who is not hosting", async () => {
+    const rendered = await draw();
+    welcomeWith(sockets[0], roomOfTwo(null));
+    await settle();
+
+    const named = [...rendered.querySelectorAll("button")].map((control) =>
+      control.getAttribute("aria-label"),
+    );
+    // Absent, not disabled: for a member who is not running the meeting, none of it could happen.
+    expect(named).not.toContain("Host controls");
+    expect(named).not.toContain("Host controls for Rosalind Chase");
+  });
+
+  it("offers the room's menu and every person's, to a member who is", async () => {
+    const rendered = await draw();
+    welcomeWith(sockets[0], roomOfTwo("host"));
+    await settle();
+
+    const named = [...rendered.querySelectorAll("button")].map((control) =>
+      control.getAttribute("aria-label"),
+    );
+    expect(named).toContain("Host controls");
+    // On the rail as well as on the tile, which is where a host of a large room finds somebody.
+    expect(
+      named.filter((label) => label === "Host controls for Rosalind Chase").length,
+    ).toBeGreaterThan(0);
+    // And the badge is drawn for everybody, whoever is reading.
+    expect(rendered.textContent).toContain("Host");
+  });
+
+  it("says on the header's own line when the door has been shut", async () => {
+    const rendered = await draw();
+    welcomeWith(sockets[0], roomOfTwo("host"), { spotlight: null, locked: true });
+    await settle();
+
+    expect(rendered.textContent).toContain("Locked");
+  });
+});
+
+describe("a member a host put out of the room", () => {
+  it("is told what happened and offered no way back in", async () => {
+    const rendered = await draw();
+    const socket = sockets[0];
+    expect(socket).toBeDefined();
+
+    socket?.deliver({ v: 1, type: "refused", reason: "removed" });
+    await settle();
+
+    expect(rendered.textContent).toContain("You Were Removed From This Meeting");
+    const controls = [...rendered.querySelectorAll("button")].map((control) =>
+      control.textContent?.trim(),
+    );
+    // The join would be refused while the meeting runs, and offering it would be the screen
+    // inviting a member to be told no.
+    expect(controls).not.toContain("Rejoin");
+    expect(rendered.textContent).toContain("Back to the Event");
+  });
+});
+
+describe("ending a meeting somebody else is running", () => {
+  it("answers with the authority question and the one remedy that is open", async () => {
+    const answer = (method: string, path: string): Response => {
+      requests.push({ method, path });
+      if (method === "GET" && path === `/api/v1/meetings/${MEETING_ID}`) {
+        return new Response(JSON.stringify(SUMMARY), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      if (path.endsWith("/join")) {
+        return new Response(
+          JSON.stringify({ participantId: "attendance_1", displayName: "You", iceServers: [] }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (path.endsWith("/end")) {
+        return new Response(
+          JSON.stringify({
+            type: "https://api.magnacarta.esq/problems/meeting-not-host",
+            title: "You are not hosting this meeting",
+            status: 403,
+          }),
+          { status: 403, headers: { "content-type": "application/problem+json" } },
+        );
+      }
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    };
+    const stub = ((request: Request | string, init?: RequestInit) => {
+      if (typeof request === "string") {
+        return Promise.resolve(answer(init?.method ?? "GET", new URL(request, ORIGIN).pathname));
+      }
+      return Promise.resolve(answer(request.method, new URL(request.url).pathname));
+    }) as unknown as typeof fetch;
+    client.setConfig({ baseUrl: ORIGIN, fetch: stub });
+    vi.stubGlobal("fetch", stub);
+
+    const rendered = await draw();
+    // Nobody in this room holds a grant, which is the state a claim exists to end.
+    welcomeWith(sockets[0], roomOfTwo(null));
+    await settle();
+
+    const open = [...rendered.querySelectorAll("button")].find(
+      (control) => control.textContent?.trim() === "End Meeting",
+    );
+    open?.click();
+    await settle();
+
+    // The panel's own commit, not the band's control of the same name: both read "End Meeting",
+    // which is the point of the verb appearing in both places.
+    const panel = document.body.querySelector('[role="alertdialog"]');
+    const commit = [...(panel?.querySelectorAll("button") ?? [])].find(
+      (control) => control.textContent?.trim() === "End Meeting",
+    );
+    expect(commit).toBeDefined();
+    commit?.click();
+    await settle();
+
+    // Holding the key is not holding the room. The remedy is somebody handing it over — or, in a
+    // room nobody is running, taking it.
+    expect(panel?.textContent).toContain("You Are Not Hosting This Meeting");
+    const offered = [...document.body.querySelectorAll("button")].map((control) =>
+      control.textContent?.trim(),
+    );
+    expect(offered).toContain("Claim Hosting");
+  });
+});
+
+describe("somebody following a link back to a meeting they are barred from", () => {
+  it("is told, at the door, without a way to try again", async () => {
+    const answer = (method: string, path: string): Response => {
+      requests.push({ method, path });
+      if (method === "GET" && path === `/api/v1/meetings/${MEETING_ID}`) {
+        return new Response(JSON.stringify(SUMMARY), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      if (path.endsWith("/join")) {
+        return new Response(
+          JSON.stringify({
+            type: "https://api.magnacarta.esq/problems/meeting-removed",
+            title: "You were removed from this meeting",
+            status: 409,
+          }),
+          { status: 409, headers: { "content-type": "application/problem+json" } },
+        );
+      }
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    };
+    const stub = ((request: Request | string, init?: RequestInit) => {
+      if (typeof request === "string") {
+        return Promise.resolve(answer(init?.method ?? "GET", new URL(request, ORIGIN).pathname));
+      }
+      return Promise.resolve(answer(request.method, new URL(request.url).pathname));
+    }) as unknown as typeof fetch;
+    client.setConfig({ baseUrl: ORIGIN, fetch: stub });
+    vi.stubGlobal("fetch", stub);
+
+    const rendered = await draw();
+
+    // The same state the socket's own refusal settles on: one sentence, the way back to the event,
+    // and no Rejoin — the join has just been refused and pressing it again would be refused too.
+    expect(rendered.textContent).toContain("You Were Removed From This Meeting");
+    const controls = [...rendered.querySelectorAll("button")].map((control) =>
+      control.textContent?.trim(),
+    );
+    expect(controls).not.toContain("Rejoin");
   });
 });
 

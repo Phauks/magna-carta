@@ -17,6 +17,7 @@
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Button from "@magna-carta/design-system/button";
   import FieldLabel from "@magna-carta/design-system/field-label";
+  import Lock from "@lucide/svelte/icons/lock";
   import Phone from "@lucide/svelte/icons/phone";
   import Video from "@lucide/svelte/icons/video";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -97,6 +98,15 @@
     {#if over}
       <Button variant="ghost" size="sm" href={eventAddress(row.eventKind, row.eventId, row.matterId)}>
         Open the Event
+      </Button>
+    {:else if row.locked}
+      <!-- A host has shut the door. The row says so before the click rather than after it: the
+           summary carries the fact, so walking a reader through the room screen to be refused there
+           would be two screens spent saying what one word says. Disabled and not absent — the door
+           opens again the moment a host unlocks it. -->
+      <Button variant="secondary" size="sm" disabled title="A host has locked this room, so nobody else can come in.">
+        <Lock class="size-16" aria-hidden="true" />
+        Locked
       </Button>
     {:else}
       <Button variant="secondary" size="sm" href={meetingAddress(row)}>

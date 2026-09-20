@@ -57,6 +57,7 @@ function ask(over: Partial<SubscriptionPolicyInput> = {}): SubscriptionPolicyInp
     self: "attendance_1",
     participants: roomOf(300),
     pinned: [],
+    spotlight: null,
     page: 0,
     pageSize: GALLERY_PAGE_SIZE,
     now: NOW,
@@ -284,6 +285,76 @@ describe("which layer a page is worth", () => {
     const plan = subscriptionPolicy(ask({ participants, pageSize: SPEAKER_VIEW_PAGE_SIZE }));
 
     expect(plan.shown[0]).toBe("attendance_77");
+  });
+});
+
+describe("whoever a host put on every screen", () => {
+  it("comes before a pin, which is the whole difference between the two", () => {
+    // A pin is one member arranging their own gallery and says nothing to anybody; a spotlight is
+    // the host deciding what the room is looking at. Ranked the other way round, one member could
+    // put the host's chosen face off their own first page and never know they had.
+    const plan = subscriptionPolicy(
+      ask({ pinned: ["attendance_40"], spotlight: "attendance_200" }),
+    );
+
+    expect(plan.shown[0]).toBe("attendance_200");
+    expect(plan.shown[1]).toBe("attendance_40");
+  });
+
+  it("outranks the screen share and whoever is talking", () => {
+    const participants = roomOf(300).map((one) => {
+      if (one.participantId === "attendance_50") return { ...one, speaking: true };
+      if (one.participantId !== "attendance_60") return one;
+      return {
+        ...one,
+        tracks: [...one.tracks, { trackName: "attendance_60:screen", kind: "screen" as const }],
+      };
+    });
+
+    const plan = subscriptionPolicy(ask({ participants, spotlight: "attendance_200" }));
+
+    expect(plan.shown[0]).toBe("attendance_200");
+  });
+
+  it("is asked for whole, however many tiles the page holds", () => {
+    // Everybody in the room is looking at it, which is the one place the tile-count rule gives the
+    // wrong answer: a quarter-resolution picture of the person the host put on every screen.
+    const plan = subscriptionPolicy(ask({ spotlight: "attendance_200" }));
+
+    const spotlit = plan.video.find((track) => track.participantId === "attendance_200");
+    expect(spotlit?.preferredRid).toBe("f");
+    // And nothing else moved: a page of sixteen is still worth the quarter layer.
+    expect(
+      plan.video
+        .filter((track) => track.participantId !== "attendance_200")
+        .every((track) => track.preferredRid === "q"),
+    ).toBe(true);
+  });
+
+  it("takes the large slot in speaker view", () => {
+    const plan = subscriptionPolicy(
+      ask({ spotlight: "attendance_200", pageSize: SPEAKER_VIEW_PAGE_SIZE }),
+    );
+
+    expect(plan.shown[0]).toBe("attendance_200");
+  });
+
+  it("gives the order back when the spotlight is cleared", () => {
+    const spotlit = subscriptionPolicy(ask({ spotlight: "attendance_200" }));
+    const cleared = subscriptionPolicy(ask({ spotlight: null }));
+
+    expect(spotlit.shown[0]).toBe("attendance_200");
+    expect(cleared.shown[0]).toBe("attendance_2");
+    expect(cleared.shown).not.toContain("attendance_200");
+  });
+
+  it("is ignored where it names somebody the roster does not hold", () => {
+    // A spotlight survives on the room's own storage and this browser may be a frame behind on who
+    // has left. A plan that reserved a place for somebody who is gone would draw a hole.
+    const plan = subscriptionPolicy(ask({ spotlight: "attendance_nobody" }));
+
+    expect(plan.shown).toHaveLength(GALLERY_PAGE_SIZE);
+    expect(plan.shown[0]).toBe("attendance_2");
   });
 });
 

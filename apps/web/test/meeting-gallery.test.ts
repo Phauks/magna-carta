@@ -28,7 +28,10 @@ function tile(ordinal: number, over: Partial<MeetingTileModel> = {}): MeetingTil
   return {
     key: participantId,
     participantId,
+    userId: `user_${ordinal}`,
     name: `Member ${ordinal}`,
+    hostRole: null,
+    spotlighted: false,
     stream: null,
     local: false,
     microphoneOff: false,
@@ -50,6 +53,7 @@ function participant(ordinal: number, over: Partial<MeetingParticipant> = {}): M
     tracks: [{ trackName: `${participantId}:audio`, kind: "audio" }],
     speaking: false,
     muted: false,
+    hostRole: null,
     ...over,
   };
 }
@@ -224,6 +228,50 @@ describe("the marks a tile carries", () => {
   });
 });
 
+describe("who is running the meeting", () => {
+  it("is drawn for everybody, not only for the people who can act on it", () => {
+    // A member reading the room to find out who to ask for the floor should not have to open a menu
+    // they do not have.
+    instance = mount(Gallery, {
+      target,
+      props: {
+        tiles: [
+          tile(2, { name: "Rosalind Chase", hostRole: "host" }),
+          tile(3, { name: "Marcus Webb", hostRole: "co-host" }),
+          tile(4, { name: "Anna Reyes" }),
+        ],
+      },
+    });
+    flushSync();
+
+    const figures = [...target.querySelectorAll("figure")];
+    expect(figures.find((one) => one.textContent?.includes("Rosalind"))?.textContent).toContain(
+      "Host",
+    );
+    expect(figures.find((one) => one.textContent?.includes("Marcus"))?.textContent).toContain(
+      "Co-host",
+    );
+    expect(figures.find((one) => one.textContent?.includes("Anna"))?.textContent).not.toContain(
+      "Host",
+    );
+  });
+
+  it("marks the spotlit tile, so a jump to the front is not read as somebody talking", () => {
+    instance = mount(Gallery, {
+      target,
+      props: { tiles: [tile(2, { spotlighted: true }), tile(3)] },
+    });
+    flushSync();
+
+    const spotlit = [...target.querySelectorAll("figure")].filter(
+      (one) => one.dataset.spotlighted === "true",
+    );
+    expect(spotlit).toHaveLength(1);
+    expect(spotlit[0]?.textContent).toContain("Member 2");
+    expect(target.querySelector('[aria-label="Spotlighted for everyone"]')).not.toBeNull();
+  });
+});
+
 describe("the roster rail", () => {
   it("counts the room, and marks who is speaking and who is muted", () => {
     instance = mount(MeetingRoster, {
@@ -243,6 +291,25 @@ describe("the roster rail", () => {
     expect(target.querySelector('[aria-label="Speaking"]')).not.toBeNull();
     expect(target.querySelector('[aria-label="Microphone off"]')).not.toBeNull();
     expect(target.textContent).toContain("(you)");
+  });
+
+  it("carries the same badges and the same spotlight mark as a tile", () => {
+    instance = mount(MeetingRoster, {
+      target,
+      props: {
+        participants: [
+          participant(1, { displayName: "Rosalind Chase", hostRole: "host" }),
+          participant(2, { displayName: "Marcus Webb", hostRole: "co-host" }),
+          participant(3, { displayName: "Anna Reyes" }),
+        ],
+        spotlightedParticipantId: "attendance_3",
+      },
+    });
+    flushSync();
+
+    expect(target.textContent).toContain("Host");
+    expect(target.textContent).toContain("Co-host");
+    expect(target.querySelector('[aria-label="Spotlighted for everyone"]')).not.toBeNull();
   });
 
   it("offers no search where a member can find a name by reading", () => {

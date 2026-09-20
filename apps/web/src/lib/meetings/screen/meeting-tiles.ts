@@ -14,6 +14,7 @@
 import type {
   ConnectionQuality,
   MeetingClient,
+  MeetingHostRole,
   MeetingParticipant,
 } from "../client/meeting-client.svelte.ts";
 
@@ -23,8 +24,23 @@ export interface MeetingTileModel {
   readonly key: string;
   /** Who this is, where the tile is a person. Null for a screen share, which is not one. */
   readonly participantId: string | null;
+  /**
+   * The MEMBER behind the stay, which is what a hosting act names — a grant is written for a person
+   * at the firm, not for one visit to one room. Null for a tile that is not a person.
+   */
+  readonly userId: string | null;
   /** Who this is, as the roster states them. */
   readonly name: string;
+  /** Whether they are running this meeting, and in which of the two ways. Null for most of a room. */
+  readonly hostRole: MeetingHostRole | null;
+  /**
+   * Whether a host put them on every screen in the room.
+   *
+   * It is drawn rather than only ordered because the order alone does not say WHY somebody is first:
+   * a member who sees a colleague jump to the front of their gallery should be able to tell a
+   * spotlight from somebody who has just started talking.
+   */
+  readonly spotlighted: boolean;
   readonly stream: MediaStream | null;
   /** This browser's own preview, which plays silently. */
   readonly local: boolean;
@@ -93,11 +109,15 @@ export function meetingTiles(client: MeetingClient, localName: string): MeetingT
   const own = client.participants.find(
     (participant) => participant.participantId === client.participantId,
   );
+  const spotlit = client.roomState.spotlight?.participantId ?? null;
   const tiles: MeetingTileModel[] = [
     {
       key: client.participantId ?? "local",
       participantId: client.participantId,
+      userId: own?.userId ?? null,
       name: localName,
+      hostRole: own?.hostRole ?? null,
+      spotlighted: spotlit !== null && spotlit === client.participantId,
       stream: client.localStream,
       local: true,
       microphoneOff: !client.microphoneOn,
@@ -122,7 +142,10 @@ export function meetingTiles(client: MeetingClient, localName: string): MeetingT
     tiles.push({
       key: participantId,
       participantId,
+      userId: participant.userId,
       name: participantName(participant),
+      hostRole: participant.hostRole,
+      spotlighted: spotlit === participantId,
       stream: client.remoteStreams.get(participantId) ?? null,
       local: false,
       microphoneOff: presence.muted || !publishesAudio(participant),
@@ -139,10 +162,15 @@ export function meetingTiles(client: MeetingClient, localName: string): MeetingT
  * The one tile that takes the large slot in speaker view: whoever the plan puts first.
  *
  * It is the first of the page rather than a search for whoever is loudest, because the plan already
- * ranked the room — pinned, then sharing, then talking — and a second ranking here would be a
- * second answer to the same question.
+ * ranked the room — spotlit, then pinned, then sharing, then talking — and a second ranking here
+ * would be a second answer to the same question. That ranking is also what puts a host's spotlight
+ * in this slot without this function knowing there is such a thing.
+ *
+ * It is NOT called the spotlight tile, though it was until a host could spotlight somebody for the
+ * room: one word meaning both "the large slot this member chose to look at" and "the person every
+ * screen in the room is looking at" is a word a reader has to disambiguate from context.
  */
-export function spotlightTile(tiles: readonly MeetingTileModel[]): MeetingTileModel | null {
+export function speakerViewTile(tiles: readonly MeetingTileModel[]): MeetingTileModel | null {
   return tiles.find((tile) => !tile.local) ?? null;
 }
 
@@ -161,7 +189,10 @@ export function sharedScreenTile(
     return {
       key: "local-screen",
       participantId: null,
+      userId: null,
       name: `Shared by ${localName}`,
+      hostRole: null,
+      spotlighted: false,
       stream: client.screenStream,
       local: true,
       microphoneOff: null,
@@ -182,7 +213,10 @@ export function sharedScreenTile(
   return {
     key: `${sharer.participantId}-screen`,
     participantId: null,
+    userId: null,
     name: `Shared by ${participantName(sharer)}`,
+    hostRole: null,
+    spotlighted: false,
     stream: client.remoteScreens.get(sharer.participantId) ?? null,
     local: false,
     microphoneOff: null,

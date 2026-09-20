@@ -46,6 +46,7 @@ function meeting(overrides: Partial<MeetingSummary> = {}): MeetingSummary {
     medium: "video",
     liveCount: 3,
     locked: false,
+    lobby: "off",
     configured: true,
     ...overrides,
   };
@@ -169,6 +170,15 @@ describe("a section of the screen", () => {
     // somebody who cannot see the glyph.
     expect(rendered.querySelector('[aria-label="Call"]')).not.toBeNull();
     expect(rendered.querySelector('[aria-label="Video meeting"]')).toBeNull();
+  });
+
+  it("says a locked room is locked, where the row would otherwise offer a way in", () => {
+    const rendered = draw({ scope: "live", meetings: [meeting({ locked: true })] });
+
+    // Walking a reader through the room screen to be refused there is two screens spent saying
+    // what one word says on the row they are already reading.
+    expect(rendered.querySelector('a[href="/meetings/meeting_1"]')).toBeNull();
+    expect(rendered.textContent).toContain("Locked");
   });
 
   it("sends an ended meeting back to its event rather than into a room that is closed", () => {
