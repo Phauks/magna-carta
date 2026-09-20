@@ -84,3 +84,28 @@
     });
   }}
 />
+
+{#snippet streamed()}
+  <!-- The streamed posture: only the steps that have happened, each with the second it did as its
+       note, and the one under way. The notes are hidden from the live region, since a note that
+       ticks would be announced on every tick. -->
+  <div class="max-w-sm">
+    <ProgressSteps
+      steps={[
+        { label: "Editing session opened.", status: "done", note: "0.4 s" },
+        { label: "Editor started.", status: "done", note: "28.1 s" },
+        { label: "Loading the editor's page into the tab.", status: "active", note: "30.0 s" },
+      ]}
+    />
+  </div>
+{/snippet}
+
+<Story
+  name="Streamed with notes"
+  template={streamed}
+  play={async ({ canvas, step }) => {
+    await step("Keeps the note out of what is announced", async () => {
+      await expect(canvas.getByText("28.1 s")).toHaveAttribute("aria-hidden", "true");
+    });
+  }}
+/>

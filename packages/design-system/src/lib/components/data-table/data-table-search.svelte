@@ -22,8 +22,6 @@
     table: Table<TData>;
     /** Accessible name for the control. Name the surface: "Search matters". */
     label?: string;
-    /** Hint text shown while the field is empty (not an accessible label). */
-    placeholder?: string;
     /** Whether the field is showing. Bindable, so a screen can open the control itself. */
     expanded?: boolean;
     /** Control height, from the same scale the Button and Input use. */
@@ -38,7 +36,6 @@
   let {
     table,
     label = "Search this list",
-    placeholder = "Search",
     expanded = $bindable(false),
     size = "default",
     disabled = false,
@@ -57,7 +54,6 @@
   onsearch={(next) => table.setGlobalFilter(next)}
   searchOn="keystroke"
   {label}
-  {placeholder}
   {size}
   {disabled}
   {fieldClass}

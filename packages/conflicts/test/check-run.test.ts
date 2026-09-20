@@ -1,4 +1,6 @@
+import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { createPerson } from "@magna-carta/directory/person";
+import { setActiveNumberingScheme } from "@magna-carta/sequence-numbering/scheme-service";
 import { expect, test } from "vitest";
 import {
   executeCheckRun,
@@ -14,7 +16,7 @@ import {
   readNumberedCheckByAnyId,
   readRun,
   readRunsForCheck,
-  renderCheckNumber,
+  previewNextCheckNumber,
   runIsStale,
   settleStaleRuns,
   STALE_RUN_AFTER_MILLISECONDS,
@@ -66,10 +68,40 @@ async function subjectOn(fixture: RecheckFixture, seed: string): Promise<string>
   );
 }
 
-test("the check number is the firm's own sequence, padded to read as a reference", () => {
-  expect(renderCheckNumber(1)).toBe("CC-0001");
-  expect(renderCheckNumber(42)).toBe("CC-0042");
-  expect(renderCheckNumber(12345)).toBe("CC-12345");
+test("the check number is drawn from the firm's scheme: the built-in default restarts each year, and a configured scheme is honoured", async () => {
+  const fixture = await recheckFixture("check-number-scheme");
+  // Nothing configured: the register's default, with the year the check was opened in.
+  expect(await previewNextCheckNumber(fixture.database, fixture.writeOptions.clock.now())).toBe(
+    "CC2026-00001",
+  );
+  expect(await previewNextCheckNumber(fixture.database, "2027-03-01T09:00:00.000Z")).toBe(
+    "CC2027-00001",
+  );
+  // The firm writes its own shape on the numbering screen, and the next check wears it.
+  const { effect } = setActiveNumberingScheme(
+    fixture.database,
+    [
+      { kind: "literal", text: "CONF-" },
+      { kind: "counter", padWidth: 3, start: 100 },
+    ],
+    { clock: fixture.writeOptions.clock, actorUserId: fixture.writeOptions.actorUserId },
+    "conflicts_check",
+  );
+  await commitEffectBatch(fixture.database, effect, {
+    now: fixture.writeOptions.clock.now,
+  });
+  expect(await previewNextCheckNumber(fixture.database, fixture.writeOptions.clock.now())).toBe(
+    "CONF-100",
+  );
+  const opened = await openCheckRun(
+    fixture.database,
+    { request: storedRequest(), triggerSource: "manual", under: null },
+    fixture.writeOptions,
+  );
+  expect(opened.checkNumber).toBe("CONF-100");
+  expect(await previewNextCheckNumber(fixture.database, fixture.writeOptions.clock.now())).toBe(
+    "CONF-101",
+  );
 });
 
 test("a run is opened queued with the search it will perform, then settled completed with its record", async () => {
@@ -82,7 +114,7 @@ test("a run is opened queued with the search it will perform, then settled compl
     { request: { ...input, matterId: null }, triggerSource: "manual", under: null },
     fixture.writeOptions,
   );
-  expect(opened.checkNumber).toBe("CC-0001");
+  expect(opened.checkNumber).toBe("CC2026-00001");
   expect(opened.ordinal).toBe(1);
   // A check is identified by its first run's handle.
   expect(opened.runId).toBe(opened.numberedCheckId);
@@ -139,7 +171,7 @@ test("a re-run opens under the same check with the next ordinal, and the check's
   expect(second.numberedCheckId).toBe(first);
   expect(second.runId).not.toBe(first);
   expect(second.ordinal).toBe(2);
-  expect(second.checkNumber).toBe("CC-0001");
+  expect(second.checkNumber).toBe("CC2026-00001");
 
   const runs = await readRunsForCheck(fixture.database, first);
   expect(runs.map((run) => run.ordinal)).toEqual([1, 2]);
@@ -194,7 +226,7 @@ test("checks draw consecutive numbers, and the log lists one row per check with 
   const { results } = await selectConflictsChecksStatement(fixture.database, {
     limit: 10,
   }).all<ConflictsCheckSummaryRow>();
-  expect(results.map((row) => row.check_number)).toEqual(["CC-0002", "CC-0001"]);
+  expect(results.map((row) => row.check_number)).toEqual(["CC2026-00002", "CC2026-00001"]);
   const matterRow = results.find((row) => row.id === second);
   expect(matterRow?.run_count).toBe(2);
   expect(matterRow?.latest_run_id).toBe(third);
@@ -228,7 +260,7 @@ test("filing a check on a matter later makes it the matter's own, without touchi
   const after = await readMatterConflictsPosture(fixture.database, MATTER);
   expect(after.neverChecked).toBe(false);
   expect(after.latestCheck?.id).toBe(checkId);
-  expect(after.latestCheck?.checkNumber).toBe("CC-0001");
+  expect(after.latestCheck?.checkNumber).toBe("CC2026-00001");
   // The record still says which matter the search actually ran against: none.
   const { results } = await fixture.database
     .prepare(`SELECT subject_matter_id FROM conflicts_check WHERE id = ?1`)

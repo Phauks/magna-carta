@@ -16,17 +16,26 @@
    * anyway (owner: "firm events and events should be the exact same"). One form now, and the
    * question that used to be answered by which menu item you picked is a control at the top of it.
    *
-   * TWO CHOICES AND NO THIRD (owner ruling, 2026-09-16). Matter writes a `matter_event`; Firm writes
-   * a `firm_event`. There is no None, because there is no third table for one to land in and
-   * inventing a third word for the same row would put two records on the calendar that nothing
-   * could tell apart afterwards. A personal appointment is a firm event with only the one person on
-   * it, which is what the `participants` audience already means.
+   * THREE OWNERS AND TWO RECORDS. A matter writes a `matter_event`; the firm and a staff member both
+   * write a `firm_event`, because a person's own appointment is a firm event with only that person
+   * on it — the `participants` audience already means exactly that — and a third table for one
+   * would put two records on the calendar that nothing could tell apart. The staff arm was added on
+   * 2026-09-18 (owner: "we also need to be able to set for individual staff calendars") so a reader
+   * can put something on ONE colleague's calendar without first working out that "the firm,
+   * audience the people listed, participant: them" is how that is said. The control is the
+   * product's one field for a closed choice (a combobox, never a select), and the second field on
+   * its line is the answer the owner needs: WHICH matter, WHICH member, or — for the firm — who
+   * sees it. One slot for all three, so switching between them moves nothing beneath (owner,
+   * 2026-09-18: "changing between firm and matter causes reflow").
    *
-   * WHAT THE CHOICE REVEALS IS THE PART THAT GENUINELY DIFFERS. Matter reveals the matter picker
-   * beside it; Firm reveals the audience — everyone at the firm, or the people listed — and the
-   * office, which is a real foreign key on a firm event because it is what says which rooms are
-   * nearby. Everything else is the same question in the same order for both, which is what the two
-   * forms were failing to be.
+   * THE LEFT SIDE IS IN TABS. The form asks about a matter, a title, a type, two dates, two times,
+   * a zone, a repeat, a location, a court reference, a link, a description and a list of people;
+   * one column of that scrolled beside the day being booked. Details, When, Where and Who each hold
+   * their own group (event-draft.ts, `EVENT_FORM_TABS`), the way the new-matter panel's intake is
+   * segmented. What differs by owner is placed on the tab the answer belongs to — the court
+   * reference on Where for a matter, the office on Where for the firm, the audience on Details for
+   * the firm — and in the same slot as its counterpart, so the tab keeps its shape whichever is
+   * chosen.
    *
    * THE MATTER IS FIXED WHERE THE FORM WAS OPENED FROM ONE. On a matter's own calendar there is
    * nothing to choose, and nothing to fall back to.
@@ -46,12 +55,12 @@
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import Textarea from "@magna-carta/design-system/textarea";
-  import * as RadioGroup from "@magna-carta/design-system/radio-group";
-  import * as Select from "@magna-carta/design-system/select";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
+  import * as Tabs from "@magna-carta/design-system/tabs";
+  import ChoicePicker from "$lib/components/choice-picker.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import type { FirmMemberSummary } from "$lib/members/members-api.ts";
+  import MemberPicker from "$lib/matters/member-picker.svelte";
   import MatterPicker from "$lib/time/matter-picker.svelte";
   import type { SheetMatter } from "$lib/time/time-sheet-model.ts";
   import {
@@ -69,8 +78,14 @@
     eventDraftRequest,
     eventDraftShortfalls,
     EVENT_FIELDS,
+    EVENT_FORM_TABS,
+    EVENT_OWNER_OPTIONS,
     eventDraftStarted,
+    isEventOwner,
+    withMemberListed,
     type EventDraft,
+    type EventFormTab,
+    type EventOwner,
     type ParticipantDraft,
   } from "./event-draft.ts";
   import ParticipantPicker from "./participant-picker.svelte";
@@ -80,10 +95,9 @@
   import FieldRefusal from "./field-refusal.svelte";
   import { shortfallFor } from "./shortfall.ts";
   import LocationPicker from "./location-picker.svelte";
-  import { roomForLocation, roomNotHeldSentence } from "./room-location.ts";
+  import { roomForLocation, roomNotHeldSentence, type OfficePlace } from "./room-location.ts";
   import DaySchedule from "./day-schedule.svelte";
   import { firmEventDraftRequest, type FirmEventDraft } from "./firm-event-draft.ts";
-  import type { LocationSummary } from "$lib/matters/matters-api.ts";
 
   let {
     open = $bindable(false),
@@ -115,8 +129,8 @@
     eventTypes: readonly EventType[];
     /** The firm's roster, for the participant picker. */
     members: readonly FirmMemberSummary[];
-    /** The firm's offices, which the Location field offers. */
-    locations?: readonly LocationSummary[];
+    /** The firm's offices, which the Location and Office fields offer. */
+    locations?: readonly OfficePlace[];
     /** The firm's bookable things; its rooms are the other half of what Location offers. */
     resources?: readonly FirmResource[];
     /** The zones offered first: the reader's own and the firm's offices, in that order. */
@@ -139,13 +153,17 @@
   let since = $state<EventDraft>(emptyEventDraft("", null));
   let chosenMatterId = $state<string | null>(null);
   /**
-   * Who the event belongs to. Two arms and no third, because there are two tables and a third word
-   * for the same row would be a distinction nothing could read back.
+   * Who the event belongs to: a matter, the firm, or one staff member. Three arms over two
+   * records, for the reason the file's comment gives.
    */
-  let belongsTo = $state<"matter" | "firm">("matter");
+  let owner = $state<EventOwner>("matter");
+  /** The colleague whose calendar this is, where the owner is a staff member. */
+  let staffUserId = $state<string | null>(null);
   /** Only a firm event has these: who sees it, and which office it is at. */
   let audience = $state<FirmEventAudience>("participants");
   let officeId = $state<string | null>(null);
+  /** The tab the reader is on. Details first, because that is where the first question is. */
+  let section = $state<EventFormTab>("details");
   let failure = $state<StatedFailure | null>(null);
   /** The idempotency key of the attempt in flight or left unanswered; null between attempts. */
   let attemptKey: string | null = null;
@@ -153,28 +171,35 @@
   /*
    * The matter this will be recorded on, or null for a firm event. Opened FROM a matter there is
    * nothing to choose and nothing to fall back to, so the switch is not drawn at all; otherwise it
-   * is the picked matter, and choosing Firm discards it rather than carrying a matter on a record
-   * that has no column for one.
+   * is the picked matter, and choosing the firm or a member discards it rather than carrying a
+   * matter on a record that has no column for one.
    */
-  const targetMatterId = $derived(
-    matterId ?? (belongsTo === "matter" ? chosenMatterId : null),
+  const targetMatterId = $derived(matterId ?? (owner === "matter" ? chosenMatterId : null));
+  /** Whether a firm event is what will be written: the firm's own, or one member's. */
+  const recordingForFirm = $derived(matterId === null && owner !== "matter");
+  /** The member a staff-owned event is for, where the owner is a staff member and one was picked. */
+  const staffMember = $derived(
+    owner === "staff" && staffUserId !== null
+      ? (members.find((member) => member.userId === staffUserId) ?? null)
+      : null,
   );
-  const recordingForFirm = $derived(matterId === null && belongsTo === "firm");
-
-  const BELONGS_TO = [
-    { value: "matter", label: "A matter" },
-    { value: "firm", label: "The firm" },
-  ] as const;
+  /** Whether the people listed mean anything: an all-members firm event lists nobody. */
+  const listsParticipants = $derived(!(owner === "firm" && audience === "all_members"));
 
   const AUDIENCES: readonly { value: FirmEventAudience; label: string }[] = [
     { value: "all_members", label: "Everyone at the firm" },
     { value: "participants", label: "The people listed" },
   ];
 
+  function isAudience(value: string): value is FirmEventAudience {
+    return AUDIENCES.some((choice) => choice.value === value);
+  }
+
   /** The firm's offices, as the Office field offers them. A firm with none offers none. */
   const officeItems = $derived(
     locations.map((location) => ({ value: location.id, label: location.name })),
   );
+  const NO_OFFICES = "The firm has no offices recorded, so there is none to choose.";
 
   const typeItems = $derived(
     eventTypes
@@ -193,10 +218,22 @@
   const conferenceRefusal = $derived(shortfallFor(fieldShortfalls, EVENT_FIELDS.conferenceUrl));
 
   /*
+   * A staff-owned event needs its member, and says so where the commit is refused: without one
+   * there is no calendar for it to land on, and a firm event with nobody listed would be the
+   * firm's rather than theirs.
+   */
+  const STAFF_MEMBER_NEEDED = "A staff member is needed: whose calendar this is.";
+  const ownerRefusal = $derived(
+    owner === "staff" && staffMember === null ? STAFF_MEMBER_NEEDED : undefined,
+  );
+
+  /*
    * Why the commit is unavailable, or undefined when it is available. Stated beside the control it
    * refuses rather than hiding the control, so a reader is told which answer is still missing.
    */
-  const refusal = $derived(eventDraftReady(draft) ? undefined : shortfalls[0]?.sentence);
+  const refusal = $derived(
+    ownerRefusal ?? (eventDraftReady(draft) ? undefined : shortfalls[0]?.sentence),
+  );
 
   /**
    * What the commit will write. A matter makes it a setting on that case; no matter makes it the
@@ -208,7 +245,9 @@
   const started = $derived(
     eventDraftStarted(draft, since) ||
       chosenMatterId !== null ||
-      belongsTo !== "matter" ||
+      owner !== "matter" ||
+      staffUserId !== null ||
+      audience !== "participants" ||
       officeId !== null,
   );
 
@@ -218,6 +257,8 @@
     // title and two people and closed untouched does not ask about unsaved work.
     const seeded = (): EventDraft => ({
       ...emptyEventDraft(timeZone, initialDate),
+      // The hour a day grid was double-clicked on, where it was; a day alone opens as all day.
+      startsAtTime: initialTime ?? "",
       title: initialTitle,
       // The drafts are immutable records, so a fresh array is a fresh draft.
       participants: [...initialParticipants],
@@ -226,19 +267,24 @@
     since = seeded();
     chosenMatterId = null;
     saveAttempted = false;
-    belongsTo = "matter";
+    owner = "matter";
+    staffUserId = null;
     audience = "participants";
     officeId = null;
+    section = "details";
     failure = null;
     attemptKey = null;
   }
 
   /**
-   * The same answers as a firm event, where the firm is who it belongs to. Every field the two
-   * records share is carried straight across; the audience and the office are the two the reader
-   * answered on the firm arm of the form, and nowhere else.
+   * The same answers as a firm event, where the firm or one of its members is who it belongs to.
+   * Every field the two records share is carried straight across; the audience and the office are
+   * the two the reader answered on the firm arm of the form. A STAFF MEMBER'S event is the people-
+   * listed audience with that member listed first, whether or not the reader also picked them —
+   * that is what puts it on their calendar and nobody else's.
    */
   function asFirmEvent(): CreateFirmEventRequest {
+    const member = staffMember;
     const asFirm: FirmEventDraft = {
       title: draft.title,
       eventTypeId: draft.eventTypeId,
@@ -248,12 +294,15 @@
       endsOn: draft.endsOn,
       endsAtTime: draft.endsAtTime,
       timeZone: draft.timeZone,
-      audience,
+      audience: member === null ? audience : "participants",
       locationId: officeId,
       locationText: draft.locationText,
       conferenceUrl: draft.conferenceUrl,
       recurrence: draft.recurrence,
-      participants: draft.participants,
+      participants:
+        member === null
+          ? draft.participants
+          : withMemberListed(draft.participants, member.userId, member.displayName),
     };
     return firmEventDraftRequest(asFirm);
   }
@@ -349,201 +398,228 @@
   {/snippet}
 
   {#snippet fields({ busy })}
-    <div class="flex flex-col gap-16">
-      {#if matterId === null}
-        <!-- The first question, and the one that decides which record is written. The matter picker
-             sits beside it on the same line rather than under it, because "a matter" and WHICH
-             matter are one answer given in two presses (owner, 2026-09-16). -->
+    <Tabs.Root
+      bind:value={
+        () => section,
+        (next) => {
+          if (EVENT_FORM_TABS.some((tab) => tab.value === next)) section = next as EventFormTab;
+        }
+      }
+      class="flex flex-col gap-16"
+    >
+      <Tabs.List>
+        {#each EVENT_FORM_TABS as tab (tab.value)}
+          <Tabs.Trigger value={tab.value}>{tab.label}</Tabs.Trigger>
+        {/each}
+      </Tabs.List>
+
+      <!-- ---------- Details ---------- -->
+      <Tabs.Content value="details" class="flex flex-col gap-16">
+        {#if matterId === null}
+          <!-- The first question, and the one that decides which record is written. The second
+               field on the line is the answer the owner needs — WHICH matter, WHICH member, or who
+               sees a firm event — in ONE slot, so choosing between them moves nothing beneath. -->
+          <div class="grid gap-16 sm:grid-cols-2">
+            <div class="flex flex-col gap-8">
+              <Label for="{idPrefix}-belongs-to">Belongs to</Label>
+              <ChoicePicker
+                inputId="{idPrefix}-belongs-to"
+                label="Belongs to"
+                options={EVENT_OWNER_OPTIONS}
+                value={owner}
+                disabled={busy}
+                onchange={(next) => {
+                  if (isEventOwner(next)) owner = next;
+                }}
+              />
+            </div>
+            {#if owner === "matter"}
+              <div class="flex flex-col gap-8">
+                <Label for="{idPrefix}-matter">Matter</Label>
+                <MatterPicker
+                  inputId="{idPrefix}-matter"
+                  {matters}
+                  capped={mattersCapped}
+                  reading={mattersReading}
+                  value={chosenMatterId}
+                  disabled={busy}
+                  onpick={(picked) => (chosenMatterId = picked)}
+                />
+              </div>
+            {:else if owner === "staff"}
+              <div class="flex flex-col gap-8">
+                <Label for="{idPrefix}-staff-member">Staff member</Label>
+                <MemberPicker
+                  inputId="{idPrefix}-staff-member"
+                  label="Staff member"
+                  {members}
+                  disabled={busy}
+                  bind:value={staffUserId}
+                />
+                <FieldRefusal refusal={saveAttempted ? ownerRefusal : undefined} />
+              </div>
+            {:else}
+              <!-- Audience decides whether the list on Who means anything at all: an all-members
+                   event is on every calendar by construction and carries no list to decay when
+                   somebody joins or leaves. -->
+              <div class="flex flex-col gap-8">
+                <Label for="{idPrefix}-audience">Audience</Label>
+                <ChoicePicker
+                  inputId="{idPrefix}-audience"
+                  label="Audience"
+                  options={AUDIENCES}
+                  value={audience}
+                  disabled={busy}
+                  onchange={(next) => {
+                    if (isAudience(next)) audience = next;
+                  }}
+                />
+              </div>
+            {/if}
+          </div>
+        {/if}
+
         <div class="grid gap-16 sm:grid-cols-2">
           <div class="flex flex-col gap-8">
-            <Label id="{idPrefix}-belongs-to-label">Belongs to</Label>
-            <RadioGroup.Root
-              aria-labelledby="{idPrefix}-belongs-to-label"
-              class="flex flex-row flex-wrap gap-16"
+            <Label for="{idPrefix}-title">Title</Label>
+            <Input
+              id="{idPrefix}-title"
+              aria-invalid={titleRefusal === undefined ? undefined : "true"}
               disabled={busy}
-              bind:value={
-                () => belongsTo,
-                (next) => {
-                  if (next === "matter" || next === "firm") belongsTo = next;
-                }
-              }
-            >
-              {#each BELONGS_TO as choice (choice.value)}
-                <div class="flex items-center gap-8">
-                  <RadioGroup.Item value={choice.value} id="{idPrefix}-belongs-{choice.value}" />
-                  <Label for="{idPrefix}-belongs-{choice.value}">{choice.label}</Label>
-                </div>
-              {/each}
-            </RadioGroup.Root>
+              bind:value={draft.title}
+            />
+            <FieldRefusal refusal={titleRefusal} />
           </div>
-          {#if belongsTo === "matter"}
+          <EventTypeSelect
+            id="{idPrefix}-type"
+            items={typeItems}
+            value={draft.eventTypeId}
+            disabled={busy}
+            onchange={(value) => (draft.eventTypeId = value)}
+          />
+        </div>
+
+        <!-- The description's height is the form's to decide, not the reader's: a grab corner
+             here only pushed the tabs and the footer around (owner, 2026-09-18). -->
+        <div class="flex flex-col gap-8">
+          <Label for="{idPrefix}-description">Description</Label>
+          <Textarea
+            id="{idPrefix}-description"
+            rows={4}
+            resizable={false}
+            disabled={busy}
+            bind:value={draft.description}
+          />
+        </div>
+      </Tabs.Content>
+
+      <!-- ---------- When ---------- -->
+      <Tabs.Content value="when" class="flex flex-col gap-16">
+        <RecordTimingFields
+          bind:draft
+          idPrefix="{idPrefix}-timing"
+          preferred={preferredTimeZones}
+          shortfalls={fieldShortfalls}
+          disabled={busy}
+        />
+
+        <RecurrenceField
+          bind:rule={draft.recurrence}
+          startsOn={draft.startsOn}
+          idPrefix="{idPrefix}-repeat"
+          disabled={busy}
+        />
+      </Tabs.Content>
+
+      <!-- ---------- Where ---------- -->
+      <Tabs.Content value="where" class="flex flex-col gap-16">
+        <div class="grid gap-16 sm:grid-cols-2">
+          <div class="flex flex-col gap-8">
+            <Label for="{idPrefix}-location">Location</Label>
+            <LocationPicker
+              inputId="{idPrefix}-location"
+              {locations}
+              {resources}
+              disabled={busy}
+              bind:value={draft.locationText}
+            />
+          </div>
+          {#if recordingForFirm}
+            <!-- The office is a real foreign key on a firm event — it is what says which rooms are
+                 nearby — where the location beside it is the free text a venue is. -->
             <div class="flex flex-col gap-8">
-              <Label for="{idPrefix}-matter">Matter</Label>
-              <MatterPicker
-                inputId="{idPrefix}-matter"
-                {matters}
-                capped={mattersCapped}
-                reading={mattersReading}
-                value={chosenMatterId}
+              <Label for="{idPrefix}-office">Office</Label>
+              <ChoicePicker
+                inputId="{idPrefix}-office"
+                label="Office"
+                options={officeItems}
+                value={officeId ?? ""}
+                disabled={busy || officeItems.length === 0}
+                title={officeItems.length === 0 ? NO_OFFICES : undefined}
+                onchange={(next) => (officeId = next === "" ? null : next)}
+              />
+            </div>
+          {:else}
+            <!-- The court's own number for the case. A firm meeting has no court, so the office
+                 takes this slot instead of the field being shown empty and ignored. -->
+            <div class="flex flex-col gap-8">
+              <Label for="{idPrefix}-court-reference">Court reference</Label>
+              <Input
+                id="{idPrefix}-court-reference"
                 disabled={busy}
-                onpick={(picked) => (chosenMatterId = picked)}
+                bind:value={draft.courtReference}
               />
             </div>
           {/if}
         </div>
-      {/if}
 
-      <div class="grid gap-16 sm:grid-cols-2">
+        <!-- Where it is JOINED, where it is online. Its own field, because a deposition can be in a
+             conference room and on a call at once and a firm that typed the link where the room
+             goes has lost the room. -->
         <div class="flex flex-col gap-8">
-          <Label for="{idPrefix}-title">Title</Label>
+          <Label for="{idPrefix}-conference-url">Conference link</Label>
           <Input
-            id="{idPrefix}-title"
-            aria-invalid={titleRefusal === undefined ? undefined : "true"}
+            id="{idPrefix}-conference-url"
+            type="url"
+            inputmode="url"
+            autocomplete="off"
+            spellcheck={false}
+            aria-invalid={conferenceRefusal === undefined ? undefined : "true"}
             disabled={busy}
-            bind:value={draft.title}
+            bind:value={draft.conferenceUrl}
           />
-          <FieldRefusal refusal={titleRefusal} />
+          <FieldRefusal refusal={conferenceRefusal} />
         </div>
-        <EventTypeSelect
-          id="{idPrefix}-type"
-          items={typeItems}
-          value={draft.eventTypeId}
-          disabled={busy}
-          onchange={(value) => (draft.eventTypeId = value)}
-        />
-      </div>
+      </Tabs.Content>
 
-      <RecordTimingFields
-        bind:draft
-        idPrefix="{idPrefix}-timing"
-        preferred={preferredTimeZones}
-        shortfalls={fieldShortfalls}
-        disabled={busy}
-      />
-
-      <RecurrenceField
-        bind:rule={draft.recurrence}
-        startsOn={draft.startsOn}
-        idPrefix="{idPrefix}-repeat"
-        disabled={busy}
-      />
-
-      {#if recordingForFirm}
-        <!-- The two questions only a firm event answers. Audience decides whether the participants
-             list below means anything at all: an all-members event is on every calendar by
-             construction and carries no list to decay when somebody joins or leaves. -->
-        <div class="flex flex-col gap-8">
-          <Label id="{idPrefix}-audience-label">Audience</Label>
-          <RadioGroup.Root
-            aria-labelledby="{idPrefix}-audience-label"
-            class="flex flex-row flex-wrap gap-16"
-            disabled={busy}
-            bind:value={
-              () => audience,
-              (next) => {
-                if (next === "all_members" || next === "participants") audience = next;
-              }
-            }
-          >
-            {#each AUDIENCES as choice (choice.value)}
-              <div class="flex items-center gap-8">
-                <RadioGroup.Item value={choice.value} id="{idPrefix}-audience-{choice.value}" />
-                <Label for="{idPrefix}-audience-{choice.value}">{choice.label}</Label>
-              </div>
-            {/each}
-          </RadioGroup.Root>
-        </div>
-      {/if}
-
-      <div class="grid gap-16 sm:grid-cols-2">
-        {#if recordingForFirm}
-          <!-- The office is a real foreign key on a firm event — it is what says which rooms are
-               nearby — where the location beside it is the free text a venue is. -->
+      <!-- ---------- Who ---------- -->
+      <Tabs.Content value="who" class="flex flex-col gap-16">
+        {#if listsParticipants}
+          {#if staffMember !== null}
+            <!-- The member the event belongs to is on it by construction; the list beneath is who
+                 else is there. -->
+            <p class="text-sm text-text-muted">
+              On {staffMember.displayName}'s calendar. Anyone else at the setting is listed here.
+            </p>
+          {/if}
           <div class="flex flex-col gap-8">
-            <Label id="{idPrefix}-office-label">Office</Label>
-            <Select.Root
-              type="single"
-              items={officeItems}
-              value={officeId ?? ""}
-              onValueChange={(value) => (officeId = value === "" ? null : value)}
-              disabled={busy || officeItems.length === 0}
-            >
-              <Select.Trigger aria-labelledby="{idPrefix}-office-label">
-                <Select.Value placeholder={placeholderOf("Office")} />
-              </Select.Trigger>
-              <Select.Content>
-                {#each officeItems as item (item.value)}
-                  <Select.Item value={item.value} label={item.label} />
-                {/each}
-              </Select.Content>
-            </Select.Root>
-          </div>
-        {/if}
-        <div class="flex flex-col gap-8">
-          <Label for="{idPrefix}-location">Location</Label>
-          <LocationPicker
-            inputId="{idPrefix}-location"
-            {locations}
-            {resources}
-            disabled={busy}
-            bind:value={draft.locationText}
-          />
-        </div>
-        {#if !recordingForFirm}
-          <!-- The court's own number for the case. A firm meeting has no court, so the field is
-               absent rather than shown empty and ignored. -->
-          <div class="flex flex-col gap-8">
-            <Label for="{idPrefix}-court-reference">Court reference</Label>
-            <Input
-              id="{idPrefix}-court-reference"
+            <Label for="{idPrefix}-participants">Participants</Label>
+            <ParticipantPicker
+              inputId="{idPrefix}-participants"
+              {members}
               disabled={busy}
-              bind:value={draft.courtReference}
+              bind:participants={draft.participants}
             />
           </div>
+        {:else}
+          <!-- An all-members firm event lists nobody: it is on every calendar by construction, so a
+               list here would be a list the record ignores. -->
+          <p class="text-sm text-text-muted">
+            Everyone at the firm is on this event, so there is no list to keep. Choose "The people
+            listed" as the audience on Details to name who is at it.
+          </p>
         {/if}
-      </div>
-
-      <!-- Where it is JOINED, where it is online. Its own field, because a deposition can be in a
-           conference room and on a call at once and a firm that typed the link where the room goes
-           has lost the room. -->
-      <div class="flex flex-col gap-8">
-        <Label for="{idPrefix}-conference-url">Conference link</Label>
-        <Input
-          id="{idPrefix}-conference-url"
-          type="url"
-          inputmode="url"
-          autocomplete="off"
-          spellcheck={false}
-          aria-invalid={conferenceRefusal === undefined ? undefined : "true"}
-          disabled={busy}
-          bind:value={draft.conferenceUrl}
-        />
-        <FieldRefusal refusal={conferenceRefusal} />
-      </div>
-
-      <div class="flex flex-col gap-8">
-        <Label for="{idPrefix}-description">Description</Label>
-        <Textarea
-          id="{idPrefix}-description"
-          rows={2}
-          disabled={busy}
-          bind:value={draft.description}
-        />
-      </div>
-
-      <!-- An all-members firm event lists nobody: it is on every calendar by construction, so a
-           list here would be a list the record ignores. -->
-      {#if !recordingForFirm || audience === "participants"}
-        <div class="flex flex-col gap-8">
-          <Label for="{idPrefix}-participants">Participants</Label>
-          <ParticipantPicker
-            inputId="{idPrefix}-participants"
-            {members}
-            disabled={busy}
-            bind:participants={draft.participants}
-          />
-        </div>
-      {/if}
-    </div>
+      </Tabs.Content>
+    </Tabs.Root>
   {/snippet}
 </ActionDialog>

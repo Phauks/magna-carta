@@ -1,9 +1,10 @@
 /*
  * Grid filters — ONE filter mechanism, parameterized by column type (the settled rule across the
- * matter surfaces): a contains-text box, a checkbox set with counts (the facet-selection model
- * carries the all/none math), a numeric from/to range, and a date from/to range. A column with no
- * entry in the filter record is unfiltered; an entry always narrows. Pure functions — the grid
- * state applies them, the filter popover renders them.
+ * matter surfaces): a checkbox set with counts (the facet-selection model carries the all/none
+ * math; the default for text), a numeric from/to range, a date from/to range, and a contains-text
+ * box for the prose column that asks for it. A column with no entry in the filter record is
+ * unfiltered; an entry always narrows. Pure functions — the grid state applies them, the filter
+ * popover renders them.
  */
 import type { GridColumn } from "./grid-columns.ts";
 import { gridColumnFilterKind, gridDateInstant } from "./grid-columns.ts";

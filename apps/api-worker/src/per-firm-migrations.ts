@@ -27,6 +27,10 @@ import matterPhysicalFileOfficeSql from "@magna-carta/database/drizzle/per-firm/
 import intakeNumberSql from "@magna-carta/database/drizzle/per-firm/20260914T191528_intake-number.sql";
 import eventRecurrenceSql from "@magna-carta/database/drizzle/per-firm/20260916T000000_event-recurrence.sql";
 import downloadRegisterAdmitsEveryDownloadSql from "@magna-carta/database/drizzle/per-firm/20260916T120000_download-register-admits-every-download.sql";
+import versionSaveKindAndParticipantsSql from "@magna-carta/database/drizzle/per-firm/20260918T181809_version-save-kind-and-participants.sql";
+import seedEditingPolicyPermissionSql from "@magna-carta/database/drizzle/per-firm/20260918T190812_seed-editing-policy-permission.sql";
+import conflictsCheckNumberingSchemeSql from "@magna-carta/database/drizzle/per-firm/20260918T195508_conflicts-check-numbering-scheme.sql";
+import seedViewNumberingSql from "@magna-carta/database/drizzle/per-firm/20260918T213000_seed-view-numbering.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -49,6 +53,10 @@ export function perFirmMigrations(): Migration[] {
     "20260916T000000_event-recurrence": eventRecurrenceSql,
     "20260916T120000_download-register-admits-every-download":
       downloadRegisterAdmitsEveryDownloadSql,
+    "20260918T181809_version-save-kind-and-participants": versionSaveKindAndParticipantsSql,
+    "20260918T190812_seed-editing-policy-permission": seedEditingPolicyPermissionSql,
+    "20260918T195508_conflicts-check-numbering-scheme": conflictsCheckNumberingSchemeSql,
+    "20260918T213000_seed-view-numbering": seedViewNumberingSql,
   });
 }
 

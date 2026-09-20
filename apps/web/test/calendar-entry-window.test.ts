@@ -469,9 +469,9 @@ describe("how the record's kind reads", () => {
 
   it("names every participant kind", () => {
     expect(PARTICIPANT_KIND_WORDS).toEqual({
-      member: "Firm member",
-      entity: "Directory record",
-      external: "External",
+      member: "Staff",
+      entity: "Directory",
+      external: "Other",
     });
   });
 });

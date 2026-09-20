@@ -26,15 +26,31 @@
   ],
   // The coolwsd Container Durable Object (Container-backed, sqlite-class). coolwsd serves on 9980 with
   // outbound networking disabled — untrusted document bytes never reach the network; the WOPI host is
-  // reached only through the class's outboundByHost interception. standard-1 (4 GiB) is a headroom
-  // starting point over the spike's 1.16 GiB idle floor; right-size to a custom ~2.5 GiB instance once
-  // the open-document peak is measured against the real WOPI host (the spike could not load documents).
+  // reached only through the class's outboundByHost interception.
+  //
+  // SIZE. standard-1 (½ vCPU, 4 GiB) is a headroom starting point over a 1.16 GiB idle floor that was
+  // quoted here without a recorded measurement (the slice 2·2 plan's Step 3, "measure and record in
+  // the README", is unchecked and no README exists). The open-document PEAK — a heavy document, five
+  // co-editors, a PDF export — has never been measured, and it is the number that decides the size,
+  // because a container that runs out of memory is restarted with no swap and the session's unsaved
+  // keystrokes go with it. The only smaller-memory option the platform allows is a custom instance
+  // at its floor of 1 vCPU and 3 GiB (custom types require ≥ 1 vCPU and ≥ 3 GiB per vCPU; the "~2.5
+  // GiB" once named here cannot be configured, and `basic` at 1 GiB sits under the idle floor). That
+  // saves a quarter of the memory line — under a cent per document-hour — so the size stays until
+  // the peak is measured; the reason to test the custom type is the full vCPU, which may cut render
+  // and typing latency, not the money. The method and the arithmetic are in
+  // docs/research/2026-09-18-local-first-document-editing.md, section 2a.
+  //
+  // CONCURRENCY. No max_instances, on the owner's ruling of 2026-09-18: a fixed per-class cap is a
+  // cliff that a growing fleet walks off, and the eleventh open would fail with no explanation. The
+  // bound is the account's concurrent-instance limit, and the Host-label check in
+  // src/document-routing.ts already keeps an invented label from booting a container. Six of the
+  // eight container workers in this repository run without a cap for the same reason.
   "containers": [
     {
       "class_name": "DocumentEditorContainer",
       "image": "../../containers/collabora/Dockerfile",
-      "max_instances": 10,
-      "instance_type": "standard-1",
+      "instance_type": "standard-4",
     },
   ],
   "durable_objects": {

@@ -19,17 +19,20 @@
    * time zone; the badge word is decided once in calendar-api.ts so no surface re-derives it.
    *
    * The two lists read independently, so one failing does not blank the other: a firm whose
-   * deadline read errored still needs to see its hearings. A SAMPLE matter (the in-repo fixtures
-   * the chrome's lifecycle states are reviewed against) has no firm behind it and therefore nothing
-   * to read; it says so rather than showing empty tables, because "nothing recorded" and "not a
-   * real matter" are different facts.
+   * deadline read errored still needs to see its hearings.
+   *
+   * BOTH TABLES STAND WHETHER OR NOT THEY HOLD ANYTHING. The header row renders from the first
+   * paint and the empty body carries the one line, so a matter with nothing on its calendar shows
+   * the shape its dates will arrive in. A SAMPLE matter (the in-repo fixtures the chrome's
+   * lifecycle states are reviewed against) has no firm behind it and therefore nothing to read, and
+   * its empty body says so in its own words, because "nothing recorded" and "not a real matter" are
+   * different facts.
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import { sampleCivilDate, sampleInstant } from "@magna-carta/design-system/loading-fixtures";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -123,7 +126,7 @@
   const overdue = $derived(overdueCount(deadlines ?? []));
 
   function whenOf(dateOn: string, time: string | null, timeZone: string): string {
-    const clock = formatWallClock(time, timeZone);
+    const clock = formatWallClock(time, timeZone, undefined, dateOn);
     return clock === null ? DataTable.formatDate(dateOn) : `${DataTable.formatDate(dateOn)}, ${clock}`;
   }
 
@@ -255,6 +258,11 @@
             </Badge>
           </DataTable.Cell>
         </DataTable.Row>
+      {:else}
+        <DataTable.EmptyRow
+          columns={4}
+          title={isSample ? "No Deadlines On A Sample Matter" : "No Deadlines Yet"}
+        />
       {/each}
     </DataTable.Body>
   </DataTable.Root>
@@ -308,6 +316,11 @@
             </Badge>
           </DataTable.Cell>
         </DataTable.Row>
+      {:else}
+        <DataTable.EmptyRow
+          columns={5}
+          title={isSample ? "No Events On A Sample Matter" : "No Events Yet"}
+        />
       {/each}
     </DataTable.Body>
   </DataTable.Root>
@@ -334,7 +347,6 @@
     <LoadingRegion
       loading={deadlines === null}
       failed={deadlineFirstReadFailed}
-      empty={deadlines !== null && deadlines.length === 0}
       label="Reading the matter's deadlines"
       onRetry={() => readDeadlines(matterId)}
       class="flex flex-col gap-8"
@@ -347,19 +359,6 @@
             fallback="The deadlines on this matter could not be read."
             onRetry={() => readDeadlines(matterId)}
           />
-        {/if}
-      {/snippet}
-      {#snippet emptyState()}
-        {#if isSample}
-          <EmptyState title="No Deadlines On A Sample Matter">
-            This is one of the sample matters the interface is reviewed against. It has no firm
-            behind it, so there is nothing on its calendar.
-          </EmptyState>
-        {:else}
-          <EmptyState title="No Deadlines Yet">
-            Responses, filings, statutes of limitation. Every date this matter is held to is
-            recorded here with the authority it comes from, and reports whether it has passed.
-          </EmptyState>
         {/if}
       {/snippet}
       {#snippet fixture()}
@@ -402,7 +401,6 @@
     <LoadingRegion
       loading={events === null}
       failed={eventFirstReadFailed}
-      empty={events !== null && events.length === 0}
       label="Reading the matter's events"
       onRetry={() => readEvents(matterId)}
       class="flex flex-col gap-8"
@@ -415,19 +413,6 @@
             fallback="The events on this matter could not be read."
             onRetry={() => readEvents(matterId)}
           />
-        {/if}
-      {/snippet}
-      {#snippet emptyState()}
-        {#if isSample}
-          <EmptyState title="No Events On A Sample Matter">
-            This is one of the sample matters the interface is reviewed against. It has no firm
-            behind it, so there is nothing on its calendar.
-          </EmptyState>
-        {:else}
-          <EmptyState title="No Events Yet">
-            Hearings, depositions, closings, client meetings. Every setting recorded for this
-            matter appears here with where it is and the time zone that time is read in.
-          </EmptyState>
         {/if}
       {/snippet}
       {#snippet fixture()}

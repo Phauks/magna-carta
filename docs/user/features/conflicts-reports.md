@@ -8,8 +8,9 @@ check's own screen; it is not yet a document filed on the matter._
 
 ## Where to find it
 
-**Every check has a number** — CC-0001, CC-0002, and so on — drawn the moment it is opened. It is
-how a check is referred to: on its own screen, in the log, and on anything you print. A check is run
+**Every check has a number** — CC2026-00001, CC2026-00002, and so on, restarting each year unless
+your firm shapes it otherwise under **Settings › Practice › Numbering** — drawn the moment it is
+opened. It is how a check is referred to: on its own screen, in the log, and on anything you print. A check is run
 as often as you need; every run belongs to the same number, and the check's screen lists them all.
 
 **Conflicts Check in the sidebar** is your firm's whole picture: the log of every check your firm has

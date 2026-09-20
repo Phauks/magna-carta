@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { type NumberSegment, numberingSchemeSchema } from "../src/numbering/segments.ts";
-import {
-  NumberingRenderError,
-  deriveScopeKey,
-  renderMatterNumber,
-} from "../src/numbering/render.ts";
+import { type NumberSegment, numberingSchemeSchema } from "../src/segments.ts";
+import { NumberingRenderError, deriveScopeKey, renderNumber } from "../src/render.ts";
 
 const counter = (padWidth: number): NumberSegment => ({ kind: "counter", padWidth });
 const literal = (text: string): NumberSegment => ({ kind: "literal", text });
@@ -39,11 +35,11 @@ describe("numberingSchemeSchema", () => {
   });
 });
 
-describe("renderMatterNumber — surveyed formats reproduce", () => {
+describe("renderNumber — surveyed formats reproduce", () => {
   const cases: {
     name: string;
     segments: NumberSegment[];
-    context: Parameters<typeof renderMatterNumber>[1];
+    context: Parameters<typeof renderNumber>[1];
     value: number;
     expected: string;
   }[] = [
@@ -105,33 +101,33 @@ describe("renderMatterNumber — surveyed formats reproduce", () => {
 
   for (const { name, segments, context, value, expected } of cases) {
     it(name, () => {
-      expect(renderMatterNumber(segments, context, value)).toBe(expected);
+      expect(renderNumber(segments, context, value)).toBe(expected);
     });
   }
 
   it("renders date_opened as YYYYMMDD", () => {
-    expect(renderMatterNumber([{ kind: "date_opened" }], { openedDate: "2026-06-11" }, 0)).toBe(
+    expect(renderNumber([{ kind: "date_opened" }], { openedDate: "2026-06-11" }, 0)).toBe(
       "20260611",
     );
   });
 });
 
-describe("renderMatterNumber — rendering rules", () => {
+describe("renderNumber — rendering rules", () => {
   it("zero-pads the counter but never truncates a wider value", () => {
-    expect(renderMatterNumber([counter(4)], { openedDate: "2026-01-01" }, 7)).toBe("0007");
-    expect(renderMatterNumber([counter(4)], { openedDate: "2026-01-01" }, 123456)).toBe("123456");
+    expect(renderNumber([counter(4)], { openedDate: "2026-01-01" }, 7)).toBe("0007");
+    expect(renderNumber([counter(4)], { openedDate: "2026-01-01" }, 123456)).toBe("123456");
   });
 
   it("sanitizes client_name and staff_initials to URL-safe (spaces dropped, diacritics folded)", () => {
     expect(
-      renderMatterNumber(
+      renderNumber(
         [{ kind: "client_name" }],
         { openedDate: "2026-01-01", clientName: "Æon Café" },
         0,
       ),
     ).toBe("AeonCafe");
     expect(
-      renderMatterNumber(
+      renderNumber(
         [{ kind: "staff_initials" }],
         { openedDate: "2026-01-01", staffInitials: "J. D. G." },
         0,
@@ -142,9 +138,7 @@ describe("renderMatterNumber — rendering rules", () => {
   it("is deterministic — same segments, context, and counter render identically", () => {
     const segments: NumberSegment[] = [{ kind: "year", digits: 4 }, literal("-"), counter(5)];
     const context = { openedDate: "2026-03-01" };
-    expect(renderMatterNumber(segments, context, 42)).toBe(
-      renderMatterNumber(segments, context, 42),
-    );
+    expect(renderNumber(segments, context, 42)).toBe(renderNumber(segments, context, 42));
   });
 
   it("always produces a URL-safe number", () => {
@@ -157,22 +151,20 @@ describe("renderMatterNumber — rendering rules", () => {
       counter(4),
     ];
     for (const clientName of ["Acme Corp", "Œuvre & Sons, LLC", "naïve"]) {
-      expect(renderMatterNumber(segments, { openedDate: "2026-01-01", clientName }, 5)).toMatch(
-        urlSafe,
-      );
+      expect(renderNumber(segments, { openedDate: "2026-01-01", clientName }, 5)).toMatch(urlSafe);
     }
   });
 
   it("refuses a segment whose context value is absent", () => {
     expect(() =>
-      renderMatterNumber(
+      renderNumber(
         [{ kind: "location_code", scoping: true }, counter(4)],
         { openedDate: "2026-01-01" },
         1,
       ),
     ).toThrow(NumberingRenderError);
     try {
-      renderMatterNumber([{ kind: "client_code" }, counter(4)], { openedDate: "2026-01-01" }, 1);
+      renderNumber([{ kind: "client_code" }, counter(4)], { openedDate: "2026-01-01" }, 1);
     } catch (error) {
       expect((error as NumberingRenderError).code).toBe("scheme-segment-value-missing");
     }

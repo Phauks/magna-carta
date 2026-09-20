@@ -108,7 +108,7 @@ export function hitColumns(): GridColumn<HitDetail>[] {
     {
       id: HIT_COLUMN_IDENTIFIERS.party,
       label: "Party",
-      filter: "text",
+      filter: "set",
       // The name the Directory holds TODAY, which the server resolves on the read rather than
       // copying onto the append-only log — so a reviewer deciding now is looking at the current
       // name rather than the one that was current when the check ran.

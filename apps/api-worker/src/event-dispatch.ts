@@ -15,6 +15,7 @@
  * `wrangler check startup` run to prove it still fits.
  */
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
+import { setServiceIdentity } from "@magna-carta/telemetry/service-identity";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import { createApp, type Bindings } from "./app.ts";
 import { documentAssemblyQueue } from "./assemblies/assembly-consumer.ts";
@@ -54,6 +55,11 @@ import type { SearchCompactionMessage } from "./search/compaction-types.ts";
 import { runSearchCompactionSweep } from "./search/compaction-sweep.ts";
 import { runNaturalLanguageKeepAliveSweep } from "./search/natural-language-keep-alive.ts";
 import type { SearchIndexMessage } from "./search/index-types.ts";
+
+// Announced here rather than in index.ts, which is held to a startup CPU budget this package's
+// import graph would spend. Every fetch, Cron pass and queue batch reaches the Worker through this
+// module, so an Error ID minted on any of those paths carries the service by the time it is needed.
+setServiceIdentity("api");
 
 // The bundle-build queue's name (wrangler.jsonc queues.consumers) — routeQueueBatch routes its
 // batches to the bundle consumer, every other queue to the files-ingest consumer.

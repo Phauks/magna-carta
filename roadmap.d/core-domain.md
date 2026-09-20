@@ -204,8 +204,17 @@
   status: shipped
   slices: 1-1-matters-locations-file-manager
   adrs: ADR-0079
-  evidence: packages/matters/src/numbering/ (scheme-service, segments, counters, render) + routes/numbering.ts; the editor in apps/web/src/lib/matters/numbering-scheme-editor.svelte under Settings · Matter Numbering, with the model in numbering-scheme.ts; Set Number on the status window over the renumber route
-  notes: Backend and the settings editor shipped (2026-09-06). One editor per purpose, the parts named for the reader, scoping drawn as "restarts the count", starters for the common shapes, and the preview rendered by the server's own renderer against a sample matter. A matter's number is set by hand from its status window, only where the matter has been active; the renumber service refuses the unnumbered rungs.
+  evidence: packages/sequence-numbering/src/ (purposes, segments, render, scheme-service, scheme-draw) with matters' own tables in packages/matters/src/numbering/ + routes/numbering.ts; the editor in apps/web/src/lib/matters/numbering-scheme-editor.svelte under Settings · Numbering, with the model in numbering-scheme.ts; Set Number on the status window over the renumber route
+  notes: Backend and the settings editor shipped (2026-09-06). One editor per purpose, the parts named for the reader, scoping drawn as "restarts the count", starters for the common shapes, and the preview rendered by the server's own renderer against a sample matter. A matter's number is set by hand from its status window, only where the matter has been active; the renumber service refuses the unnumbered rungs. The engine moved out of matters into the platform-wide numbering register on 2026-09-18 (matters.numbering.register).
+
+- id: matters.numbering.register
+  name: One numbering register for every sequence
+  scope: Every number the firm issues on one register in @magna-carta/sequence-numbering (purpose, when drawn, scheme-shaped or fixed, parts, default); conflicts check and custody numbers drawn through the shared planner from firm-written schemes; the numbering listing route; Settings · Numbering listing every sequence.
+  status: shipped
+  surface: screen
+  slices: 1-1-matters-locations-file-manager
+  evidence: packages/sequence-numbering/src/purposes.ts + scheme-draw.ts; packages/conflicts/src/check-numbering.ts and the draw in check-run.ts; packages/custodian/src/packet-service.ts; GET /api/v1/numbering-schemes in apps/api-worker/src/routes/numbering.ts; apps/web/src/routes/(app)/settings/numbering/+page.svelte; the per-firm migration 20260918T195508_conflicts-check-numbering-scheme
+  notes: Shipped 2026-09-18. Conflicts checks default to CC2026-00001 restarting each year (a four-digit firm-wide run was the wrong default for the busiest sequence); custody keeps CUS-00001 as its default. Invoice, time-entry and call numbers are registered with their fixed shapes and listed read-only; making any of them scheme-shaped is one row flipping on the register plus its draw site.
 
 - id: matters.numbering.location-segment
   name: Location segment in numbering
@@ -213,7 +222,7 @@
   status: shipped
   surface: screen
   slices: 1-1-matters-locations-file-manager
-  evidence: location_code segment kind in packages/matters/src/numbering/segments.ts
+  evidence: location_code segment kind in packages/sequence-numbering/src/segments.ts
 
 - id: matters.types
   name: Flexible matter types

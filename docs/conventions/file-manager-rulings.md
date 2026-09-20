@@ -1022,3 +1022,85 @@ comfortable`, which is the whole reason nine of the ten steps did nothing: the c
   (L28's era) worked only while every first cell's content happened to be inline, and every surface
   that puts an icon beside a name uses flex, which is block-level. The reservation is unchanged:
   a table that can mark a row reserves the width on every row, so pinning still moves nothing.
+
+## R25 — round twenty-two: the icon draws the claim, and the analysis says whether it holds
+
+The owner's question of 2026-09-17: a Word document renamed to end in ".do" kept its Word glyph and
+its DOCX badge. It did because the icon read the sniffed bytes before the name — a rule the resolver
+wrote to keep the icon from lying — while the File Type column in the same row read the name, and
+the analysis that owns "the name lies" only knew ten extensions and stayed silent on this one. One
+row, three answers. The owner's ruling: the firm already has a system for verifying what a file is,
+so the symbol states what the file says it is, and that system says whether it is telling the truth.
+
+| #    | Ruling                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Status  |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| I51  | **The file icon draws what the NAME claims.** The glyph and its badge resolve from the extension first; the sniffed content type answers only where the name makes no claim (no extension). An extension nobody recognizes draws the blank sheet with no badge, whatever the bytes are — the icon never quietly corrects a name. So the icon, the File Type column (**L32**) and the type in words (Activity, search) all say one thing per row. Refines **I50**, which stands on what each kind draws.                                                                                                                                                 | settled |
+| F13  | **Type Mismatch is graded in the file-type vocabulary the icon uses, at the level of kind, over every extension it knows.** A recognized extension naming a different kind from the sniffed bytes is a mismatch; an extension nobody recognizes over bytes the sniffer read is a mismatch too, because it is still a claim; a name with no extension claims nothing; a sniff the vocabulary has no kind for (nothing recognized, or a container it cannot see inside — legacy Office files all read as one compound-file type) is no reading and contradicts nothing. Replaces the ten-entry list the check kept on its own. **F12** holds it at Error. | settled |
+| P17b | **A consequence stated so it is not later read as a defect:** a file named `invoice.pdf` that is really an executable draws the pdf glyph and the PDF badge, with the Error mark beside it and Type Mismatch in the analysis. That is I51 working. The alarm is the Safety cell's (**L47**, **F12**), not the glyph's; folding it into the glyph is **P17**, still the owner's open question.                                                                                                                                                                                                                                                           | settled |
+
+**Notes recorded this round:**
+
+- **What is DRAWN reads the name; what is DONE reads the bytes.** The one Open gesture decides its
+  editor from the sniffed type first, as it always did, and now says so: a Word document renamed
+  `.txt` is drawn as the text file its name claims and opened as the Word document it is, never
+  handed to the plain-text editor on the strength of its name. The design system exports the two
+  precedences as two functions rather than one with a flag, so a caller has to say which question
+  it is asking.
+- **The check and the icon share one mapping now.** The analysis used to keep its own list of ten
+  extensions and their exact MIME types, so it could only ever contradict names the list happened
+  to know, and `.do` was not one of them. It reads the design system's claim-and-reading pair
+  instead, so the day an extension is added to the icon's vocabulary it is added to the check's.
+- **Kind, not exact format.** A `.docx` whose bytes sniff as the legacy Word type is a Word document
+  under a Word name; telling doc from docx is the badge's job (**I50**), not the finding's. Grading
+  by exact MIME type would also false-alarm on every format the sniffer names differently from the
+  extension (`.m4a` reads as `audio/x-m4a`, `.mov` as `video/quicktime`).
+
+## R26 — round twenty-three: a filter is chosen from what the column holds
+
+The owner's note of 2026-09-17, on the per-column filters of every table on the surface: the date
+filters vanished when their calendar was reached for, and the text filters — From, To, File or
+Folder "and potentially other fields" — offered no baseline to go off, "more like a search than
+allowing to set filters". Two rulings, both promoted into `design-corrections.md` under _Lists and
+tables_ because neither is about files.
+
+| #   | Ruling                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Status  |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| L59 | **A text column's filter is the SET of its values, each with its count.** The changelog's From, To and File or Folder, and the Name column in every view, offered a box that matched typed text, which gives a reader nothing to choose from. Every text column on the surface now lists what it holds; the narrow field above the list keeps the column's own name as its ghost text, and the one select control acts on the choices listed. Supersedes the contains-text half of **L36**: the mechanism is still one, parameterized per column type, but a text column's control is the set, and the contains box survives only for a column of prose that declares it — none of which this surface has. | settled |
+| L60 | **A date filter's calendar opens and stays inside the column's menu.** Clicking the calendar closed the filter submenu, which unmounted the date field with it, so no date could be set except by typing the segments blind. The design system's submenus now hold while a field's own floating layer has focus; the fix is the platform's, and the file manager's tables take it with every other.                                                                                                                                                                                                                                                                                                        | settled |
+
+## R27 — round twenty-four: folders sort separately from files
+
+The owner's note of 2026-09-18, in full: "in file manager area, regardless of how files are sorted
+(by name), folders should always sort separately from files." One ruling, and its whole difficulty
+is in the word "regardless": the obvious reading is a tweak to the name column, and the right
+reading is that the kind of a row was never a sort key at all.
+
+| #   | Ruling                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Status  |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| L59 | **Folders form their own run ABOVE the files, in every view that lists the two together, under every column and in both directions.** A folder is a place and a file is a thing inside it, so which kind a row is is a fact about the list rather than a value in one of its columns — which is why sorting by name descending reverses the names within each run and never lifts a file over a folder, and why the rule holds identically on size, on a date, on the type, and on a column added next year. The active sort orders the folders among themselves and the files among themselves, by exactly the comparator the header says it is sorting by. Pinning is untouched: it is the reader's own arranging, applied above the runs as it always was. | settled |
+
+**Notes recorded this round:**
+
+- **There is one function and one seam.** `orderFolderRowsFirst` in
+  `apps/web/src/lib/file-manager/file-rows.ts` partitions the rows and applies the grid's OWN
+  comparator inside each partition; it is handed to the grid through the `orderRows` option the
+  hierarchy already uses (the seam recorded with A22), so no view reimplements a column comparison and no
+  column is special-cased. Special-casing the name column is the shape this correction is most
+  easily read down to, and it would have given the list a second ordering rule to disagree with the
+  header it is sorted by.
+- **Which views it reaches, and why the others are not exceptions.** The browse list and its Search
+  Results and File Analysis views take it through the one grid, and the icon layout is the same
+  grid's `rowsInView`, so the tiles and the rows cannot disagree. The inside of an archive takes it
+  too — that format's word for a place is "directory", which is the same list of places and things.
+  The upload intake already ordered folders ahead of files within each parent and now does it by
+  calling the same function, so the nested listing and the flat one share one rule. Deleted Files
+  holds documents alone (there is no route that brings a folder back — A30b), the changelog is not a
+  listing of rows of either kind, and the folder rail is folders only: none of the three has a
+  boundary to draw.
+- **Harness: `tooling/file-manager-rulings/` pins the retired mockup and cannot see this.** It is
+  handed an HTML file and reads the mockup's own element ids, so it has no way to reach the built
+  screen's table. L59 is pinned by unit test instead —
+  `apps/web/test/file-manager-order.test.ts` for the rule itself (both directions, on the name and
+  on a second column, the empty partition, and pinning's precedence), and
+  `apps/web/test/upload-intake.test.ts` for the nested half. The check is added to a harness the day
+  one targets the built app.

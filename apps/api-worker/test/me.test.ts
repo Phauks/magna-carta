@@ -169,6 +169,7 @@ describe("GET /api/v1/me", () => {
         // question is ordinary work, deciding that the firm's privileged content may leave for
         // a third-party model is not.
         "firm:manageAiSettings",
+        "firm:manageEditingPolicy",
         "firm:manageMembers",
         // The firm's notification policy — the in-app floor, retention window and digest hour —
         // reaches Owner/Admin only. Deliberately NOT notifications:read, which every default role
@@ -223,6 +224,7 @@ describe("GET /api/v1/me", () => {
         "matters:open",
         "matters:renumber",
         "matters:reopen",
+        "matters:viewNumbering",
         // Seeded onto EVERY default role including Read-only — the deliberate contrast with
         // trust:read (20260807T020000_notifications-delivery). Reading one's own feed is not a
         // privilege: it is scoped to the session's own user id and every row is filtered by matter

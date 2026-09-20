@@ -172,6 +172,23 @@ The list is the only part of the screen that scrolls. The matter's title and its
 the folder path, and the counts strip along the bottom all stay where they are however long the list
 gets, so you can scroll a folder of two thousand documents and still reach everything around it.
 
+### What the icon beside a name means
+
+The icon and its small label (PDF, DOCX, XLSX) read the document's own name — the part after the
+last dot — the same as the **File Type** column does. Rename a Word document to end in `.pdf` and
+its icon becomes a PDF icon; give it an ending nothing recognizes and it becomes a plain blank sheet
+with no label. The icon tells you what the name says the document is.
+
+Whether the name is telling the truth is a separate check, and it is made for you. Every document's
+contents are read on the way in, and when they are not what the name says — a Word document called
+`.pdf`, a photo called `.docx`, a document whose ending nothing recognizes — the row's **Safety**
+reads **Error** and the matter's File Analysis lists it as a **Type Mismatch**. The icon does not
+quietly correct the name for you, because a name that lies about a file is something you should be
+told, not something the screen should paper over.
+
+Opening a document always goes by its contents, not its name: a Word document renamed to `.txt`
+still opens in the Word editor.
+
 ### As icons instead of rows
 
 The switch on the right of the strip above the list swaps the rows for tiles. A name too long for a
@@ -250,8 +267,10 @@ Double-click a row, press Enter on it, or choose **Open** from its right-click m
   checks have not cleared.
 
 The tab the editor opens in is its own: leave it open while you go back to the file list, and open
-several documents at once. The editor fills that tab; to return to the matter's files, use the
-browser's Back or the file list's own tab.
+several documents at once. The editor fills that tab. To return to the matter's files, use the
+first button on the editor's bar, the arrow with the matter's number beside it (or the word
+"Matter", for a matter that has no number yet). It saves first and then takes you back with the
+document selected; closing the document from the editor's own menu does the same.
 
 ## Saving a new version
 
@@ -414,11 +433,25 @@ time-limited access to that specific version. The editor fills the tab. Saving i
 document's history the way any other save does. Several members can edit the same document at
 once; each sees the others' changes as they are made.
 
-While the document opens, the screen lists each stage as it happens — opening the session,
-starting the editor, loading it, asking for the document, fetching it, showing it — with the time
-so far. A first open can take a little while, because the editor starts for that document on
-demand. If the open stops, the screen says at which stage, and the details beneath the message are
-what to send to support.
+Every save in the editor becomes a version in the file's history: the ones you make with Save,
+the one made when the last person closes the document, and the editor's own autosaves every few
+minutes. **Version History** shows the named saves and folds the autosaves behind one line that
+says how many there are; **Show every save** opens them. Each version names who saved it and
+everyone else who had the document open at the time.
+
+Unless your firm has decided otherwise, every document you open in the editor records who changed
+what, from the first edit, and the control for turning that off is not offered. The marks are
+hidden, so the page reads and types the way it always did; to see them, open the editor's
+**Review** tab and turn **Show Track Changes** on. What that setting is and who decides it:
+[Editing](../admin/editing.md).
+
+While the document opens, the screen tells the open as it happens: each stage appears as it
+finishes, with the moment it did, and the stage under way says what it is doing and why it takes
+the time it takes. A bar fills over the half minute an open usually takes, and says so; past that
+it says the open is running long, and after forty-five seconds it offers **Retry**. A first open
+takes most of that half minute, because the editor starts for that document on demand. **Show
+details** opens the full sequence with its timings. If the open stops, the screen says at which
+stage, and the details beneath the message are what to send to support.
 
 If a colleague holds the document under an exclusive lock, your tab opens **read-only** and says
 so at the top. You can read along, including their live changes, but cannot take the lock from

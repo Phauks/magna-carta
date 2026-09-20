@@ -1,8 +1,22 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { ConflictsCheckId, UserId } from "@magna-carta/identifiers/types";
+import { drawWithBoundedRetry } from "@magna-carta/sequence-numbering/bounded-retry";
+import { allocateCounterValueStatement } from "@magna-carta/sequence-numbering/counter-statements";
+import type { RenderContext } from "@magna-carta/sequence-numbering/render";
+import {
+  planSchemeDraw,
+  previewNextNumber,
+  schemeDrawOpeningStatements,
+} from "@magna-carta/sequence-numbering/scheme-draw";
 import { conflictsAuditStatement, type ConflictsWriteOptions } from "./audit.ts";
+import {
+  CONFLICTS_CHECK_NUMBERING_TABLES,
+  CONFLICTS_NUMBERED_CHECK_TABLE,
+  isCheckNumberConflict,
+} from "./check-numbering.ts";
 import { runConflictsEffect } from "./run-conflicts-effect.ts";
 import type { ScopeRequest } from "./settings.ts";
 import type { ConflictsTrigger, ConflictsTriggerSource } from "./types.ts";
@@ -31,7 +45,7 @@ import type { ConflictsTrigger, ConflictsTriggerSource } from "./types.ts";
 // id is its check's id, and a re-run mints a fresh handle that names both the run and the record it
 // will write.
 
-export const CONFLICTS_NUMBERED_CHECK_TABLE = "conflicts_numbered_check";
+export { CONFLICTS_NUMBERED_CHECK_TABLE };
 export const CONFLICTS_CHECK_RUN_TABLE = "conflicts_check_run";
 
 export const RUN_STATUSES = ["queued", "running", "completed", "failed"] as const;
@@ -53,14 +67,17 @@ export interface RunProgress {
   readonly candidatesRecorded?: number;
 }
 
-// The number a person says out loud: the firm's own sequence, zero-padded so it sorts as text and
-// reads as a reference rather than a count. A firm past 9999 checks grows a fifth digit rather than
-// wrapping or refusing.
-const CHECK_NUMBER_PREFIX = "CC-";
-const CHECK_NUMBER_PAD_WIDTH = 4;
-
-export function renderCheckNumber(sequence: number): string {
-  return `${CHECK_NUMBER_PREFIX}${String(sequence).padStart(CHECK_NUMBER_PAD_WIDTH, "0")}`;
+// The number a person says out loud is drawn from the firm's conflicts check numbering scheme —
+// the `conflicts_check` purpose on the firm-wide numbering register — through the shared draw
+// planner, exactly as a matter number is. Its shape is the firm's to write on the numbering
+// settings screen; until it does, the register's default renders CC2026-00001, restarting the count
+// each year, and the counter tables are check-numbering.ts's.
+//
+// The day the check is opened on is the UTC day of the opening instant, the platform's rule for the
+// day of a recorded moment used as a key (docs/conventions/dates.md): a number is a key before it
+// is a sentence, and pinned to UTC it renders the same year in every office.
+function checkNumberContext(now: string): RenderContext {
+  return { openedDate: civilDateOf(now) };
 }
 
 // A run left running with no heartbeat for this long is treated as dead. A heartbeat is written on
@@ -206,15 +223,16 @@ export async function readLatestNumberedCheckForMatter(
   return results[0] ?? null;
 }
 
-// The sequence the next check would draw. Read for a preview as much as for a draw: a record a person
-// quotes out loud is identified before it is saved (docs/conventions/design-corrections.md).
-export async function readNextCheckSequence(database: SqlDatabase): Promise<number> {
-  const { results } = await database
-    .prepare(
-      `SELECT COALESCE(MAX(check_sequence), 0) + 1 AS next_sequence FROM ${CONFLICTS_NUMBERED_CHECK_TABLE}`,
-    )
-    .all<{ next_sequence: number }>();
-  return results[0]?.next_sequence ?? 1;
+// The number the next check would draw, for the screen that opens one: a record a person quotes
+// out loud is identified before it is saved (docs/conventions/design-corrections.md). A preview,
+// never a reservation — the planner reads the scheme and the counter and composes nothing.
+export function previewNextCheckNumber(database: SqlDatabase, now: string): Promise<string> {
+  return previewNextNumber(
+    database,
+    "conflicts_check",
+    CONFLICTS_CHECK_NUMBERING_TABLES,
+    checkNumberContext(now),
+  );
 }
 
 export function parseRunProgress(json: string | null): RunProgress {
@@ -252,7 +270,8 @@ function insertNumberedCheckStatement(
   database: SqlDatabase,
   row: {
     readonly id: ConflictsCheckId;
-    readonly sequence: number;
+    readonly sequence: number; // the counter value the draw consumed, under the scheme's scope
+    readonly checkNumber: string; // the rendered number the firm's scheme produced for it
     readonly subjectMatterId: string | null;
     readonly createdByUserId: UserId | null;
     readonly now: string;
@@ -262,14 +281,7 @@ function insertNumberedCheckStatement(
     .prepare(
       `INSERT INTO ${CONFLICTS_NUMBERED_CHECK_TABLE} (id, check_sequence, check_number, subject_matter_id, latest_run_id, created_by_user_id, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?1, ?5, ?6, ?6)`,
     )
-    .bind(
-      row.id,
-      row.sequence,
-      renderCheckNumber(row.sequence),
-      row.subjectMatterId,
-      row.createdByUserId,
-      row.now,
-    );
+    .bind(row.id, row.sequence, row.checkNumber, row.subjectMatterId, row.createdByUserId, row.now);
 }
 
 function insertRunStatement(
@@ -466,20 +478,6 @@ export class UnknownNumberedCheckError extends Error {
   }
 }
 
-// How many times a draw of the check number is retried when two checks are opened at the same
-// instant. The sequence is drawn as MAX + 1 and held by the unique index on the number; a loser
-// re-reads and draws again, and five consecutive losses on one firm's sequence is not a state
-// anybody can be told anything useful about.
-const MAX_DRAW_ATTEMPTS = 5;
-
-function isCheckNumberCollision(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    error.message.includes("UNIQUE constraint failed") &&
-    error.message.includes(CONFLICTS_NUMBERED_CHECK_TABLE)
-  );
-}
-
 // Opens a run: the numbered check on a first run, the run row queued, the check's latest-run pointer
 // moved. One small batch, idempotent on the caller's key, so a retried request opens one run.
 export async function openCheckRun(
@@ -526,51 +524,86 @@ export async function openCheckRun(
     }));
   }
 
-  let lastError: unknown = null;
-  for (let attempt = 1; attempt <= MAX_DRAW_ATTEMPTS; attempt += 1) {
-    const sequence = await readNextCheckSequence(database);
-    const id = newIdentifier("conflictsCheck", options.randomSource);
-    const opened: OpenedRun = {
-      numberedCheckId: id,
-      checkNumber: renderCheckNumber(sequence),
-      runId: id,
-      ordinal: 1,
-    };
-    try {
-      return await runConflictsEffect(database, options.idempotency, options.clock, () => ({
-        statements: [
-          insertNumberedCheckStatement(database, {
-            id,
-            sequence,
-            subjectMatterId: input.request.matterId,
-            createdByUserId: options.actorUserId,
-            now,
-          }),
-          insertRunStatement(database, {
-            id,
-            numberedCheckId: id,
-            ordinal: 1,
-            request: input.request,
-            triggerSource: input.triggerSource,
-            requestedByUserId: options.actorUserId,
-            now,
-          }),
-          conflictsAuditStatement(database, options, "conflicts.check.opened", id),
-        ],
-        outboxMessages: [],
-        responseCode: 202,
-        responseBody: openedRunBody(opened),
-        value: opened,
-        fromBody: openedRunFromBody,
-      }));
-    } catch (error) {
-      if (!isCheckNumberCollision(error)) throw error;
-      lastError = error;
-    }
-  }
-  throw new Error(
-    `conflicts check number: the draw did not converge after ${MAX_DRAW_ATTEMPTS} attempts`,
-    { cause: lastError },
+  // The number draw rides the shared bounded retry: a losing concurrent draw aborts its batch on
+  // the allocation primary key (or on the rendered number's own unique index, where a check numbered
+  // before the scheme existed drew no allocation row), the counter is advanced out of band, and the
+  // attempt re-reads. Five consecutive losses on one firm's sequence is not a state anybody can be
+  // told anything useful about, so giving up stays an unexpected fault the standard pipeline reports.
+  return await drawWithBoundedRetry(
+    database,
+    CONFLICTS_CHECK_NUMBERING_TABLES,
+    {
+      sequenceLabel: "conflicts check number",
+      alsoRetryable: isCheckNumberConflict,
+      nonConvergenceError: ({ message, lastError }) => new Error(message, { cause: lastError }),
+    },
+    async (observe) => {
+      // Minted per attempt: a losing batch rolled its rows back with everything else, so the retry
+      // lands a genuinely new check rather than re-proposing an identifier that lost.
+      const id = newIdentifier("conflictsCheck", options.randomSource);
+      // Planned before the effect is built, because the effect builds eagerly and synchronously.
+      // The plan is two reads and no write, so a replayed key that never executes the batch has
+      // consumed nothing by planning.
+      const plan = await planSchemeDraw(
+        database,
+        "conflicts_check",
+        CONFLICTS_CHECK_NUMBERING_TABLES,
+        checkNumberContext(now),
+      );
+      // Reported before the batch is composed, so a losing attempt can advance THIS scope's
+      // counter out of band — the in-batch increment rolls back with everything else.
+      observe({
+        scopeKey: plan.scopeKey,
+        observedValue: plan.observedValue,
+        startValue: plan.startValue,
+      });
+      const opened: OpenedRun = {
+        numberedCheckId: id,
+        checkNumber: plan.number,
+        runId: id,
+        ordinal: 1,
+      };
+      return await runConflictsEffect(database, options.idempotency, options.clock, () => {
+        return {
+          statements: [
+            ...schemeDrawOpeningStatements(database, CONFLICTS_CHECK_NUMBERING_TABLES, plan),
+            insertNumberedCheckStatement(database, {
+              id,
+              sequence: plan.observedValue,
+              checkNumber: plan.number,
+              subjectMatterId: input.request.matterId,
+              createdByUserId: options.actorUserId,
+              now,
+            }),
+            insertRunStatement(database, {
+              id,
+              numberedCheckId: id,
+              ordinal: 1,
+              request: input.request,
+              triggerSource: input.triggerSource,
+              requestedByUserId: options.actorUserId,
+              now,
+            }),
+            conflictsAuditStatement(database, options, "conflicts.check.opened", id),
+            // Last: check_id is a foreign key, so the numbered check has to exist by the time the
+            // allocation lands.
+            allocateCounterValueStatement(
+              database,
+              CONFLICTS_CHECK_NUMBERING_TABLES,
+              plan.scopeKey,
+              plan.observedValue,
+              id,
+              now,
+            ),
+          ],
+          outboxMessages: [],
+          responseCode: 202,
+          responseBody: openedRunBody(opened),
+          value: opened,
+          fromBody: openedRunFromBody,
+        };
+      });
+    },
   );
 }
 

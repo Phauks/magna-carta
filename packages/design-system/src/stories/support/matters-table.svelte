@@ -216,9 +216,7 @@
           </DataTable.Row>
         {/each}
       {:else if table.getRowModel().rows.length === 0}
-        <DataTable.Row data-placeholder="true">
-          <DataTable.Cell colspan={spanCount} class="mc-table-empty">No matters found.</DataTable.Cell>
-        </DataTable.Row>
+        <DataTable.EmptyRow columns={spanCount} title="No matters found." />
       {:else}
         {#each table.getRowModel().rows as row (row.id)}
           <DataTable.Row data-state={row.getIsSelected() ? "selected" : undefined}>

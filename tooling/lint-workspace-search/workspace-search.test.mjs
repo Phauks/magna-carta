@@ -4,15 +4,20 @@ import {
   auditWorkspaceSearch,
   libComponentImports,
   lineOf,
+  listRootSnippets,
   markupOf,
+  namesSearchState,
   rendersScreenSearch,
   screenSearchTags,
   searchReachableFrom,
+  secondResultsSurfaces,
+  svelteBlocks,
   withoutComments,
   workspaceDestinations,
 } from "./workspace-search.mjs";
 
 const MATTERS = "apps/web/src/routes/(app)/matters/+page.svelte";
+const DIRECTORY = "apps/web/src/routes/(app)/directory/+page.svelte";
 
 /** A Workspace destination, shipped unless said otherwise. */
 function destination(id, overrides = {}) {
@@ -23,7 +28,7 @@ function destination(id, overrides = {}) {
  * Audits a set of files as though each destination's page were the file of the same name. `files`
  * maps a repository-relative path to its source.
  */
-function audit(files, destinations, declined = new Map()) {
+function audit(files, destinations, declined = new Map(), allowedSecondSurface = new Map()) {
   const paths = Object.keys(files);
   return auditWorkspaceSearch({
     destinations,
@@ -31,6 +36,7 @@ function audit(files, destinations, declined = new Map()) {
     read: (path) => files[path] ?? null,
     screenFiles: paths.map((path) => ({ path, source: files[path] })),
     declined,
+    allowedSecondSurface,
   });
 }
 
@@ -99,7 +105,9 @@ describe("workspaceDestinations", () => {
     shipped: true,
   },`;
 
-  it("reads only the Workspace group, keeping whether each shipped", () => {
+  // Both Workspace groups and neither of the others: the rail split `top` into `desk` and `work`
+  // on 2026-09-16, and a fixture still written in the old vocabulary asks this parser nothing.
+  it("reads only the Workspace groups, keeping whether each shipped", () => {
     expect(workspaceDestinations(REGISTRY)).toEqual([
       { id: "matters", label: "Matters", href: "/matters", shipped: true },
       { id: "forms", label: "Forms", href: "/forms", shipped: false },
@@ -277,5 +285,236 @@ describe("offsets", () => {
       "{#snippet actions()}<A />{/snippet}\n{#snippet actions()}<B />{/snippet}",
     );
     expect(actionsSnippets(markup)).toHaveLength(2);
+  });
+});
+
+/*
+ * The Directory as it stood on 2026-09-17, reduced to the shape the owner corrected: a snippet
+ * drawing a table of hits, rendered while a query is live, standing where the screen's own grid
+ * would be. Both tables are reached through the SAME snippet — once for the answer and once for the
+ * loading placeholder — which is why rule 4 has to follow a `{@render}` to see either of them.
+ */
+const DIRECTORY_SWAP = `<script>
+  import * as DataTable from "@magna-carta/design-system/data-table";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
+</script>
+
+{#snippet hitTable(rows)}
+  <DataTable.Root>
+    <DataTable.Header>
+      <DataTable.Row>
+        <DataTable.Head>Name</DataTable.Head>
+        <DataTable.Head>Kind</DataTable.Head>
+      </DataTable.Row>
+    </DataTable.Header>
+  </DataTable.Root>
+{/snippet}
+
+<ScreenSearch bind:value={typed} onsearch={(next) => (asked = next)} />
+
+{#if searching}
+  <LoadingRegion loading={hits === null}>
+    {#snippet fixture()}
+      {@render hitTable(HIT_FIXTURE)}
+    {/snippet}
+    {@render hitTable(hits ?? [])}
+  </LoadingRegion>
+{:else if listFailure !== null}
+  <FailureNotice failure={listFailure} />
+{:else}
+  <DataTable.Grid {grid} cell={directoryCell} />
+  <DataTable.GridFooter {grid} />
+{/if}`;
+
+/** The docket: the query goes to the read, and the one grid shows what came back. */
+const DOCKET = `<script>
+  import * as DataTable from "@magna-carta/design-system/data-table";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
+</script>
+
+<ScreenSearch bind:value={searchText} onsearch={(next) => (appliedSearch = next)} />
+
+{#if loadFailure !== null}
+  <FailureNotice failure={loadFailure} />
+{:else}
+  <DataTable.Grid {grid} cell={matterCell} loading={records === null} />
+  <DataTable.GridFooter {grid} />
+{/if}`;
+
+describe("no second results surface", () => {
+  it("reports the shape the Directory shipped: the hits over the query, the grid under the else", () => {
+    const { problems } = audit({ [DIRECTORY]: DIRECTORY_SWAP }, [destination("directory")]);
+    expect(problems.map((problem) => problem.rule)).toEqual(["second-results-surface"]);
+    expect(problems[0].line).toBe(19);
+    expect(problems[0].message).toContain("searches the list it already shows");
+  });
+
+  it("passes the docket, which narrows the one grid it already shows", () => {
+    const { problems } = audit({ [MATTERS]: DOCKET }, [destination("matters")]);
+    expect(problems).toEqual([]);
+  });
+
+  it("passes a search whose answer opens in the control's own panel", () => {
+    // The sanctioned exception, and it needs no exemption: a matter has no single list to narrow,
+    // so its search reaches everything on the matter through ScreenSearch's downward panel. A panel
+    // belongs to the control; it is not a table standing where a list was.
+    const source = `<script>
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
+  import MatterSearchResults from "$lib/matters/matter-search-results.svelte";
+</script>
+
+<ScreenSearch bind:value={typed} onsearch={run}>
+  {#snippet panel()}
+    <div class="settings">Everything on this matter</div>
+    {#if hasQuery}
+      <MatterSearchResults answer={search.answer} />
+    {/if}
+  {/snippet}
+</ScreenSearch>`;
+    const { problems } = audit({ [MATTERS]: source }, [destination("matters")]);
+    expect(problems).toEqual([]);
+  });
+
+  it("does not count a loading region's fixture, which is the same table drawn as a placeholder", () => {
+    const source = `<script>
+  import * as DataTable from "@magna-carta/design-system/data-table";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
+</script>
+
+<ScreenSearch bind:value={searchText} onsearch={(next) => (appliedSearch = next)} />
+
+<LoadingRegion loading={items === null}>
+  {#snippet fixture()}
+    <DataTable.Root>{@render shelfHead()}</DataTable.Root>
+  {/snippet}
+  {#if narrowed.length === 0 && appliedSearch !== ""}
+    <EmptyState title="Nothing Matches That Search" />
+  {:else}
+    <DataTable.Root>{@render shelfHead()}</DataTable.Root>
+  {/if}
+</LoadingRegion>`;
+    const { problems } = audit({ [MATTERS]: source }, [destination("matters")]);
+    expect(problems).toEqual([]);
+  });
+
+  it("does not report a screen that narrows to a sentence, which is one list and an empty state", () => {
+    const source = `<script>
+  import * as DataTable from "@magna-carta/design-system/data-table";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
+</script>
+
+<ScreenSearch bind:value={query} onsearch={(next) => (appliedQuery = next)} />
+
+{#if visible.length === 0 && searching}
+  <EmptyState title="Nothing Matches That" />
+{:else if visible.length === 0}
+  <EmptyState title="Nothing Here" />
+{:else}
+  <DataTable.Grid {grid} />
+{/if}`;
+    const { problems } = audit({ [MATTERS]: source }, [destination("matters")]);
+    expect(problems).toEqual([]);
+  });
+
+  it("reports the same swap assembled from two conditionals instead of one", () => {
+    const source = `<script>
+  import * as DataTable from "@magna-carta/design-system/data-table";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
+</script>
+
+<ScreenSearch bind:value={typed} onsearch={(next) => (asked = next)} />
+
+{#if searching}
+  <DataTable.Root><DataTable.Body /></DataTable.Root>
+{/if}
+
+{#if !searching}
+  <DataTable.Grid {grid} />
+{/if}`;
+    const { problems } = audit({ [MATTERS]: source }, [destination("matters")]);
+    expect(problems.map((problem) => problem.rule)).toEqual([
+      "second-results-surface",
+      "second-results-surface",
+    ]);
+  });
+
+  it("says nothing about a file that does not hold the search itself", () => {
+    // The query's state and the branch reading it are written together, so a file with no control
+    // is a file rule 4 has nothing to say about — and the coverage rule judges the screen.
+    const withoutControl = DIRECTORY_SWAP.replace(/<ScreenSearch[\s\S]*?\/>/u, "<div />").replace(
+      /import ScreenSearch.*\n/u,
+      "",
+    );
+    const { problems } = audit({ [MATTERS]: DOCKET, [DIRECTORY]: withoutControl }, [
+      destination("matters"),
+    ]);
+    expect(problems).toEqual([]);
+  });
+
+  it("accepts a recorded allowance, and lists it rather than reporting it", () => {
+    const allowed = new Map([[DIRECTORY, "the screen has no single list to narrow"]]);
+    const { problems, allowing } = audit(
+      { [DIRECTORY]: DIRECTORY_SWAP },
+      [destination("directory")],
+      new Map(),
+      allowed,
+    );
+    expect(problems).toEqual([]);
+    expect(allowing).toEqual([
+      { file: DIRECTORY, reason: "the screen has no single list to narrow" },
+    ]);
+  });
+
+  it("reports an allowance left standing after the screen began searching in place", () => {
+    const allowed = new Map([[MATTERS, "stale"]]);
+    const { problems } = audit({ [MATTERS]: DOCKET }, [destination("matters")], new Map(), allowed);
+    expect(problems.map((problem) => problem.rule)).toEqual(["stale-second-surface"]);
+  });
+});
+
+describe("the block walk rule 4 reads the markup with", () => {
+  it("reads an if chain's branches, the else included", () => {
+    const markup = markupOf(
+      "{#if searching}\n<A />\n{:else if failed}\n<B />\n{:else}\n<C />\n{/if}",
+    );
+    const chain = svelteBlocks(markup).find((block) => block.branches !== undefined);
+    expect(chain.branches).toHaveLength(3);
+    expect(chain.branches.map((branch) => branch.condition)).toEqual([
+      "{#if searching",
+      "{:else if failed",
+      null,
+    ]);
+  });
+
+  it("keeps a nested block's closer from ending the branch it sits in", () => {
+    const markup = markupOf(
+      "{#if searching}\n{#each rows as row}\n<A />\n{/each}\n<DataTable.Root />\n{/if}",
+    );
+    const chain = svelteBlocks(markup).find((block) => block.branches !== undefined);
+    // A lazily-matched branch would end at the `{/each}` and miss the table after it.
+    expect(markup.slice(chain.branches[0].start, chain.branches[0].end)).toContain(
+      "DataTable.Root",
+    );
+  });
+
+  it("follows a snippet that only renders another snippet", () => {
+    const markup = markupOf(
+      "{#snippet hitTable()}<DataTable.Root />{/snippet}\n{#snippet fixture()}{@render hitTable()}{/snippet}",
+    );
+    expect(
+      [...listRootSnippets(markup)].toSorted((left, right) => left.localeCompare(right)),
+    ).toEqual(["fixture", "hitTable"]);
+  });
+
+  it("reads a condition as about the query only when it names one", () => {
+    expect(namesSearchState("{#if searching")).toBe(true);
+    expect(namesSearchState('{#if appliedQuery.trim() !== ""')).toBe(true);
+    expect(namesSearchState("{#if hits !== null")).toBe(true);
+    expect(namesSearchState("{#if loadFailure !== null")).toBe(false);
+    expect(namesSearchState(null)).toBe(false);
+  });
+
+  it("finds no swap in a file with no conditional at all", () => {
+    expect(secondResultsSurfaces("<ScreenSearch />\n<DataTable.Grid {grid} />")).toEqual([]);
   });
 });

@@ -253,6 +253,41 @@ is usually the fastest way to understand the rule.
   press. Absence is still the signal; presence is still unmistakable. _(every list surface,
   2026-08-31)_
 
+- **A column a screen declares is a column the reader sees.** Seven of the Directory's columns
+  started hidden, on the reasoning that the assembled name is what a reader reads and the rest is
+  for a particular day. The owner added them and reported them missing — "it did not populate in,
+  even with blank data" — which is the verdict on that reasoning: the one way to reveal a hidden
+  column is the header's right-click menu, which nothing on the screen advertises, so a column that
+  starts hidden does not exist for anyone who did not write it. Declare what the screen shows, let
+  the table scroll sideways where it must, and let the header menu be where a reader HIDES what
+  they do not need today. _(the Directory, 2026-09-17)_
+
+- **Where a DATA TABLE will hold the rows, the table renders first — header row over an empty
+  body — and the words about the emptiness go in that body.** The 2026-09-14 ruling reached prose
+  standing where a structure should; a component standing there was left alone, and `EmptyState`
+  walked straight through the gap on fourteen surfaces. It does not any more: the header row is the
+  shape being promised, and a register whose columns only appear once a member has exported
+  something teaches them nothing before their first export. One line, in the table's muted register
+  — `DataTable.EmptyRow` for a hand-composed table, and `DataTable.Grid`, which says its own "No
+  Results" without being asked. _(Downloads and Uploads, 2026-09-18: "data tables will still appear
+  before data is in the area. this prepares users for the proper shape"; held by the
+  `table-behind-absence` rule in `tooling/lint-structured-empty/`)_
+- **A refusal and a failure are not an absence of data, and neither draws a frame.** A member who
+  may not see the table, and a read that broke, are not tables waiting to fill; an empty frame drawn
+  for either promises a shape the screen has no intention of producing. The same goes for a panel
+  with no subject and a report nobody has asked for yet — the allowances stand on exactly those,
+  each carrying its reason beside the code. _(2026-09-18)_
+
+- **Folders sort separately from files, and the boundary is not a sort key.** Wherever a list
+  carries places and the things inside them, the folders form their own run above the files and the
+  reader's chosen column orders each run on its own, in the chosen direction — so sorting by name
+  descending reverses the names within each run and never lifts a file over a folder, and the same
+  holds on size, on a date, and on a column added next year. The ordering is one pure function
+  handed the grid's own comparator through its `orderRows` seam, never a special case in the name
+  column, because a second comparison rule inside the list is a rule that will one day disagree
+  with the header it is sorted by. _(the matter file manager, 2026-09-18: "regardless of how files
+  are sorted, folders should always sort separately from files")_
+
 ### Data entry
 
 - **Creating a record is ONE screen with a left side and a right side.** Not a wizard, not a long
@@ -382,7 +417,34 @@ is usually the fastest way to understand the rule.
   reader to remember. The day being booked stands in the panel's context pane, as the product's own
   calendar with a day view and no toolbar — never a second rendering of one — following the date
   field as it is answered and saying so before a date is chosen rather than showing today as if that
-  were an answer. _(the calendar's record forms, 2026-09-14)_
+  were an answer. _(the calendar's record forms, 2026-09-14)_ The day it shows is whose the reader
+  chooses: the pane carries the calendars menu, which is the rail's own selection as a dropdown,
+  never a second selection that could disagree with the screen's. _(2026-09-18)_
+- **A long form's left side is tabs, and a choice that swaps a field swaps it in ONE slot.** Twelve
+  questions in one scrolling column beside a context pane become groups with a place each; and
+  where the first answer decides which second field is asked, the second field takes the same slot
+  whichever it is, so choosing moves nothing beneath it. _(the event form, 2026-09-18: "changing
+  between firm and matter causes reflow"; "reorganize the left side into tabs")_
+- **A time zone reads as one line, the same for every zone: the offset from UTC, the name on the
+  day, the city.** "(UTC-08:00) Pacific Standard Time · Los Angeles" — never a code on one row and
+  an offset on the next, never the identifier, and never a field that says "Zone" when it means the
+  time zone. The code ("PST") is what a person searches by and what a chip prints beside an hour,
+  and both are worked out on the record's own day. _(the calendar's time zone field, 2026-09-18)_
+- **A run of days is drawn in the band above the hours, not on the axis.** A three-day trial is a
+  fact about days; laid on the hour axis it was three full columns, reaching past the working hours
+  the grid draws. Its hours ride on the chip as text. And All Day is a switch a person can set, not
+  only a blank they have to know to leave. _(the week and day grids, 2026-09-18)_
+- **A re-pick of the chosen row confirms it; it never clears the field.** A dropdown's primitive may
+  deselect on a second pick and leave the list open, so the next click outside settles an empty
+  field. Clearing is a row of its own where a field offers one, and every picker refuses the
+  primitive's deselect. _(the matter picker, 2026-09-18)_
+- **A discard question is its heading.** "Discard Your Changes?" over Keep Editing and Discard
+  Changes; the sentence restating that entries would be thrown away and nothing else had changed is
+  struck. _(the record forms' close, 2026-09-18)_
+- **People added to a record are listed under where they came from.** Staff, Directory, Other —
+  the same words the picker offers — so a reader can tell a colleague from a contact from a name
+  typed once. And a source is named plainly: "Staff", not "Firm member"; "Other", not "Someone
+  else". _(the participant picker, 2026-09-18)_
 - **A moment is a date, a time FIELD, and its zone as a shortcode, on one line.** The day, the hour
   and the zone that hour is read in are one fact (the one-moment-one-line rule, applied): a platform
   time control rather than a box hoping for `HH:MM`, and "PST" rather than "America / Los Angeles",
@@ -978,6 +1040,36 @@ is usually the fastest way to understand the rule.
   puts the flip where a hand rests while it is deciding, which is what makes a list judder.
   _(reordering, 2026-09-16)_
 
+- **A control whose GLYPH changes with its state is not a pressed toggle, and is not ringed like
+  one.** The ghost recipe draws an accent hairline around an active toggle because a view or pane
+  toggle's icon says nothing about which side is on; a star that fills and turns gold has already
+  said it, and the ring then reads as a box fencing in the mark. Such a control drops `aria-pressed`
+  and carries its state in the glyph, in a label that names the act in both directions, and in a
+  data attribute — never by neutralising the recipe's paint at the call site. _(the screen header's
+  favourite star, 2026-09-17: "only the star should be yellow, there should not be a box around the
+  star")_
+
+- **A band of controls holds one open panel, and the band decides it — not the panels.** The top
+  bar's controls sit a few pixels apart and nearly every one opens a panel over the same work
+  canvas; pressing the second control is how a member says they are done with the first, so opening
+  any of them closes the others. Leaving it to the overlay library is not enough and fails
+  intermittently: a hover label is itself a dismissible layer, so a press on a neighbour while its
+  label is showing makes the LABEL the layer responsible for the press, and the panel underneath is
+  never asked to close. `TopBar.Root` declares itself an overlay band and every popover, menu and
+  dialog seated in it hands its place on; the library keeps every deliberate route it already
+  owned. _(the top bar, 2026-09-18)_
+- **A menu in the window's own chrome opens on a press, never on a pointer passing over it.** Hover
+  activation earns its place in a strip a member READS by pointing at — the matter's section strip,
+  the rail's groups — and loses it at the corner of the window, where a pointer lands on its way to
+  somewhere else and the menu opens over whatever was actually being reached for. The account menu
+  is `openOnHover={false}`. _(the account corner, 2026-09-18)_
+- **A seam that names a fact the product already holds is not a seam, it is an omission.** The
+  account corner said "Your name and firm are not shown here yet" while the session bootstrap
+  carrying both was being awaited on every navigation a few files away. Where the data is already
+  read, the surface reads it: through the shared cache, at no new request, as a `LoadingRegion`
+  fixture while it is in flight, and — if the read does not answer — as what is known, or as
+  nothing at all, never as a sentence about our own plumbing. _(the profile menu, 2026-09-18)_
+
 ### List screens
 
 - **A list screen is ONE table at the full width, and a rail down its side has to earn the
@@ -1208,6 +1300,34 @@ name, which is every screen outside a matter.
   standing after its screen got a search, and any second implementation of a search box.
   _(Workspace screens, 2026-09-14)_
 
+- **A screen searches the list it already shows; it does not grow a second one to put the answer
+  in.** The Matters docket sends its query to the read and the same grid, with the same columns,
+  shows what matched — while the Directory swapped that grid out for a separate table of hits the
+  moment anything was typed: a second surface to learn, arriving exactly when a reader is
+  mid-thought, and taking the sort, the filters and the columns they had set up with it. The
+  narrowed list keeps the screen's own footer, which is where the count and the "there are more
+  matches than these" sentence belong; a capped answer still says it is capped. The one shape this
+  is not is a screen with no single list to narrow — a matter's search reaches its documents, notes,
+  time and people at once — and that answer already has its home in the `panel` seam that opens
+  downward from the control. `pnpm run lint:workspace-search` refuses a screen that draws a table
+  under the query and another under the else, and names any allowance left standing after the
+  screen began searching in place. _(Workspace screens, 2026-09-17)_
+
+- **Where a query could honestly land on more than one register, the other answers arrive as rows
+  in the same table.** Somebody searching the Directory for "Pemberton" is as often looking for the
+  file as for the person, and sending them to a second screen to find out is the same defect in
+  another form. So a live query on the Directory also lists the firm's matching matters, marked by
+  the Kind column, blank in every contact column, opening the matter — and the resting index stays
+  the book of people and organizations, with its count the directory's own. _(the Directory,
+  2026-09-17)_
+
+- **The search field reads "Search", and nothing more.** Twenty-three screens each handed the
+  control a hint naming their surface — "Search the docket", "Search the firm's fees" — and the
+  owner struck them: the control sits in the screen's own header, so the screen is already named an
+  inch to the left, and the hint was restating it. The placeholder is no longer a prop of
+  `ScreenSearch`; a screen names its surface only in the accessible label, which never shows.
+  _(Workspace screens, 2026-09-18)_
+
 ### Layout
 
 - **A panel with a side rail holds ONE size, whichever rail item is chosen.** A modal sized to its
@@ -1336,6 +1456,58 @@ name, which is every screen outside a matter.
   Where the things beneath it are rows of the same rail, prefix-matching lights two rows at once and
   the reader has to work out which one is the answer. _(All Tools, 2026-09-16)_
 
+- **A screen header is its name and its actions, and a control that moves the grid stays over the
+  grid.** The owner named the escape — lifting the calendar's controls into the header — and ruled
+  against it in the same breath, so the action row stays where the 2026-09-16 arrangement put it and
+  is made to FIT instead: the window's name takes the slack the other groups leave rather than a
+  fixed slot, the way back to everything is the Kinds menu's own last item so narrowing can never
+  widen the row, and the glyph controls are the small square the rest of the row already stands at.
+  Wrapping survives only as the fallback below the width the groups themselves need. _(the
+  calendar, 2026-09-17)_
+- **A two-sided screen has two scroll regions, and a column that has one does not nest another.**
+  The rail scrolls and the content column's grid scrolls — that is the layout's design — but under
+  the action row there is exactly one scroller: the region around a month, a week or a day, which
+  are tables that scroll nothing of their own, or the agenda itself, which is already a named
+  focusable scrolling region. A region inside a region offers a reader two bars for one list and no
+  way to tell which moves what. _(the calendar, 2026-09-17)_
+- **A grid that fills its column is sized by a cell MINIMUM, never a fixed cell.** Six weeks at the
+  largest spacing step stood taller than a laptop's work canvas before a single entry was painted,
+  so an empty September scrolled. The month now fills the height it is given and its weeks share
+  the surplus; the region above it scrolls only when the minimum wins. _(the calendar, 2026-09-17)_
+
+- **A two-sided screen shows two scrollbars, never three, and the navigation's is not one of the
+  two.** The settings column stood three bands, eight groups and twenty-four rows open at once —
+  about twice a laptop canvas — so it carried a permanent scrollbar of its own beside the page's,
+  and a viewport-derived height that overshot the canvas by a pixel added the canvas's own on top.
+  Every band and every group folds now, and `NavigationLayout` caps its height against the canvas
+  it actually sits in rather than against the viewport. A height computed from `100dvh` is a guess
+  at a parent's height; where the parent is itself a scroll region, the guess is the defect.
+  _(Settings, 2026-09-17)_
+- **A settings page is the three stories and nothing else — masthead, the one scroll region, the
+  exit.** A page that writes the scroll region's two divs out by hand gets the spacing right by
+  accident and drifts the first time anything is corrected. `SettingsScrollRegion` is the only
+  `overflow-y-auto` under Settings. _(Settings, 2026-09-17)_
+- **The fold is one grammar across the product, and it is the sidebar's: the heading IS the
+  control.** Full width as the hit target, the label's own voice kept, a chevron down while open and
+  toward the inline start while folded, remembered per browser as departures from everything-open so
+  anything shipped later arrives open. It is one component — `NavigationLayout.Group` — for every
+  two-sided screen's column. The rail's own rows are not folded into it: a sub-menu row is a grid
+  with an icon column, a truncating label and a collapsed-rail tooltip, which is a different anatomy
+  wearing the same grammar. What must never drift is the grammar, and a part is the only way to
+  hold that. _(Settings, 2026-09-17)_
+- **The column never folds away the page the reader is standing on.** Arriving inside a folded
+  group opens it, that opening is not remembered, and one press still folds it — a fold is a reading
+  convenience, and the command palette still reaches every section inside one, because hiding must
+  never remove capability. _(Settings, 2026-09-17)_
+
+- **The canvas lays its children out; a screen that takes the whole height may shrink.** A
+  two-sided screen sizes itself to the canvas, and as a block child it kept that height whatever
+  stood above it — so the platform notice, which the shell renders over every page, pushed it past
+  the bottom edge by exactly the notice's height and the canvas grew a third scrollbar. The work
+  canvas is a flex column now and the layout is a shrinkable item with no minimum, so the notice
+  takes its room and the layout keeps its bottom edge on the canvas's. Ordinary pages stack in the
+  column exactly as they stacked as blocks. _(the shell, 2026-09-18)_
+
 ### Spacing and rhythm
 
 - **The App Shell draws the page inset, once, for everybody.** A screen rendered into the shell's
@@ -1368,6 +1540,77 @@ name, which is every screen outside a matter.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-17 — a star, the settings column, the Directory's search, and the calendar on a laptop
+
+The owner's round over the deployed site, in one message. What was said, and what each part
+generalizes to:
+
+- **"For the favorites button, only the star should be yellow, there should not be a box around the
+  star."** The ghost button recipe rings a pressed control with an accent hairline, and the star was
+  declaring itself pressed. It no longer does: the filled gold glyph is the state. Generalized above
+  under _Controls and patterns_.
+- **"AI and the assistant setting has multiple scrollbars, make sure to harmonize all setting pages
+  to use the same component."** Two causes. The settings column stood every band and group open —
+  about twice a laptop canvas — so it scrolled beside the page; and the layout's height was a guess
+  from the viewport that could overshoot the canvas by a pixel and wake the canvas's own bar. The
+  column folds now and the layout is capped against the canvas it sits in. Of the twenty-four
+  settings pages, one (Conflicts) had written the scroll region's two divs out by hand; it is on
+  the shared part. Generalized above under _Layout_.
+- **"My settings, firm settings, and platforms should be collapsible menus, with submenus and
+  grouping also being collapsible. Check what we use in the left sidebar, should these be combined
+  in components?"** Yes to the grammar and no to the rows: the heading is the control, folded per
+  browser as departures from everything-open, built once as `NavigationLayout.Group` for every
+  two-sided screen's column. The sidebar's own sub-menu row is a different anatomy (an icon column,
+  a truncating label, a collapsed-rail tooltip) wearing the same grammar, and folding it into the
+  part would have made the part four things. Generalized above under _Layout_.
+- **"I added more columns for directory, but it did not populate in, even with blank data."** They
+  were declared hidden, reachable only by right-clicking a header. Every declared column shows now.
+  Generalized above under _Lists and tables_. What is still open for the owner: the Columns submenu
+  itself is reachable only by that right-click, and nothing on the screen says so.
+- **"We should be able to see matters in the directory search area."** Read as matter rows in the
+  same search answer, marked Matter; the record window's own matters pane answers a different
+  question (what one person is on) and is untouched. Generalized above under _Screen search_.
+- **"Remove 'Every match the firm holds, in its own relevance order' from bottom of search."** Gone,
+  both places; the footer now speaks only when the answer was cut short.
+- **"Search functionality in the matter screen searches the table, while directory generates a new
+  searchable area which I dislike. Identify which places do it this way and swap over. Create lint
+  rule."** The survey of every screen with the search control found the Directory the only one that
+  swapped its table for a second surface; it searches in place now, with the server's relevance
+  order kept until the reader sorts. `lint:workspace-search` gained the `second-results-surface`
+  rule. The one sanctioned other shape is a matter's own search, which reaches everything on the
+  matter through the control's downward panel. Generalized above under _Screen search_.
+- **"For Collabora, I dislike how some settings are nested; to get to paragraph and font settings I
+  have to click into the menu, as opposed to that stuff being right at the top."** (2026-09-18.)
+  The editor was opening in its compact mode by default; the launch form now sends the editor
+  `UIMode=tabbed`, whose Home tab carries those controls. A default, not a lock: the editor's View
+  menu still switches, and a browser remembers the switch. The size of the editor's controls is
+  a separate question, still open (the frame zoom or a branding stylesheet in the container).
+- **"Sometimes I press uploads or downloads or other buttons in the header and the other one will
+  stay open."** (2026-09-18.) A hover label outranked the open panel in the overlay library's
+  dismissal order, so the panel was never asked to close. The top bar is an overlay band now: one
+  open panel, and opening the next closes the last. Generalized above under _Controls and
+  patterns_.
+- **"I don't want the top right menu to open just on hover."** The account menu opens on a press
+  only. Generalized above; every other hover-opened menu sits in a strip read by pointing and is
+  unchanged.
+- **"This menu also still says 'Magna Carta / Your name and firm are not shown here yet'."** It
+  shows the member's name over the firm's, from the bootstrap every navigation already reads, and
+  the avatar carries their initials. Generalized above.
+- **"Downloads and upload pages should show the table data would populate in, even if there is no
+  data. I want this as a lint and standard rule, that data tables will still appear before data is
+  in the area."** (2026-09-18.) Built as `DataTable.EmptyRow` and the `table-behind-absence` rule;
+  fourteen surfaces fixed, three allowances stated. Generalized above under _Lists and tables_.
+- **"In file manager area, regardless of how files are sorted (by name), folders should always
+  sort separately from files."** (2026-09-18.) One pure function on the grid's `orderRows` seam,
+  reaching the browse table, the icon grid, the inside of an archive and the upload intake's
+  hierarchy. Ledger row L59 in `file-manager-rulings.md`. Generalized above under _Lists and
+  tables_.
+- **"Calendar is very tight on my laptop, and has multiple scrollbars. If we move controls up higher
+  in the header area, maybe this would be better, but it would also be against what we really
+  do."** The escape was named and refused in the same sentence, so the controls stay over the grid
+  and were made to fit: one scroll region under the row, a month sized by a cell minimum that fills
+  its column, and a row that fits one line by measure. Generalized above under _Layout_.
 
 ### 2026-09-17 — the second level, read and grasped
 
@@ -2967,3 +3210,39 @@ participant role field", and "take best option".
   name into a row that reads `Add <name>`: `Add role` is a sentence and `Add attending as` is not.
   Generalizes: where a control composes the field's name into prose, the name is chosen against that
   prose, not in isolation.
+
+### 2026-09-17 — a filter is chosen from what the column holds, and a calendar in a menu stays
+
+The owner, on the tables' per-column filters: "when clicking to filter dates in tables, once, i
+click to add the dates, they disappear and i am unable to set them. also, from, to, file or folder,
+and potentially other fields, filter doesn't provide baseline to go off of, it is more like a search
+than allowing to set filters."
+
+- **A column's filter offers the column's values.** A text column's filter was a box that matched
+  whatever was typed into it, and a box like that gives a reader nothing to choose from: they have
+  to already know what the column holds before they can narrow it, which is a search, and the table
+  has one of those. The filter for a text column is the SET — every distinct value the rows carry,
+  each with a checkbox and its count — because a filter is chosen from a baseline the control
+  itself shows. The grid model's default flipped, so a column now gets the set by saying nothing,
+  and the ones caught were the changelog's From, To and File or Folder, the file Name in every
+  view, the upload's Name and the conflict hit's Party. Generalizes, and is promoted into _Lists
+  and tables_: **a contains box is a search wearing a filter's name.**
+- **Prose keeps the contains box, and has to say so.** Where no two rows share a value — the time
+  ledger's narrative, a fee's description — a checklist of every value is the column read twice,
+  and matching typed text is the only narrowing that means anything. Such a column declares
+  `filter: "text"`; the declaration is the record that somebody decided this column is prose.
+- **The one select control acts on what is listed.** A set of hundreds of names is narrowed by the
+  field above it, and the control under that field now speaks for the listed choices — "Select all
+  listed", "Select none listed" — touching only those, so a reader narrows a long list to the dozen
+  that match a word and takes them in one press. With the list whole it is the same control saying
+  "Select all" or "Select none", as before.
+- **A field's own floating layer is inside the menu that holds the field.** The date range's
+  calendar is a popover portaled outside the filter submenu, and the submenu closed the moment the
+  calendar took focus — Bits keeps a submenu open only for focus in itself, its parent or another
+  submenu — which unmounted the very field whose calendar had just opened: the dates "disappeared"
+  the instant they were reached for. The design system's submenus now keep focus in a popover, a
+  select list or a combobox list as focus inside the field
+  (`context-menu/menu-field-layer.ts`). Bits' documented route — `preventDefault()` in the
+  focus-outside handler — is a no-op on a focus event, which is not cancelable, so the pinned Bits
+  patch now also wraps that event the way Bits already wraps a pointer event. Generalizes: **a
+  field that opens a layer of its own is usable wherever the field is**, and a menu is not exempt.

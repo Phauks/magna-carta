@@ -116,6 +116,11 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // chain-of-custody a firm can be asked to account for, and removing the row would break the
   // version lineage the current-version pointer walks.
   { table: "file_version", subjectKey: "uploaded_by", action: "pseudonymize-keep" },
+  // Who was in the editing session when a version was cut, on the same terms as uploaded_by: the
+  // reference outlives the member row by design (no foreign key to member), and the row is
+  // chain-of-custody — that SOMEBODY was in the document at this time — so it is pseudonymized,
+  // never deleted.
+  { table: "file_version_participant", subjectKey: "member_user_id", action: "pseudonymize-keep" },
   { table: "entity_merge", subjectKey: "subordinate_id", action: "pseudonymize-keep" },
   // The conflicts log — append-only compliance records whose RAISE(ABORT) triggers forbid deletion, so
   // the subject reference is pseudonymized in place and the row is never removed (the same discipline as
@@ -905,6 +910,10 @@ export const NO_PII_TABLES: readonly string[] = [
   // The drawn-number allocation ledger behind that counter: a scope key, the integer drawn, the matter
   // it went to, and when. Numbering bookkeeping about a matter, carrying no column about a person.
   "matter_number_allocation",
+  // The conflicts check sequence's counter and allocation ledger: the same bookkeeping about a
+  // numbered check, carrying no column about a person (the check itself is classified above).
+  "conflicts_check_number_counter",
+  "conflicts_check_number_allocation",
   // matter is matter-scoped metadata, BUT matter.client_display_name/client_code can hold a
   // prospective client's name pre-Directory-link, with no structured subject key to resolve — a known
   // residual in the same class as shipment-address JSON (handled by the residue report / a product

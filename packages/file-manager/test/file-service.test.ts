@@ -98,6 +98,8 @@ describe("commitEditedVersion", () => {
         contentSha256: "hash-edited",
         sizeBytes: 2048,
         uploadedBy: ACTOR,
+        saveKind: "explicit",
+        participants: [],
       },
       options,
       async (from, to) => {
@@ -145,6 +147,8 @@ describe("commitEditedVersion", () => {
         contentSha256: "hash-unchanged",
         sizeBytes: 2048,
         uploadedBy: ACTOR,
+        saveKind: "explicit",
+        participants: [],
       },
       options,
       async (from) => {

@@ -16,8 +16,8 @@ import {
   reopenMatter,
   updateMatter,
 } from "../src/matter-service.ts";
-import type { NumberingPurpose } from "../src/matter-statements.ts";
-import type { NumberSegment } from "../src/numbering/segments.ts";
+import type { NumberSegment } from "@magna-carta/sequence-numbering/segments";
+import type { MatterNumberingPurpose } from "../src/matter-statements.ts";
 import { MatterValidationError } from "../src/validation.ts";
 
 const clock = {
@@ -72,7 +72,7 @@ async function seedMember(database: BatchDatabase, userId: string): Promise<void
 async function seedScheme(
   database: BatchDatabase,
   segments: NumberSegment[],
-  purpose: NumberingPurpose = "matter",
+  purpose: MatterNumberingPurpose = "matter",
 ): Promise<void> {
   // One active scheme per purpose: deactivate any existing of that purpose, then insert the new one.
   await database

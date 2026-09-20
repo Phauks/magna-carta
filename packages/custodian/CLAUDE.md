@@ -30,8 +30,12 @@ surrounding context — [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Car
 - `src/close-advisory.ts` — the matter-close notice: informational, never a refusal
 - `src/settings.ts` — the firm's release policy and its ownership-role catalog, both read by hand
 - `src/scan-service.ts` — links an already-ingested `file` to a packet; resolves the filing matter
-- `src/numbering/` — the fixed number shape (`render.ts`), and a thin shim binding custody's tables
-  and `packet_id` owner column to the shared draw in `@magna-carta/sequence-numbering`
+- `src/numbering/` — the packet-relative item number (`render.ts`), and a thin shim binding
+  custody's tables and `packet_id` owner column to the shared draw in
+  `@magna-carta/sequence-numbering`. The custody number's SHAPE is not here: it is the
+  `custody_packet` purpose on that package's numbering register (CUS-00001 by default), written by
+  the firm on the one numbering settings screen and read by the shared draw planner in
+  `packet-service.ts`
 - `src/queries.ts` — the register list, the location-subtree filter, and the overdue check-out sweep
 - `src/review-service.ts` / `src/review-statements.ts` — review dates: completing one, the
   anniversary-anchored roll forward, and the reviews-due read

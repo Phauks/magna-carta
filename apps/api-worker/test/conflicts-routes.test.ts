@@ -239,7 +239,7 @@ describe("conflicts check routes", () => {
     expect(response.status, await response.clone().text()).toBe(202);
     const opened = (await response.json()) as OpenedCheck;
     expect(opened.id).toMatch(/^conflictsCheck_/);
-    expect(opened.checkNumber).toMatch(/^CC-\d{4,}$/);
+    expect(opened.checkNumber).toMatch(/^CC\d{4}-\d{5,}$/);
     // A check is identified by its first run's handle.
     expect(opened.runId).toBe(opened.id);
     expect(opened.ordinal).toBe(1);
@@ -259,7 +259,7 @@ describe("conflicts check routes", () => {
     const preview = await get("/api/v1/conflicts/checks/next-number");
     expect(preview.status, await preview.clone().text()).toBe(200);
     const { checkNumber } = (await preview.json()) as { checkNumber: string };
-    expect(checkNumber).toMatch(/^CC-\d{4,}$/);
+    expect(checkNumber).toMatch(/^CC\d{4}-\d{5,}$/);
 
     const { opened } = await openAndSettle({
       trigger: "preliminary",
@@ -474,7 +474,7 @@ describe("conflicts check routes", () => {
     expect(recheck.status, await recheck.clone().text()).toBe(202);
     const { id: checkId, runId, checkNumber } = (await recheck.json()) as OpenedCheck;
     expect(checkId).toMatch(/^conflictsCheck_/);
-    expect(checkNumber).toMatch(/^CC-/);
+    expect(checkNumber).toMatch(/^CC\d{4}-/);
 
     // It is somebody's act, and the log says whose — unlike an automated run, which is nobody's.
     const read = await readSettled(checkId, runId);

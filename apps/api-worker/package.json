@@ -13,6 +13,7 @@
     "test": "vp test run"
   },
   "dependencies": {
+    "@cloudflare/puppeteer": "catalog:",
     "@cloudflare/containers": "catalog:",
     "@hono/zod-openapi": "catalog:",
     "@magna-carta/access-control": "workspace:*",

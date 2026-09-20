@@ -9,6 +9,7 @@ import {
   emptyDeadlineDraft,
 } from "$lib/calendar/deadline-draft.ts";
 import {
+  asAllDay,
   conferenceShortfalls,
   emptyEventDraft,
   entityParticipant,
@@ -16,9 +17,13 @@ import {
   eventDraftRequest,
   eventDraftShortfalls,
   eventDraftStarted,
+  eventFormTabOf,
   externalParticipant,
   memberParticipant,
+  participantsBySource,
+  readsAsAllDay,
   recurrenceChanged,
+  withMemberListed,
 } from "$lib/calendar/event-draft.ts";
 import {
   emptyFirmEventDraft,
@@ -26,7 +31,7 @@ import {
   firmEventDraftShortfalls,
 } from "$lib/calendar/firm-event-draft.ts";
 import { weeklyRecurrence } from "@magna-carta/civil-time/recurrence";
-import { timeZoneOptions } from "$lib/calendar/time-zone-options.ts";
+import { matchingTimeZones, timeZoneOptions } from "$lib/calendar/time-zone-options.ts";
 
 describe("the event draft", () => {
   it("needs a title, a date and a zone, in that order", () => {
@@ -233,18 +238,52 @@ describe("the firm event draft", () => {
 });
 
 describe("timeZoneOptions", () => {
+  const JANUARY = new Date("2026-01-15T12:00:00Z");
+
   it("offers the preferred zones first, once each, drops what cannot resolve, then the rest", () => {
     const options = timeZoneOptions(
       ["America/New_York", "+05:00", "America/New_York", "America/Los_Angeles"],
-      ["America/Chicago", "America/Los_Angeles", "Europe/London"],
+      ["Europe/London", "America/Chicago", "America/Los_Angeles", "Asia/Kolkata"],
+      JANUARY,
     );
+    // The rest run west to east, whatever order the runtime listed them in.
     expect(options.map((option) => option.value)).toEqual([
       "America/New_York",
       "America/Los_Angeles",
       "America/Chicago",
       "Europe/London",
+      "Asia/Kolkata",
     ]);
-    expect(options[0]?.label).toBe("America / New York");
+  });
+
+  it("reads every zone as the same line: the offset from UTC, the name on the day, the place", () => {
+    const options = timeZoneOptions([], ["America/Los_Angeles", "Asia/Kolkata"], JANUARY);
+    expect(options.map((option) => option.label)).toEqual([
+      "(UTC-08:00) Pacific Standard Time · Los Angeles",
+      "(UTC+05:30) India Standard Time · Kolkata",
+    ]);
+  });
+
+  it("is found by its code, its name, its place, its offset or its identifier", () => {
+    const options = timeZoneOptions(
+      [],
+      ["America/Los_Angeles", "America/Chicago", "Asia/Kolkata"],
+      JANUARY,
+    );
+    const found = (query: string) =>
+      matchingTimeZones(options, query).map((option) => option.value);
+    expect(found("PST")).toEqual(["America/Los_Angeles"]);
+    expect(found("pacific")).toEqual(["America/Los_Angeles"]);
+    expect(found("los angeles")).toEqual(["America/Los_Angeles"]);
+    expect(found("los_angeles")).toEqual(["America/Los_Angeles"]);
+    expect(found("-06")).toEqual(["America/Chicago"]);
+    expect(found("standard time")).toEqual([
+      "America/Los_Angeles",
+      "America/Chicago",
+      "Asia/Kolkata",
+    ]);
+    expect(found("")).toHaveLength(3);
+    expect(found("mars")).toEqual([]);
   });
 });
 
@@ -316,5 +355,62 @@ describe("a repeat on a draft", () => {
     expect(recurrenceChanged(monthly, { ...monthly, interval: 2 })).toBe(true);
     expect(recurrenceChanged(null, monthly)).toBe(true);
     expect(recurrenceChanged(null, null)).toBe(false);
+  });
+});
+
+describe("all day", () => {
+  it("is a day with no hour on either end, and never a form with no day yet", () => {
+    expect(readsAsAllDay(emptyEventDraft("America/Chicago"))).toBe(false);
+    expect(readsAsAllDay(emptyEventDraft("America/Chicago", "2026-09-14"))).toBe(true);
+    expect(
+      readsAsAllDay({ ...emptyEventDraft("America/Chicago", "2026-09-14"), startsAtTime: "09:00" }),
+    ).toBe(false);
+  });
+
+  it("is chosen by clearing the hours, which is what the record stores for it", () => {
+    const timed = {
+      ...emptyEventDraft("America/Chicago", "2026-09-14"),
+      startsAtTime: "09:00",
+      endsAtTime: "11:00",
+    };
+    const cleared = asAllDay(timed);
+    expect(cleared.startsAtTime).toBe("");
+    expect(cleared.endsAtTime).toBe("");
+    expect(cleared.startsOn).toBe("2026-09-14");
+    expect(readsAsAllDay(cleared)).toBe(true);
+  });
+});
+
+describe("a staff member's own event", () => {
+  it("lists them first and once, whether or not they were also picked", () => {
+    const ada = memberParticipant("user_ada", "Ada Lovelace");
+    const judge = externalParticipant("Judge Hale");
+    expect(withMemberListed([judge], "user_ada", "Ada Lovelace")).toEqual([ada, judge]);
+    expect(withMemberListed([judge, ada], "user_ada", "Ada Lovelace")).toEqual([ada, judge]);
+    expect(withMemberListed([], "user_ada", "Ada Lovelace")).toEqual([ada]);
+  });
+});
+
+describe("participants, bundled by where they came from", () => {
+  it("groups Staff, then Directory, then Other, leaving out an empty source", () => {
+    const ada = memberParticipant("user_ada", "Ada Lovelace");
+    const client = entityParticipant("directoryPerson_1", "Rosalind Chase");
+    const judge = externalParticipant("Judge Hale");
+    expect(participantsBySource([judge, ada, client])).toEqual([
+      { kind: "member", label: "Staff", participants: [ada] },
+      { kind: "entity", label: "Directory", participants: [client] },
+      { kind: "external", label: "Other", participants: [judge] },
+    ]);
+    expect(participantsBySource([judge]).map((bundle) => bundle.label)).toEqual(["Other"]);
+    expect(participantsBySource([])).toEqual([]);
+  });
+});
+
+describe("which tab an answer is on", () => {
+  it("puts the timing on When, the link on Where, and the rest on Details", () => {
+    expect(eventFormTabOf("startsOn")).toBe("when");
+    expect(eventFormTabOf("timeZone")).toBe("when");
+    expect(eventFormTabOf("conferenceUrl")).toBe("where");
+    expect(eventFormTabOf("title")).toBe("details");
   });
 });

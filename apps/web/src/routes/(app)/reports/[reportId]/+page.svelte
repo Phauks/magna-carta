@@ -497,6 +497,10 @@
         {/if}
       {/snippet}
       {#snippet emptyState()}
+        <!-- structured-empty-allow: nothing has been ASKED yet, which is not an empty answer. The
+             report's sections and their columns come back with the response, so until the scope is
+             complete there is no header row to draw — an invented one would promise a shape the
+             chosen report may not take. -->
         <EmptyState title="Choose a Trust Account">
           {scopeGap ?? "Nothing has been asked for yet."} The report runs as soon as the scope is
           complete.

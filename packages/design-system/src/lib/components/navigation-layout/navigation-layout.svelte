@@ -11,7 +11,9 @@
    * column's width (two token-derived measures), the two independent scroll regions with the
    * house scrollbar and a RESERVED gutter (a scrollbar arriving must never shift the content
    * beside it), and the canvas geometry. It imposes NO structure on what the navigation holds —
-   * the consumer's snippet decides that — so there is no `items` prop and never will be.
+   * the consumer's snippet decides that — so there is no `items` prop and never will be. The two
+   * parts beside it, `Row` and `Group`, are OFFERED for what a column draws again and again: one
+   * choice, and a heading that folds what it holds. Taking either is a choice, never a requirement.
    *
    * Canvas geometry (owner-directed on the settings surface, kept here so no consumer repeats it):
    * the two columns reach the canvas's TRUE edges. The app shell pads its work canvas by
@@ -100,14 +102,37 @@
   their own); at lg and up the columns scroll independently and the root never does. The full
   height under the top bar is an inline calc of two tokens — a length the spacing scale cannot
   name — and the negative margin is the canvas's own padding step, cancelled.
+
+  The max-block-size beside it is what keeps that calc from OVERSHOOTING, and it is the difference
+  between one scrollbar and two. The calc is a guess at how tall the canvas is: it is right only
+  while the chrome above measures exactly the top-bar token and while the viewport's `dvh` agrees
+  with the height the shell was given. When either drifts — chrome that grows by a hairline, a
+  browser whose dynamic toolbar moves `dvh` under a shell sized in `vh` — the layout stands a few
+  pixels taller than the canvas it sits in, and the canvas (which is itself a scroll region) grows a
+  scrollbar beside the two this component already draws.
+
+  It is NOT a plain 100%, and the difference is the cancelled inset. A percentage resolves against
+  the canvas's CONTENT box, which is already short by the inset this layout swallows; capping there
+  would pull the columns up by that inset and leave a band of bare canvas under them. What the cap
+  has to bound is the MARGIN box, so it is the content box plus the two inset steps the negative
+  margin gives back — which is exactly the height the calc is aiming at, arrived at from the canvas
+  rather than from the viewport. Where the parent has no definite height (a catalog story's box) the
+  percentage cannot resolve, the max-block-size behaves as `none`, and the calc stands alone.
+
+  `min-h-0 shrink` is for the one thing neither the calc nor the cap can see: something standing
+  ABOVE this layout inside the canvas — the platform notice the shell renders over every page. The
+  canvas lays its children out as a column, so a flex item that may shrink below its stated height
+  gives that notice its room and keeps its own bottom edge on the canvas's; a block child, or a
+  flex item with the default `min-height: auto`, kept the full height and pushed past the edge by
+  exactly the notice's height, and the canvas grew a third scrollbar.
 -->
 <div
   bind:this={ref}
   class={mergeClasses(
-    "mc-navigation-layout mc-scrollbar -m-24 flex flex-col max-lg:overflow-y-auto",
+    "mc-navigation-layout mc-scrollbar -m-24 flex min-h-0 shrink flex-col max-lg:overflow-y-auto",
     className,
   )}
-  style="block-size: calc(100dvh - var(--mc-size-top-bar))"
+  style="block-size: calc(100dvh - var(--mc-size-top-bar)); max-block-size: calc(100% + var(--mc-space-48))"
   {...restProps}
 >
   {#if header}

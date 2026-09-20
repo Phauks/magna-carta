@@ -790,8 +790,8 @@
         whenSilent={failure.whenSilent}
       >
         {#if numberingHint}
-          <a class="ms-4 underline underline-offset-2" href="/settings/matter-numbering">
-            Matter numbering
+          <a class="ms-4 underline underline-offset-2" href="/settings/numbering">
+            Numbering
           </a>
         {/if}
       </FailureNotice>

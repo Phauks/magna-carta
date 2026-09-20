@@ -21,6 +21,10 @@ export const PERMISSIONS = [
   "firm:scanFile", // run a one-off, matter-less malware-scan diagnostic — seeded to every default role
   "firm:manageSecrets", // read/write the encrypted per-firm secret store (an audited decrypt on read)
   "firm:manageScanPolicy", // read and update the firm's malware scan-policy settings
+  // Whether every document opened in the browser editor records its changes. The firm's act, on
+  // the firm:manageScanPolicy reasoning: it decides what the firm's documents carry inside them
+  // for their whole life, which is not a member's preference. Owner/Admin only by seed.
+  "firm:manageEditingPolicy", // read and update the firm's editing policy: whether documents record their changes
   "firm:manageReleaseChannel", // set the firm's release channel between {stable, beta}; alpha is platform-only
   // The firm's notification POLICY, which is a different act from a member's own preferences. The
   // in-app floor decides what every member of the firm must go on hearing whatever they switch off;
@@ -68,7 +72,11 @@ export const PERMISSIONS = [
   "matters:edit", // edit matter fields (title/description/type/location/attorney/client)
   "matters:renumber", // assign a manual/court/legacy number
   "matters:manageTypes", // create/deactivate matter types
-  "matters:manageNumbering", // edit the firm numbering scheme
+  "matters:manageNumbering", // edit the firm's numbering schemes
+  // Seeded to EVERY default role, Read-only included: how the firm's numbers are shaped is a fact
+  // every member reads off every record, so seeing the register is not a privilege — changing it
+  // is, and that stays matters:manageNumbering.
+  "matters:viewNumbering", // read the firm's numbering register: every sequence, and what is in force
   // Directory — persons, organizations, and their sensitive typed identifiers.
   "directory:edit", // create/edit directory entities, names, identifiers, edges, categories, merges, and matter-party links
   "directory:viewSensitiveIdentifiers", // decrypt and read an entity's protected identifier (SSN/EIN/DL/account/DOB) — audited

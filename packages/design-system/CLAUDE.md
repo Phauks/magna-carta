@@ -33,12 +33,13 @@ properties; off-token values are machine-rejected.
   browser: `time-placement.ts` (the span an entry occupies, floored at `MINIMUM_BLOCK_MINUTES` so a
   fifteen-minute call can still hold its label, and the share of the column it takes) and
   `time-blocks.ts` (which cell it renders in, and the inline style that draws it), and
-  `day-segments.ts` (a timed entry that runs past midnight, cut into the piece it occupies on each
-  day it covers — the first day from its start hour to midnight, a day in the middle the whole
-  column, the last day midnight to its end hour). The month never needed that last one, because
-  `placeEntries` walks every day of a span; a span on an HOUR axis is not the same entry repeated,
-  which is why the time grids could not use it. Each piece carries its own id, because two pieces of
-  one record are two things to render and a grid keyed on a repeated id drops all but one. **How concurrent
+  `day-segments.ts` (the timed entries a day's axis holds: the ones that begin and end on it).
+  **A run of days reads in the band above the hours, never on the axis** (`inAllDayBand`,
+  `day-axis.ts`; owner, 2026-09-18): a Monday-to-Wednesday trial spans the band the way it spans
+  the month, with its hours on the chip as text. It used to be cut into a piece per day — the start
+  hour to midnight, a whole column, midnight to the end — which drew it as three full columns and,
+  where the day drew only working hours, as blocks reaching above and below the grid. A span's hours
+  never widen the axis either. **How concurrent
   entries are drawn is the READER's** (`concurrency`: `side-by-side` divides the column,
   `overlap` steps them over one another) — a closed set, never a length or a flag at a call site.
   The month and the agenda have no hour axis and take no such prop. The calendar's own arithmetic,
@@ -290,7 +291,20 @@ opposite reading order, load-more three times in two places — and the drift is
 
 ## The grid's frame, its scale, and its row marks
 
+**A Tooltip is a dismissible layer with behaviour `close`.** An open hover label therefore outranks
+the panel beneath it in Bits' layer stack, and Bits will not dismiss that panel on an outside press
+while the label shows — which is why two top-bar panels could stand open at once. The top bar
+settles it by state rather than by pointer: `TopBar.Root` declares an overlay band
+(`internal/overlay-band.svelte.ts`) and `Popover.Root`, `DropdownMenu.Root` and `Dialog.Root` join
+it where one exists, so opening any panel in the band closes the others. Everywhere else the join
+finds no band and does nothing.
+
 Three things about `DataTable.Grid` that a surface gets wrong by spelling them out itself.
+
+- **A `sortColumnId` of null renders the rows as given.** `initialSort.columnId` accepts null and
+  `setSort(null)` clears the sort, which is how a ranked answer keeps the server's relevance order
+  until the reader sorts a column themselves (the Directory's search does this); a surface never
+  re-sorts a capped best-of into a sorted-looking index of its own.
 
 - **`frame` is `card` or `flush`, and it is a prop rather than three utilities.** A card is the
   hairline, rounded table-card, and its LAST ROW DROPS ITS HAIRLINE because the card's own bottom
@@ -451,6 +465,19 @@ by hand at two widths with two scroll treatments.
   never scrolls on such a route; the two columns do, with `scrollbar-gutter: stable` so a
   scrollbar arriving never shifts what sits beside it. A screen that renders it beneath a masthead
   of its own is not this shape yet.
+- **The height calc is CAPPED at the canvas, and the cap is not a plain 100%.** The viewport calc
+  is a guess: it is right only while the chrome measures exactly the top-bar token and the
+  viewport's `dvh` agrees with the height the shell was sized in (`h-screen`, which is `vh`). When
+  it overshoots, the canvas — itself a scroll region — grows a scrollbar beside the two columns,
+  and one surface shows three. `max-block-size: calc(100% + var(--mc-space-48))` bounds it from
+  the parent instead. The `+ space-48` is the cancelled inset: a percentage resolves against the
+  canvas's CONTENT box, which is already short by the inset the `-m-24` gives back, so capping at
+  a bare 100% would pull both columns up by 48px and leave a band of bare canvas under them. Where
+  the parent has no definite height (a catalog story's box) the percentage cannot resolve, the cap
+  behaves as `none`, and the calc stands alone. What this does NOT reach is a sibling ABOVE the
+  layout inside the canvas (the app's `PlatformNotice`): that pushes the layout down by its own
+  height and the canvas scrolls by exactly that, which needs the shell's `<main>` to become the
+  flex column the layout is a child of.
 - **A title can SPAN both columns (`header`), and the navigation can PIN something under its
   scroll (`navigationFooter`).** Both are optional, and giving neither leaves the DOM byte-identical
   for the screens composing this today. The calendar asked for both and neither is calendar-specific:
@@ -498,6 +525,38 @@ in both — with a fourth two-sided screen already foreseen.
   its own colours here is the defect the part exists to end.
 - **`icon` and `trailing` are snippets.** The glyph is sized by `mc-navigation-layout-row-icon`,
   which the part applies itself; the trailing mark never shrinks.
+
+### The group, the column's fold
+
+**`Group` is the third export of `./navigation-layout`** (as `Group` and as `NavigationLayoutGroup`)
+— a heading that folds what it holds. It exists because the owner asked whether the settings nav's
+folds and the rail's were one component (2026-09-17); the answer is that the disclosure GRAMMAR is
+one and the rows are not.
+
+- **One grammar, and the sidebar settled it.** The heading IS the control — not a chevron beside a
+  label, not a control in a row of its own — it keeps its own voice rather than dressing as a
+  button, its hit target is the whole width, and the chevron points down while open and toward the
+  inline start while folded. `Sidebar.GroupTrigger` says the same thing in the chrome register.
+- **It composes `mc-field-label` rather than restating the caps voice**, the way the sidebar's
+  trigger composes `mc-sidebar-group-label`. A recipe that retyped the register would be the second
+  copy of it that FieldLabel exists to prevent.
+- **Two levels, and the indent stagger is the recipe's**: `band` (a glyph, firmer ink, the column's
+  rule under it) over `group` (a step in, quieter) over the rows (a step further). The settings
+  column had that stagger in utilities and an inline `padding-inline-start`; it is one recipe now,
+  so a two-sided screen cannot re-choose it.
+- **The fold is the CONSUMER's.** Nothing is remembered here — the app stores a member's folds as
+  departures from everything-open, and a part with its own memory would be a second answer to that.
+  It takes `expanded` and reports the press through `onToggle`.
+- **Folded means ABSENT.** The rows are removed rather than hidden, and the heading carries
+  `aria-expanded` alone — an `aria-controls` naming an element that is not there is an invalid
+  reference, and a `hidden` attribute would leave the rows under the keyboard's fingers.
+- **The sidebar was NOT migrated onto it, deliberately.** `Sidebar.MenuTrigger` is a three-track
+  grid with an icon column, a truncating label and a collapsed-rail tooltip — a different anatomy,
+  and absorbing it would grow this part four props and stop it being one thing. Migrating
+  `Sidebar.GroupTrigger` alone would split one visual fact across two class names in the rail
+  (`mc-sidebar-group-chevron`, which the menu trigger also wears, against this part's own), which
+  is worse than the duplication it would remove. What the two share is the grammar, and the grammar
+  is written down here and in the sidebar's own note.
 
 ## Invariants that apply here
 
@@ -566,6 +625,13 @@ main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compi
   restore to `style.cssText` (the CSP-clean CSSOM channel). Never loosen `style-src` instead. The
   spike asserts the patched verdict and fails if a bits-ui upgrade regresses it — re-run on every
   bits-ui/svelte bump (`tools/run-csp-spike.cmd`) and drop the patch if #1995 lands upstream.
+- **The same patch makes `onFocusOutside` preventable.** A focus event is not cancelable, so the
+  `event.preventDefault()` Bits documents as the way to keep a layer open on focus leaving was a
+  no-op and Bits closed the layer anyway — a submenu hosting a DatePicker closed the moment its
+  calendar took focus. The patch wraps the focus event the way Bits already wraps a pointer event,
+  so the prevented state is tracked; `context-menu/menu-field-layer.ts` relies on it. Both halves
+  of the patch are re-checked on every bits-ui bump; upstream still passes the raw event as of
+  2.19.2.
 - **Visual regression baselines are authoritative ONLY from the pinned Playwright container**
   (`update-baselines.cmd`/`.sh`; no Docker on the dev machine — first baselines land via CI).
   After any local VRT run, check `git status` for stray `visual-regression/baselines/*.png` —

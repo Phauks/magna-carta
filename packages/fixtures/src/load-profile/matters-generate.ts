@@ -25,8 +25,8 @@ import {
 import { createMatter, openMatter } from "@magna-carta/matters/matter-service";
 import { closeMatter } from "@magna-carta/matters/matter-service";
 import { createMatterType } from "@magna-carta/matters/matter-type-service";
-import { setActiveNumberingScheme } from "@magna-carta/matters/numbering/scheme-service";
-import type { NumberSegment } from "@magna-carta/matters/numbering/segments";
+import { setActiveNumberingScheme } from "@magna-carta/sequence-numbering/scheme-service";
+import type { NumberSegment } from "@magna-carta/sequence-numbering/segments";
 import type { FixtureContext } from "../context.ts";
 import { assertSeedingAllowed, type SeedingOptions } from "../guard.ts";
 import type { PracticeVolume } from "./profile.ts";
