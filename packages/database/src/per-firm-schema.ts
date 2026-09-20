@@ -123,6 +123,7 @@ import type {
   MatterTypeId,
   MeetingAttendanceId,
   MeetingId,
+  MeetingMessageId,
   MemberLocationId,
   MemberRoleId,
   NarrativeTemplateId,
@@ -10487,6 +10488,95 @@ export const matterIntakeStepRecord = sqliteTable(
     check(
       "matter_intake_step_record_waiver_rationale_check",
       sql`${table.outcome} != 'waived' OR (${table.rationale} IS NOT NULL AND length(${table.rationale}) > 0)`,
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------------------------
+// In-meeting chat — the meeting's first and only stored content.
+// ---------------------------------------------------------------------------------------------
+
+// One thing somebody said in a meeting's chat. The owner's ruling of 2026-09-20 is that chat is KEPT
+// ON THE RECORD, which makes this the one table in the subsystem that holds content: everything else
+// a meeting knows is identifiers and instants, and the audio, the video and the screen share are
+// routed between browsers and reach no storage here at all. So this row carries what a filed message
+// carries — a retention basis, a personal-data classification, and a way to take something back.
+//
+// IT HANGS FROM THE STAY, NOT FROM THE MEMBER. The participant pair is who said it at the time, and
+// being in the room is what made it sayable: the speaker is reached through their stay, so somebody
+// who dropped off and dialled back in has each message attributed to the stay it was actually said
+// in. A user column beside it would be a second answer to who spoke, and the two would disagree the
+// first time a stay was corrected.
+//
+// THE STAY IS NAMED BY VALUE, ACROSS TWO TABLES. A member's stay is a `meeting_attendance` row and a
+// guest's will be a `meeting_guest_stay` row, because `meeting_attendance.user_id` is NOT NULL and
+// SQLite cannot relax that in place — so a foreign key onto `meeting_attendance` here would bar
+// every guest from chat, and adding the second kind afterwards is exactly the table rebuild this
+// schema refuses on a table anything references. `participant_kind` says which table the handle
+// belongs to and `participant_id` carries it with no foreign key: the matter_party / custody_owner
+// precedent for a cross-domain handle. `meeting_id` stays a real foreign key — that is what ties the
+// message to the record it is part of.
+//
+// APPEND-ONLY, NEVER EDITED. A message is a thing somebody said; a record that could be rewritten
+// afterwards is not a record of the meeting. Removal is not a delete either — it is the
+// redacted_at/redacted_by_user_id pair blanking the body, so the file keeps that a message existed,
+// when, from which stay, and that somebody took it back.
+export const meetingMessage = sqliteTable(
+  "meeting_message",
+  {
+    id: text("id").primaryKey().$type<MeetingMessageId>(), // meetingMessage_ handle
+    meetingId: text("meeting_id")
+      .notNull()
+      .$type<MeetingId>()
+      .references(() => meeting.id),
+    // Which kind of stay the handle beside it names: a firm member's `meeting_attendance` row, or
+    // the `meeting_guest_stay` row an external guest will hold. Only `member` is written today.
+    participantKind: text("participant_kind", { enum: ["member", "guest"] }).notNull(),
+    // The stay, which is both who said it and the proof they were in the room when they did. Carried
+    // by value, with no foreign key, because the table it belongs to is decided by the column above.
+    participantId: text("participant_id").notNull(),
+    // THE SERVER'S INSTANT, never the browser's: a transcript ordered by what each person's own
+    // clock said is not one ordering, and the disagreement is invisible in the reading.
+    sentAt: text("sent_at").notNull(), // ISO-8601 instant
+    // What was said, bounded at four thousand characters. Empty exactly when the row is redacted,
+    // which is what the pair of checks below says in both directions.
+    body: text("body").notNull(),
+    redactedAt: text("redacted_at"), // ISO-8601 instant
+    redactedByUserId: text("redacted_by_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    // THE READ AND THE KEYSET IN ONE INDEX: one meeting's messages, oldest first, walked by
+    // (sent_at, id). The handle is in the index because it is the tiebreak that makes two messages
+    // sent in the same millisecond a stable pair rather than a page that repeats one and skips the
+    // other.
+    index("meeting_message_meeting_sent_index").on(table.meetingId, table.sentAt, table.id),
+    // A removal says who removed it and when, or neither. Half of that pair is a record nobody can
+    // question — the line meeting_ended_shape_check already sits on.
+    check(
+      "meeting_message_redaction_shape_check",
+      sql`(${table.redactedAt} IS NULL AND ${table.redactedByUserId} IS NULL)
+        OR (${table.redactedAt} IS NOT NULL AND ${table.redactedByUserId} IS NOT NULL)`,
+    ),
+    // WHAT REDACTION MEANS, held by the database rather than by the write path. A redacted row whose
+    // body survived would be a removal that removed nothing, and a live row with an empty body would
+    // read as a removal that never happened; both are the same check from opposite sides.
+    check(
+      "meeting_message_redacted_body_check",
+      sql`(${table.redactedAt} IS NULL AND length(${table.body}) > 0)
+        OR (${table.redactedAt} IS NOT NULL AND length(${table.body}) = 0)`,
+    ),
+    // The ceiling, as the database's own answer as well as the domain package's. Four thousand
+    // characters is a long message and not an essay; a chat that could carry a document would be a
+    // filing path nothing in the subsystem scans.
+    check("meeting_message_body_length_check", sql`length(${table.body}) <= 4000`),
+    // The participant vocabulary, as a CHECK, so a handle that claims a third kind of stay fails at
+    // the database rather than only at the type checker.
+    check(
+      "meeting_message_participant_kind_check",
+      sql`${table.participantKind} IN ('member', 'guest')`,
     ),
   ],
 );

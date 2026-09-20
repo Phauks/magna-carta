@@ -170,6 +170,7 @@ export type FirmResourceBookingId = Identifier<"firmResourceBooking">;
 export type CalendarEventLinkId = Identifier<"calendarEventLink">;
 export type MeetingId = Identifier<"meeting">;
 export type MeetingAttendanceId = Identifier<"meetingAttendance">;
+export type MeetingMessageId = Identifier<"meetingMessage">;
 export type MatterAssetId = Identifier<"matterAsset">;
 export type MatterAssetTypeId = Identifier<"matterAssetType">;
 export type MatterAssetInterestId = Identifier<"matterAssetInterest">;

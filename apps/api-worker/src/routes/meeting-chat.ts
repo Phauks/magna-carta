@@ -1,0 +1,507 @@
+import { z, type OpenAPIHono } from "@hono/zod-openapi";
+import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
+import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
+import { decodeCursor, encodeCursor } from "@magna-carta/data-access/cursor-pagination";
+import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
+import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
+import { cryptoRandomSource } from "@magna-carta/identifiers/random";
+import type { MeetingId, MeetingMessageId } from "@magna-carta/identifiers/types";
+import { postMeetingMessage, redactMeetingMessage } from "@magna-carta/meetings/chat-service";
+import { listMeetingMessages } from "@magna-carta/meetings/chat-statements";
+import {
+  MAX_MEETING_MESSAGE_LENGTH,
+  MAX_MEETING_MESSAGE_PAGE_SIZE,
+  MEETING_PARTICIPANT_KINDS,
+} from "@magna-carta/meetings/chat-types";
+import { MeetingChatValidationError } from "@magna-carta/meetings/chat-validation";
+import { readMeeting } from "@magna-carta/meetings/meeting-statements";
+import { MeetingValidationError } from "@magna-carta/meetings/validation";
+import type { Context } from "hono";
+import type { Bindings } from "../app.ts";
+import type { Chokepoint } from "../chokepoint/chokepoint.ts";
+import {
+  requireChokepointFirmContext,
+  requireChokepointIdempotency,
+  requireChokepointPermissions,
+  requireChokepointUserId,
+} from "../chokepoint/context-accessors.ts";
+import type { AppVariables } from "../chokepoint/ports.ts";
+import { chokepointMiddleware } from "../chokepoint/register.ts";
+import { idempotencyKeyHeader, identifierPathParam } from "../contracts/common.ts";
+import { cursorQuery, paginated } from "../contracts/pagination.ts";
+import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
+import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
+import { assertPermission } from "@magna-carta/access-control/registry";
+
+// The in-meeting chat's HTTP surface: say something in a room, read the transcript, take something
+// back.
+//
+// THIS IS THE ONE PLACE THE MEETING SUBSYSTEM STORES CONTENT. Everything else it serves is
+// identifiers and instants — the audio, the video and the screen share are routed between browsers
+// and never reach this platform. Chat is kept on the record, so a message here carries what a filed
+// message carries: it is retained under the matter, it is personal data, and it can be taken back in
+// a way that leaves the taking-back on the record.
+//
+// THE ROUTE IS THE RECORD, AND IT STAYS THE RECORD. The room will later relay a `message` frame so a
+// message reaches the other browsers as it is said rather than on a poller's next tick — but that
+// frame is a copy of a row this route has already committed, and a browser that misses one is caught
+// up by the read below. A write that went through the socket instead would put the firm's record in
+// a Durable Object's transient storage, which empties when the room does.
+//
+// ONE REFUSAL FOR EVERY WAY A ROOM IS OUT OF REACH, exactly as the meetings routes hold it: an
+// unknown meeting handle and a meeting on a matter the member may not see are both 404, because a
+// meeting is reachable only through its calendar event. A message in another meeting is 404 for the
+// same reason one level down.
+
+const JOIN = "meetings:join" as const;
+const HOST = "meetings:host" as const;
+
+// ---- request/response contracts ----
+
+const SendMessageRequest = z
+  .object({
+    // Bounded here as well as in the domain package and on the row, so a body past the ceiling is
+    // refused before it is read rather than after. The domain trims the edges before measuring, so
+    // this bound is deliberately generous by the whitespace a browser's Enter key leaves behind.
+    body: z
+      .string()
+      .min(1)
+      .max(MAX_MEETING_MESSAGE_LENGTH + 64),
+  })
+  .openapi("SendMeetingMessageRequest");
+
+const MeetingMessage = z
+  .object({
+    id: z.string(),
+    meetingId: z.string(),
+    // The STAY it was said from, which is who said it at the time, as a kind and a handle. Two
+    // kinds because there are two stay tables: a firm member's attendance row, and the guest stay
+    // an external participant will hold. Only `member` is written today.
+    participantKind: z.enum(MEETING_PARTICIPANT_KINDS),
+    participantId: z.string(),
+    // The firm member behind that stay, resolved through it rather than stored beside it. Null for
+    // a guest's message, which has no firm member behind it at all.
+    userId: z.string().nullable(),
+    sentAt: z.string(),
+    // Empty exactly when the message has been taken back, which is what the pair below says.
+    body: z.string(),
+    redactedAt: z.string().nullable(),
+    redactedByUserId: z.string().nullable(),
+  })
+  .openapi("MeetingMessage");
+
+const MeetingMessagePage = paginated(MeetingMessage).openapi("MeetingMessagePage");
+
+// `since` is an INSTANT and is the caller's to send: it is what a poller holds after the previous
+// read, so a screen following a live meeting asks for what has been said since rather than
+// re-reading the conversation. Two instants compare the same in every zone on earth, which is why
+// this one may be derived where the meetings list's `today` may not.
+const listMessagesQuery = cursorQuery.extend({
+  since: z.string().datetime().optional(),
+});
+
+const meetingIdParam = z.object({ meetingId: identifierPathParam("meeting", "meetingId") });
+const messageParams = z.object({
+  meetingId: identifierPathParam("meeting", "meetingId"),
+  messageId: identifierPathParam("meetingMessage", "messageId"),
+});
+
+const commonErrors = {
+  401: {
+    description: "No valid session",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  403: {
+    description: "The session member lacks the required permission",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  404: {
+    description: "No meeting — or no message in it — this member can reach at that address",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  429: {
+    description: "Rate limited",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+};
+
+const writeErrors = {
+  400: {
+    description: "Missing Idempotency-Key (this operation requires one)",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  ...commonErrors,
+  409: {
+    description:
+      "The meeting has ended, the caller is not in it, or a request with this Idempotency-Key is in progress",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  422: {
+    description: "The message is empty, or longer than a message may be",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+};
+
+// ---- route metas ----
+
+// BOTH ROUTES RIDE meetings:join, not a chat key of their own. Being able to be in the room is what
+// chat is: a member who may join may speak, and a member who may not join cannot reach the meeting
+// at all. A third permission would be a second answer to the same question, and the one act that
+// genuinely needs more — moderating somebody else's words — asks for `meetings:host` inside the
+// handler rather than on the route, because the AUTHOR may do it without holding it.
+function readMeta(action: string): RouteMeta {
+  return {
+    operationId: `meetings.${action}`,
+    surface: "app",
+    authenticated: true,
+    permission: JOIN,
+    // The firm, for the reason both meeting keys bind it: a meeting hangs from a calendar event and
+    // a firm event belongs to no matter at all. The matter question is still asked — every read
+    // composes the visible-matter predicate through the meeting.
+    resource: "firm",
+    audited: false,
+    idempotency: "optional",
+    rateLimit: "default",
+  };
+}
+
+function writeMeta(action: string): RouteMeta {
+  return {
+    operationId: `meetings.${action}`,
+    surface: "app",
+    authenticated: true,
+    permission: JOIN,
+    resource: "firm",
+    audited: true,
+    // Required. A retried send must not say the same thing twice: the transcript is the record of a
+    // conversation, and a duplicated line is a record of something that did not happen.
+    idempotency: "required",
+    idempotencyStore: "firm",
+    rateLimit: "default",
+  };
+}
+
+// ---- routes ----
+
+const sendRoute = defineOpenAPIRoute(writeMeta("sendMessage"), {
+  method: "post",
+  path: "/api/v1/meetings/{meetingId}/messages",
+  description:
+    "Says something in a meeting's chat, and keeps it on the record. Requires an open stay — being " +
+    "in the room is what makes a message sayable, so a member who has left is answered as one who " +
+    "is not in the meeting. The message is stored against that stay rather than against the " +
+    "member, so somebody who dropped off and dialled back in has each message attributed to the " +
+    "stay it was said from.",
+  request: {
+    params: meetingIdParam,
+    headers: idempotencyKeyHeader,
+    body: { content: { "application/json": { schema: SendMessageRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The message is on the record",
+      content: { "application/json": { schema: MeetingMessage } },
+    },
+    ...writeErrors,
+  },
+});
+
+const listRoute = defineOpenAPIRoute(readMeta("listMessages"), {
+  method: "get",
+  path: "/api/v1/meetings/{meetingId}/messages",
+  description:
+    "A meeting's chat, oldest first — a conversation is read forwards, so the first page is the " +
+    "beginning of the meeting rather than the end of it. `since` is an instant a poller holds from " +
+    "its previous read and asks for what has been said after; the cursor walks a long transcript. " +
+    "A message that has been taken back is still returned, with an empty body beside the instant " +
+    "and the member that say it was removed.",
+  request: { params: meetingIdParam, query: listMessagesQuery },
+  responses: {
+    200: {
+      description: "One page of this meeting's chat",
+      content: { "application/json": { schema: MeetingMessagePage } },
+    },
+    ...commonErrors,
+  },
+});
+
+const redactRoute = defineOpenAPIRoute(writeMeta("redactMessage"), {
+  method: "post",
+  path: "/api/v1/meetings/{meetingId}/messages/{messageId}/redact",
+  description:
+    "Takes a message back: the body is blanked and the row is kept, so the transcript says a " +
+    "message was there and that somebody removed it. The author may do this to their own words and " +
+    "a member holding meetings:host may do it to anybody's; a message already taken back answers " +
+    "200 unchanged rather than moving the instant already on the record. Still available after the " +
+    "meeting has ended — the words outlive the gathering.",
+  request: { params: messageParams, headers: idempotencyKeyHeader },
+  responses: {
+    200: {
+      description: "The message has been taken back",
+      content: { "application/json": { schema: MeetingMessage } },
+    },
+    ...writeErrors,
+  },
+});
+
+// ---- refusals ----
+
+function notFound(c: Context): ProblemResponse<404> {
+  return problemJson(c, {
+    type: "meeting-not-found",
+    title: "Not found",
+    status: 404,
+    detail: "No such meeting in this firm.",
+  });
+}
+
+// The room's own refusals, mapped exactly as the meetings routes map them — one 404 for every way a
+// room is out of reach, and the not-joined answer a member gets for signaling from outside the room
+// is the one they get for speaking from outside it.
+function meetingErrorResponse(
+  c: Context,
+  caught: MeetingValidationError,
+): ProblemResponse<404> | ProblemResponse<409> {
+  switch (caught.code) {
+    case "meeting-unknown-event":
+      return notFound(c);
+    case "meeting-already-ended":
+      return problemJson(c, {
+        type: "meeting-ended",
+        title: "This meeting has ended",
+        status: 409,
+        detail: caught.message,
+      });
+    case "meeting-room-full":
+      return problemJson(c, {
+        type: "meeting-room-full",
+        title: "This meeting is full",
+        status: 409,
+        detail: caught.message,
+      });
+    case "meeting-not-live":
+    case "meeting-not-joined":
+      return problemJson(c, {
+        type: "meeting-not-joined",
+        title: "You are not in this meeting",
+        status: 409,
+        detail: caught.message,
+      });
+  }
+}
+
+function chatErrorResponse(
+  c: Context,
+  caught: MeetingChatValidationError,
+): ProblemResponse<403> | ProblemResponse<404> | ProblemResponse<422> {
+  switch (caught.code) {
+    // A handle naming nothing and a message in another meeting, kept indistinguishable for the
+    // reason an unreachable room is.
+    case "meeting-message-not-found":
+      return problemJson(c, {
+        type: "meeting-message-not-found",
+        title: "Not found",
+        status: 404,
+        detail: caught.message,
+      });
+    case "meeting-message-too-long":
+      return problemJson(c, {
+        type: "meeting-message-too-long",
+        title: "That message is too long",
+        status: 422,
+        detail: caught.message,
+      });
+    // Empty is an ordinary shape refusal — there is nothing specific for a surface to do about it
+    // beyond what a validation problem already says.
+    case "meeting-message-empty":
+      return problemJson(c, {
+        type: "validation",
+        title: "That message is empty",
+        status: 422,
+        detail: caught.message,
+      });
+    // Somebody else's words, and the caller is not hosting. A permission answer rather than an
+    // absence, because the message is one they can see in the transcript — pretending it is not
+    // there would be a worse answer than saying it is not theirs to remove.
+    case "meeting-message-not-redactable":
+      return problemJson(c, {
+        type: "permission-denied",
+        title: "Permission denied",
+        status: 403,
+        detail: caught.message,
+        requestAccess: false,
+      });
+  }
+}
+
+// ---- helpers ----
+
+function serviceOptions(c: Context<{ Bindings: Bindings; Variables: AppVariables }>) {
+  return {
+    clock: { now: () => new Date().toISOString() },
+    actorUserId: requireChokepointUserId(c),
+    randomSource: cryptoRandomSource,
+    // The same predicate every calendar source composes, so a message cannot be posted into — or
+    // taken out of — a room a list read could not reach.
+    visibility: visibleMatterPredicate(),
+    // ASKED HERE RATHER THAN ON THE ROUTE, because the author may take back their own words without
+    // holding it. A route gated on meetings:host would refuse the member the redaction exists for.
+    mayHost: requireChokepointPermissions(c).has(assertPermission(HOST)),
+  };
+}
+
+type ChatOutcome<T> =
+  | { ok: true; value: T }
+  | {
+      ok: false;
+      problem:
+        | ProblemResponse<403>
+        | ProblemResponse<404>
+        | ProblemResponse<409>
+        | ProblemResponse<422>;
+    };
+
+/**
+ * Runs one chat write through the idempotency gate, mapping both refusal vocabularies on the way
+ * out: the room's (reaching the meeting at all) and the chat's (the message inside it).
+ *
+ * The stored body IS the wire body, so a retried send answers with the message that was stored
+ * rather than saying the same thing twice.
+ */
+async function commitChatEffect<T>(
+  c: Context,
+  database: BatchDatabase,
+  idempotency: { key: string | undefined; fingerprint: string },
+  call: () => Promise<{ value: T; responseCode: number; effect: EffectWrite }>,
+): Promise<ChatOutcome<T>> {
+  let result;
+  try {
+    result = await runIdempotentEffect({
+      database,
+      key: idempotency.key,
+      fingerprint: idempotency.fingerprint,
+      now: () => new Date().toISOString(),
+      effect: async () => {
+        const { value, responseCode, effect } = await call();
+        return { write: effect, responseCode, responseBody: canonicalJsonStringify(value) };
+      },
+    });
+  } catch (caught) {
+    if (caught instanceof MeetingChatValidationError) {
+      return { ok: false, problem: chatErrorResponse(c, caught) };
+    }
+    if (caught instanceof MeetingValidationError) {
+      return { ok: false, problem: meetingErrorResponse(c, caught) };
+    }
+    throw caught;
+  }
+  if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
+    return { ok: false, problem: problemResponseForIdempotencyConflict(c, result) };
+  }
+  return { ok: true, value: JSON.parse(result.responseBody ?? "{}") as T };
+}
+
+// ---- registration ----
+
+export function registerMeetingChatRoutes(
+  app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
+  chokepoint: Chokepoint,
+): void {
+  // POST /api/v1/meetings/{meetingId}/messages
+  app.openapi(
+    { ...sendRoute, middleware: chokepointMiddleware(chokepoint, sendRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { meetingId } = c.req.valid("param");
+      const { body } = c.req.valid("json");
+
+      const outcome = await commitChatEffect<z.infer<typeof MeetingMessage>>(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        async () => {
+          const sent = await postMeetingMessage(
+            firm.firmDatabase,
+            meetingId as MeetingId,
+            { body },
+            serviceOptions(c),
+          );
+          return { value: sent.message, responseCode: 201, effect: sent.effect };
+        },
+      );
+      if (!outcome.ok) return outcome.problem;
+      return c.json(outcome.value, 201);
+    },
+  );
+
+  // GET /api/v1/meetings/{meetingId}/messages
+  app.openapi(
+    { ...listRoute, middleware: chokepointMiddleware(chokepoint, listRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { meetingId } = c.req.valid("param");
+      // Through the meeting read FIRST, so the transcript of a room behind a matter the caller may
+      // not see is as absent as the room itself. That read is where the walled-matter question is
+      // answered; nothing in the chat re-states it.
+      const meeting = await readMeeting(
+        firm.firmDatabase,
+        meetingId as MeetingId,
+        visibleMatterPredicate(),
+      );
+      if (meeting === undefined) return notFound(c);
+
+      const { cursor, since } = c.req.valid("query");
+      const found = await listMeetingMessages(firm.firmDatabase, meetingId as MeetingId, {
+        cursor: decodeCursor(cursor),
+        limit: MAX_MEETING_MESSAGE_PAGE_SIZE,
+        since,
+      });
+      // The read asks for one row past the page, and that row is the answer to "is there more"
+      // rather than part of the page.
+      const hasMore = found.length > MAX_MEETING_MESSAGE_PAGE_SIZE;
+      const rows = hasMore ? found.slice(0, MAX_MEETING_MESSAGE_PAGE_SIZE) : found;
+      const last = rows.at(-1);
+      return c.json(
+        {
+          // The domain entry IS the wire shape here, so this list projects nothing; the copy is
+          // only to hand the framework a mutable array.
+          data: [...rows],
+          // Keyed on the same pair the list is ordered by, so the walk cannot skip or repeat.
+          nextCursor: hasMore && last !== undefined ? encodeCursor(last.sentAt, last.id) : null,
+        },
+        200,
+      );
+    },
+  );
+
+  // POST /api/v1/meetings/{meetingId}/messages/{messageId}/redact
+  app.openapi(
+    { ...redactRoute, middleware: chokepointMiddleware(chokepoint, redactRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { meetingId, messageId } = c.req.valid("param");
+
+      const outcome = await commitChatEffect<z.infer<typeof MeetingMessage>>(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        async () => {
+          const taken = await redactMeetingMessage(
+            firm.firmDatabase,
+            meetingId as MeetingId,
+            messageId as MeetingMessageId,
+            serviceOptions(c),
+          );
+          // A message already taken back answers with the row as it stands: the member asked for it
+          // to be gone and it is gone, so a refusal would report a failure that did not happen.
+          return { value: taken.message, responseCode: 200, effect: taken.effect };
+        },
+      );
+      if (!outcome.ok) return outcome.problem;
+      return c.json(outcome.value, 200);
+    },
+  );
+}

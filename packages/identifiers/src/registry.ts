@@ -324,6 +324,11 @@ export const ENTITY_PREFIXES = {
   // drops off and dials back in was in the room twice and the record should say so.
   meeting: "meeting",
   meetingAttendance: "meetingAttendance",
+  // A `meetingMessage` is one thing somebody said in the room's chat, and it is the only content the
+  // meeting record holds: the audio and the video are routed between browsers and reach no storage
+  // here. It names the STAY rather than the member, because a message is tied to being in the room —
+  // the stay is who said it at the time, and the member is reached through it.
+  meetingMessage: "meetingMessage",
   // The matter asset register — what a client or an estate owns, recorded against one matter. A
   // `matterAsset` is one matter's assertion about one thing owned; a `matterAssetType` is the
   // per-firm catalog under the platform class the asset carries. A `matterAssetValuation` is one

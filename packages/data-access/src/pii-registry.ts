@@ -283,8 +283,8 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // names two members — who convened it and who ended it — and the attendance row names one per
   // stay. None of them is free-standing member data: each is provenance on a record of a gathering,
   // which is the line communication.member_user_id and communication.logged_by_user_id already sit
-  // on. Nothing anybody said is stored anywhere in the subsystem, so there is no content residue to
-  // report either.
+  // on. The media itself is routed between browsers and stored nowhere; what IS said and kept is the
+  // chat, registered below as the subsystem's one content-bearing table.
   {
     table: "meeting",
     subjectKey: "created_by_user_id",
@@ -302,6 +302,31 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     subjectKey: "user_id",
     action: "retain-under-matter",
     note: "who was in the room and for how long is the whole of what an attendance row records",
+  },
+  // In-meeting chat, which is the ONE place the meeting subsystem holds content. The paragraph above
+  // said there was no content residue to report; there is now, and it is here rather than anywhere
+  // else. A chat message is correspondence that happened inside a meeting on a matter, so it takes
+  // the call and text log's basis for the same reason: what was said on a matter is part of what the
+  // matter record says happened. Its subject reference is the STAY — who said it at the time — and
+  // the member is reached through meeting_attendance.user_id, registered one entry above, so
+  // erasure reaches the speaker without this table carrying a second copy of who they were.
+  {
+    table: "meeting_message",
+    subjectKey: "participant_id",
+    action: "retain-under-matter",
+    note: "the stay a message was said from is who said it and the proof they were in the room; the handle is a meeting_attendance row for a member and a guest stay for a guest, and the member resolves through meeting_attendance.user_id",
+  },
+  {
+    table: "meeting_message",
+    subjectKey: "body",
+    action: "retain-under-matter",
+    note: "what was said in a meeting on a matter, on the line communication.counterparty_number sits on — and, like a message body and a call summary there, content-level residue for the residue report rather than anything an automated rewrite can safely touch",
+  },
+  {
+    table: "meeting_message",
+    subjectKey: "redacted_by_user_id",
+    action: "pseudonymize-keep",
+    note: "who took a message back, on an append-only row: the reference is replaced at the member tombstone and never dropped, because a removal nobody can attribute is worth a fraction of one that can be",
   },
   // Document automation — the assembly record is the provenance of a document on a matter file, so it
   // is retained on the same basis as the document itself. Its structured subject is the member who

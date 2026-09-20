@@ -132,3 +132,21 @@ package enforces, which is why nothing here has a redaction step.
   a client or opposing counsel is the rung after this one.
 - **Recording.** Server-side media processing and a consent gate on the jurisdiction profile, neither
   of which is basic. Nothing here is shaped around it.
+
+## The chat is the one thing here that stores content — and it changes the paragraph above
+
+`chat-types.ts` / `chat-validation.ts` / `chat-statements.ts` / `chat-service.ts` hold in-meeting
+chat, kept on the record by the owner's ruling of 2026-09-20. The section on what the audit log
+carries still stands word for word — identifiers and instants, never the body, on either the sending
+or the removal — but "the meeting stores nothing anybody said" is now true of the media and not of
+`meeting_message`: a chat message carries a filed message's retention, its personal-data
+classification, and a redaction step this package did not have.
+
+Three rules travel with it. A message hangs from the **stay**, so being in the room is the whole of
+the permission to post (`readOpenAttendance`, the same row the socket upgrade demands) and the member
+is resolved through the stay rather than copied beside it. The stay is named **by value** —
+`participant_kind` plus `participant_id`, no foreign key — because a member's stay is a
+`meeting_attendance` row and a guest's will be a `meeting_guest_stay` row; this package writes the
+literal `'member'` and nothing writes `'guest'` yet. And **removal is a redaction, never a delete**:
+the body is blanked and the row stays, guarded so the batch rolls back whole, and a second removal
+produces no statements rather than moving an instant somebody's record already carries.

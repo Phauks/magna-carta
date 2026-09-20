@@ -50,6 +50,7 @@ import { registerCalendarRoutes } from "./routes/calendar.ts";
 import { registerMatterSearchRoutes } from "./routes/matter-search.ts";
 import { registerCommunicationsRoutes } from "./routes/communications.ts";
 import { registerMeetingsRoutes } from "./routes/meetings.ts";
+import { registerMeetingChatRoutes } from "./routes/meeting-chat.ts";
 import { registerNotesRoutes } from "./routes/notes.ts";
 import { registerTasksRoutes } from "./routes/tasks.ts";
 import { registerMatterPlanRoutes } from "./routes/matter-plans.ts";
@@ -830,6 +831,11 @@ export function createApp(options: CreateAppOptions = {}) {
   // routed between browsers and never reaches this platform; these routes are the record plus the
   // upgrade into the signaling room.
   registerMeetingsRoutes(app, chokepoint);
+  // The meeting's chat, which is the subsystem's one piece of stored content: kept on the record
+  // like a filed message rather than discarded with the room, so what was said in a meeting on a
+  // matter is on the file. Registered beside the room because it is the same meeting read through
+  // the same gate.
+  registerMeetingChatRoutes(app, chokepoint);
   registerMatterSearchRoutes(app, chokepoint);
   registerTasksRoutes(app, chokepoint);
   registerMatterPlanRoutes(app, chokepoint);
