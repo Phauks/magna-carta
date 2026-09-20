@@ -96,7 +96,8 @@
 - id: meetings.host-controls
   name: Host controls
   scope: Mute one or all, remove a participant, lock the room, hand hosting to a co-host, spotlight a participant for everyone.
-  status: not-started
+  status: designed
+  spec: docs/specs/2026-09-20-meetings-host-controls-and-waiting-room-design.md
   evidence: No code; the room has one host act today (End) and no per-participant act.
   audience: public
   public-summary: Run a large meeting from the front — mute the room, remove a participant, spotlight the speaker.
@@ -104,7 +105,8 @@
 - id: meetings.waiting-room
   name: Waiting room
   scope: Arrivals held in a lobby until a host admits them, one by one or all; the door for external guests and late joiners. One lobby per meeting, because a firm holds several meetings at once.
-  status: not-started
+  status: designed
+  spec: docs/specs/2026-09-20-meetings-host-controls-and-waiting-room-design.md
   evidence: No code; join admits anyone the event admits. Sequenced with external guests, whose door it is.
   notes: The owner's ruling of 2026-09-20 — meetings run concurrently, so the lobby belongs to the meeting, never to the firm.
 
