@@ -21,7 +21,7 @@ container uptime. Every scoped lint in between passed, because `pnpm check:scope
 nothing had touched this file since it landed. The gate of record was unrunnable end to end for six
 days while every local signal stayed green.
 
-The character is now written as the escape `�`, which is the same character to the regex engine.
+The character is now written as the escape `\uFFFD`, which is the same character to the regex engine.
 The whole-repository lint completes in 31 seconds over 4,278 files; magnus's six test files and
 fifty-six tests are unchanged, `cutToByteLength("日本語", 4)` among them, which is the mid-character
 cut this strip exists for. It was the only raw U+FFFD in first-party source.

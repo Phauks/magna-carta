@@ -177,9 +177,7 @@ describe("the postage credential never escapes", () => {
 
   it("is stored as ciphertext, and the row holds no plaintext copy", async () => {
     const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmId);
-    const { results } = await firmDatabase
-      .prepare("SELECT * FROM integration_credential")
-      .all<Record<string, unknown>>();
+    const { results } = await firmDatabase.prepare("SELECT * FROM integration_credential").all();
     expect(results).toHaveLength(1);
     // Every column, not just the one we expect to hold it — a future column carrying a plaintext copy
     // is exactly the regression this catches.
@@ -188,9 +186,7 @@ describe("the postage credential never escapes", () => {
 
   it("appears in no audit row, including the decrypt records the read writes", async () => {
     const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmId);
-    const { results } = await firmDatabase
-      .prepare("SELECT * FROM audit_log")
-      .all<Record<string, unknown>>();
+    const { results } = await firmDatabase.prepare("SELECT * FROM audit_log").all();
     // The decrypt audit is the subtle one: it fires on every credential read, and its metadata is
     // written right beside the value it is about.
     expect(results.length).toBeGreaterThan(0);
