@@ -27,7 +27,17 @@ import {
   readOpenAttendance,
   startMeetingStatement,
 } from "./meeting-statements.ts";
-import { insertHostGrantStatement, readRemovedStay } from "./hosting-statements.ts";
+import {
+  countWaitingAttendance,
+  insertWaitingAttendanceUnderCapStatement,
+} from "./lobby-statements.ts";
+import { isWaiting } from "./lobby-service.ts";
+import { MAX_MEETING_LOBBY, type MeetingLobbyMode } from "./lobby-types.ts";
+import {
+  insertHostGrantStatement,
+  readBarredStay,
+  readLiveHostGrant,
+} from "./hosting-statements.ts";
 import { requireHostGrant } from "./hosting-service.ts";
 import {
   MAX_MEETING_PARTICIPANTS,
@@ -56,6 +66,14 @@ import { refuse } from "./validation.ts";
  */
 export const JOIN_CAPACITY_GUARD = "meeting.join.capacity";
 
+/**
+ * The label the DOOR's insert carries, which is a different ceiling and a different answer.
+ *
+ * A full room needs somebody to leave; a full lobby needs a host to look at the list. One label for
+ * both would leave the route unable to tell a member which of the two happened.
+ */
+export const JOIN_LOBBY_CAPACITY_GUARD = "meeting.join.lobbyCapacity";
+
 /** The label the host's own ending carries, for the same reason the one above is named here. */
 export const END_MEETING_GUARD = "meeting.end";
 
@@ -75,6 +93,12 @@ export const CANCEL_CLOSING_GUARD = "meeting.cancelClosing";
 // existed was, and because the narrower answer is the one a member has to ask for rather than the one
 // they are given by a caller that has not been updated.
 const DEFAULT_MEETING_MEDIUM = "video" satisfies MeetingMedium;
+
+// AND WHETHER ARRIVALS WAIT WHEN NOBODY SAID. Off, because every participant today is a firm member
+// arriving at an event they are on, and a lobby on by default would put a colleague in a queue for
+// every ordinary hearing. Unlike the medium, a host may change it afterwards — see `setMeetingLobby`
+// in ./lobby-service.ts.
+const DEFAULT_MEETING_LOBBY = "off" satisfies MeetingLobbyMode;
 
 // The two labels the departure audit row carries, named once so the two write paths cannot drift on
 // a string.
@@ -99,6 +123,11 @@ export interface CreateMeetingInput {
   // holds the medium to what was chosen, and the choice is made once — see the note below on why a
   // meeting's medium never changes.
   readonly medium?: MeetingMedium;
+  // Whether arrivals wait at a door. Read ONLY when this request opens the room — one meeting per
+  // event, so the first Start decides and a second one asking differently gets the room that exists.
+  // A host changes it afterwards through `setMeetingLobby`, which is the difference between this
+  // setting and the medium above.
+  readonly lobby?: MeetingLobbyMode;
 }
 
 /**
@@ -175,6 +204,7 @@ export function openMeetingOnEvent(
   const now = options.clock.now();
   const meetingId = newIdentifier("meeting", options.randomSource);
   const medium = input.medium ?? DEFAULT_MEETING_MEDIUM;
+  const lobby = input.lobby ?? DEFAULT_MEETING_LOBBY;
   return {
     meetingId,
     effect: {
@@ -183,6 +213,7 @@ export function openMeetingOnEvent(
           id: meetingId,
           eventKind: input.eventKind,
           medium,
+          lobby,
           matterEventId: input.eventKind === "matter" ? (input.eventId as MatterEventId) : null,
           firmEventId: input.eventKind === "firm" ? (input.eventId as FirmEventId) : null,
           createdByUserId: options.actorUserId,
@@ -220,6 +251,7 @@ export function openMeetingOnEvent(
             // A closed-vocabulary label, which is what an audit field may carry: it says what kind
             // of gathering this was without saying anything about what happened in it.
             medium,
+            lobby,
             eventId: input.eventId,
             matterId: input.matterId,
           },
@@ -243,35 +275,77 @@ export async function joinMeeting(
   database: SqlDatabase,
   meetingId: MeetingId,
   options: MeetingServiceOptions,
-): Promise<{ attendanceId: MeetingAttendanceId; effect: EffectWrite }> {
+): Promise<{ attendanceId: MeetingAttendanceId; waiting: boolean; effect: EffectWrite }> {
   const meeting = await readExisting(database, meetingId, options);
   assertNotEnded(meeting);
 
   const open = await readOpenAttendance(database, meetingId, options.actorUserId);
   if (open !== undefined) {
-    return { attendanceId: open.id, effect: { statements: [], outboxMessages: [] } };
+    // Their existing stay back, whichever side of the door it is on — a browser reconnecting at the
+    // door keeps its place in the queue rather than going to the back of it.
+    return {
+      attendanceId: open.id,
+      waiting: isWaiting(open),
+      effect: { statements: [], outboxMessages: [] },
+    };
   }
 
-  // A MEMBER A HOST PUT OUT DOES NOT COME BACK IN. Asked before the lock, because the two answers
-  // are different and this one is about this member: an unlocked room is still closed to them.
-  // It is the MEETING they are barred from and not the event — a new meeting on the same event is a
-  // new room, and a host who wants them back starts one.
-  const removed = await readRemovedStay(database, meetingId, options.actorUserId);
-  if (removed !== undefined) {
+  // A MEMBER A HOST TURNED AWAY DOES NOT COME BACK IN, whether they were put out of the room or
+  // turned away at the door. Asked before the lock, because the two answers are different and this
+  // one is about this member: an unlocked room is still closed to them. It is the MEETING they are
+  // barred from and not the event — a new meeting on the same event is a new room, and a host who
+  // wants them back starts one.
+  const barred = await readBarredStay(database, meetingId, options.actorUserId);
+  if (barred?.ended_reason === "denied") {
+    refuse("meeting-not-admitted", "a host did not admit you to this meeting");
+  }
+  if (barred !== undefined) {
     refuse("meeting-removed", "you were removed from this meeting");
   }
 
   // THE DOOR. A locked room refuses arrivals and touches nobody already in it, which is why this is
   // after the open-stay read above: a member already in the meeting when it was locked is not
   // turned out of it by their own browser reconnecting.
+  //
+  // LOCK BEATS THE LOBBY. A locked room is shut to everybody, so there is nothing to queue for and
+  // a waiting stay opened here would be somebody standing outside a door that will not be answered.
   if (meeting.locked_at !== null) {
     refuse("meeting-locked", "this meeting is locked");
   }
 
-  // THE CAP, counted over the open stays at this moment rather than over anything stored. The
-  // number is a product decision about what a tile grid and a browser's bandwidth can carry, not a
-  // limit of the routing layer; refusing the arrival past it with a reason is honest, and a room
-  // that admits everybody and degrades for all of them is not.
+  const now = options.clock.now();
+  const attendanceId = newIdentifier("meetingAttendance", options.randomSource);
+
+  // WHOEVER MAY RUN THIS ROOM DOES NOT WAIT. Holding `meetings:host` is deliberately not enough — a
+  // paralegal with the key walking past the door of a confidential matter discussion is exactly what
+  // a host turns the lobby on to prevent — so the question is the GRANT on this meeting, which is
+  // the same authority every host act asks about.
+  const running =
+    meeting.lobby === "on"
+      ? await readLiveHostGrant(database, meetingId, options.actorUserId)
+      : undefined;
+  if (meeting.lobby === "on" && running === undefined) {
+    // THE DOOR'S OWN CEILING, read here for the same reason the room's is read below: this produces
+    // the REASON a member is given, and the insert's guard produces the limit. A queue is not
+    // somewhere a firm should be able to accumulate ten thousand rows.
+    const queued = await countWaitingAttendance(database, meetingId);
+    if (queued >= MAX_MEETING_LOBBY) {
+      refuse(
+        "meeting-lobby-full",
+        `this meeting's lobby is full; it holds ${String(MAX_MEETING_LOBBY)} people`,
+      );
+    }
+    return {
+      attendanceId,
+      waiting: true,
+      effect: waitAtTheDoor(database, meetingId, attendanceId, now, options),
+    };
+  }
+
+  // THE CAP, counted over the stays that are IN THE ROOM at this moment rather than over anything
+  // stored. The number is a product decision about what a tile grid and a browser's bandwidth can
+  // carry, not a limit of the routing layer; refusing the arrival past it with a reason is honest,
+  // and a room that admits everybody and degrades for all of them is not.
   //
   // This read is what produces the REASON. It cannot produce the limit: it is a round trip earlier
   // than the write, so a dozen browsers pressing Join together all read the same free seat and all
@@ -285,11 +359,10 @@ export async function joinMeeting(
     );
   }
 
-  const now = options.clock.now();
-  const attendanceId = newIdentifier("meetingAttendance", options.randomSource);
   const firstArrival = meeting.status === "scheduled";
   return {
     attendanceId,
+    waiting: false,
     effect: {
       statements: [
         guarded(
@@ -330,6 +403,51 @@ export async function joinMeeting(
 }
 
 /**
+ * The stay a waiting arrival opens, and what it deliberately does NOT do.
+ *
+ * It does not flip the room live and it writes no `meetings.meeting.started` row: the room becomes
+ * live when the first person is actually IN it, and somebody standing at a door has not started a
+ * meeting. A lobby-on room whose host never arrives therefore keeps a record that says exactly
+ * that — scheduled, with people who waited.
+ *
+ * Its own audit event rather than `joined` with a label, because these are two different facts about
+ * two different instants: the arrival at the door, and the admission that a host decides on later.
+ * A single event with a flag would make "when did this person get into the meeting" a question you
+ * answer by finding the second row anyway.
+ */
+function waitAtTheDoor(
+  database: SqlDatabase,
+  meetingId: MeetingId,
+  attendanceId: MeetingAttendanceId,
+  now: string,
+  options: MeetingServiceOptions,
+): EffectWrite {
+  return {
+    statements: [
+      guarded(
+        insertWaitingAttendanceUnderCapStatement(database, {
+          id: attendanceId,
+          meetingId,
+          userId: options.actorUserId,
+          lobbyCapacity: MAX_MEETING_LOBBY,
+          now,
+        }),
+        JOIN_LOBBY_CAPACITY_GUARD,
+      ),
+      domainAuditStatement(database, {
+        event: "meetings.meeting.waiting",
+        subjectId: meetingId,
+        actorUserId: options.actorUserId,
+        clock: options.clock,
+        randomSource: options.randomSource,
+        metadata: { attendanceId, waitingFrom: now },
+      }),
+    ],
+    outboxMessages: [],
+  };
+}
+
+/**
  * Leaving. Closes the caller's own stay and nothing else — the statement names the row by its id, so
  * a leave can never reach across the roster however the caller addressed it.
  */
@@ -340,12 +458,16 @@ export async function leaveMeeting(
 ): Promise<{ effect: EffectWrite }> {
   const meeting = await readExisting(database, meetingId, options);
   assertNotEnded(meeting);
-  if (meeting.status !== "live") {
-    refuse("meeting-not-live", "nobody has joined this meeting yet");
-  }
 
   const open = await readOpenAttendance(database, meetingId, options.actorUserId);
   if (open === undefined) {
+    // A room nobody has walked into is told apart from one the caller simply is not in, because the
+    // two are different mistakes. Asked only when there is no stay: GIVING UP AT THE DOOR is a leave
+    // and the room is still `scheduled` while somebody waits in it — a waiter who walks away from a
+    // meeting nobody has started yet must be able to close their own stay.
+    if (meeting.status !== "live") {
+      refuse("meeting-not-live", "nobody has joined this meeting yet");
+    }
     refuse("meeting-not-joined", "you are not in this meeting");
   }
 

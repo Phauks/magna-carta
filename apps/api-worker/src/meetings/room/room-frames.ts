@@ -19,6 +19,7 @@ import {
   subscribeTracks,
 } from "./room-media.ts";
 import { handleHostFrame } from "./room-hosting.ts";
+import { giveUpWaiting } from "./room-lobby.ts";
 import { armAlarm } from "./room-lifecycle.ts";
 import { relayPresence } from "./room-presence.ts";
 import { namesOnlyRosterTracks, rosterFrom } from "./room-roster.ts";
@@ -126,8 +127,25 @@ export async function dispatchClientFrame(
   }
 
   if (parsed.frame.type === "leave") {
-    await releaseParticipant(room, attachment.attendanceId);
+    // GIVING UP AT THE DOOR is the same act with nothing to release: a waiter holds no routing
+    // session and publishes nothing, so the whole of it is dropping the `waiting:` record.
+    if (attachment.waiting === true) await giveUpWaiting(room, attachment.attendanceId);
+    else await releaseParticipant(room, attachment.attendanceId);
     socket.close(NORMAL_CLOSE_CODE, "left the meeting");
+    return;
+  }
+
+  // A SOCKET THAT IS STILL AT THE DOOR MAY SEND `ping` AND `leave` AND NOTHING ELSE, and both are
+  // already answered above. Decided HERE — before the throttles, before the roster is read and
+  // before a routing session is so much as resolved — so a waiter's frame never costs the room a
+  // read or the routing service a session. The service has no notion of a meeting and would honour
+  // a subscription to any session in the fleet, which is exactly what somebody standing outside a
+  // confidential matter discussion must not be able to reach.
+  //
+  // THE SOCKET STAYS OPEN: they are at the door, and the door may open. Closing here would make a
+  // misbehaving client's first frame the end of their place in the queue.
+  if (attachment.waiting === true) {
+    socket.send(refusedFrame("not-admitted"));
     return;
   }
 

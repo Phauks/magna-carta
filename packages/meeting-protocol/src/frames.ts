@@ -4,6 +4,7 @@ import {
   type MeetingRoomState,
   type PreferredRid,
   type RosterParticipant,
+  type WaitingParticipant,
 } from "./types.ts";
 
 // The wire contract for a meeting's signaling socket, in ONE home so the room that sends, the route
@@ -322,6 +323,12 @@ export const MEETING_ROOM_FRAME_TYPES = Object.freeze([
   "room-state",
   "muted",
   "unmute-requested",
+  // THE THREE THE DOOR ADDED. `lobby` and `admitted` go to a socket that is WAITING and to nobody
+  // else; `waiting` goes to the sockets holding a grant and to nobody else. A waiting socket is
+  // never sent a `welcome`, a `roster` or a `roster-delta` — see the note on `lobby` below.
+  "lobby",
+  "admitted",
+  "waiting",
   "ended",
   "refused",
   "pong",
@@ -385,6 +392,15 @@ export const MEETING_REFUSAL_REASONS = Object.freeze([
   // they are not in the room, the join path refuses them while the meeting runs, and nothing about
   // this improves by retrying. It is the MEETING they are barred from and not the event.
   "removed",
+  // A HOST TURNED THIS MEMBER AWAY AT THE DOOR. The twin of `removed` and fatal on the same terms —
+  // barred entry is one rule with two labels, the join path refuses them while the meeting runs,
+  // and the screen offers no way back in. A close follows.
+  "denied",
+  // A FRAME FROM A SOCKET THAT IS STILL WAITING. The socket STAYS OPEN — they are at the door and
+  // the door may open — and the only frames a waiting socket may send are `ping` and `leave`.
+  // Decided before the routing client is even resolved, so a waiter's frame never costs a session
+  // at the routing service.
+  "not-admitted",
   // The meeting closed while this socket was open.
   "meeting-ended",
 ] as const);
@@ -447,14 +463,20 @@ function frame(body: Record<string, unknown>): string {
  * Sent once, on connect: who this socket is, who is already here, and what is true of the room.
  *
  * The room state rides inline for the reason the whole roster does — a socket that has just arrived
- * holds nothing to apply a change to, so it cannot be told about a spotlight as a difference.
+ * holds nothing to apply a change to, so it cannot be told about a spotlight as a difference. The
+ * lobby list rides along on the same reasoning and is EMPTY for everybody who is not running the
+ * meeting: who is at the door is a list of people a host has not yet decided about, and telling the
+ * room who is outside it is the leak the door was shut to prevent.
+ *
+ * It is never sent to a waiting socket at all. That one gets `lobby` instead.
  */
 export function welcomeFrame(
   participantId: string,
   roster: readonly RosterParticipant[],
   roomState: MeetingRoomState,
+  waiting: readonly WaitingParticipant[],
 ): string {
-  return frame({ type: "welcome", participantId, roster, roomState });
+  return frame({ type: "welcome", participantId, roster, roomState, waiting });
 }
 
 /** The answer to the browser's offer, and where each published track landed. */
@@ -599,6 +621,46 @@ export function unmuteRequestedFrame(by: string, at: string): string {
   return frame({ type: "unmute-requested", by, at });
 }
 
+/**
+ * WHERE SOMEBODY IS IN THE QUEUE — the frame a waiting socket gets in place of a `welcome`.
+ *
+ * A waiting socket is never sent a welcome, and that is structural rather than tidy: there is
+ * nothing it is welcome to yet, and a welcome with an empty roster is a shape every future reader
+ * has to remember to keep empty. The room does not filter them out of the roster either — it stores
+ * them under a different key entirely, so the read every roster, delta, subscription check and
+ * broadcast is built from cannot include them.
+ *
+ * `position` is one-based and `waiting` is how many are at the door, so a screen can say "second of
+ * three" without a second frame. Re-sent whenever the queue in front of somebody changes.
+ */
+export function lobbyFrame(position: number, waiting: number, at: string): string {
+  return frame({ type: "lobby", position, waiting, at });
+}
+
+/**
+ * A HOST LET THEM IN, on the same socket they were waiting on.
+ *
+ * Followed immediately by the ordinary `welcome`. Two frames with one job each, so the client's
+ * welcome handler is the same handler it has always been — and the admitted browser builds its peer
+ * connection from the relay credentials its join already answered with, which is why the join
+ * carries them even for somebody who is about to wait.
+ */
+export function admittedFrame(at: string): string {
+  return frame({ type: "admitted", at });
+}
+
+/**
+ * WHO IS AT THE DOOR, sent to the sockets holding a grant and to nobody else.
+ *
+ * Whole rather than as a difference: a lobby is bounded at a hundred and is usually one or two
+ * people, so the bookkeeping a difference costs on both ends is more than the list. The `welcome`
+ * carries the current list inline for a host, and an empty array for everybody else — a socket that
+ * has just arrived holds nothing to apply a change to, which is the rule the roster already follows.
+ */
+export function waitingFrame(participants: readonly WaitingParticipant[]): string {
+  return frame({ type: "waiting", participants });
+}
+
 /** The meeting is over. Sent to every socket, which then closes normally. */
 export function endedFrame(endedAt: string): string {
   return frame({ type: "ended", endedAt });
@@ -620,8 +682,10 @@ export function refusedFrame(reason: MeetingRefusalReason, errorId?: string): st
 
 export type {
   MeetingHostRole,
+  MeetingLobbyMode,
   MeetingRoomState,
   MeetingSpotlight,
   PreferredRid,
   RosterParticipant,
+  WaitingParticipant,
 } from "./types.ts";

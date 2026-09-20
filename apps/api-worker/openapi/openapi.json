@@ -15835,6 +15835,14 @@
               "audio"
             ],
             "default": "video"
+          },
+          "lobby": {
+            "type": "string",
+            "enum": [
+              "off",
+              "on"
+            ],
+            "default": "off"
           }
         },
         "required": [
@@ -15940,6 +15948,13 @@
           "locked": {
             "type": "boolean"
           },
+          "lobby": {
+            "type": "string",
+            "enum": [
+              "off",
+              "on"
+            ]
+          },
           "configured": {
             "type": "boolean"
           }
@@ -15960,6 +15975,7 @@
           "medium",
           "liveCount",
           "locked",
+          "lobby",
           "configured"
         ]
       },
@@ -15972,6 +15988,9 @@
           "displayName": {
             "type": "string"
           },
+          "waiting": {
+            "type": "boolean"
+          },
           "iceServers": {
             "type": "array",
             "items": {
@@ -15982,6 +16001,7 @@
         "required": [
           "participantId",
           "displayName",
+          "waiting",
           "iceServers"
         ]
       },
@@ -16244,6 +16264,121 @@
         },
         "required": [
           "locked"
+        ]
+      },
+      "MeetingLobbyAcknowledged": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "SetMeetingLobbyRequest": {
+        "type": "object",
+        "properties": {
+          "lobby": {
+            "type": "string",
+            "enum": [
+              "off",
+              "on"
+            ]
+          }
+        },
+        "required": [
+          "lobby"
+        ]
+      },
+      "MeetingLobby": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingLobbyEntry"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "MeetingLobbyEntry": {
+        "type": "object",
+        "properties": {
+          "participantId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "waitingFrom": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "participantId",
+          "userId",
+          "displayName",
+          "waitingFrom"
+        ]
+      },
+      "MeetingLobbyDecisions": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "participantId": {
+                  "type": "string"
+                },
+                "outcome": {
+                  "type": "string",
+                  "enum": [
+                    "admitted",
+                    "not-waiting",
+                    "room-full",
+                    "denied"
+                  ]
+                }
+              },
+              "required": [
+                "participantId",
+                "outcome"
+              ]
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "MeetingLobbyDecisionRequest": {
+        "type": "object",
+        "properties": {
+          "participantIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^meetingAttendance_[A-Za-z0-9_-]{21}$"
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "participantIds"
         ]
       },
       "MatterSearchAnswer": {
@@ -69658,6 +69793,491 @@
           },
           "409": {
             "description": "The meeting has ended, the member is not in it, another host act won the same instant, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/lobby": {
+      "post": {
+        "description": "Opens or closes this meeting's lobby. While it is open, an arrival who is not hosting the meeting waits at the door until a host admits them; a host or co-host of this meeting never waits, and holding the permission key alone is not enough. Turning the lobby off does NOT admit the people already waiting — they stay in the list until a host decides about each of them, because a setting is not a decision about a named person. A meeting already in the state asked for answers 200 unchanged.",
+        "operationId": "meetings.setLobby",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.setLobby",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:host",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMeetingLobbyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The door is where the caller asked for it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingLobbyAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is not hosting this meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, somebody else's decision about one of these arrivals landed first, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "Who is waiting to be let into this meeting, oldest arrival first. Reachable only by a host or co-host of this meeting — it is a list of people nobody has decided about yet, and the people inside are not among those who need to see it. Returned whole: a lobby holds at most a hundred arrivals by construction, and a page boundary through it would let a host admit some of the people waiting while believing it was all of them.",
+        "operationId": "meetings.lobby",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.lobby",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:host",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Who is at the door",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingLobby"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is not hosting this meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/lobby/admissions": {
+      "post": {
+        "description": "Lets the named arrivals into the meeting: each stay is marked admitted, the room moves them onto the roster, their socket is sent `admitted` and then the ordinary welcome, and everybody already inside sees them join. One outcome per identifier — `admitted`, `not-waiting` or `room-full` — so a batch that half-lands is legible: a host admitting five people into two free seats learns which three did not get in. There is deliberately no server-side 'admit everyone': Admit all sends the identifiers the panel was showing, because a server-side 'all' would admit whoever arrived in the millisecond after the host looked at the list.",
+        "operationId": "meetings.admitToLobby",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.admitToLobby",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:host",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeetingLobbyDecisionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What became of each named arrival",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingLobbyDecisions"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is not hosting this meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, somebody else's decision about one of these arrivals landed first, or a request with this Idempotency-Key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/lobby/denials": {
+      "post": {
+        "description": "Turns the named arrivals away: each stay closes as denied, their socket is refused and closed, and they cannot rejoin while this meeting runs — a denial that did not bar would be a button that does nothing, since the member would press Join again and be back at the front of the queue. It is the meeting they are barred from and not the event. Nothing is announced to the people in the room: they never knew somebody was at the door.",
+        "operationId": "meetings.denyFromLobby",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.denyFromLobby",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:host",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeetingLobbyDecisionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What became of each named arrival",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingLobbyDecisions"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is not hosting this meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, somebody else's decision about one of these arrivals landed first, or a request with this Idempotency-Key is in progress",
             "content": {
               "application/problem+json": {
                 "schema": {

@@ -6,6 +6,7 @@ import {
 } from "@magna-carta/meeting-protocol/frames";
 import type {
   MeetingHostRole,
+  MeetingLobbyMode,
   MeetingRoomState,
   MeetingSpotlight,
 } from "@magna-carta/meeting-protocol/types";
@@ -29,6 +30,16 @@ import { realtimeLoggerFor, recordRealtimeFailure } from "../sfu/realtime-failur
 // `RoomContext` rather than reaching for anything of its own.
 
 const PARTICIPANT_PREFIX = "participant:";
+
+// SOMEBODY AT THE DOOR, UNDER A DIFFERENT KEY ENTIRELY — and this is the structural guarantee the
+// whole lobby rests on.
+//
+// A waiting participant is never stored under `participant:`, so `storedParticipants()` — the one
+// read every roster, delta, subscription check and broadcast is built from — CANNOT include them. A
+// waiter is not omitted from the roster by a filter somebody has to remember to write; they are not
+// in the set the roster is made of. A filter would have to be re-applied by every future reader and
+// would be wrong the first time one forgot.
+const WAITING_PREFIX = "waiting:";
 
 // The instant the meeting closed, and the ONE thing this object keeps after it. It is what lets a
 // frame arriving on a socket that had not yet noticed be answered with the truth — the meeting is
@@ -132,6 +143,22 @@ export interface StoredParticipant {
   readonly hostRole: MeetingHostRole | null;
 }
 
+/**
+ * One person at the door, as the room holds them between frames.
+ *
+ * Deliberately a much smaller record than a `StoredParticipant`: a waiter publishes nothing,
+ * subscribes to nothing and holds no routing session, so there is no media state to keep and nothing
+ * for the roster to draw. What the room needs is who they are, when they knocked, and — exactly as
+ * for somebody in the room — when their socket went away, so a browser closed at the door does not
+ * leave an open stay in the firm's record forever.
+ */
+export interface StoredWaiting {
+  readonly userId: string;
+  readonly displayName: string;
+  readonly waitingFrom: string;
+  readonly socketLostAt: string | null;
+}
+
 /** Which meeting, in which firm, this room is the signaling side of. */
 export interface StoredRoom {
   readonly firmId: string;
@@ -145,6 +172,13 @@ export interface StoredRoom {
   // every upgrade and rewritten by the lock route after it commits. Optional, because a room stored
   // by a build that predated the door reads as open, which is what it was.
   readonly locked?: boolean;
+  // WHETHER ARRIVALS WAIT. The room's copy of `meeting.lobby`, kept on the same terms as the lock
+  // beside it: the record is what actually sends somebody to the door, and this is what lets the
+  // room state a browser paints arrive on the wire without a read of the firm's database per socket.
+  // Refreshed from the row on every upgrade and rewritten by the lobby route after it commits.
+  // Optional, because a room stored by a build that predated the door reads as `off`, which is what
+  // it was.
+  readonly lobby?: MeetingLobbyMode;
 }
 
 /** The subscription context, established at upgrade and carried for the life of the socket. */
@@ -175,6 +209,22 @@ export interface MeetingSocketAttachment {
   // exactly as the medium is. It seeds the room's own copy, which the lock route rewrites — a socket
   // already in the room is never turned out by the door shutting behind it.
   readonly locked?: boolean;
+  // Whether arrivals wait, read off the meeting row by the route exactly as the lock is. It seeds
+  // the room's own copy.
+  readonly lobby?: MeetingLobbyMode;
+  // WHETHER THIS SOCKET IS AT THE DOOR OR IN THE ROOM, derived by the route off the stay it just
+  // authorized the upgrade against — never named by the browser, like every other value here. A
+  // waiting socket is admitted to the LOBBY state: it is stored under `waiting:`, it is sent `lobby`
+  // instead of `welcome`, and every frame but `ping` and `leave` is refused `not-admitted`.
+  //
+  // It is lowered by `participantsAdmitted`, which rewrites the attachment as it moves the record —
+  // the one value here that changes under a socket, and it does so exactly once.
+  readonly waiting?: boolean;
+  // WHEN THIS STAY REACHED THE DOOR, off the same row. The room could stamp its own instant when a
+  // waiting socket arrives, and that would be a second answer to a question the record already
+  // answers — a host's panel would then show one waiting time from the lobby route and another from
+  // the `waiting` frame, differing by however long the browser took to open its socket.
+  readonly waitingFrom?: string;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -222,6 +272,49 @@ export async function deleteEveryKey(room: RoomContext): Promise<void> {
   await room.ctx.storage.deleteAll();
 }
 
+// ---------------------------------------------------------------------------------------------
+// The door, in storage — a second keyspace rather than a flag on the first
+// ---------------------------------------------------------------------------------------------
+
+export async function readWaiting(
+  room: RoomContext,
+  attendanceId: string,
+): Promise<StoredWaiting | undefined> {
+  return await room.ctx.storage.get<StoredWaiting>(`${WAITING_PREFIX}${attendanceId}`);
+}
+
+export async function putWaiting(
+  room: RoomContext,
+  attendanceId: string,
+  waiting: StoredWaiting,
+): Promise<void> {
+  await room.ctx.storage.put(`${WAITING_PREFIX}${attendanceId}`, waiting);
+}
+
+/** Removes one entry from the door, answering whether there was one to remove. */
+export async function deleteWaiting(room: RoomContext, attendanceId: string): Promise<boolean> {
+  return await room.ctx.storage.delete(`${WAITING_PREFIX}${attendanceId}`);
+}
+
+/**
+ * Everybody at the door, oldest knock first.
+ *
+ * Bounded at a hundred by the door's own ceiling, so this is a much cheaper read than the roster —
+ * which is why the hosts are sent the whole list rather than a difference. Sorted here rather than
+ * relying on the key order, because the keys are stay handles and say nothing about when somebody
+ * arrived.
+ */
+export async function storedWaiting(room: RoomContext): Promise<Map<string, StoredWaiting>> {
+  const stored = await room.ctx.storage.list<StoredWaiting>({ prefix: WAITING_PREFIX });
+  return new Map(
+    [...stored]
+      .map(
+        ([key, waiting]) => [key.slice(WAITING_PREFIX.length), waiting] as [string, StoredWaiting],
+      )
+      .toSorted(([, left], [, right]) => left.waitingFrom.localeCompare(right.waitingFrom)),
+  );
+}
+
 export async function readRoom(room: RoomContext): Promise<StoredRoom | undefined> {
   return await room.ctx.storage.get<StoredRoom>(ROOM_KEY);
 }
@@ -259,10 +352,14 @@ export async function putSpotlight(
   else await room.ctx.storage.put(SPOTLIGHT_KEY, spotlight);
 }
 
-/** The two room-level facts, composed for the wire. */
+/** The three room-level facts, composed for the wire. */
 export async function roomStateOf(room: RoomContext): Promise<MeetingRoomState> {
   const [spotlight, stored] = await Promise.all([readSpotlight(room), readRoom(room)]);
-  return { spotlight: spotlight ?? null, locked: stored?.locked ?? false };
+  return {
+    spotlight: spotlight ?? null,
+    locked: stored?.locked ?? false,
+    lobby: stored?.lobby ?? "off",
+  };
 }
 
 /** Tells everybody what is now true of the room. */
@@ -282,6 +379,16 @@ export async function setRoomLocked(room: RoomContext, locked: boolean): Promise
     // writes the whole record off the meeting row, which is where the truth is anyway.
     if (stored === undefined) return false;
     await putRoom(room, { ...stored, locked });
+    return true;
+  });
+}
+
+/** The door's own setting, on exactly the terms the lock above is written. */
+export async function setRoomLobby(room: RoomContext, lobby: MeetingLobbyMode): Promise<boolean> {
+  return await room.ctx.blockConcurrencyWhile(async () => {
+    const stored = await readRoom(room);
+    if (stored === undefined) return false;
+    await putRoom(room, { ...stored, lobby });
     return true;
   });
 }

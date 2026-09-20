@@ -10,7 +10,7 @@ import {
   revokeHosting,
   setMeetingLocked,
 } from "../src/hosting-service.ts";
-import { readLiveHostGrants, readRemovedStay } from "../src/hosting-statements.ts";
+import { readBarredStay, readLiveHostGrants } from "../src/hosting-statements.ts";
 import { createMeeting, endMeeting, joinMeeting, leaveMeeting } from "../src/meeting-service.ts";
 import { readMeeting, readOpenAttendance } from "../src/meeting-statements.ts";
 import { MeetingValidationError } from "../src/validation.ts";
@@ -423,7 +423,7 @@ describe("removing somebody", () => {
     expect(removed.userId).toBe(GUEST);
     await commit(database.database, removed.effect);
 
-    const closed = await readRemovedStay(database.database, meetingId, GUEST);
+    const closed = await readBarredStay(database.database, meetingId, GUEST);
     expect(closed?.id).toBe(stay?.id);
     expect(closed?.ended_reason).toBe("removed");
     expect(closed?.left_at).not.toBeNull();
@@ -677,6 +677,7 @@ describe("what the audit log carries", () => {
       "grantedAt",
       "joinedAt",
       "leftAt",
+      "lobby",
       "locked",
       "matterId",
       "medium",

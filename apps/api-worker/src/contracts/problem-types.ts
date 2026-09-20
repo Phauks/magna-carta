@@ -661,6 +661,18 @@ export const PROBLEM_TYPES = {
   // anything, so the screen offers no Rejoin at all. It is the MEETING they are barred from and not
   // the event — a new meeting on the same event is a new room.
   "meeting-removed": "meeting-removed",
+  // The lobby is full (HTTP 409) — the hundred-and-first arrival at a door a hundred people are
+  // already waiting at. DELIBERATELY NOT `meeting-room-full`: the two ceilings answer different
+  // questions and the remedies differ, so a surface that collapsed them would tell somebody to wait
+  // for a seat when what is needed is a host looking at the list. A queue is also not somewhere a
+  // firm should be able to accumulate rows without limit, which is why the number is much smaller
+  // than the room's.
+  "meeting-lobby-full": "meeting-lobby-full",
+  // A host turned this member away at the door (HTTP 409), and they are arriving again. The twin of
+  // `meeting-removed` — barred entry is one rule with two labels, and both bar the member for as
+  // long as the meeting runs. Its own type because a screen has to say the right thing: one is
+  // being put out of the room, the other is never having been let in.
+  "meeting-not-admitted": "meeting-not-admitted",
 } as const;
 
 export type ProblemTypeKey = keyof typeof PROBLEM_TYPES;

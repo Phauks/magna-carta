@@ -8,6 +8,7 @@ import type {
   MeetingId,
   UserId,
 } from "@magna-carta/identifiers/types";
+import type { MeetingLobbyMode } from "./lobby-types.ts";
 import type {
   MeetingAttendanceRow,
   MeetingDepartureReason,
@@ -59,11 +60,45 @@ const MEETING_COLUMNS = [
   "ended_by_user_id",
   "locked_at",
   "locked_by_user_id",
+  "lobby",
   "created_at",
   "updated_at",
 ]
   .map((column) => `${MEETING_TABLE}.${column}`)
   .join(", ");
+
+/**
+ * Every column of a stay, named once.
+ *
+ * Five reads in two modules select exactly this list, and two of them forgot a column the day it was
+ * added — a row typed `MeetingAttendanceRow` whose `admitted_at` is undefined reads as "never
+ * admitted" and is a waiter who is actually in the room. One list, so the shape a caller is handed
+ * is the shape the type promises.
+ */
+export const MEETING_ATTENDANCE_COLUMNS =
+  "id, meeting_id, user_id, joined_at, left_at, ended_reason, waiting_from, admitted_at, " +
+  "created_at, updated_at";
+
+// ONE PREDICATE, ONE HOME — the two questions the lobby split in half, as single fragments every
+// caller composes rather than re-spells.
+//
+// Before the door existed, "in the room" and "has an open stay" were the same sentence and it was
+// written out at four call sites: the live count, the capacity guard, the roster read and the
+// host-presence count. They are no longer the same sentence, because somebody at the door holds an
+// open stay and occupies no seat — so the four are composed from here, and cannot drift into
+// disagreeing about who is present.
+//
+// Qualified with the table name, so both survive a join and a correlated subquery. A caller that
+// aliases `meeting_attendance` has to spell its own predicate, which no caller does.
+export const IN_THE_ROOM_PREDICATE =
+  `${MEETING_ATTENDANCE_TABLE}.left_at IS NULL ` +
+  `AND (${MEETING_ATTENDANCE_TABLE}.waiting_from IS NULL ` +
+  `OR ${MEETING_ATTENDANCE_TABLE}.admitted_at IS NOT NULL)`;
+
+export const WAITING_PREDICATE =
+  `${MEETING_ATTENDANCE_TABLE}.left_at IS NULL ` +
+  `AND ${MEETING_ATTENDANCE_TABLE}.waiting_from IS NOT NULL ` +
+  `AND ${MEETING_ATTENDANCE_TABLE}.admitted_at IS NULL`;
 
 // The event's own facts, joined rather than copied. LEFT JOIN on both parents, because exactly one
 // of them matches and an inner join on either would drop every meeting of the other kind while
@@ -85,10 +120,13 @@ const EVENT_JOIN =
 // WHO IS IN THE ROOM RIGHT NOW, counted off the open stays on every read rather than kept as a
 // column. A stored count is a second answer to a question the rows already answer, and the two
 // disagree the first time a socket closes without a leave.
+//
+// Over the stays that are IN THE ROOM and not merely open: somebody at the door is not somebody a
+// screen should count as present.
 const LIVE_COUNT_COLUMN =
   `(SELECT COUNT(*) FROM ${MEETING_ATTENDANCE_TABLE} ` +
   `WHERE ${MEETING_ATTENDANCE_TABLE}.meeting_id = ${MEETING_TABLE}.id ` +
-  `AND ${MEETING_ATTENDANCE_TABLE}.left_at IS NULL) AS live_count`;
+  `AND ${IN_THE_ROOM_PREDICATE}) AS live_count`;
 
 type MeetingSummaryColumns = MeetingRow & MeetingEventRow & { readonly live_count: number };
 
@@ -112,6 +150,10 @@ function toSummary(row: MeetingSummaryColumns): MeetingSummary {
     // counted rather than kept: one fact, one answer. The instant is the record of when the door
     // was shut; a boolean is what a screen needs.
     locked: row.locked_at !== null,
+    // Carried as the setting rather than as a boolean, because it is a two-value vocabulary the
+    // write path also takes — a screen that read `lobby: true` would have to invent the word back
+    // to change it.
+    lobby: row.lobby,
   };
 }
 
@@ -352,7 +394,7 @@ export async function listAttendance(
   const keyset = keysetClause(bindings, options.cursor, "joined_at", "id", true);
   const { results } = await database
     .prepare(
-      `SELECT id, meeting_id, user_id, joined_at, left_at, ended_reason, created_at, updated_at ` +
+      `SELECT ${MEETING_ATTENDANCE_COLUMNS} ` +
         `FROM ${MEETING_ATTENDANCE_TABLE} WHERE meeting_id = ? ${keyset}` +
         `ORDER BY joined_at ASC, id ASC LIMIT ?`,
     )
@@ -376,8 +418,7 @@ export async function readAttendance(
 ): Promise<MeetingAttendanceRow | undefined> {
   const { results } = await database
     .prepare(
-      `SELECT id, meeting_id, user_id, joined_at, left_at, ended_reason, created_at, updated_at ` +
-        `FROM ${MEETING_ATTENDANCE_TABLE} WHERE id = ?`,
+      `SELECT ${MEETING_ATTENDANCE_COLUMNS} ` + `FROM ${MEETING_ATTENDANCE_TABLE} WHERE id = ?`,
     )
     .bind(attendanceId)
     .all<MeetingAttendanceRow>();
@@ -392,7 +433,7 @@ export async function readOpenAttendance(
 ): Promise<MeetingAttendanceRow | undefined> {
   const { results } = await database
     .prepare(
-      `SELECT id, meeting_id, user_id, joined_at, left_at, ended_reason, created_at, updated_at ` +
+      `SELECT ${MEETING_ATTENDANCE_COLUMNS} ` +
         `FROM ${MEETING_ATTENDANCE_TABLE} WHERE meeting_id = ? AND user_id = ? AND left_at IS NULL ` +
         `ORDER BY joined_at DESC, id DESC`,
     )
@@ -401,7 +442,14 @@ export async function readOpenAttendance(
   return results[0];
 }
 
-/** How many people are in the room, which is what the cap is measured against. */
+/**
+ * How many people are IN THE ROOM, which is what the room's cap is measured against.
+ *
+ * Not "how many stays are open": somebody at the door holds one and is not in the room. This read is
+ * what produces the REASON a member is given; the ceiling itself is held in the admission
+ * statement's own WHERE, a round trip later — see `admitAttendanceUnderCapStatement` in
+ * ./lobby-statements.ts.
+ */
 export async function countOpenAttendance(
   database: SqlDatabase,
   meetingId: MeetingId,
@@ -409,7 +457,7 @@ export async function countOpenAttendance(
   const { results } = await database
     .prepare(
       `SELECT COUNT(*) AS count FROM ${MEETING_ATTENDANCE_TABLE} ` +
-        `WHERE meeting_id = ? AND left_at IS NULL`,
+        `WHERE ${MEETING_ATTENDANCE_TABLE}.meeting_id = ? AND ${IN_THE_ROOM_PREDICATE}`,
     )
     .bind(meetingId)
     .all<{ readonly count: number }>();
@@ -455,6 +503,7 @@ export interface InsertMeetingInput {
   readonly id: MeetingId;
   readonly eventKind: MeetingEventKind;
   readonly medium: MeetingMedium;
+  readonly lobby: MeetingLobbyMode;
   readonly matterEventId: MatterEventId | null;
   readonly firmEventId: FirmEventId | null;
   readonly createdByUserId: UserId;
@@ -476,14 +525,16 @@ export function insertMeetingStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${MEETING_TABLE} (id, event_kind, medium, matter_event_id, firm_event_id, ` +
-        `status, created_by_user_id, started_at, ended_at, ended_by_user_id, created_at, ` +
-        `updated_at) VALUES (?1, ?2, ?3, ?4, ?5, 'scheduled', ?6, NULL, NULL, NULL, ?7, ?7)`,
+      `INSERT INTO ${MEETING_TABLE} (id, event_kind, medium, lobby, matter_event_id, ` +
+        `firm_event_id, status, created_by_user_id, started_at, ended_at, ended_by_user_id, ` +
+        `created_at, updated_at) ` +
+        `VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'scheduled', ?7, NULL, NULL, NULL, ?8, ?8)`,
     )
     .bind(
       input.id,
       input.eventKind,
       input.medium,
+      input.lobby,
       input.matterEventId,
       input.firmEventId,
       input.createdByUserId,
@@ -586,9 +637,10 @@ export function insertAttendanceUnderCapStatement(
   return database
     .prepare(
       `INSERT INTO ${MEETING_ATTENDANCE_TABLE} (id, meeting_id, user_id, joined_at, left_at, ` +
-        `created_at, updated_at) SELECT ?1, ?2, ?3, ?4, NULL, ?4, ?4 WHERE ` +
+        `waiting_from, admitted_at, created_at, updated_at) ` +
+        `SELECT ?1, ?2, ?3, ?4, NULL, NULL, NULL, ?4, ?4 WHERE ` +
         `(SELECT COUNT(*) FROM ${MEETING_ATTENDANCE_TABLE} WHERE meeting_id = ?2 ` +
-        `AND left_at IS NULL) < ?5`,
+        `AND ${IN_THE_ROOM_PREDICATE}) < ?5`,
     )
     .bind(input.id, input.meetingId, input.userId, input.now, input.capacity);
 }

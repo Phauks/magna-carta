@@ -16,9 +16,12 @@ import {
   createMeeting,
   endMeeting,
   JOIN_CAPACITY_GUARD,
+  JOIN_LOBBY_CAPACITY_GUARD,
   joinMeeting,
   leaveMeeting,
 } from "@magna-carta/meetings/meeting-service";
+import { isWaiting } from "@magna-carta/meetings/lobby-service";
+import { MAX_MEETING_LOBBY, MEETING_LOBBY_MODES } from "@magna-carta/meetings/lobby-types";
 import { readLiveHostGrant } from "@magna-carta/meetings/hosting-statements";
 import {
   isMeetingPerEventConflict,
@@ -36,7 +39,6 @@ import {
   MEETING_EVENT_KINDS,
   MEETING_LIST_SCOPES,
   MEETING_MEDIA,
-  type MeetingEventKind,
 } from "@magna-carta/meetings/types";
 import { MeetingValidationError } from "@magna-carta/meetings/validation";
 import type { Context } from "hono";
@@ -115,6 +117,12 @@ const StartMeetingRequest = z
     // the room: one meeting per event, so the first Start decides and a second one asking for the
     // other medium gets the room that exists rather than changing it under the people in it.
     medium: z.enum(MEETING_MEDIA).default("video"),
+    // Whether arrivals wait at a door. Read on the same terms as the medium beside it — only when
+    // this request opens the room — but UNLIKE the medium a host may change it afterwards: a medium
+    // is what the people in the room agreed to, and a lobby is a standing decision about who may
+    // come in. Off by default, because every participant today is a firm member arriving at an
+    // event they are on.
+    lobby: z.enum(MEETING_LOBBY_MODES).default("off"),
   })
   .openapi("StartMeetingRequest");
 
@@ -148,6 +156,11 @@ const MeetingSummaryResponse = z
     // row of a fifty-row list to answer a question only the room screen asks, and the room screen
     // has the answer on the wire.
     locked: z.boolean(),
+    // WHETHER ARRIVALS WAIT AT A DOOR. Carried as the setting rather than as a boolean, because it
+    // is a two-value vocabulary the write path also takes. Who is AT the door is a separate,
+    // host-only read: it is a list of people a host has not yet decided about, and a fifty-row list
+    // must not carry it.
+    lobby: z.enum(MEETING_LOBBY_MODES),
     // Whether this deployment can route a meeting's media at all. A fact about the deployment, not
     // about the meeting or the member — a surface reads it to decide whether to offer a way in.
     configured: z.boolean(),
@@ -168,6 +181,15 @@ const JoinedMeeting = z
     // frame. A member who rejoins after leaving gets a new one, because that is a new stay.
     participantId: z.string(),
     displayName: z.string(),
+    // WHETHER THE STAY IS AT THE DOOR. True means a host has not admitted them yet: their socket
+    // opens into the lobby state, receives `lobby` rather than `welcome`, and captures no media.
+    //
+    // The relay credentials below are minted either way, and deliberately. They last an hour, which
+    // covers any wait anybody will sit through, and minting one for somebody who is later denied
+    // costs nothing that matters — a mint is not the billed unit, relay traffic is, and a denied
+    // member relays nothing. Minting at admission instead would need a second round trip at the
+    // exact moment a member is being let into a meeting that has started without them.
+    waiting: z.boolean(),
     // What the browser hands its own connection so two participants behind different networks can
     // find each other. Empty where this deployment mints none, in which case the browser uses
     // whatever it is configured with.
@@ -577,6 +599,25 @@ export function meetingErrorResponse(
         status: 409,
         detail: caught.message,
       });
+    // The door's own two. `meeting-lobby-full` is deliberately NOT `meeting-room-full`: the two
+    // ceilings answer different questions and the remedies differ — a full room needs somebody to
+    // leave, a full lobby needs a host to look at the list.
+    case "meeting-lobby-full":
+      return problemJson(c, {
+        type: "meeting-lobby-full",
+        title: "This meeting's lobby is full",
+        status: 409,
+        detail: caught.message,
+      });
+    // The twin of `meeting-removed`, and its own type because a screen has to say the right thing:
+    // one is being put out of the room, the other is never having been let in.
+    case "meeting-not-admitted":
+      return problemJson(c, {
+        type: "meeting-not-admitted",
+        title: "A host did not admit you to this meeting",
+        status: 409,
+        detail: caught.message,
+      });
   }
 }
 
@@ -664,6 +705,20 @@ async function commitEffect<T>(
           title: "This meeting is full",
           status: 409,
           detail: `This meeting is full; it holds ${String(MAX_MEETING_PARTICIPANTS)} people.`,
+        }),
+      };
+    }
+    // THE DOOR'S OWN CEILING, arrived at the same way and answered as a different thing. A hundred
+    // rows is what a queue may hold; the remedy is a host looking at the list rather than somebody
+    // leaving the room.
+    if (caught instanceof GuardedWriteRefusedError && caught.guard === JOIN_LOBBY_CAPACITY_GUARD) {
+      return {
+        ok: false,
+        problem: problemJson(c, {
+          type: "meeting-lobby-full",
+          title: "This meeting's lobby is full",
+          status: 409,
+          detail: `This meeting's lobby is full; it holds ${String(MAX_MEETING_LOBBY)} people.`,
         }),
       };
     }
@@ -778,7 +833,7 @@ export function registerMeetingsRoutes(
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
       const idempotency = requireChokepointIdempotency(c);
-      const { eventKind, eventId, medium } = c.req.valid("json");
+      const { eventKind, eventId, medium, lobby } = c.req.valid("json");
 
       let outcome;
       try {
@@ -789,7 +844,7 @@ export function registerMeetingsRoutes(
           async () => {
             const started = await createMeeting(
               firm.firmDatabase,
-              { eventKind: eventKind, eventId, medium },
+              { eventKind: eventKind, eventId, medium, lobby },
               serviceOptions(userId),
             );
             return {
@@ -932,7 +987,7 @@ export function registerMeetingsRoutes(
 
       let outcome;
       try {
-        outcome = await commitEffect<{ participantId: string }>(
+        outcome = await commitEffect<{ participantId: string; waiting: boolean }>(
           c,
           firm.firmDatabase,
           idempotency,
@@ -943,7 +998,7 @@ export function registerMeetingsRoutes(
               serviceOptions(userId),
             );
             return {
-              value: { participantId: joined.attendanceId },
+              value: { participantId: joined.attendanceId, waiting: joined.waiting },
               responseCode: 200,
               effect: joined.effect,
             };
@@ -958,7 +1013,14 @@ export function registerMeetingsRoutes(
         if (!isOpenStayConflict(caught)) throw caught;
         const open = await readOpenAttendance(firm.firmDatabase, meetingId as MeetingId, userId);
         if (open === undefined) throw caught;
-        outcome = { ok: true as const, value: { participantId: open.id }, responseCode: 200 };
+        outcome = {
+          ok: true as const,
+          // Whichever side of the door the stay the other request opened is on — read off the row
+          // rather than assumed, because the loser of this race cannot know which branch the winner
+          // took.
+          value: { participantId: open.id, waiting: isWaiting(open) },
+          responseCode: 200,
+        };
       }
       if (!outcome.ok) return outcome.problem;
 
@@ -969,7 +1031,15 @@ export function registerMeetingsRoutes(
         displayNameOf(firm.firmDatabase, userId),
         iceServersFor(c),
       ]);
-      return c.json({ participantId: outcome.value.participantId, displayName, iceServers }, 200);
+      return c.json(
+        {
+          participantId: outcome.value.participantId,
+          waiting: outcome.value.waiting,
+          displayName,
+          iceServers,
+        },
+        200,
+      );
     },
   );
 
@@ -1169,6 +1239,14 @@ export function registerMeetingsRoutes(
           // Off the same row, so the room can say what is true of itself on the welcome without
           // asking the firm's database once per socket.
           locked: meeting.locked_at !== null,
+          lobby: meeting.lobby,
+          // DERIVED FROM THE STAY THE UPGRADE WAS JUST AUTHORIZED AGAINST, never named by the
+          // browser: the row says whether this person is at the door or in the room, and it is what
+          // sends the socket into the lobby state rather than into the room.
+          waiting: isWaiting(open),
+          // The instant off the stay itself, so the room repeats the record rather than stamping a
+          // second answer of its own.
+          waitingFrom: open.waiting_from ?? "",
         }),
       );
     },

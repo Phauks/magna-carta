@@ -151,6 +151,8 @@ describe("problem-type URI registry", () => {
         "meeting-not-host",
         "meeting-locked",
         "meeting-removed",
+        "meeting-lobby-full",
+        "meeting-not-admitted",
         "discovery-access-list-would-be-empty",
         "discovery-ceiling-exceeded",
         "discovery-coding-act-not-undoable",

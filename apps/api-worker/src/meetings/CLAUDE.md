@@ -36,6 +36,10 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   retirement of the ended marker, and the end of a presence throttle's window.
 - `room/room-frames.ts` — what one frame means: parse, identify the socket, answer what the roster
   can answer, refuse what the roster refuses, and only then dispatch to the modules above.
+- `room/room-lobby.ts` — the door: a socket that has a stay and is not yet in the room. The
+  `waiting:` keyspace, the lobby state a waiter is sent in place of a welcome, the list only the
+  hosts receive, the two decisions the routes call back with, and the door's own share of the grace
+  sweep.
 - `room/room-hosting.ts` — running the room from inside it: the four acts a host performs as a frame
   (mute one, mute everybody else, ask to unmute, spotlight), and the three the hosting routes call
   back into the room after their own writes commit (`hostingChanged`, `participantRemoved`,
@@ -54,7 +58,7 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   imports too. A frame shape declared in this directory is a second declaration of a contract that
   has one, and the fitness function in that package will not see it.
 - **A concern is a module, and the Durable Object class is not where a new one goes.** The next slice
-  — host controls, the lobby, recording — adds a file under `room/` and a line of wiring, not a
+  — recording, breakout rooms — adds a file under `room/` and a line of wiring, not a
   method on `MeetingRoom`. Each module takes `RoomContext` explicitly so it can be driven without the
   runtime.
 - **Nothing about a participant may live on the instance.** Class properties do not survive
@@ -106,6 +110,19 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   would be a mute the browser could decline, and un-muting afterwards republishes the microphone
   because the track is genuinely gone. Muting the whole room spends ONE roster broadcast and a
   bounded concurrency lane, never one broadcast and one upstream round trip per person in series.
+- **A WAITER IS NOT FILTERED OUT OF THE ROSTER; THEY ARE NOT IN THE SET IT IS MADE OF.** A waiting
+  participant is stored under `waiting:<attendanceId>` and never under `participant:`, so
+  `storedParticipants()` — the one read every roster, delta, subscription check and broadcast is
+  built from — cannot include them. A filter would have to be re-applied by every future reader and
+  would be wrong the first time one forgot. The second half of the same guarantee is `broadcast`,
+  which skips any socket that has not been welcomed: a waiting socket never is, so a roster frame
+  cannot reach it even by accident — and `endMeeting` therefore has to tell the door separately,
+  because "the meeting is over" is the one piece of news a waiter shares with the room.
+- **A waiting socket may send `ping` and `leave` and nothing else**, and the refusal is decided in
+  `room-frames.ts` before the throttles, before the roster is read and before a routing session is
+  resolved. The service has no notion of a meeting and would honour a subscription to any session in
+  the fleet, which is exactly what somebody standing outside a confidential matter discussion must
+  not be able to reach. The socket stays open: they are at the door, and the door may open.
 - **The media never crosses this directory.** Audio, video and screen share go directly between a
   browser and Realtime. Nothing here has a redaction step because there is nothing here to redact —
   and an upstream body is never carried into a refusal, because it can name the application the whole

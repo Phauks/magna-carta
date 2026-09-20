@@ -317,7 +317,7 @@ function hostingOptions(
 }
 
 type HostingOutcome =
-  | { ok: true }
+  | { ok: true; admittedAttendanceId: string | null }
   | {
       ok: false;
       problem:
@@ -341,7 +341,7 @@ async function commitHostingEffect(
   c: Context,
   database: BatchDatabase,
   idempotency: { key: string | undefined; fingerprint: string },
-  call: () => Promise<EffectWrite>,
+  call: () => Promise<{ write: EffectWrite; admittedAttendanceId?: string | null }>,
 ): Promise<HostingOutcome> {
   let result;
   try {
@@ -350,13 +350,21 @@ async function commitHostingEffect(
       key: idempotency.key,
       fingerprint: idempotency.fingerprint,
       now: () => new Date().toISOString(),
-      effect: async () => ({
-        write: await call(),
-        responseCode: 200,
-        // The answer is read back off the record afterwards rather than replayed from here, so a
-        // retry and a first call are told the same thing about who is running the room now.
-        responseBody: canonicalJsonStringify({ ok: true }),
-      }),
+      effect: async () => {
+        const { write, admittedAttendanceId } = await call();
+        return {
+          write,
+          responseCode: 200,
+          // Who is running the room is read back off the record afterwards rather than replayed
+          // from here, so a retry and a first call are told the same thing. The one thing that IS
+          // carried through the gate is the stay a grant admitted at the door: it is a fact about
+          // what this batch did, and a retry has to move the same person into the room.
+          responseBody: canonicalJsonStringify({
+            ok: true,
+            admittedAttendanceId: admittedAttendanceId ?? null,
+          }),
+        };
+      },
     });
   } catch (caught) {
     if (caught instanceof MeetingValidationError) {
@@ -364,7 +372,7 @@ async function commitHostingEffect(
     }
     if (caught instanceof GuardedWriteRefusedError) {
       if (caught.guard === REVOKE_HOSTING_GUARD || caught.guard === LOCK_MEETING_GUARD) {
-        return { ok: true };
+        return { ok: true, admittedAttendanceId: null };
       }
       if (caught.guard === REMOVE_PARTICIPANT_GUARD) {
         // The stay closed under the removal — the member left, or the meeting ended in the window.
@@ -390,7 +398,8 @@ async function commitHostingEffect(
   if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
     return { ok: false, problem: problemResponseForIdempotencyConflict(c, result) };
   }
-  return { ok: true };
+  const body = JSON.parse(result.responseBody ?? "{}") as { admittedAttendanceId?: string | null };
+  return { ok: true, admittedAttendanceId: body.admittedAttendanceId ?? null };
 }
 
 function lostTheRace(c: Context): ProblemResponse<409> {
@@ -468,21 +477,29 @@ export function registerMeetingHostingRoutes(
       const { meetingId } = c.req.valid("param");
       const { userId, role } = c.req.valid("json");
 
-      const outcome = await commitHostingEffect(
-        c,
-        firm.firmDatabase,
-        idempotency,
-        async () =>
-          (
-            await grantHosting(
-              firm.firmDatabase,
-              meetingId as MeetingId,
-              { userId: userId as UserId, role },
-              hostingOptions(c),
-            )
-          ).effect,
-      );
+      const outcome = await commitHostingEffect(c, firm.firmDatabase, idempotency, async () => {
+        const granted = await grantHosting(
+          firm.firmDatabase,
+          meetingId as MeetingId,
+          { userId: userId as UserId, role },
+          hostingOptions(c),
+        );
+        return {
+          write: granted.effect,
+          admittedAttendanceId: granted.admittedAttendanceId,
+        };
+      });
       if (!outcome.ok) return outcome.problem;
+
+      // A HOST DOES NOT WAIT IN THEIR OWN LOBBY. A grant written for somebody whose stay was at the
+      // door admitted that stay in the same batch, so the room moves them onto the roster BEFORE it
+      // is told who is running it — otherwise the claimer's own socket would still be in the lobby
+      // state when `hostingChanged` rewrote a participant record that does not exist yet.
+      if (outcome.admittedAttendanceId !== null) {
+        await meetingRoomFor(c.env, requireChokepointFirmId(c), meetingId).participantsAdmitted([
+          outcome.admittedAttendanceId,
+        ]);
+      }
       return c.json({ data: await announceGrants(c, firm.firmDatabase, meetingId) }, 200);
     },
   );
@@ -495,20 +512,16 @@ export function registerMeetingHostingRoutes(
       const idempotency = requireChokepointIdempotency(c);
       const { meetingId, userId } = c.req.valid("param");
 
-      const outcome = await commitHostingEffect(
-        c,
-        firm.firmDatabase,
-        idempotency,
-        async () =>
-          (
-            await revokeHosting(
-              firm.firmDatabase,
-              meetingId as MeetingId,
-              userId as UserId,
-              hostingOptions(c),
-            )
-          ).effect,
-      );
+      const outcome = await commitHostingEffect(c, firm.firmDatabase, idempotency, async () => ({
+        write: (
+          await revokeHosting(
+            firm.firmDatabase,
+            meetingId as MeetingId,
+            userId as UserId,
+            hostingOptions(c),
+          )
+        ).effect,
+      }));
       if (!outcome.ok) return outcome.problem;
       return c.json({ data: await announceGrants(c, firm.firmDatabase, meetingId) }, 200);
     },
@@ -523,20 +536,16 @@ export function registerMeetingHostingRoutes(
       const idempotency = requireChokepointIdempotency(c);
       const { meetingId, participantId } = c.req.valid("param");
 
-      const outcome = await commitHostingEffect(
-        c,
-        firm.firmDatabase,
-        idempotency,
-        async () =>
-          (
-            await removeParticipant(
-              firm.firmDatabase,
-              meetingId as MeetingId,
-              participantId as MeetingAttendanceId,
-              hostingOptions(c),
-            )
-          ).effect,
-      );
+      const outcome = await commitHostingEffect(c, firm.firmDatabase, idempotency, async () => ({
+        write: (
+          await removeParticipant(
+            firm.firmDatabase,
+            meetingId as MeetingId,
+            participantId as MeetingAttendanceId,
+            hostingOptions(c),
+          )
+        ).effect,
+      }));
       if (!outcome.ok) return outcome.problem;
 
       // AFTER the commit. The record now says they are not in the meeting, so the room may drop
@@ -559,20 +568,16 @@ export function registerMeetingHostingRoutes(
       const { meetingId } = c.req.valid("param");
       const { locked } = c.req.valid("json");
 
-      const outcome = await commitHostingEffect(
-        c,
-        firm.firmDatabase,
-        idempotency,
-        async () =>
-          (
-            await setMeetingLocked(
-              firm.firmDatabase,
-              meetingId as MeetingId,
-              locked,
-              hostingOptions(c),
-            )
-          ).effect,
-      );
+      const outcome = await commitHostingEffect(c, firm.firmDatabase, idempotency, async () => ({
+        write: (
+          await setMeetingLocked(
+            firm.firmDatabase,
+            meetingId as MeetingId,
+            locked,
+            hostingOptions(c),
+          )
+        ).effect,
+      }));
       if (!outcome.ok) return outcome.problem;
 
       await meetingRoomFor(c.env, firmId, meetingId).roomStateChanged(locked);

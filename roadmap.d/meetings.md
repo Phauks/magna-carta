@@ -116,10 +116,13 @@
 - id: meetings.waiting-room
   name: Waiting room
   scope: Arrivals held in a lobby until a host admits them, one by one or all; the door for external guests and late joiners. One lobby per meeting, because a firm holds several meetings at once.
-  status: designed
+  status: in-build
+  surface: awaiting-screen
   spec: docs/specs/2026-09-20-meetings-host-controls-and-waiting-room-design.md
-  evidence: No code; join admits anyone the event admits. Sequenced with external guests, whose door it is.
-  notes: The owner's ruling of 2026-09-20 — meetings run concurrently, so the lobby belongs to the meeting, never to the firm.
+  evidence: Server half built — meeting.lobby plus meeting_attendance.waiting_from / admitted_at and their partial index in packages/database/src/per-firm-schema.ts, the lobby trio in packages/meetings (lobby-types/lobby-statements/lobby-service, with MAX_MEETING_LOBBY at the door and the room's own capacity guard moved onto the admission), the two presence predicates as single exported fragments in meeting-statements.ts, the lobby/admitted/waiting frames and the two refusal reasons in packages/meeting-protocol/src/frames.ts, the waiting: storage prefix in apps/api-worker/src/meetings/room/room-lobby.ts, and apps/api-worker/src/routes/meeting-lobby.ts. The waiting screen, the host's lobby sheet and the lobby switch at Start are the web half and are not built. Stream docs/active-work/claude/focused-edison-ylxfiy.md.
+  audience: public
+  public-summary: Hold arrivals in a lobby and let them in when you are ready.
+  notes: The owner's ruling of 2026-09-20 — meetings run concurrently, so the lobby belongs to the meeting, never to the firm. Guests always wait regardless of the setting; the signed one-time link is its own slice and nothing here mints one.
 
 - id: meetings.reactions
   name: Raise hand and reactions

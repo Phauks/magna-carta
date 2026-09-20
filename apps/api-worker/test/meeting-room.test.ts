@@ -248,6 +248,10 @@ async function connect(
   // exactly as the medium is — so an upgrade refreshes the room's own copy from the record rather
   // than trusting what it last held.
   locked = false,
+  // Whether this stay is AT THE DOOR, derived by the route off the row it just authorized the
+  // upgrade against. True sends the socket into the lobby state instead of into the room.
+  waiting = false,
+  lobby: "off" | "on" = waiting ? "on" : "off",
 ): Promise<Participant> {
   const response = await stub.fetch(
     new Request(
@@ -260,6 +264,8 @@ async function connect(
         medium,
         hostRole,
         locked,
+        lobby,
+        waiting,
       }),
       { headers: { Upgrade: "websocket" } },
     ),
@@ -575,7 +581,11 @@ describe("joining the room", () => {
       ],
       // WHAT IS TRUE OF THE ROOM rather than of anybody in it, carried inline for the reason the
       // whole roster is: a socket that has just arrived holds nothing to apply a change to.
-      roomState: { spotlight: null, locked: false },
+      roomState: { spotlight: null, locked: false, lobby: "off" },
+      // WHO IS AT THE DOOR, and EMPTY for somebody who is not running the meeting — which is what
+      // this socket is. The lobby list is the one thing in this welcome the room withholds from the
+      // people inside it.
+      waiting: [],
     });
   });
 
@@ -2294,5 +2304,246 @@ describe("running the room from inside it", () => {
         (one) => one.participantId === MEMBER_STAY,
       ),
     ).toMatchObject({ hostRole: "co-host" });
+  });
+});
+
+describe("the door, from the signaling side", () => {
+  const HOST_STAY = "meetingAttendance_lobbyHost";
+  const WAITER_STAY = "meetingAttendance_lobbyWaiter";
+  const SECOND_WAITER = "meetingAttendance_lobbySecond";
+  const MEMBER_STAY = "meetingAttendance_lobbyMember";
+
+  /** A socket for a stay that is AT THE DOOR — what the route opens for a waiting arrival. */
+  async function knock(
+    stub: ReturnType<typeof roomStub>,
+    meetingId: string,
+    attendanceId: string,
+    displayName: string,
+  ): Promise<Participant> {
+    return await connect(stub, meetingId, attendanceId, displayName, "video", null, false, true);
+  }
+
+  function send(participant: Participant, frame: Record<string, unknown>): void {
+    participant.send(JSON.stringify({ v: 1, ...frame }));
+  }
+
+  /** What the room holds under one key, whichever keyspace it is in. */
+  async function storedAt(
+    stub: ReturnType<typeof roomStub>,
+    key: string,
+  ): Promise<Record<string, unknown> | undefined> {
+    let found: Record<string, unknown> | undefined;
+    await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
+      found = await state.storage.get<Record<string, unknown>>(key);
+    });
+    return found;
+  }
+
+  it("sends a waiting socket `lobby` and never a `welcome`", async () => {
+    const { meetingId, stub } = freshRoom();
+    await connect(stub, meetingId, HOST_STAY, "A Host", "video", "host");
+    const waiter = await knock(stub, meetingId, WAITER_STAY, "A Late Arrival");
+
+    // THERE IS NOTHING IT IS WELCOME TO YET, and a welcome carrying an empty roster is a shape
+    // every future reader has to remember to keep empty.
+    expect(waiter.frames[0]).toMatchObject({ type: "lobby", position: 1, waiting: 1 });
+    expect(lastFrame(waiter, "welcome")).toBeUndefined();
+
+    // THE STRUCTURAL GUARANTEE IS THE PREFIX: they are not in the set the roster is made of, so no
+    // filter has to remember to leave them out.
+    expect(await storedAt(stub, `waiting:${WAITER_STAY}`)).toMatchObject({
+      userId: `user_${WAITER_STAY}`,
+      displayName: "A Late Arrival",
+    });
+    expect(await storedAt(stub, `participant:${WAITER_STAY}`)).toBeUndefined();
+  });
+
+  it("keeps a waiter out of every other socket's roster and out of every delta", async () => {
+    const { meetingId, stub } = freshRoom();
+    const host = await connect(stub, meetingId, HOST_STAY, "A Host", "video", "host");
+    const member = await connect(stub, meetingId, MEMBER_STAY, "A Member");
+    await knock(stub, meetingId, WAITER_STAY, "A Late Arrival");
+    await settle();
+
+    const roster = rosterOf(member) ?? { participants: welcomeRosterOf(member) };
+    expect(roster.participants.map((one) => one.participantId)).not.toContain(WAITER_STAY);
+    for (const delta of deltasOf(member)) {
+      expect([...delta.joined, ...delta.updated].map((one) => one.participantId)).not.toContain(
+        WAITER_STAY,
+      );
+      expect(delta.left).not.toContain(WAITER_STAY);
+    }
+    // The people in the room are never told somebody is at the door; only the hosts are.
+    expect(lastFrame(member, "waiting")).toBeUndefined();
+    expect(lastFrame(host, "waiting")).toMatchObject({
+      participants: [{ participantId: WAITER_STAY, displayName: "A Late Arrival" }],
+    });
+  });
+
+  it("refuses every signaling frame from a waiting socket and leaves it open", async () => {
+    const { meetingId, stub } = freshRoom();
+    const host = await connect(stub, meetingId, HOST_STAY, "A Host", "video", "host");
+    await publish(host, HOST_STAY, [{ name: "camera", kind: "video" }]);
+    const waiter = await knock(stub, meetingId, WAITER_STAY, "A Late Arrival");
+    upstream = [];
+
+    for (const frame of [
+      { type: "sync" },
+      { type: "presence", speaking: true, muted: false },
+      { type: "mute", participantId: HOST_STAY },
+      { type: "spotlight", participantId: HOST_STAY },
+      {
+        type: "publish",
+        sessionDescription: { type: "offer", sdp: "v=0 browser-offer" },
+        tracks: [{ trackName: `${WAITER_STAY}:camera`, mid: "0", kind: "video" }],
+      },
+      {
+        type: "subscribe",
+        tracks: [{ sessionId: "routing-session-1", trackName: `${HOST_STAY}:camera` }],
+      },
+    ]) {
+      send(waiter, frame);
+      await waitFor(() => lastFrame(waiter, "refused") !== undefined);
+      expect(lastFrame(waiter, "refused")).toMatchObject({ reason: "not-admitted" });
+      waiter.frames.length = 0;
+    }
+
+    // DECIDED BEFORE THE ROUTING CLIENT IS EVEN RESOLVED, so a waiter's frame never costs a session
+    // at the service — which has no notion of a meeting and would honour a subscription to any
+    // session in the fleet.
+    expect(upstream).toEqual([]);
+    // AND THE SOCKET STAYS OPEN: they are at the door, and the door may open.
+    expect(waiter.closeCode()).toBeNull();
+  });
+
+  it("admits on the wire: `admitted`, then `welcome`, then a roster join to the room", async () => {
+    const { meetingId, stub } = freshRoom();
+    const member = await connect(stub, meetingId, MEMBER_STAY, "A Member");
+    const waiter = await knock(stub, meetingId, WAITER_STAY, "A Late Arrival");
+
+    await stub.participantsAdmitted([WAITER_STAY]);
+    await waitFor(() => lastFrame(waiter, "welcome") !== undefined);
+
+    // TWO FRAMES WITH ONE JOB EACH, in that order, so the client's welcome handler is the same
+    // handler it has always been.
+    const types = waiter.frames.map((frame) => frame["type"]);
+    expect(types.indexOf("admitted")).toBeGreaterThan(-1);
+    expect(types.indexOf("welcome")).toBe(types.indexOf("admitted") + 1);
+    expect(lastFrame(waiter, "welcome")).toMatchObject({ participantId: WAITER_STAY });
+
+    // The record moved keyspaces, which is what puts them on the roster at all.
+    expect(await storedAt(stub, `waiting:${WAITER_STAY}`)).toBeUndefined();
+    expect(await storedAt(stub, `participant:${WAITER_STAY}`)).toMatchObject({
+      displayName: "A Late Arrival",
+    });
+    await waitFor(() => (rosterOf(member)?.participants.length ?? 0) > 1);
+    expect(rosterOf(member)?.participants.map((one) => one.participantId)).toContain(WAITER_STAY);
+
+    // And the socket may now signal, which is the whole of what admission changed for it.
+    send(waiter, { type: "sync" });
+    await waitFor(() => rosterOf(waiter) !== undefined);
+    expect(lastFrame(waiter, "refused")).toBeUndefined();
+  });
+
+  it("denies on the wire: `refused: denied`, then a 4000 close, and the room is told nothing", async () => {
+    const { meetingId, stub } = freshRoom();
+    const member = await connect(stub, meetingId, MEMBER_STAY, "A Member");
+    const waiter = await knock(stub, meetingId, WAITER_STAY, "A Late Arrival");
+    await settle();
+    const framesBefore = member.frames.length;
+
+    await stub.participantsDenied([WAITER_STAY]);
+    await waitFor(() => waiter.closeCode() !== null);
+
+    // The reason goes out BEFORE the close, so a browser learns why rather than inferring it from a
+    // code — and `denied` is fatal, so the screen offers no way back in.
+    expect(lastFrame(waiter, "refused")).toMatchObject({ reason: "denied" });
+    expect(waiter.closeCode()).toBe(4000);
+    expect(await storedAt(stub, `waiting:${WAITER_STAY}`)).toBeUndefined();
+    // NOTHING IS ANNOUNCED TO THE ROOM: the people in it never knew somebody was at the door.
+    expect(member.frames.length).toBe(framesBefore);
+  });
+
+  it("moves everybody's place in the queue when somebody in front of them goes", async () => {
+    const { meetingId, stub } = freshRoom();
+    await connect(stub, meetingId, HOST_STAY, "A Host", "video", "host");
+    const first = await knock(stub, meetingId, WAITER_STAY, "First");
+    const second = await knock(stub, meetingId, SECOND_WAITER, "Second");
+    await waitFor(() => lastFrame(second, "lobby") !== undefined);
+    expect(lastFrame(second, "lobby")).toMatchObject({ position: 2, waiting: 2 });
+
+    await stub.participantsAdmitted([WAITER_STAY]);
+    await waitFor(() => (lastFrame(second, "lobby") as { position: number }).position === 1);
+    expect(lastFrame(second, "lobby")).toMatchObject({ position: 1, waiting: 1 });
+    await waitFor(() => lastFrame(first, "welcome") !== undefined);
+    expect(lastFrame(first, "welcome")).toBeDefined();
+  });
+
+  it("tells a waiting socket the meeting ended, which a roster broadcast could not", async () => {
+    const { meetingId, stub } = freshRoom();
+    await connect(stub, meetingId, MEMBER_STAY, "A Member");
+    const waiter = await knock(stub, meetingId, WAITER_STAY, "A Late Arrival");
+
+    await stub.end(ENDED_AT);
+    await waitFor(() => lastFrame(waiter, "ended") !== undefined);
+
+    // `broadcast` skips every socket that has not been welcomed, and a waiting one never is — so
+    // without its own path somebody standing outside a finished meeting would just go quiet.
+    expect(lastFrame(waiter, "ended")).toMatchObject({ endedAt: ENDED_AT });
+  });
+
+  it("carries the lobby setting on the room state, and moving it admits nobody", async () => {
+    const { meetingId, stub } = freshRoom();
+    const host = await connect(stub, meetingId, HOST_STAY, "A Host", "video", "host", false, false);
+    const waiter = await knock(stub, meetingId, WAITER_STAY, "A Late Arrival");
+    expect((host.frames[0] as { roomState: { lobby: string } }).roomState.lobby).toBe("off");
+
+    await stub.lobbyChanged("on");
+    await waitFor(() => lastFrame(host, "room-state") !== undefined);
+    expect(lastFrame(host, "room-state")).toMatchObject({ lobby: "on" });
+
+    await stub.lobbyChanged("off");
+    await settle();
+    // TURNING THE LOBBY OFF ADMITS NOBODY. A setting is not a decision about a named person, and
+    // somebody may be waiting precisely because the host intends to deny them.
+    expect(await storedAt(stub, `waiting:${WAITER_STAY}`)).toBeDefined();
+    expect(lastFrame(waiter, "welcome")).toBeUndefined();
+  });
+
+  it("lets somebody give up at the door without touching the roster", async () => {
+    const { meetingId, stub } = freshRoom();
+    const host = await connect(stub, meetingId, HOST_STAY, "A Host", "video", "host");
+    const waiter = await knock(stub, meetingId, WAITER_STAY, "A Late Arrival");
+    await waitFor(() => lastFrame(host, "waiting") !== undefined);
+
+    send(waiter, { type: "leave" });
+    await waitFor(() => waiter.closeCode() !== null);
+    expect(await storedAt(stub, `waiting:${WAITER_STAY}`)).toBeUndefined();
+    await waitFor(
+      () => (lastFrame(host, "waiting") as { participants: unknown[] }).participants.length === 0,
+    );
+  });
+
+  it("gives a dropped waiting socket the same grace the roster gets, then closes the stay", async () => {
+    const { meetingId, stub } = freshRoom();
+    const waiter = await knock(stub, meetingId, WAITER_STAY, "A Late Arrival");
+    waiter.close();
+    await waitForStored(async () => {
+      const stored = await storedAt(stub, `waiting:${WAITER_STAY}`);
+      return stored?.["socketLostAt"] !== null && stored?.["socketLostAt"] !== undefined;
+    });
+
+    // Wound back past the grace, exactly as the roster's own sweep is driven: a browser closed at a
+    // door must not leave an open stay in the firm's record forever.
+    await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
+      const stored = await state.storage.get<Record<string, unknown>>(`waiting:${WAITER_STAY}`);
+      await state.storage.put(`waiting:${WAITER_STAY}`, {
+        ...stored,
+        socketLostAt: new Date(Date.now() - (SOCKET_LOSS_GRACE_SECONDS + 5) * 1000).toISOString(),
+      });
+    });
+    await runDurableObjectAlarm(stub);
+
+    expect(await storedAt(stub, `waiting:${WAITER_STAY}`)).toBeUndefined();
   });
 });

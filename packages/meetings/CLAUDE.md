@@ -171,6 +171,46 @@ conversation. A removal writes TWO audit rows — the same `meetings.meeting.lef
 writes, labelled `removed`, and `meetings.meeting.removed` beside it carrying the host who acted,
 because the departure row's actor is the member whose presence it records.
 
+## The door is a per-meeting fact, and it split "in the room" from "has an open stay"
+
+`lobby-types.ts` / `lobby-statements.ts` / `lobby-service.ts` are the waiting room's trio. `meeting.lobby`
+is `'off' | 'on'`, chosen at Start beside the medium and — unlike the medium — changeable by a host,
+because a medium is what the people already in the room agreed to and a lobby is a standing decision
+about who may come in. One lobby per MEETING and never one per firm: a firm holds several at once.
+
+**A waiting arrival is a stay from the moment it reaches the door.** `meeting_attendance.waiting_from`
+and `admitted_at` are columns on the existing row rather than a second table, for three reasons: the
+socket upgrade's ticket is an open stay and a waiter needs a socket, the signaling room's storage is
+transient and is deleted when the last socket closes, and the record has to be able to say who waited
+and was never let in. `joined_at` therefore means "when this stay began", at the door or in the room.
+
+Four rules travel with it.
+
+**One predicate, one home.** `IN_THE_ROOM_PREDICATE` and `WAITING_PREDICATE` in
+`meeting-statements.ts` are single exported SQL fragments, composed by the live count, the capacity
+guard, the roster and the lobby list — so the four cannot drift into disagreeing about who is present.
+They live there rather than in the lobby trio because the lobby did not invent them; it only made them
+two different sentences.
+
+**The capacity guard moved to ADMISSION.** `MAX_MEETING_PARTICIPANTS` counts stays that are in the
+room, so the door insert cannot be what holds it. `admitAttendanceUnderCapStatement` carries the count
+in its own `WHERE` and is `guarded()`; the door has its own much smaller ceiling, `MAX_MEETING_LOBBY`,
+refused as `meeting-lobby-full`. A batch that half-lands is decided the way the join path is decided:
+the service's own count produces the REASON per person (`room-full`, seats spent down the list in the
+order the host sent it) and the guard produces the limit.
+
+**Whoever may run this room does not wait, and a grant admits.** The join path asks for a live GRANT
+rather than the permission key — a key-holder walking past the door of a confidential matter
+discussion is what a host turns the lobby on to prevent. And a grant written for a member whose stay
+is waiting admits that stay in the same batch (`admitWaitingStay` in `hosting-service.ts`), which is
+what dissolves the lobby's one deadlock: a lobby-on meeting whose host has gone. That one admission
+deliberately carries no capacity count, because refusing the claimer for a full room would restore the
+deadlock the claim exists to end.
+
+**Barred entry is one rule with two labels.** `readBarredStay` finds a stay closed `removed` or
+`denied`; both bar the member for the life of the meeting, and only the sentence differs. A denial
+that did not bar would be a button that does nothing.
+
 ## The chat is the one thing here that stores content — and it changes the paragraph above
 
 `chat-types.ts` / `chat-validation.ts` / `chat-statements.ts` / `chat-service.ts` hold in-meeting

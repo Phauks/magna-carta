@@ -29,7 +29,15 @@ export type MeetingValidationCode =
   | "meeting-locked"
   // A member who was put out of this meeting, arriving again. It is the MEETING they are barred
   // from and not the event: a new meeting on the same event is a new room.
-  | "meeting-removed";
+  | "meeting-removed"
+  // The hundred-and-first arrival at a door a hundred people are already waiting at. Its own
+  // refusal rather than the room's, because the two ceilings answer different questions and the
+  // remedy differs: a full room needs somebody to leave, a full lobby needs a host to look at the
+  // list.
+  | "meeting-lobby-full"
+  // A host turned this member away at the door, and they are arriving again. The twin of
+  // `meeting-removed` — barred entry is one rule with two labels, and only the sentence differs.
+  | "meeting-not-admitted";
 
 export class MeetingValidationError extends Error {
   constructor(

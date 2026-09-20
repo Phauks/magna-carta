@@ -6,7 +6,12 @@ import type {
   UserId,
 } from "@magna-carta/identifiers/types";
 import type { MeetingHostRole, MeetingHostRow } from "./hosting-types.ts";
-import { MEETING_ATTENDANCE_TABLE, MEETING_TABLE } from "./meeting-statements.ts";
+import {
+  IN_THE_ROOM_PREDICATE,
+  MEETING_ATTENDANCE_COLUMNS,
+  MEETING_ATTENDANCE_TABLE,
+  MEETING_TABLE,
+} from "./meeting-statements.ts";
 import type { MeetingAttendanceRow } from "./types.ts";
 
 // The grants, the door, and the one read that decides whether somebody may come back in.
@@ -91,7 +96,10 @@ export async function countOtherHostsPresent(
         `AND EXISTS (SELECT 1 FROM ${MEETING_ATTENDANCE_TABLE} ` +
         `WHERE ${MEETING_ATTENDANCE_TABLE}.meeting_id = ?1 ` +
         `AND ${MEETING_ATTENDANCE_TABLE}.user_id = ${MEETING_HOST_TABLE}.user_id ` +
-        `AND ${MEETING_ATTENDANCE_TABLE}.left_at IS NULL)`,
+        // IN THE ROOM, not merely holding an open stay. A grant-holder waiting at the door is not
+        // running the meeting — they cannot admit anybody, including themselves — so counting them
+        // here would refuse the claim that is the lobby's one way out of a hostless room.
+        `AND ${IN_THE_ROOM_PREDICATE})`,
     )
     .bind(meetingId, exceptUserId)
     .all<{ readonly count: number }>();
@@ -99,24 +107,31 @@ export async function countOtherHostsPresent(
 }
 
 /**
- * The stay the removal closed, if this member holds one — the barred-entry predicate.
+ * The stay a host closed against this member, if there is one — the barred-entry predicate.
  *
- * A MEMBER PUT OUT OF A MEETING DOES NOT COME BACK INTO IT. The join path asks this, which is why
- * the reason is a column and not only a label on the audit row: a refusal that had to walk a
- * matter's audit log to decide would be a read of the wrong record entirely. It is the MEETING they
- * are barred from and not the event — a new meeting on the same event is a new room, and a host who
- * wants them back starts one.
+ * A MEMBER PUT OUT OF A MEETING DOES NOT COME BACK INTO IT, and neither does one turned away at the
+ * door. The join path asks this, which is why the reason is a column and not only a label on the
+ * audit row: a refusal that had to walk a matter's audit log to decide would be a read of the wrong
+ * record entirely.
+ *
+ * BARRED ENTRY IS ONE RULE WITH TWO LABELS. `removed` is out of the room and `denied` is turned away
+ * at the door; both bar the member for as long as this meeting runs, because a denial that did not
+ * bar would be a button that does nothing — the member presses Join again and is back at the front
+ * of the queue. The row carries which one it was, so only the sentence differs.
+ *
+ * It is the MEETING they are barred from and not the event — a new meeting on the same event is a
+ * new room, and a host who wants them back starts one.
  */
-export async function readRemovedStay(
+export async function readBarredStay(
   database: SqlDatabase,
   meetingId: MeetingId,
   userId: UserId,
 ): Promise<MeetingAttendanceRow | undefined> {
   const { results } = await database
     .prepare(
-      `SELECT id, meeting_id, user_id, joined_at, left_at, ended_reason, created_at, updated_at ` +
+      `SELECT ${MEETING_ATTENDANCE_COLUMNS} ` +
         `FROM ${MEETING_ATTENDANCE_TABLE} ` +
-        `WHERE meeting_id = ? AND user_id = ? AND ended_reason = 'removed' ` +
+        `WHERE meeting_id = ? AND user_id = ? AND ended_reason IN ('removed', 'denied') ` +
         `ORDER BY left_at DESC, id DESC`,
     )
     .bind(meetingId, userId)
@@ -242,7 +257,7 @@ export async function readAttendanceInMeeting(
 ): Promise<MeetingAttendanceRow | undefined> {
   const { results } = await database
     .prepare(
-      `SELECT id, meeting_id, user_id, joined_at, left_at, ended_reason, created_at, updated_at ` +
+      `SELECT ${MEETING_ATTENDANCE_COLUMNS} ` +
         `FROM ${MEETING_ATTENDANCE_TABLE} WHERE id = ? AND meeting_id = ?`,
     )
     .bind(attendanceId, meetingId)

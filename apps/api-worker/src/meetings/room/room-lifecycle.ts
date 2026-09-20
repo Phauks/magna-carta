@@ -4,6 +4,11 @@ import type { MeetingAttendanceId } from "@magna-carta/identifiers/types";
 import { endedFrame, NORMAL_CLOSE_CODE, welcomeFrame } from "@magna-carta/meeting-protocol/frames";
 import { closeAttendanceAfterSocketLoss } from "@magna-carta/meetings/meeting-service";
 import { firmDatabaseFor } from "../../firm-database/firm-database-proxy.ts";
+import {
+  broadcastToWaiting,
+  sweepWaitingPastTheirGrace,
+  waitingParticipantsFrom,
+} from "./room-lobby.ts";
 import { releaseMedia, releaseParticipant } from "./room-media.ts";
 import { flushDeferredPresence, presenceFlushDeadlineOf } from "./room-presence.ts";
 import { announceRoster, rosterEntryFor, rosterFrom } from "./room-roster.ts";
@@ -18,18 +23,22 @@ import {
   putEndedAt,
   putParticipant,
   putRoom,
+  putWaiting,
   readEndedAt,
   readParticipant,
   readRoom,
+  readWaiting,
   recordRoomFailure,
   refuseAndClose,
   roomStateOf,
   socketExistsFor,
   socketsFor,
   storedParticipants,
+  storedWaiting,
   type MeetingSocketAttachment,
   type RoomContext,
   type StoredParticipant,
+  type StoredWaiting,
 } from "./room-state.ts";
 
 // ARRIVING, DROPPING, AND ENDING — every transition of a stay that is not about one frame.
@@ -93,6 +102,7 @@ export async function admitParticipant(
       // Read off the meeting row by the socket route, like the medium beside it, so the room never
       // has to ask the firm's database what state it is in.
       locked: attachment.locked ?? false,
+      lobby: attachment.lobby ?? "off",
     });
     const existing = await readParticipant(room, attachment.attendanceId);
     await putParticipant(room, attachment.attendanceId, {
@@ -137,7 +147,21 @@ export async function admitParticipant(
   // A SOCKET THAT HAS JUST ARRIVED HOLDS NOTHING TO APPLY A DIFFERENCE TO, so the welcome carries
   // the whole list however large the room is, and the room's own state with it. It is the one frame
   // in the protocol that always does.
-  server.send(welcomeFrame(attachment.attendanceId, rosterFrom(stored), await roomStateOf(room)));
+  //
+  // The lobby list rides along on the same reasoning and only for a socket that is RUNNING the
+  // meeting: who is at the door is a list of people a host has not yet decided about, and telling
+  // the room who is outside it is the leak the door was shut to prevent. The seeded role is what
+  // decides, which is the one thing the attachment is allowed to answer before the record is read.
+  server.send(
+    welcomeFrame(
+      attachment.attendanceId,
+      rosterFrom(stored),
+      await roomStateOf(room),
+      (attachment.hostRole ?? null) === null
+        ? []
+        : waitingParticipantsFrom(await storedWaiting(room)),
+    ),
+  );
   // IN THE ROOM FROM HERE, and not before: until this frame is on the wire the browser holds no
   // roster, so a difference broadcast at it is a gap it can only close by asking for the whole list.
   // Raised after the send rather than before it so the window can only ever be too long by nothing.
@@ -187,13 +211,23 @@ export async function noteSocketLost(room: RoomContext, socket: WebSocket): Prom
   // A socket closing under a participant the room has ALREADY let go of has nothing to time. Both
   // ways that happens are acts somebody took: the leave route closed the stay, or the host ended
   // the meeting and every stay with it.
+  //
+  // A SOCKET AT THE DOOR IS TIMED ON EXACTLY THE SAME TERMS, because a waiter's stay is a stay: a
+  // browser closed while somebody stood outside would otherwise leave an open row in the firm's
+  // record forever, which is the failure this whole path exists to fix.
   const timed = await room.ctx.blockConcurrencyWhile(async () => {
+    const lostAt = new Date().toISOString();
     const participant = await readParticipant(room, attachment.attendanceId);
-    if (participant === undefined) return false;
-    await putParticipant(room, attachment.attendanceId, {
-      ...participant,
-      socketLostAt: new Date().toISOString(),
-    });
+    if (participant !== undefined) {
+      await putParticipant(room, attachment.attendanceId, {
+        ...participant,
+        socketLostAt: lostAt,
+      });
+      return true;
+    }
+    const waiting = await readWaiting(room, attachment.attendanceId);
+    if (waiting === undefined) return false;
+    await putWaiting(room, attachment.attendanceId, { ...waiting, socketLostAt: lostAt });
     return true;
   });
   if (timed) await armAlarm(room);
@@ -209,6 +243,7 @@ export async function noteSocketLost(room: RoomContext, socket: WebSocket): Prom
 export async function runAlarm(room: RoomContext): Promise<void> {
   const now = Date.now();
   await sweepParticipantsPastTheirGrace(room, now);
+  await sweepTheDoorPastItsGrace(room, now);
 
   // AFTER the sweep, so a transition is never relayed about somebody the same alarm has just
   // removed from the roster: their departure is the frame everybody needs, and a presence delta
@@ -233,6 +268,11 @@ export async function runAlarm(room: RoomContext): Promise<void> {
  */
 export async function endMeeting(room: RoomContext, endedAt: string): Promise<void> {
   broadcast(room, endedFrame(endedAt));
+  // AND EVERYBODY AT THE DOOR, who share exactly this one piece of news with the room. `broadcast`
+  // cannot reach them: it skips every socket that has not been welcomed, and a waiting socket never
+  // is. Without this, somebody standing outside a meeting that finished would sit there until their
+  // socket closed under them with no word of why.
+  broadcastToWaiting(room, endedFrame(endedAt));
 
   // Read BEFORE the roster goes, because the media outlives it: the routing service is still
   // forwarding every track these sessions hold, and after the delete there is nothing left naming
@@ -314,6 +354,43 @@ function nextRosterDeadline(
   return nearest;
 }
 
+/** The soonest grace deadline anybody at the door is holding, or null. */
+function nextWaitingDeadline(
+  waiting: ReadonlyMap<string, StoredWaiting>,
+  connected: ReadonlySet<string>,
+): number | null {
+  let nearest: number | null = null;
+  for (const [attendanceId, one] of waiting) {
+    const deadline = graceDeadlineOf(attendanceId, one, connected);
+    if (deadline !== null && (nearest === null || deadline < nearest)) nearest = deadline;
+  }
+  return nearest;
+}
+
+/**
+ * Everybody at the door whose own grace has run out: the record first, then the key.
+ *
+ * The roster sweep's twin, in the same order and for the same reason — the record is the only
+ * durable one of the two, so it is written while there is still something naming who it is about.
+ * There is no media to release and no spotlight to clear, because a waiter has published nothing and
+ * cannot be spotlit.
+ */
+async function sweepTheDoorPastItsGrace(room: RoomContext, now: number): Promise<void> {
+  const waiting = await storedWaiting(room);
+  if (waiting.size === 0) return;
+  const connected = connectedAttendanceIds(room);
+  const gone = [...waiting]
+    .filter(([attendanceId, one]) => {
+      const deadline = graceDeadlineOf(attendanceId, one, connected);
+      return deadline !== null && deadline <= now;
+    })
+    .map(([attendanceId]) => attendanceId);
+  if (gone.length === 0) return;
+
+  for (const attendanceId of gone) await closeStay(room, attendanceId);
+  await sweepWaitingPastTheirGrace(room, gone);
+}
+
 /** When the ended marker should be retired, or null when there is none. */
 async function endedPurgeDeadline(room: RoomContext): Promise<number | null> {
   const endedAt = await readEndedAt(room);
@@ -329,8 +406,13 @@ export async function armAlarm(room: RoomContext): Promise<void> {
   // ONE roster read and ONE pass over the sockets, whatever the room is holding deadlines for: both
   // are proportional to the size of the meeting, and this runs on every socket loss and every
   // deferred transition.
-  const rosterAt = nextRosterDeadline(await storedParticipants(room), connectedAttendanceIds(room));
+  const connected = connectedAttendanceIds(room);
+  const rosterAt = nextRosterDeadline(await storedParticipants(room), connected);
   if (rosterAt !== null) deadlines.push(rosterAt);
+  // The door's own graces, over the SAME pass of the sockets: a waiter's stay is a stay, and the
+  // deadline that closes it is the roster's, measured from each person's own drop.
+  const doorAt = nextWaitingDeadline(await storedWaiting(room), connected);
+  if (doorAt !== null) deadlines.push(doorAt);
   const purgeAt = await endedPurgeDeadline(room);
   if (purgeAt !== null) deadlines.push(purgeAt);
   if (deadlines.length === 0) return;

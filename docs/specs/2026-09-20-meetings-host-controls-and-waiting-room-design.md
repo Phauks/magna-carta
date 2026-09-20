@@ -470,3 +470,73 @@ sketch above, and why:
 - **`GET /hosts` is recorded in the unpaged-list baseline rather than paged.** Its answer is the LIVE
   grants — one host and the co-hosts named in the room, written one deliberate act at a time — and
   it is read whole because it is the badge every browser draws.
+
+## Amendments taken during slice two — the waiting room
+
+The server half landed 2026-09-20 with the design's own assertions unchanged. What differs from the
+sketch above, and why:
+
+- **The domain package gained a trio rather than four more exports on two files**, exactly as the
+  hosting concern did: `packages/meetings/src/lobby-types.ts`, `lobby-statements.ts` and
+  `lobby-service.ts`. `MEETING_LOBBY_MODES`, `MAX_MEETING_LOBBY` and the outcome vocabularies
+  therefore live in `lobby-types.ts` rather than in `types.ts`. What stayed next door is what the
+  lobby did not invent: the two presence predicates (`IN_THE_ROOM_PREDICATE`, `WAITING_PREDICATE`),
+  because the live count and the roster compose them too, and the attendance column list, which the
+  lobby's arrival made worth naming once — a row typed `MeetingAttendanceRow` whose `admitted_at` is
+  undefined reads as a waiter who is actually in the room.
+- **The routes are their own file**, `apps/api-worker/src/routes/meeting-lobby.ts`, and the room's
+  half is its own concern module, `apps/api-worker/src/meetings/room/room-lobby.ts` — one route file
+  per resource, and a concern is a module rather than a method on `MeetingRoom`. The Durable Object
+  gained three thin RPC methods (`participantsAdmitted`, `participantsDenied`, `lobbyChanged`) and
+  the one branch at the upgrade that sends a waiting stay to `admitToLobby` instead of
+  `admitParticipant`.
+- **`MAX_MEETING_LOBBY` is NOT exported from the protocol package.** It bounds the `waiting` frame's
+  array, and a browser draws whatever that array carries and never divides by the ceiling — so it is
+  a number only one end reads, which is the rule that kept `MUTE_ALL_CONCURRENCY` out of that package
+  in slice one. What the wire did gain is the shape: `WaitingParticipant` and `MeetingLobbyMode` in
+  `packages/meeting-protocol/src/types.ts`, the latter as the third of the twin string unions the
+  medium and the host role already have.
+- **The GET lobby route rides `meetings:host`, not `meetings:join`** — the one read in this family
+  that the people inside the room may not make. Section 11 gives every lobby route the grant and the
+  key together, and the reason is worth stating where the grants read's opposite reasoning already
+  is: who is running the meeting is something everybody it governs needs to know, and who is at the
+  DOOR is a list of people a host has not yet decided about. In a lobby that exists because somebody
+  might arrive who should not, telling the room who is outside it is the leak the door was shut to
+  prevent. It is recorded in the unpaged-list baseline with `MAX_MEETING_LOBBY` as what bounds it.
+- **`welcome` gained the lobby list, empty for everybody who is not running the meeting.** Section 12
+  says a host's welcome carries it inline; the field is on every welcome rather than only a host's,
+  because a frame whose shape depended on the recipient is a shape both ends have to branch on.
+- **The claim-admits rule is on the GRANT rather than on the claim.** Section 9 states it of "a grant
+  written for a member whose stay is waiting", so `grantHosting` carries it as well as
+  `claimHosting`: a co-host named while still at the door is let in on the same terms. It is one
+  shared helper (`admitWaitingStay`), and it uses `admitWaitingAttendanceStatement` — the admission
+  with NO capacity count in it. That is the one place the room's ceiling is deliberately not held:
+  refusing the claimer for a full room would restore exactly the deadlock the claim exists to end,
+  and would do it in the meeting most likely to be full.
+- **A batch that half-lands is decided by the service's own count, not by the guards.** Section 10
+  asks for `guarded()` on the admission and section 11 for one outcome per identifier, and the two
+  together only work the way the join path already works: the read produces the REASON (`room-full`,
+  named per person, seats spent down the list in the order the host sent it) and the guard produces
+  the LIMIT. A guard that fires rolls the whole batch back and answers 409, which is honest — the
+  room filled or a stay closed inside the window, and the host re-reads the lobby.
+- **Both admissions and denials are idempotent through the gate on their decisions**, so a retry is
+  told what the first call was told rather than re-deciding against a lobby that has moved. The
+  hosting routes' own gate now carries `admittedAttendanceId` for the same reason: a retried claim
+  has to move the same person into the room.
+- **A waiter's dropped socket takes the roster's own grace.** `StoredWaiting` carries `socketLostAt`
+  and the alarm sweeps the door beside the roster, closing the stay through the same
+  `closeAttendanceAfterSocketLoss` path. Not in the design, and not optional: a waiter's stay is a
+  stay, so a browser closed at a door would otherwise leave an open row in the firm's record forever
+  — which is the exact failure the roster's grace sweep exists to fix.
+- **`leaveMeeting` no longer refuses a room that is not live.** A lobby-on meeting stays `scheduled`
+  while people wait in it — a waiter has not walked into the room, so nothing makes it live — and
+  somebody giving up at the door has to be able to close their own stay. The `meeting-not-live`
+  refusal now applies only where the caller has no stay at all, which is what it was always about.
+- **`countOtherHostsPresent` counts grant-holders who are IN THE ROOM**, not merely holding an open
+  stay. A grant-holder waiting at the door cannot admit anybody, including themselves, so counting
+  them would refuse the claim that is the lobby's one way out of a hostless room.
+- **The browser half of the frames fitness function is red until the web slice lands.**
+  `packages/meeting-protocol/test/frames-have-handlers.test.ts` fails for `lobby`, `admitted` and
+  `waiting` on the browser side, and its dispatch-equality check fails against
+  `apps/web/src/lib/meetings/client/signaling.ts`. That failure is the point of the function: it
+  names the end that has not been built yet, at the moment the frame is added.

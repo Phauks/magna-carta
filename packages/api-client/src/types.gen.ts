@@ -3783,6 +3783,7 @@ export type StartMeetingRequest = {
     eventKind: 'matter' | 'firm';
     eventId: string;
     medium?: 'video' | 'audio';
+    lobby?: 'off' | 'on';
 };
 
 export type MeetingSummaryPage = {
@@ -3806,12 +3807,14 @@ export type MeetingSummary = {
     medium: 'video' | 'audio';
     liveCount: number;
     locked: boolean;
+    lobby: 'off' | 'on';
     configured: boolean;
 };
 
 export type JoinedMeeting = {
     participantId: string;
     displayName: string;
+    waiting: boolean;
     iceServers: Array<MeetingIceServer>;
 };
 
@@ -3879,6 +3882,36 @@ export type MeetingHostingAcknowledged = {
 
 export type SetMeetingLockedRequest = {
     locked: boolean;
+};
+
+export type MeetingLobbyAcknowledged = {
+    ok: true;
+};
+
+export type SetMeetingLobbyRequest = {
+    lobby: 'off' | 'on';
+};
+
+export type MeetingLobby = {
+    data: Array<MeetingLobbyEntry>;
+};
+
+export type MeetingLobbyEntry = {
+    participantId: string;
+    userId: string;
+    displayName: string;
+    waitingFrom: string;
+};
+
+export type MeetingLobbyDecisions = {
+    data: Array<{
+        participantId: string;
+        outcome: 'admitted' | 'not-waiting' | 'room-full' | 'denied';
+    }>;
+};
+
+export type MeetingLobbyDecisionRequest = {
+    participantIds: Array<string>;
 };
 
 export type MatterSearchAnswer = {
@@ -22376,6 +22409,207 @@ export type MeetingsSetLockedResponses = {
 };
 
 export type MeetingsSetLockedResponse = MeetingsSetLockedResponses[keyof MeetingsSetLockedResponses];
+
+export type MeetingsLobbyData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/lobby';
+};
+
+export type MeetingsLobbyErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is not hosting this meeting
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsLobbyError = MeetingsLobbyErrors[keyof MeetingsLobbyErrors];
+
+export type MeetingsLobbyResponses = {
+    /**
+     * Who is at the door
+     */
+    200: MeetingLobby;
+};
+
+export type MeetingsLobbyResponse = MeetingsLobbyResponses[keyof MeetingsLobbyResponses];
+
+export type MeetingsSetLobbyData = {
+    body: SetMeetingLobbyRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/lobby';
+};
+
+export type MeetingsSetLobbyErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is not hosting this meeting
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, somebody else's decision about one of these arrivals landed first, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsSetLobbyError = MeetingsSetLobbyErrors[keyof MeetingsSetLobbyErrors];
+
+export type MeetingsSetLobbyResponses = {
+    /**
+     * The door is where the caller asked for it
+     */
+    200: MeetingLobbyAcknowledged;
+};
+
+export type MeetingsSetLobbyResponse = MeetingsSetLobbyResponses[keyof MeetingsSetLobbyResponses];
+
+export type MeetingsAdmitToLobbyData = {
+    body: MeetingLobbyDecisionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/lobby/admissions';
+};
+
+export type MeetingsAdmitToLobbyErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is not hosting this meeting
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, somebody else's decision about one of these arrivals landed first, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsAdmitToLobbyError = MeetingsAdmitToLobbyErrors[keyof MeetingsAdmitToLobbyErrors];
+
+export type MeetingsAdmitToLobbyResponses = {
+    /**
+     * What became of each named arrival
+     */
+    200: MeetingLobbyDecisions;
+};
+
+export type MeetingsAdmitToLobbyResponse = MeetingsAdmitToLobbyResponses[keyof MeetingsAdmitToLobbyResponses];
+
+export type MeetingsDenyFromLobbyData = {
+    body: MeetingLobbyDecisionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/lobby/denials';
+};
+
+export type MeetingsDenyFromLobbyErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is not hosting this meeting
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, somebody else's decision about one of these arrivals landed first, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsDenyFromLobbyError = MeetingsDenyFromLobbyErrors[keyof MeetingsDenyFromLobbyErrors];
+
+export type MeetingsDenyFromLobbyResponses = {
+    /**
+     * What became of each named arrival
+     */
+    200: MeetingLobbyDecisions;
+};
+
+export type MeetingsDenyFromLobbyResponse = MeetingsDenyFromLobbyResponses[keyof MeetingsDenyFromLobbyResponses];
 
 export type MatterSearchSearchData = {
     body?: never;

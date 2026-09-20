@@ -6,6 +6,7 @@ import type {
   MeetingId,
   UserId,
 } from "@magna-carta/identifiers/types";
+import type { MeetingLobbyMode } from "./lobby-types.ts";
 
 // The meeting's vocabularies and its one ceiling. Both vocabularies are also SQLite CHECKs on the
 // per-firm schema, so a value that reaches a write without appearing here fails at the database and
@@ -62,9 +63,10 @@ export type MeetingListScope = (typeof MEETING_LIST_SCOPES)[number];
 // split every such read in half. It is a label and never a diagnosis: which network failed is not
 // the firm's record of who was in a meeting.
 //
-// `denied` is the lobby's, and nothing writes it yet — the waiting room is the slice after this one.
-// It is declared here with the other three because the vocabulary is one closed list on one column,
-// and a CHECK that had to be widened later would be a table rebuild this schema refuses on a parent.
+// `denied` is the lobby's: a host turned them away at the door rather than out of the room. It bars
+// re-entry exactly as `removed` does — a denial that did not bar would be a button that does
+// nothing, since the member presses Join again and is back at the front of the queue — so barred
+// entry is one rule with two labels, and only the sentence differs.
 //
 // A stay closed by the meeting ENDING carries no reason at all. The meeting row already says the
 // gathering ended, and a fifth value for it would be a second answer to a question already answered.
@@ -90,6 +92,12 @@ export type MeetingDepartureReason = (typeof MEETING_DEPARTURE_REASONS)[number];
 // Counted over ATTENDANCE, which is what makes the number mean anything: a participant is somebody
 // with an open stay, so a browser that reconnects occupies one seat rather than two, and a member
 // who closed their laptop without leaving frees theirs when the meeting ends.
+//
+// Counted over the stays that are IN THE ROOM, which is the narrower half of that since the lobby
+// landed: somebody at the door holds an open stay and occupies no seat. That is also why the guard
+// that actually holds this number moved from the door to the ADMISSION — see
+// `admitAttendanceUnderCapStatement` in ./meeting-statements.ts. The door has its own, smaller
+// ceiling (`MAX_MEETING_LOBBY` in ./lobby-types.ts).
 export const MAX_MEETING_PARTICIPANTS = 300;
 
 // ---------------------------------------------------------------------------------------------
@@ -119,6 +127,9 @@ export interface MeetingRow {
   // a record nobody can question. A locked room refuses arrivals and touches nobody already in it.
   readonly locked_at: string | null;
   readonly locked_by_user_id: UserId | null;
+  // Whether arrivals wait at a door. Chosen at Start and changeable by a host thereafter, which is
+  // the one setting on this row that is — see the note on `MEETING_LOBBY_MODES`.
+  readonly lobby: MeetingLobbyMode;
   readonly created_at: string;
   readonly updated_at: string;
 }
@@ -138,6 +149,13 @@ export interface MeetingAttendanceRow {
   // is still open, on one the meeting's ending closed, and on every stay closed before the column
   // existed — which is why nothing reads it as "left".
   readonly ended_reason: MeetingDepartureReason | null;
+  // THE DOOR, IN TWO INSTANTS. `waiting_from` is when this stay reached the door and is null for
+  // somebody who never waited; `admitted_at` is when a host let them in and is null while they are
+  // still out there. `joined_at` above therefore means "when this stay began", at the door or in the
+  // room — a widening that is stated rather than papered over, and the reason the read carries all
+  // three instants: nothing downstream has to infer anything.
+  readonly waiting_from: string | null;
+  readonly admitted_at: string | null;
   readonly created_at: string;
   readonly updated_at: string;
 }
@@ -188,4 +206,8 @@ export interface MeetingSummary {
   // row of a fifty-row list to answer a question only the room screen asks, and the room screen has
   // the answer on the wire.
   readonly locked: boolean;
+  // WHETHER ARRIVALS WAIT. A Start control reads it to show what it chose, and a host's panel to
+  // draw the switch; the people at the door are a separate read, because a fifty-row list must not
+  // carry a subquery for a question only the room screen asks.
+  readonly lobby: MeetingLobbyMode;
 }

@@ -1,7 +1,7 @@
 import type { VisibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
 import { guarded } from "@magna-carta/data-access/effect-batch";
-import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
+import type { EffectStatement, EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
@@ -16,8 +16,9 @@ import {
   setMeetingLockStatement,
 } from "./hosting-statements.ts";
 import type { MeetingHostRole, MeetingHostRow } from "./hosting-types.ts";
+import { admitWaitingAttendanceStatement } from "./lobby-statements.ts";
 import { closeAttendanceStatement, readMeeting, readOpenAttendance } from "./meeting-statements.ts";
-import type { MeetingRow } from "./types.ts";
+import type { MeetingAttendanceRow, MeetingRow } from "./types.ts";
 import { refuse } from "./validation.ts";
 
 // RUNNING A MEETING: who holds the room, who they share it with, who is put out of it, and whether
@@ -44,6 +45,15 @@ export const REMOVE_PARTICIPANT_GUARD = "meeting.hosting.remove";
 
 /** The label the door carries, shut or opened. */
 export const LOCK_MEETING_GUARD = "meeting.hosting.lock";
+
+/**
+ * The label the admission a grant drags behind it carries — A HOST DOES NOT WAIT IN THEIR OWN LOBBY.
+ *
+ * Its own label rather than the hand-over's, because a zero means something different: the member
+ * the grant is for gave up at the door, or another host denied them, between the read and the
+ * commit. The caller re-reads the lobby rather than reading the room as having changed hands.
+ */
+export const ADMIT_HOST_GUARD = "meeting.hosting.admit";
 
 // The label the departure row carries for somebody a host put out. Named once so the column, the
 // audit metadata and the barred-entry read cannot drift on a string.
@@ -97,7 +107,12 @@ export async function grantHosting(
   meetingId: MeetingId,
   input: { readonly userId: UserId; readonly role: MeetingHostRole },
   options: MeetingHostingOptions,
-): Promise<{ claimed: boolean; effect: EffectWrite }> {
+): Promise<{
+  claimed: boolean;
+  /** The stay this grant admitted at the door, so the room can move them; null in every other case. */
+  admittedAttendanceId: MeetingAttendanceId | null;
+  effect: EffectWrite;
+}> {
   if (input.userId === options.actorUserId) {
     return { ...(await claimHosting(database, meetingId, options)) };
   }
@@ -121,16 +136,23 @@ export async function grantHosting(
   if (existing?.role === input.role) {
     // Already true. Writing it again would open a second interval for a grant that never lapsed,
     // which is the leave path's rule about a stay that is already closed.
-    return { claimed: false, effect: { statements: [], outboxMessages: [] } };
+    return {
+      claimed: false,
+      admittedAttendanceId: null,
+      effect: { statements: [], outboxMessages: [] },
+    };
   }
 
   const now = options.clock.now();
   const grantId = newIdentifier("meetingHost", options.randomSource);
   const handingOver = input.role === "host";
+  const admission = admitWaitingStay(database, meetingId, stay, now);
   return {
     claimed: false,
+    admittedAttendanceId: admission.attendanceId,
     effect: {
       statements: [
+        ...admission.statements,
         // THE OUTGOING GRANTS FIRST, because the live-host index is what settles two hand-overs
         // racing and a batch stops at the statement that refuses it: closing before opening means
         // the loser aborts on its own guard rather than on a constraint one statement later.
@@ -208,14 +230,22 @@ export async function claimHosting(
   database: SqlDatabase,
   meetingId: MeetingId,
   options: MeetingHostingOptions,
-): Promise<{ claimed: boolean; effect: EffectWrite }> {
+): Promise<{
+  claimed: boolean;
+  admittedAttendanceId: MeetingAttendanceId | null;
+  effect: EffectWrite;
+}> {
   const meeting = await readExisting(database, meetingId, options);
   assertNotEnded(meeting);
 
   const own = await readLiveHostGrant(database, meetingId, options.actorUserId);
   if (own?.role === "host") {
     // The caller is already the host of this room. Nothing to claim and nothing to write.
-    return { claimed: false, effect: { statements: [], outboxMessages: [] } };
+    return {
+      claimed: false,
+      admittedAttendanceId: null,
+      effect: { statements: [], outboxMessages: [] },
+    };
   }
 
   if ((await countOtherHostsPresent(database, meetingId, options.actorUserId)) > 0) {
@@ -231,10 +261,22 @@ export async function claimHosting(
 
   const now = options.clock.now();
   const grantId = newIdentifier("meetingHost", options.randomSource);
+  // THE LOBBY'S ONE DEADLOCK, AND ITS EXIT. A lobby-on meeting whose host has gone leaves everybody
+  // queued for somebody who will never admit them; the claim is the way out, and it only works if
+  // the claimer is let in by the same batch — a host does not wait in their own lobby, and there
+  // must be no instant in which somebody is hosting a room they are not in.
+  const admission = admitWaitingStay(
+    database,
+    meetingId,
+    await readOpenAttendance(database, meetingId, options.actorUserId),
+    now,
+  );
   return {
     claimed: true,
+    admittedAttendanceId: admission.attendanceId,
     effect: {
       statements: [
+        ...admission.statements,
         // Closed by the claimer, and `revoked_by_user_id` says so truthfully. Both closings are
         // forced by an index rather than chosen: the live-host index refuses a second host outright,
         // and the per-member index refuses the claimer holding two grants at once.
@@ -481,8 +523,48 @@ export async function setMeetingLocked(
 }
 
 // ---------------------------------------------------------------------------------------------
-// Shared reads
+// Shared
 // ---------------------------------------------------------------------------------------------
+
+/**
+ * A grant written for somebody at the DOOR admits them in the same batch.
+ *
+ * WHOEVER MAY RUN THIS ROOM DOES NOT WAIT IN IT. The claim is where this matters most — it is the
+ * exit from the lobby's one deadlock, a lobby-on meeting whose host has gone — but the rule is about
+ * the grant rather than about the claim, so a co-host named while they are still at the door is let
+ * in on the same terms. One batch, so there is no instant in which somebody is hosting a room they
+ * are not in.
+ *
+ * The statement carries no capacity count, unlike every other admission: refusing a host for a full
+ * room would restore exactly the deadlock this exists to end. It is guarded all the same, because a
+ * zero means the stay closed under the grant — they gave up, or another host denied them — and a
+ * grant handed to somebody who is not in the meeting is not a thing the batch should leave behind.
+ *
+ * A stay that is already in the room, or a member with no stay at all, produces nothing: the ordinary
+ * hand-over, which is every grant written before the lobby existed.
+ */
+function admitWaitingStay(
+  database: SqlDatabase,
+  meetingId: MeetingId,
+  stay: MeetingAttendanceRow | undefined,
+  now: string,
+): { attendanceId: MeetingAttendanceId | null; statements: readonly EffectStatement[] } {
+  const waiting =
+    stay !== undefined &&
+    stay.left_at === null &&
+    stay.waiting_from !== null &&
+    stay.admitted_at === null;
+  if (!waiting) return { attendanceId: null, statements: [] };
+  return {
+    attendanceId: stay.id,
+    statements: [
+      guarded(
+        admitWaitingAttendanceStatement(database, { id: stay.id, meetingId, now }),
+        ADMIT_HOST_GUARD,
+      ),
+    ],
+  };
+}
 
 // The room, through the same gate a read goes through — so an id-addressed act cannot reach a
 // meeting a list read could not. The refusal is the family's one refusal for every way a room is out

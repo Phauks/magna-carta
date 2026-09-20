@@ -24,8 +24,10 @@ package deliberately does not depend on.
   - The vocabulary and the numbers both ends agree on: `MEETING_REFUSAL_REASONS`,
     `MEETING_PROTOCOL_VERSION`, `MAX_MEETING_FRAME_BYTES`, `ROSTER_DELTA_THRESHOLD`,
     `MAX_LAYER_TRACKS`, `TRACK_NAME_SEPARATOR`, the two close codes, and `PING_FRAME`/`PONG_FRAME`.
-- `src/types.ts` (`@magna-carta/meeting-protocol/types`) — `RosterParticipant`, `PreferredRid` and
-  `MeetingMedium`, the values the frames are made of.
+- `src/types.ts` (`@magna-carta/meeting-protocol/types`) — `RosterParticipant`,
+  `WaitingParticipant`, `MeetingRoomState`, `MeetingSpotlight`, `PreferredRid`, `MeetingMedium`,
+  `MeetingHostRole` and `MeetingLobbyMode`, the values the frames are made of. The last three are
+  the twin string unions this package keeps beside the domain's own — see the note in the file.
 - `test/frames-have-handlers.test.ts` — the repo-wide fitness function: every frame type declared
   here has a handler at the far end and a sender at the near one, named by the side that is missing
   it.
@@ -38,10 +40,21 @@ package deliberately does not depend on.
   the end it forgot before it merges, rather than by a tile that never arrives.
 - **Nothing that is not on the wire belongs here.** No roster storage shape, no policy about what a
   browser pulls, no SFU request body. The test of whether something belongs is whether both ends have
-  to agree on it byte for byte; if only one end reads it, it belongs to that end.
+  to agree on it byte for byte; if only one end reads it, it belongs to that end. Two numbers have
+  been kept out on that test and are worth naming, because both look like they belong:
+  `MUTE_ALL_CONCURRENCY` (a lane width inside the room) and `MAX_MEETING_LOBBY` (the door's ceiling,
+  in `@magna-carta/meetings/lobby-types`) — a browser draws whatever the `waiting` frame carries and
+  never divides by the ceiling.
+- **A frame that reaches only some sockets says so here, because both ends have to agree on it.**
+  `lobby` and `admitted` go to a socket that is WAITING and to nobody else; `waiting` goes to the
+  sockets holding a grant and to nobody else; `muted` and `unmute-requested` go to the one person
+  they are about. The room enforces it — this package cannot — but a reader of the builder has to
+  know, or the browser ends up handling a frame it will never receive and not handling one it will.
 - **This package never depends on `@magna-carta/meetings`.** That package reaches a database, and a
-  browser bundle cannot take one. `MeetingMedium` is therefore declared in both, as two identical
-  string unions that meet at the seam that carries them — see the note in `src/types.ts`.
+  browser bundle cannot take one. `MeetingMedium`, `MeetingHostRole` and `MeetingLobbyMode` are
+  therefore declared in both, as identical string unions that meet at the seam that carries them —
+  structurally the same type, so a mismatch is a type error at that seam rather than a silent
+  divergence. See the note in `src/types.ts`.
 - **The keepalive pair has a twin in the Worker** (`apps/api-worker/src/progress/job-progress-protocol.ts`)
   and the bytes must stay identical, because the runtime's WebSocket auto-response matches them
   exactly. The equality is asserted in `apps/api-worker/test/meeting-room.test.ts`, which is the only

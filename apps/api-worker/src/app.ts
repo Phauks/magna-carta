@@ -52,6 +52,7 @@ import { registerCommunicationsRoutes } from "./routes/communications.ts";
 import { registerMeetingsRoutes } from "./routes/meetings.ts";
 import { registerMeetingChatRoutes } from "./routes/meeting-chat.ts";
 import { registerMeetingHostingRoutes } from "./routes/meeting-hosting.ts";
+import { registerMeetingLobbyRoutes } from "./routes/meeting-lobby.ts";
 import { registerNotesRoutes } from "./routes/notes.ts";
 import { registerTasksRoutes } from "./routes/tasks.ts";
 import { registerMatterPlanRoutes } from "./routes/matter-plans.ts";
@@ -842,6 +843,12 @@ export function createApp(options: CreateAppOptions = {}) {
   // authority over a meeting is a grant on the meeting rather than a capability of a seat, and the
   // acts that leave nothing behind (mute, spotlight) are frames on the signaling socket instead.
   registerMeetingHostingRoutes(app, chokepoint);
+  // The meeting's door — whether arrivals wait, who is at it, and a host's decision about each of
+  // them. One lobby per meeting and never one per firm: a firm holds several meetings at once, so a
+  // firm-level door would queue the people arriving at a deposition behind the people arriving at a
+  // staff briefing. Its own file because it is its own resource, and the one read in this family
+  // that the room may not see.
+  registerMeetingLobbyRoutes(app, chokepoint);
   registerMatterSearchRoutes(app, chokepoint);
   registerTasksRoutes(app, chokepoint);
   registerMatterPlanRoutes(app, chokepoint);

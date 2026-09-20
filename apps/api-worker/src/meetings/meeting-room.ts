@@ -5,12 +5,18 @@ import {
   PING_FRAME,
   PONG_FRAME,
 } from "@magna-carta/meeting-protocol/frames";
-import type { MeetingHostRole } from "@magna-carta/meeting-protocol/types";
+import type { MeetingHostRole, MeetingLobbyMode } from "@magna-carta/meeting-protocol/types";
 import { isMeetingMedium } from "@magna-carta/meetings/types";
 import type { Bindings } from "../app.ts";
 import { isWebSocketUpgrade } from "../progress/job-progress-sockets.ts";
 import { dispatchClientFrame } from "./room/room-frames.ts";
 import { hostingChanged, participantRemoved, roomStateChanged } from "./room/room-hosting.ts";
+import {
+  admitToLobby,
+  lobbyChanged,
+  participantsAdmitted,
+  participantsDenied,
+} from "./room/room-lobby.ts";
 import {
   admitParticipant,
   endMeeting,
@@ -69,6 +75,9 @@ const DISPLAY_NAME_PARAMETER = "displayName";
 const MEDIUM_PARAMETER = "medium";
 const HOST_ROLE_PARAMETER = "hostRole";
 const LOCKED_PARAMETER = "locked";
+const LOBBY_PARAMETER = "lobby";
+const WAITING_PARAMETER = "waiting";
+const WAITING_FROM_PARAMETER = "waitingFrom";
 
 /** What the route resolves before it addresses the room — every value of it server-derived. */
 export type MeetingSocketContext = Omit<MeetingSocketAttachment, "protocolVersion">;
@@ -87,6 +96,12 @@ export function meetingSocketRequestUrl(attachment: MeetingSocketContext): strin
     // is the room's copy of the door so a welcome can say what is true without a database read.
     [HOST_ROLE_PARAMETER]: attachment.hostRole ?? "",
     [LOCKED_PARAMETER]: attachment.locked === true ? "true" : "false",
+    [LOBBY_PARAMETER]: attachment.lobby ?? "off",
+    // Derived by the route off the stay it just authorized the upgrade against — the row says
+    // whether this person is at the door or in the room, and a browser never gets to name it.
+    [WAITING_PARAMETER]: attachment.waiting === true ? "true" : "false",
+    // Off the stay, so the room never stamps a second instant for a fact the record already holds.
+    [WAITING_FROM_PARAMETER]: attachment.waitingFrom ?? "",
   });
   return `https://meeting-room.invalid/socket?${parameters.toString()}`;
 }
@@ -139,6 +154,17 @@ function attachmentFromRequest(request: Request): MeetingSocketAttachment | null
     // for an authority seed, and what a socket opened by an older build carries.
     hostRole: hostRole === "host" || hostRole === "co-host" ? hostRole : null,
     locked: parameters.get(LOCKED_PARAMETER) === "true",
+    // A value this build does not recognise, or none at all, reads as `off` — the state every room
+    // was in before the door existed, and the safe direction: a lobby the room forgot about would
+    // put nobody at a door, where a door invented out of a bad label would strand the meeting.
+    lobby: parameters.get(LOBBY_PARAMETER) === "on" ? "on" : "off",
+    // And an unreadable one reads as NOT waiting, which is what every socket opened before the door
+    // existed was. The route derives it from the stay, so the only way to reach this default is a
+    // socket from an older build.
+    waiting: parameters.get(WAITING_PARAMETER) === "true",
+    // Absent on a socket from a build that predated the door; `admitToLobby` then falls back to the
+    // instant it is reading this at, which is the closest thing it can know.
+    waitingFrom: parameters.get(WAITING_FROM_PARAMETER) ?? "",
   };
 }
 
@@ -171,7 +197,11 @@ export class MeetingRoom extends DurableObject<Bindings> {
     server.serializeAttachment(attachment);
     this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING_FRAME, PONG_FRAME));
 
-    await admitParticipant(this.room, attachment, server);
+    // THE TWO STATES A SOCKET MAY BE ADMITTED INTO. A stay that is at the door goes to the LOBBY:
+    // stored under `waiting:` where no roster can reach it, sent `lobby` rather than `welcome`, and
+    // refused every signaling frame until a host lets it in.
+    if (attachment.waiting === true) await admitToLobby(this.room, attachment, server);
+    else await admitParticipant(this.room, attachment, server);
     return new Response(null, { status: 101, webSocket: client });
   }
 
@@ -222,5 +252,25 @@ export class MeetingRoom extends DurableObject<Bindings> {
   /** The door moved. */
   async roomStateChanged(locked: boolean): Promise<void> {
     await roomStateChanged(this.room, locked);
+  }
+
+  /**
+   * A host let these stays in — called by the admissions route AFTER its own write commits.
+   *
+   * Each record moves from `waiting:` to `participant:`, their socket gets `admitted` and then the
+   * ordinary `welcome`, and the room learns of a roster join.
+   */
+  async participantsAdmitted(attendanceIds: readonly string[]): Promise<void> {
+    await participantsAdmitted(this.room, attendanceIds);
+  }
+
+  /** A host turned these stays away: `refused: denied`, a close, and the hosts told. */
+  async participantsDenied(attendanceIds: readonly string[]): Promise<void> {
+    await participantsDenied(this.room, attendanceIds);
+  }
+
+  /** The lobby setting moved. Nobody at the door is admitted by it. */
+  async lobbyChanged(lobby: MeetingLobbyMode): Promise<void> {
+    await lobbyChanged(this.room, lobby);
   }
 }

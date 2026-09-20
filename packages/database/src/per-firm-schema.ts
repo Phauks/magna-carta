@@ -7824,6 +7824,20 @@ export const meeting = sqliteTable(
     medium: text("medium", { enum: ["video", "audio"] })
       .notNull()
       .default("video"),
+    // WHETHER ARRIVALS WAIT AT A DOOR. One lobby per MEETING and never one per firm: a firm holds
+    // several meetings at once, so a firm-level lobby would put the people arriving at a partner's
+    // deposition in the same queue as the people arriving at a staff briefing, in front of a host
+    // who is in neither.
+    //
+    // Off by default, because today every participant is a firm member arriving at an event they
+    // are on and a lobby on by default would put a colleague in a queue for every ordinary hearing.
+    // Unlike the medium beside it this one CHANGES: a medium is what the people in the room agreed
+    // to, and a lobby is a standing decision of the host's about who may come in, which has no
+    // bearing on what anybody already agreed to. Turning it on mid-meeting is what a host does when
+    // the matter turns confidential.
+    lobby: text("lobby", { enum: ["off", "on"] })
+      .notNull()
+      .default("off"),
     createdByUserId: text("created_by_user_id")
       .notNull()
       .$type<UserId>()
@@ -7862,6 +7876,7 @@ export const meeting = sqliteTable(
     check("meeting_event_kind_check", sql`${table.eventKind} IN ('matter', 'firm')`),
     check("meeting_status_check", sql`${table.status} IN ('scheduled', 'live', 'ended')`),
     check("meeting_medium_check", sql`${table.medium} IN ('video', 'audio')`),
+    check("meeting_lobby_check", sql`${table.lobby} IN ('off', 'on')`),
     // EXACTLY ONE PARENT, AND THE KIND SAYS WHICH. Both halves in one check on purpose: a row with
     // two parents is unreadable, and a row whose kind names the column it did not fill is worse —
     // it reads cleanly and answers the wrong table. The matter_event_participant shape check is the
@@ -7925,6 +7940,20 @@ export const meetingAttendance = sqliteTable(
     // carries null too, deliberately: the meeting row already says the gathering ended, and a fifth
     // value for it would be a second answer to a question the meeting already answers.
     endedReason: text("ended_reason"),
+    // A WAITING ARRIVAL IS A STAY FROM THE MOMENT IT REACHES THE DOOR. Holding waiters in the
+    // signaling room's own storage and writing the attendance row only on admission was rejected
+    // three times over: the socket upgrade's ticket is an open stay and a waiter needs a socket, the
+    // room's storage is transient state deleted when the last socket closes, and the record would
+    // keep nothing about who waited and was never let in — which is a thing a firm may need to say.
+    //
+    // `joined_at` above therefore means "when this stay began", at the door or in the room, and
+    // `admitted_at` is when the person was actually in it. That is a widening of what the column has
+    // meant and it is stated rather than papered over: making `joined_at` nullable is a table
+    // rebuild and buys nothing a second column does not, and the attendance read carries all three
+    // instants so nothing downstream has to infer anything. Null on both for somebody who never
+    // waited, which is every stay that predates the lobby.
+    waitingFrom: text("waiting_from"), // ISO-8601 instant
+    admittedAt: text("admitted_at"), // ISO-8601 instant
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -7956,6 +7985,20 @@ export const meetingAttendance = sqliteTable(
       sql`${table.endedReason} IS NULL
         OR (${table.leftAt} IS NOT NULL
           AND ${table.endedReason} IN ('left', 'socket-lost', 'removed', 'denied'))`,
+    ),
+    // WHO IS AT THE DOOR OF ONE MEETING — the lobby list, and the read the admission's own capacity
+    // count is taken beside. Partial on the stays that are neither closed nor admitted, which is
+    // the only set either question is ever asked of; `waiting_from` is the second column so the
+    // list comes back in arrival order without a sort.
+    index("meeting_attendance_waiting_index")
+      .on(table.meetingId, table.waitingFrom)
+      .where(sql`${table.leftAt} IS NULL AND ${table.admittedAt} IS NULL`),
+    // Admitted without ever having waited is not a state: the instant a host let somebody in is
+    // meaningless for a stay that walked straight into the room, and a row carrying one would make
+    // "did this person wait" two different answers depending on which column was read.
+    check(
+      "meeting_attendance_admission_shape_check",
+      sql`${table.admittedAt} IS NULL OR ${table.waitingFrom} IS NOT NULL`,
     ),
   ],
 );

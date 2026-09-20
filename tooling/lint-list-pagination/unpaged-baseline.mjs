@@ -372,4 +372,22 @@ export const BOUNDED_BY_CONSTRUCTION = {
     "running of one meeting, and the live set is two or three. Read whole on purpose: it IS the " +
     "badge every browser in the room draws, and a page boundary through it would tell a member " +
     "some of who is running the meeting.",
+  // --- Who is at the DOOR of ONE meeting ---------------------------------------------------------
+  "meetings.lobby":
+    "The arrivals waiting to be let into one meeting. Read through listWaitingAttendance in " +
+    "packages/meetings/src/lobby-statements.ts, whose WHERE is the WAITING_PREDICATE in " +
+    "meeting-statements.ts — left_at IS NULL AND waiting_from IS NOT NULL AND admitted_at IS NULL " +
+    "— so an admitted stay and a denied one leave the answer the instant a host decides, and the " +
+    "closed stays, which are the record of who waited, are not in it at all. What bounds it is a " +
+    "ceiling in the write path rather than an estimate: MAX_MEETING_LOBBY (100) in " +
+    "packages/meetings/src/lobby-types.ts rides the WHERE of " +
+    "insertWaitingAttendanceUnderCapStatement, which is guarded — so the hundred-and-first arrival " +
+    "is refused meeting-lobby-full and the row is never written. There is exactly one insert " +
+    "(joinMeeting's lobby branch, one member arriving behind meetings:join) and no queue consumer, " +
+    "sweep, import or ingest path that writes one. The read binds MAX_MEETING_LOBBY + 1 as its " +
+    "LIMIT, so a lobby that somehow exceeded the ceiling reads as a list that is too long rather " +
+    "than as a read of the whole table. Read whole on purpose: it IS the host's decision list, and " +
+    "a page boundary through it would let a host admit some of the people waiting while believing " +
+    "it was all of them — in a lobby that exists because somebody might arrive who should not, " +
+    "that is the failure the door was shut to prevent.",
 };

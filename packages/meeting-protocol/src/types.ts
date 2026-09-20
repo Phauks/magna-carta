@@ -76,6 +76,19 @@ export interface MeetingSpotlight {
 }
 
 /**
+ * WHETHER ARRIVALS WAIT AT A DOOR.
+ *
+ * Two identical string literals to the domain's own `MEETING_LOBBY_MODES`, meeting at the seam that
+ * carries them — the arrangement the medium and the host role already have, and for the same reason:
+ * the domain package reaches a database and a browser bundle cannot take one.
+ *
+ * `MAX_MEETING_LOBBY` is deliberately NOT here. A browser draws whatever the `waiting` frame carries
+ * and never divides by the ceiling, so it is a number only the server reads — and this package takes
+ * nothing that only one end reads.
+ */
+export type MeetingLobbyMode = "off" | "on";
+
+/**
  * What is true of the ROOM rather than of anybody in it.
  *
  * Carried on the `welcome` as well as on its own frame, for the reason the welcome carries the whole
@@ -85,6 +98,24 @@ export interface MeetingRoomState {
   readonly spotlight: MeetingSpotlight | null;
   /** Whether the door is shut. A locked room refuses arrivals and touches nobody already in it. */
   readonly locked: boolean;
+  // Whether arrivals wait at a door. On the room state rather than on the roster because it is a
+  // fact about the meeting, and it reaches the people INSIDE — a host draws the switch from it, and
+  // everybody else learns a lobby was opened mid-meeting. Nobody at the door reads it: a waiting
+  // socket is never sent a room state at all.
+  readonly lobby: MeetingLobbyMode;
+}
+
+/**
+ * One person at the door, as the host's own `waiting` frame carries them.
+ *
+ * Addressed by the STAY, like everything else on this wire: a member handle would not distinguish
+ * two stays, and admitting somebody is addressed to the stay the host's panel was showing.
+ */
+export interface WaitingParticipant {
+  readonly participantId: string;
+  readonly userId: string;
+  readonly displayName: string;
+  readonly waitingFrom: string;
 }
 
 /** One track a participant publishes, as the roster names it to everybody else. */
