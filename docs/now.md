@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 840 nodes of the feature ledger in
+is the complete register rather than a digest: all 856 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,39 +21,39 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**840 capabilities across 32 areas.** Every one of them is listed in [the register](#the-register)
+**856 capabilities across 32 areas.** Every one of them is listed in [the register](#the-register)
 below. 144 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **696 that are units of work**, for the reason set out under [What a roll-up is
+count the **712 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 326 | 47% |
-| Part-built | partial, in-build | 124 | 18% |
-| Ahead | designed, planned, researching, not-started | 204 | 29% |
+| Done | shipped | 326 | 46% |
+| Part-built | partial, in-build | 125 | 17% |
+| Ahead | designed, planned, researching, not-started | 219 | 31% |
 | Parked | deferred, cut | 42 | 6% |
-| **All units of work** | | **696** | **100%** |
+| **All units of work** | | **712** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 326 | 47% |
-| `partial` | 124 | 18% |
-| `in-build` | 0 | 0% |
+| `shipped` | 326 | 46% |
+| `partial` | 124 | 17% |
+| `in-build` | 1 | 0% |
 | `designed` | 47 | 7% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
-| `not-started` | 137 | 20% |
+| `not-started` | 152 | 21% |
 | `deferred` | 38 | 5% |
-| `cut` | 4 | 0% |
-| **All statuses** | **696** | **100%** |
+| `cut` | 4 | 1% |
+| **All statuses** | **712** | **100%** |
 
 ### What a roll-up is not
 
-**144 of the 840 nodes are parents, and 112 of those parents are `partial`.** A parent's status is a
+**144 of the 856 nodes are parents, and 112 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 326 of 696 (47%). Shipped plus partial is 450 (65%).**
+**Shipped alone is 326 of 712 (46%). Shipped plus partial is 450 (63%).**
 
 The 124 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**450 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**451 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 109 | 24% |
+| A person can open it today (`screen`) | 110 | 24% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 157 | 35% |
 | No user surface by nature (`internal`) | 184 | 41% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **450** | **100%** |
+| **Everything with something built** | **451** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -112,7 +112,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
 | Integrations & Plugins | 17 | 2 | 0 | 1 | 0 | 3 | 15 | 3 | 1 | 42 | 40% |
 | Maintenance Agents | 2 | 3 | 0 | 0 | 0 | 0 | 5 | 0 | 0 | 10 | 20% |
-| Meetings | 6 | 0 | 0 | 1 | 0 | 0 | 4 | 0 | 0 | 11 | 55% |
+| Meetings | 6 | 0 | 1 | 1 | 0 | 0 | 19 | 0 | 0 | 27 | 22% |
 | Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 12 | 58% |
 | Notifications | 4 | 6 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 14 | 29% |
 | Observability & Diagnostics | 14 | 0 | 0 | 0 | 0 | 0 | 4 | 2 | 0 | 20 | 70% |
@@ -127,7 +127,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 14 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 21 | 67% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **326** | **124** | **0** | **47** | **15** | **5** | **137** | **38** | **4** | **696** | **47%** |
+| **All areas** | **326** | **124** | **1** | **47** | **15** | **5** | **152** | **38** | **4** | **712** | **46%** |
 
 ## Where we have been
 
@@ -240,7 +240,7 @@ one.
 
 ## Waiting on you
 
-**29 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
+**31 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
 
 - **Client-consent model** (`ai.consent`) — **Not built.** Whether client consent for AI is taken once in the engagement letter or per matter. No AI feature reaches a client's data until this is settled.
 - **Feedback board** (`community.board`) — **Not built.** Two calls, both on the open pull request. Whether to ratify a named exception to the firm-scoped data rule, since a shared board is cross-firm by definition; and how a signed-in member's session reaches the community host, which is a different origin from the application.
@@ -255,6 +255,8 @@ one.
 - **Accounts payable** (`financial.ledger.operating-gl.accounts-payable`) — **Not built.** May accounts payable pay from anything but the resolved operating account — a firm with two operating banks has a legitimate need the single role cannot express, and the recommendation is a second role rather than a caller-supplied parameter. At what status a bill-originated cost enters the cost store, where draft respects the billability review and a firm whose lawyers never review costs would leave advanced costs unbilled forever. And whether vendor credits are in this pass or their own design, given they are the mirror of billing's credit note and need the same care about attribution. General ledger design, flags G7, G8 and G9.
 - **Financial statements** (`financial.ledger.operating-gl.financial-statements`) — **Not built.** Are trust accounts on the firm's balance sheet? Correct accounting includes them — the firm holds an asset and an equal liability — and some accountants present a firm balance sheet without them; the recommendation is to include them in labelled sections that must net to zero, and to refuse the statement when they do not, because omitting them hides the one relationship an examiner checks. Also whether a derived cash-basis view is in scope here at all, which it is recommended not to be: the book is accrual and cannot be otherwise, and a cash view is not a tax basis and must never be presented as one. And who is seeded the capability to read statements, where a bookkeeper reads them and posts nothing. General ledger design, flags G16, G2 and G14.
 - **Public intake forms** (`intake.public-forms`) — **Not built.** Two things stand in front of an anonymous form. Whether it accepts attachments — the value is real (the contract, the letter they were served) and so is the surface, since it is an unidentified stranger writing into the untrusted-ingest and malware-scan pipeline at the firm's quarantine and storage cost. And whether Turnstile is switched on first: the verifier is built but dormant, and every unprotected pass is counted as unenforced rather than blocked, so a public form shipped ahead of the activation would ship in front of a bot control that is not actually running. Client intake design flags J3 and J11.
+- **In-meeting chat** (`meetings.chat`) — **Not built.** Is in-meeting chat kept on the record, or does it vanish with the room? Today the meeting stores nothing anyone said, and a kept chat is the first content a meeting would hold.
+- **A member's standing room** (`meetings.personal-room`) — **Not built.** Does a standing room fit a record that hangs every meeting from a calendar event, or does every meeting stay an event so the matter file stays complete?
 - **Firm-wide note search** (`notes.search.firm-wide`) — **Not built.** Neither existing index can take notes as it stands, and which one grows to fit is an owner call. The natural-language feed reserves work-product as a class its writer must never produce, and a note is exactly that; the keyword index takes a file or a review document fed from R2 objects, and a note is a database row. The third option is a note-only index. The snippet question is already answered (no snippet, notes design flag W6).
 - **Payments port** (`payments.port`) — **Not built.** Can both deposit destinations live inside one connection's credential payload, or must the registry's one-connection-per-category resolution widen? Payments design flag K9.
 - **Manually recorded receipt** (`payments.manual-receipt`) — **Not built.** Does this ship as the first payments slice, ahead of any processor work? Payments design flag K1.
@@ -314,7 +316,7 @@ Decisions about a capability only. Account-side steps that no session can perfor
 
 ## Being built now
 
-_No capability is marked `in-build`._
+- `meetings.large-rooms` · **Large rooms (300 participants)** — The cap lifted to 300 — simulcast cameras, a subscription policy that pulls only the tiles shown and the people talking, roster deltas instead of full broadcasts, relayed speaking presence, a paged gallery, speaker view and pin.
 
 ## Next up
 
@@ -1047,7 +1049,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Meetings
 
-[`roadmap.d/meetings.md`](../roadmap.d/meetings.md) — 11 units of work, 55% shipped. 6 done, 0 part-built, 5 ahead, 0 parked.
+[`roadmap.d/meetings.md`](../roadmap.d/meetings.md) — 27 units of work, 22% shipped. 6 done, 1 part-built, 20 ahead, 0 parked.
 
 - `meetings` · `partial` · **Meetings** — In-app video conferencing — a meeting started from a calendar event, media browser-to-Cloudflare Realtime SFU, signaling through a per-meeting Durable Object, attendance recorded on the event. _Note: The owner's ruling of 2026-09-18 — bundled into the product so a firm runs fewer tools; a Zoom/Teams port may exist later, never as the default._
   - `meetings.record` · `shipped` · **Meeting record and attendance** — One meeting per calendar event (matter or firm), status scheduled/live/ended, an attendance row per join with joined and left instants, audit rows of identifiers and instants only.
@@ -1058,7 +1060,23 @@ to change a line here, edit the node in its area file and re-run the build.
   - `meetings.audio-calls` · `shipped` · **Audio calls** — A meeting whose medium is audio alone — chosen at start, enforced by the room (video and screen tracks refused), started from the calendar as Start call, shown on the Meetings page with its own glyph.
   - `meetings.guests` · `designed` · **External guests** — A signed one-time join link for a Directory entity on the event (client, opposing counsel, expert) — the tokenized-link assurance tier — ahead of the portal grant model.
   - `meetings.recording` · `not-started` · **Recording** — Server-side capture of a meeting into the matter file, through the untrusted-file pipeline into R2, behind a consent gate on the jurisdiction profile. _Note: Sequenced after guests; a recording of a client meeting is privileged content and gets the full pipeline, not a shortcut._
-  - `meetings.large-rooms` · `not-started` · **Larger rooms** — Active-speaker layout, simulcast layer selection, bandwidth adaptation beyond the slice-1 cap of twelve participants.
+  - `meetings.large-rooms` · `in-build` · **Large rooms (300 participants)** — The cap lifted to 300 — simulcast cameras, a subscription policy that pulls only the tiles shown and the people talking, roster deltas instead of full broadcasts, relayed speaking presence, a paged gallery, speaker view and pin. _Note: The owner's target of 2026-09-20 is the capacity Zoom sells on its Business tier._
+  - `meetings.host-controls` · `not-started` · **Host controls** — Mute one or all, remove a participant, lock the room, hand hosting to a co-host, spotlight a participant for everyone.
+  - `meetings.waiting-room` · `not-started` · **Waiting room** — Arrivals held in a lobby until a host admits them, one by one or all; the door for external guests and late joiners.
+  - `meetings.reactions` · `not-started` · **Raise hand and reactions** — A raised hand the host sees in order, and a small closed set of reactions, relayed as presence rather than stored.
+  - `meetings.chat` · `not-started` · **In-meeting chat** — Text between participants during a meeting.
+  - `meetings.breakout-rooms` · `not-started` · **Breakout rooms** — A host splits the room into smaller rooms and brings them back; each is a room of its own under the same meeting.
+  - `meetings.polls` · `not-started` · **Polls and questions** — A host asks the room a question and sees the answers; a question queue the host works through.
+  - `meetings.whiteboard` · `not-started` · **Whiteboard and annotation** — A shared drawing surface, and annotation over a shared screen.
+  - `meetings.transcription` · `not-started` · **Live captions and transcript** — Captions during the meeting and a transcript afterwards, in the meeting's language and translated, behind the same consent gate as recording. _Note: Sequenced with recording — both are the meeting's first captured content._
+  - `meetings.summary` · `not-started` · **Meeting summary** — A summary and action items after a meeting, filed to the event, produced by Magnus from the transcript.
+  - `meetings.backgrounds-and-noise` · `not-started` · **Backgrounds and noise suppression** — A blurred or replaced background and microphone noise suppression, both in the browser.
+  - `meetings.webinars` · `not-started` · **Webinars** — A meeting where a few present and many watch — registration, view-only attendees, a panel — for a firm's seminars and client briefings.
+  - `meetings.live-streaming` · `not-started` · **Live streaming** — A meeting broadcast to a streaming destination.
+  - `meetings.booking-pages` · `not-started` · **Booking pages** — A member's booking page a client picks a time on, creating the event and its meeting.
+  - `meetings.personal-room` · `not-started` · **A member's standing room** — A room a member always has, joined by a stable link, not tied to a calendar event.
+  - `meetings.end-to-end-encryption` · `not-started` · **End-to-end encryption** — Media the routing service cannot read — keys agreed between browsers, frames encrypted before they leave.
+  - `meetings.usage-reporting` · `not-started` · **Meetings usage and quality** — How much the firm meets, by member and matter, and how the connections held up — in Reports and Firm Usage.
   - `meetings.dial-in` · `not-started` · **Dial-in by phone** — A PSTN leg into a meeting through the telephony port.
   - `meetings.external-provider-port` · `not-started` · **Conferencing port (Zoom, Teams)** — A ConferencingPort under packages/integrations whose adapter places a vendor's meeting link on a calendar event, for firms that keep a vendor.
 

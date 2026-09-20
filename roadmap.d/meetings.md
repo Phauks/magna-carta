@@ -83,10 +83,116 @@
   notes: Sequenced after guests; a recording of a client meeting is privileged content and gets the full pipeline, not a shortcut.
 
 - id: meetings.large-rooms
-  name: Larger rooms
-  scope: Active-speaker layout, simulcast layer selection, bandwidth adaptation beyond the slice-1 cap of twelve participants.
+  name: Large rooms (300 participants)
+  scope: The cap lifted to 300 — simulcast cameras, a subscription policy that pulls only the tiles shown and the people talking, roster deltas instead of full broadcasts, relayed speaking presence, a paged gallery, speaker view and pin.
+  status: in-build
+  surface: screen
+  spec: docs/specs/2026-09-18-meetings-design.md
+  evidence: MAX_MEETING_PARTICIPANTS in packages/meetings/src/types.ts; the policy in apps/web/src/lib/meetings/subscription-policy.ts; roster-delta and presence frames in apps/api-worker/src/meetings/meeting-room-protocol.ts; stream docs/active-work/claude/focused-edison-ylxfiy.md.
+  audience: public
+  public-summary: Hold a meeting of up to three hundred people, with the gallery showing who is talking.
+  notes: The owner's target of 2026-09-20 is the capacity Zoom sells on its Business tier.
+
+- id: meetings.host-controls
+  name: Host controls
+  scope: Mute one or all, remove a participant, lock the room, hand hosting to a co-host, spotlight a participant for everyone.
   status: not-started
-  evidence: No code; MAX_MEETING_PARTICIPANTS = 12 in packages/meetings/src/types.ts is the cap it lifts.
+  evidence: No code; the room has one host act today (End) and no per-participant act.
+  audience: public
+  public-summary: Run a large meeting from the front — mute the room, remove a participant, spotlight the speaker.
+
+- id: meetings.waiting-room
+  name: Waiting room
+  scope: Arrivals held in a lobby until a host admits them, one by one or all; the door for external guests and late joiners.
+  status: not-started
+  evidence: No code; join admits anyone the event admits. Sequenced with external guests, whose door it is.
+
+- id: meetings.reactions
+  name: Raise hand and reactions
+  scope: A raised hand the host sees in order, and a small closed set of reactions, relayed as presence rather than stored.
+  status: not-started
+  evidence: No code; the presence frame large rooms add carries speaking and muted only.
+
+- id: meetings.chat
+  name: In-meeting chat
+  scope: Text between participants during a meeting.
+  status: not-started
+  evidence: No code.
+  awaiting-owner: Is in-meeting chat kept on the record, or does it vanish with the room? Today the meeting stores nothing anyone said, and a kept chat is the first content a meeting would hold.
+
+- id: meetings.breakout-rooms
+  name: Breakout rooms
+  scope: A host splits the room into smaller rooms and brings them back; each is a room of its own under the same meeting.
+  status: not-started
+  evidence: No code; one meeting is one room.
+
+- id: meetings.polls
+  name: Polls and questions
+  scope: A host asks the room a question and sees the answers; a question queue the host works through.
+  status: not-started
+  evidence: No code.
+
+- id: meetings.whiteboard
+  name: Whiteboard and annotation
+  scope: A shared drawing surface, and annotation over a shared screen.
+  status: not-started
+  evidence: No code; a collaborative surface is a second subsystem, sequenced last among the in-meeting tools.
+
+- id: meetings.transcription
+  name: Live captions and transcript
+  scope: Captions during the meeting and a transcript afterwards, in the meeting's language and translated, behind the same consent gate as recording.
+  status: not-started
+  evidence: No code; the audio never reaches a Worker today. Needs the jurisdiction consent machinery, then an audio leg from the routing service to a speech model.
+  notes: Sequenced with recording — both are the meeting's first captured content.
+
+- id: meetings.summary
+  name: Meeting summary
+  scope: A summary and action items after a meeting, filed to the event, produced by Magnus from the transcript.
+  status: not-started
+  evidence: No code; depends on meetings.transcription.
+
+- id: meetings.backgrounds-and-noise
+  name: Backgrounds and noise suppression
+  scope: A blurred or replaced background and microphone noise suppression, both in the browser.
+  status: not-started
+  evidence: No code; both run on the local track before it is published, in TypeScript or Rust-to-WASM, never a native library.
+
+- id: meetings.webinars
+  name: Webinars
+  scope: A meeting where a few present and many watch — registration, view-only attendees, a panel — for a firm's seminars and client briefings.
+  status: not-started
+  evidence: No code; every participant can publish today.
+
+- id: meetings.live-streaming
+  name: Live streaming
+  scope: A meeting broadcast to a streaming destination.
+  status: not-started
+  evidence: No code.
+
+- id: meetings.booking-pages
+  name: Booking pages
+  scope: A member's booking page a client picks a time on, creating the event and its meeting.
+  status: not-started
+  evidence: No code; the intake desk already schedules a consultation by hand, which is the seam.
+
+- id: meetings.personal-room
+  name: A member's standing room
+  scope: A room a member always has, joined by a stable link, not tied to a calendar event.
+  status: not-started
+  evidence: No code.
+  awaiting-owner: Does a standing room fit a record that hangs every meeting from a calendar event, or does every meeting stay an event so the matter file stays complete?
+
+- id: meetings.end-to-end-encryption
+  name: End-to-end encryption
+  scope: Media the routing service cannot read — keys agreed between browsers, frames encrypted before they leave.
+  status: not-started
+  evidence: No code; media is encrypted hop by hop today (DTLS-SRTP to and from the routing service). Insertable streams and a key exchange are the mechanism; recording and transcription cannot coexist with it.
+
+- id: meetings.usage-reporting
+  name: Meetings usage and quality
+  scope: How much the firm meets, by member and matter, and how the connections held up — in Reports and Firm Usage.
+  status: not-started
+  evidence: No code; attendance rows exist, no report reads them.
 
 - id: meetings.dial-in
   name: Dial-in by phone

@@ -288,3 +288,86 @@ origin.
 
 Cloudflare Realtime SFU and TURN: 1,000 GB free, then $0.05 per GB, recorded in
 [`docs/operating-costs.md`](../operating-costs.md).
+
+## 11. Large rooms — slice 3 (owner direction, 2026-09-20)
+
+The owner's target is the capacity Zoom sells on its Business tier: **300 participants** in one room.
+`MAX_MEETING_PARTICIPANTS` moves from 12 to 300, and everything below is what has to change for a
+room of that size to work rather than merely admit people. The SFU forwards whatever it is asked
+for; the problem is entirely on the two ends — what each browser asks for, and how the room tells
+300 browsers what changed.
+
+### The four rules
+
+1. **A browser never pulls every track.** It pulls video for the tiles it is showing and audio for
+   the people who are talking, and nothing else. What it shows is decided by a pure policy function
+   (`apps/web/src/lib/meetings/subscription-policy.ts`) over the roster, the presence facts, the
+   pins and the gallery page: at most `MAX_VIDEO_SUBSCRIPTIONS = 16` camera tracks, at most one
+   screen share, at most `MAX_AUDIO_SUBSCRIPTIONS = 24` audio tracks, ordered pinned first, then the
+   active screen share, then the most recent speakers, then roster order. Everybody else is a name
+   tile. The policy is a pure function so the 300-participant case is a unit test, not a rehearsal.
+2. **Cameras publish simulcast.** `sendEncodings` with rids `f` (full), `h` (half), `q` (quarter);
+   a subscriber names `simulcast.preferredRid` on `subscribe` and changes it with a new `layer`
+   frame (`tracks/update` upstream), choosing `f` for up to four visible tiles, `h` for up to nine,
+   `q` beyond. Screen share publishes one layer.
+3. **The roster is sent once, then only what changed.** `welcome` still carries the full roster.
+   Afterwards the room sends `roster-delta` frames — `{ joined: [...], left: [participantId...],
+   updated: [...] }` — never the full list, because a full roster to 300 sockets on every one of 300
+   joins is ninety thousand frames of thirty kilobytes. A client that suspects a gap sends `sync`
+   and receives one full `roster` on its own socket. The `roster` frame stays in the vocabulary for
+   that reply and for rooms below `ROSTER_DELTA_THRESHOLD = 16` participants, where the full frame is
+   smaller than the bookkeeping.
+4. **Who is talking is a fact the room relays, not one every browser measures for itself.** A
+   participant's own browser measures its microphone (an `AudioContext` analyser on the local
+   track, a 300 ms hysteresis) and sends `presence` frames `{ speaking, muted }` on transitions
+   only; the room stores the two booleans on the participant record, throttles a participant's
+   presence broadcasts to at most one per second, and sends `presence` deltas
+   `{ participantId, speaking, muted, at }`. Speakers are what the policy function ranks by.
+
+### Room and protocol
+
+- `MAX_MEETING_PARTICIPANTS = 300` in `packages/meetings/src/types.ts`; the guarded insert holds.
+- Client frames: `presence`, `layer { sessionId, trackName, mid, preferredRid }`, `sync`;
+  `subscribe` tracks gain optional `preferredRid`.
+- Room frames: `roster-delta`, `presence`; `subscribed` unchanged.
+- `StoredParticipant` gains `speaking`, `muted`, `presenceAt`; the participant record stays small.
+- Every broadcast to a room above the threshold is a delta. `end` still sends one `ended` frame.
+- A room of 300 must not read 300 storage keys on every frame: `storedParticipants()` is read once
+  per frame at most, and the roster check on `subscribe` uses a `Map` built from that one read.
+
+### The screen
+
+- **Gallery** pages of up to 16 tiles with page controls, the active speaker outlined, a **Speaker
+  view** that shows the current speaker large with a strip of the last few, and **Pin** (local)
+  on any tile. A participant with no pulled video is a name tile with initials, and the tile says
+  "Not shown" rather than pretending to load.
+- The roster rail shows the count, a search box above 24 people, who is speaking, who is muted.
+- The control bar is unchanged.
+
+### Testing
+
+- `subscription-policy.test.ts`: the 300-participant case, pins win, screen share wins, speakers
+  displace roster order, the audio cap holds, the layer choice per tile count, audio calls yield an
+  audio-only policy.
+- Room: roster deltas above the threshold and full rosters below it, `sync` answers one socket,
+  presence throttling, `layer` reaches `tracks/update`, a 300-participant roster costs one storage
+  list per frame (asserted through the fake storage's call count if the harness allows, else through
+  a counter on the class under test).
+- Load profile: a 300-participant roster fixture the policy function is measured against.
+
+## 12. What Zoom sells that this does not have — measured 2026-09-20
+
+The owner asked for the enterprise feature set to be measured against Zoom's and the gaps put on
+the roadmap. Zoom Workplace's published plans (zoom.us/pricing, read 2026-09-20): 100 participants on
+Basic and Pro, 300 on Business, 500 or more on Enterprise with large-meeting licences to 1,000; and
+across the plans breakout rooms, waiting room, host controls, co-hosts, pin and spotlight, reactions
+and raise hand, polling, in-meeting chat, whiteboard, local and cloud recording, recording
+transcripts, captions and translated captions, AI meeting summaries and in-meeting questions,
+virtual backgrounds and filters, noise suppression, screen sharing with annotation and remote
+control, scheduling and booking pages, webinars and events, live streaming, phone, rooms and
+hardware, end-to-end encryption, single sign-on, managed domains, an admin portal with dashboards,
+archival and data-loss-prevention APIs, and information barriers. Each gap is a node in
+[`roadmap.d/meetings.md`](../../roadmap.d/meetings.md); the ones that are not gaps are the calendar
+(built), attendance on the record (built), phone (the communications layer's own port), single
+sign-on and managed domains (the platform's auth), and information barriers (the conflicts
+subsystem's walls, which every meeting already honours through the event).
