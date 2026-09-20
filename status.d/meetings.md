@@ -10,7 +10,7 @@ ui: done by="Claude"
 load-profile: n/a
 tested: done by="Claude"
 branch: claude/focused-edison-ylxfiy
-active-work: docs/active-work/claude/focused-edison-ylxfiy.md
+active-work:
 next: External guests on a signed one-time join link, then recording behind the jurisdiction consent gate, dial-in once the telephony port has an adapter, and the active-speaker layout that lifts the twelve-participant cap
 link-spec: docs/specs/2026-09-18-meetings-design.md
 link-plan:
