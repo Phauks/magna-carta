@@ -2,7 +2,7 @@
 worktree: /home/user/magna-carta (remote session)
 area: The /documents crash — the create control's noun budget, the token width behind it, and the two gates that now read a noun before it renders
 status: review
-touches: packages/design-tokens/tokens/primitives/dimension.json, packages/design-tokens/generated/, packages/design-tokens/test/golden/, packages/design-system/src/lib/components/create-control/, packages/design-system/test/create-control.test.ts, tooling/lint-matter-create-control/, apps/web/test/documents-library-screen.test.ts, docs/conventions/design-corrections.md
+touches: packages/document-assembly/test/purity.test.ts, packages/design-tokens/tokens/primitives/dimension.json, packages/design-tokens/generated/, packages/design-tokens/test/golden/, packages/design-system/src/lib/components/create-control/, packages/design-system/test/create-control.test.ts, tooling/lint-matter-create-control/, apps/web/test/documents-library-screen.test.ts, docs/conventions/design-corrections.md
 ---
 
 The template library answered every visit with the crash screen from the moment it shipped.
@@ -20,3 +20,8 @@ nouns only out of the matter section registry, where they are data, and never ou
 markup, where this one was written; it reads both now. `apps/web/test/documents-library-screen.test.ts`
 mounts the screen under the real root layout, so the next render-time throw on it fails in the
 battery instead of on the deployed site.
+
+The same merge left one more break behind, and it is fixed here too: the assembly core's purity
+gate refused `@magna-carta/data-access/like-search`, which the catalogue's search imports, so the
+test battery was red on `main`. The import is right and the allow-list was incomplete — that module
+is pure string work and exists precisely so the `LIKE`-escaping rule is not written a third time.
