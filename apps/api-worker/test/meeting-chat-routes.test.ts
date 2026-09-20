@@ -5,7 +5,9 @@ import { MAX_MEETING_MESSAGE_LENGTH } from "@magna-carta/meetings/chat-types";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
+import { REDACT_MESSAGE_GUARD } from "@magna-carta/meetings/chat-service";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
+import { racingFirmDatabase } from "./support/racing-firm-database.ts";
 import {
   mirrorMemberWithOwnerRole,
   mirrorMemberWithRole,
@@ -52,7 +54,12 @@ const WALLED_EVENT = newIdentifier("matterEvent") as MatterEventId;
 
 const base = "https://example.com";
 
-async function post(path: string, cookie: string, body?: unknown): Promise<Response> {
+async function post(
+  path: string,
+  cookie: string,
+  body?: unknown,
+  options: { key?: string; environment?: Record<string, unknown> } = {},
+): Promise<Response> {
   return await app.request(
     `${base}${path}`,
     {
@@ -60,12 +67,21 @@ async function post(path: string, cookie: string, body?: unknown): Promise<Respo
       headers: {
         cookie,
         "content-type": "application/json",
-        "idempotency-key": crypto.randomUUID(),
+        "idempotency-key": options.key ?? crypto.randomUUID(),
       },
       body: JSON.stringify(body ?? {}),
     },
-    ROUTED_ENVIRONMENT,
+    options.environment ?? ROUTED_ENVIRONMENT,
   );
+}
+
+/** Every idempotency record this firm holds for one key, as the row actually stores it. */
+async function storedResponseBody(key: string): Promise<string | null> {
+  const row = await firmDatabase
+    .prepare("SELECT response_body AS responseBody FROM idempotency_key WHERE key = ?1")
+    .bind(key)
+    .first<{ responseBody: string | null }>();
+  return row?.responseBody ?? null;
 }
 
 async function get(path: string, cookie: string): Promise<Response> {
@@ -266,28 +282,60 @@ describe("a meeting behind a matter the member may not see", () => {
 });
 
 describe("reading a meeting's chat", () => {
-  it("reads forwards, and answers a poller with what has been said since", async () => {
+  it("reads forwards, and hands a poller a position rather than a watermark", async () => {
     const meetingId = await joinedMeeting();
-    const first = await say(meetingId, "first");
-    const second = await say(meetingId, "second");
-    const third = await say(meetingId, "third");
+    const said = [
+      await say(meetingId, "first"),
+      await say(meetingId, "second"),
+      await say(meetingId, "third"),
+    ];
 
     const page = await readJson<MessagePage>(
       await get(`/api/v1/meetings/${meetingId}/messages`, ownerCookie),
     );
-    expect(page.data.map((message) => message.id)).toEqual([first.id, second.id, third.id]);
-    // Explicitly null rather than absent, so a caller never has to guess whether there is more.
-    expect(page.nextCursor).toBeNull();
+    // MEMBERSHIP, and then the ORDER BY the page actually pages on — never a fixed sequence of
+    // handles. The clock here is the real one, so two of these can land on the same millisecond and
+    // the tiebreak decides which reads first; asserting the sequence would be asserting which
+    // identifier the generator happened to mint, which is a test that fails on a fast machine.
+    expect(new Set(page.data.map((message) => message.id))).toEqual(
+      new Set(said.map((message) => message.id)),
+    );
+    const keys = page.data.map((message) => `${message.sentAt}|${message.id}`);
+    expect(keys).toEqual([...keys].toSorted());
 
-    const since = await readJson<MessagePage>(
+    // A POSITION, NOT A HAS-MORE FLAG. A screen following a live meeting reaches the end and keeps
+    // asking, so the last page carries the place it got to; a null here would leave it continuing
+    // from an instant, which loses the second of two messages sharing one.
+    expect(page.nextCursor).not.toBeNull();
+    const caughtUp = await readJson<MessagePage>(
       await get(
-        `/api/v1/meetings/${meetingId}/messages?since=${encodeURIComponent(first.sentAt)}`,
+        `/api/v1/meetings/${meetingId}/messages?cursor=${encodeURIComponent(page.nextCursor ?? "")}`,
         ownerCookie,
       ),
     );
-    // Strictly after, so a poller that reads with its own watermark does not re-read the message
-    // that produced it.
-    expect(since.data.map((message) => message.body)).toEqual(["second", "third"]);
+    expect(caughtUp.data).toEqual([]);
+    expect(caughtUp.nextCursor).toBeNull();
+
+    const fourth = await say(meetingId, "fourth");
+    const polled = await readJson<MessagePage>(
+      await get(
+        `/api/v1/meetings/${meetingId}/messages?cursor=${encodeURIComponent(page.nextCursor ?? "")}`,
+        ownerCookie,
+      ),
+    );
+    expect(polled.data.map((message) => message.id)).toEqual([fourth.id]);
+
+    // And the same position spelled out as the pair a caller can hold without the cursor: the
+    // instant AND the handle of the row read there.
+    const last = page.data.at(-1);
+    const byPair = await readJson<MessagePage>(
+      await get(
+        `/api/v1/meetings/${meetingId}/messages?since=${encodeURIComponent(last?.sentAt ?? "")}` +
+          `&sinceId=${encodeURIComponent(last?.id ?? "")}`,
+        ownerCookie,
+      ),
+    );
+    expect(byPair.data.map((message) => message.id)).toEqual([fourth.id]);
   });
 
   it("is reachable by any member who may join, not only by the people who spoke", async () => {
@@ -372,6 +420,91 @@ describe("taking a message back", () => {
     );
     expect(again.status).toBe(200);
     expect((await readJson<Message>(again)).redactedAt).toBe(first.redactedAt);
+  });
+
+  it("answers both members when two of them take the same message back together", async () => {
+    const meetingId = await joinedMeeting();
+    const message = await say(meetingId, "Sent to the wrong room");
+
+    // THE WINDOW IS REAL: the redaction reads the message, decides it is not yet taken back, and
+    // commits a round trip later. The competing removal lands in between, on its own idempotency
+    // key, so the second batch meets a row that has already moved — and the guard on it is what
+    // rolls that batch back rather than letting it write a second instant over the first.
+    const racing = racingFirmDatabase(ROUTED_ENVIRONMENT, REDACT_MESSAGE_GUARD, async () => {
+      const winner = await post(
+        `/api/v1/meetings/${meetingId}/messages/${message.id}/redact`,
+        ownerCookie,
+      );
+      expect(winner.status).toBe(200);
+    });
+
+    const loser = await post(
+      `/api/v1/meetings/${meetingId}/messages/${message.id}/redact`,
+      ownerCookie,
+      undefined,
+      { environment: racing.environment },
+    );
+    // Without it, the member who lost the race was handed a 500 and an Error ID for a message that
+    // is gone — which is what they asked for.
+    expect(racing.interleaved).toBe(true);
+    expect(loser.status).toBe(200);
+    expect((await readJson<Message>(loser)).body).toBe("");
+
+    // ONE ROW, REDACTED ONCE, and the instant is the winner's.
+    const page = await readJson<MessagePage>(
+      await get(`/api/v1/meetings/${meetingId}/messages`, ownerCookie),
+    );
+    expect(page.data).toHaveLength(1);
+    expect(page.data[0]?.redactedAt).not.toBeNull();
+    const removals = await firmDatabase
+      .prepare(
+        "SELECT COUNT(*) AS removals FROM audit_log WHERE event = 'meetings.chat.messageRedacted' AND subject_id = ?1",
+      )
+      .bind(message.id)
+      .first<{ removals: number }>();
+    expect(removals?.removals).toBe(1);
+  });
+
+  it("replays a retried send as the row now stands, and never stores the words to replay", async () => {
+    const meetingId = await joinedMeeting();
+    const key = crypto.randomUUID();
+    const secret = "The settlement figure is in the sealed exhibit.";
+    const sent = await readJson<Message>(
+      await post(`/api/v1/meetings/${meetingId}/messages`, ownerCookie, { body: secret }, { key }),
+    );
+
+    // THE STORED BODY IS THE HANDLE AND NOTHING ELSE. An idempotency record is replayed verbatim to
+    // whoever retries the key and is not part of the record a redaction reaches, so a message kept
+    // there would outlive the taking-back that was meant to remove it.
+    const stored = await storedResponseBody(key);
+    expect(stored).not.toBeNull();
+    expect(stored).not.toContain(secret);
+    expect(stored).toContain(sent.id);
+
+    expect(
+      (await post(`/api/v1/meetings/${meetingId}/messages/${sent.id}/redact`, ownerCookie)).status,
+    ).toBe(200);
+
+    // The retry is answered in the same shape — the message's record, so a client parses one thing
+    // — with the words absent rather than replayed out of a row the redaction never reached.
+    const replayed = await post(
+      `/api/v1/meetings/${meetingId}/messages`,
+      ownerCookie,
+      { body: secret },
+      { key },
+    );
+    expect(replayed.status).toBe(201);
+    const body = await readJson<Message>(replayed);
+    expect(body.id).toBe(sent.id);
+    expect(body.participantId).toBe(sent.participantId);
+    expect(body.body).toBe("");
+
+    // And the transcript — the one copy the taking-back does reach — says what happened to it.
+    const page = await readJson<MessagePage>(
+      await get(`/api/v1/meetings/${meetingId}/messages`, ownerCookie),
+    );
+    expect(page.data[0]?.body).toBe("");
+    expect(page.data[0]?.redactedAt).not.toBeNull();
   });
 
   it("reports a message from another meeting as one that is not there", async () => {

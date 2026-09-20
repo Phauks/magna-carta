@@ -72,16 +72,27 @@ function toEntry(row: MessageColumns): MeetingMessageEntry {
 // Reads
 // ---------------------------------------------------------------------------------------------
 
+// One binding and the clause that reads it, pushed together — so the clause a caller composes and
+// the binding it consumes cannot end up in different branches of the same expression. `keysetClause`
+// has exactly this shape for its three, and the two are read side by side below.
+function pushed(bindings: unknown[], binding: unknown, clause: string): string {
+  bindings.push(binding);
+  return clause;
+}
+
 /**
  * One meeting's transcript, OLDEST FIRST — because a conversation is read forwards. The first page
  * is the beginning of the meeting rather than the end of it, which is the same choice the attendance
  * record makes and for the same reason.
  *
- * `since` is what a POLLER holds: the instant it last read to, so a screen following a live meeting
- * asks for what has been said since rather than re-reading the whole conversation. It is an INSTANT
- * and is the caller's to supply — two instants compare the same in every zone on earth. `cursor` is
- * what WALKS a long transcript, and both ride the same `(sent_at, id)` key, so a poll and a walk
- * cannot end up disagreeing about where they are.
+ * `since` is what a POLLER holds, and it is a KEYSET rather than a watermark: the instant it last
+ * read to AND the handle of the row it read there. An instant alone is not a position in this list —
+ * two messages can carry the same millisecond, and a strict `sent_at > ?` then drops the second of
+ * them for that poller FOREVER, because the next tick asks from a later instant still. So `sinceId`
+ * rides beside `since` and the pair becomes the same `(sent_at, id)` comparison `cursor` makes; a
+ * `since` with no `sinceId` keeps the old strict-instant shape, which is what a caller minted
+ * against an older build still sends. `cursor` is what WALKS a long transcript, and both ride the
+ * same key, so a poll and a walk cannot end up disagreeing about where they are.
  *
  * `limit` is what the caller will SHOW; this asks for one row more, and the extra row is the answer
  * to "is there another page" without a second count.
@@ -96,14 +107,29 @@ export async function listMeetingMessages(
   options: {
     readonly cursor?: SortCursor;
     readonly limit: number;
-    /** An instant: messages strictly after it. What a poller sends on its next tick. */
+    /** An instant: where the poller read to. What it sends on its next tick, with `sinceId`. */
     readonly since?: string;
+    /** The handle of the row at that instant, which is what makes the continuation exact. */
+    readonly sinceId?: string;
   },
 ): Promise<readonly MeetingMessageEntry[]> {
   const bindings: unknown[] = [meetingId];
+  // The same keyset comparison the cursor makes, so a poller that carries both halves of its
+  // position cannot lose a message to a tie. Without the handle there is nothing to break the tie
+  // with, and the strict instant is the honest fallback — it can only re-read, never skip, once the
+  // caller starts sending the pair.
   const sinceClause =
-    options.since === undefined ? "" : `AND ${MEETING_MESSAGE_TABLE}.sent_at > ? `;
-  if (options.since !== undefined) bindings.push(options.since);
+    options.since === undefined
+      ? ""
+      : options.sinceId === undefined
+        ? pushed(bindings, options.since, `AND ${MEETING_MESSAGE_TABLE}.sent_at > ? `)
+        : keysetClause(
+            bindings,
+            { createdAt: options.since, id: options.sinceId },
+            `${MEETING_MESSAGE_TABLE}.sent_at`,
+            `${MEETING_MESSAGE_TABLE}.id`,
+            true,
+          );
   const keyset = keysetClause(
     bindings,
     options.cursor,

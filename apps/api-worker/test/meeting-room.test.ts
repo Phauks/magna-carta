@@ -19,6 +19,7 @@ import {
   PONG_FRAME as PROGRESS_PONG_FRAME,
 } from "../src/progress/job-progress-protocol.ts";
 import { setSfuFetchForTests } from "../src/meetings/sfu/sfu-client.ts";
+import { PRESENCE_RELAY_INTERVAL_MILLISECONDS } from "../src/meetings/room/room-presence.ts";
 
 // The meeting's signaling protocol, against a fake media routing service.
 //
@@ -41,8 +42,11 @@ const REMOTE_OFFER = { type: "offer", sdp: "v=0 remote-offer" };
 const REFUSED_TRACK_SUFFIX = ":refused";
 
 // A media section the fake will not change the layer of, so the room can be driven through the one
-// answer a layer change has that is not a success.
-const REFUSED_LAYER_MID = "99";
+// answer a layer change has that is not a success. It is the SECOND section a subscription yields
+// (the fake numbers them by position), because the room refuses a layer change on a section it did
+// not subscribe for that browser — so a section nobody could have subscribed cannot reach the
+// service at all any more.
+const REFUSED_LAYER_MID = "1";
 
 interface TrackRequest {
   location: "local" | "remote";
@@ -332,6 +336,10 @@ async function seedRoster(stub: ReturnType<typeof roomStub>, count: number): Pro
           speaking: false,
           muted: false,
           presenceAt: null,
+          presenceDirty: false,
+          syncAt: null,
+          layerAt: null,
+          subscribedMids: [],
         };
       }
       await state.storage.put(batch);
@@ -343,8 +351,18 @@ async function seedRoster(stub: ReturnType<typeof roomStub>, count: number): Pro
 async function presenceOf(
   stub: ReturnType<typeof roomStub>,
   attendanceId: string,
-): Promise<{ speaking: boolean; muted: boolean; presenceAt: string | null }> {
-  let found = { speaking: false, muted: false, presenceAt: null as string | null };
+): Promise<{
+  speaking: boolean;
+  muted: boolean;
+  presenceAt: string | null;
+  presenceDirty: boolean;
+}> {
+  let found = {
+    speaking: false,
+    muted: false,
+    presenceAt: null as string | null,
+    presenceDirty: false,
+  };
   await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
     const participant = await state.storage.get<typeof found>(`participant:${attendanceId}`);
     if (participant !== undefined) found = participant;
@@ -377,6 +395,103 @@ async function countStorageLists(
   });
   await run();
   return lists;
+}
+
+/**
+ * The same count, split by SHAPE — a list reads every key the room holds, a get reads one.
+ *
+ * Both are worth bounding and they are not the same bound: one list per frame is the rule that keeps
+ * a room of three hundred affordable, and a handful of gets is what a frame is allowed to spend
+ * beside it. Counting only lists would let a frame walk the roster one key at a time.
+ */
+async function countStorageReads(
+  stub: ReturnType<typeof roomStub>,
+  run: () => Promise<void>,
+): Promise<{ lists: number; gets: number }> {
+  const counted = { lists: 0, gets: 0 };
+  await runInDurableObject(stub, (_room: MeetingRoom, state) => {
+    const storage = state.storage as unknown as {
+      list: (options?: unknown) => Promise<unknown>;
+      get: (key: unknown, options?: unknown) => Promise<unknown>;
+    };
+    const underlyingList = storage.list.bind(state.storage);
+    const underlyingGet = storage.get.bind(state.storage);
+    storage.list = async (options?: unknown) => {
+      counted.lists += 1;
+      return await underlyingList(options);
+    };
+    storage.get = async (key: unknown, options?: unknown) => {
+      counted.gets += 1;
+      return await underlyingGet(key, options);
+    };
+  });
+  await run();
+  return counted;
+}
+
+/**
+ * How many times the room walked its sockets while `run` was in flight.
+ *
+ * Every walk deserializes every socket's attachment, so this number TIMES the socket count is what a
+ * pass actually costs — which is why asking "is this person connected" once per participant is a
+ * quadratic answer to a linear question.
+ */
+async function countSocketScans(
+  stub: ReturnType<typeof roomStub>,
+  run: () => Promise<void>,
+): Promise<number> {
+  let scans = 0;
+  await runInDurableObject(stub, (_room: MeetingRoom, state) => {
+    const context = state as unknown as { getWebSockets: (tag?: string) => WebSocket[] };
+    const underlying = context.getWebSockets.bind(state);
+    context.getWebSockets = (tag?: string) => {
+      scans += 1;
+      return underlying(tag);
+    };
+  });
+  await run();
+  return scans;
+}
+
+/** Winds a participant's last relayed presence back, so the deferred flush is due. */
+async function rewindPresence(
+  stub: ReturnType<typeof roomStub>,
+  attendanceId: string,
+  milliseconds: number,
+): Promise<void> {
+  await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
+    const key = `participant:${attendanceId}`;
+    const participant = await state.storage.get<Record<string, unknown>>(key);
+    if (participant === undefined) throw new Error(`no participant at ${key}`);
+    const previous = participant["presenceAt"];
+    const relayedAt = Date.parse(typeof previous === "string" ? previous : "");
+    await state.storage.put(key, {
+      ...participant,
+      presenceAt: new Date(
+        (Number.isNaN(relayedAt) ? Date.now() : relayedAt) - milliseconds,
+      ).toISOString(),
+    });
+  });
+}
+
+/** Winds a throttled frame's last claim back, so the next one is not dropped. */
+async function rewindThrottle(
+  stub: ReturnType<typeof roomStub>,
+  attendanceId: string,
+  field: "syncAt" | "layerAt",
+  milliseconds: number,
+): Promise<void> {
+  await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
+    const key = `participant:${attendanceId}`;
+    const participant = await state.storage.get<Record<string, unknown>>(key);
+    if (participant === undefined) throw new Error(`no participant at ${key}`);
+    const claimed = participant[field];
+    const claimedAt = Date.parse(typeof claimed === "string" ? claimed : "");
+    await state.storage.put(key, {
+      ...participant,
+      [field]: Number.isNaN(claimedAt) ? null : new Date(claimedAt - milliseconds).toISOString(),
+    });
+  });
 }
 
 beforeAll(() => {
@@ -812,6 +927,141 @@ describe("telling a large room what changed", () => {
     });
     expect(subscribeLists).toBe(1);
   });
+
+  it("holds every frame to one roster read and a handful of single-key reads", async () => {
+    const { meetingId, stub } = freshRoom();
+    const publisher = "meetingAttendance_budgetPub";
+    const other = await connect(stub, meetingId, publisher, "A Host");
+    await publish(other, publisher, [{ name: "camera", kind: "video" }]);
+    const session = rosterOf(other)?.participants[0]?.sfuSessionId ?? "";
+    const mover = "meetingAttendance_budgetMove";
+    const browser = await connect(stub, meetingId, mover, "A Guest");
+
+    // ONE LIST IS THE RULE THAT MAKES A ROOM OF THREE HUNDRED AFFORDABLE — a list is every key the
+    // room holds, and a frame that took two doubled the cost of the busiest thing it does. The gets
+    // are bounded beside it, because a frame that walked the roster one key at a time would pass a
+    // list count and cost the same.
+    const frames: readonly {
+      readonly name: string;
+      readonly frame: unknown;
+      readonly answer: string;
+    }[] = [
+      {
+        name: "publish",
+        frame: {
+          v: 1,
+          type: "publish",
+          sessionDescription: { type: "offer", sdp: "v=0 browser-offer" },
+          tracks: [{ trackName: `${mover}:camera`, mid: "0", kind: "video" }],
+        },
+        answer: "published",
+      },
+      {
+        name: "subscribe",
+        frame: {
+          v: 1,
+          type: "subscribe",
+          tracks: [{ sessionId: session, trackName: `${publisher}:camera` }],
+        },
+        answer: "subscribed",
+      },
+      {
+        name: "layer",
+        frame: {
+          v: 1,
+          type: "layer",
+          tracks: [
+            { sessionId: session, trackName: `${publisher}:camera`, mid: "0", preferredRid: "q" },
+          ],
+        },
+        answer: "layered",
+      },
+      {
+        name: "renegotiate",
+        frame: {
+          v: 1,
+          type: "renegotiate",
+          sessionDescription: { type: "answer", sdp: "v=0 browser-answer" },
+        },
+        answer: "renegotiated",
+      },
+      { name: "sync", frame: { v: 1, type: "sync" }, answer: "roster" },
+      { name: "close", frame: { v: 1, type: "close", mids: ["0"] }, answer: "closed" },
+    ];
+
+    for (const { name, frame, answer } of frames) {
+      const before = browser.frames.filter((one) => one["type"] === answer).length;
+      const reads = await countStorageReads(stub, async () => {
+        browser.send(JSON.stringify(frame));
+        await waitFor(() => browser.frames.filter((one) => one["type"] === answer).length > before);
+      });
+      expect(reads.lists, `${name} reads the roster more than once`).toBeLessThanOrEqual(1);
+      expect(reads.gets, `${name} spends too many single-key reads`).toBeLessThanOrEqual(5);
+    }
+
+    // Presence and leave answer nothing to the sender, so they are measured by what they change
+    // rather than by a reply.
+    const presenceReads = await countStorageReads(stub, async () => {
+      browser.send(JSON.stringify({ v: 1, type: "presence", speaking: true, muted: false }));
+      await waitFor(() => lastFrame(other, "presence") !== undefined);
+    });
+    expect(presenceReads.lists).toBe(0);
+    expect(presenceReads.gets).toBeLessThanOrEqual(5);
+
+    const leaveReads = await countStorageReads(stub, async () => {
+      browser.send(JSON.stringify({ v: 1, type: "leave" }));
+      await waitFor(() => rosterOf(other)?.participants.length === 1);
+    });
+    expect(leaveReads.lists).toBeLessThanOrEqual(1);
+    expect(leaveReads.gets).toBeLessThanOrEqual(5);
+  });
+
+  it("resolves who is connected once a pass, not once a participant", async () => {
+    const { meetingId, stub } = freshRoom();
+    await seedRoster(stub, 40);
+    const dropping = "meetingAttendance_scanDrop";
+    const socket = await connect(stub, meetingId, dropping, "A Guest");
+    socket.close();
+    await waitFor(() => socket.closeCode() !== null);
+    await waitForStored(async () => (await socketLostAtOf(stub, dropping)) !== null);
+
+    // EVERY WALK OF THE SOCKETS DESERIALIZES EVERY ATTACHMENT, so this number times the socket count
+    // is what the pass actually costs. Asking "is this person connected" per participant made a
+    // room of three hundred pay ninety thousand deserializations each time anybody dropped.
+    const scans = await countSocketScans(stub, async () => {
+      await runDurableObjectAlarm(stub);
+    });
+    expect(scans).toBeLessThanOrEqual(6);
+  });
+});
+
+describe("a socket that has been accepted and not yet welcomed", () => {
+  it("is sent nothing, so it never applies a difference to a roster it does not have", async () => {
+    const { meetingId, stub } = freshRoom();
+    const early = await connect(stub, meetingId, "meetingAttendance_earlySocket", "A Host");
+    const quiet = early.frames.length;
+
+    // THE WINDOW IS REAL AND THE ROOM CANNOT AVOID IT: the runtime has to own a socket before the
+    // roster can be written, so between the accept and the welcome the socket is already in
+    // `getWebSockets()`. Reproduced by putting this socket back into that state, which is what the
+    // attachment says — a broadcast reaching it there is a difference applied against nothing, and
+    // the browser's only way out is to ask for the whole list. Three hundred people arriving at the
+    // top of the hour made that a storm.
+    await runInDurableObject(stub, (_room: MeetingRoom, state) => {
+      for (const socket of state.getWebSockets()) {
+        const attachment = socket.deserializeAttachment() as Record<string, unknown> | null;
+        if (attachment?.["attendanceId"] !== "meetingAttendance_earlySocket") continue;
+        socket.serializeAttachment({ ...attachment, welcomed: false });
+      }
+    });
+
+    const arriving = await connect(stub, meetingId, "meetingAttendance_lateSocket", "A Guest");
+    // The arriving socket got its own welcome, which is the frame that carries everything the
+    // broadcast would have said.
+    expect(welcomeRosterOf(arriving)).toHaveLength(2);
+    await settle();
+    expect(early.frames).toHaveLength(quiet);
+  });
 });
 
 describe("who is talking", () => {
@@ -855,6 +1105,51 @@ describe("who is talking", () => {
     expect(entry?.speaking).toBe(false);
   });
 
+  it("relays the transition the window held back when the alarm comes round", async () => {
+    const { meetingId, stub } = freshRoom();
+    const speaker = "meetingAttendance_deferred";
+    const talking = await connect(stub, meetingId, speaker, "A Host");
+    const listening = await connect(stub, meetingId, "meetingAttendance_deferredWatch", "A Guest");
+
+    // A ONE-WORD ANSWER: speaking, then not speaking, inside the same second. The second transition
+    // is the one that is still TRUE, and dropping it outright left this person shown speaking on
+    // every other screen until they next said something.
+    talking.send(JSON.stringify({ v: 1, type: "presence", speaking: true, muted: false }));
+    await waitFor(() => lastFrame(listening, "presence") !== undefined);
+    talking.send(JSON.stringify({ v: 1, type: "presence", speaking: false, muted: false }));
+    await waitForStored(async () => (await presenceOf(stub, speaker)).presenceDirty);
+
+    // The stored booleans are current the instant they arrive — the window governs the frame, never
+    // the record — and the flag is what says the room still owes everybody the news.
+    const held = await presenceOf(stub, speaker);
+    expect(held.speaking).toBe(false);
+    expect(held.presenceDirty).toBe(true);
+    await settle();
+    expect(listening.frames.filter((frame) => frame["type"] === "presence")).toHaveLength(1);
+
+    // The room armed its own alarm for the end of the window. Wound back rather than waited out:
+    // the handler decides from the stored instant, so this is the same decision it makes a second
+    // from now.
+    await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
+      expect(await state.storage.getAlarm()).not.toBeNull();
+    });
+    await rewindPresence(stub, speaker, PRESENCE_RELAY_INTERVAL_MILLISECONDS + 1);
+    expect(await runDurableObjectAlarm(stub)).toBe(true);
+
+    await waitFor(
+      () => listening.frames.filter((frame) => frame["type"] === "presence").length > 1,
+    );
+    const relayed = lastFrame(listening, "presence") as Record<string, unknown>;
+    expect(relayed["participantId"]).toBe(speaker);
+    expect(relayed["speaking"]).toBe(false);
+    expect(relayed["muted"]).toBe(false);
+
+    // Lowered, so the flush is not armed again forever — and the sender is still not told what it
+    // said about its own microphone.
+    expect((await presenceOf(stub, speaker)).presenceDirty).toBe(false);
+    expect(lastFrame(talking, "presence")).toBeUndefined();
+  });
+
   it("says nothing about a frame that restates what the room already holds", async () => {
     const { meetingId, stub } = freshRoom();
     const talking = await connect(stub, meetingId, "meetingAttendance_same", "A Host");
@@ -866,6 +1161,111 @@ describe("who is talking", () => {
 
     await settle();
     expect(lastFrame(listening, "presence")).toBeUndefined();
+  });
+});
+
+describe("the frames a browser can send faster than the room can serve them", () => {
+  it("answers one whole-roster request a second and drops the burst behind it", async () => {
+    const { meetingId, stub } = freshRoom();
+    const asking = await connect(stub, meetingId, "meetingAttendance_syncAsk", "A Host");
+    await connect(stub, meetingId, "meetingAttendance_syncOther", "A Guest");
+
+    // Counted from a baseline, because the second arrival already announced itself with a whole
+    // roster: in a room this size the room states the list rather than the difference.
+    const announced = asking.frames.filter((frame) => frame["type"] === "roster").length;
+    const rosters = () =>
+      asking.frames.filter((frame) => frame["type"] === "roster").length - announced;
+    asking.send(JSON.stringify({ v: 1, type: "sync" }));
+    await waitFor(() => rosters() > 0);
+    expect(rosters()).toBe(1);
+
+    // A SYNC IS A LIST OF EVERY KEY THE ROOM HOLDS — three hundred of them in a full meeting — and
+    // a browser can ask as fast as it can write. What is dropped is a REQUEST, not a fact: the
+    // asker repeats it a moment later, and the room announces every roster change to it unprompted
+    // in the meantime.
+    for (let repeat = 0; repeat < 5; repeat += 1) {
+      asking.send(JSON.stringify({ v: 1, type: "sync" }));
+    }
+    await settle();
+    expect(rosters()).toBe(1);
+
+    // And the window is a window, not a ban.
+    await rewindThrottle(stub, "meetingAttendance_syncAsk", "syncAt", 2000);
+    asking.send(JSON.stringify({ v: 1, type: "sync" }));
+    await waitFor(() => rosters() > 1);
+    expect(rosters()).toBe(2);
+  });
+
+  it("forwards one layer change a quarter second and drops the rest", async () => {
+    const { meetingId, stub } = freshRoom();
+    const publisher = "meetingAttendance_layerBurstPub";
+    const first = await connect(stub, meetingId, publisher, "A Host");
+    await publish(first, publisher, [{ name: "camera", kind: "video" }]);
+    const session = rosterOf(first)?.participants[0]?.sfuSessionId ?? "";
+    const viewer = await connect(stub, meetingId, "meetingAttendance_layerBurstSub", "A Guest");
+    viewer.send(
+      JSON.stringify({
+        v: 1,
+        type: "subscribe",
+        tracks: [{ sessionId: session, trackName: `${publisher}:camera` }],
+      }),
+    );
+    await waitFor(() => lastFrame(viewer, "subscribed") !== undefined);
+
+    const layerChange = (preferredRid: string) =>
+      JSON.stringify({
+        v: 1,
+        type: "layer",
+        tracks: [{ sessionId: session, trackName: `${publisher}:camera`, mid: "0", preferredRid }],
+      });
+    const updates = () => upstream.filter((call) => call.path.endsWith("/tracks/update")).length;
+    viewer.send(layerChange("q"));
+    await waitFor(() => lastFrame(viewer, "layered") !== undefined);
+    expect(updates()).toBe(1);
+
+    // EACH ONE IS A CALL TO THE ROUTING SERVICE, and a gallery scrolled with a finger produces them
+    // by the dozen. What a dropped one costs is a tile drawn at the previous size for a moment,
+    // which the next change supersedes.
+    for (const rid of ["h", "f", "q", "h"]) viewer.send(layerChange(rid));
+    await settle();
+    expect(updates()).toBe(1);
+    expect(viewer.frames.filter((frame) => frame["type"] === "layered")).toHaveLength(1);
+
+    await rewindThrottle(stub, "meetingAttendance_layerBurstSub", "layerAt", 2000);
+    viewer.send(layerChange("f"));
+    await waitFor(() => updates() > 1);
+    expect(updates()).toBe(2);
+  });
+
+  it("refuses a layer change on a media section the room never subscribed for that browser", async () => {
+    const { meetingId, stub } = freshRoom();
+    const publisher = "meetingAttendance_layerUnsubPub";
+    const first = await connect(stub, meetingId, publisher, "A Host");
+    await publish(first, publisher, [{ name: "camera", kind: "video" }]);
+    const session = rosterOf(first)?.participants[0]?.sfuSessionId ?? "";
+    const viewer = await connect(stub, meetingId, "meetingAttendance_layerUnsubSub", "A Guest");
+
+    // The pair names a track that IS on this room's roster, so the roster check passes — and that
+    // check constrains nothing about what actually goes upstream, which is a media section inside
+    // the asking browser's OWN session. This one subscribed to nothing, so section 0 of its session
+    // is whatever else it holds.
+    viewer.send(
+      JSON.stringify({
+        v: 1,
+        type: "layer",
+        tracks: [
+          { sessionId: session, trackName: `${publisher}:camera`, mid: "0", preferredRid: "q" },
+        ],
+      }),
+    );
+
+    await waitFor(() => lastFrame(viewer, "refused") !== undefined);
+    expect(lastFrame(viewer, "refused")).toEqual({
+      v: 1,
+      type: "refused",
+      reason: "unknown-track",
+    });
+    expect(upstream.filter((call) => call.path.endsWith("/tracks/update"))).toHaveLength(0);
   });
 });
 
@@ -945,9 +1345,26 @@ describe("choosing which layer to receive", () => {
     const { meetingId, stub } = freshRoom();
     const publisher = "meetingAttendance_layerRefusedPub";
     const first = await connect(stub, meetingId, publisher, "A Host");
-    await publish(first, publisher, [{ name: "camera", kind: "video" }]);
+    await publish(first, publisher, [
+      { name: "camera", kind: "video" },
+      { name: "screen", kind: "video" },
+    ]);
     const session = rosterOf(first)?.participants[0]?.sfuSessionId ?? "";
     const viewer = await connect(stub, meetingId, "meetingAttendance_layerRefusedSub", "A Guest");
+
+    // Subscribed first, because a layer change may only name a section the room opened for THIS
+    // browser — the second of the two is the one the fake will not change.
+    viewer.send(
+      JSON.stringify({
+        v: 1,
+        type: "subscribe",
+        tracks: [
+          { sessionId: session, trackName: `${publisher}:camera` },
+          { sessionId: session, trackName: `${publisher}:screen` },
+        ],
+      }),
+    );
+    await waitFor(() => lastFrame(viewer, "subscribed") !== undefined);
 
     viewer.send(
       JSON.stringify({
@@ -956,7 +1373,7 @@ describe("choosing which layer to receive", () => {
         tracks: [
           {
             sessionId: session,
-            trackName: `${publisher}:camera`,
+            trackName: `${publisher}:screen`,
             mid: REFUSED_LAYER_MID,
             preferredRid: "h",
           },

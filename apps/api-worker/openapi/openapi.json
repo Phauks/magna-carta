@@ -60974,7 +60974,7 @@
         }
       },
       "post": {
-        "description": "Records something that happened or will happen in the case: a hearing, a filing, service, an order, a deposition, a client meeting. A date is a plain calendar date and a time is separate and optional, because an all-day event is a real and common answer; the time zone is required and is the one the event happens in, which for a hearing is the court's and not the firm's. Answering `meeting` schedules a video meeting or an audio call in the same act: the room is opened on the event, the colleagues listed on it are invited, and everyone sees Join from now rather than from the moment somebody presses Start. Only members are invited — a client or another party from the Directory has no way in yet.",
+        "description": "Records something that happened or will happen in the case: a hearing, a filing, service, an order, a deposition, a client meeting. A date is a plain calendar date and a time is separate and optional, because an all-day event is a real and common answer; the time zone is required and is the one the event happens in, which for a hearing is the court's and not the firm's. Answering `meeting` schedules a video meeting or an audio call in the same act: the room is opened on the event, the colleagues listed on it are invited, and everyone sees Join from now rather than from the moment somebody presses Start. Only members are invited — a client or another party from the Directory has no way in yet. Opening a room needs the permission to host meetings as well as the one to manage the calendar; without it the event can still be recorded, and only the `meeting` field is refused.",
         "operationId": "calendar.createEvent",
         "tags": [
           "calendar"
@@ -61191,7 +61191,7 @@
         }
       },
       "patch": {
-        "description": "Edits a recorded event in place. A hearing continued to a new date is the same hearing on a new date: the record moves and the audit trail carries the move, rather than leaving two hearings on the calendar for every reader to work out which one counts. Supplying participants replaces the whole list; omitting them leaves it alone. Moving an event keeps its meeting: a meeting carries no time of its own. Supplying `meeting` adds one to an event that has none; null or absent leaves the event's meeting exactly as it stands, because ending a gathering is an act of its own and never a side effect of a correction.",
+        "description": "Edits a recorded event in place. A hearing continued to a new date is the same hearing on a new date: the record moves and the audit trail carries the move, rather than leaving two hearings on the calendar for every reader to work out which one counts. Supplying participants replaces the whole list; omitting them leaves it alone. Moving an event keeps its meeting: a meeting carries no time of its own. Supplying `meeting` adds one to an event that has none, and needs the permission to host meetings as well as the one to manage the calendar; null or absent leaves the event's meeting exactly as it stands, because ending a gathering is an act of its own and never a side effect of a correction.",
         "operationId": "calendar.updateEvent",
         "tags": [
           "calendar"
@@ -63235,7 +63235,7 @@
         }
       },
       "post": {
-        "description": "Records something the firm schedules for itself: a meeting, an office closure, training, a firm holiday, a reservation. An all-members audience puts it on everyone's calendar without keeping a list that goes stale with every hire; a participants audience puts it on the calendars of the people named. Answering `meeting` schedules a video meeting or an audio call in the same act, exactly as it does on a matter's event.",
+        "description": "Records something the firm schedules for itself: a meeting, an office closure, training, a firm holiday, a reservation. An all-members audience puts it on everyone's calendar without keeping a list that goes stale with every hire; a participants audience puts it on the calendars of the people named. Answering `meeting` schedules a video meeting or an audio call in the same act, exactly as it does on a matter's event — and needs the permission to host meetings as well as the one to manage the calendar.",
         "operationId": "calendar.createFirmEvent",
         "tags": [
           "calendar"
@@ -63443,7 +63443,7 @@
         }
       },
       "patch": {
-        "description": "Edits a firm event in place. A moved staff meeting is not procedural history — firm events keep simple edit semantics, and the audit trail carries the move. Supplying participants replaces the whole list; omitting them leaves it alone. A meeting on the event survives the edit; supplying `meeting` adds one where there is none.",
+        "description": "Edits a firm event in place. A moved staff meeting is not procedural history — firm events keep simple edit semantics, and the audit trail carries the move. Supplying participants replaces the whole list; omitting them leaves it alone. A meeting on the event survives the edit; supplying `meeting` adds one where there is none, and needs the permission to host meetings as well as the one to manage the calendar.",
         "operationId": "calendar.updateFirmEvent",
         "tags": [
           "calendar"
@@ -68612,7 +68612,7 @@
     },
     "/api/v1/meetings/{meetingId}/messages": {
       "post": {
-        "description": "Says something in a meeting's chat, and keeps it on the record. Requires an open stay — being in the room is what makes a message sayable, so a member who has left is answered as one who is not in the meeting. The message is stored against that stay rather than against the member, so somebody who dropped off and dialled back in has each message attributed to the stay it was said from.",
+        "description": "Says something in a meeting's chat, and keeps it on the record. Requires an open stay — being in the room is what makes a message sayable, so a member who has left is answered as one who is not in the meeting. The message is stored against that stay rather than against the member, so somebody who dropped off and dialled back in has each message attributed to the stay it was said from. A retried send is answered with the message's record — its handle, its stay and its instant — and an empty body: what was said is kept in the transcript, which is the one copy a taking-back can reach, and never in the retry record.",
         "operationId": "meetings.sendMessage",
         "tags": [
           "meetings"
@@ -68744,7 +68744,7 @@
         }
       },
       "get": {
-        "description": "A meeting's chat, oldest first — a conversation is read forwards, so the first page is the beginning of the meeting rather than the end of it. `since` is an instant a poller holds from its previous read and asks for what has been said after; the cursor walks a long transcript. A message that has been taken back is still returned, with an empty body beside the instant and the member that say it was removed.",
+        "description": "A meeting's chat, oldest first — a conversation is read forwards, so the first page is the beginning of the meeting rather than the end of it. A poller following a live meeting continues from `nextCursor`, which every page with rows carries whether or not more are waiting; here it is a position in the conversation rather than a has-more flag, so a reader resumes exactly where it stopped and a caller walking to the end sees one final empty page. Never continue from a timestamp alone: two messages can share an instant, and the second is lost to a reader that asks for what came strictly after it. `since` with `sinceId` is the same position spelled out for a caller that holds the pair rather than the cursor. A message that has been taken back is still returned, with an empty body beside the instant and the member that say it was removed.",
         "operationId": "meetings.listMessages",
         "tags": [
           "meetings"
@@ -68787,6 +68787,14 @@
             },
             "required": false,
             "name": "since",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "sinceId",
             "in": "query"
           }
         ],

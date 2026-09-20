@@ -418,6 +418,39 @@ describe("reading a transcript", () => {
     expect(fresher.map((entry) => entry.body)).toEqual(["after"]);
   });
 
+  it("hands a poller the second of two messages stamped the same instant", async () => {
+    const database = fresh();
+    const meetingId = await startAndJoin(database);
+    // The fixed clock is not a contrivance here — it is the case this exists for. Two people typing
+    // together, or one message and the acknowledgement a script sends behind it, land on the same
+    // millisecond often enough that a live meeting produces it; what makes it a permanent loss
+    // rather than a delay is that a poller continuing from an instant asks for what came strictly
+    // after, and the next tick asks from later still.
+    await say(database, meetingId, "one");
+    await say(database, meetingId, "two");
+
+    const both = await listMeetingMessages(database.database, meetingId, { limit: 10 });
+    expect(both).toHaveLength(2);
+    const [earlier, later] = both;
+    expect(earlier?.sentAt).toBe(later?.sentAt);
+
+    // The instant alone cannot say which of the two the poller has already read, so the strict
+    // comparison answers with neither and the second message is gone for that reader.
+    const byInstant = await listMeetingMessages(database.database, meetingId, {
+      limit: 10,
+      since: earlier?.sentAt,
+    });
+    expect(byInstant).toEqual([]);
+
+    // The instant WITH the handle is a position in the list, and the tiebreak finds the row after it.
+    const byPosition = await listMeetingMessages(database.database, meetingId, {
+      limit: 10,
+      since: earlier?.sentAt,
+      sinceId: earlier?.id,
+    });
+    expect(byPosition.map((entry) => entry.id)).toEqual([later?.id]);
+  });
+
   it("keeps one meeting's messages out of another's", async () => {
     const database = fresh();
     const here = await startAndJoin(database);

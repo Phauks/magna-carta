@@ -63,6 +63,12 @@ function readAll(files: readonly string[]): string {
  * a `{ type: "publish" }`. The keepalive pair is the one exception and has to be: it travels as a
  * byte-exact constant precisely so the runtime's auto-response can match it without waking the room,
  * so neither end ever writes the bare word. Naming the constant is the same commitment.
+ *
+ * ANYWHERE IN THE SOURCE, which is the weakness the dispatch scans below exist to close: this one
+ * answers true for a name that appears in a type alias, a comment or an unrelated union, so it can
+ * say a frame is handled when the handler was deleted. It is kept for the two directions that have
+ * no single dispatch to read — a browser SENDS frames from several modules, and this package BUILDS
+ * them in several functions.
  */
 function names(source: string, frameType: string): boolean {
   if (source.includes(`"${frameType}"`)) return true;
@@ -71,9 +77,68 @@ function names(source: string, frameType: string): boolean {
   return false;
 }
 
+/**
+ * The frame types a `switch` in this source actually has a case for.
+ *
+ * Read from the case LABELS rather than from the file, so a deleted case is a missing member rather
+ * than a word that still happens to appear somewhere above it.
+ */
+function caseLabelsIn(source: string): Set<string> {
+  return new Set([...source.matchAll(/\bcase\s+"([a-z-]+)"\s*:/g)].map((match) => match[1] ?? ""));
+}
+
+/**
+ * The frame types a source DISPATCHES ON — `frame.type === "publish"`, however the frame is named.
+ *
+ * `!==` is deliberately not matched: a negated comparison narrows a branch, it does not handle
+ * anything, and counting it would let a file pass by mentioning a frame it refuses.
+ */
+function dispatchedTypesIn(source: string): Set<string> {
+  return new Set([...source.matchAll(/\.type === "([a-z-]+)"/g)].map((match) => match[1] ?? ""));
+}
+
+/**
+ * The keepalive frame this side RECEIVES, which may be dispatched on as a byte-exact constant.
+ *
+ * Named per side rather than as a pair: the room receives `ping` and answers `pong`, the browser is
+ * the other way round, and adding both to either set would have each side credited with handling a
+ * frame it only ever sends.
+ */
+function withKeepalive(found: Set<string>, source: string, received: "ping" | "pong"): Set<string> {
+  const constant = received === "ping" ? "PING_FRAME" : "PONG_FRAME";
+  const complete = new Set(found);
+  if (source.includes(constant)) complete.add(received);
+  return complete;
+}
+
+// The ONE module on each side that decides where a frame goes. The scans above read every module,
+// because a frame can be built or sent from anywhere; a frame is DISPATCHED in exactly one place,
+// and that is the place worth reading exactly.
+const ROOM_DISPATCH = join(
+  REPO_ROOT,
+  "apps",
+  "api-worker",
+  "src",
+  "meetings",
+  "room",
+  "room-frames.ts",
+);
+const CLIENT_DISPATCH = join(
+  REPO_ROOT,
+  "apps",
+  "web",
+  "src",
+  "lib",
+  "meetings",
+  "client",
+  "signaling.ts",
+);
+
 const roomSource = readAll(ROOM_SOURCES);
 const clientSource = readAll(CLIENT_SOURCES);
 const protocolSource = readFileSync(PROTOCOL_SOURCE, "utf8");
+const roomDispatchSource = readFileSync(ROOM_DISPATCH, "utf8");
+const clientDispatchSource = readFileSync(CLIENT_DISPATCH, "utf8");
 
 describe("every client frame the protocol declares", () => {
   it.each([...MEETING_CLIENT_FRAME_TYPES])("is handled by the room: %s", (frameType) => {
@@ -112,6 +177,37 @@ describe("every room frame the protocol declares", () => {
   });
 });
 
+// EQUALITY, NOT MEMBERSHIP, and against the dispatch rather than against the file.
+//
+// The per-frame scans above are a substring search over every module on a side, which is why they
+// were passing for frames nothing handles: "sync" appears in a type alias that EXCLUDES it from the
+// signaling frames, and "ended" is a meeting state the room reads off a row. Six of the room's
+// handlers could be deleted with every one of those cases still green. What cannot be faked is the
+// dispatch itself — one `switch`, one chain of comparisons — so these two read the labels out of it
+// and compare the SET both ways: a frame with no case fails, and a case for a frame this package
+// does not declare fails too, which is the half that catches a rename leaving the old branch behind.
+describe("the dispatch each side actually runs", () => {
+  it("routes every client frame the protocol declares, and nothing else", () => {
+    expect(
+      [
+        ...withKeepalive(dispatchedTypesIn(roomDispatchSource), roomDispatchSource, "ping"),
+      ].toSorted(),
+      "the room's dispatch in room-frames.ts and MEETING_CLIENT_FRAME_TYPES disagree. A frame " +
+        "with no branch there is accepted by the parser and then silently dropped.",
+    ).toEqual([...MEETING_CLIENT_FRAME_TYPES].toSorted());
+  });
+
+  it("routes every room frame the protocol declares, and nothing else", () => {
+    expect(
+      [
+        ...withKeepalive(caseLabelsIn(clientDispatchSource), clientDispatchSource, "pong"),
+      ].toSorted(),
+      "the browser's receive switch in signaling.ts and MEETING_ROOM_FRAME_TYPES disagree. An " +
+        "unhandled frame is dropped, which reads as a tile that never arrives.",
+    ).toEqual([...MEETING_ROOM_FRAME_TYPES].toSorted());
+  });
+});
+
 describe("the scan itself", () => {
   it("is reading real files at both ends", () => {
     // A scan over an empty string passes every case above and proves nothing, which is the one way
@@ -121,5 +217,8 @@ describe("the scan itself", () => {
     expect(CLIENT_SOURCES.length).toBeGreaterThan(1);
     expect(roomSource.length).toBeGreaterThan(1000);
     expect(clientSource.length).toBeGreaterThan(1000);
+    // And the two dispatch reads found a dispatch rather than an empty file at a moved path.
+    expect(dispatchedTypesIn(roomDispatchSource).size).toBeGreaterThan(4);
+    expect(caseLabelsIn(clientDispatchSource).size).toBeGreaterThan(4);
   });
 });

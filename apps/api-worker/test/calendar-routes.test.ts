@@ -3,7 +3,10 @@ import { insertMemberStatement } from "@magna-carta/data-access/member-statement
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
+import { CANCEL_CLOSING_GUARD } from "@magna-carta/meetings/meeting-service";
+import { createApp } from "../src/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
+import { racingFirmDatabase } from "./support/racing-firm-database.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
@@ -23,6 +26,7 @@ import {
 let firmId: FirmId;
 let ownerCookie: string;
 let readOnlyCookie: string;
+let diaristCookie: string;
 let firmDatabase: ReturnType<typeof firmDatabaseFor>;
 let ownerUserId: UserId;
 let readOnlyUserId: UserId;
@@ -85,6 +89,25 @@ async function del(path: string, cookie = ownerCookie) {
   });
 }
 
+// A member with `calendar:manage` and nothing else — no role, so no `meetings:host`. No seeded role
+// has that shape, and that is the point: the permission split is the thing under test, and a fixture
+// that used a seeded role would be testing which keys the seeds happen to pair.
+async function mirrorMemberWithDiaryGrants(
+  database: ReturnType<typeof firmDatabaseFor>,
+  userId: UserId,
+  displayName: string,
+): Promise<void> {
+  await insertMemberStatement(database, { userId, displayName, now: clock.now() }).run();
+  for (const permission of ["calendar:read", "calendar:manage", "matters:read"]) {
+    await database
+      .prepare(
+        "INSERT INTO direct_grant (id, member_user_id, permission, granted_by, expires_at, created_at) VALUES (?1, ?2, ?3, ?2, NULL, ?4)",
+      )
+      .bind(newIdentifier("grant"), userId, permission, clock.now())
+      .run();
+  }
+}
+
 async function createMatter(title: string): Promise<string> {
   // Consultation rather than open: the calendar has no interest in a matter's NUMBER, and drawing
   // one would make this block depend on a numbering scheme it does not otherwise need.
@@ -118,6 +141,13 @@ beforeAll(async () => {
   await mirrorMemberWithUnrelatedGrant(firmDatabase, readOnly.userId, "Calendar Reader");
   readOnlyUserId = readOnly.userId;
   readOnlyCookie = await signInForSessionCookie("calendar-readonly@example.com");
+
+  const diarist = await seedCredentialedUser("calendar-diarist@example.com", {
+    userName: "Calendar Diarist",
+    firmId,
+  });
+  await mirrorMemberWithDiaryGrants(firmDatabase, diarist.userId, "Calendar Diarist");
+  diaristCookie = await signInForSessionCookie("calendar-diarist@example.com");
 
   matterId = await createMatter("Smith v Jones");
   secondMatterId = await createMatter("Brown estate");
@@ -1002,5 +1032,203 @@ describe("scheduling a meeting on an event", () => {
     const detail = await get(`/api/v1/events/${body.id}`);
     const detailBody = (await detail.json()) as { event: { status: string } };
     expect(detailBody.event.status).toBe("scheduled");
+  });
+
+  it("closes the room nobody walked into when the sitting is taken off", async () => {
+    const recorded = await post(`/api/v1/matters/${matterId}/events`, {
+      title: "Preparation that was not needed",
+      startsOn: "2026-10-15",
+      startsAtTime: "09:00",
+      timeZone: "America/Los_Angeles",
+      meeting: { medium: "video" },
+    });
+    const body = (await recorded.json()) as { id: string; meetingId: string | null };
+    expect((await meetingRow(body.id))?.status).toBe("scheduled");
+
+    expect((await post(`/api/v1/events/${body.id}/cancel`, {})).status).toBe(200);
+
+    // One batch: the setting is off and the room is closed. A room left openable on a sitting that
+    // is not happening is the product and the record disagreeing.
+    expect((await meetingRow(body.id))?.status).toBe("ended");
+    const detail = (await (await get(`/api/v1/events/${body.id}`)).json()) as {
+      event: { status: string };
+    };
+    expect(detail.event.status).toBe("cancelled");
+  });
+});
+
+// THE WINDOW THE CANCEL'S OWN READ CANNOT SPAN, driven through the real routes.
+//
+// `meetingClosingWithEvent` decides "scheduled, so end it" a round trip before the batch commits,
+// and both endings of that race are reachable in a working deployment: somebody joins the meeting,
+// or the host ends it. The seam is the firm-database BINDING, because a route builds its own
+// database from it — see the harness for why the shared interleaving helper cannot reach a request.
+describe("cancelling an event whose meeting moves underneath it", () => {
+  const app = createApp();
+  // Joining mints relay credentials, so the two acts that move a meeting underneath a cancel are
+  // driven through an environment that carries them. The mint degrades to the public resolution
+  // server when the service does not answer, which is what it does here.
+  const routed = {
+    ...env,
+    REALTIME_SFU_APP_ID: "test-realtime-application",
+    REALTIME_SFU_APP_SECRET: "test-realtime-secret",
+  };
+
+  async function meetingAct(path: string): Promise<Response> {
+    return await app.request(
+      `https://example.com${path}`,
+      {
+        method: "POST",
+        headers: authHeaders(ownerCookie, crypto.randomUUID()),
+        body: JSON.stringify({}),
+      },
+      routed,
+    );
+  }
+
+  async function meetingFor(eventId: string): Promise<{ id: string; status: string } | undefined> {
+    const { results } = await firmDatabase
+      .prepare("SELECT id, status FROM meeting WHERE matter_event_id = ?1")
+      .bind(eventId)
+      .all<{ id: string; status: string }>();
+    return results[0];
+  }
+
+  async function scheduledMeetingEvent(title: string): Promise<{ id: string; meetingId: string }> {
+    const recorded = await post(`/api/v1/matters/${matterId}/events`, {
+      title,
+      startsOn: "2026-10-20",
+      startsAtTime: "13:00",
+      timeZone: "America/Los_Angeles",
+      meeting: { medium: "video" },
+    });
+    expect(recorded.status).toBe(201);
+    const body = (await recorded.json()) as { id: string; meetingId: string | null };
+    return { id: body.id, meetingId: body.meetingId ?? "" };
+  }
+
+  /** The cancel, sent through an environment whose firm database opens the window. */
+  async function cancelRacing(eventId: string, fire: () => Promise<unknown>) {
+    const racing = racingFirmDatabase({ ...env }, CANCEL_CLOSING_GUARD, fire);
+    const response = await app.request(
+      `https://example.com/api/v1/events/${eventId}/cancel`,
+      {
+        method: "POST",
+        headers: authHeaders(ownerCookie, crypto.randomUUID()),
+        body: JSON.stringify({}),
+      },
+      racing.environment,
+    );
+    return { response, racing };
+  }
+
+  it("refuses the cancel when somebody walks in between the read and the commit", async () => {
+    const event = await scheduledMeetingEvent("Settlement conference somebody joined");
+
+    const { response, racing } = await cancelRacing(event.id, async () => {
+      const joined = await meetingAct(`/api/v1/meetings/${event.meetingId}/join`);
+      expect(joined.status).toBe(200);
+    });
+
+    // Without the precondition in the statement's own WHERE, the general ending matches
+    // `status <> 'ended'` and this cancel closes the room under the member who just joined it —
+    // with the room itself never told, because a cancel notifies nobody.
+    expect(racing.interleaved).toBe(true);
+    expect(response.status).toBe(409);
+    const problem = (await response.json()) as { type: string };
+    expect(problem.type).toContain("meeting-in-progress");
+
+    // The whole batch rolled back: the meeting is live and the sitting is still on the calendar.
+    expect((await meetingFor(event.id))?.status).toBe("live");
+    const detail = (await (await get(`/api/v1/events/${event.id}`)).json()) as {
+      event: { status: string };
+    };
+    expect(detail.event.status).toBe("scheduled");
+  });
+
+  it("lets the cancel through when the host closed the room in that same window", async () => {
+    const event = await scheduledMeetingEvent("Conference the host closed");
+
+    const { response, racing } = await cancelRacing(event.id, async () => {
+      const ended = await meetingAct(`/api/v1/meetings/${event.meetingId}/end`);
+      expect(ended.status).toBe(200);
+    });
+
+    // Nothing is left to close, so the closing is a no-op and the diary act stands on its own —
+    // where before the guard's refusal came back to the member as a server error.
+    expect(racing.interleaved).toBe(true);
+    expect(response.status).toBe(200);
+    expect((await meetingFor(event.id))?.status).toBe("ended");
+    const detail = (await (await get(`/api/v1/events/${event.id}`)).json()) as {
+      event: { status: string };
+    };
+    expect(detail.event.status).toBe("cancelled");
+
+    // ENDED ONCE. The instant and the actor a record already carries are never moved by the
+    // tidy-up that lost the race.
+    const { results } = await firmDatabase
+      .prepare(
+        "SELECT COUNT(*) AS endings FROM audit_log WHERE event = 'meetings.meeting.ended' AND subject_id = ?1",
+      )
+      .bind(event.meetingId)
+      .all<{ endings: number }>();
+    expect(results[0]?.endings).toBe(1);
+  });
+});
+
+describe("opening a room from the event form is a meetings act", () => {
+  it("refuses the meeting to a member who keeps the diary and may not host, and records the event without one", async () => {
+    const refused = await post(
+      `/api/v1/matters/${matterId}/events`,
+      {
+        title: "Meeting the diarist may not convene",
+        startsOn: "2026-10-22",
+        startsAtTime: "09:00",
+        timeZone: "America/Los_Angeles",
+        meeting: { medium: "video" },
+      },
+      diaristCookie,
+    );
+    expect(refused.status).toBe(403);
+    const problem = (await refused.json()) as { type: string };
+    expect(problem.type).toContain("permission-denied");
+
+    // THE MEETING FIELD ALONE. Keeping the diary is what `calendar:manage` is for, and the same
+    // member records the same sitting without a room on it.
+    const recorded = await post(
+      `/api/v1/matters/${matterId}/events`,
+      {
+        title: "The same sitting, without a room",
+        startsOn: "2026-10-22",
+        startsAtTime: "09:00",
+        timeZone: "America/Los_Angeles",
+      },
+      diaristCookie,
+    );
+    expect(recorded.status).toBe(201);
+    const plain = (await recorded.json()) as { meetingId: string | null };
+    expect(plain.meetingId).toBeNull();
+  });
+
+  it("still lets that member take a sitting off the calendar, room and all", async () => {
+    // The room is the host's; the sitting is the diary's. Requiring the meetings key to cancel
+    // would leave a firm unable to take a hearing off because somebody else opened a room on it.
+    const recorded = await post(`/api/v1/matters/${matterId}/events`, {
+      title: "Hearing the diarist takes off",
+      startsOn: "2026-10-23",
+      startsAtTime: "11:00",
+      timeZone: "America/Los_Angeles",
+      meeting: { medium: "video" },
+    });
+    const body = (await recorded.json()) as { id: string; meetingId: string | null };
+
+    const cancelled = await post(`/api/v1/events/${body.id}/cancel`, {}, diaristCookie);
+    expect(cancelled.status).toBe(200);
+
+    const { results } = await firmDatabase
+      .prepare("SELECT status FROM meeting WHERE id = ?1")
+      .bind(body.meetingId)
+      .all<{ status: string }>();
+    expect(results[0]?.status).toBe("ended");
   });
 });

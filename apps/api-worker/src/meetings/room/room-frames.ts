@@ -18,10 +18,12 @@ import {
   sessionFor,
   subscribeTracks,
 } from "./room-media.ts";
+import { armAlarm } from "./room-lifecycle.ts";
 import { relayPresence } from "./room-presence.ts";
 import { namesOnlyRosterTracks, rosterFrom } from "./room-roster.ts";
 import {
   attachmentOf,
+  putParticipant,
   readEndedAt,
   readParticipant,
   readRoom,
@@ -49,6 +51,27 @@ import {
 // opening tracks in a loop: every one of them is a forwarding cost billed to this account and a
 // subscription every other participant in the room is invited to make.
 const MAX_TRACKS_PER_PARTICIPANT = 8;
+
+// HOW OFTEN ONE PARTICIPANT MAY ASK FOR THE WHOLE ROSTER, and how often they may change a layer.
+//
+// Both frames cost the ROOM rather than the sender, which is what makes them worth bounding: a sync
+// is a list of every key the room holds — three hundred of them in a full meeting — and a layer
+// change is a call to the routing service. Everything else a browser sends is either answered from
+// what the frame already carries or already bounded by something else (a publish by the track
+// ceiling, a subscribe by the roster it has to name). A browser can send either of these as fast as
+// it can write to a socket, and one doing so stalls every other person's frames behind it.
+//
+// A FRAME INSIDE THE WINDOW IS DROPPED, NOT DEFERRED, and this is deliberately the opposite choice
+// from the presence throttle next door. A deferred presence transition is a fact about somebody that
+// stays wrong until it is sent, so it is worth an alarm. These two are not facts: a sync is a
+// REQUEST, and a browser that does not get an answer asks again a moment later — while the room goes
+// on announcing every roster change to it unprompted, so the list it is missing is the recovery path
+// and not the ordinary one. A layer change is a preference about how large a tile is drawn, and one
+// dropped inside a quarter of a second is superseded by whatever the browser asks for next. Neither
+// is refused on the wire: a refusal reason is a vocabulary every browser has to learn to treat as
+// non-fatal, which is a larger change than a frame nobody sent on purpose is worth.
+const SYNC_INTERVAL_MILLISECONDS = 1000;
+const LAYER_INTERVAL_MILLISECONDS = 250;
 
 /** The frames that reach the routing service, which is every one the room does not answer itself. */
 type SignalingFrame = Exclude<
@@ -105,6 +128,18 @@ export async function dispatchClientFrame(
   // microphone is carrying a voice, are both about the roster alone — and both must go on working
   // in a deployment whose media credentials went away under an open meeting.
   if (parsed.frame.type === "sync") {
+    // The throttle is claimed BEFORE the roster is read, which is the whole point of it: the read
+    // is what this frame costs.
+    if (
+      !(await claimThrottleSlot(
+        room,
+        attachment.attendanceId,
+        "syncAt",
+        SYNC_INTERVAL_MILLISECONDS,
+      ))
+    ) {
+      return;
+    }
     // ONE SOCKET, and the whole list. This is the way back to the truth for a client that has been
     // applying differences: without it, a browser that suspects a gap could only reconnect, which
     // costs it every track it holds.
@@ -113,13 +148,30 @@ export async function dispatchClientFrame(
   }
 
   if (parsed.frame.type === "presence") {
-    await relayPresence(
+    const deferred = await relayPresence(
       room,
       socket,
       attachment.attendanceId,
       parsed.frame.speaking,
       parsed.frame.muted,
     );
+    // A transition the throttle held back is relayed by the alarm instead. Armed from here rather
+    // than from inside the presence module because a room has ONE alarm and one place that
+    // reconciles every deadline into it.
+    if (deferred) await armAlarm(room);
+    return;
+  }
+
+  // Same claim, one frame earlier than the roster read and the upstream call it would make.
+  if (
+    parsed.frame.type === "layer" &&
+    !(await claimThrottleSlot(
+      room,
+      attachment.attendanceId,
+      "layerAt",
+      LAYER_INTERVAL_MILLISECONDS,
+    ))
+  ) {
     return;
   }
 
@@ -196,7 +248,7 @@ async function handleSignalingFrame(
     return;
   }
   if (frame.type === "subscribe") {
-    await subscribeTracks(socket, sessionId, frame, sfu);
+    await subscribeTracks(room, socket, attachment.attendanceId, sessionId, frame, sfu);
     return;
   }
   if (frame.type === "renegotiate") {
@@ -252,5 +304,46 @@ async function refuseFrame(
   // disagreeing about what may be asked for.
   if (frame.type !== "subscribe" && frame.type !== "layer") return null;
   if (stored === null) return "unknown-track";
-  return namesOnlyRosterTracks(attendanceId, stored, frame.tracks) ? null : "unknown-track";
+  if (!namesOnlyRosterTracks(attendanceId, stored, frame.tracks)) return "unknown-track";
+  if (frame.type === "subscribe") return null;
+
+  // AND A LAYER CHANGE ANSWERS TO ONE MORE THING, because the roster check alone constrains nothing
+  // about what it actually does. The (session, track) pair on a layer frame says what the browser
+  // believes it is adjusting; what is SENT upstream is the media section, inside the asking
+  // browser's own session — and the routing service will change any section that session holds,
+  // including the ones this browser publishes through. So the room refuses a section it did not
+  // subscribe for this participant itself, which is the only version of this check that decides
+  // anything.
+  const mine = new Set(stored.get(attendanceId)?.subscribedMids ?? []);
+  return frame.tracks.every((track) => mine.has(track.mid)) ? null : "unknown-track";
+}
+
+/**
+ * Claims this participant's slot for a throttled frame, answering whether it may proceed.
+ *
+ * Read-modify-write under the gate, because two frames arriving together would otherwise both read
+ * the same instant and both pass — which is precisely the burst this bounds. A stay that has never
+ * sent one has no window at all, so the first is always answered.
+ */
+async function claimThrottleSlot(
+  room: RoomContext,
+  attendanceId: string,
+  field: "syncAt" | "layerAt",
+  intervalMilliseconds: number,
+): Promise<boolean> {
+  const now = Date.now();
+  return await room.ctx.blockConcurrencyWhile(async () => {
+    const participant = await readParticipant(room, attendanceId);
+    // No roster entry: the frame is refused a little further on, by the path that can tell a member
+    // whose stay has closed from a meeting that has ended. Nothing to claim, and nothing to say.
+    if (participant === undefined) return true;
+    const previous =
+      participant[field] === null ? Number.NaN : Date.parse(participant[field] ?? "");
+    if (!Number.isNaN(previous) && now - previous < intervalMilliseconds) return false;
+    await putParticipant(room, attendanceId, {
+      ...participant,
+      [field]: new Date(now).toISOString(),
+    });
+    return true;
+  });
 }

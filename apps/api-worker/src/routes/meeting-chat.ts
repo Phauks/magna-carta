@@ -2,12 +2,20 @@ import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { decodeCursor, encodeCursor } from "@magna-carta/data-access/cursor-pagination";
-import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
+import {
+  GuardedWriteRefusedError,
+  type BatchDatabase,
+  type EffectWrite,
+} from "@magna-carta/data-access/effect-batch";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
 import type { MeetingId, MeetingMessageId } from "@magna-carta/identifiers/types";
-import { postMeetingMessage, redactMeetingMessage } from "@magna-carta/meetings/chat-service";
-import { listMeetingMessages } from "@magna-carta/meetings/chat-statements";
+import {
+  postMeetingMessage,
+  redactMeetingMessage,
+  REDACT_MESSAGE_GUARD,
+} from "@magna-carta/meetings/chat-service";
+import { listMeetingMessages, readMeetingMessage } from "@magna-carta/meetings/chat-statements";
 import {
   MAX_MEETING_MESSAGE_LENGTH,
   MAX_MEETING_MESSAGE_PAGE_SIZE,
@@ -93,12 +101,19 @@ const MeetingMessage = z
 
 const MeetingMessagePage = paginated(MeetingMessage).openapi("MeetingMessagePage");
 
-// `since` is an INSTANT and is the caller's to send: it is what a poller holds after the previous
-// read, so a screen following a live meeting asks for what has been said since rather than
-// re-reading the conversation. Two instants compare the same in every zone on earth, which is why
-// this one may be derived where the meetings list's `today` may not.
+// WHAT A POLLER CARRIES IS A POSITION, NOT A WATERMARK. `since` is the instant it read to and
+// `sinceId` is the handle of the row it read there, and the pair is compared as one `(sent_at, id)`
+// key. An instant on its own is not a position in this list: two messages can be stamped the same
+// millisecond, and a strict "after this instant" then drops the second of them for that poller
+// permanently, because the next tick asks from a later instant still. `since` alone is still
+// accepted — it is what a caller built against an older shape sends — and keeps the strict-instant
+// comparison, which can re-read but never skip.
+//
+// Both are the caller's to send, and both are safe to derive: two instants compare the same in every
+// zone on earth, which is why this one may be derived where the meetings list's `today` may not.
 const listMessagesQuery = cursorQuery.extend({
   since: z.string().datetime().optional(),
+  sinceId: z.string().optional(),
 });
 
 const meetingIdParam = z.object({ meetingId: identifierPathParam("meeting", "meetingId") });
@@ -192,7 +207,9 @@ const sendRoute = defineOpenAPIRoute(writeMeta("sendMessage"), {
     "in the room is what makes a message sayable, so a member who has left is answered as one who " +
     "is not in the meeting. The message is stored against that stay rather than against the " +
     "member, so somebody who dropped off and dialled back in has each message attributed to the " +
-    "stay it was said from.",
+    "stay it was said from. A retried send is answered with the message's record — its handle, its " +
+    "stay and its instant — and an empty body: what was said is kept in the transcript, which is " +
+    "the one copy a taking-back can reach, and never in the retry record.",
   request: {
     params: meetingIdParam,
     headers: idempotencyKeyHeader,
@@ -212,10 +229,15 @@ const listRoute = defineOpenAPIRoute(readMeta("listMessages"), {
   path: "/api/v1/meetings/{meetingId}/messages",
   description:
     "A meeting's chat, oldest first — a conversation is read forwards, so the first page is the " +
-    "beginning of the meeting rather than the end of it. `since` is an instant a poller holds from " +
-    "its previous read and asks for what has been said after; the cursor walks a long transcript. " +
-    "A message that has been taken back is still returned, with an empty body beside the instant " +
-    "and the member that say it was removed.",
+    "beginning of the meeting rather than the end of it. A poller following a live meeting " +
+    "continues from `nextCursor`, which every page with rows carries whether or not more are " +
+    "waiting; here it is a position in the conversation rather than a has-more flag, so a reader " +
+    "resumes exactly where it stopped and a caller walking to the end sees one final empty page. " +
+    "Never continue from a timestamp alone: two messages can share an instant, and the second is " +
+    "lost to a reader that asks for what came strictly after it. `since` with `sinceId` is the " +
+    "same position spelled out for a caller that holds the pair rather than the cursor. A message " +
+    "that has been taken back is still returned, with an empty body beside the instant and the " +
+    "member that say it was removed.",
   request: { params: meetingIdParam, query: listMessagesQuery },
   responses: {
     200: {
@@ -351,8 +373,8 @@ function serviceOptions(c: Context<{ Bindings: Bindings; Variables: AppVariables
   };
 }
 
-type ChatOutcome<T> =
-  | { ok: true; value: T }
+type ChatOutcome =
+  | { ok: true; messageId: string }
   | {
       ok: false;
       problem:
@@ -366,15 +388,38 @@ type ChatOutcome<T> =
  * Runs one chat write through the idempotency gate, mapping both refusal vocabularies on the way
  * out: the room's (reaching the meeting at all) and the chat's (the message inside it).
  *
- * The stored body IS the wire body, so a retried send answers with the message that was stored
- * rather than saying the same thing twice.
+ * THE STORED BODY CARRIES THE MESSAGE'S RECORD AND NOT ITS WORDS, and that is a confidentiality
+ * rule rather than a shape preference. `idempotency_key.response_body` is served verbatim to
+ * whoever retries the key — by the chokepoint's own gate, before this handler runs again — and
+ * nothing a redaction does reaches it. Storing what was said there would leave the words in a second
+ * place, outliving the taking-back that was meant to remove them and handed to the next retry of
+ * that key; packages/data-access/src/idempotency-statements.ts says the same of every stored body.
+ * So the record's own fields are stored — the handle, the stay, the instant — with the words left
+ * out, and the retry is answered in the shape it would have been either way. The words are in the
+ * transcript, which is the one place they live and the one place a redaction can reach.
+ *
+ * A FIRST ANSWER IS READ BACK OFF THE ROW rather than projected from what the service composed, so
+ * what a member is told is what the record now holds.
+ *
+ * A REDACTION THAT LOST A RACE IS A SUCCESS, not a fault. The redaction's write is guarded on the
+ * message not already being taken back, so two members redacting the same message together leave one
+ * of them with a batch that matched no row. What that member asked for is true — the message is
+ * gone — and the caller reads the settled row exactly as the ordinary already-redacted path does, so
+ * the race answers 200 like the sequence does rather than handing somebody an Error ID for it.
  */
-async function commitChatEffect<T>(
+async function commitChatEffect(
   c: Context,
   database: BatchDatabase,
   idempotency: { key: string | undefined; fingerprint: string },
-  call: () => Promise<{ value: T; responseCode: number; effect: EffectWrite }>,
-): Promise<ChatOutcome<T>> {
+  call: () => Promise<{
+    message: z.infer<typeof MeetingMessage>;
+    responseCode: number;
+    effect: EffectWrite;
+  }>,
+): Promise<ChatOutcome> {
+  // Kept from inside the effect because the guard refusal below is raised by the COMMIT, one level
+  // past the callback that knows which message this was about.
+  let composed: { messageId: string } | undefined;
   let result;
   try {
     result = await runIdempotentEffect({
@@ -383,8 +428,13 @@ async function commitChatEffect<T>(
       fingerprint: idempotency.fingerprint,
       now: () => new Date().toISOString(),
       effect: async () => {
-        const { value, responseCode, effect } = await call();
-        return { write: effect, responseCode, responseBody: canonicalJsonStringify(value) };
+        const { message, responseCode, effect } = await call();
+        composed = { messageId: message.id };
+        return {
+          write: effect,
+          responseCode,
+          responseBody: canonicalJsonStringify({ ...message, body: WORDS_NOT_REPLAYED }),
+        };
       },
     });
   } catch (caught) {
@@ -394,12 +444,48 @@ async function commitChatEffect<T>(
     if (caught instanceof MeetingValidationError) {
       return { ok: false, problem: meetingErrorResponse(c, caught) };
     }
+    if (
+      caught instanceof GuardedWriteRefusedError &&
+      caught.guard === REDACT_MESSAGE_GUARD &&
+      composed !== undefined
+    ) {
+      return { ok: true, messageId: composed.messageId };
+    }
     throw caught;
   }
   if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
     return { ok: false, problem: problemResponseForIdempotencyConflict(c, result) };
   }
-  return { ok: true, value: JSON.parse(result.responseBody ?? "{}") as T };
+  const stored = JSON.parse(result.responseBody ?? "{}") as { id: string };
+  return { ok: true, messageId: stored.id };
+}
+
+// What a retried write is answered with in place of the words. Empty rather than a marker, because
+// the field means "what this message says as the record holds it for this reader", and a retry is
+// not entitled to a second copy of content the transcript already carries — the read is one request
+// away and is the only surface a redaction reaches.
+const WORDS_NOT_REPLAYED = "";
+
+/**
+ * The message as the record now holds it, which is what every answer on this surface is built from.
+ *
+ * Read after the write rather than projected from what the service composed: the row is the record,
+ * and a replayed request has no composed value at all. A handle that answers nothing here is not a
+ * caller's mistake — the write it came from has committed — so it is a fault with an Error ID rather
+ * than a 404 that would tell a member their own message is not there.
+ */
+async function messageOnTheRecord(
+  database: BatchDatabase,
+  meetingId: MeetingId,
+  messageId: string,
+): Promise<z.infer<typeof MeetingMessage>> {
+  const row = await readMeetingMessage(database, meetingId, messageId as MeetingMessageId);
+  if (row === undefined) {
+    throw new Error(
+      `meeting chat: message ${messageId} committed in meeting ${meetingId} could not be read back`,
+    );
+  }
+  return row;
 }
 
 // ---- registration ----
@@ -417,22 +503,20 @@ export function registerMeetingChatRoutes(
       const { meetingId } = c.req.valid("param");
       const { body } = c.req.valid("json");
 
-      const outcome = await commitChatEffect<z.infer<typeof MeetingMessage>>(
-        c,
-        firm.firmDatabase,
-        idempotency,
-        async () => {
-          const sent = await postMeetingMessage(
-            firm.firmDatabase,
-            meetingId as MeetingId,
-            { body },
-            serviceOptions(c),
-          );
-          return { value: sent.message, responseCode: 201, effect: sent.effect };
-        },
-      );
+      const outcome = await commitChatEffect(c, firm.firmDatabase, idempotency, async () => {
+        const sent = await postMeetingMessage(
+          firm.firmDatabase,
+          meetingId as MeetingId,
+          { body },
+          serviceOptions(c),
+        );
+        return { message: sent.message, responseCode: 201, effect: sent.effect };
+      });
       if (!outcome.ok) return outcome.problem;
-      return c.json(outcome.value, 201);
+      return c.json(
+        await messageOnTheRecord(firm.firmDatabase, meetingId as MeetingId, outcome.messageId),
+        201,
+      );
     },
   );
 
@@ -452,11 +536,12 @@ export function registerMeetingChatRoutes(
       );
       if (meeting === undefined) return notFound(c);
 
-      const { cursor, since } = c.req.valid("query");
+      const { cursor, since, sinceId } = c.req.valid("query");
       const found = await listMeetingMessages(firm.firmDatabase, meetingId as MeetingId, {
         cursor: decodeCursor(cursor),
         limit: MAX_MEETING_MESSAGE_PAGE_SIZE,
         since,
+        sinceId,
       });
       // The read asks for one row past the page, and that row is the answer to "is there more"
       // rather than part of the page.
@@ -468,8 +553,15 @@ export function registerMeetingChatRoutes(
           // The domain entry IS the wire shape here, so this list projects nothing; the copy is
           // only to hand the framework a mutable array.
           data: [...rows],
-          // Keyed on the same pair the list is ordered by, so the walk cannot skip or repeat.
-          nextCursor: hasMore && last !== undefined ? encodeCursor(last.sentAt, last.id) : null,
+          // A POSITION, NOT A HAS-MORE FLAG — the one list on this API where the last page still
+          // carries one, and the reason is who reads this list. A transcript is FOLLOWED: a screen
+          // watching a live meeting reaches the end of it and then keeps asking, and a null here
+          // would leave it to continue from the last instant it saw — which loses the second of two
+          // messages stamped the same millisecond, permanently, because the next ask starts later
+          // still. Keyed on the same pair the list is ordered by, so a walk cannot skip or repeat
+          // either; a caller walking to the end sees one final empty page instead of stopping a
+          // page early.
+          nextCursor: last === undefined ? null : encodeCursor(last.sentAt, last.id),
         },
         200,
       );
@@ -484,24 +576,22 @@ export function registerMeetingChatRoutes(
       const idempotency = requireChokepointIdempotency(c);
       const { meetingId, messageId } = c.req.valid("param");
 
-      const outcome = await commitChatEffect<z.infer<typeof MeetingMessage>>(
-        c,
-        firm.firmDatabase,
-        idempotency,
-        async () => {
-          const taken = await redactMeetingMessage(
-            firm.firmDatabase,
-            meetingId as MeetingId,
-            messageId as MeetingMessageId,
-            serviceOptions(c),
-          );
-          // A message already taken back answers with the row as it stands: the member asked for it
-          // to be gone and it is gone, so a refusal would report a failure that did not happen.
-          return { value: taken.message, responseCode: 200, effect: taken.effect };
-        },
-      );
+      const outcome = await commitChatEffect(c, firm.firmDatabase, idempotency, async () => {
+        const taken = await redactMeetingMessage(
+          firm.firmDatabase,
+          meetingId as MeetingId,
+          messageId as MeetingMessageId,
+          serviceOptions(c),
+        );
+        // A message already taken back answers with the row as it stands: the member asked for it
+        // to be gone and it is gone, so a refusal would report a failure that did not happen.
+        return { message: taken.message, responseCode: 200, effect: taken.effect };
+      });
       if (!outcome.ok) return outcome.problem;
-      return c.json(outcome.value, 200);
+      return c.json(
+        await messageOnTheRecord(firm.firmDatabase, meetingId as MeetingId, outcome.messageId),
+        200,
+      );
     },
   );
 }

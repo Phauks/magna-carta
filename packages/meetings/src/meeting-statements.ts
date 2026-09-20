@@ -517,6 +517,38 @@ export function endMeetingStatement(
     .bind(input.now, input.endedByUserId, input.id);
 }
 
+// CLOSING A ROOM NOBODY ENTERED, because the sitting it hangs from is being cancelled — and the
+// whole of the precondition is in the WHERE rather than in the read the caller made a round trip
+// earlier.
+//
+// Three conditions, and each of them is a separate way the caller's read can be stale by the time
+// the batch commits. `status = 'scheduled'` is the one that matters most: the general ending
+// statement above matches `status <> 'ended'`, so a meeting that went LIVE between the cancel's read
+// and its commit would be ended under the people sitting in it, by somebody editing a calendar.
+// `ended_at IS NULL` says the host did not close it in that same window — then the closing is a
+// no-op rather than a second ending with a different instant and a different actor on it. And the
+// NOT EXISTS is the one the status alone cannot answer: an arrival writes its stay and flips the
+// room live in ONE batch, so there is no instant where the two disagree — but a stay is the fact
+// that somebody is in the room, and reading it here means the room is safe from this statement even
+// if some later path opens a stay without touching the status.
+//
+// Guarded at its call site: matching no row means the cancel lost the race, and the whole batch —
+// the cancelled event with it — rolls back so the route can answer what actually happened instead of
+// cancelling the sitting and silently leaving the room open.
+export function endScheduledMeetingStatement(
+  database: SqlDatabase,
+  input: { readonly id: MeetingId; readonly endedByUserId: UserId; readonly now: string },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MEETING_TABLE} SET status = 'ended', ended_at = ?1, ended_by_user_id = ?2, ` +
+        `updated_at = ?1 WHERE id = ?3 AND status = 'scheduled' AND ended_at IS NULL ` +
+        `AND NOT EXISTS (SELECT 1 FROM ${MEETING_ATTENDANCE_TABLE} ` +
+        `WHERE meeting_id = ?3 AND left_at IS NULL)`,
+    )
+    .bind(input.now, input.endedByUserId, input.id);
+}
+
 export interface InsertAttendanceInput {
   readonly id: MeetingAttendanceId;
   readonly meetingId: MeetingId;

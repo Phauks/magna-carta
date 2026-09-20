@@ -133,7 +133,9 @@ export async function publishTracks(
  * something to describe and its answer carries the offer the browser replies to.
  */
 export async function subscribeTracks(
+  room: RoomContext,
   socket: WebSocket,
+  attendanceId: string,
   sessionId: string,
   frame: {
     readonly tracks: readonly {
@@ -157,16 +159,23 @@ export async function subscribeTracks(
         : { simulcast: simulcastPreferenceFor(track.preferredRid) }),
     })),
   });
+  const forwarded = answer.tracks.flatMap((track) =>
+    track.sessionId === undefined || track.trackName === undefined || track.mid === undefined
+      ? []
+      : [{ sessionId: track.sessionId, trackName: track.trackName, mid: track.mid }],
+  );
   socket.send(
-    subscribedFrame(
-      answer.sessionDescription,
-      answer.tracks.flatMap((track) =>
-        track.sessionId === undefined || track.trackName === undefined || track.mid === undefined
-          ? []
-          : [{ sessionId: track.sessionId, trackName: track.trackName, mid: track.mid }],
-      ),
-      answer.requiresImmediateRenegotiation,
-    ),
+    subscribedFrame(answer.sessionDescription, forwarded, answer.requiresImmediateRenegotiation),
+  );
+  // THE SECTIONS THE ROOM OPENED FOR THIS BROWSER, remembered because they are the whole of what it
+  // may later ask to change the layer of. A layer change names a media section inside the asking
+  // browser's OWN session, and the routing service will change any section it holds for that
+  // session — including the ones this browser publishes through — so the roster check a layer frame
+  // passes says nothing at all unless the room also knows which sections it subscribed.
+  await recordSubscribedSections(
+    room,
+    attendanceId,
+    forwarded.map((track) => track.mid),
   );
 }
 
@@ -277,6 +286,22 @@ export async function recordPublishedTracks(
   });
 }
 
+// Merged as a set: the service answers with the section it used, and a browser re-subscribing to a
+// track it already holds is told the same section again.
+async function recordSubscribedSections(
+  room: RoomContext,
+  attendanceId: string,
+  mids: readonly string[],
+): Promise<void> {
+  if (mids.length === 0) return;
+  await room.ctx.blockConcurrencyWhile(async () => {
+    const participant = await readParticipant(room, attendanceId);
+    if (participant === undefined) return;
+    const merged = new Set([...participant.subscribedMids, ...mids]);
+    await putParticipant(room, attendanceId, { ...participant, subscribedMids: [...merged] });
+  });
+}
+
 /** Drops the tracks whose media sections have stopped, and tells the room if any had. */
 export async function forgetTracks(
   room: RoomContext,
@@ -287,9 +312,19 @@ export async function forgetTracks(
     const participant = await readParticipant(room, attendanceId);
     if (participant === undefined) return false;
     const kept = participant.tracks.filter((track) => track.mid === null || !mids.has(track.mid));
-    if (kept.length === participant.tracks.length) return false;
-    await putParticipant(room, attendanceId, { ...participant, tracks: kept });
-    return true;
+    // A section that has closed is not one a layer change may name any more, whichever side opened
+    // it: the same numbering is the service's handle for both halves of one session.
+    const keptSubscriptions = participant.subscribedMids.filter((mid) => !mids.has(mid));
+    const unchanged =
+      kept.length === participant.tracks.length &&
+      keptSubscriptions.length === participant.subscribedMids.length;
+    if (unchanged) return false;
+    await putParticipant(room, attendanceId, {
+      ...participant,
+      tracks: kept,
+      subscribedMids: keptSubscriptions,
+    });
+    return kept.length !== participant.tracks.length;
   });
   if (changed) await announceParticipantUpdated(room, attendanceId);
 }

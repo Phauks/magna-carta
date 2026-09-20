@@ -83,10 +83,28 @@ export interface StoredParticipant {
   // own microphone is carrying a voice.
   readonly speaking: boolean;
   readonly muted: boolean;
-  // When the room last RELAYED this participant's presence — not when it last changed. It is the
-  // throttle's whole state: a transition arriving inside the window updates the two booleans above
-  // and leaves this alone, so the next one out of the window is relayed immediately.
+  // When the room last RELAYED this participant's presence — not when it last changed. It is half
+  // the throttle's state: a transition arriving inside the window updates the two booleans above and
+  // leaves this alone, so the next one out of the window is relayed immediately.
   readonly presenceAt: string | null;
+  // THE OTHER HALF, and the reason a held-back transition is not a lost one. A frame suppressed by
+  // the window leaves the booleans above current and this flag raised; the room's alarm, armed for
+  // the end of that window, relays what is stored and lowers it. Without it the LAST transition of a
+  // burst was dropped outright — a one-word answer left somebody speaking on every other screen
+  // until they spoke again, and a quick mute-unmute left them muted for the rest of the meeting.
+  readonly presenceDirty: boolean;
+  // When this participant's last whole-roster request was answered, and their last layer change
+  // forwarded. Both are throttles on frames that cost the ROOM rather than the sender: a sync is a
+  // list of every key the room holds, and a layer change is a call to the routing service. A browser
+  // can send either as fast as it can write to a socket, so what bounds them is here.
+  readonly syncAt: string | null;
+  readonly layerAt: string | null;
+  // The media sections the room subscribed on THIS participant's behalf, which is the whole of what
+  // they may later ask to change the layer of. A section number is the routing service's handle for
+  // a track inside one session, so a browser naming a section the room never subscribed for it is
+  // naming a part of its own session it does not own — and the service, which has no notion of a
+  // meeting, would honour the change.
+  readonly subscribedMids: readonly string[];
 }
 
 /** Which meeting, in which firm, this room is the signaling side of. */
@@ -109,6 +127,14 @@ export interface MeetingSocketAttachment {
   // Sound alone, or sound and pictures — read off the meeting row by the route, like every other
   // value here, so the room never has to ask the database what kind of gathering it is.
   readonly medium: MeetingMedium;
+  // Whether this socket has been given its welcome. A socket is ACCEPTED before it is admitted —
+  // the runtime has to own it before the roster can be written — and in that window it is already
+  // in `getWebSockets()`, so a broadcast raised by somebody else's arrival reached a browser that
+  // had not yet been told who is in the room. It read a roster difference against nothing, decided
+  // it had missed something, and asked for the whole list; three hundred people joining at the top
+  // of the hour made that a storm the room answered one list of three hundred keys at a time.
+  // Raised by `admitParticipant` the moment the welcome is on the wire.
+  readonly welcomed?: boolean;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -218,9 +244,51 @@ export function socketExistsFor(
   return socketsFor(room, attendanceId, except).length > 0;
 }
 
-export function broadcast(room: RoomContext, payload: string, except?: WebSocket): void {
+/**
+ * Every stay with a socket open, resolved in ONE pass over the sockets.
+ *
+ * Reading an attachment deserializes it, so asking "is this person connected" once per participant
+ * costs the room a deserialization per participant per socket — ninety thousand of them in a room of
+ * three hundred, on a call the alarm makes every time anybody's connection drops. Every caller that
+ * needs the answer about more than one person takes this set instead.
+ */
+export function connectedAttendanceIds(room: RoomContext): Set<string> {
+  const connected = new Set<string>();
   for (const socket of room.ctx.getWebSockets()) {
-    if (socket === except) continue;
+    const attendanceId = attachmentOf(socket)?.attendanceId;
+    if (attendanceId !== undefined) connected.add(attendanceId);
+  }
+  return connected;
+}
+
+export function broadcast(room: RoomContext, payload: string, except?: WebSocket): void {
+  sendToRoom(room, payload, (socket) => socket === except);
+}
+
+/**
+ * The same, to everybody except the stay it is ABOUT — for a frame the room sends on somebody's
+ * behalf rather than in answer to a socket, where there is no one socket to leave out.
+ */
+export function broadcastExcludingStay(
+  room: RoomContext,
+  payload: string,
+  attendanceId: string,
+): void {
+  sendToRoom(room, payload, (socket) => attachmentOf(socket)?.attendanceId === attendanceId);
+}
+
+function sendToRoom(
+  room: RoomContext,
+  payload: string,
+  skip: (socket: WebSocket) => boolean,
+): void {
+  for (const socket of room.ctx.getWebSockets()) {
+    if (skip(socket)) continue;
+    // A SOCKET THAT HAS NOT BEEN WELCOMED IS NOT YET IN THE ROOM, and sending to it is worse than
+    // sending nothing: a difference applied against a roster the browser does not have is a gap it
+    // can only resolve by asking for the whole list. Its own welcome carries everything this frame
+    // would have said, and it is already being built.
+    if (attachmentOf(socket)?.welcomed !== true) continue;
     try {
       socket.send(payload);
     } catch {

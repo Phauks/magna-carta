@@ -69,6 +69,16 @@ export const ROSTER_DELTA_THRESHOLD = 16;
 // unbounded number of streams in one message.
 export const MAX_LAYER_TRACKS = 32;
 
+// The most tracks one subscription frame may name, and the most media sections one close frame may
+// name. Exported for the same reason the layer ceiling is: a browser that has to CHUNK against a
+// ceiling has to know it, and a client dividing by a number it wrote down itself is a client that
+// silently starts losing a track the day the ceiling moves. Sixty-four is four gallery pages of
+// tiles, which is the most a browser can reasonably be asking for at once — and past it the answer
+// is several frames rather than one, because a frame the room refuses whole costs the asker
+// everything it asked for.
+export const MAX_SUBSCRIBE_TRACKS = 64;
+export const MAX_CLOSE_MIDS = 64;
+
 // The separator between a participant's handle and the name they gave a track. A track name is the
 // pair, and the roster is how every other browser resolves one to a tile — so the room checks a
 // publisher's prefix against it and the browser reads an owner back out of it.
@@ -129,7 +139,7 @@ const subscribeFrame = z.object({
       }),
     )
     .min(1)
-    .max(64),
+    .max(MAX_SUBSCRIBE_TRACKS),
 });
 
 // A CHANGE OF MIND ABOUT AN EXISTING SUBSCRIPTION, and the reason it is not a second `subscribe`:
@@ -180,7 +190,7 @@ const renegotiateFrame = z.object({
 const closeFrame = z.object({
   ...versioned,
   type: z.literal("close"),
-  mids: z.array(z.string().min(1).max(32)).min(1).max(64),
+  mids: z.array(z.string().min(1).max(32)).min(1).max(MAX_CLOSE_MIDS),
 });
 
 const leaveFrame = z.object({ ...versioned, type: z.literal("leave") });

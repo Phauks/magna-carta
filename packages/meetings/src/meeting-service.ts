@@ -17,6 +17,7 @@ import {
   closeAttendanceStatement,
   countOpenAttendance,
   endMeetingStatement,
+  endScheduledMeetingStatement,
   insertAttendanceUnderCapStatement,
   insertMeetingStatement,
   readAttendance,
@@ -52,6 +53,21 @@ import { refuse } from "./validation.ts";
  * answer every capacity race with an Error ID.
  */
 export const JOIN_CAPACITY_GUARD = "meeting.join.capacity";
+
+/** The label the host's own ending carries, for the same reason the one above is named here. */
+export const END_MEETING_GUARD = "meeting.end";
+
+/**
+ * The label the ending a CANCELLED EVENT drags behind it carries.
+ *
+ * Its own label rather than the one above, because the two refusals mean opposite things to the
+ * caller. A host's ending that matches no row met a meeting somebody else already closed. A
+ * cancellation's closing that matches no row met a meeting that is now LIVE — somebody walked into
+ * the room between the cancel's read and its commit — or one the host closed in the same window, and
+ * those two are a refusal and a success respectively. One label for both would leave the calendar
+ * route unable to tell them apart, which is the whole of why it exists.
+ */
+export const CANCEL_CLOSING_GUARD = "meeting.cancelClosing";
 
 // WHAT A MEETING IS WHEN NOBODY SAID. Video, because that is what every meeting started before calls
 // existed was, and because the narrower answer is the one a member has to ask for rather than the one
@@ -415,7 +431,7 @@ export async function endMeeting(
             endedByUserId: options.actorUserId,
             now,
           }),
-          "meeting.end",
+          END_MEETING_GUARD,
         ),
         domainAuditStatement(database, {
           event: "meetings.meeting.ended",
@@ -425,6 +441,63 @@ export async function endMeeting(
           randomSource: options.randomSource,
           // The span the room was open for, in two instants. `startedAt` is null when nobody ever
           // arrived, which is itself the fact worth keeping about a meeting that did not happen.
+          metadata: { startedAt: meeting.started_at, endedAt: now },
+        }),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+/**
+ * The ending a CANCELLED EVENT drags behind it — the room nobody walked into, closed in the same
+ * batch as the sitting it was for.
+ *
+ * WHY IT IS NOT `endMeeting` WITH A DIFFERENT CALLER. Ending is the host's act and it is addressed
+ * to a meeting whatever state it is in; this is a tidy-up addressed only to a meeting that is still
+ * SCHEDULED, and the difference has to live in the statement rather than in the caller's read. A
+ * cancel reads the meeting, composes, and commits in a second round trip; between those two a member
+ * can join, which makes the room live and puts people in it. The general statement matches
+ * `status <> 'ended'` and would close it under them, with the room itself never told — so the
+ * precondition rides the WHERE (see `endScheduledMeetingStatement`) and the guard label is this
+ * path's own, because a refusal here is a race the calendar route answers rather than a fault.
+ *
+ * The audit row is the same `meetings.meeting.ended` event: what happened is that the meeting ended,
+ * and a second event name for the same fact would split every later reading of the record in two.
+ */
+export async function endScheduledMeetingForCancelledEvent(
+  database: SqlDatabase,
+  meetingId: MeetingId,
+  options: MeetingServiceOptions,
+): Promise<{ effect: EffectWrite }> {
+  const meeting = await readExisting(database, meetingId, options);
+  assertNotEnded(meeting);
+
+  const now = options.clock.now();
+  return {
+    effect: {
+      statements: [
+        // NO CLOSE-ALL BESIDE IT, unlike the host's own ending. The guard below refuses unless the
+        // room holds no open stay, so there is never one to close — and including the statement
+        // anyway is not harmless: a stay opened in the race window carries a `joined_at` LATER than
+        // this batch's instant, and closing it here writes a span that ends before it began. The
+        // schema's own CHECK refuses that, which would reach the caller as a fault instead of as
+        // the refusal the guard exists to produce. The guard is FIRST for the same reason: a batch
+        // stops at the statement that refuses it, so nothing before it can raise something else.
+        guarded(
+          endScheduledMeetingStatement(database, {
+            id: meetingId,
+            endedByUserId: options.actorUserId,
+            now,
+          }),
+          CANCEL_CLOSING_GUARD,
+        ),
+        domainAuditStatement(database, {
+          event: "meetings.meeting.ended",
+          subjectId: meetingId,
+          actorUserId: options.actorUserId,
+          clock: options.clock,
+          randomSource: options.randomSource,
           metadata: { startedAt: meeting.started_at, endedAt: now },
         }),
       ],

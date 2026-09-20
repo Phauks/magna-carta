@@ -5,10 +5,12 @@ import { endedFrame, NORMAL_CLOSE_CODE, welcomeFrame } from "@magna-carta/meetin
 import { closeAttendanceAfterSocketLoss } from "@magna-carta/meetings/meeting-service";
 import { firmDatabaseFor } from "../../firm-database/firm-database-proxy.ts";
 import { releaseMedia, releaseParticipant } from "./room-media.ts";
+import { flushDeferredPresence, presenceFlushDeadlineOf } from "./room-presence.ts";
 import { announceRoster, rosterEntryFor, rosterFrom } from "./room-roster.ts";
 import {
   attachmentOf,
   broadcast,
+  connectedAttendanceIds,
   deleteEndedMarker,
   deleteEveryKey,
   deleteParticipant,
@@ -25,14 +27,18 @@ import {
   storedParticipants,
   type MeetingSocketAttachment,
   type RoomContext,
+  type StoredParticipant,
 } from "./room-state.ts";
 
 // ARRIVING, DROPPING, AND ENDING — every transition of a stay that is not about one frame.
 //
 // The three are one module because they share one deadline mechanism. A Durable Object has exactly
 // ONE alarm; what it can have is several deadlines in storage and a re-arm to the nearest one left.
-// Two live here — each dropped connection's own grace, and the retirement of the ended marker — and
-// `armAlarm` is where they are reconciled.
+// Three are reconciled in `armAlarm`: each dropped connection's own grace, the retirement of the
+// ended marker, and the end of a presence throttle's window with a transition waiting behind it
+// (room-presence.ts). The third is sub-second where the other two are minutes and a day, which is
+// the point — it is armed only while somebody is mid-burst, and a room where nobody is toggling
+// anything holds no presence deadline at all.
 
 // HOW LONG A DROPPED CONNECTION IS GIVEN before the room writes down that the member left.
 //
@@ -99,8 +105,15 @@ export async function admitParticipant(
       speaking: existing?.speaking ?? false,
       muted: existing?.muted ?? false,
       // The throttle does start again: the returning browser's first statement about itself is
-      // the one the room most wants relayed, not the one it most wants to hold back.
+      // the one the room most wants relayed, not the one it most wants to hold back — and a
+      // transition the previous socket left waiting is about a connection that is gone.
       presenceAt: null,
+      presenceDirty: false,
+      syncAt: null,
+      layerAt: null,
+      // A new socket is a NEW routing session (see above), so every subscription the old one held
+      // is gone with it and none of its media sections means anything any more.
+      subscribedMids: [],
     });
     return existing;
   });
@@ -113,6 +126,10 @@ export async function admitParticipant(
   // A SOCKET THAT HAS JUST ARRIVED HOLDS NOTHING TO APPLY A DIFFERENCE TO, so the welcome carries
   // the whole list however large the room is. It is the one frame in the protocol that always does.
   server.send(welcomeFrame(attachment.attendanceId, rosterFrom(stored)));
+  // IN THE ROOM FROM HERE, and not before: until this frame is on the wire the browser holds no
+  // roster, so a difference broadcast at it is a gap it can only close by asking for the whole list.
+  // Raised after the send rather than before it so the window can only ever be too long by nothing.
+  server.serializeAttachment({ ...attachment, welcomed: true });
 
   // Everybody else learns there is a new tile to draw — and, on a rejoin, that the tracks they were
   // subscribed to are gone, which is what stops them holding a subscription to a session that will
@@ -181,6 +198,11 @@ export async function runAlarm(room: RoomContext): Promise<void> {
   const now = Date.now();
   await sweepParticipantsPastTheirGrace(room, now);
 
+  // AFTER the sweep, so a transition is never relayed about somebody the same alarm has just
+  // removed from the roster: their departure is the frame everybody needs, and a presence delta
+  // arriving behind it would ask every browser to draw a tile that is gone.
+  await flushDeferredPresence(room, now);
+
   const purgeAt = await endedPurgeDeadline(room);
   if (purgeAt !== null && purgeAt <= now) await deleteEndedMarker(room);
 
@@ -246,24 +268,36 @@ export async function participantLeft(room: RoomContext, attendanceId: string): 
 // The deadlines
 // ---------------------------------------------------------------------------------------------
 
-/** When this participant's grace runs out, or null while they are connected. */
+/**
+ * When this participant's grace runs out, or null while they are connected.
+ *
+ * `connected` is the set of stays holding a socket, resolved ONCE by the caller. It used to ask the
+ * sockets directly, per participant — and reading a socket's attachment deserializes it, so a room
+ * of three hundred paid ninety thousand deserializations every time anybody's connection dropped.
+ */
 function graceDeadlineOf(
-  room: RoomContext,
   attendanceId: string,
   participant: { readonly socketLostAt: string | null },
+  connected: ReadonlySet<string>,
 ): number | null {
   if (participant.socketLostAt === null) return null;
-  if (socketExistsFor(room, attendanceId)) return null;
+  if (connected.has(attendanceId)) return null;
   const lostAt = Date.parse(participant.socketLostAt);
   return Number.isNaN(lostAt) ? null : lostAt + SOCKET_LOSS_GRACE_SECONDS * 1000;
 }
 
-/** The soonest grace still running in this room, or null when nobody is inside one. */
-async function nextGraceDeadline(room: RoomContext): Promise<number | null> {
+/** The soonest deadline the roster is holding — a grace, or a presence flush — or null. */
+function nextRosterDeadline(
+  stored: ReadonlyMap<string, StoredParticipant>,
+  connected: ReadonlySet<string>,
+): number | null {
   let nearest: number | null = null;
-  for (const [attendanceId, participant] of await storedParticipants(room)) {
-    const deadline = graceDeadlineOf(room, attendanceId, participant);
+  const consider = (deadline: number | null): void => {
     if (deadline !== null && (nearest === null || deadline < nearest)) nearest = deadline;
+  };
+  for (const [attendanceId, participant] of stored) {
+    consider(graceDeadlineOf(attendanceId, participant, connected));
+    consider(presenceFlushDeadlineOf(participant));
   }
   return nearest;
 }
@@ -280,8 +314,11 @@ async function endedPurgeDeadline(room: RoomContext): Promise<number | null> {
 // due sooner is doing a job this one would delay.
 export async function armAlarm(room: RoomContext): Promise<void> {
   const deadlines: number[] = [];
-  const graceAt = await nextGraceDeadline(room);
-  if (graceAt !== null) deadlines.push(graceAt);
+  // ONE roster read and ONE pass over the sockets, whatever the room is holding deadlines for: both
+  // are proportional to the size of the meeting, and this runs on every socket loss and every
+  // deferred transition.
+  const rosterAt = nextRosterDeadline(await storedParticipants(room), connectedAttendanceIds(room));
+  if (rosterAt !== null) deadlines.push(rosterAt);
   const purgeAt = await endedPurgeDeadline(room);
   if (purgeAt !== null) deadlines.push(purgeAt);
   if (deadlines.length === 0) return;
@@ -306,8 +343,9 @@ export async function armAlarm(room: RoomContext): Promise<void> {
  */
 async function sweepParticipantsPastTheirGrace(room: RoomContext, now: number): Promise<void> {
   const stored = await storedParticipants(room);
+  const connected = connectedAttendanceIds(room);
   const lost = [...stored].filter(([attendanceId, participant]) => {
-    const deadline = graceDeadlineOf(room, attendanceId, participant);
+    const deadline = graceDeadlineOf(attendanceId, participant, connected);
     return deadline !== null && deadline <= now;
   });
   if (lost.length === 0) return;

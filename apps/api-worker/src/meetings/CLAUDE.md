@@ -25,13 +25,15 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
 - `room/room-roster.ts` — who is in the room as everybody else sees it: the projection to a roster
   entry, the whole-list-or-difference decision at `ROSTER_DELTA_THRESHOLD`, and the check that a
   subscription names only tracks this room is carrying.
-- `room/room-presence.ts` — who is talking, relayed, and the throttle that makes relaying it
-  affordable in a room of three hundred.
+- `room/room-presence.ts` — who is talking, relayed; the throttle that makes relaying it affordable
+  in a room of three hundred, and the deferred flush that keeps the throttle from losing the last
+  transition of a burst.
 - `room/room-media.ts` — the routing-service session opened on first use, the four acts that reach
   that service (publish, subscribe, layer, close), the tracks the roster remembers because of them,
   and the release that stops the forwarding when somebody is gone.
 - `room/room-lifecycle.ts` — arriving (and superseding the socket that held the stay), dropping (the
-  per-person grace), ending, and the one alarm the two deadlines share.
+  per-person grace), ending, and the one alarm three deadlines share: each person's grace, the
+  retirement of the ended marker, and the end of a presence throttle's window.
 - `room/room-frames.ts` — what one frame means: parse, identify the socket, answer what the roster
   can answer, refuse what the roster refuses, and only then dispatch to the modules above.
 - `sfu/sfu-client.ts` — the client for Cloudflare Realtime's selective forwarding unit, and the test
@@ -58,6 +60,23 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
 - **The roster is read at most once per frame.** In a room of three hundred that read is three
   hundred keys. Every function here that needs it takes the map the caller already paid for rather
   than reading storage again.
+- **A frame that costs the ROOM is throttled per participant; a frame that costs the sender is not.**
+  A `sync` is a read of every key the room holds and a `layer` is a call to the routing service, and
+  a browser can send either as fast as it can write to a socket — so each carries its own instant on
+  the participant record and a frame inside the window is dropped. Presence is the one that is
+  DEFERRED rather than dropped, because it is a fact about somebody that stays wrong until it is
+  sent; a sync is a request the asker repeats, and a layer change is superseded by the next one.
+  Nothing is refused on the wire for being too fast: a refusal reason is a vocabulary every browser
+  has to learn to treat as non-fatal.
+- **A socket is in the room when it has been welcomed, and not when it has been accepted.** The
+  runtime has to own a socket before the roster can be written, so between the two it is already in
+  `getWebSockets()` — and a difference broadcast at it is a gap the browser can only close by asking
+  for the whole list. `admitParticipant` raises `welcomed` on the attachment the instant the welcome
+  is on the wire, and `broadcast` skips everything else.
+- **Ask who is connected once a pass, never once a participant.** Reading a socket's attachment
+  deserializes it, so a walk per participant is quadratic in the room; `connectedAttendanceIds`
+  resolves the whole answer in one pass and every caller that needs it for more than one person
+  takes the set.
 - **A frame the room will not act on costs the routing service nothing.** The refusals answerable
   from the roster are decided before a session is resolved and before anything is forwarded — the
   service has no notion of a meeting and would honour a subscription to any session in the fleet.

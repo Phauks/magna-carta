@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import { GuardedWriteRefusedError } from "@magna-carta/data-access/effect-batch";
 import type { MatterEventId, MeetingAttendanceId, MeetingId } from "@magna-carta/identifiers/types";
 import {
+  CANCEL_CLOSING_GUARD,
   closeAttendanceAfterSocketLoss,
   createMeeting,
   endMeeting,
+  endScheduledMeetingForCancelledEvent,
   JOIN_CAPACITY_GUARD,
   joinMeeting,
   leaveMeeting,
@@ -513,6 +515,74 @@ describe("the races the read-then-write cannot span", () => {
       limit: MAX_ATTENDANCE_PAGE_SIZE,
     });
     expect(stays.filter((stay) => stay.user_id === GUEST)).toHaveLength(2);
+  });
+});
+
+describe("the closing a cancelled event drags behind it", () => {
+  it("ends a room nobody walked into", async () => {
+    const database = fresh();
+    const meetingId = await start(database);
+
+    const { effect } = await endScheduledMeetingForCancelledEvent(database.database, meetingId, {
+      ...options,
+      clock: endClock,
+    });
+    await commit(database.database, effect);
+
+    const meeting = await readMeeting(database.database, meetingId, visibility);
+    expect(meeting?.status).toBe("ended");
+    expect(meeting?.ended_at).toBe(END_INSTANT);
+    expect(meeting?.ended_by_user_id).toBe(HOST);
+  });
+
+  it("refuses once somebody has walked in between the read and the commit, and rolls the batch back whole", async () => {
+    const database = fresh();
+    const meetingId = await start(database);
+
+    // The shape a cancellation actually has: the closing is composed against a room that is still
+    // scheduled, and committed a round trip later. A member joining in that window is what the
+    // statement's own WHERE is for — the general ending matches `status <> 'ended'` and would close
+    // the room under them, with the room itself never told.
+    const staged = await endScheduledMeetingForCancelledEvent(database.database, meetingId, {
+      ...options,
+      clock: endClock,
+    });
+    await join(database, meetingId, optionsFor(GUEST));
+
+    const refused = await commit(database.database, staged.effect).catch((error: unknown) => error);
+    expect(refused).toBeInstanceOf(GuardedWriteRefusedError);
+    // Its own label, because the calendar route has to tell this refusal from the host's own
+    // ending meeting a room somebody else already closed.
+    expect((refused as GuardedWriteRefusedError).guard).toBe(CANCEL_CLOSING_GUARD);
+
+    // The meeting is untouched — and so is the stay the whole batch would otherwise have closed.
+    const meeting = await readMeeting(database.database, meetingId, visibility);
+    expect(meeting?.status).toBe("live");
+    expect(meeting?.ended_at).toBeNull();
+    const open = await listAttendance(database.database, meetingId, {
+      limit: MAX_ATTENDANCE_PAGE_SIZE,
+    });
+    expect(open.filter((stay) => stay.left_at === null)).toHaveLength(1);
+  });
+
+  it("refuses when the host closed the room in that same window, so the ending already on the record stands", async () => {
+    const database = fresh();
+    const meetingId = await start(database);
+    const staged = await endScheduledMeetingForCancelledEvent(database.database, meetingId, {
+      ...options,
+      clock: endClock,
+    });
+
+    const hostEnded = await endMeeting(database.database, meetingId, optionsFor(GUEST, endClock));
+    await commit(database.database, hostEnded.effect);
+
+    const refused = await commit(database.database, staged.effect).catch((error: unknown) => error);
+    expect((refused as GuardedWriteRefusedError).guard).toBe(CANCEL_CLOSING_GUARD);
+    // One ending, and it is the host's: the instant and the actor a record already carries are
+    // never moved by a tidy-up that lost the race.
+    const meeting = await readMeeting(database.database, meetingId, visibility);
+    expect(meeting?.status).toBe("ended");
+    expect(meeting?.ended_by_user_id).toBe(GUEST);
   });
 });
 

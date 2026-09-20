@@ -21952,6 +21952,7 @@ export type MeetingsListMessagesData = {
     query?: {
         cursor?: string;
         since?: string;
+        sinceId?: string;
     };
     url: '/api/v1/meetings/{meetingId}/messages';
 };

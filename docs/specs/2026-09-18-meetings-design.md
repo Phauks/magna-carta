@@ -657,7 +657,26 @@ The page needs no read of its own for it: it takes the same `calendarContext` th
 takes — the session, the roster, the type catalog, the firm's offices, its bookable rooms and its
 matters — because a second assembly of that context is a second answer to what the form is offering.
 
-### 13.7 Ledger
+### 13.7 Permissions
+
+Scheduling reaches two subsystems through one form, so it answers to two keys and the split is by
+**act**, not by route.
+
+- **Opening a room needs `meetings:host`**, on top of the `calendar:manage` the four event mutations
+  already ride. A `meeting` field on the event form convenes a gathering, which is the same act the
+  meetings surface demands that key for — and a member who may keep the diary would otherwise open
+  rooms on the firm's behalf through the other door. The check is made in the handler rather than on
+  the route (the chat's moderation key is the precedent), so the refusal is a 403
+  `permission-denied` about the `meeting` field alone: the event itself still records without it.
+- **Ending a never-opened, still-scheduled meeting with its cancelled event rides `calendar:manage`
+  alone.** What a cancellation closes is a room nobody walked into — the closing statement carries
+  `status = 'scheduled'` and "no open stay" in its own WHERE, so a meeting that went live between
+  the cancel's read and its commit refuses the batch and the cancel answers 409 `meeting-in-progress`
+  rather than ending a gathering under the people in it. Taking a sitting off the diary is a diary
+  act; requiring the meetings key for it would leave a firm unable to cancel a hearing because the
+  room somebody opened on it is not theirs to close.
+
+### 13.8 Ledger
 
 `meetings.scheduling` moves to `in-build`, `surface: screen`. `meetings.scheduling.booking-pages`
 stays `not-started`: a booking page is a client picking a time on a member's published availability,
