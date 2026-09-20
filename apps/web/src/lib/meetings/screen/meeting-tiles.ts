@@ -11,7 +11,11 @@
  * tile drawing a picture nobody asked the unit for, or a picture arriving with no tile to put it
  * in. The grid draws `plan.shown`, in order, and nothing else.
  */
-import type { MeetingClient, MeetingParticipant } from "../client/meeting-client.svelte.ts";
+import type {
+  ConnectionQuality,
+  MeetingClient,
+  MeetingParticipant,
+} from "../client/meeting-client.svelte.ts";
 
 /** One tile on the grid. */
 export interface MeetingTileModel {
@@ -38,6 +42,14 @@ export interface MeetingTileModel {
    * going to arrive.
    */
   readonly videoPulled: boolean;
+  /**
+   * How well this tile's media is getting through, as this browser's own connection measures it.
+   *
+   * On the local preview it is the UPLINK — what is going out — which is the one thing nobody else
+   * in the room can tell this member and the one that explains why everybody else says they are
+   * breaking up.
+   */
+  readonly quality: ConnectionQuality;
 }
 
 /** The word a participant with no display name on the roster is drawn under. */
@@ -92,6 +104,7 @@ export function meetingTiles(client: MeetingClient, localName: string): MeetingT
       speaking: own !== undefined && client.presenceOf(own).speaking,
       pinned: false,
       videoPulled: client.localStream !== null && client.localStream.getVideoTracks().length > 0,
+      quality: client.diagnostics.quality,
     },
   ];
 
@@ -116,6 +129,7 @@ export function meetingTiles(client: MeetingClient, localName: string): MeetingT
       speaking: presence.speaking,
       pinned: client.isPinned(participantId),
       videoPulled: withVideo.has(participantId),
+      quality: client.qualityOf(participantId),
     });
   }
   return tiles;
@@ -154,6 +168,9 @@ export function sharedScreenTile(
       speaking: false,
       pinned: false,
       videoPulled: true,
+      // This browser's own share goes out on the same connection as its camera, so the uplink's
+      // answer is the share's answer.
+      quality: client.diagnostics.quality,
     };
   }
   const shared = client.plan.screen;
@@ -172,5 +189,6 @@ export function sharedScreenTile(
     speaking: false,
     pinned: false,
     videoPulled: true,
+    quality: client.qualityOf(sharer.participantId),
   };
 }

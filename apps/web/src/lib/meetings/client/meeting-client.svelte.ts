@@ -35,6 +35,8 @@
  */
 import type { MeetingMedium } from "@magna-carta/meeting-protocol/types";
 import { createBrowserAudioLevelMeter, type AudioLevelMeter } from "./audio-level-meter.ts";
+import type { ConnectionQuality } from "./connection-quality.ts";
+import { MeetingDiagnostics } from "./diagnostics.svelte.ts";
 import { MeetingClock } from "./meeting-clock.svelte.ts";
 import {
   captureLocalMedia,
@@ -75,7 +77,14 @@ import {
 } from "./subscription-policy.ts";
 
 export { RECONCILE_DEBOUNCE_MILLISECONDS };
-export type { MeetingMedium, MeetingParticipant, MeetingRefusal, MeetingTrack, MeetingTrackKind };
+export type {
+  ConnectionQuality,
+  MeetingMedium,
+  MeetingParticipant,
+  MeetingRefusal,
+  MeetingTrack,
+  MeetingTrackKind,
+};
 
 /** The reason recorded when the signaling socket goes away without the meeting having ended. */
 export const SOCKET_CLOSED_REASON = "socket-closed";
@@ -324,6 +333,15 @@ export class MeetingClient {
   /** The clock the plan ages recent speakers against, ticking for as long as the meeting is live. */
   readonly #clock = new MeetingClock();
 
+  /**
+   * What the connection is doing, and what has happened on the wire.
+   *
+   * Public because the screen reads the marks straight off it, and its own concern rather than a
+   * set of fields here: a connection-quality sample is a module, which is the rule this directory
+   * is arranged by. Nothing it holds is written anywhere or put on the meeting's record.
+   */
+  readonly diagnostics: MeetingDiagnostics;
+
   /** Everybody but this browser — the people the gallery pages over. */
   readonly others = $derived(
     this.participants.filter((participant) => participant.participantId !== this.participantId),
@@ -377,8 +395,12 @@ export class MeetingClient {
   /** True once this browser asked to leave, so the socket closing is expected rather than a fault. */
   #leaving = false;
 
-  constructor(seams: MeetingClientSeams) {
+  constructor(
+    seams: MeetingClientSeams,
+    diagnostics: MeetingDiagnostics = new MeetingDiagnostics(),
+  ) {
     this.#seams = seams;
+    this.diagnostics = diagnostics;
     this.#negotiation = new MeetingNegotiation((problem) => {
       this.lastProblem = problem;
     });
@@ -393,46 +415,50 @@ export class MeetingClient {
       releaseRemote: (participantId, screen) => this.#releaseRemote(participantId, screen),
       remoteOwners: (screen) => [...(screen ? this.remoteScreens : this.remoteStreams).keys()],
     };
-    this.#subscriptions = new MeetingSubscriptions(host);
-    this.#signaling = new MeetingSignaling(seams.openSocket, {
-      welcome: (frame) => this.#handleWelcome(frame),
-      roster: (frame) => this.#adoptRoster(readParticipants(frame.participants)),
-      rosterDelta: (frame) => this.#handleRosterDelta(frame),
-      presence: (frame) => this.#handlePresence(frame),
-      layered: (frame) => this.#handleLayered(frame),
-      published: (frame) =>
-        void this.#negotiation.enqueue(
-          "The room's answer to what you are sending was not applied.",
-          () => this.#negotiation.applyRemote(readSessionDescription(frame.sessionDescription)),
-        ),
-      subscribed: (frame) =>
-        void this.#negotiation.enqueue("Somebody else's picture and sound did not come in.", () =>
-          this.#handleSubscribed(frame),
-        ),
-      // The room accepted the answer this browser sent and the exchange is closed: there is nothing
-      // to apply and nothing owed back. Wired explicitly rather than left to fall through, because
-      // a frame with no handler and a frame whose handler has nothing to do read identically from
-      // outside and mean opposite things — the first is a wire the two ends disagree about.
-      renegotiated: () => {},
-      closed: (frame) =>
-        void this.#negotiation.enqueue(
-          "The room's change to what is being sent was not applied.",
-          () => this.#answerIfOffered(readSessionDescription(frame.sessionDescription)),
-        ),
-      ended: () => {
-        this.#leaving = true;
-        this.state = "ended";
-        this.#teardown();
+    this.#subscriptions = new MeetingSubscriptions(host, diagnostics);
+    this.#signaling = new MeetingSignaling(
+      seams.openSocket,
+      {
+        welcome: (frame) => this.#handleWelcome(frame),
+        roster: (frame) => this.#adoptRoster(readParticipants(frame.participants)),
+        rosterDelta: (frame) => this.#handleRosterDelta(frame),
+        presence: (frame) => this.#handlePresence(frame),
+        layered: (frame) => this.#handleLayered(frame),
+        published: (frame) =>
+          void this.#negotiation.enqueue(
+            "The room's answer to what you are sending was not applied.",
+            () => this.#negotiation.applyRemote(readSessionDescription(frame.sessionDescription)),
+          ),
+        subscribed: (frame) =>
+          void this.#negotiation.enqueue("Somebody else's picture and sound did not come in.", () =>
+            this.#handleSubscribed(frame),
+          ),
+        // The room accepted the answer this browser sent and the exchange is closed: there is nothing
+        // to apply and nothing owed back. Wired explicitly rather than left to fall through, because
+        // a frame with no handler and a frame whose handler has nothing to do read identically from
+        // outside and mean opposite things — the first is a wire the two ends disagree about.
+        renegotiated: () => {},
+        closed: (frame) =>
+          void this.#negotiation.enqueue(
+            "The room's change to what is being sent was not applied.",
+            () => this.#answerIfOffered(readSessionDescription(frame.sessionDescription)),
+          ),
+        ended: () => {
+          this.#leaving = true;
+          this.state = "ended";
+          this.#teardown();
+        },
+        refused: (frame) => this.#handleRefused(frame),
+        // A room speaking a protocol this page does not know. Nothing is retried and nothing is read
+        // further: the screen says to reload, which is the whole remedy.
+        incompatible: () => this.#fail(PROTOCOL_MISMATCH_REASON),
+        lost: () => {
+          if (this.#leaving || this.state === "ended" || this.state === "failed") return;
+          this.#fail(SOCKET_CLOSED_REASON);
+        },
       },
-      refused: (frame) => this.#handleRefused(frame),
-      // A room speaking a protocol this page does not know. Nothing is retried and nothing is read
-      // further: the screen says to reload, which is the whole remedy.
-      incompatible: () => this.#fail(PROTOCOL_MISMATCH_REASON),
-      lost: () => {
-        if (this.#leaving || this.state === "ended" || this.state === "failed") return;
-        this.#fail(SOCKET_CLOSED_REASON);
-      },
-    });
+      diagnostics,
+    );
   }
 
   /** Open the peer connection and the signaling socket. The room answers with `welcome`. */
@@ -449,7 +475,23 @@ export class MeetingClient {
     this.#negotiation.open(
       this.#seams.createPeerConnection({ iceServers: [...request.iceServers] }),
     );
+    // Sampling starts with the connection rather than with the first publish: a member who declined
+    // their camera still has a connection that can be failing, and the round trip is the same
+    // number either way.
+    this.diagnostics.start({
+      readStats: () => this.#negotiation.connection?.getStats() ?? null,
+      // The media sections are only meaningful with somebody's name on them, and the module that
+      // asked for each track is the one that knows whose it is.
+      ownerOfMid: (mid) => this.#subscriptions.ownerOfMid(mid),
+      screenMid: () => this.#screenMid,
+      participantId: () => this.participantId,
+    });
     this.#signaling.open(request.socketUrl);
+  }
+
+  /** How somebody else's picture and sound are arriving, for a surface that draws the mark. */
+  qualityOf(participantId: string): ConnectionQuality {
+    return this.diagnostics.qualityOf(participantId);
   }
 
   /**
@@ -623,7 +665,13 @@ export class MeetingClient {
       this.#signaling.send({
         type: "publish",
         sessionDescription,
-        tracks: [{ trackName: this.#trackName("screen"), mid: transceiver.mid, kind: "screen" }],
+        tracks: [
+          {
+            trackName: this.#trackName("screen"),
+            mid: transceiver.mid,
+            kind: "screen",
+          },
+        ],
       });
     });
   }
@@ -702,30 +750,68 @@ export class MeetingClient {
     this.#adoptRoster(readParticipants(frame.roster));
   }
 
-  /** Take the roster as stated, forget what it no longer names, and pull whatever the plan wants. */
-  #adoptRoster(participants: readonly MeetingParticipant[]): void {
+  /**
+   * Take the roster as stated, forget what it no longer names, and pull whatever the plan wants.
+   *
+   * `stated` is the rows THIS FRAME carried, which for a full roster is all of them and for a delta
+   * is only what joined or changed. The difference matters: a delta's merged list is mostly rows
+   * this browser has been holding since the last full roster, and reading their two booleans as
+   * fresh would overwrite live presence with whatever the room said minutes ago.
+   */
+  #adoptRoster(
+    participants: readonly MeetingParticipant[],
+    stated: readonly MeetingParticipant[] = participants,
+  ): void {
     this.participants = participants;
-    this.#forgetPresenceOfWhoeverLeft(participants);
+    this.#adoptPresenceFrom(participants, stated);
     this.#subscriptions.forgetWhatTheRosterNoLongerNames(participants);
     this.#subscriptions.schedule();
   }
 
   /**
-   * Drop what the presence frames said about people the roster no longer names.
+   * Take what the arriving rows say about microphones, and drop what is about people who have gone.
    *
-   * Presence arrives for whoever the room relays it about, including — for one frame, before the
-   * sync answers — somebody this browser has not been told about yet. Left to accumulate, that map
-   * is the one thing in a long meeting that only ever grows. Rebuilt only where something actually
-   * went, so an unchanged roster does not make the plan be worked out again for nothing.
+   * A ROW IS AUTHORITATIVE THE MOMENT IT ARRIVES, and it took a real failure to settle that. The
+   * room composes a row out of the presence it holds at the instant it sends it, so a row is at
+   * least as current as anything here — and on a rejoin the room RESETS what it was holding, so the
+   * row says "not speaking" about somebody this browser last heard was. Kept apart and never
+   * overwritten, that stale `true` held them at the front of everybody's gallery, with their
+   * microphone pulled, for the rest of the meeting. Which is exactly the failure the map exists
+   * beside the roster to avoid, arriving by the other door.
+   *
+   * Presence also arrives for whoever the room relays it about, including — for one frame, before
+   * the sync answers — somebody this browser has not been told about yet. Left to accumulate, that
+   * map is the one thing in a long meeting that only ever grows. Rebuilt only where something
+   * actually changed, so an unchanged roster does not make the plan be worked out again for nothing.
    */
-  #forgetPresenceOfWhoeverLeft(participants: readonly MeetingParticipant[]): void {
-    if (this.#presenceByParticipant.size === 0) return;
+  #adoptPresenceFrom(
+    participants: readonly MeetingParticipant[],
+    stated: readonly MeetingParticipant[],
+  ): void {
     const present = new Set(participants.map((participant) => participant.participantId));
-    const kept = new Map(
+    const next = new Map(
       [...this.#presenceByParticipant].filter(([participantId]) => present.has(participantId)),
     );
-    if (kept.size === this.#presenceByParticipant.size) return;
-    this.#presenceByParticipant = kept;
+    let changed = next.size !== this.#presenceByParticipant.size;
+    const spoke: string[] = [];
+
+    for (const row of stated) {
+      const before = next.get(row.participantId);
+      if (before?.speaking === row.speaking && before.muted === row.muted) continue;
+      // The moment somebody STARTS is what orders the gallery, and a row is one of the two places
+      // it can be learned. Stamped on this browser's own clock for the reason a presence frame is:
+      // the room's clock and this one are not the same clock.
+      if (row.speaking && before?.speaking !== true) spoke.push(row.participantId);
+      next.set(row.participantId, { speaking: row.speaking, muted: row.muted });
+      changed = true;
+    }
+
+    if (!changed) return;
+    this.#presenceByParticipant = next;
+    if (spoke.length === 0) return;
+    const stamped = new Map(this.#lastSpokeAt);
+    for (const participantId of spoke) stamped.set(participantId, Date.now());
+    this.#lastSpokeAt = stamped;
   }
 
   /**
@@ -743,19 +829,25 @@ export class MeetingClient {
       this.participants.map((participant) => [participant.participantId, participant] as const),
     );
     let gap = false;
+    // What this frame actually STATED, which is what its two booleans may be read off. Everything
+    // else in the merged list is a row from an earlier frame — `#adoptPresenceFrom` says why the
+    // distinction is load-bearing.
+    const stated: MeetingParticipant[] = [];
 
     for (const participant of readParticipants(frame.joined)) {
       byIdentifier.set(participant.participantId, participant);
+      stated.push(participant);
     }
     for (const participant of readParticipants(frame.updated)) {
       if (!byIdentifier.has(participant.participantId)) gap = true;
       byIdentifier.set(participant.participantId, participant);
+      stated.push(participant);
     }
     for (const participantId of readIdentifiers(frame.left)) {
       if (!byIdentifier.delete(participantId)) gap = true;
     }
 
-    this.#adoptRoster([...byIdentifier.values()]);
+    this.#adoptRoster([...byIdentifier.values()], stated);
     if (gap) this.#signaling.requestSync();
   }
 
@@ -878,7 +970,10 @@ export class MeetingClient {
 
   /** Answer an offer the room only sometimes sends — closing a track may or may not need one. */
   async #answerIfOffered(
-    sessionDescription: { readonly type: RTCSdpType; readonly sdp: string } | null,
+    sessionDescription: {
+      readonly type: RTCSdpType;
+      readonly sdp: string;
+    } | null,
   ): Promise<void> {
     const peerConnection = this.#negotiation.connection;
     if (peerConnection === null || sessionDescription === null) return;
@@ -949,6 +1044,9 @@ export class MeetingClient {
   #teardown(): void {
     this.#subscriptions.stopScheduling();
     this.#clock.stop();
+    // The samples go with the connection they were about; what happened on the wire is kept, because
+    // the last thing that happened is usually the reason the meeting is over.
+    this.diagnostics.stop();
     this.#presence.stop();
     this.#capture?.close();
     this.#capture = null;
@@ -985,5 +1083,6 @@ export class MeetingClient {
     this.#subscriptions.clear();
     this.#signaling.reset();
     this.#presence.stop();
+    this.diagnostics.clear();
   }
 }

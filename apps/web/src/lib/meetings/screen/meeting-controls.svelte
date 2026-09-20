@@ -52,6 +52,7 @@
     onToggleSpeakerView,
     onLeave,
     onEnd,
+    connection,
     endFailure,
   }: {
     microphoneOn: boolean;
@@ -70,6 +71,12 @@
     onToggleSharing: () => void;
     /** Swap between the even gallery and the large speaker. Absent where it is not offered. */
     onToggleSpeakerView?: () => void;
+    /**
+     * The connection control, which the room screen supplies because the panel behind it is built
+     * from what the room's own diagnostics hold. The band owns WHERE it sits; the control owns what
+     * it says and what it opens.
+     */
+    connection?: Snippet;
     onLeave: () => void;
     /** Ends it for everybody. Reports how the write went, so the panel can stand its ground. */
     onEnd?: () => Promise<ActionOutcome>;
@@ -179,6 +186,11 @@
       </Tooltip.Root>
     {/if}
   {/if}
+
+  <!-- The way to the numbers behind the marks. It is not a toggle, so it wears no fill and no
+       pressed state: the band's other controls change what the room is doing, and this one only
+       shows what it is already doing. -->
+  {@render connection?.()}
 
   <Button variant="destructive" onclick={onLeave}>
     <PhoneOff class="size-16" aria-hidden="true" />

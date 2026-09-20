@@ -27,6 +27,10 @@ import {
   type MeetingMedium,
 } from "$lib/meetings/client/meeting-client.svelte.ts";
 import { MAX_VIDEO_SUBSCRIPTIONS } from "$lib/meetings/client/subscription-policy.ts";
+import type { SubscriptionPlan } from "$lib/meetings/client/subscription-policy.ts";
+import { MeetingSubscriptions } from "$lib/meetings/client/subscriptions.ts";
+import { SYNC_LATCH_MILLISECONDS } from "$lib/meetings/client/signaling.ts";
+import { MAX_CLOSE_MIDS, MAX_SUBSCRIBE_TRACKS } from "@magna-carta/meeting-protocol/frames";
 import { meetingTiles, sharedScreenTile } from "$lib/meetings/screen/meeting-tiles.ts";
 import { leaveMeetingOnDeparture } from "$lib/api/departure-write.ts";
 
@@ -180,7 +184,10 @@ class FakePeerConnection {
   #nextMid = 0;
 
   /** What each publish offered, so a case can ask how a camera was encoded. */
-  readonly offered: { kind: string; sendEncodings: { rid: string; scale: number }[] | null }[] = [];
+  readonly offered: {
+    kind: string;
+    sendEncodings: { rid: string; scale: number }[] | null;
+  }[] = [];
 
   addTransceiver(
     track: FakeTrack,
@@ -394,7 +401,10 @@ describe("publishing", () => {
     const [publish] = socket.framesOfType("publish");
     expect(publish).toBeDefined();
     expect(publish?.v).toBe(1);
-    expect(publish?.sessionDescription).toEqual({ type: "offer", sdp: "local-offer" });
+    expect(publish?.sessionDescription).toEqual({
+      type: "offer",
+      sdp: "local-offer",
+    });
     expect(publish?.tracks).toEqual([
       { trackName: "attendance_1:audio", mid: "0", kind: "audio" },
       { trackName: "attendance_1:video", mid: "1", kind: "video" },
@@ -483,7 +493,10 @@ describe("publishing", () => {
     });
     await settle();
 
-    expect(peerConnection.remoteDescription).toEqual({ type: "answer", sdp: "unit-answer" });
+    expect(peerConnection.remoteDescription).toEqual({
+      type: "answer",
+      sdp: "unit-answer",
+    });
   });
 });
 
@@ -519,7 +532,11 @@ describe("the roster", () => {
     // The camera carries the layer this page is worth; the microphone has no layer to name.
     const [subscribe] = socket.framesOfType("subscribe");
     expect(subscribe?.tracks).toEqual([
-      { sessionId: "session_2", trackName: "attendance_2:video", preferredRid: "f" },
+      {
+        sessionId: "session_2",
+        trackName: "attendance_2:video",
+        preferredRid: "f",
+      },
       { sessionId: "session_2", trackName: "attendance_2:audio" },
     ]);
 
@@ -582,7 +599,10 @@ describe("subscribing", () => {
     await settle();
 
     const [renegotiate] = socket.framesOfType("renegotiate");
-    expect(renegotiate?.sessionDescription).toEqual({ type: "answer", sdp: "local-answer" });
+    expect(renegotiate?.sessionDescription).toEqual({
+      type: "answer",
+      sdp: "local-answer",
+    });
     expect([...client.remoteStreams.keys()]).toEqual(["attendance_2"]);
     expect(client.remoteStreams.get("attendance_2")?.getTracks()).toHaveLength(1);
   });
@@ -645,7 +665,11 @@ describe("a participant who leaves and comes back", () => {
     const subscribes = socket.framesOfType("subscribe");
     expect(subscribes).toHaveLength(2);
     expect(subscribes[1]?.tracks).toEqual([
-      { sessionId: "session_3", trackName: "attendance_2:video", preferredRid: "f" },
+      {
+        sessionId: "session_3",
+        trackName: "attendance_2:video",
+        preferredRid: "f",
+      },
       { sessionId: "session_3", trackName: "attendance_2:audio" },
     ]);
     // The stream the dead session fed is let go, so the fresh tracks land on a stream whose first
@@ -713,10 +737,18 @@ describe("a pull the unit did not serve", () => {
 describe("what the room refuses", () => {
   it("stays in the room, and states the refusal with the Error ID it carried", () => {
     const { client, socket } = harness();
-    socket.deliver({ v: 1, type: "refused", reason: "malformed-frame", errorId: "err_7f3a" });
+    socket.deliver({
+      v: 1,
+      type: "refused",
+      reason: "malformed-frame",
+      errorId: "err_7f3a",
+    });
 
     expect(client.state).toBe("live");
-    expect(client.lastRefusal).toEqual({ reason: "malformed-frame", errorId: "err_7f3a" });
+    expect(client.lastRefusal).toEqual({
+      reason: "malformed-frame",
+      errorId: "err_7f3a",
+    });
   });
 
   it("ends the meeting for the two refusals that are the end of it", () => {
@@ -872,7 +904,11 @@ describe("leaving", () => {
     const { client, socket, peerConnection, captured } = harness();
     await client.publish();
 
-    socket.deliver({ v: 1, type: "ended", endedAt: "2026-09-18T15:00:00.000Z" });
+    socket.deliver({
+      v: 1,
+      type: "ended",
+      endedAt: "2026-09-18T15:00:00.000Z",
+    });
 
     expect(client.state).toBe("ended");
     expect(captured.getTracks().every((track) => track.stopped)).toBe(true);
@@ -1060,7 +1096,10 @@ describe("what a camera is published as", () => {
 
     await client.shareScreen();
 
-    expect(peerConnection.offered[2]).toEqual({ kind: "video", sendEncodings: null });
+    expect(peerConnection.offered[2]).toEqual({
+      kind: "video",
+      sendEncodings: null,
+    });
   });
 });
 
@@ -1073,7 +1112,13 @@ describe("a room that is told only what changed", () => {
     await settle();
     expect(client.remoteStreams.has("attendance_2")).toBe(true);
 
-    socket.deliver({ v: 1, type: "roster-delta", joined: [joiner(3)], updated: [], left: [] });
+    socket.deliver({
+      v: 1,
+      type: "roster-delta",
+      joined: [joiner(3)],
+      updated: [],
+      left: [],
+    });
     await reconciled();
     expect(client.participants.map((one) => one.participantId)).toEqual([
       "attendance_2",
@@ -1100,7 +1145,13 @@ describe("a room that is told only what changed", () => {
     // Nothing is asked for on the way in: `welcome` carried the whole room.
     expect(socket.framesOfType("sync")).toHaveLength(0);
 
-    socket.deliver({ v: 1, type: "roster-delta", joined: [], updated: [joiner(90)], left: [] });
+    socket.deliver({
+      v: 1,
+      type: "roster-delta",
+      joined: [],
+      updated: [joiner(90)],
+      left: [],
+    });
     expect(socket.framesOfType("sync")).toHaveLength(1);
 
     // A second gap while the first is unanswered asks nothing: one hole and one question.
@@ -1151,7 +1202,9 @@ describe("who is talking", () => {
     if (speaker === undefined) return;
     expect(client.presenceOf(speaker).speaking).toBe(true);
     // And their camera is now among the ones being pulled, which is the point of the re-ordering.
-    const pulled = socket.framesOfType("subscribe").at(-1)?.tracks as { trackName: string }[];
+    const pulled = socket.framesOfType("subscribe").at(-1)?.tracks as {
+      trackName: string;
+    }[];
     expect(pulled.map((track) => track.trackName)).toContain("attendance_39:video");
   });
 
@@ -1200,7 +1253,9 @@ describe("what a large room pulls", () => {
     socket.deliver({ v: 1, type: "roster", participants: many(40) });
     await reconciled();
 
-    const asked = socket.framesOfType("subscribe")[0]?.tracks as { trackName: string }[];
+    const asked = socket.framesOfType("subscribe")[0]?.tracks as {
+      trackName: string;
+    }[];
     const cameras = asked.filter((track) => track.trackName.endsWith(":video"));
     const microphones = asked.filter((track) => track.trackName.endsWith(":audio"));
     expect(cameras).toHaveLength(16);
@@ -1216,7 +1271,9 @@ describe("what a large room pulls", () => {
     await reconciled();
 
     expect(socket.framesOfType("close").at(-1)?.mids).toEqual(["7", "8"]);
-    const asked = socket.framesOfType("subscribe").at(-1)?.tracks as { trackName: string }[];
+    const asked = socket.framesOfType("subscribe").at(-1)?.tracks as {
+      trackName: string;
+    }[];
     expect(asked).toHaveLength(16);
     // The page changed, not who is audible: sound is ranked by who has been talking, never by what
     // happens to be on screen.
@@ -1231,8 +1288,18 @@ describe("what a large room pulls", () => {
     await reconciled();
 
     expect(socket.framesOfType("layer").at(-1)?.tracks).toEqual([
-      { sessionId: "session_2", trackName: "attendance_2:video", mid: "7", preferredRid: "h" },
-      { sessionId: "session_3", trackName: "attendance_3:video", mid: "8", preferredRid: "h" },
+      {
+        sessionId: "session_2",
+        trackName: "attendance_2:video",
+        mid: "7",
+        preferredRid: "h",
+      },
+      {
+        sessionId: "session_3",
+        trackName: "attendance_3:video",
+        mid: "8",
+        preferredRid: "h",
+      },
     ]);
   });
 
@@ -1328,7 +1395,13 @@ describe("what the passing of time does on its own", () => {
       v: 1,
       type: "subscribed",
       sessionDescription: { type: "offer", sdp: "unit-offer mids=41" },
-      tracks: [{ sessionId: "session_39", trackName: "attendance_39:video", mid: "41" }],
+      tracks: [
+        {
+          sessionId: "session_39",
+          trackName: "attendance_39:video",
+          mid: "41",
+        },
+      ],
     });
     await settle();
     await minutesPassed(harnessed, RECONCILE_DEBOUNCE_MILLISECONDS + 20);
@@ -1390,12 +1463,23 @@ describe("what arrives before the room has said hello", () => {
       muted: false,
       at: "2026-09-20T15:00:00.000Z",
     });
-    socket.deliver({ v: 1, type: "roster-delta", joined: [], updated: [], left: ["attendance_9"] });
+    socket.deliver({
+      v: 1,
+      type: "roster-delta",
+      joined: [],
+      updated: [],
+      left: ["attendance_9"],
+    });
 
     expect(socket.framesOfType("sync")).toHaveLength(0);
     expect(client.state).toBe("joining");
 
-    socket.deliver({ v: 1, type: "welcome", participantId: "attendance_1", roster: many(3) });
+    socket.deliver({
+      v: 1,
+      type: "welcome",
+      participantId: "attendance_1",
+      roster: many(3),
+    });
     expect(client.state).toBe("live");
     expect(client.participants).toHaveLength(3);
   });
@@ -1404,7 +1488,12 @@ describe("what arrives before the room has said hello", () => {
     // A room that refuses the join, or that ends under a socket waiting for its welcome, has to be
     // heard: those are the reasons the welcome is never coming.
     const { client, socket } = harness("attendance_1", "video", false);
-    socket.deliver({ v: 1, type: "refused", reason: "not-a-participant", errorId: "err_1" });
+    socket.deliver({
+      v: 1,
+      type: "refused",
+      reason: "not-a-participant",
+      errorId: "err_1",
+    });
 
     expect(client.state).toBe("failed");
     expect(client.failureReason).toBe("not-a-participant");
@@ -1435,7 +1524,12 @@ describe("a frame the room could not read", () => {
 
     // The room could not read the frame, so nothing it named is coming. Left marked as pulled,
     // those tiles stay black for the rest of the meeting and nothing asks again.
-    socket.deliver({ v: 1, type: "refused", reason: "malformed-frame", errorId: "err_1" });
+    socket.deliver({
+      v: 1,
+      type: "refused",
+      reason: "malformed-frame",
+      errorId: "err_1",
+    });
     expect(client.state).toBe("live");
 
     socket.deliver({ v: 1, type: "roster", participants: many(3) });
@@ -1466,5 +1560,242 @@ describe("keeping people on screen", () => {
     expect(client.pinned).toHaveLength(MAX_VIDEO_SUBSCRIPTIONS);
     expect(client.pinned).not.toContain("attendance_30");
     expect(client.lastProblem).toContain("kept on screen");
+  });
+});
+
+/*
+ * A frame the room will not take is a frame that did nothing, and every track it named is a tile
+ * that stays black for the rest of the meeting. The room caps a `subscribe` at
+ * `MAX_SUBSCRIBE_TRACKS` and a `close` at `MAX_CLOSE_MIDS` and refuses a larger one WHOLE, so the
+ * caps are held here rather than being trusted to stay comfortably out of reach — which is exactly
+ * what a page turn in a full room stops being.
+ *
+ * It is driven against the subscriptions module directly rather than through the client, because
+ * the policy caps what this browser can ever want at sixteen cameras and twenty-four microphones:
+ * a client can never be made to want seventy tracks, and a cap nothing can reach is a cap nothing
+ * tests.
+ */
+describe("a frame larger than the room will take", () => {
+  /** A plan of however many cameras, which is more than any policy would ever produce. */
+  function planOf(count: number): SubscriptionPlan {
+    return {
+      video: Array.from({ length: count }, (_unused, index) => ({
+        sessionId: `session_${index}`,
+        trackName: `attendance_${index}:video`,
+        participantId: `attendance_${index}`,
+        preferredRid: "f" as const,
+      })),
+      screen: null,
+      audio: [],
+      shown: [],
+      pages: 1,
+    };
+  }
+
+  function driven(plan: SubscriptionPlan): {
+    subscriptions: MeetingSubscriptions;
+    frames: Record<string, unknown>[];
+  } {
+    const frames: Record<string, unknown>[] = [];
+    let current = plan;
+    const subscriptions = new MeetingSubscriptions({
+      plan: () => current,
+      isLive: () => true,
+      send: (frame) => frames.push(frame),
+      attachRemoteTrack: () => {},
+      detachRemoteTrack: () => {},
+      releaseRemote: () => {},
+      remoteOwners: () => [],
+    });
+    return {
+      subscriptions: Object.assign(subscriptions, {
+        want: (next: SubscriptionPlan) => {
+          current = next;
+        },
+      }),
+      frames,
+    };
+  }
+
+  it("asks for seventy tracks in two frames, and names every one of them", () => {
+    const { subscriptions, frames } = driven(planOf(70));
+
+    subscriptions.reconcile();
+
+    const asked = frames.filter((frame) => frame.type === "subscribe");
+    expect(asked).toHaveLength(2);
+    expect((asked[0]?.tracks as unknown[]).length).toBe(MAX_SUBSCRIBE_TRACKS);
+    expect((asked[1]?.tracks as unknown[]).length).toBe(70 - MAX_SUBSCRIBE_TRACKS);
+    const named = asked.flatMap((frame) => trackNamesOf(frame));
+    expect(new Set(named).size).toBe(70);
+  });
+
+  it("closes seventy media sections in two frames", () => {
+    const { subscriptions, frames } = driven(planOf(70));
+    subscriptions.reconcile();
+    // The room answers, so every track has a media section that closing it can name.
+    for (let index = 0; index < 70; index += 1) {
+      subscriptions.noteArrival(
+        {
+          sessionId: `session_${index}`,
+          trackName: `attendance_${index}:video`,
+          mid: String(index),
+        },
+        String(index),
+        { stop: () => {} } as unknown as MediaStreamTrack,
+      );
+    }
+
+    (subscriptions as unknown as { want: (plan: SubscriptionPlan) => void }).want(planOf(0));
+    subscriptions.reconcile();
+
+    const closed = frames.filter((frame) => frame.type === "close");
+    expect(closed).toHaveLength(2);
+    expect((closed[0]?.mids as string[]).length).toBe(MAX_CLOSE_MIDS);
+    expect((closed[1]?.mids as string[]).length).toBe(70 - MAX_CLOSE_MIDS);
+  });
+});
+
+describe("a layer change the room never answered", () => {
+  it("is asked for again, because a frame sent is not a frame applied", async () => {
+    // The room drops a `layer` frame that follows too closely on the last one. Recorded as settled
+    // the moment it went out, that dropped frame is never sent again and the tile sits at the wrong
+    // size until something unrelated happens to move it.
+    const { client, socket } = await largeRoom();
+
+    client.toggleSpeakerView();
+    await reconciled();
+    expect(socket.framesOfType("layer")).toHaveLength(1);
+
+    // Nothing answered. The next pass asks again.
+    socket.deliver({ v: 1, type: "roster", participants: many(40) });
+    await reconciled();
+    expect(socket.framesOfType("layer")).toHaveLength(2);
+
+    // The room says what it is now sending, which is what settles it.
+    socket.deliver({
+      v: 1,
+      type: "layered",
+      tracks: [
+        { mid: "7", preferredRid: "h" },
+        { mid: "8", preferredRid: "h" },
+      ],
+    });
+    socket.deliver({ v: 1, type: "roster", participants: many(40) });
+    await reconciled();
+    expect(socket.framesOfType("layer")).toHaveLength(2);
+  });
+});
+
+describe("a sync the room never answered", () => {
+  it("lets the next gap ask again, rather than being latched shut for the meeting", () => {
+    // The room drops a `sync` that follows too closely on the last one, so three hundred browsers
+    // meeting one missing frame cannot ask for three hundred rosters at once. A latch cleared only
+    // by the roster that answers is then permanent for exactly that case.
+    vi.useFakeTimers();
+    const { socket } = harness();
+
+    socket.deliver({
+      v: 1,
+      type: "roster-delta",
+      joined: [],
+      updated: [],
+      left: ["attendance_90"],
+    });
+    expect(socket.framesOfType("sync")).toHaveLength(1);
+
+    // A second gap inside the window still asks nothing: one hole, one question.
+    socket.deliver({
+      v: 1,
+      type: "roster-delta",
+      joined: [],
+      updated: [],
+      left: ["attendance_91"],
+    });
+    expect(socket.framesOfType("sync")).toHaveLength(1);
+
+    vi.advanceTimersByTime(SYNC_LATCH_MILLISECONDS + 100);
+    socket.deliver({
+      v: 1,
+      type: "roster-delta",
+      joined: [],
+      updated: [],
+      left: ["attendance_92"],
+    });
+    expect(socket.framesOfType("sync")).toHaveLength(2);
+  });
+});
+
+describe("a roster row about somebody who has rejoined", () => {
+  it("is taken as current, so a stale speaking mark cannot outlive the frame that set it", async () => {
+    /*
+     * The room composes a roster row out of the presence it holds at the instant it sends it, and
+     * on a rejoin it RESETS what it was holding. Held apart and never overwritten, the browser's
+     * own `speaking: true` from before the drop kept that person at the front of the gallery, with
+     * their microphone pulled, for the rest of the meeting — which is the failure the presence map
+     * exists to avoid, arriving by the other door.
+     */
+    const { client, socket } = harness();
+    socket.deliver({ v: 1, type: "roster", participants: many(3) });
+    await reconciled();
+
+    socket.deliver({
+      v: 1,
+      type: "presence",
+      participantId: "attendance_2",
+      speaking: true,
+      muted: false,
+      at: "2026-09-20T15:00:00.000Z",
+    });
+    const speaker = client.participants.find((one) => one.participantId === "attendance_2");
+    expect(speaker).toBeDefined();
+    if (speaker === undefined) return;
+    expect(client.presenceOf(speaker).speaking).toBe(true);
+
+    socket.deliver({
+      v: 1,
+      type: "roster-delta",
+      joined: [],
+      updated: [{ ...joiner(2), speaking: false, muted: true }],
+      left: [],
+    });
+    await reconciled();
+
+    const rejoined = client.participants.find((one) => one.participantId === "attendance_2");
+    expect(rejoined).toBeDefined();
+    if (rejoined === undefined) return;
+    expect(client.presenceOf(rejoined).speaking).toBe(false);
+    expect(client.presenceOf(rejoined).muted).toBe(true);
+  });
+
+  it("leaves everybody the frame did not name exactly as they were", async () => {
+    // A delta carries only what joined or changed; the rest of the merged list is rows from an
+    // earlier frame. Reading those as fresh would wipe live presence with minutes-old booleans
+    // every time anybody in a three-hundred-person room arrived.
+    const { client, socket } = harness();
+    socket.deliver({ v: 1, type: "roster", participants: many(3) });
+    await reconciled();
+    socket.deliver({
+      v: 1,
+      type: "presence",
+      participantId: "attendance_2",
+      speaking: true,
+      muted: false,
+      at: "2026-09-20T15:00:00.000Z",
+    });
+
+    socket.deliver({
+      v: 1,
+      type: "roster-delta",
+      joined: [joiner(9)],
+      updated: [],
+      left: [],
+    });
+    await reconciled();
+
+    const talking = client.participants.find((one) => one.participantId === "attendance_2");
+    expect(talking).toBeDefined();
+    if (talking === undefined) return;
+    expect(client.presenceOf(talking).speaking).toBe(true);
   });
 });

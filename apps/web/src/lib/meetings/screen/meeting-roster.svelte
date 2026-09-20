@@ -24,8 +24,9 @@
   import * as Avatar from "@magna-carta/design-system/avatar";
   import NoResults from "@magna-carta/design-system/no-results";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
+  import MeetingQualityMark from "./meeting-quality-mark.svelte";
   import { participantInitials, participantName } from "./meeting-tiles.ts";
-  import type { MeetingParticipant } from "../client/meeting-client.svelte.ts";
+  import type { ConnectionQuality, MeetingParticipant } from "../client/meeting-client.svelte.ts";
 
   /**
    * How many people a member can find by reading. Past it, the rail offers the search control.
@@ -38,6 +39,7 @@
     participants,
     ownParticipantId = null,
     presenceOf = (participant) => participant,
+    qualityOf = () => "unknown",
   }: {
     /** Everybody the roster names, this browser included. */
     participants: readonly MeetingParticipant[];
@@ -53,6 +55,12 @@
       readonly speaking: boolean;
       readonly muted: boolean;
     };
+    /**
+     * How well one person's media is getting through. The rail is where a member scans the room for
+     * whoever is having trouble, including the people no tile on this page is drawing. The default
+     * is "not measured", which is what a fixed list of participants can honestly say.
+     */
+    qualityOf?: (participant: MeetingParticipant) => ConnectionQuality;
   } = $props();
 
   let query = $state("");
@@ -92,6 +100,7 @@
               class="text-text-muted">&nbsp;(you)</span
             >{/if}
         </span>
+        <MeetingQualityMark quality={qualityOf(participant)} />
         {#if shares}
           <ScreenShare class="size-16 text-text-muted" aria-label="Sharing a screen" />
         {/if}

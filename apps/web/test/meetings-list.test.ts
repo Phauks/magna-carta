@@ -45,6 +45,7 @@ function meeting(overrides: Partial<MeetingSummary> = {}): MeetingSummary {
     endedAt: null,
     medium: "video",
     liveCount: 3,
+    locked: false,
     configured: true,
     ...overrides,
   };
@@ -140,7 +141,10 @@ afterEach(() => {
 
 describe("a section of the screen", () => {
   it("names itself and offers the room on every live row", () => {
-    const rendered = draw({ scope: "live", meetings: [meeting(), meeting({ id: "meeting_2" })] });
+    const rendered = draw({
+      scope: "live",
+      meetings: [meeting(), meeting({ id: "meeting_2" })],
+    });
 
     expect(rendered.querySelector("h2")?.textContent?.trim()).toBe(MEETING_SECTIONS.live.heading);
     expect(rendered.textContent).toContain("Hearing preparation");
@@ -170,7 +174,13 @@ describe("a section of the screen", () => {
   it("sends an ended meeting back to its event rather than into a room that is closed", () => {
     const rendered = draw({
       scope: "recent",
-      meetings: [meeting({ status: "ended", endedAt: "2026-09-18T16:00:00.000Z", liveCount: 0 })],
+      meetings: [
+        meeting({
+          status: "ended",
+          endedAt: "2026-09-18T16:00:00.000Z",
+          liveCount: 0,
+        }),
+      ],
     });
 
     expect(rendered.querySelector('a[href="/meetings/meeting_1"]')).toBeNull();
@@ -200,7 +210,11 @@ describe("a section of the screen", () => {
     const rendered = draw({
       scope: "live",
       meetings: null,
-      failure: { problem: null, request: "GET /api/v1/meetings", failedAt: new Date() },
+      failure: {
+        problem: null,
+        request: "GET /api/v1/meetings",
+        failedAt: new Date(),
+      },
       onRetry: () => {},
     });
 
@@ -221,7 +235,13 @@ describe("the screen", () => {
       sections: pages(
         [meeting()],
         [meeting({ id: "meeting_2", status: "scheduled", liveCount: 0 })],
-        [meeting({ id: "meeting_3", status: "ended", endedAt: "2026-09-17T16:00:00.000Z" })],
+        [
+          meeting({
+            id: "meeting_3",
+            status: "ended",
+            endedAt: "2026-09-17T16:00:00.000Z",
+          }),
+        ],
       ),
     });
 
@@ -243,7 +263,10 @@ describe("the screen", () => {
   });
 
   it("says once that meetings are not turned on, instead of three empty sections", () => {
-    const rendered = drawScreen({ sections: pages([], [], []), configured: false });
+    const rendered = drawScreen({
+      sections: pages([], [], []),
+      configured: false,
+    });
 
     expect(rendered.textContent).toContain("Meetings Are Not Turned On");
     expect(rendered.querySelector("table")).toBeNull();

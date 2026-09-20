@@ -13,7 +13,12 @@
  * counted by session AND name (`pulledTrackKey`), and a roster that stops naming a session is what
  * drops the tracks and the stream that went with it.
  */
-import { MAX_LAYER_TRACKS } from "@magna-carta/meeting-protocol/frames";
+import {
+  MAX_CLOSE_MIDS,
+  MAX_LAYER_TRACKS,
+  MAX_SUBSCRIBE_TRACKS,
+} from "@magna-carta/meeting-protocol/frames";
+import { noOperationDiagnosticsSink, type DiagnosticsSink } from "./diagnostics.svelte.ts";
 import {
   namesAScreen,
   ownerOfTrackName,
@@ -92,16 +97,50 @@ export class MeetingSubscriptions {
   readonly #pulledMids = new Map<string, string>();
   /** The incoming track itself, so closing one takes it out of the stream it was gathered into. */
   readonly #pulledMediaTracks = new Map<string, MediaStreamTrack>();
-  /** The simulcast layer last ASKED FOR per pulled track, so a layer frame is sent only on change. */
-  readonly #askedRids = new Map<string, PreferredRid>();
+  /** The simulcast layer the plan WANTS per pulled track. */
+  readonly #wantedRids = new Map<string, PreferredRid>();
+  /**
+   * The simulcast layer the unit is KNOWN to be sending per pulled track.
+   *
+   * It is a separate answer from what was wanted, and the difference is what a repeat ask is built
+   * on. A `layer` frame arriving too soon after the last one is DROPPED by the room, silently and
+   * by design — it is how a browser turning pages quickly is kept from making the unit re-encode on
+   * every turn. Recorded as settled at the moment the frame went out, that dropped frame is never
+   * sent again and the tile sits at the wrong size until some unrelated change happens to move it.
+   * So a layer is settled only when the room's `layered` names the media section, and a want that
+   * has not been answered is re-asked on the next pass — which the reconciliation window already
+   * spaces far enough apart to clear the room's own.
+   *
+   * A layer named on the SUBSCRIBE itself is settled on the ask, because there is no second frame
+   * to lose: the pull carries the layer, and `subscribed` is the answer to both at once.
+   */
+  readonly #confirmedRids = new Map<string, PreferredRid>();
 
   /** The window inside which further changes are folded into one reconciliation. */
   #window: ReturnType<typeof setTimeout> | undefined;
   /** Whether something changed while the window was open, so a pass is owed when it closes. */
   #owed = false;
 
-  constructor(host: SubscriptionHost) {
+  /** Where what happened on the wire is noted. A no-op unless the client wired one in. */
+  readonly #diagnostics: DiagnosticsSink;
+
+  constructor(host: SubscriptionHost, diagnostics: DiagnosticsSink = noOperationDiagnosticsSink()) {
     this.#host = host;
+    this.#diagnostics = diagnostics;
+  }
+
+  /**
+   * Who the track arriving on a media section belongs to.
+   *
+   * Asked by anything reading the connection's own statistics: those name a media section and
+   * nothing else, and this module is what knows which participant asked for it. Answering null is
+   * the ordinary state of a section this browser did not pull — its own publication, above all.
+   */
+  ownerOfMid(mid: string): string | null {
+    for (const [key, held] of this.#pulledMids) {
+      if (held === mid) return this.#trackOwners.get(key) ?? null;
+    }
+    return null;
   }
 
   /**
@@ -132,7 +171,10 @@ export class MeetingSubscriptions {
       });
     }
     for (const track of plan.audio) {
-      wanted.set(pulledTrackKey(track.sessionId, track.trackName), { ...track, rid: null });
+      wanted.set(pulledTrackKey(track.sessionId, track.trackName), {
+        ...track,
+        rid: null,
+      });
     }
 
     this.#pullWhatIsMissing(wanted);
@@ -220,20 +262,25 @@ export class MeetingSubscriptions {
   }
 
   /**
-   * The room's answer to a layer change.
+   * The room's answer to a layer change: THE one place a layer is recorded as settled.
    *
-   * A track the room could not move is left recorded at the layer it was ASKED for rather than
-   * being un-recorded, so the next pass does not ask again on the next roster frame, and the next
-   * one after that: the picture stays at whatever size the unit is sending, and a genuine change —
-   * a page turn, a pin, a different number of tiles — asks afresh.
+   * The entry names what the unit is actually sending, which is not always what was asked for — a
+   * track the unit could not move comes back at the layer it stayed on, and recording that is what
+   * stops the next pass asking for a change that has already been refused. A media section this
+   * frame does not name is one whose ask is still outstanding, and the next pass asks again.
    */
-  noteLayered(entries: readonly { readonly mid: string; readonly preferredRid: PreferredRid }[]) {
+  noteLayered(
+    entries: readonly {
+      readonly mid: string;
+      readonly preferredRid: PreferredRid;
+    }[],
+  ) {
     const byMid = new Map<string, string>();
     for (const [key, mid] of this.#pulledMids) byMid.set(mid, key);
     for (const entry of entries) {
       const key = byMid.get(entry.mid);
       if (key === undefined) continue;
-      this.#askedRids.set(key, entry.preferredRid);
+      this.#confirmedRids.set(key, entry.preferredRid);
     }
   }
 
@@ -282,7 +329,8 @@ export class MeetingSubscriptions {
     this.#trackOwners.delete(key);
     this.#pulledMids.delete(key);
     this.#pulledMediaTracks.delete(key);
-    this.#askedRids.delete(key);
+    this.#wantedRids.delete(key);
+    this.#confirmedRids.delete(key);
   }
 
   /** Forget everything, for a client being joined afresh. */
@@ -292,11 +340,19 @@ export class MeetingSubscriptions {
     this.#trackOwners.clear();
     this.#pulledMids.clear();
     this.#pulledMediaTracks.clear();
-    this.#askedRids.clear();
+    this.#wantedRids.clear();
+    this.#confirmedRids.clear();
     this.stopScheduling();
   }
 
-  /** Ask for the plan's tracks that are not already coming in, in one frame. */
+  /**
+   * Ask for the plan's tracks that are not already coming in.
+   *
+   * A frame carries at most `MAX_SUBSCRIBE_TRACKS` tracks, which is what the room accepts: a larger
+   * one is refused whole as `frame-too-large`, and every track it named is then a tile that stays
+   * black. A page of sixteen cameras and twenty-four microphones clears it comfortably, and the
+   * first roster of a room where this browser has pinned a page and turned to another does not.
+   */
   #pullWhatIsMissing(wanted: ReadonlyMap<string, WantedTrack>): void {
     const tracks: Record<string, unknown>[] = [];
     for (const [key, track] of wanted) {
@@ -304,14 +360,29 @@ export class MeetingSubscriptions {
       this.#pulledTracks.add(key);
       this.#pendingSubscriptions.add(key);
       this.#trackOwners.set(key, track.participantId);
-      if (track.rid !== null) this.#askedRids.set(key, track.rid);
+      if (track.rid !== null) {
+        this.#wantedRids.set(key, track.rid);
+        // Settled on the ask: the pull itself carries the layer, so there is no second frame for
+        // the room's window to swallow.
+        this.#confirmedRids.set(key, track.rid);
+      }
       tracks.push({
         sessionId: track.sessionId,
         trackName: track.trackName,
         ...(track.rid === null ? {} : { preferredRid: track.rid }),
       });
     }
-    if (tracks.length > 0) this.#host.send({ type: "subscribe", tracks });
+    for (let from = 0; from < tracks.length; from += MAX_SUBSCRIBE_TRACKS) {
+      this.#host.send({
+        type: "subscribe",
+        tracks: tracks.slice(from, from + MAX_SUBSCRIBE_TRACKS),
+      });
+    }
+    if (tracks.length > 0)
+      this.#diagnostics.note({
+        kind: "subscribe",
+        detail: countOf(tracks.length, "track"),
+      });
   }
 
   /**
@@ -338,7 +409,15 @@ export class MeetingSubscriptions {
       if (mid !== undefined) mids.push(mid);
       if (owner !== undefined) this.#host.detachRemoteTrack(owner, namesAScreen(key), media);
     }
-    if (mids.length > 0) this.#host.send({ type: "close", mids });
+    // At most `MAX_CLOSE_MIDS` media sections per frame, for the reason a subscribe is chunked: a
+    // frame over the cap is refused whole, and every section it named then stays open — the unit
+    // goes on sending pictures of a page nobody is looking at, for the rest of the meeting.
+    for (let from = 0; from < mids.length; from += MAX_CLOSE_MIDS) {
+      this.#host.send({
+        type: "close",
+        mids: mids.slice(from, from + MAX_CLOSE_MIDS),
+      });
+    }
   }
 
   /**
@@ -348,6 +427,11 @@ export class MeetingSubscriptions {
    * waiting for its answer is already being pulled at the right size, and asking again by mid
    * before the unit has said which mid it is would name nothing.
    *
+   * WHAT IS ASKED FOR IS WHAT IS NOT YET SETTLED, not what changed on this pass. The room drops a
+   * `layer` frame that follows too closely on the last one, so a frame sent is not a frame applied;
+   * an ask stands until `layered` answers it, and every pass re-sends whatever is still outstanding
+   * (`#confirmedRids` says why at length).
+   *
    * A frame carries at most `MAX_LAYER_TRACKS` tracks, which is what the room accepts.
    */
   #moveLayersThatChanged(wanted: ReadonlyMap<string, WantedTrack>): void {
@@ -356,8 +440,8 @@ export class MeetingSubscriptions {
       if (track.rid === null) continue;
       const mid = this.#pulledMids.get(key);
       if (mid === undefined) continue;
-      if (this.#askedRids.get(key) === track.rid) continue;
-      this.#askedRids.set(key, track.rid);
+      this.#wantedRids.set(key, track.rid);
+      if (this.#confirmedRids.get(key) === track.rid) continue;
       changed.push({
         sessionId: track.sessionId,
         trackName: track.trackName,
@@ -366,7 +450,21 @@ export class MeetingSubscriptions {
       });
     }
     for (let from = 0; from < changed.length; from += MAX_LAYER_TRACKS) {
-      this.#host.send({ type: "layer", tracks: changed.slice(from, from + MAX_LAYER_TRACKS) });
+      this.#host.send({
+        type: "layer",
+        tracks: changed.slice(from, from + MAX_LAYER_TRACKS),
+      });
+    }
+    if (changed.length > 0) {
+      this.#diagnostics.note({
+        kind: "layer",
+        detail: countOf(changed.length, "track"),
+      });
     }
   }
+}
+
+/** A count and the thing it counts, for a diagnostic note that carries a number and no names. */
+function countOf(howMany: number, noun: string): string {
+  return howMany === 1 ? `1 ${noun}` : `${howMany} ${noun}s`;
 }

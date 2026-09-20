@@ -35,6 +35,7 @@ function tile(ordinal: number, over: Partial<MeetingTileModel> = {}): MeetingTil
     speaking: false,
     pinned: false,
     videoPulled: true,
+    quality: "unknown",
     ...over,
   };
 }
@@ -120,7 +121,9 @@ describe("a tile with no picture coming in", () => {
   it("is a name and initials saying it is not shown, never a wait", () => {
     instance = mount(Gallery, {
       target,
-      props: { tiles: [tile(2, { name: "Rosalind Chase", videoPulled: false })] },
+      props: {
+        tiles: [tile(2, { name: "Rosalind Chase", videoPulled: false })],
+      },
     });
     flushSync();
 
@@ -131,7 +134,10 @@ describe("a tile with no picture coming in", () => {
   });
 
   it("keeps the picture's shape where the camera WAS asked for and has not arrived", () => {
-    instance = mount(Gallery, { target, props: { tiles: [tile(2, { videoPulled: true })] } });
+    instance = mount(Gallery, {
+      target,
+      props: { tiles: [tile(2, { videoPulled: true })] },
+    });
     flushSync();
 
     // A camera that was asked for is a tile that will fill; "Not shown" would be a lie about it.
@@ -165,7 +171,11 @@ describe("the marks a tile carries", () => {
       target,
       props: {
         tiles: [
-          tile(2, { name: "Rosalind Chase", stream: camera, microphoneOff: false }),
+          tile(2, {
+            name: "Rosalind Chase",
+            stream: camera,
+            microphoneOff: false,
+          }),
           tile(3, { name: "Marcus Webb", stream: camera, microphoneOff: true }),
         ],
       },
@@ -203,7 +213,10 @@ describe("the marks a tile carries", () => {
   it("offers no pin on this browser's own preview, which is already where it belongs", () => {
     instance = mount(Gallery, {
       target,
-      props: { tiles: [tile(1, { name: "You", local: true })], onPin: () => {} },
+      props: {
+        tiles: [tile(1, { name: "You", local: true })],
+        onPin: () => {},
+      },
     });
     flushSync();
 

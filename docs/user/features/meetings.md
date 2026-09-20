@@ -37,7 +37,9 @@ lives beside the documents and the correspondence rather than in somebody's memo
    see and hear you. You can turn either off once you are in.
 
 The first person to press the button is the one who starts the meeting; everybody else gets **Join
-meeting** in the same place from then on.
+meeting** in the same place from then on. Opening a room from an event needs the permission to host
+meetings, so a member who may join meetings but not host them sees **Join meeting** once somebody
+else has started one and nothing before that.
 
 If **Start meeting** is not on the event at all, your firm has not been set up for meetings yet, and
 that is a step for whoever administers the firm rather than something you can turn on from here.
@@ -112,6 +114,27 @@ screen. Along the bottom are the controls:
 If you close the tab, or your connection drops, you are shown as having left within about a minute.
 So you cannot get stuck in a room by walking away from it, and nobody is left looking at a tile with
 nobody behind it for long.
+
+## Connection quality
+
+Beside each person's name, on their tile and in the list down the side, is a small set of bars
+saying how well their picture and sound are reaching you. Four bars is good, fewer is worse, and an
+empty mark means nothing has been measured yet, which is how every meeting looks for its first few
+seconds. Your own preview carries the mark too, and that one is about what you are SENDING: when
+everybody tells you that you are breaking up, this is where you find out whether they are right.
+
+**Connection** in the control bar opens the numbers behind the marks: the size of the picture you
+are sending, how much is going out, how much of it is going missing, how long the round trip to the
+service takes, and the same answer for each other person in the room. Under them is a short list of
+what has happened on your connection — when you joined, what was asked for, anything the room
+refused, and the error reference to quote if you report it.
+
+**None of it is recorded.** The measurements live in this browser tab while the meeting is open and
+go when you close it. Nothing about your connection reaches the meeting's own record, which stays
+what it has always been: who was in the room and for how long.
+
+A poor mark on one person and good marks on everybody else usually means the trouble is at their
+end. Poor marks on everybody, or on your own preview, usually means it is at yours.
 
 ## Large meetings
 

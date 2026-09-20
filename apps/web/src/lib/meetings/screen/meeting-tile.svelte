@@ -36,7 +36,9 @@
   import Button from "@magna-carta/design-system/button";
   import * as Avatar from "@magna-carta/design-system/avatar";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
+  import MeetingQualityMark from "./meeting-quality-mark.svelte";
   import { participantInitials } from "./meeting-tiles.ts";
+  import type { ConnectionQuality } from "$lib/meetings/client/connection-quality.ts";
   import type { MeetingMedium } from "@magna-carta/meeting-protocol/types";
 
   let {
@@ -47,6 +49,7 @@
     speaking = false,
     pinned = false,
     videoPulled = true,
+    quality = "unknown",
     onPin,
     class: className = "",
   }: {
@@ -72,6 +75,12 @@
     pinned?: boolean;
     /** Whether this browser asked for their camera. False draws the name tile rather than a wait. */
     videoPulled?: boolean;
+    /**
+     * How well their media is getting through, measured on this browser's own connection. It is the
+     * answer to the question a member asks when a tile stutters — is it them or is it me — and the
+     * local preview carries it too, because the answer is often "me".
+     */
+    quality?: ConnectionQuality;
     /** Offered on a person's tile; a screen share has nobody to pin. */
     onPin?: () => void;
     class?: string;
@@ -136,6 +145,7 @@
     class="absolute inset-x-0 bottom-0 flex items-center gap-8 bg-chrome-surface px-12 py-8"
   >
     <span class="min-w-0 flex-1 truncate text-sm text-chrome-text" title={name}>{name}</span>
+    <MeetingQualityMark {quality} register="chrome" />
     {#if silent}
       <Badge variant="neutral">
         <MicOff class="size-12" aria-hidden="true" />

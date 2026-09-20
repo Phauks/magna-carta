@@ -39,10 +39,20 @@ edge is a constructor seam, so the whole machine runs under a test with fakes.
 - `presence.ts` — the meter on this browser's own microphone, and the transition test that keeps a
   presence frame from being sent twice.
 - `audio-level-meter.ts` — the analyser itself, which is a device and therefore a seam.
+- `connection-quality.ts` — the pure reading of one `RTCStatsReport` against the one before it, and
+  the thresholds a mark is judged by. Counters in, rates over the interval out; nothing in it
+  touches a browser, so the numbers that decide whether a member is told their meeting is poor are
+  argued with in a unit test rather than by sitting in a bad meeting.
+- `diagnostics.svelte.ts` — the sampling, the two short rings (five minutes of samples, the last
+  sixty wire events) and the redacted snapshot a periodic report will one day carry. It is also the
+  `DiagnosticsSink` signaling and subscriptions emit through — a seam with a no-op default, so
+  neither of them knows diagnostics exist.
 
-**`screen/` — what is drawn.** `meeting-tiles.ts` projects the client's state into tile models;
-`meeting-grid.svelte`, `meeting-tile.svelte`, `meeting-roster.svelte`, `meeting-controls.svelte` and
-`meeting-audio.svelte` draw them. The room screen itself is
+**`screen/` — what is drawn.** `meeting-tiles.ts` projects the client's state into tile models and
+`meeting-connection.ts` projects its diagnostics into the connection surface's models;
+`meeting-grid.svelte`, `meeting-tile.svelte`, `meeting-roster.svelte`, `meeting-controls.svelte`,
+`meeting-quality-mark.svelte`, `meeting-connection-panel.svelte` and `meeting-audio.svelte` draw
+them. The room screen itself is
 `src/routes/(app)/meetings/[id]/+page.svelte`.
 
 **Beside them, and not part of the room:** `meetings-api.ts` (every read and write, mirroring the
@@ -83,6 +93,21 @@ so those modules can take the `MeetingMedium` union without reaching into the ro
   it draws tiles and ranks the two differently, so a stream with no audio track in it is the
   ordinary state of somebody whose camera is on this page and whose voice is not among the ones
   being pulled. Reading that absence as "Muted" tells the room somebody is silent who is talking.
+- **What the connection is doing is LOCAL, and never becomes a record.** The samples and the wire
+  events live in this tab, go when the meeting does, and are not written anywhere. A meeting's
+  record is who was in the room and for how long; how somebody's connection behaved is not a fact
+  about the meeting, and the snapshot `report()` builds carries participant handles only — no
+  session description, no display name, no track name.
+- **A layer is settled by `layered`, never by having sent the frame.** The room drops a `layer`
+  frame that follows too closely on the last one, so what the plan WANTS and what the unit is known
+  to be sending are two maps, and every pass re-asks for whatever is still outstanding. The same
+  shape holds the `sync` latch: an ask nothing answered lets go on its own, or it swallows every
+  later gap in the meeting.
+- **A roster or delta row is authoritative the moment it arrives.** The presence map is held beside
+  the roster (above), and that is about not REBUILDING the roster — not about ignoring what it says.
+  The room composes a row out of the presence it holds as it sends it and resets that on a rejoin,
+  so a row naming somebody is the freshest thing there is about them. Only the rows a frame actually
+  carried, though: a delta's merged list is mostly rows from earlier frames.
 - **Nothing the room says about its contents is read before `welcome`.** A `presence` or a delta
   landing in that gap names somebody an empty roster does not hold, which is the shape of a frame
   gone missing — so the client asks for the whole list again, and every browser joining at the top

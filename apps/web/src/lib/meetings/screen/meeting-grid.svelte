@@ -77,6 +77,7 @@
     speaking={tile.speaking}
     pinned={tile.pinned}
     videoPulled={tile.videoPulled}
+    quality={tile.quality}
     onPin={onPin === undefined || tile.participantId === null || tile.local
       ? undefined
       : () => onPin(tile.participantId ?? "")}
@@ -94,6 +95,7 @@
       speaking={large.speaking}
       pinned={large.pinned}
       videoPulled={large.videoPulled}
+      quality={large.quality}
       {medium}
     />
     <div

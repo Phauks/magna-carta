@@ -50,6 +50,12 @@
   import MeetingGrid from "$lib/meetings/screen/meeting-grid.svelte";
   import MeetingControls from "$lib/meetings/screen/meeting-controls.svelte";
   import MeetingRoster from "$lib/meetings/screen/meeting-roster.svelte";
+  import MeetingConnectionPanel from "$lib/meetings/screen/meeting-connection-panel.svelte";
+  import {
+    connectionEvents,
+    connectionParticipants,
+    connectionUplink,
+  } from "$lib/meetings/screen/meeting-connection.ts";
   import {
     endMeeting,
     eventAddress,
@@ -331,6 +337,12 @@
    * arriving at the address should know which they are about to join before they are in it.
    */
   const kindWord = $derived(client.medium === "audio" ? "Call" : "Meeting");
+
+  // ---- what the connection surface draws ---------------------------------------------------------
+
+  const uplink = $derived(connectionUplink(client));
+  const connectionRoom = $derived(connectionParticipants(client));
+  const wireEvents = $derived(connectionEvents(client.diagnostics.recent));
 </script>
 
 <svelte:head><title>{title} · Magna Carta</title></svelte:head>
@@ -487,6 +499,7 @@
             participants={client.participants}
             ownParticipantId={client.participantId}
             presenceOf={(participant) => client.presenceOf(participant)}
+            qualityOf={(participant) => client.qualityOf(participant.participantId)}
           />
         </aside>
       </div>
@@ -506,6 +519,14 @@
         onLeave={() => void leave()}
         onEnd={end}
       >
+        {#snippet connection()}
+          <MeetingConnectionPanel
+            {uplink}
+            participants={connectionRoom}
+            events={wireEvents}
+          />
+        {/snippet}
+
         {#snippet endFailure()}
           {#if endRefusal !== null}
             <FailureNotice

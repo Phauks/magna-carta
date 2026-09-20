@@ -20,9 +20,23 @@ import {
   TRACK_NAME_SEPARATOR,
   type PreferredRid,
 } from "@magna-carta/meeting-protocol/frames";
+import { noOperationDiagnosticsSink, type DiagnosticsSink } from "./diagnostics.svelte.ts";
 
 /** How long between keepalive pings. */
 const KEEPALIVE_INTERVAL_MILLISECONDS = 30_000;
+
+/**
+ * How long a `sync` that nothing has answered stands before the next gap may ask again.
+ *
+ * ASKING ONCE PER GAP IS NOT THE SAME AS ASKING ONCE EVER, and the difference was invisible until
+ * the room started dropping a `sync` that follows too closely on the last one — which it does, so
+ * that three hundred browsers meeting the same missing frame cannot ask for three hundred rosters
+ * in the same second. A latch held until a full roster arrives is then permanent for exactly the
+ * case it exists to cover: the dropped sync is never answered, so the latch never clears, and every
+ * later gap in the meeting is swallowed by it. The window is longer than the room's own, so the
+ * second ask is one the room will actually take.
+ */
+export const SYNC_LATCH_MILLISECONDS = 2_000;
 
 /**
  * How many pings may go unanswered before the socket is treated as gone. Two, rather than one,
@@ -166,6 +180,11 @@ export function readIdentifiers(value: unknown): readonly string[] {
   return value.filter((entry): entry is string => typeof entry === "string");
 }
 
+/** A count of tracks, for a diagnostic note that carries a number and no names. */
+function countOfTracks(howMany: number): string {
+  return howMany === 1 ? "1 track" : `${howMany} tracks`;
+}
+
 /** The participant a track name belongs to, read off the name's own prefix. */
 export function ownerOfTrackName(trackName: string): string {
   const separator = trackName.indexOf(TRACK_NAME_SEPARATOR);
@@ -233,16 +252,37 @@ export class MeetingSignaling {
   #missedPongs = 0;
   /** True while a `sync` has gone out and no full roster has come back, so one gap asks once. */
   #syncAsked = false;
+  /** When the latch above lets go on its own, where no roster has come back to clear it. */
+  #syncLatch: ReturnType<typeof setTimeout> | undefined;
   /** Whether the room has said hello. Almost nothing it sends means anything before it has. */
   #welcomed = false;
+  /**
+   * True while this side is the one closing the socket.
+   *
+   * The close handler cannot tell a socket that went away from one this browser hung up, and the
+   * difference is the whole meaning of the note: "the connection to the room went away" in a list
+   * of what happened, under a meeting the member ended themselves, reads as a fault that was not
+   * one — and it is the LAST line, which is the line somebody diagnosing reads first.
+   */
+  #closing = false;
 
-  constructor(openSocket: (url: string) => WebSocket, handlers: RoomFrameHandlers) {
+  /** Where what happened on the wire is noted. A no-op unless the client wired one in. */
+  readonly #diagnostics: DiagnosticsSink;
+
+  constructor(
+    openSocket: (url: string) => WebSocket,
+    handlers: RoomFrameHandlers,
+    diagnostics: DiagnosticsSink = noOperationDiagnosticsSink(),
+  ) {
     this.#openSocket = openSocket;
     this.#handlers = handlers;
+    this.#diagnostics = diagnostics;
   }
 
   open(url: string): void {
     this.#welcomed = false;
+    this.#closing = false;
+    this.#diagnostics.note({ kind: "join" });
     const socket = this.#openSocket(url);
     this.#socket = socket;
     socket.addEventListener("open", () => {
@@ -257,11 +297,15 @@ export class MeetingSignaling {
     });
     socket.addEventListener("close", () => {
       this.#socketOpen = false;
+      if (!this.#closing) this.#diagnostics.note({ kind: "socket-lost", detail: "closed" });
       this.#handlers.lost();
     });
   }
 
   send(frame: Record<string, unknown>): void {
+    // Noted here rather than at the caller: a publish is the one frame going out that a member's
+    // own picture and voice depend on, and this is the one place every frame passes through.
+    if (frame.type === "publish") this.#diagnostics.note({ kind: "publish" });
     this.sendRaw(JSON.stringify({ v: MEETING_PROTOCOL_VERSION, ...frame }));
   }
 
@@ -275,32 +319,53 @@ export class MeetingSignaling {
     socket.send(frame);
   }
 
-  /** Ask the room for the whole roster, once, where a delta showed this browser has missed one. */
+  /**
+   * Ask the room for the whole roster, once, where a delta showed this browser has missed one.
+   *
+   * The latch lets go on the roster that answers it, and failing that on its own after
+   * `SYNC_LATCH_MILLISECONDS` — because a `sync` the room dropped is never answered, and a latch
+   * with no way out would swallow every later gap in the meeting.
+   */
   requestSync(): void {
     if (this.#syncAsked) return;
     this.#syncAsked = true;
     this.send({ type: "sync" });
+    if (this.#syncLatch !== undefined) clearTimeout(this.#syncLatch);
+    this.#syncLatch = setTimeout(() => {
+      this.#syncLatch = undefined;
+      this.#syncAsked = false;
+    }, SYNC_LATCH_MILLISECONDS);
   }
 
   /** The whole list arrived, so whatever gap was suspected is settled and may be asked about again. */
   noteRosterSettled(): void {
-    this.#syncAsked = false;
+    this.#clearSyncLatch();
   }
 
   close(): void {
     this.#stopKeepalive();
+    this.#clearSyncLatch();
     const socket = this.#socket;
     this.#socket = null;
     this.#socketOpen = false;
     this.#outbox = [];
+    this.#closing = true;
     socket?.close();
+    this.#closing = false;
   }
 
   reset(): void {
     this.#missedPongs = 0;
     this.#outbox = [];
-    this.#syncAsked = false;
+    this.#clearSyncLatch();
     this.#welcomed = false;
+  }
+
+  /** Let the next gap ask, and stop the timer that would have done it later. */
+  #clearSyncLatch(): void {
+    if (this.#syncLatch !== undefined) clearTimeout(this.#syncLatch);
+    this.#syncLatch = undefined;
+    this.#syncAsked = false;
   }
 
   receive(data: unknown): void {
@@ -327,6 +392,10 @@ export class MeetingSignaling {
      */
     const version = parsed.v;
     if (typeof version === "number" && version !== MEETING_PROTOCOL_VERSION) {
+      this.#diagnostics.note({
+        kind: "protocol-mismatch",
+        detail: `version ${version}`,
+      });
       this.#handlers.incompatible(version);
       return;
     }
@@ -343,6 +412,7 @@ export class MeetingSignaling {
         return;
       case "welcome":
         this.#welcomed = true;
+        this.#diagnostics.note({ kind: "welcome" });
         this.#handlers.welcome(parsed);
         return;
       case "roster":
@@ -364,6 +434,10 @@ export class MeetingSignaling {
         this.#handlers.published(parsed);
         return;
       case "subscribed":
+        this.#diagnostics.note({
+          kind: "subscribed",
+          detail: countOfTracks(Array.isArray(parsed.tracks) ? parsed.tracks.length : 0),
+        });
         this.#handlers.subscribed(parsed);
         return;
       case "renegotiated":
@@ -373,11 +447,22 @@ export class MeetingSignaling {
         this.#handlers.closed(parsed);
         return;
       case "ended":
+        this.#diagnostics.note({ kind: "ended" });
         this.#handlers.ended(parsed);
         return;
-      case "refused":
+      case "refused": {
+        // A supersession is its own kind rather than a refusal with a reason attached: it is the
+        // one refusal that is not a fault at all, and reading a list of what went wrong is easier
+        // when the entry that went RIGHT is not wearing the same word as the ones that did not.
+        const reason = readString(parsed, "reason");
+        this.#diagnostics.note({
+          kind: reason === "superseded" ? "superseded" : "refused",
+          detail: reason,
+          errorId: readString(parsed, "errorId"),
+        });
         this.#handlers.refused(parsed);
         return;
+      }
       default:
         return;
     }
@@ -388,6 +473,10 @@ export class MeetingSignaling {
     this.#missedPongs = 0;
     this.#keepalive = setInterval(() => {
       if (this.#missedPongs >= MISSED_PONGS_BEFORE_FAILURE) {
+        this.#diagnostics.note({
+          kind: "socket-lost",
+          detail: "no answer to the keepalive",
+        });
         this.#handlers.lost();
         return;
       }
