@@ -5,6 +5,7 @@ import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import { withEditorDiagnostics } from "./diagnostics.ts";
 import { DocumentEditorContainer } from "./document-editor-container.ts";
 import { documentKeyFromHost } from "./document-routing.ts";
+import { withBuildIdentity } from "./editor-about.ts";
 import { withoutEditorLogo } from "./editor-branding.ts";
 import {
   isStylesheetRequest,
@@ -76,13 +77,16 @@ export default {
         // container. coolwsd's own WOPI callbacks do NOT pass through here — they leave the container
         // via outboundByHost straight to the app worker.
         const response = await getContainer(env.DOCUMENT_EDITOR, key).fetch(request);
-        // The three things this worker changes about the container's answer: coolwsd cannot know
+        // The four things this worker changes about the container's answer: coolwsd cannot know
         // which origin frames the editor here, so the app origins are added to the policy it sent
         // (embedding-policy.ts); the editor page's logo field is switched off, since this image
-        // offers no setting for it (editor-branding.ts); and the platform's stylesheet is linked
-        // into the page (editor-stylesheet.ts). All three hand an upgrade back untouched.
-        return withEditorStylesheet(
-          withoutEditorLogo(allowAppFraming(response, appFrameAncestors(env))),
+        // offers no setting for it (editor-branding.ts); the platform's stylesheet is linked into
+        // the page (editor-stylesheet.ts); and the platform's build is written into the editor's
+        // About dialog (editor-about.ts). All four hand an upgrade back untouched.
+        return withBuildIdentity(
+          withEditorStylesheet(
+            withoutEditorLogo(allowAppFraming(response, appFrameAncestors(env))),
+          ),
         );
       },
     );
