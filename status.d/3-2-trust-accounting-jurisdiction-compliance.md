@@ -12,7 +12,7 @@ tested: in-progress by="Opus 4.8"
 next: The reconciliation workbench on the firm screen (statement entry and import, matching by hand, closing the proof), the cushion forms, the unclaimed-funds file; the matter behind a queued request served by name; an attorney review of the encoded Nevada profile
 link-spec: docs/specs/2026-07-09-slice-3-2-trust-jurisdiction-schema-design.md
 link-plan:
-active-work: docs/active-work/claude/upbeat-darwin-vooof8.md
+active-work:
 adrs: ADR-0009
 blocked-by:
 ---

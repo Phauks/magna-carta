@@ -2669,7 +2669,7 @@
         }
       },
       "branch": "main",
-      "activeWork": "docs/active-work/claude/upbeat-darwin-vooof8.md",
+      "activeWork": null,
       "next": "The reconciliation workbench on the firm screen (statement entry and import, matching by hand, closing the proof), the cushion forms, the unclaimed-funds file; the matter behind a queued request served by name; an attorney review of the encoded Nevada profile",
       "links": {
         "spec": "docs/specs/2026-07-09-slice-3-2-trust-jurisdiction-schema-design.md",
