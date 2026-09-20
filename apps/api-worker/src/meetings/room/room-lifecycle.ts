@@ -10,6 +10,7 @@ import { announceRoster, rosterEntryFor, rosterFrom } from "./room-roster.ts";
 import {
   attachmentOf,
   broadcast,
+  clearSpotlightFor,
   connectedAttendanceIds,
   deleteEndedMarker,
   deleteEveryKey,
@@ -22,6 +23,7 @@ import {
   readRoom,
   recordRoomFailure,
   refuseAndClose,
+  roomStateOf,
   socketExistsFor,
   socketsFor,
   storedParticipants,
@@ -88,6 +90,9 @@ export async function admitParticipant(
       firmId: attachment.firmId,
       meetingId: attachment.meetingId,
       medium: attachment.medium,
+      // Read off the meeting row by the socket route, like the medium beside it, so the room never
+      // has to ask the firm's database what state it is in.
+      locked: attachment.locked ?? false,
     });
     const existing = await readParticipant(room, attachment.attendanceId);
     await putParticipant(room, attachment.attendanceId, {
@@ -114,6 +119,12 @@ export async function admitParticipant(
       // A new socket is a NEW routing session (see above), so every subscription the old one held
       // is gone with it and none of its media sections means anything any more.
       subscribedMids: [],
+      // SEEDED FROM THE UPGRADE, and read from this record for every frame afterwards. The socket
+      // route has just read the live grants to decide the caller may be in the room at all, so this
+      // costs nothing; what it must not do is become the authority, because a frozen attachment
+      // cannot say that a grant was withdrawn ten minutes into a meeting. The hosting routes rewrite
+      // this field when they commit (room-hosting.ts).
+      hostRole: attachment.hostRole ?? null,
     });
     return existing;
   });
@@ -124,8 +135,9 @@ export async function admitParticipant(
 
   const stored = await storedParticipants(room);
   // A SOCKET THAT HAS JUST ARRIVED HOLDS NOTHING TO APPLY A DIFFERENCE TO, so the welcome carries
-  // the whole list however large the room is. It is the one frame in the protocol that always does.
-  server.send(welcomeFrame(attachment.attendanceId, rosterFrom(stored)));
+  // the whole list however large the room is, and the room's own state with it. It is the one frame
+  // in the protocol that always does.
+  server.send(welcomeFrame(attachment.attendanceId, rosterFrom(stored), await roomStateOf(room)));
   // IN THE ROOM FROM HERE, and not before: until this frame is on the wire the browser holds no
   // roster, so a difference broadcast at it is a gap it can only close by asking for the whole list.
   // Raised after the send rather than before it so the window can only ever be too long by nothing.
@@ -362,6 +374,12 @@ async function sweepParticipantsPastTheirGrace(room: RoomContext, now: number): 
   // What is left is derived from the read this sweep already made rather than read again: the
   // sweep knows exactly who it removed, which is the whole of what the room has to be told.
   announceRoster(room, remaining, { left: lost.map(([attendanceId]) => attendanceId) });
+  // The spotlight dies with whoever it named. A large tile drawn for somebody the sweep has just
+  // removed is a tile that will never fill.
+  await clearSpotlightFor(
+    room,
+    lost.map(([attendanceId]) => attendanceId),
+  );
   await releaseMedia(
     room,
     lost.map(([, participant]) => participant),

@@ -419,3 +419,54 @@ Web:
 - `apps/web/src/lib/meetings/meeting-entry-action.svelte` — the lobby switch at Start
 - `apps/web/test/meeting-client.test.ts`, `meeting-room-page.test.ts`, a new `meeting-lobby.test.ts`
 - `docs/user/features/meetings.md` — the waiting room
+
+## Amendments taken during slice one — host controls
+
+The server half landed 2026-09-20 with the design's own assertions unchanged. What differs from the
+sketch above, and why:
+
+- **The domain package gained a trio rather than four more exports on two files.** The hosting
+  concern is `packages/meetings/src/hosting-types.ts`, `hosting-statements.ts` and
+  `hosting-service.ts`, on the structural slice's own rule (a types/statements/service trio per
+  concern). `MEETING_HOST_ROLES` therefore lives in `hosting-types.ts` rather than in `types.ts`;
+  the widened `MEETING_DEPARTURE_REASONS` and `MeetingSummary.locked` stay in `types.ts`, because
+  they belong to attendance and to the meeting rather than to hosting.
+- **The routes are their own file**, `apps/api-worker/src/routes/meeting-hosting.ts`, and the room's
+  half is its own concern module, `apps/api-worker/src/meetings/room/room-hosting.ts` — one route
+  file per resource, and a concern is a module rather than a method on `MeetingRoom`. The
+  Durable Object gained three thin RPC methods (`hostingChanged`, `participantRemoved`,
+  `roomStateChanged`) and nothing else.
+- **`meetingErrorResponse` moved out of `routes/meetings.ts`'s private scope and is shared.** Three
+  route files now map one refusal vocabulary, and "one refusal for every way a room is out of reach"
+  only holds if every door answers the same way; `routes/meeting-chat.ts` had a second copy and now
+  imports the first.
+- **`room-state` carries `spotlight` and `locked` and not `lobby`.** The lobby is the next slice and
+  the field is additive when it lands. `welcome` carries the whole `roomState` inline, as designed.
+- **`MUTE_ALL_CONCURRENCY` lives in the room, not in the protocol package.** It is not on the wire,
+  and that package takes nothing that only one end reads.
+- **Removal writes two audit rows, not one.** `meetings.meeting.left` with `reason: 'removed'`, so
+  "when did each person stop being in the room" stays one read over one event name — the whole
+  reason that vocabulary exists — and `meetings.meeting.removed` beside it with the HOST as its
+  actor, because the departure row's actor is the member whose presence it records and it has
+  nowhere to put somebody else. The removal also closes the target's own grant, so a removed co-host
+  cannot claim the room back from outside it.
+- **A claim counts the OTHER grant-holders present, not every grant-holder.** A co-host sitting alone
+  in a room whose host went offline holds a live grant, so counting every one of them would refuse
+  them the single act their co-host grant does not carry and leave the room permanently hostless —
+  which is the state the claim exists to end. The claim closes the abandoned HOST grant and the
+  claimer's own, both forced by an index rather than chosen, and leaves an absent co-host's alone.
+- **The socket upgrade seeds the room's stored `hostRole` and `locked` from the meeting record.** The
+  attachment is still never the authority — every host frame is decided from the stored participant
+  record, which the hosting routes rewrite after they commit — but the route has just read the
+  grants to authorize the upgrade, so seeding from that read saves the room a round trip it would
+  otherwise make per socket.
+- **A locked room refuses at the join path AFTER the open-stay read.** A member already in the
+  meeting when the door shut is not turned out of it by their own browser reconnecting.
+- **"A new meeting on the same event admits them" is a statement about a new MEETING, and in
+  practice a new event.** One meeting per event is a partial unique index over the event column with
+  no status in it, so an event has at most one meeting for the life of the record — including after
+  it ends. The bar a removal writes is per meeting and reaches nothing else, which is what the test
+  asserts.
+- **`GET /hosts` is recorded in the unpaged-list baseline rather than paged.** Its answer is the LIVE
+  grants — one host and the co-hosts named in the room, written one deliberate act at a time — and
+  it is read whole because it is the badge every browser draws.

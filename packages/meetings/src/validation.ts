@@ -19,7 +19,17 @@ export type MeetingValidationCode =
   | "meeting-room-full"
   // Leaving a room the caller is not in. A stay that was already closed is not closed twice: the
   // second leave would move an instant somebody's record already carries.
-  | "meeting-not-joined";
+  | "meeting-not-joined"
+  // The caller holds no live grant on this meeting. ITS OWN REFUSAL rather than the chokepoint's
+  // permission answer, because the member holds the permission and the remedy is different:
+  // somebody has to hand them the room, or — where nobody is running it — they claim it.
+  | "meeting-not-host"
+  // Arriving at a door a host has shut. Fixed by somebody unlocking it, which is why it is neither
+  // an absence nor a permission answer.
+  | "meeting-locked"
+  // A member who was put out of this meeting, arriving again. It is the MEETING they are barred
+  // from and not the event: a new meeting on the same event is a new room.
+  | "meeting-removed";
 
 export class MeetingValidationError extends Error {
   constructor(

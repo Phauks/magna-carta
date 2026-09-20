@@ -122,6 +122,7 @@ import type {
   MatterTaskId,
   MatterTypeId,
   MeetingAttendanceId,
+  MeetingHostId,
   MeetingId,
   MeetingMessageId,
   MemberLocationId,
@@ -7834,6 +7835,14 @@ export const meeting = sqliteTable(
     endedByUserId: text("ended_by_user_id")
       .$type<UserId>()
       .references(() => member.userId),
+    // THE DOOR, SHUT. A locked room refuses arrivals at the join path and touches nobody already in
+    // it; unlocking is the same act the other way. Shaped exactly like the ended pair above and
+    // constrained with it, because half of that pair is a record nobody can question: an instant
+    // with no actor cannot be asked who shut the door.
+    lockedAt: text("locked_at"), // ISO-8601 instant
+    lockedByUserId: text("locked_by_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -7870,6 +7879,11 @@ export const meeting = sqliteTable(
       sql`(${table.endedAt} IS NULL AND ${table.endedByUserId} IS NULL)
         OR (${table.endedAt} IS NOT NULL AND ${table.endedByUserId} IS NOT NULL)`,
     ),
+    // And the same of the lock: who shut the door and when, together or neither.
+    check(
+      "meeting_locked_shape_check",
+      sql`(${table.lockedAt} IS NULL) = (${table.lockedByUserId} IS NULL)`,
+    ),
   ],
 );
 
@@ -7899,6 +7913,18 @@ export const meetingAttendance = sqliteTable(
     // instant, so a member who never pressed Leave still has a left_at rather than a stay that runs
     // forever.
     leftAt: text("left_at"), // ISO-8601 instant
+    // HOW THE STAY ENDED, as a queryable column rather than only as a label on the departure audit
+    // row. The audit row stays the accountable half — who did it, and when — and this is the half a
+    // read can ask a question of: the join path has to refuse a member whose stay was closed
+    // `removed`, and a refusal that had to walk a matter's audit log to decide would be a read of
+    // the wrong record entirely.
+    //
+    // NOTHING IS BACKFILLED. A stay closed before this column existed carries null, which means
+    // "closed before the record kept the reason" and not "left" — writing 'left' over them would
+    // invent a fact about every socket that was ever lost. A stay closed by the meeting ENDING
+    // carries null too, deliberately: the meeting row already says the gathering ended, and a fifth
+    // value for it would be a second answer to a question the meeting already answers.
+    endedReason: text("ended_reason"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -7922,6 +7948,90 @@ export const meetingAttendance = sqliteTable(
     check(
       "meeting_attendance_span_check",
       sql`${table.leftAt} IS NULL OR ${table.leftAt} >= ${table.joinedAt}`,
+    ),
+    // The departure vocabulary, and the pairing that makes it readable: a reason on a stay that is
+    // still open would say how somebody left a room they are sitting in.
+    check(
+      "meeting_attendance_ended_reason_check",
+      sql`${table.endedReason} IS NULL
+        OR (${table.leftAt} IS NOT NULL
+          AND ${table.endedReason} IN ('left', 'socket-lost', 'removed', 'denied'))`,
+    ),
+  ],
+);
+
+// WHO IS RUNNING THIS MEETING — one grant of authority over one room, held as a row and closed
+// rather than deleted.
+//
+// A `host_user_id` column on `meeting` would be smaller and would answer the live question. It would
+// answer ONLY the live question: co-hosts are several, so they need rows regardless, and a column
+// overwritten on hand-over erases who was running the room before it. What a firm actually asks of a
+// meeting record months later is "who was hosting when that happened", which is a question about an
+// INTERVAL — so a grant is a row with `granted_at` and `revoked_at`, on the same principle that
+// makes attendance a row per stay rather than a flag per person.
+//
+// THE PERMISSION KEY AND THE GRANT ANSWER DIFFERENT QUESTIONS, which is why this table exists at
+// all. `meetings:host` says who a firm lets convene a meeting; it cannot say who is running THIS
+// room, because that changes during the meeting — hosting is handed over, co-hosts are named and
+// withdrawn, and the member who opened the room may have been called away an hour ago. A key granted
+// once and read everywhere has no way to say any of that.
+//
+// `meeting.created_by_user_id` stays exactly what it is and is deliberately NOT read as the host:
+// the two are the same person only until the first hand-over, and a record that conflated them would
+// answer "who was running the meeting when she was removed" with the name of somebody who had left.
+export const meetingHost = sqliteTable(
+  "meeting_host",
+  {
+    id: text("id").primaryKey().$type<MeetingHostId>(), // meetingHost_ handle
+    meetingId: text("meeting_id")
+      .notNull()
+      .$type<MeetingId>()
+      .references(() => meeting.id),
+    userId: text("user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    // A co-host holds every act the host does except acting on the host. It is a fact about ONE
+    // meeting rather than a standing rank in the firm, which is why it is a row under a meeting and
+    // nothing in access control.
+    role: text("role", { enum: ["host", "co-host"] }).notNull(),
+    // Null for the starter's own grant and for a claim: neither was given by anybody. A claim is
+    // audited as a claim for the same reason — nobody handed the room over.
+    grantedByUserId: text("granted_by_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    grantedAt: text("granted_at").notNull(), // ISO-8601 instant
+    // Null while the grant stands. A grant is CLOSED and never deleted, because the interval is what
+    // the record is read for.
+    revokedAt: text("revoked_at"), // ISO-8601 instant
+    revokedByUserId: text("revoked_by_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // THE TWO GRANT INVARIANTS, held by the database rather than by the service: one live host per
+    // meeting, and one live grant per member per meeting. A hand-over is a read-then-write like
+    // every other path here and is blind to the instant it does not span — two members handing the
+    // room to two different people at once — so the index is what settles it and the loser's whole
+    // batch rolls back, on the precedent of the one-meeting-per-event index. Partial on the open
+    // grant, because the CLOSED ones are the record and a member may hold as many of those as the
+    // room changed hands.
+    uniqueIndex("meeting_host_live_host_unique_index")
+      .on(table.meetingId)
+      .where(sql`${table.role} = 'host' AND ${table.revokedAt} IS NULL`),
+    uniqueIndex("meeting_host_live_grant_unique_index")
+      .on(table.meetingId, table.userId)
+      .where(sql`${table.revokedAt} IS NULL`),
+    // The live grants of one meeting, which is the read every host act makes before it acts.
+    index("meeting_host_meeting_revoked_index").on(table.meetingId, table.revokedAt),
+    check("meeting_host_role_check", sql`${table.role} IN ('host', 'co-host')`),
+    // A withdrawal says who withdrew it and when, or neither — the line meeting_ended_shape_check
+    // already sits on.
+    check(
+      "meeting_host_revoked_shape_check",
+      sql`(${table.revokedAt} IS NULL) = (${table.revokedByUserId} IS NULL)`,
     ),
   ],
 );

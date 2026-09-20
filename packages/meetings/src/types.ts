@@ -54,13 +54,26 @@ export function isMeetingMedium(value: string): value is MeetingMedium {
 export const MEETING_LIST_SCOPES = Object.freeze(["live", "upcoming", "recent"] as const);
 export type MeetingListScope = (typeof MEETING_LIST_SCOPES)[number];
 
-// HOW A STAY ENDED, as a closed vocabulary on the departure audit row. Two ways and only two: the
-// member said so, or their connection went and did not come back inside the grace the room allows.
-// One event name with a labelled reason rather than two event names, because the question a record is
-// read for is "when did they stop being in the room" and the label is the footnote to it — a second
-// event would split every such read in half. It is a label and never a diagnosis: which network
-// failed is not the firm's record of who was in a meeting.
-export const MEETING_DEPARTURE_REASONS = Object.freeze(["left", "socket-lost"] as const);
+// HOW A STAY ENDED, as a closed vocabulary on the departure audit row AND on the stay's own column.
+// Four ways: the member said so, their connection went and did not come back inside the grace the
+// room allows, a host put them out, or a host turned them away at the door. One event name with a
+// labelled reason rather than four event names, because the question a record is read for is "when
+// did they stop being in the room" and the label is the footnote to it — a second event name would
+// split every such read in half. It is a label and never a diagnosis: which network failed is not
+// the firm's record of who was in a meeting.
+//
+// `denied` is the lobby's, and nothing writes it yet — the waiting room is the slice after this one.
+// It is declared here with the other three because the vocabulary is one closed list on one column,
+// and a CHECK that had to be widened later would be a table rebuild this schema refuses on a parent.
+//
+// A stay closed by the meeting ENDING carries no reason at all. The meeting row already says the
+// gathering ended, and a fifth value for it would be a second answer to a question already answered.
+export const MEETING_DEPARTURE_REASONS = Object.freeze([
+  "left",
+  "socket-lost",
+  "removed",
+  "denied",
+] as const);
 export type MeetingDepartureReason = (typeof MEETING_DEPARTURE_REASONS)[number];
 
 // THE ROOM'S CEILING, counted over the open attendance rows rather than over the sockets.
@@ -102,6 +115,10 @@ export interface MeetingRow {
   readonly started_at: string | null;
   readonly ended_at: string | null;
   readonly ended_by_user_id: UserId | null;
+  // The door. Null while it is open; an instant and an actor together, because half of that pair is
+  // a record nobody can question. A locked room refuses arrivals and touches nobody already in it.
+  readonly locked_at: string | null;
+  readonly locked_by_user_id: UserId | null;
   readonly created_at: string;
   readonly updated_at: string;
 }
@@ -117,6 +134,10 @@ export interface MeetingAttendanceRow {
   // Null while the person is still in the room. Ending the meeting closes every open row at one
   // instant, so a member who never pressed Leave still has an end rather than a stay running forever.
   readonly left_at: string | null;
+  // HOW IT ENDED, and the queryable half of a fact the audit row also carries. Null on a stay that
+  // is still open, on one the meeting's ending closed, and on every stay closed before the column
+  // existed — which is why nothing reads it as "left".
+  readonly ended_reason: MeetingDepartureReason | null;
   readonly created_at: string;
   readonly updated_at: string;
 }
@@ -161,4 +182,10 @@ export interface MeetingSummary {
   readonly startedAt: string | null;
   readonly endedAt: string | null;
   readonly liveCount: number;
+  // WHETHER THE DOOR IS SHUT, so a Join control can say so before the click rather than after it.
+  //
+  // It deliberately does not gain "are you the host". That would put a per-caller subquery on every
+  // row of a fifty-row list to answer a question only the room screen asks, and the room screen has
+  // the answer on the wire.
+  readonly locked: boolean;
 }

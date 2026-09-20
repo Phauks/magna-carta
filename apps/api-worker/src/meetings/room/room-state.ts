@@ -1,8 +1,14 @@
 import {
   refusedFrame,
+  roomStateFrame,
   UNSERVICEABLE_CLOSE_CODE,
   type MeetingRefusalReason,
 } from "@magna-carta/meeting-protocol/frames";
+import type {
+  MeetingHostRole,
+  MeetingRoomState,
+  MeetingSpotlight,
+} from "@magna-carta/meeting-protocol/types";
 import type { MeetingMedium } from "@magna-carta/meetings/types";
 import type { Bindings } from "../../app.ts";
 import { realtimeLoggerFor, recordRealtimeFailure } from "../sfu/realtime-failure.ts";
@@ -34,6 +40,12 @@ const ENDED_KEY = "ended";
 // but the grace sweep runs from an alarm with no socket and no request, and a sweep that could not
 // name the firm could not close anybody's stay.
 const ROOM_KEY = "room";
+
+// ONE PARTICIPANT ON EVERY SCREEN, decided by whoever is running the meeting. A room-level fact and
+// therefore a room-level key: a pin is one member arranging their own gallery and lives in that
+// browser, where a spotlight is the host deciding what the room is looking at. It dies with the
+// room, which is why it is here and not in the firm's record.
+const SPOTLIGHT_KEY = "spotlight";
 
 /**
  * What a room module is given: the Durable Object's own context and the deployment's environment,
@@ -105,6 +117,19 @@ export interface StoredParticipant {
   // naming a part of its own session it does not own — and the service, which has no notion of a
   // meeting, would honour the change.
   readonly subscribedMids: readonly string[];
+  // WHETHER THIS PERSON IS RUNNING THE MEETING, and the one fact on this record that is deliberately
+  // NOT taken from the socket's attachment at frame time.
+  //
+  // The attachment is written once at upgrade and frozen there, which is right for the firm, the
+  // meeting and the medium — none of which can change under a socket — and wrong for hosting, which
+  // is exactly the thing that changes during a meeting. A co-host whose grant was withdrawn ten
+  // minutes ago would go on muting people for as long as their socket stayed open. So the hosting
+  // routes tell the room after they commit, the room rewrites this field, and every host frame is
+  // authorized from HERE.
+  //
+  // The upgrade seeds it, because the socket route has just read the live grants to decide the
+  // caller may be in the room at all and a second round trip from the room would buy nothing.
+  readonly hostRole: MeetingHostRole | null;
 }
 
 /** Which meeting, in which firm, this room is the signaling side of. */
@@ -114,6 +139,12 @@ export interface StoredRoom {
   // What kind of gathering this is. Kept here rather than read off each socket, so the answer is the
   // room's and not one browser's — and so the alarm, which has no socket, could read it too.
   readonly medium: MeetingMedium;
+  // WHETHER THE DOOR IS SHUT. The record holds it — `meeting.locked_at` is what actually refuses an
+  // arrival — and this is the room's copy of it, kept so the state a browser paints arrives on the
+  // wire rather than costing a read of the firm's database per socket. Refreshed from the row on
+  // every upgrade and rewritten by the lock route after it commits. Optional, because a room stored
+  // by a build that predated the door reads as open, which is what it was.
+  readonly locked?: boolean;
 }
 
 /** The subscription context, established at upgrade and carried for the life of the socket. */
@@ -135,6 +166,15 @@ export interface MeetingSocketAttachment {
   // of the hour made that a storm the room answered one list of three hundred keys at a time.
   // Raised by `admitParticipant` the moment the welcome is on the wire.
   readonly welcomed?: boolean;
+  // The caller's live grant on this meeting as the socket route read it, which SEEDS the stored
+  // participant record and is never read again. Every authority question the room answers is asked
+  // of that record instead — see `hostRole` on `StoredParticipant` for why a frozen attachment is
+  // the wrong place for a fact that changes during a meeting.
+  readonly hostRole?: MeetingHostRole | null;
+  // Whether the door was shut when this socket arrived, read off the meeting row by the route
+  // exactly as the medium is. It seeds the room's own copy, which the lock route rewrites — a socket
+  // already in the room is never turned out by the door shutting behind it.
+  readonly locked?: boolean;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -200,6 +240,69 @@ export async function putEndedAt(room: RoomContext, endedAt: string): Promise<vo
 
 export async function deleteEndedMarker(room: RoomContext): Promise<void> {
   await room.ctx.storage.delete(ENDED_KEY);
+}
+
+// ---------------------------------------------------------------------------------------------
+// What is true of the ROOM rather than of anybody in it
+// ---------------------------------------------------------------------------------------------
+
+export async function readSpotlight(room: RoomContext): Promise<MeetingSpotlight | undefined> {
+  return await room.ctx.storage.get<MeetingSpotlight>(SPOTLIGHT_KEY);
+}
+
+/** Sets the spotlight, or clears it — null is how a host takes everybody's face off every screen. */
+export async function putSpotlight(
+  room: RoomContext,
+  spotlight: MeetingSpotlight | null,
+): Promise<void> {
+  if (spotlight === null) await room.ctx.storage.delete(SPOTLIGHT_KEY);
+  else await room.ctx.storage.put(SPOTLIGHT_KEY, spotlight);
+}
+
+/** The two room-level facts, composed for the wire. */
+export async function roomStateOf(room: RoomContext): Promise<MeetingRoomState> {
+  const [spotlight, stored] = await Promise.all([readSpotlight(room), readRoom(room)]);
+  return { spotlight: spotlight ?? null, locked: stored?.locked ?? false };
+}
+
+/** Tells everybody what is now true of the room. */
+export async function announceRoomState(room: RoomContext, except?: WebSocket): Promise<void> {
+  broadcast(room, roomStateFrame(await roomStateOf(room)), except);
+}
+
+/**
+ * The door, as the room holds it. Written by the lock route AFTER its own write commits, so nobody
+ * is told the door moved by a write that then failed.
+ */
+export async function setRoomLocked(room: RoomContext, locked: boolean): Promise<boolean> {
+  return await room.ctx.blockConcurrencyWhile(async () => {
+    const stored = await readRoom(room);
+    // A room the object has never been addressed for holds nothing to update, and inventing a
+    // `StoredRoom` here would need a firm and a meeting this call does not have. The next upgrade
+    // writes the whole record off the meeting row, which is where the truth is anyway.
+    if (stored === undefined) return false;
+    await putRoom(room, { ...stored, locked });
+    return true;
+  });
+}
+
+/**
+ * Clears the spotlight if it names somebody who has gone, and tells the room.
+ *
+ * A SPOTLIGHT ON AN EMPTY CHAIR IS WORSE THAN NONE: every browser would go on asking for the full
+ * layer of a track nobody is publishing and drawing the large tile for a participant who is not
+ * there. Called by every path that removes somebody from the roster, which is why it takes a set
+ * rather than one handle — the grace sweep removes several at once.
+ */
+export async function clearSpotlightFor(
+  room: RoomContext,
+  departed: readonly string[],
+): Promise<void> {
+  const spotlight = await readSpotlight(room);
+  if (spotlight === undefined) return;
+  if (!departed.includes(spotlight.participantId)) return;
+  await putSpotlight(room, null);
+  await announceRoomState(room);
 }
 
 // ---------------------------------------------------------------------------------------------

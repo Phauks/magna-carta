@@ -329,6 +329,13 @@ export const ENTITY_PREFIXES = {
   // here. It names the STAY rather than the member, because a message is tied to being in the room —
   // the stay is who said it at the time, and the member is reached through it.
   meetingMessage: "meetingMessage",
+  // A `meetingHost` is one grant of authority over one meeting — the member who started it, or
+  // somebody they handed the room to, or a co-host they named. A ROW rather than a column on the
+  // meeting, and closed rather than deleted when it ends, because the question a firm asks of the
+  // record months later is who was running the room when something happened, which is a question
+  // about an interval. `meeting.created_by_user_id` stays what it is: who opened the room, which
+  // never changes and is the same person only until the first hand-over.
+  meetingHost: "meetingHost",
   // The matter asset register — what a client or an estate owns, recorded against one matter. A
   // `matterAsset` is one matter's assertion about one thing owned; a `matterAssetType` is the
   // per-firm catalog under the platform class the asset carries. A `matterAssetValuation` is one

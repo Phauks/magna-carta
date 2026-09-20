@@ -8,6 +8,7 @@ import {
 import { sfuClientForEnv, simulcastPreferenceFor, type SfuClient } from "../sfu/sfu-client.ts";
 import { announceParticipantUpdated, announceRoster } from "./room-roster.ts";
 import {
+  clearSpotlightFor,
   deleteParticipant,
   putParticipant,
   readParticipant,
@@ -302,11 +303,18 @@ async function recordSubscribedSections(
   });
 }
 
-/** Drops the tracks whose media sections have stopped, and tells the room if any had. */
+/**
+ * Drops the tracks whose media sections have stopped, and tells the room if any had.
+ *
+ * `announce` is false for exactly one caller: muting the whole room, which closes up to three
+ * hundred microphones in one frame and spends ONE roster broadcast at the end rather than one per
+ * person. Every other caller leaves it alone.
+ */
 export async function forgetTracks(
   room: RoomContext,
   attendanceId: string,
   mids: ReadonlySet<string>,
+  announce = true,
 ): Promise<void> {
   const changed = await room.ctx.blockConcurrencyWhile(async () => {
     const participant = await readParticipant(room, attendanceId);
@@ -326,7 +334,7 @@ export async function forgetTracks(
     });
     return kept.length !== participant.tracks.length;
   });
-  if (changed) await announceParticipantUpdated(room, attendanceId);
+  if (changed && announce) await announceParticipantUpdated(room, attendanceId);
 }
 
 /**
@@ -345,6 +353,9 @@ export async function releaseParticipant(room: RoomContext, attendanceId: string
   const removed = await deleteParticipant(room, attendanceId);
   if (!removed) return;
   announceRoster(room, await storedParticipants(room), { left: [attendanceId] });
+  // A spotlight on an empty chair would leave every browser drawing the large tile for somebody who
+  // is not here and asking the routing service for their full layer.
+  await clearSpotlightFor(room, [attendanceId]);
   if (participant !== undefined) await releaseMedia(room, [participant]);
 }
 

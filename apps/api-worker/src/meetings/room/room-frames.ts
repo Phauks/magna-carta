@@ -18,6 +18,7 @@ import {
   sessionFor,
   subscribeTracks,
 } from "./room-media.ts";
+import { handleHostFrame } from "./room-hosting.ts";
 import { armAlarm } from "./room-lifecycle.ts";
 import { relayPresence } from "./room-presence.ts";
 import { namesOnlyRosterTracks, rosterFrom } from "./room-roster.ts";
@@ -76,7 +77,14 @@ const LAYER_INTERVAL_MILLISECONDS = 250;
 /** The frames that reach the routing service, which is every one the room does not answer itself. */
 type SignalingFrame = Exclude<
   MeetingClientFrame,
-  { type: "ping" } | { type: "leave" } | { type: "sync" } | { type: "presence" }
+  | { type: "ping" }
+  | { type: "leave" }
+  | { type: "sync" }
+  | { type: "presence" }
+  | { type: "mute" }
+  | { type: "mute-all" }
+  | { type: "ask-to-unmute" }
+  | { type: "spotlight" }
 >;
 
 // The track kinds that carry a picture, which is what a call does not have. A camera and a screen
@@ -159,6 +167,24 @@ export async function dispatchClientFrame(
     // than from inside the presence module because a room has ONE alarm and one place that
     // reconciles every deadline into it.
     if (deferred) await armAlarm(room);
+    return;
+  }
+
+  // THE HOST'S OWN FRAMES, answered before a routing session for the SENDER is resolved — none of
+  // them acts on the sender's session. A mute acts on somebody else's, and the other three touch
+  // the service not at all.
+  //
+  // Not throttled, deliberately, unlike the sync and the layer change above: a host act is a
+  // deliberate press rather than something a browser emits as its window resizes, and the acts that
+  // could cost the room something — mute-everyone most of all — are bounded inside the module by
+  // their own concurrency lane rather than by a window that would make a second press vanish.
+  if (
+    parsed.frame.type === "mute" ||
+    parsed.frame.type === "mute-all" ||
+    parsed.frame.type === "ask-to-unmute" ||
+    parsed.frame.type === "spotlight"
+  ) {
+    await handleHostFrame(room, socket, attachment.attendanceId, parsed.frame);
     return;
   }
 

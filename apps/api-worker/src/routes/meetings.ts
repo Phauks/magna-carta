@@ -19,6 +19,7 @@ import {
   joinMeeting,
   leaveMeeting,
 } from "@magna-carta/meetings/meeting-service";
+import { readLiveHostGrant } from "@magna-carta/meetings/hosting-statements";
 import {
   isMeetingPerEventConflict,
   isOpenStayConflict,
@@ -141,6 +142,12 @@ const MeetingSummaryResponse = z
     medium: z.enum(MEETING_MEDIA),
     // How many people are in the room right now, counted off the open stays on every read.
     liveCount: z.number().int().min(0),
+    // WHETHER THE DOOR IS SHUT. A locked room refuses arrivals and touches nobody already in it, so
+    // a Join control reads this and says so before the click rather than after it. There is
+    // deliberately no "are you the host" beside it: that would put a per-caller subquery on every
+    // row of a fifty-row list to answer a question only the room screen asks, and the room screen
+    // has the answer on the wire.
+    locked: z.boolean(),
     // Whether this deployment can route a meeting's media at all. A fact about the deployment, not
     // about the meeting or the member — a surface reads it to decide whether to offer a way in.
     configured: z.boolean(),
@@ -498,10 +505,18 @@ const socketRoute = defineOpenAPIRoute(readMeta("socket"), {
 
 // ---- refusals ----
 
-function meetingErrorResponse(
+/**
+ * The meeting family's refusal vocabulary, mapped once for every route that can raise it.
+ *
+ * Exported because there are three route files over one domain now — the room, its chat and its
+ * hosting — and a second copy of this switch is a second answer to what a member is told. The
+ * indistinguishability rules below are the reason it has to be one copy: they only hold if every
+ * door gives the same answer.
+ */
+export function meetingErrorResponse(
   c: Context,
   caught: MeetingValidationError,
-): ProblemResponse<404> | ProblemResponse<409> {
+): ProblemResponse<403> | ProblemResponse<404> | ProblemResponse<409> {
   switch (caught.code) {
     // The one refusal for every way a room is out of reach, kept indistinguishable on purpose.
     case "meeting-unknown-event":
@@ -533,6 +548,32 @@ function meetingErrorResponse(
       return problemJson(c, {
         type: "meeting-not-joined",
         title: "You are not in this meeting",
+        status: 409,
+        detail: caught.message,
+      });
+    // AN AUTHORITY ANSWER RATHER THAN A PERMISSION ONE. The member holds `meetings:host`; what they
+    // do not hold is a grant on this room, and the remedy is somebody handing it to them — or, in a
+    // room nobody is running, claiming it.
+    case "meeting-not-host":
+      return problemJson(c, {
+        type: "meeting-not-host",
+        title: "You are not hosting this meeting",
+        status: 403,
+        detail: caught.message,
+        // Not a request-access case: nothing an administrator can grant produces this.
+        requestAccess: false,
+      });
+    case "meeting-locked":
+      return problemJson(c, {
+        type: "meeting-locked",
+        title: "This meeting is locked",
+        status: 409,
+        detail: caught.message,
+      });
+    case "meeting-removed":
+      return problemJson(c, {
+        type: "meeting-removed",
+        title: "You were removed from this meeting",
         status: 409,
         detail: caught.message,
       });
@@ -575,7 +616,14 @@ function serviceOptions(userId: string) {
 
 type EffectOutcome<T> =
   | { ok: true; value: T; responseCode: number }
-  | { ok: false; problem: ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> };
+  | {
+      ok: false;
+      problem:
+        | ProblemResponse<403>
+        | ProblemResponse<404>
+        | ProblemResponse<409>
+        | ProblemResponse<422>;
+    };
 
 /**
  * Runs one meeting write through the idempotency gate, mapping the subsystem's refusals on the way
@@ -704,9 +752,15 @@ function isSameOriginUpgrade(c: MeetingContext): boolean {
   return allowed.has(origin);
 }
 
-function roomFor(env: Bindings, firmId: string, meetingId: string) {
-  // Addressed by the SESSION firm id, never a path value — a firm can no more signal into another
-  // firm's meeting than it can read one.
+/**
+ * The signaling room for one meeting, addressed by the SESSION firm id and never by a path value —
+ * a firm can no more signal into another firm's meeting than it can read one.
+ *
+ * Exported because the hosting routes call the room back after their own writes commit, on the same
+ * `participantLeft` / `end` precedent, and a second way of addressing it would be a second answer to
+ * which object a firm reaches.
+ */
+export function meetingRoomFor(env: Bindings, firmId: string, meetingId: string) {
   return env.MEETING_ROOM.get(env.MEETING_ROOM.idFromName(`${firmId}:${meetingId}`));
 }
 
@@ -950,7 +1004,7 @@ export function registerMeetingsRoutes(
 
       // Told AFTER the record commits, so nobody is dropped from a room by a write that then failed.
       if (open !== undefined) {
-        await roomFor(c.env, firmId, meetingId).participantLeft(open.id);
+        await meetingRoomFor(c.env, firmId, meetingId).participantLeft(open.id);
       }
       return c.json({ ok: true } as const, 200);
     },
@@ -986,7 +1040,7 @@ export function registerMeetingsRoutes(
 
       // After the commit, for the same reason leaving is: a participant must never be told the
       // meeting ended by a write that did not land.
-      await roomFor(c.env, firmId, meetingId).end(outcome.value.endedAt);
+      await meetingRoomFor(c.env, firmId, meetingId).end(outcome.value.endedAt);
       return c.json({ ok: true } as const, 200);
     },
   );
@@ -1092,7 +1146,15 @@ export function registerMeetingsRoutes(
 
       // Built from server-derived values only and never by re-wrapping the caller's request, so no
       // cookie and no caller-supplied header travels on to the room.
-      return await roomFor(c.env, firmId, meetingId).fetch(
+      const [displayName, grant] = await Promise.all([
+        displayNameOf(firm.firmDatabase, userId),
+        // The caller's live grant, read here so the room's stored record starts out right. It is a
+        // SEED and never the authority: the room re-reads its own record for every host frame,
+        // because a socket's attachment is frozen at upgrade and hosting is exactly the thing that
+        // changes during a meeting.
+        readLiveHostGrant(firm.firmDatabase, meetingId as MeetingId, userId),
+      ]);
+      return await meetingRoomFor(c.env, firmId, meetingId).fetch(
         meetingSocketRequest({
           // The room is told what kind of gathering it is, off the meeting row the caller was just
           // authorized against — so a browser cannot name its own medium and publish a camera into
@@ -1102,7 +1164,11 @@ export function registerMeetingsRoutes(
           meetingId,
           userId,
           attendanceId: open.id,
-          displayName: await displayNameOf(firm.firmDatabase, userId),
+          displayName,
+          hostRole: grant?.role ?? null,
+          // Off the same row, so the room can say what is true of itself on the welcome without
+          // asking the firm's database once per socket.
+          locked: meeting.locked_at !== null,
         }),
       );
     },

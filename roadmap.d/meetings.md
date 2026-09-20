@@ -105,10 +105,11 @@
 
 - id: meetings.host-controls
   name: Host controls
-  scope: Mute one or all, remove a participant, lock the room, hand hosting to a co-host, spotlight a participant for everyone.
-  status: designed
+  scope: Mute one or all, remove a participant, lock the room, hand hosting to a co-host, spotlight a participant for everyone — over a grant on the meeting rather than a permission key, so ending it needs one too.
+  status: in-build
+  surface: awaiting-screen
   spec: docs/specs/2026-09-20-meetings-host-controls-and-waiting-room-design.md
-  evidence: No code; the room has one host act today (End) and no per-participant act.
+  evidence: Server half built — the meeting_host table with its two partial unique indexes plus meeting.locked_at and meeting_attendance.ended_reason in packages/database/src/per-firm-schema.ts, the hosting trio in packages/meetings (hosting-types/hosting-statements/hosting-service, with requireHostGrant as the one authority chokepoint), the four host frames and room-state in packages/meeting-protocol/src/frames.ts, apps/api-worker/src/meetings/room/room-hosting.ts, and apps/api-worker/src/routes/meeting-hosting.ts. The per-tile menu, the Host controls band and the spotlight's subscription band are the web half and are not built. Stream docs/active-work/claude/focused-edison-ylxfiy.md.
   audience: public
   public-summary: Run a large meeting from the front — mute the room, remove a participant, spotlight the speaker.
 

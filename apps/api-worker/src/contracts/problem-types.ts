@@ -644,6 +644,23 @@ export const PROBLEM_TYPES = {
   // long thing on the file as a document — and because a message silently truncated to fit would be
   // a record of something nobody said.
   "meeting-message-too-long": "meeting-message-too-long",
+  // The caller is not running this meeting (HTTP 403). A 403 rather than a 409 because it is an
+  // authority question and retrying changes nothing; its OWN type rather than the chokepoint's
+  // `permission-denied` because the member holds the permission and the remedy is different —
+  // somebody has to hand them the room, or, where nobody is running it, they claim it. Authority
+  // over a meeting is a grant on the meeting rather than a capability of a seat, and this is the
+  // refusal that says so.
+  "meeting-not-host": "meeting-not-host",
+  // The door is shut (HTTP 409). A late arrival reads a sentence rather than meeting a silent
+  // failure, and the meeting summary carries `locked` so a Join control can say so before the click
+  // rather than after it. Fixed by a host unlocking the room, which is why it is neither an absence
+  // nor a permission answer.
+  "meeting-locked": "meeting-locked",
+  // A host put this member out of this meeting (HTTP 409). Its own type because a surface has to
+  // answer it differently from every other refusal: the way back is not to retry and not to ask for
+  // anything, so the screen offers no Rejoin at all. It is the MEETING they are barred from and not
+  // the event — a new meeting on the same event is a new room.
+  "meeting-removed": "meeting-removed",
 } as const;
 
 export type ProblemTypeKey = keyof typeof PROBLEM_TYPES;

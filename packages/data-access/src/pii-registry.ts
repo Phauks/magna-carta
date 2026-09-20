@@ -298,10 +298,39 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     note: "who ended it, and when, is the fact that closes every stay under it",
   },
   {
+    table: "meeting",
+    subjectKey: "locked_by_user_id",
+    action: "retain-under-matter",
+    note: "who shut the door on a meeting, and when, is part of what the record says happened — the line ended_by_user_id sits on",
+  },
+  {
     table: "meeting_attendance",
     subjectKey: "user_id",
     action: "retain-under-matter",
     note: "who was in the room and for how long is the whole of what an attendance row records",
+  },
+  // The hosting grants. Each is provenance on a record of a gathering in exactly the sense the two
+  // meeting columns above are: who was running the room, who handed it to them, and who took it
+  // back. None of them is free-standing member data, and the interval is the point — a grant is
+  // closed rather than deleted, so a reader months later can ask who was hosting when something
+  // happened.
+  {
+    table: "meeting_host",
+    subjectKey: "user_id",
+    action: "retain-under-matter",
+    note: "who was running the meeting, and for which interval, is what a grant row records",
+  },
+  {
+    table: "meeting_host",
+    subjectKey: "granted_by_user_id",
+    action: "retain-under-matter",
+    note: "who handed the room over is the provenance of the authority the grant carries; null for the starter's own grant and for a claim, which nobody gave",
+  },
+  {
+    table: "meeting_host",
+    subjectKey: "revoked_by_user_id",
+    action: "retain-under-matter",
+    note: "who withdrew a grant, and when, is the fact that closes the interval it names",
   },
   // In-meeting chat, which is the ONE place the meeting subsystem holds content. The paragraph above
   // said there was no content residue to report; there is now, and it is here rather than anywhere

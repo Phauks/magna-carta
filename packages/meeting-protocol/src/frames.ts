@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { PREFERRED_RIDS, type PreferredRid, type RosterParticipant } from "./types.ts";
+import {
+  PREFERRED_RIDS,
+  type MeetingRoomState,
+  type PreferredRid,
+  type RosterParticipant,
+} from "./types.ts";
 
 // The wire contract for a meeting's signaling socket, in ONE home so the room that sends, the route
 // that upgrades, and the browser that subscribes cannot drift on a field name.
@@ -195,6 +200,71 @@ const closeFrame = z.object({
 
 const leaveFrame = z.object({ ...versioned, type: z.literal("leave") });
 
+// THE HOST'S OWN FRAMES, and the reason they are frames rather than routes.
+//
+// An act is a route with an audit row when somebody could later ask who did it — a member put out
+// of a meeting on a matter's record, a door somebody shut, a room that changed hands. An act is a
+// FRAME when it is about this moment and leaves nothing behind: a mute is undone by the member
+// themselves a second later, a spotlight dies with the room, a request to unmute is a tap on the
+// shoulder. An audit row for each would fill a matter's log with the mechanics of a conversation,
+// which is the one thing this subsystem has been careful not to record — and it would put a round
+// trip and the idempotency gate between a host pressing Mute and the microphone going quiet, for an
+// act whose whole value is that it is instant.
+//
+// A frame is not anonymous for being unaudited: every one of them carries the handle of the host who
+// sent it, so the person muted sees who muted them and the room sees who put whose face on every
+// screen. What none of them carries is content, like everything else on this wire.
+//
+// THE ROOM DECIDES AUTHORITY FROM THE STORED PARTICIPANT, never from the socket these arrive on —
+// see the note on `hostRole` in ./types.ts. Nothing about that is expressible here: what this
+// package declares is the shape, and the room is where a frame from somebody holding no grant is
+// refused `not-host`.
+
+// The stay a directive names. A participant handle, which is what the roster carries and what every
+// other frame on this wire is addressed by — a member handle would not distinguish two stays.
+const participantHandle = z.string().min(1).max(128);
+
+/** Silence one participant: the room closes their audio upstream and tells them who did it. */
+const muteFrame = z.object({
+  ...versioned,
+  type: z.literal("mute"),
+  participantId: participantHandle,
+});
+
+/**
+ * The same over everybody who is neither the caller nor a host or co-host.
+ *
+ * Hosts are left alone because a host muting the room is clearing the floor in order to speak, and
+ * a control that silences the person pressing it is a control that does not work; co-hosts are left
+ * alone because they are running the meeting with the host.
+ */
+const muteAllFrame = z.object({ ...versioned, type: z.literal("mute-all") });
+
+/**
+ * A REQUEST, and never a forced unmute — the one act this protocol refuses to build the obvious
+ * version of.
+ *
+ * A platform that can open a member's microphone from another member's click is a listening device
+ * in a law firm. The member may be in a room with a client, on a call they muted themselves for
+ * precisely so that the next two minutes were not in the meeting, and a microphone opened for them
+ * would put a privileged conversation on the wire with nothing in front of them to say it had
+ * happened. So this reaches the target as `unmute-requested`, their screen offers Unmute and Stay
+ * muted, and nothing happens until they choose. The host sees no acknowledgement, because there is
+ * nothing to acknowledge: they asked.
+ */
+const askToUnmuteFrame = z.object({
+  ...versioned,
+  type: z.literal("ask-to-unmute"),
+  participantId: participantHandle,
+});
+
+/** One participant on every screen, or null to clear it. A room-level fact, not a per-browser one. */
+const spotlightFrame = z.object({
+  ...versioned,
+  type: z.literal("spotlight"),
+  participantId: participantHandle.nullable(),
+});
+
 // The ping is the byte-exact frame the runtime answers without waking the room, and it carries no
 // version field for that reason: the auto-response matches the bytes, so adding one would make every
 // keepalive a wake. Accepted here as well, because a browser that pretty-printed its ping still
@@ -210,6 +280,10 @@ export const MeetingClientFrame = z.union([
   renegotiateFrame,
   closeFrame,
   leaveFrame,
+  muteFrame,
+  muteAllFrame,
+  askToUnmuteFrame,
+  spotlightFrame,
   pingFrame,
 ]);
 
@@ -245,6 +319,9 @@ export const MEETING_ROOM_FRAME_TYPES = Object.freeze([
   "roster-delta",
   "presence",
   "layered",
+  "room-state",
+  "muted",
+  "unmute-requested",
   "ended",
   "refused",
   "pong",
@@ -254,9 +331,11 @@ export type MeetingRoomFrameType = (typeof MEETING_ROOM_FRAME_TYPES)[number];
 
 /**
  * Why a frame was refused. A CLOSED vocabulary: these are labels a browser branches on, never prose
- * to show somebody. The first eight are about the FRAME that arrived and leave the socket open; the
- * last four are about the room, and the three that name a state the socket cannot recover from are
- * followed by a close.
+ * to show somebody. Most are about the FRAME that arrived — its shape, what it named, whether the
+ * sender may ask for it — and leave the socket open, because a browser that reconnects has to
+ * renegotiate every track from nothing. The rest are about the ROOM, and the four that name a state
+ * this socket cannot recover from (`not-a-participant`, `superseded`, `removed`, `meeting-ended`)
+ * are followed by a close.
  *
  * `superseded` is the one the room sends without any frame having arrived: it is the answer to
  * somebody else's upgrade, not to anything this socket said.
@@ -296,6 +375,16 @@ export const MEETING_REFUSAL_REASONS = Object.freeze([
   // all. Whoever connected last is the one holding the media. Nothing about this improves by
   // retrying on this socket, so it is followed by a close.
   "superseded",
+  // A HOST FRAME FROM A SOCKET HOLDING NO GRANT. The socket stays open: the member is in the
+  // meeting and everything else they can do still works — what they cannot do is run it. Decided
+  // from the STORED participant record rather than from the socket's attachment, because a co-host
+  // whose grant was withdrawn ten minutes ago would otherwise go on muting people for as long as
+  // their socket stayed open.
+  "not-host",
+  // A HOST PUT THIS MEMBER OUT OF THE MEETING. Fatal, and followed by a close: the record now says
+  // they are not in the room, the join path refuses them while the meeting runs, and nothing about
+  // this improves by retrying. It is the MEETING they are barred from and not the event.
+  "removed",
   // The meeting closed while this socket was open.
   "meeting-ended",
 ] as const);
@@ -354,9 +443,18 @@ function frame(body: Record<string, unknown>): string {
   return JSON.stringify({ v: MEETING_PROTOCOL_VERSION, ...body });
 }
 
-/** Sent once, on connect: who this socket is, and who is already here. */
-export function welcomeFrame(participantId: string, roster: readonly RosterParticipant[]): string {
-  return frame({ type: "welcome", participantId, roster });
+/**
+ * Sent once, on connect: who this socket is, who is already here, and what is true of the room.
+ *
+ * The room state rides inline for the reason the whole roster does — a socket that has just arrived
+ * holds nothing to apply a change to, so it cannot be told about a spotlight as a difference.
+ */
+export function welcomeFrame(
+  participantId: string,
+  roster: readonly RosterParticipant[],
+  roomState: MeetingRoomState,
+): string {
+  return frame({ type: "welcome", participantId, roster, roomState });
 }
 
 /** The answer to the browser's offer, and where each published track landed. */
@@ -467,6 +565,40 @@ export function layeredFrame(
   return frame({ type: "layered", tracks });
 }
 
+/**
+ * WHAT IS TRUE OF THE ROOM RATHER THAN OF ANYBODY IN IT — the spotlight, and whether the door is
+ * shut.
+ *
+ * Broadcast whole rather than as a difference, because it is two fields: a client that receives it
+ * replaces what it holds, and there is no ordering question to get wrong. The same object rides on
+ * the `welcome`, which is what a socket arriving mid-meeting applies.
+ */
+export function roomStateFrame(roomState: MeetingRoomState): string {
+  return frame({ type: "room-state", ...roomState });
+}
+
+/**
+ * Sent to the muted participant ALONE, and never to the room.
+ *
+ * Everybody else learns it from the roster: the track has left it, so nobody re-subscribes to
+ * silence. What this frame is for is the person it happened to — a microphone that goes dead with
+ * nothing on screen is read as a broken machine, so the screen says a host muted them and who.
+ */
+export function mutedFrame(by: string, at: string): string {
+  return frame({ type: "muted", by, at });
+}
+
+/**
+ * A request to unmute, relayed to the asked participant alone. NOTHING ELSE HAPPENS.
+ *
+ * Their screen offers Unmute and Stay muted, and the member chooses. There is no acknowledgement
+ * frame back to the host, because there is nothing to acknowledge — see `ask-to-unmute` above for
+ * why the platform will not open somebody's microphone.
+ */
+export function unmuteRequestedFrame(by: string, at: string): string {
+  return frame({ type: "unmute-requested", by, at });
+}
+
 /** The meeting is over. Sent to every socket, which then closes normally. */
 export function endedFrame(endedAt: string): string {
   return frame({ type: "ended", endedAt });
@@ -486,4 +618,10 @@ export function refusedFrame(reason: MeetingRefusalReason, errorId?: string): st
   return frame({ type: "refused", reason, ...(errorId === undefined ? {} : { errorId }) });
 }
 
-export type { PreferredRid, RosterParticipant } from "./types.ts";
+export type {
+  MeetingHostRole,
+  MeetingRoomState,
+  MeetingSpotlight,
+  PreferredRid,
+  RosterParticipant,
+} from "./types.ts";

@@ -40,6 +40,11 @@ import { cursorQuery, paginated } from "../contracts/pagination.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
+// THE ROOM'S OWN REFUSALS, mapped where the meetings routes map them rather than a second time here.
+// One refusal for every way a room is out of reach is a rule that only holds if every door in the
+// family gives the same answer, and two copies of the switch are two places for that to stop being
+// true.
+import { meetingErrorResponse } from "./meetings.ts";
 import { assertPermission } from "@magna-carta/access-control/registry";
 
 // The in-meeting chat's HTTP surface: say something in a room, read the transcript, take something
@@ -276,41 +281,6 @@ function notFound(c: Context): ProblemResponse<404> {
     status: 404,
     detail: "No such meeting in this firm.",
   });
-}
-
-// The room's own refusals, mapped exactly as the meetings routes map them — one 404 for every way a
-// room is out of reach, and the not-joined answer a member gets for signaling from outside the room
-// is the one they get for speaking from outside it.
-function meetingErrorResponse(
-  c: Context,
-  caught: MeetingValidationError,
-): ProblemResponse<404> | ProblemResponse<409> {
-  switch (caught.code) {
-    case "meeting-unknown-event":
-      return notFound(c);
-    case "meeting-already-ended":
-      return problemJson(c, {
-        type: "meeting-ended",
-        title: "This meeting has ended",
-        status: 409,
-        detail: caught.message,
-      });
-    case "meeting-room-full":
-      return problemJson(c, {
-        type: "meeting-room-full",
-        title: "This meeting is full",
-        status: 409,
-        detail: caught.message,
-      });
-    case "meeting-not-live":
-    case "meeting-not-joined":
-      return problemJson(c, {
-        type: "meeting-not-joined",
-        title: "You are not in this meeting",
-        status: 409,
-        detail: caught.message,
-      });
-  }
 }
 
 function chatErrorResponse(

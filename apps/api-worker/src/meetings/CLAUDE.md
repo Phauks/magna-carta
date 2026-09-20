@@ -36,6 +36,10 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   retirement of the ended marker, and the end of a presence throttle's window.
 - `room/room-frames.ts` — what one frame means: parse, identify the socket, answer what the roster
   can answer, refuse what the roster refuses, and only then dispatch to the modules above.
+- `room/room-hosting.ts` — running the room from inside it: the four acts a host performs as a frame
+  (mute one, mute everybody else, ask to unmute, spotlight), and the three the hosting routes call
+  back into the room after their own writes commit (`hostingChanged`, `participantRemoved`,
+  `roomStateChanged`).
 - `sfu/sfu-client.ts` — the client for Cloudflare Realtime's selective forwarding unit, and the test
   seam a meeting-room test installs a fake through.
 - `sfu/turn-credentials.ts` — minting relay credentials from Realtime's TURN service, shared with
@@ -80,6 +84,28 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
 - **A frame the room will not act on costs the routing service nothing.** The refusals answerable
   from the roster are decided before a session is resolved and before anything is forwarded — the
   service has no notion of a meeting and would honour a subscription to any session in the fleet.
+- **A host frame is authorized from the STORED participant record, never from the socket
+  attachment.** The attachment is written once at upgrade and frozen there, which is right for the
+  firm, the meeting and the medium — none of which can change under a socket — and wrong for
+  hosting, which is exactly the thing that changes during a meeting. A co-host whose grant was
+  withdrawn ten minutes ago would go on muting people for as long as their socket stayed open. So
+  the hosting routes tell the room after they commit, the room rewrites the roles on the stored
+  records and broadcasts the roster, and the next frame off that socket is decided on what is true
+  now. The upgrade still SEEDS the field, because the route has just read the grants to authorize
+  the socket at all; seeding is not authorizing.
+- **An act that somebody could later ask about is a route, not a frame.** Removing a participant,
+  shutting the door and changing who is hosting are `routes/meeting-hosting.ts` with audit rows
+  through the firm-scoped data-access layer. A mute, a request to unmute and a spotlight are frames:
+  each is about this moment, a mute is undone by the member a second later, and an audit row for
+  each would fill a matter's log with the mechanics of a conversation — which is the one thing this
+  subsystem has been careful not to record. A frame is still not anonymous: every directive carries
+  the handle of the host who sent it.
+- **A mute is two halves, and neither is optional.** The room closes the target's audio at the
+  routing service — so the sound stops reaching anybody whatever their browser does — and sends them
+  `muted` so their screen says what happened and by whom. A mute that only asked the browser nicely
+  would be a mute the browser could decline, and un-muting afterwards republishes the microphone
+  because the track is genuinely gone. Muting the whole room spends ONE roster broadcast and a
+  bounded concurrency lane, never one broadcast and one upstream round trip per person in series.
 - **The media never crosses this directory.** Audio, video and screen share go directly between a
   browser and Realtime. Nothing here has a redaction step because there is nothing here to redact —
   and an upstream body is never carried into a refusal, because it can name the application the whole

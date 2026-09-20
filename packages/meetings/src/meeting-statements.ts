@@ -10,6 +10,7 @@ import type {
 } from "@magna-carta/identifiers/types";
 import type {
   MeetingAttendanceRow,
+  MeetingDepartureReason,
   MeetingEventKind,
   MeetingMedium,
   MeetingEventRow,
@@ -56,6 +57,8 @@ const MEETING_COLUMNS = [
   "started_at",
   "ended_at",
   "ended_by_user_id",
+  "locked_at",
+  "locked_by_user_id",
   "created_at",
   "updated_at",
 ]
@@ -105,6 +108,10 @@ function toSummary(row: MeetingSummaryColumns): MeetingSummary {
     startedAt: row.started_at,
     endedAt: row.ended_at,
     liveCount: row.live_count,
+    // Derived from the instant rather than stored beside it, for the reason the live count is
+    // counted rather than kept: one fact, one answer. The instant is the record of when the door
+    // was shut; a boolean is what a screen needs.
+    locked: row.locked_at !== null,
   };
 }
 
@@ -345,7 +352,7 @@ export async function listAttendance(
   const keyset = keysetClause(bindings, options.cursor, "joined_at", "id", true);
   const { results } = await database
     .prepare(
-      `SELECT id, meeting_id, user_id, joined_at, left_at, created_at, updated_at ` +
+      `SELECT id, meeting_id, user_id, joined_at, left_at, ended_reason, created_at, updated_at ` +
         `FROM ${MEETING_ATTENDANCE_TABLE} WHERE meeting_id = ? ${keyset}` +
         `ORDER BY joined_at ASC, id ASC LIMIT ?`,
     )
@@ -369,7 +376,7 @@ export async function readAttendance(
 ): Promise<MeetingAttendanceRow | undefined> {
   const { results } = await database
     .prepare(
-      `SELECT id, meeting_id, user_id, joined_at, left_at, created_at, updated_at ` +
+      `SELECT id, meeting_id, user_id, joined_at, left_at, ended_reason, created_at, updated_at ` +
         `FROM ${MEETING_ATTENDANCE_TABLE} WHERE id = ?`,
     )
     .bind(attendanceId)
@@ -385,7 +392,7 @@ export async function readOpenAttendance(
 ): Promise<MeetingAttendanceRow | undefined> {
   const { results } = await database
     .prepare(
-      `SELECT id, meeting_id, user_id, joined_at, left_at, created_at, updated_at ` +
+      `SELECT id, meeting_id, user_id, joined_at, left_at, ended_reason, created_at, updated_at ` +
         `FROM ${MEETING_ATTENDANCE_TABLE} WHERE meeting_id = ? AND user_id = ? AND left_at IS NULL ` +
         `ORDER BY joined_at DESC, id DESC`,
     )
@@ -590,16 +597,24 @@ export function insertAttendanceUnderCapStatement(
 // can never reach across the roster. The `left_at IS NULL` in the WHERE is the precondition the
 // caller read — a stay already closed must not have its instant moved, because that instant is in
 // somebody's record of what happened.
+//
+// The REASON travels with the instant rather than on a later update, because the two are one fact:
+// a stay that was closed and then labelled would have an instant during which the record could not
+// say how the person left.
 export function closeAttendanceStatement(
   database: SqlDatabase,
-  input: { readonly id: MeetingAttendanceId; readonly now: string },
+  input: {
+    readonly id: MeetingAttendanceId;
+    readonly reason: MeetingDepartureReason;
+    readonly now: string;
+  },
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${MEETING_ATTENDANCE_TABLE} SET left_at = ?1, updated_at = ?1 ` +
-        `WHERE id = ?2 AND left_at IS NULL`,
+      `UPDATE ${MEETING_ATTENDANCE_TABLE} SET left_at = ?1, ended_reason = ?2, updated_at = ?1 ` +
+        `WHERE id = ?3 AND left_at IS NULL`,
     )
-    .bind(input.now, input.id);
+    .bind(input.now, input.reason, input.id);
 }
 
 // EVERY OPEN STAY, AT ONE INSTANT. One statement rather than a loop over the roster, because the

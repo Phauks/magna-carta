@@ -133,6 +133,44 @@ package enforces, which is why nothing here has a redaction step.
 - **Recording.** Server-side media processing and a consent gate on the jurisdiction profile, neither
   of which is basic. Nothing here is shaped around it.
 
+## Authority over a meeting is a grant on the meeting, not a capability of a seat
+
+`hosting-types.ts` / `hosting-statements.ts` / `hosting-service.ts` are the hosting concern's trio.
+`meetings:host` is what a firm hands the people who may convene meetings; it cannot answer "is this
+member running THIS room", because that changes during the meeting — hosting is handed over,
+co-hosts are named and withdrawn, and the member who opened the room may have been called away an
+hour ago. So `meeting_host` holds the answer, and `requireHostGrant` is **the one authority
+chokepoint**: every host act composes it ahead of itself and reads back the caller's role, so a
+sixth act cannot be added without it.
+
+Four rules travel with it.
+
+**A grant is a row with an interval, closed and never deleted.** A `host_user_id` column would
+answer the live question and only the live question: co-hosts are several, and a column overwritten
+on hand-over erases who was running the room before it. `meeting.created_by_user_id` stays what it
+is — who opened the room — and is deliberately not read as the host; the two are the same person
+only until the first hand-over.
+
+**The invariants are in the database.** Every path here is a read-then-write and is blind to the
+instant it does not span, so the two partial unique indexes (one live host per meeting, one live
+grant per member) are what settle two hand-overs racing. The loser's whole batch rolls back — the
+one-meeting-per-event precedent — and the route answers with the conflict rather than an Error ID.
+
+**Hosting never passes by itself.** A host whose tunnel drops has not stopped hosting, and a room
+reassigned on a socket loss would hand a client meeting to whoever was next in the roster. What
+replaces it is `claimHosting`, refused while any OTHER grant-holder has an open stay and audited as
+a claim, because nobody gave it. **Ending a meeting is a host act for the same reason** — on the key
+alone, any key-holder could close any meeting they could see the event for, without being in it.
+
+**What is written here and what is a frame.** Removing somebody, shutting the door and changing who
+is hosting are written through this package, because somebody could later ask who did them. Muting,
+asking somebody to unmute and spotlighting are frames the room handles
+(`apps/api-worker/src/meetings/room/room-hosting.ts`) and reach nothing in this package: they are
+about this moment, and an audit row for each would fill a matter's log with the mechanics of a
+conversation. A removal writes TWO audit rows — the same `meetings.meeting.left` every departure
+writes, labelled `removed`, and `meetings.meeting.removed` beside it carrying the host who acted,
+because the departure row's actor is the member whose presence it records.
+
 ## The chat is the one thing here that stores content — and it changes the paragraph above
 
 `chat-types.ts` / `chat-validation.ts` / `chat-statements.ts` / `chat-service.ts` hold in-meeting

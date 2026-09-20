@@ -46,6 +46,10 @@ export function rosterEntryFor(
     sfuSessionId: participant.sfuSessionId,
     speaking: participant.speaking,
     muted: participant.muted,
+    // Read off the STORED record, which is the room's one authority on who is running the meeting —
+    // so a badge every browser draws and an authority check the room makes can never disagree.
+    // Older entries, written before hosting existed, carry nothing and read as nobody.
+    hostRole: participant.hostRole ?? null,
     // The media section is the room's own handle for closing a track and is deliberately not on
     // the wire: a subscriber names a track by its publisher's session and its name, so a section
     // number would be a field every browser could read and none could use.

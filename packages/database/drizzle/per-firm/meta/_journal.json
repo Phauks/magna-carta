@@ -183,6 +183,13 @@
       "when": 1789929000000,
       "tag": "20260920T183000_meeting-chat-on-the-record",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1789930800000,
+      "tag": "20260920T190000_hosting-is-a-grant-on-the-meeting",
+      "breakpoints": true
     }
   ]
 }

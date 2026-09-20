@@ -5,10 +5,12 @@ import {
   PING_FRAME,
   PONG_FRAME,
 } from "@magna-carta/meeting-protocol/frames";
+import type { MeetingHostRole } from "@magna-carta/meeting-protocol/types";
 import { isMeetingMedium } from "@magna-carta/meetings/types";
 import type { Bindings } from "../app.ts";
 import { isWebSocketUpgrade } from "../progress/job-progress-sockets.ts";
 import { dispatchClientFrame } from "./room/room-frames.ts";
+import { hostingChanged, participantRemoved, roomStateChanged } from "./room/room-hosting.ts";
 import {
   admitParticipant,
   endMeeting,
@@ -65,6 +67,8 @@ const USER_PARAMETER = "user";
 const ATTENDANCE_PARAMETER = "attendance";
 const DISPLAY_NAME_PARAMETER = "displayName";
 const MEDIUM_PARAMETER = "medium";
+const HOST_ROLE_PARAMETER = "hostRole";
+const LOCKED_PARAMETER = "locked";
 
 /** What the route resolves before it addresses the room — every value of it server-derived. */
 export type MeetingSocketContext = Omit<MeetingSocketAttachment, "protocolVersion">;
@@ -78,6 +82,11 @@ export function meetingSocketRequestUrl(attachment: MeetingSocketContext): strin
     [ATTENDANCE_PARAMETER]: attachment.attendanceId,
     [DISPLAY_NAME_PARAMETER]: attachment.displayName,
     [MEDIUM_PARAMETER]: attachment.medium,
+    // Both read off the meeting record by the route. The role SEEDS the room's stored participant
+    // and is never the authority for a frame — see `hostRole` on `StoredParticipant` — and the lock
+    // is the room's copy of the door so a welcome can say what is true without a database read.
+    [HOST_ROLE_PARAMETER]: attachment.hostRole ?? "",
+    [LOCKED_PARAMETER]: attachment.locked === true ? "true" : "false",
   });
   return `https://meeting-room.invalid/socket?${parameters.toString()}`;
 }
@@ -100,6 +109,7 @@ function attachmentFromRequest(request: Request): MeetingSocketAttachment | null
   const attendanceId = parameters.get(ATTENDANCE_PARAMETER);
   const displayName = parameters.get(DISPLAY_NAME_PARAMETER);
   const medium = parameters.get(MEDIUM_PARAMETER);
+  const hostRole = parameters.get(HOST_ROLE_PARAMETER);
   if (
     firmId === null ||
     firmId === "" ||
@@ -125,6 +135,10 @@ function attachmentFromRequest(request: Request): MeetingSocketAttachment | null
     // an unrecognised label must not silently turn a video meeting into one where no camera works.
     // A socket opened by an older build carries none, and those meetings were all video.
     medium: medium !== null && isMeetingMedium(medium) ? medium : "video",
+    // A value this build does not recognise, or none at all, reads as NOBODY — the safe direction
+    // for an authority seed, and what a socket opened by an older build carries.
+    hostRole: hostRole === "host" || hostRole === "co-host" ? hostRole : null,
+    locked: parameters.get(LOCKED_PARAMETER) === "true",
   };
 }
 
@@ -184,5 +198,29 @@ export class MeetingRoom extends DurableObject<Bindings> {
   /** One person's stay has been closed by the leave route. */
   async participantLeft(attendanceId: string): Promise<void> {
     await participantLeft(this.room, attendanceId);
+  }
+
+  /**
+   * The grants on this meeting have changed — the hosting route calls this AFTER its own write
+   * commits, on the `participantLeft` / `end` precedent.
+   *
+   * The room rewrites the role on each stored participant and broadcasts the roster change, which is
+   * what makes a withdrawn co-host stop being able to mute people on their NEXT frame rather than
+   * whenever their socket happens to close.
+   */
+  async hostingChanged(
+    grants: readonly { readonly userId: string; readonly role: MeetingHostRole }[],
+  ): Promise<void> {
+    await hostingChanged(this.room, grants);
+  }
+
+  /** A host removed somebody: the roster, the media and their socket all go. */
+  async participantRemoved(attendanceId: string): Promise<void> {
+    await participantRemoved(this.room, attendanceId);
+  }
+
+  /** The door moved. */
+  async roomStateChanged(locked: boolean): Promise<void> {
+    await roomStateChanged(this.room, locked);
   }
 }

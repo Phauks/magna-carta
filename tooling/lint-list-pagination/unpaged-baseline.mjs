@@ -355,4 +355,21 @@ export const BOUNDED_BY_CONSTRUCTION = {
     "Read whole on purpose: it IS the attachments tab on the record, and a page boundary through " +
     "it would show a member some of the work's documents and let them believe it was all of them. " +
     "The entry's HISTORY is the unbounded read here, and it is cursor-paged.",
+  // --- Who is running ONE meeting --------------------------------------------------------------
+  "meetings.hosts":
+    "The LIVE grants on one meeting: at most one host, plus the co-hosts named in it. Read through " +
+    "readLiveHostGrants in packages/meetings/src/hosting-statements.ts, which filters " +
+    "revoked_at IS NULL — so the closed grants, which are the interval record and the part that " +
+    "grows as a room changes hands, are not in this answer at all. Two partial unique indexes in " +
+    "packages/database/src/per-firm-schema.ts bound what is left: " +
+    "meeting_host_live_host_unique_index allows one live host per meeting, and " +
+    "meeting_host_live_grant_unique_index allows one live grant per MEMBER per meeting. A grant is " +
+    "written only by grantHosting/claimHosting in packages/meetings/src/hosting-service.ts and by " +
+    "the starter's own grant in openMeetingOnEvent — a host naming ONE member who is in the room at " +
+    "that instant, one act at a time, behind meetings:host and a grant of their own. No queue " +
+    "consumer, sweep, import or ingest path reaches it, which is what separates this from a record " +
+    "that grows with a firm's activity: it grows only while somebody deliberately shares the " +
+    "running of one meeting, and the live set is two or three. Read whole on purpose: it IS the " +
+    "badge every browser in the room draws, and a page boundary through it would tell a member " +
+    "some of who is running the meeting.",
 };

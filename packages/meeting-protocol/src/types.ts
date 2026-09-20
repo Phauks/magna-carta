@@ -48,6 +48,45 @@ export function isMeetingMedium(value: string): value is MeetingMedium {
   return (MEETING_MEDIA as readonly string[]).includes(value);
 }
 
+/**
+ * WHETHER SOMEBODY IS RUNNING THIS MEETING, as every other browser sees it.
+ *
+ * Two identical string literals to the domain's own `MEETING_HOST_ROLES`, meeting at the seam that
+ * carries them — the same arrangement the medium has, and for the same reason: the domain package
+ * reaches a database and a browser bundle cannot take one.
+ *
+ * It is on the ROSTER rather than only on the socket that holds the grant, because every browser
+ * draws the badge and a host's own screen decides from it which menu items a tile offers.
+ */
+export type MeetingHostRole = "host" | "co-host";
+
+/**
+ * ONE PARTICIPANT ON EVERY SCREEN AT ONCE, and the difference between this and a pin.
+ *
+ * A pin is one member arranging their own gallery and says nothing to anybody. A spotlight is the
+ * host deciding what the room is looking at, so it is a fact about the ROOM: it ranks first in the
+ * subscription order, above pins, and the spotlit track is asked for at the full layer whatever the
+ * page's tile count would otherwise choose.
+ */
+export interface MeetingSpotlight {
+  readonly participantId: string;
+  /** The stay of the host who spotlighted them — so a browser can say who did it. */
+  readonly by: string;
+  readonly at: string;
+}
+
+/**
+ * What is true of the ROOM rather than of anybody in it.
+ *
+ * Carried on the `welcome` as well as on its own frame, for the reason the welcome carries the whole
+ * roster: a socket that has just arrived holds nothing to apply a change to.
+ */
+export interface MeetingRoomState {
+  readonly spotlight: MeetingSpotlight | null;
+  /** Whether the door is shut. A locked room refuses arrivals and touches nobody already in it. */
+  readonly locked: boolean;
+}
+
 /** One track a participant publishes, as the roster names it to everybody else. */
 export interface RosterTrack {
   readonly trackName: string;
@@ -69,4 +108,9 @@ export interface RosterParticipant {
   // blank until each of them next changes.
   readonly speaking: boolean;
   readonly muted: boolean;
+  // Whether this person is running the meeting, and in which of the two ways — null for everybody
+  // else, which is most of the room. Read by the room from the STORED participant record rather
+  // than from a socket's attachment, because hosting is exactly the thing that changes during a
+  // meeting.
+  readonly hostRole: MeetingHostRole | null;
 }

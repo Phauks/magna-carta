@@ -27,6 +27,8 @@ import {
   readOpenAttendance,
   startMeetingStatement,
 } from "./meeting-statements.ts";
+import { insertHostGrantStatement, readRemovedStay } from "./hosting-statements.ts";
+import { requireHostGrant } from "./hosting-service.ts";
 import {
   MAX_MEETING_PARTICIPANTS,
   type MeetingDepartureReason,
@@ -186,6 +188,24 @@ export function openMeetingOnEvent(
           createdByUserId: options.actorUserId,
           now,
         }),
+        // THE STARTER IS THE HOST, written in the same batch as the room.
+        //
+        // `created_by_user_id` above stays exactly what it is — who opened the room, a fact that
+        // never changes — and is deliberately NOT read as the host: the two are the same person
+        // only until the first hand-over, and a record that conflated them would answer "who was
+        // running the meeting when she was removed" with the name of somebody who had left.
+        //
+        // `granted_by_user_id` is null because nobody gave it. Pressing Start is how this grant
+        // comes to exist, and attributing it to the starter would be the record claiming they
+        // handed the room to themselves.
+        insertHostGrantStatement(database, {
+          id: newIdentifier("meetingHost", options.randomSource),
+          meetingId,
+          userId: options.actorUserId,
+          role: "host",
+          grantedByUserId: null,
+          now,
+        }),
         domainAuditStatement(database, {
           event: "meetings.meeting.created",
           subjectId: meetingId,
@@ -230,6 +250,22 @@ export async function joinMeeting(
   const open = await readOpenAttendance(database, meetingId, options.actorUserId);
   if (open !== undefined) {
     return { attendanceId: open.id, effect: { statements: [], outboxMessages: [] } };
+  }
+
+  // A MEMBER A HOST PUT OUT DOES NOT COME BACK IN. Asked before the lock, because the two answers
+  // are different and this one is about this member: an unlocked room is still closed to them.
+  // It is the MEETING they are barred from and not the event — a new meeting on the same event is a
+  // new room, and a host who wants them back starts one.
+  const removed = await readRemovedStay(database, meetingId, options.actorUserId);
+  if (removed !== undefined) {
+    refuse("meeting-removed", "you were removed from this meeting");
+  }
+
+  // THE DOOR. A locked room refuses arrivals and touches nobody already in it, which is why this is
+  // after the open-stay read above: a member already in the meeting when it was locked is not
+  // turned out of it by their own browser reconnecting.
+  if (meeting.locked_at !== null) {
+    refuse("meeting-locked", "this meeting is locked");
   }
 
   // THE CAP, counted over the open stays at this moment rather than over anything stored. The
@@ -317,7 +353,10 @@ export async function leaveMeeting(
   return {
     effect: {
       statements: [
-        guarded(closeAttendanceStatement(database, { id: open.id, now }), "meeting.leave"),
+        guarded(
+          closeAttendanceStatement(database, { id: open.id, reason: DEPARTED, now }),
+          "meeting.leave",
+        ),
         domainAuditStatement(database, {
           event: "meetings.meeting.left",
           subjectId: meetingId,
@@ -379,7 +418,7 @@ export async function closeAttendanceAfterSocketLoss(
     effect: {
       statements: [
         guarded(
-          closeAttendanceStatement(database, { id: attendanceId, now }),
+          closeAttendanceStatement(database, { id: attendanceId, reason: SOCKET_LOST, now }),
           "meeting.socketLoss",
         ),
         domainAuditStatement(database, {
@@ -419,6 +458,15 @@ export async function endMeeting(
 ): Promise<{ effect: EffectWrite }> {
   const meeting = await readExisting(database, meetingId, options);
   assertNotEnded(meeting);
+
+  // ENDING IS A HOST ACT, and this line is a deliberate narrowing of what it used to be. On the
+  // permission key alone, any member holding `meetings:host` could close any meeting they could see
+  // the event for, from anywhere, without being in it — a hole the key was never meant to cover,
+  // which survived because End was the only host act and the starter was the only realistic caller.
+  // The ordinary case is unchanged, because the starter holds a grant from the instant the room
+  // exists; a key-holder who needs to close an abandoned room claims it first, which leaves a record
+  // of exactly that.
+  await requireHostGrant(database, meetingId, options.actorUserId);
 
   const now = options.clock.now();
   return {

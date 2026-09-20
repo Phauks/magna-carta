@@ -194,6 +194,7 @@ interface RosterEntry {
   tracks: { trackName: string; kind: string }[];
   speaking: boolean;
   muted: boolean;
+  hostRole: "host" | "co-host" | null;
 }
 interface RosterFrame {
   participants: RosterEntry[];
@@ -239,6 +240,14 @@ async function connect(
   attendanceId: string,
   displayName: string,
   medium: "video" | "audio" = "video",
+  // The caller's live grant as the socket route read it off the record. It SEEDS the stored
+  // participant and is never read again — every host frame is decided from the stored record, which
+  // is what lets a grant withdrawn mid-meeting take effect on the next frame.
+  hostRole: "host" | "co-host" | null = null,
+  // Whether the door was shut when this socket arrived, read off the meeting row by the route
+  // exactly as the medium is — so an upgrade refreshes the room's own copy from the record rather
+  // than trusting what it last held.
+  locked = false,
 ): Promise<Participant> {
   const response = await stub.fetch(
     new Request(
@@ -249,6 +258,8 @@ async function connect(
         attendanceId,
         displayName,
         medium,
+        hostRole,
+        locked,
       }),
       { headers: { Upgrade: "websocket" } },
     ),
@@ -557,8 +568,14 @@ describe("joining the room", () => {
           // in a room already in progress draws who is talking and who is muted at once.
           speaking: false,
           muted: false,
+          // Whether this person is running the meeting, drawn as a badge by every browser and read
+          // by the room itself for every host frame. Null for somebody who is not.
+          hostRole: null,
         },
       ],
+      // WHAT IS TRUE OF THE ROOM rather than of anybody in it, carried inline for the reason the
+      // whole roster is: a socket that has just arrived holds nothing to apply a change to.
+      roomState: { spotlight: null, locked: false },
     });
   });
 
@@ -842,6 +859,7 @@ describe("telling a large room what changed", () => {
           tracks: [],
           speaking: false,
           muted: false,
+          hostRole: null,
         },
       ],
       // Always present and empty rather than absent, so a client reads three arrays rather than
@@ -1982,5 +2000,299 @@ describe("a connection that went away and did not come back", () => {
     await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
       expect(await state.storage.get(`participant:${attendanceId}`)).toBeDefined();
     });
+  });
+});
+
+// HOST CONTROLS, AS THE ROOM HOLDS THEM.
+//
+// The four acts here are frames rather than routes because each is about this moment and leaves
+// nothing behind — and the one rule every test in this block is really asking about is where the
+// room gets its answer to "may this socket do that". It is the STORED participant record, never the
+// socket's attachment: the attachment is frozen at upgrade, and hosting is exactly the thing that
+// changes during a meeting.
+describe("running the room from inside it", () => {
+  const HOST_STAY = "meetingAttendance_hostStay";
+  const MEMBER_STAY = "meetingAttendance_memberStay";
+  const OTHER_STAY = "meetingAttendance_otherStay";
+
+  /** The upstream calls the room made against one session, in order. */
+  function callsFor(sessionId: string): UpstreamCall[] {
+    return upstream.filter((call) => call.path.includes(`/sessions/${sessionId}/`));
+  }
+
+  /** What the room currently holds about one participant, whole. */
+  async function storedOf(
+    stub: ReturnType<typeof roomStub>,
+    attendanceId: string,
+  ): Promise<Record<string, unknown> | undefined> {
+    let found: Record<string, unknown> | undefined;
+    await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
+      found = await state.storage.get<Record<string, unknown>>(`participant:${attendanceId}`);
+    });
+    return found;
+  }
+
+  /** The room's own spotlight key, which is where the fact lives between frames. */
+  async function spotlightOf(
+    stub: ReturnType<typeof roomStub>,
+  ): Promise<Record<string, unknown> | undefined> {
+    let found: Record<string, unknown> | undefined;
+    await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
+      found = await state.storage.get<Record<string, unknown>>("spotlight");
+    });
+    return found;
+  }
+
+  function send(participant: Participant, frame: Record<string, unknown>): void {
+    participant.send(JSON.stringify({ v: 1, ...frame }));
+  }
+
+  it("mutes one participant by closing their audio upstream, and tells them who did it", async () => {
+    const { meetingId, stub } = freshRoom();
+    const host = await connect(stub, meetingId, HOST_STAY, "A Host", "video", "host");
+    const member = await connect(stub, meetingId, MEMBER_STAY, "A Member");
+    await publish(member, MEMBER_STAY, [{ name: "microphone", kind: "audio" }]);
+    const session = (await storedOf(stub, MEMBER_STAY))?.["sfuSessionId"] as string;
+
+    const before = member.frames.length;
+    send(host, { type: "mute", participantId: MEMBER_STAY });
+    await waitFor(() => lastFrame(member, "muted") !== undefined);
+
+    // THE ROOM CANNOT SILENCE A MICROPHONE — the media never crosses it — so a mute is two halves,
+    // and this is the half that actually stops the sound reaching anybody.
+    expect(callsFor(session).some((call) => call.path.endsWith("/tracks/close"))).toBe(true);
+    expect(lastFrame(member, "muted")).toMatchObject({ by: HOST_STAY });
+    expect(member.frames.length).toBeGreaterThan(before);
+    // The track leaves the roster the way any stopped track does, so nobody re-subscribes to
+    // silence — and the flag every other tile draws moves with it.
+    const stored = await storedOf(stub, MEMBER_STAY);
+    expect(stored?.["tracks"]).toEqual([]);
+    expect(stored?.["muted"]).toBe(true);
+    // The host is not told about it as if it were their own microphone.
+    expect(lastFrame(host, "muted")).toBeUndefined();
+  });
+
+  it("refuses a host frame from a socket holding no grant, and leaves the socket open", async () => {
+    const { meetingId, stub } = freshRoom();
+    const member = await connect(stub, meetingId, MEMBER_STAY, "A Member");
+    const other = await connect(stub, meetingId, OTHER_STAY, "Another Member");
+    await publish(other, OTHER_STAY, [{ name: "microphone", kind: "audio" }]);
+
+    send(member, { type: "mute", participantId: OTHER_STAY });
+    await waitFor(() => lastFrame(member, "refused") !== undefined);
+
+    expect(lastFrame(member, "refused")).toMatchObject({ reason: "not-host" });
+    // OPEN, deliberately: the member is in the meeting and everything else they can do still works.
+    expect(member.closeCode()).toBeNull();
+    // And nothing happened to the person they aimed at.
+    expect(lastFrame(other, "muted")).toBeUndefined();
+    expect((await storedOf(stub, OTHER_STAY))?.["muted"]).toBe(false);
+  });
+
+  it("stops a withdrawn co-host on their NEXT frame, without a reconnect", async () => {
+    const { meetingId, stub } = freshRoom();
+    const coHost = await connect(stub, meetingId, MEMBER_STAY, "A Co-host", "video", "co-host");
+    const other = await connect(stub, meetingId, OTHER_STAY, "Another Member");
+    await publish(other, OTHER_STAY, [{ name: "microphone", kind: "audio" }]);
+
+    send(coHost, { type: "mute", participantId: OTHER_STAY });
+    await waitFor(() => lastFrame(other, "muted") !== undefined);
+
+    // The route commits the withdrawal and then tells the room, which rewrites the STORED record.
+    // The socket is untouched and its attachment still says co-host.
+    await stub.hostingChanged([]);
+    await waitFor(() => lastFrame(coHost, "roster") !== undefined);
+
+    send(coHost, { type: "mute", participantId: OTHER_STAY });
+    await waitFor(() => lastFrame(coHost, "refused") !== undefined);
+    expect(lastFrame(coHost, "refused")).toMatchObject({ reason: "not-host" });
+    // A socket-attachment answer would have gone on muting people for as long as this socket stayed
+    // open, which is the whole reason the authority lives on the record.
+    const rosterEntry = (
+      lastFrame(coHost, "roster") as { participants: RosterEntry[] }
+    ).participants.find((one) => one.participantId === MEMBER_STAY);
+    expect(rosterEntry).toMatchObject({ hostRole: null });
+  });
+
+  it("mutes everybody else and leaves the caller, the host and every co-host publishing", async () => {
+    const { meetingId, stub } = freshRoom();
+    const host = await connect(stub, meetingId, HOST_STAY, "A Host", "video", "host");
+    const coHost = await connect(stub, meetingId, OTHER_STAY, "A Co-host", "video", "co-host");
+    const member = await connect(stub, meetingId, MEMBER_STAY, "A Member");
+    for (const [participant, stay] of [
+      [host, HOST_STAY],
+      [coHost, OTHER_STAY],
+      [member, MEMBER_STAY],
+    ] as const) {
+      await publish(participant, stay, [{ name: "microphone", kind: "audio" }]);
+    }
+
+    send(host, { type: "mute-all" });
+    await waitFor(() => lastFrame(member, "muted") !== undefined);
+
+    // A control that silenced the person pressing it is a control that does not work, and a co-host
+    // is running the meeting with the host.
+    expect((await storedOf(stub, MEMBER_STAY))?.["muted"]).toBe(true);
+    expect((await storedOf(stub, HOST_STAY))?.["muted"]).toBe(false);
+    expect((await storedOf(stub, OTHER_STAY))?.["muted"]).toBe(false);
+    expect((await storedOf(stub, HOST_STAY))?.["tracks"]).toHaveLength(1);
+    expect((await storedOf(stub, OTHER_STAY))?.["tracks"]).toHaveLength(1);
+    expect(lastFrame(coHost, "muted")).toBeUndefined();
+  });
+
+  it("asks somebody to unmute and changes NOTHING else", async () => {
+    const { meetingId, stub } = freshRoom();
+    const host = await connect(stub, meetingId, HOST_STAY, "A Host", "video", "host");
+    const member = await connect(stub, meetingId, MEMBER_STAY, "A Member");
+    await publish(member, MEMBER_STAY, [{ name: "microphone", kind: "audio" }]);
+    const session = (await storedOf(stub, MEMBER_STAY))?.["sfuSessionId"] as string;
+    const upstreamBefore = callsFor(session).length;
+
+    send(host, { type: "ask-to-unmute", participantId: MEMBER_STAY });
+    await waitFor(() => lastFrame(member, "unmute-requested") !== undefined);
+
+    expect(lastFrame(member, "unmute-requested")).toMatchObject({ by: HOST_STAY });
+    // THE NEGATIVE ASSERTION IS THE POINT. A platform that could open a member's microphone from
+    // another member's click is a listening device in a law firm: nothing is closed, nothing is
+    // published, and the host is told nothing back, because they asked.
+    expect(callsFor(session)).toHaveLength(upstreamBefore);
+    expect((await storedOf(stub, MEMBER_STAY))?.["muted"]).toBe(false);
+    expect((await storedOf(stub, MEMBER_STAY))?.["tracks"]).toHaveLength(1);
+    expect(lastFrame(host, "refused")).toBeUndefined();
+    await settle();
+    expect(host.frames.filter((frame) => frame["type"] === "unmute-requested")).toHaveLength(0);
+  });
+
+  it("spotlights one participant for the room, carries it on a later welcome, and clears it when they leave", async () => {
+    const { meetingId, stub } = freshRoom();
+    const host = await connect(stub, meetingId, HOST_STAY, "A Host", "video", "host");
+    const member = await connect(stub, meetingId, MEMBER_STAY, "A Member");
+
+    send(host, { type: "spotlight", participantId: MEMBER_STAY });
+    await waitFor(() => lastFrame(member, "room-state") !== undefined);
+
+    // A ROOM-LEVEL FACT, which is the whole difference from a pin: a pin is one member arranging
+    // their own gallery and says nothing to anybody.
+    expect(lastFrame(member, "room-state")).toMatchObject({
+      spotlight: { participantId: MEMBER_STAY, by: HOST_STAY },
+      locked: false,
+    });
+    expect(await spotlightOf(stub)).toMatchObject({ participantId: MEMBER_STAY });
+
+    // It survives a sync — that frame answers about the roster, and the spotlight is not on it — and
+    // a socket arriving afterwards is told on its welcome, because it holds nothing to apply a
+    // difference to.
+    send(member, { type: "sync" });
+    await waitFor(() => lastFrame(member, "roster") !== undefined);
+    expect(await spotlightOf(stub)).toMatchObject({ participantId: MEMBER_STAY });
+    const late = await connect(stub, meetingId, OTHER_STAY, "Another Member");
+    expect(late.frames[0]).toMatchObject({
+      type: "welcome",
+      roomState: { spotlight: { participantId: MEMBER_STAY } },
+    });
+
+    // And it dies with the person it named: a large tile drawn for somebody who has gone is a tile
+    // that will never fill.
+    send(member, { type: "leave" });
+    await waitFor(
+      () => (lastFrame(late, "room-state") as { spotlight: unknown } | undefined) !== undefined,
+    );
+    expect(lastFrame(late, "room-state")).toMatchObject({ spotlight: null });
+    expect(await spotlightOf(stub)).toBeUndefined();
+  });
+
+  it("refuses a spotlight naming somebody who is not in the room", async () => {
+    const { meetingId, stub } = freshRoom();
+    const host = await connect(stub, meetingId, HOST_STAY, "A Host", "video", "host");
+
+    send(host, { type: "spotlight", participantId: "meetingAttendance_nobody" });
+    await settle();
+
+    // Every browser would draw the large tile for a tile that does not exist, and ask the routing
+    // service for its full layer.
+    expect(await spotlightOf(stub)).toBeUndefined();
+  });
+
+  it("puts a removed member out: the socket is refused `removed` and closed, and the media stops", async () => {
+    const { meetingId, stub } = freshRoom();
+    const watcher = await connect(stub, meetingId, HOST_STAY, "A Host", "video", "host");
+    const member = await connect(stub, meetingId, MEMBER_STAY, "A Member");
+    await publish(member, MEMBER_STAY, [{ name: "microphone", kind: "audio" }]);
+    const session = (await storedOf(stub, MEMBER_STAY))?.["sfuSessionId"] as string;
+
+    // Called by the route AFTER its own write commits, on the participantLeft / end precedent.
+    await stub.participantRemoved(MEMBER_STAY);
+    await waitFor(() => member.closeCode() !== null);
+
+    // THE REASON GOES OUT BEFORE THE CLOSE, always, so the browser learns why rather than inferring
+    // it from a code — and the client's fatal set holds `removed`, so it offers no Rejoin.
+    expect(lastFrame(member, "refused")).toMatchObject({ reason: "removed" });
+    expect(member.closeCode()).toBe(4000);
+    expect(await storedOf(stub, MEMBER_STAY)).toBeUndefined();
+    expect(callsFor(session).some((call) => call.path.endsWith("/tracks/close"))).toBe(true);
+    // And everybody else is told to stop drawing them.
+    await waitFor(() => lastFrame(watcher, "roster") !== undefined);
+    expect(
+      (lastFrame(watcher, "roster") as { participants: RosterEntry[] }).participants.map(
+        (one) => one.participantId,
+      ),
+    ).toEqual([HOST_STAY]);
+  });
+
+  it("clears a spotlight on the member a host removes", async () => {
+    const { meetingId, stub } = freshRoom();
+    const host = await connect(stub, meetingId, HOST_STAY, "A Host", "video", "host");
+    const member = await connect(stub, meetingId, MEMBER_STAY, "A Member");
+    send(host, { type: "spotlight", participantId: MEMBER_STAY });
+    await waitFor(() => lastFrame(host, "room-state") !== undefined);
+
+    await stub.participantRemoved(MEMBER_STAY);
+    await waitFor(
+      () => (lastFrame(host, "room-state") as { spotlight: unknown }).spotlight === null,
+    );
+
+    expect(await spotlightOf(stub)).toBeUndefined();
+  });
+
+  it("tells the room when the door moves", async () => {
+    const { meetingId, stub } = freshRoom();
+    const member = await connect(stub, meetingId, MEMBER_STAY, "A Member");
+
+    await stub.roomStateChanged(true);
+    await waitFor(() => lastFrame(member, "room-state") !== undefined);
+    expect(lastFrame(member, "room-state")).toMatchObject({ locked: true });
+
+    // And a socket arriving into a locked room is told so on its welcome — off the meeting row the
+    // route read, which is where the truth is. Nobody already in the room is touched by the door:
+    // the lock is about arrivals.
+    const late = await connect(stub, meetingId, OTHER_STAY, "Another Member", "video", null, true);
+    expect(late.frames[0]).toMatchObject({ roomState: { locked: true } });
+    expect(member.closeCode()).toBeNull();
+  });
+
+  it("names a host on the roster, so every browser can draw the badge", async () => {
+    const { meetingId, stub } = freshRoom();
+    await connect(stub, meetingId, HOST_STAY, "A Host", "video", "host");
+    const member = await connect(stub, meetingId, MEMBER_STAY, "A Member");
+
+    const roster = welcomeRosterOf(member);
+    expect(roster.find((one) => one.participantId === HOST_STAY)).toMatchObject({
+      hostRole: "host",
+    });
+    expect(roster.find((one) => one.participantId === MEMBER_STAY)).toMatchObject({
+      hostRole: null,
+    });
+
+    // And a grant the route writes mid-meeting reaches every browser as a roster change.
+    await stub.hostingChanged([
+      { userId: `user_${HOST_STAY}`, role: "host" },
+      { userId: `user_${MEMBER_STAY}`, role: "co-host" },
+    ]);
+    await waitFor(() => lastFrame(member, "roster") !== undefined);
+    expect(
+      (lastFrame(member, "roster") as { participants: RosterEntry[] }).participants.find(
+        (one) => one.participantId === MEMBER_STAY,
+      ),
+    ).toMatchObject({ hostRole: "co-host" });
   });
 });

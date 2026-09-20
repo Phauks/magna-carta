@@ -573,7 +573,9 @@ describe("the closing a cancelled event drags behind it", () => {
       clock: endClock,
     });
 
-    const hostEnded = await endMeeting(database.database, meetingId, optionsFor(GUEST, endClock));
+    // The member who pressed Start, who holds the room's `host` grant from the instant it existed —
+    // ending is a host act now, so this is the caller the race is actually run against.
+    const hostEnded = await endMeeting(database.database, meetingId, optionsFor(HOST, endClock));
     await commit(database.database, hostEnded.effect);
 
     const refused = await commit(database.database, staged.effect).catch((error: unknown) => error);
@@ -582,7 +584,7 @@ describe("the closing a cancelled event drags behind it", () => {
     // never moved by a tidy-up that lost the race.
     const meeting = await readMeeting(database.database, meetingId, visibility);
     expect(meeting?.status).toBe("ended");
-    expect(meeting?.ended_by_user_id).toBe(GUEST);
+    expect(meeting?.ended_by_user_id).toBe(HOST);
   });
 });
 
