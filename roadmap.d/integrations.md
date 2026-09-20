@@ -317,6 +317,7 @@
   scope: Built-in feature (adapter-sourced data) for service of process, asset/witness location, conflicts and intake enrichment.
   status: researching
   evidence: docs/research/public-records-landscape.md; no code.
+  notes: Left alone until a user asks for it (owner, 2026-09-20), which confirms rather than changes the research note's own verdict. The blocker is structural and not effort: under the driver-privacy, financial-privacy and consumer-reporting statutes the right to pull the data attaches to the END USER, so each firm is credentialed individually and a platform cannot lawfully resell the lookups from one account. Any future build is therefore per-firm bring-your-own-credential, and a search is a recorded act against a matter carrying its permissible-purpose code rather than a control beside an address field. Postal change-of-address sits outside this node and outside the same wall: it is licensed rather than credentialed, costs 1,350 to 230,000 USD and requires CASS-certified software first, so it would be bought through a licensee rather than licensed directly.
 
 - id: integrations.candidates.document-comparison
   name: Document comparison / proofreading / metadata scrubbing suite

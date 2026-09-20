@@ -51,6 +51,12 @@ against a matter — nearer a conflicts check than a form field — and a platfo
 button beside an address would have built the wrong shape. The existing candidate node for public
 records and people search is where that work belongs.
 
+_Settled the same day:_ the owner's answer to the looking-into was to leave both alone until a user
+asks for them. That confirms the research note's existing verdict rather than changing it — it had
+already deprioritized this category on the ground that the right to pull the data attaches to the end
+user, so a platform cannot lawfully resell the lookups from one account, which is structural rather
+than a coverage gap. Nothing is built, and the capability node carries the ruling.
+
 **Consequences:** the address roadmap is unblocked on its hardest axis. Deliverability verification
 becomes available, which is the half that earns a fee, and the verification columns on the address
 row are already where a provider's answer lands, so adopting one remains a writer of four existing
