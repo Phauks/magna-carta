@@ -58,6 +58,8 @@ export function cutToByteLength(content: string, maxBytes: number): string {
   const bytes = encoder.encode(content);
   if (bytes.length <= maxBytes) return content;
   // A prefix that ends mid-character decodes to a replacement character at its end; it is stripped so
-  // the cut reads clean.
-  return decoder.decode(bytes.subarray(0, maxBytes)).replace(/�$/u, "");
+  // the cut reads clean. The character is written as an ESCAPE rather than as itself: a literal
+  // U+FFFD inside a regex literal hangs the linter's parser outright, so a file carrying one is
+  // silently un-lintable and takes the whole-repository pass down with it.
+  return decoder.decode(bytes.subarray(0, maxBytes)).replace(/\uFFFD$/u, "");
 }
