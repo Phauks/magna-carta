@@ -377,3 +377,10 @@ so a chat is the meeting's first stored content and carries a filed email's reda
 and personal-data treatment; and **a firm runs several meetings at once** — one meeting per event
 already allows it, and it means every per-meeting surface that follows (the waiting room first) is
 one per meeting, never one per firm.
+
+Two more on the same day: **scheduling is a high priority** — booking pages move directly behind
+host controls and the waiting room; and **recording's consent mechanism is the announcement and the
+indicator** — "Recording in progress" said to everyone when it starts and to every late arrival,
+audibly and on screen, with a recording mark on every screen for as long as it runs, the way every
+conferencing product does it. Recording and transcription therefore no longer wait on the
+jurisdiction-profile machinery.

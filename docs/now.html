@@ -3451,8 +3451,8 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="chip todo">Not started</span>
 <span class="nm">Recording</span>
 <code>meetings.recording</code>
-<p>Server-side capture of a meeting into the matter file, through the untrusted-file pipeline into R2, behind a consent gate on the jurisdiction profile.</p>
-<p class="note">Sequenced after guests; a recording of a client meeting is privileged content and gets the full pipeline, not a shortcut.</p>
+<p>Server-side capture of a meeting into the matter file through the untrusted-file pipeline into R2; every participant is told "Recording in progress" when it starts and on arrival, audibly and on screen, and a recording mark stays on every screen for as long as it runs.</p>
+<p class="note">The owner's ruling of 2026-09-20 — the announcement and the persistent indicator are the consent mechanism, on the precedent every conferencing product uses, so recording no longer waits on the jurisdiction-profile machinery. Late arrivals get the announcement too, and stopping is announced the same way.</p>
 </li><li class="n d1" data-s="in-build">
 <span class="chip live">In build</span>
 <span class="nm">Large rooms (300 participants)</span>
@@ -3501,7 +3501,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Live captions and transcript</span>
 <code>meetings.transcription</code>
 <p>Captions during the meeting and a transcript afterwards, in the meeting's language and translated, behind the same consent gate as recording.</p>
-<p class="note">Sequenced with recording — both are the meeting's first captured content.</p>
+<p class="note">Sequenced with recording, under the same announcement-and-indicator consent mechanism the owner ruled for recording on 2026-09-20 — captions are announced as recording is.</p>
 </li><li class="n d1" data-s="not-started">
 <span class="chip todo">Not started</span>
 <span class="nm">Meeting summary</span>
@@ -3524,9 +3524,10 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <p>A meeting broadcast to a streaming destination.</p>
 </li><li class="n d1" data-s="not-started">
 <span class="chip todo">Not started</span>
-<span class="nm">Booking pages</span>
+<span class="nm">Scheduling and booking pages</span>
 <code>meetings.booking-pages</code>
-<p>A member's booking page a client picks a time on, creating the event and its meeting.</p>
+<p>A member's booking page a client picks a time on, creating the event and its meeting or call; availability read from the calendar; confirmation and reminders.</p>
+<p class="note">High priority by the owner's direction of 2026-09-20 — sequenced directly behind host controls and the waiting room.</p>
 </li><li class="n d1" data-s="not-started">
 <span class="chip todo">Not started</span>
 <span class="nm">A member's standing room</span>

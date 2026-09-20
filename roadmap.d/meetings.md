@@ -77,10 +77,10 @@
 
 - id: meetings.recording
   name: Recording
-  scope: Server-side capture of a meeting into the matter file, through the untrusted-file pipeline into R2, behind a consent gate on the jurisdiction profile.
+  scope: Server-side capture of a meeting into the matter file through the untrusted-file pipeline into R2; every participant is told "Recording in progress" when it starts and on arrival, audibly and on screen, and a recording mark stays on every screen for as long as it runs.
   status: not-started
-  evidence: No code. Needs a media-processing container, which is a memory-safety consent conversation, and the jurisdiction consent machinery the call log also waits on.
-  notes: Sequenced after guests; a recording of a client meeting is privileged content and gets the full pipeline, not a shortcut.
+  evidence: No code. Needs a media-processing container, which is a memory-safety consent conversation.
+  notes: The owner's ruling of 2026-09-20 — the announcement and the persistent indicator are the consent mechanism, on the precedent every conferencing product uses, so recording no longer waits on the jurisdiction-profile machinery. Late arrivals get the announcement too, and stopping is announced the same way.
 
 - id: meetings.large-rooms
   name: Large rooms (300 participants)
@@ -143,8 +143,8 @@
   name: Live captions and transcript
   scope: Captions during the meeting and a transcript afterwards, in the meeting's language and translated, behind the same consent gate as recording.
   status: not-started
-  evidence: No code; the audio never reaches a Worker today. Needs the jurisdiction consent machinery, then an audio leg from the routing service to a speech model.
-  notes: Sequenced with recording — both are the meeting's first captured content.
+  evidence: No code; the audio never reaches a Worker today. Needs an audio leg from the routing service to a speech model.
+  notes: Sequenced with recording, under the same announcement-and-indicator consent mechanism the owner ruled for recording on 2026-09-20 — captions are announced as recording is.
 
 - id: meetings.summary
   name: Meeting summary
@@ -171,10 +171,11 @@
   evidence: No code.
 
 - id: meetings.booking-pages
-  name: Booking pages
-  scope: A member's booking page a client picks a time on, creating the event and its meeting.
+  name: Scheduling and booking pages
+  scope: A member's booking page a client picks a time on, creating the event and its meeting or call; availability read from the calendar; confirmation and reminders.
   status: not-started
   evidence: No code; the intake desk already schedules a consultation by hand, which is the seam.
+  notes: High priority by the owner's direction of 2026-09-20 — sequenced directly behind host controls and the waiting room.
 
 - id: meetings.personal-room
   name: A member's standing room
