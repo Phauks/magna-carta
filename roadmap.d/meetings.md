@@ -87,10 +87,10 @@
 - id: meetings.large-rooms
   name: Large rooms (300 participants)
   scope: The cap lifted to 300 — simulcast cameras, a subscription policy that pulls only the tiles shown and the people talking, roster deltas instead of full broadcasts, relayed speaking presence, a paged gallery, speaker view and pin.
-  status: in-build
+  status: shipped
   surface: screen
   spec: docs/specs/2026-09-18-meetings-design.md
-  evidence: MAX_MEETING_PARTICIPANTS in packages/meetings/src/types.ts; the policy in apps/web/src/lib/meetings/subscription-policy.ts; roster-delta and presence frames in apps/api-worker/src/meetings/meeting-room-protocol.ts; stream docs/active-work/claude/focused-edison-ylxfiy.md.
+  evidence: MAX_MEETING_PARTICIPANTS in packages/meetings/src/types.ts; the policy in apps/web/src/lib/meetings/subscription-policy.ts; roster-delta and presence frames in apps/api-worker/src/meetings/meeting-room-protocol.ts.
   audience: public
   public-summary: Hold a meeting of up to three hundred people, with the gallery showing who is talking.
   notes: The owner's target of 2026-09-20 is the capacity Zoom sells on its Business tier.

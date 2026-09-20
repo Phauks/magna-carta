@@ -22,6 +22,7 @@
    * red controls tells a reader nothing about which one is the dangerous one.
    */
   import Mic from "@lucide/svelte/icons/mic";
+  import Presentation from "@lucide/svelte/icons/presentation";
   import MicOff from "@lucide/svelte/icons/mic-off";
   import PhoneOff from "@lucide/svelte/icons/phone-off";
   import ScreenShare from "@lucide/svelte/icons/screen-share";
@@ -41,12 +42,14 @@
     microphoneOn,
     cameraOn,
     sharing,
+    speakerView = false,
     medium = "video",
     canEnd = false,
     subtitle = {},
     onToggleMicrophone,
     onToggleCamera,
     onToggleSharing,
+    onToggleSpeakerView,
     onLeave,
     onEnd,
     endFailure,
@@ -54,6 +57,8 @@
     microphoneOn: boolean;
     cameraOn: boolean;
     sharing: boolean;
+    /** Whether the room is drawn as one large speaker with a strip, rather than an even gallery. */
+    speakerView?: boolean;
     /** What the room carries. A call has no camera control and no screen share. */
     medium?: MeetingMedium;
     /** Whether this member may end the meeting for everybody. */
@@ -63,6 +68,8 @@
     onToggleMicrophone: () => void;
     onToggleCamera: () => void;
     onToggleSharing: () => void;
+    /** Swap between the even gallery and the large speaker. Absent where it is not offered. */
+    onToggleSpeakerView?: () => void;
     onLeave: () => void;
     /** Ends it for everybody. Reports how the write went, so the panel can stand its ground. */
     onEnd?: () => Promise<ActionOutcome>;
@@ -149,6 +156,28 @@
       </Tooltip.Trigger>
       <Tooltip.Content side="top">Screen share</Tooltip.Content>
     </Tooltip.Root>
+
+    {#if onToggleSpeakerView !== undefined}
+      <!-- A view toggle whose glyph is the same on both sides, so the fill and `aria-pressed` are
+           what say which side is on — the house pattern for exactly that case. -->
+      <Tooltip.Root>
+        <Tooltip.Trigger>
+          {#snippet child({ props })}
+            <Button
+              {...props}
+              variant={speakerView ? "secondary" : "ghost"}
+              size="icon"
+              aria-pressed={speakerView}
+              aria-label={speakerView ? "Show everybody" : "Show whoever is talking, large"}
+              onclick={onToggleSpeakerView}
+            >
+              <Presentation class="size-16" aria-hidden="true" />
+            </Button>
+          {/snippet}
+        </Tooltip.Trigger>
+        <Tooltip.Content side="top">Speaker view</Tooltip.Content>
+      </Tooltip.Root>
+    {/if}
   {/if}
 
   <Button variant="destructive" onclick={onLeave}>

@@ -28,7 +28,23 @@
  * with the same attendance and the same track names on a NEW unit session, so what is already coming
  * in is counted by session AND name (`pulledTrackKey`), and a roster that stops naming a session is
  * what drops the tracks and the stream that went with it.
+ *
+ * WHAT IS PULLED IS DECIDED BY A PURE FUNCTION, NEVER HERE. A room holds up to three hundred people
+ * and a browser pulls at most sixteen cameras and twenty-four microphones, so "what should be coming
+ * in" is a judgment over the roster, the presence facts, the pins and the gallery page —
+ * `subscriptionPolicy` in subscription-policy.ts. This class only makes the answer true: it asks for
+ * what the plan names and is not already coming in, closes what the plan no longer names, and moves
+ * a simulcast layer where the plan changed it. Reconciliation is rate-limited rather than run per
+ * frame, because three hundred people joining is three hundred roster deltas.
  */
+import {
+  GALLERY_PAGE_SIZE,
+  SPEAKER_VIEW_PAGE_SIZE,
+  subscriptionPolicy,
+  type PreferredRid,
+  type SubscriptionPlan,
+} from "./subscription-policy.ts";
+import { createBrowserAudioLevelMeter, type AudioLevelMeter } from "./audio-level-meter.ts";
 
 /*
  * The keepalive pair, byte for byte. These exact strings are what the runtime's WebSocket
@@ -57,6 +73,36 @@ const KEEPALIVE_INTERVAL_MILLISECONDS = 30_000;
  * be thrown out of the room for it.
  */
 const MISSED_PONGS_BEFORE_FAILURE = 2;
+
+/**
+ * How often what this browser is pulling may be worked out afresh.
+ *
+ * Three hundred people arriving at the top of the hour is three hundred roster deltas in a few
+ * seconds, and each one on its own would re-run the policy and send frames. The first change in a
+ * burst is acted on at once — a member should see somebody arrive, not wait a quarter of a second
+ * for it — and everything that follows inside the window is folded into one pass at the end of it.
+ */
+export const RECONCILE_DEBOUNCE_MILLISECONDS = 250;
+
+/**
+ * The layers a camera is published in: full, half and quarter of the captured resolution.
+ *
+ * A room of three hundred draws its tiles small, and a subscriber that could only ever be sent the
+ * full picture would be decoding sixteen full-resolution streams to paint sixteen thumbnails. The
+ * unit cannot make a small picture out of a large one, so the publisher sends all three and each
+ * subscriber names the one its tiles are worth. A fresh array per call: the browser takes ownership
+ * of what it is handed.
+ */
+function cameraSimulcastEncodings(): RTCRtpEncodingParameters[] {
+  return [
+    { rid: "f", scaleResolutionDownBy: 1 },
+    { rid: "h", scaleResolutionDownBy: 2 },
+    { rid: "q", scaleResolutionDownBy: 4 },
+  ];
+}
+
+/** The most tracks one `layer` frame may carry. Beyond it the change goes in several frames. */
+const MAX_LAYER_TRACKS_PER_FRAME = 32;
 
 /** The reason recorded when the signaling socket goes away without the meeting having ended. */
 export const SOCKET_CLOSED_REASON = "socket-closed";
@@ -108,6 +154,17 @@ export interface MeetingParticipant {
   /** The unit's session this participant publishes through. Null before they have published. */
   readonly sfuSessionId: string | null;
   readonly tracks: readonly MeetingTrack[];
+  /**
+   * Their microphone is carrying speech, as their own browser measured it and the room relayed it.
+   *
+   * It is a fact the room states rather than one this browser works out. Measuring it here would
+   * mean an analyser per incoming track — three hundred of them in a full room, for one boolean
+   * each — and it could only ever be measured for the few tracks already being pulled, which is the
+   * wrong set: whoever speaks next is usually somebody nobody is currently listening to.
+   */
+  readonly speaking: boolean;
+  /** Their microphone is off, so nothing is coming from it whatever anybody's meter says. */
+  readonly muted: boolean;
 }
 
 /**
@@ -156,6 +213,11 @@ export interface MeetingClientSeams {
   getDisplayMedia: (constraints: DisplayMediaStreamOptions) => Promise<MediaStream>;
   /** An empty stream to gather one participant's incoming tracks into. */
   createMediaStream: () => MediaStream;
+  /**
+   * A running measurement of whether one captured track is carrying speech. Only ever this
+   * browser's own microphone: who else is talking is a fact the room relays.
+   */
+  createAudioLevelMeter: (track: MediaStreamTrack) => AudioLevelMeter;
 }
 
 /** The seams as a real browser supplies them. */
@@ -166,6 +228,7 @@ export function browserMeetingSeams(): MeetingClientSeams {
     getUserMedia: (constraints) => navigator.mediaDevices.getUserMedia(constraints),
     getDisplayMedia: (constraints) => navigator.mediaDevices.getDisplayMedia(constraints),
     createMediaStream: () => new MediaStream(),
+    createAudioLevelMeter: (track) => createBrowserAudioLevelMeter(track),
   };
 }
 
@@ -247,9 +310,24 @@ function readParticipants(value: unknown): readonly MeetingParticipant[] {
       displayName: readString(entry, "displayName") ?? "",
       sfuSessionId: readString(entry, "sfuSessionId"),
       tracks,
+      // Absent on a room that has not been taught presence yet, and absent is "not speaking, not
+      // muted" — the state a roster without the two booleans always meant.
+      speaking: entry.speaking === true,
+      muted: entry.muted === true,
     });
   }
   return participants;
+}
+
+/** A simulcast layer as a frame states it, or null where the frame named something else. */
+function readPreferredRid(value: unknown): PreferredRid | null {
+  return value === "f" || value === "h" || value === "q" ? value : null;
+}
+
+/** The participant ids a frame names, ignoring anything in the list that is not one. */
+function readIdentifiers(value: unknown): readonly string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((entry): entry is string => typeof entry === "string");
 }
 
 /** The participant a track name belongs to, read off the name's own prefix. */
@@ -374,10 +452,60 @@ export class MeetingClient {
    */
   medium = $state<MeetingMedium>("video");
 
-  /** Everybody but this browser — the tiles the grid draws from the pulled streams. */
+  /** The gallery page being shown, counted from zero. */
+  page = $state(0);
+  /**
+   * Whoever this member has pinned, in the order they pinned them. It is LOCAL: pinning changes
+   * what this browser pulls and where it draws somebody, and says nothing to anybody else in the
+   * room — a member cannot rearrange a colleague's screen.
+   */
+  pinned = $state<readonly string[]>([]);
+  /** Whether the room is drawn as one large speaker with a strip, rather than an even gallery. */
+  speakerView = $state(false);
+
+  /**
+   * When each participant was last heard speaking, on THIS browser's clock.
+   *
+   * The presence frame carries the room's own `at`, and it is deliberately not what is stored: the
+   * room's clock and this browser's clock are not the same clock, and an ordering built from a
+   * mixture of the two puts somebody who spoke a moment ago behind somebody who spoke a minute ago
+   * on a machine whose time is out. What matters is the order the frames arrived in, which is what
+   * stamping them here records.
+   */
+  #lastSpokeAt = $state<ReadonlyMap<string, number>>(new Map());
+
+  /** Everybody but this browser — the people the gallery pages over. */
   readonly others = $derived(
     this.participants.filter((participant) => participant.participantId !== this.participantId),
   );
+
+  /**
+   * What should be coming in, and what the gallery should be drawing. Everything the screen renders
+   * about who is shown, and everything `reconcile` asks the room for, comes from here.
+   */
+  readonly plan: SubscriptionPlan = $derived(
+    subscriptionPolicy({
+      medium: this.medium,
+      self: this.participantId ?? "",
+      participants: this.participants.map((participant) => ({
+        participantId: participant.participantId,
+        sfuSessionId: participant.sfuSessionId,
+        tracks: participant.tracks,
+        speaking: participant.speaking,
+        muted: participant.muted,
+        lastSpokeAt: this.#lastSpokeAt.get(participant.participantId) ?? null,
+      })),
+      pinned: this.pinned,
+      page: this.page,
+      pageSize: this.speakerView ? SPEAKER_VIEW_PAGE_SIZE : GALLERY_PAGE_SIZE,
+      now: Date.now(),
+    }),
+  );
+
+  /** How many gallery pages the room takes. Always at least one. */
+  readonly pages = $derived(this.plan.pages);
+  /** The participants drawn on this page, in order. This browser's own preview is not among them. */
+  readonly shown = $derived(this.plan.shown);
 
   readonly #seams: MeetingClientSeams;
 
@@ -400,8 +528,29 @@ export class MeetingClient {
   readonly #pendingSubscriptions = new Set<string>();
   /** Which participant each pulled track belongs to, under the same key. */
   readonly #trackOwners = new Map<string, string>();
+  /**
+   * The media section each pulled track arrives on, as the room's `subscribed` named it. Closing a
+   * track names its mid, so a track with no mid here is one that cannot be closed yet.
+   */
+  readonly #pulledMids = new Map<string, string>();
+  /** The incoming track itself, so closing one takes it out of the stream it was gathered into. */
+  readonly #pulledMediaTracks = new Map<string, MediaStreamTrack>();
+  /** The simulcast layer last ASKED FOR per pulled track, so a layer frame is sent only on change. */
+  readonly #askedRids = new Map<string, PreferredRid>();
   /** The screen share's transceiver mid, which is what closing it names. */
   #screenMid: string | null = null;
+
+  /** The running measurement of this browser's own microphone. Null before anything is captured. */
+  #meter: AudioLevelMeter | null = null;
+  /** The last presence this browser told the room, so only a CHANGE is sent. */
+  #announcedPresence: { speaking: boolean; muted: boolean } | null = null;
+
+  /** The window inside which further changes are folded into one reconciliation. */
+  #reconcileWindow: ReturnType<typeof setTimeout> | undefined;
+  /** Whether something changed while the window was open, so a pass is owed when it closes. */
+  #reconcileOwed = false;
+  /** True while a `sync` has gone out and no full roster has come back, so one gap asks once. */
+  #syncAsked = false;
 
   /**
    * Everything that renegotiates runs here, one after another: the frames that arrive, and this
@@ -466,6 +615,7 @@ export class MeetingClient {
     this.captureRefusal = null;
     this.microphoneOn = stream.getAudioTracks().length > 0;
     this.cameraOn = stream.getVideoTracks().length > 0;
+    this.#startMeasuringSpeech(stream);
 
     const notOffered = wantsPicture
       ? "Your camera and microphone were not offered to the room."
@@ -477,7 +627,13 @@ export class MeetingClient {
         // gate rather than the first: a browser that handed back a video track anyway does not get
         // to publish it into a room whose people agreed to a call.
         if (!wantsPicture && track.kind !== "audio") continue;
-        const transceiver = peerConnection.addTransceiver(track, { direction: "sendonly" });
+        // The camera goes up in three layers and the microphone in one. Sound has no resolution to
+        // step down, and a screen share is published elsewhere as a single layer, because a
+        // quarter-resolution document is a document nobody can read.
+        const transceiver = peerConnection.addTransceiver(track, {
+          direction: "sendonly",
+          ...(track.kind === "video" ? { sendEncodings: cameraSimulcastEncodings() } : {}),
+        });
         published.push({ transceiver, kind: track.kind === "audio" ? "audio" : "video" });
       }
 
@@ -495,28 +651,84 @@ export class MeetingClient {
   }
 
   /**
-   * Pull whichever of a participant's tracks are not already coming in. Called for each roster
-   * entry as the roster changes; a track already asked for is never asked for twice, because the
-   * unit would answer with a second copy of a stream already on screen.
+   * Make the plan true: ask for what should be coming in and is not, close what should not, and
+   * move the layer of anything the plan now wants at a different size.
+   *
+   * It is safe to call at any time and does nothing when nothing has changed, which is what lets
+   * every arrival, departure, presence frame, pin and page turn go through the same one path
+   * instead of each one deciding for itself what it implies.
    */
-  subscribeTo(participant: MeetingParticipant): void {
-    const sessionId = participant.sfuSessionId;
-    if (sessionId === null) return;
-    if (participant.participantId === this.participantId) return;
-    const wanted = participant.tracks.filter(
-      (track) => !this.#pulledTracks.has(pulledTrackKey(sessionId, track.trackName)),
-    );
-    if (wanted.length === 0) return;
-    for (const track of wanted) {
-      const key = pulledTrackKey(sessionId, track.trackName);
-      this.#pulledTracks.add(key);
-      this.#pendingSubscriptions.add(key);
-      this.#trackOwners.set(key, participant.participantId);
+  reconcile(): void {
+    if (this.state !== "live") return;
+    const plan = this.plan;
+
+    /** Everything the plan wants, keyed the way what is already coming in is keyed. */
+    const wanted = new Map<
+      string,
+      { sessionId: string; trackName: string; participantId: string; rid: PreferredRid | null }
+    >();
+    for (const track of plan.video) {
+      wanted.set(pulledTrackKey(track.sessionId, track.trackName), {
+        sessionId: track.sessionId,
+        trackName: track.trackName,
+        participantId: track.participantId,
+        rid: track.preferredRid,
+      });
     }
-    this.#send({
-      type: "subscribe",
-      tracks: wanted.map((track) => ({ sessionId, trackName: track.trackName })),
-    });
+    if (plan.screen !== null) {
+      wanted.set(pulledTrackKey(plan.screen.sessionId, plan.screen.trackName), {
+        ...plan.screen,
+        rid: null,
+      });
+    }
+    for (const track of plan.audio) {
+      wanted.set(pulledTrackKey(track.sessionId, track.trackName), { ...track, rid: null });
+    }
+
+    this.#pullWhatIsMissing(wanted);
+    this.#closeWhatIsNoLongerWanted(wanted);
+    this.#moveLayersThatChanged(wanted);
+  }
+
+  /** Show a different page of the gallery. Out of range is clamped rather than refused. */
+  setPage(page: number): void {
+    const next = Math.min(Math.max(0, Math.floor(page)), this.pages - 1);
+    if (next === this.page) return;
+    this.page = next;
+    this.#scheduleReconcile();
+  }
+
+  /**
+   * Keep somebody on screen whatever the room does.
+   *
+   * It moves them to the front of the order, which is the first page — so the gallery goes there
+   * too. Pinning somebody on page eleven and watching them vanish from page eleven is the one
+   * outcome a member would read as the control not working.
+   */
+  pin(participantId: string): void {
+    if (this.pinned.includes(participantId)) return;
+    this.pinned = [...this.pinned, participantId];
+    this.page = 0;
+    this.#scheduleReconcile();
+  }
+
+  /** Stop keeping somebody on screen. They fall back to wherever the room's own order puts them. */
+  unpin(participantId: string): void {
+    if (!this.pinned.includes(participantId)) return;
+    this.pinned = this.pinned.filter((pinned) => pinned !== participantId);
+    this.#scheduleReconcile();
+  }
+
+  /** Whether this member is holding somebody on screen. */
+  isPinned(participantId: string): boolean {
+    return this.pinned.includes(participantId);
+  }
+
+  /** Swap between the even gallery and one large speaker with a strip of recent ones beside it. */
+  toggleSpeakerView(): void {
+    this.speakerView = !this.speakerView;
+    this.page = 0;
+    this.#scheduleReconcile();
   }
 
   /**
@@ -588,6 +800,11 @@ export class MeetingClient {
     const next = !this.microphoneOn;
     for (const track of stream.getAudioTracks()) track.enabled = next;
     this.microphoneOn = next;
+    // Muting is a fact about this browser that the room cannot measure: the track keeps arriving,
+    // carrying silence, so nothing downstream would ever know. Either way the answer to "is this
+    // person speaking" starts again at no — muted, they are not; unmuted, the meter says so within
+    // its own hysteresis rather than this browser assuming the last answer still holds.
+    this.#announcePresence(false, !next);
   }
 
   /** Turn the camera picture off or on. A call has no camera, so there is nothing to turn. */
@@ -612,6 +829,158 @@ export class MeetingClient {
   dispose(): void {
     this.#leaving = true;
     this.#teardown();
+  }
+
+  /** Ask for the plan's tracks that are not already coming in, in one frame. */
+  #pullWhatIsMissing(
+    wanted: ReadonlyMap<
+      string,
+      { sessionId: string; trackName: string; participantId: string; rid: PreferredRid | null }
+    >,
+  ): void {
+    const tracks: Record<string, unknown>[] = [];
+    for (const [key, track] of wanted) {
+      if (this.#pulledTracks.has(key)) continue;
+      this.#pulledTracks.add(key);
+      this.#pendingSubscriptions.add(key);
+      this.#trackOwners.set(key, track.participantId);
+      if (track.rid !== null) this.#askedRids.set(key, track.rid);
+      tracks.push({
+        sessionId: track.sessionId,
+        trackName: track.trackName,
+        ...(track.rid === null ? {} : { preferredRid: track.rid }),
+      });
+    }
+    if (tracks.length > 0) this.#send({ type: "subscribe", tracks });
+  }
+
+  /**
+   * Stop pulling what the plan no longer names, and take the media out of the stream it was
+   * gathered into.
+   *
+   * Leaving a closed track in the stream is not harmless: a video element plays the first video
+   * track it was given, so a tile that has stopped receiving would keep drawing the last frame of
+   * somebody who is no longer on this page, which reads as a picture of a person sitting still.
+   */
+  #closeWhatIsNoLongerWanted(wanted: ReadonlyMap<string, unknown>): void {
+    const mids: string[] = [];
+    // A copy, because forgetting a key mutates the set this walks.
+    for (const key of [...this.#pulledTracks]) {
+      if (wanted.has(key)) continue;
+      const mid = this.#pulledMids.get(key);
+      // A track asked for and not yet answered has no media section to name, and forgetting it
+      // here would leave the unit sending something nothing on this side is counting. It keeps its
+      // place until the answer arrives, and the pass that follows the answer closes it properly.
+      if (mid === undefined && this.#pendingSubscriptions.has(key)) continue;
+      const owner = this.#trackOwners.get(key);
+      const media = this.#pulledMediaTracks.get(key);
+      this.#forgetTrack(key);
+      if (mid !== undefined) mids.push(mid);
+      if (owner !== undefined) this.#detachRemoteTrack(owner, namesAScreen(key), media);
+    }
+    if (mids.length > 0) this.#send({ type: "close", mids });
+  }
+
+  /**
+   * Ask the unit for a different layer of what is already coming in.
+   *
+   * Only where the mid is known: the layer is named on the subscribe itself, so a track still
+   * waiting for its answer is already being pulled at the right size, and asking again by mid
+   * before the unit has said which mid it is would name nothing.
+   *
+   * A frame carries at most `MAX_LAYER_TRACKS_PER_FRAME` tracks, which is what the room accepts.
+   */
+  #moveLayersThatChanged(
+    wanted: ReadonlyMap<
+      string,
+      { sessionId: string; trackName: string; participantId: string; rid: PreferredRid | null }
+    >,
+  ): void {
+    const changed: Record<string, unknown>[] = [];
+    for (const [key, track] of wanted) {
+      if (track.rid === null) continue;
+      const mid = this.#pulledMids.get(key);
+      if (mid === undefined) continue;
+      if (this.#askedRids.get(key) === track.rid) continue;
+      this.#askedRids.set(key, track.rid);
+      changed.push({
+        sessionId: track.sessionId,
+        trackName: track.trackName,
+        mid,
+        preferredRid: track.rid,
+      });
+    }
+    for (let from = 0; from < changed.length; from += MAX_LAYER_TRACKS_PER_FRAME) {
+      this.#send({ type: "layer", tracks: changed.slice(from, from + MAX_LAYER_TRACKS_PER_FRAME) });
+    }
+  }
+
+  /**
+   * Reconcile now if the last pass was not just run, and otherwise once the window closes.
+   *
+   * Acting on the first change of a burst and folding the rest is what keeps a room of three
+   * hundred responsive AND cheap: one person arriving is answered immediately, three hundred
+   * arriving cost one pass every quarter second rather than three hundred passes.
+   */
+  #scheduleReconcile(): void {
+    if (this.#reconcileWindow !== undefined) {
+      this.#reconcileOwed = true;
+      return;
+    }
+    this.reconcile();
+    this.#reconcileWindow = setTimeout(() => {
+      this.#reconcileWindow = undefined;
+      if (!this.#reconcileOwed) return;
+      this.#reconcileOwed = false;
+      this.#scheduleReconcile();
+    }, RECONCILE_DEBOUNCE_MILLISECONDS);
+  }
+
+  /**
+   * Watch this browser's own microphone, and tell the room when the answer changes.
+   *
+   * The meter runs on the captured track rather than on what is being sent, so a member who mutes
+   * is reported muted rather than silently not-speaking — the two read differently on a tile and
+   * mean different things to the person looking at it.
+   */
+  #startMeasuringSpeech(stream: MediaStream): void {
+    const [microphone] = stream.getAudioTracks();
+    if (microphone === undefined) return;
+    this.#meter?.stop();
+    const meter = this.#seams.createAudioLevelMeter(microphone);
+    this.#meter = meter;
+    meter.start((speaking) => {
+      // A muted microphone still makes sound the meter can hear; nobody else can hear it, so it is
+      // not speech as far as the room is concerned.
+      this.#announcePresence(speaking && this.microphoneOn, !this.microphoneOn);
+    });
+  }
+
+  /**
+   * Tell the room what this browser's microphone is doing — ON TRANSITIONS ONLY.
+   *
+   * A frame per measurement would be twenty frames a second from every person in the room; a frame
+   * per change is a handful per sentence. The room throttles what it relays on top of this, but a
+   * client that sent the same fact over and over would be spending a room of three hundred's whole
+   * signalling budget on saying nothing.
+   */
+  #announcePresence(speaking: boolean, muted: boolean): void {
+    const last = this.#announcedPresence;
+    if (last !== null && last.speaking === speaking && last.muted === muted) return;
+    this.#announcedPresence = { speaking, muted };
+    // Recorded locally as well as sent, so this member's own tile answers immediately instead of
+    // waiting for the room to relay their own voice back to them.
+    const self = this.participantId;
+    if (self !== null) this.#recordPresence(self, speaking, muted);
+    this.#send({ type: "presence", speaking, muted });
+    this.#scheduleReconcile();
+  }
+
+  /** Ask the room for the whole roster, once, where a delta showed this browser has missed one. */
+  #askForTheWholeRoster(): void {
+    if (this.#syncAsked) return;
+    this.#syncAsked = true;
+    this.#send({ type: "sync" });
   }
 
   #trackName(kind: MeetingTrackKind): string {
@@ -656,6 +1025,13 @@ export class MeetingClient {
     this.#keepalive = undefined;
   }
 
+  /** Close the reconciliation window, so a torn-down client's last pass cannot fire after it. */
+  #stopReconciling(): void {
+    if (this.#reconcileWindow !== undefined) clearTimeout(this.#reconcileWindow);
+    this.#reconcileWindow = undefined;
+    this.#reconcileOwed = false;
+  }
+
   #receive(data: unknown): void {
     if (typeof data !== "string") return;
     if (data === PONG_FRAME) {
@@ -680,7 +1056,19 @@ export class MeetingClient {
         this.#handleWelcome(parsed);
         return;
       case "roster":
+        // The whole list, which is also the answer to a `sync`: whatever gap was suspected, this
+        // frame settles it.
+        this.#syncAsked = false;
         this.#adoptRoster(readParticipants(parsed.participants));
+        return;
+      case "roster-delta":
+        this.#handleRosterDelta(parsed);
+        return;
+      case "presence":
+        this.#handlePresence(parsed);
+        return;
+      case "layered":
+        this.#handleLayered(parsed);
         return;
       case "published":
         void this.#enqueue("The room's answer to what you are sending was not applied.", () =>
@@ -717,11 +1105,111 @@ export class MeetingClient {
     this.#adoptRoster(readParticipants(frame.roster));
   }
 
-  /** Take the roster as stated, forget what it no longer names, and pull whatever is new. */
+  /** Take the roster as stated, forget what it no longer names, and pull whatever the plan wants. */
   #adoptRoster(participants: readonly MeetingParticipant[]): void {
     this.participants = participants;
     this.#forgetWhatTheRosterNoLongerNames(participants);
-    for (const participant of participants) this.subscribeTo(participant);
+    this.#scheduleReconcile();
+  }
+
+  /**
+   * Apply what changed rather than being told the whole room again.
+   *
+   * A full roster to three hundred sockets on every one of three hundred joins is ninety thousand
+   * frames of a list nobody's screen can show at once, so above a threshold the room sends only the
+   * difference. The cost of that is that this browser can be wrong without knowing: a delta that
+   * updates or removes somebody it has never heard of means a frame went missing, and the only
+   * honest answer is to ask for the whole list again rather than carry on from a roster with a hole
+   * in it.
+   */
+  #handleRosterDelta(frame: Record<string, unknown>): void {
+    const byIdentifier = new Map(
+      this.participants.map((participant) => [participant.participantId, participant] as const),
+    );
+    let gap = false;
+
+    for (const participant of readParticipants(frame.joined)) {
+      byIdentifier.set(participant.participantId, participant);
+    }
+    for (const participant of readParticipants(frame.updated)) {
+      if (!byIdentifier.has(participant.participantId)) gap = true;
+      byIdentifier.set(participant.participantId, participant);
+    }
+    for (const participantId of readIdentifiers(frame.left)) {
+      if (!byIdentifier.delete(participantId)) gap = true;
+    }
+
+    this.#adoptRoster([...byIdentifier.values()]);
+    if (gap) this.#askForTheWholeRoster();
+  }
+
+  /**
+   * Somebody started or stopped talking, or turned their microphone off.
+   *
+   * It is what the gallery's order is built from, so it arrives as its own small frame rather than
+   * as a roster: a room where a dozen people take turns speaking would otherwise be re-stating
+   * three hundred participant records every second to carry two booleans.
+   */
+  #handlePresence(frame: Record<string, unknown>): void {
+    const participantId = readString(frame, "participantId");
+    if (participantId === null) return;
+    const known = this.#recordPresence(
+      participantId,
+      frame.speaking === true,
+      frame.muted === true,
+    );
+    // Presence about somebody this browser has never heard of is the same gap a delta shows, by a
+    // different route: their join went missing.
+    if (!known) this.#askForTheWholeRoster();
+    this.#scheduleReconcile();
+  }
+
+  /**
+   * Note what somebody's microphone is doing. Answers whether the roster knows them at all.
+   *
+   * The moment they STOP is recorded as well as the moment they start, because "who spoke most
+   * recently" is what orders the gallery — and the person who just finished a sentence is the one a
+   * member is most likely to want to keep looking at.
+   */
+  #recordPresence(participantId: string, speaking: boolean, muted: boolean): boolean {
+    let known = false;
+    let wasSpeaking = false;
+    this.participants = this.participants.map((participant) => {
+      if (participant.participantId !== participantId) return participant;
+      known = true;
+      wasSpeaking = participant.speaking;
+      return { ...participant, speaking, muted };
+    });
+    if (speaking || wasSpeaking) {
+      const stamped = new Map(this.#lastSpokeAt);
+      stamped.set(participantId, Date.now());
+      this.#lastSpokeAt = stamped;
+    }
+    return known;
+  }
+
+  /**
+   * The room's answer to a layer change.
+   *
+   * A track the room could not move is left recorded at the layer it was ASKED for rather than
+   * being un-recorded, so the next pass does not ask again on the next roster frame, and the next
+   * one after that: the picture stays at whatever size the unit is sending, and a genuine change —
+   * a page turn, a pin, a different number of tiles — asks afresh.
+   */
+  #handleLayered(frame: Record<string, unknown>): void {
+    if (!Array.isArray(frame.tracks)) return;
+    const byMid = new Map<string, string>();
+    for (const [key, mid] of this.#pulledMids) byMid.set(mid, key);
+    for (const entry of frame.tracks) {
+      if (!isRecord(entry)) continue;
+      if (readString(entry, "errorCode") !== null) continue;
+      const mid = readString(entry, "mid");
+      const preferredRid = readPreferredRid(entry.preferredRid);
+      if (mid === null || preferredRid === null) continue;
+      const key = byMid.get(mid);
+      if (key === undefined) continue;
+      this.#askedRids.set(key, preferredRid);
+    }
   }
 
   /**
@@ -762,11 +1250,37 @@ export class MeetingClient {
     }
   }
 
-  /** Stop counting a track as coming in, so the next roster naming it asks for it again. */
+  /** Stop counting a track as coming in, so the next pass asks for it again. */
   #forgetTrack(key: string): void {
     this.#pulledTracks.delete(key);
     this.#pendingSubscriptions.delete(key);
     this.#trackOwners.delete(key);
+    this.#pulledMids.delete(key);
+    this.#pulledMediaTracks.delete(key);
+    this.#askedRids.delete(key);
+  }
+
+  /**
+   * Take one track out of the stream it was gathered into, and stop it. Where it was the last
+   * track a participant had, the stream goes too.
+   */
+  #detachRemoteTrack(
+    participantId: string,
+    screen: boolean,
+    media: MediaStreamTrack | undefined,
+  ): void {
+    const held = screen ? this.remoteScreens : this.remoteStreams;
+    const stream = held.get(participantId);
+    if (stream === undefined) return;
+    if (media !== undefined) {
+      stream.removeTrack(media);
+      media.stop();
+    }
+    const next = new Map(held);
+    if (stream.getTracks().length === 0) next.delete(participantId);
+    else next.set(participantId, stream);
+    if (screen) this.remoteScreens = next;
+    else this.remoteStreams = next;
   }
 
   /** Forget every track asked for that the room has not answered for yet. */
@@ -822,8 +1336,16 @@ export class MeetingClient {
         .find((candidate) => candidate.mid === entry.mid);
       const track = transceiver?.receiver.track;
       if (track === undefined || track === null) continue;
+      if (key !== null) {
+        // The mid is what closing this track will name, and the track itself is what taking it out
+        // of the stream will need. Neither is knowable before the offer was applied.
+        this.#pulledMids.set(key, entry.mid);
+        this.#pulledMediaTracks.set(key, track);
+      }
       this.#attachRemoteTrack(owner, entry.trackName, track);
     }
+    // Anything the plan wanted at a different layer was waiting on these mids.
+    this.#scheduleReconcile();
 
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
@@ -961,6 +1483,10 @@ export class MeetingClient {
 
   #teardown(): void {
     this.#stopKeepalive();
+    this.#stopReconciling();
+    this.#meter?.stop();
+    this.#meter = null;
+    this.#announcedPresence = null;
     const local = this.localStream;
     if (local !== null) for (const track of local.getTracks()) track.stop();
     const screen = this.screenStream;
@@ -996,7 +1522,17 @@ export class MeetingClient {
     this.#pulledTracks.clear();
     this.#pendingSubscriptions.clear();
     this.#trackOwners.clear();
+    this.#pulledMids.clear();
+    this.#pulledMediaTracks.clear();
+    this.#askedRids.clear();
     this.#screenMid = null;
     this.#outbox = [];
+    this.page = 0;
+    this.pinned = [];
+    this.speakerView = false;
+    this.#lastSpokeAt = new Map();
+    this.#announcedPresence = null;
+    this.#syncAsked = false;
+    this.#stopReconciling();
   }
 }

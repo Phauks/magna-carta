@@ -19,6 +19,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   MeetingClient,
+  RECONCILE_DEBOUNCE_MILLISECONDS,
   refusalStatement,
   SUPERSEDED_REASON,
   type MeetingClientSeams,
@@ -32,6 +33,20 @@ async function settle(remaining = 20): Promise<void> {
   if (remaining === 0) return;
   await Promise.resolve();
   await settle(remaining - 1);
+}
+
+/**
+ * Waits out the reconciliation window.
+ *
+ * What the client pulls is worked out at most once every `RECONCILE_DEBOUNCE_MILLISECONDS`, so a
+ * second roster arriving in the same breath as the first is folded into one pass at the end of the
+ * window rather than acted on where it lands. A case that delivers two frames back to back is
+ * asking about that second pass, and this is how it waits for it — real time, because the interval
+ * the keepalive is also running on makes fake timers a second thing to keep in step.
+ */
+async function reconciled(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, RECONCILE_DEBOUNCE_MILLISECONDS + 20));
+  await settle();
 }
 
 class FakeTrack {
@@ -68,6 +83,39 @@ class FakeStream {
   addTrack(track: FakeTrack): void {
     this.tracks.push(track);
   }
+
+  removeTrack(track: FakeTrack): void {
+    const at = this.tracks.indexOf(track);
+    if (at >= 0) this.tracks.splice(at, 1);
+  }
+}
+
+/**
+ * The browser's own measurement of whether the microphone is carrying speech, driven by hand.
+ *
+ * A real one is an AudioContext over a live track and cannot exist here; what the client depends on
+ * is the shape — start, a callback on CHANGE only, stop — so a case says "she started talking" and
+ * asserts what reached the room.
+ */
+class FakeAudioLevelMeter {
+  #onSpeaking: ((speaking: boolean) => void) | null = null;
+  started = false;
+  stopped = false;
+
+  start(onSpeaking: (speaking: boolean) => void): void {
+    this.started = true;
+    this.#onSpeaking = onSpeaking;
+  }
+
+  stop(): void {
+    this.stopped = true;
+    this.#onSpeaking = null;
+  }
+
+  /** The meter's answer changing, which is the only thing it ever reports. */
+  say(speaking: boolean): void {
+    this.#onSpeaking?.(speaking);
+  }
 }
 
 class FakeTransceiver {
@@ -103,8 +151,25 @@ class FakePeerConnection {
   forgetsLocalDescription = false;
   #nextMid = 0;
 
-  addTransceiver(track: FakeTrack, init: { direction: string }): FakeTransceiver {
+  /** What each publish offered, so a case can ask how a camera was encoded. */
+  readonly offered: { kind: string; sendEncodings: { rid: string; scale: number }[] | null }[] = [];
+
+  addTransceiver(
+    track: FakeTrack,
+    init: {
+      direction: string;
+      sendEncodings?: { rid?: string; scaleResolutionDownBy?: number }[];
+    },
+  ): FakeTransceiver {
     expect(init.direction).toBe("sendonly");
+    this.offered.push({
+      kind: track.kind,
+      sendEncodings:
+        init.sendEncodings?.map((encoding) => ({
+          rid: encoding.rid ?? "",
+          scale: encoding.scaleResolutionDownBy ?? 0,
+        })) ?? null,
+    });
     const transceiver = new FakeTransceiver(track);
     this.transceivers.push(transceiver);
     return transceiver;
@@ -208,6 +273,7 @@ interface Harness {
   readonly peerConnection: FakePeerConnection;
   readonly captured: FakeStream;
   readonly displayed: FakeStream;
+  readonly meter: FakeAudioLevelMeter;
 }
 
 /**
@@ -229,6 +295,8 @@ function harness(participantId = "attendance_1", medium: MeetingMedium = "video"
   const audioOnly = new FakeStream([new FakeTrack("audio")]);
   const displayed = new FakeStream([new FakeTrack("video")]);
 
+  const meter = new FakeAudioLevelMeter();
+
   const seams = {
     createPeerConnection: () => peerConnection,
     openSocket: () => socket,
@@ -236,6 +304,7 @@ function harness(participantId = "attendance_1", medium: MeetingMedium = "video"
       Promise.resolve(constraints.video === false ? audioOnly : captured),
     getDisplayMedia: () => Promise.resolve(displayed),
     createMediaStream: () => new FakeStream([]),
+    createAudioLevelMeter: () => meter,
   } as unknown as MeetingClientSeams;
 
   const client = new MeetingClient(seams);
@@ -256,6 +325,7 @@ function harness(participantId = "attendance_1", medium: MeetingMedium = "video"
     peerConnection,
     captured: medium === "audio" ? audioOnly : captured,
     displayed,
+    meter,
   };
 }
 
@@ -381,7 +451,7 @@ describe("publishing", () => {
 });
 
 describe("the roster", () => {
-  it("pulls a participant's tracks once, and never twice", () => {
+  it("pulls a participant's tracks once, and never twice", async () => {
     const { socket } = harness();
     const roster = {
       v: 1,
@@ -407,14 +477,17 @@ describe("the roster", () => {
       ],
     };
     socket.deliver(roster);
+    await reconciled();
 
+    // The camera carries the layer this page is worth; the microphone has no layer to name.
     const [subscribe] = socket.framesOfType("subscribe");
     expect(subscribe?.tracks).toEqual([
+      { sessionId: "session_2", trackName: "attendance_2:video", preferredRid: "f" },
       { sessionId: "session_2", trackName: "attendance_2:audio" },
-      { sessionId: "session_2", trackName: "attendance_2:video" },
     ]);
 
     socket.deliver(roster);
+    await reconciled();
     expect(socket.framesOfType("subscribe")).toHaveLength(1);
   });
 
@@ -462,6 +535,7 @@ describe("subscribing", () => {
         },
       ],
     });
+    await reconciled();
     socket.deliver({
       v: 1,
       type: "subscribed",
@@ -520,6 +594,7 @@ describe("a participant who leaves and comes back", () => {
   it("is pulled again when the roster gives them a new unit session", async () => {
     const { client, socket } = harness();
     socket.deliver(rosterOf("session_2", HER_TRACKS));
+    await reconciled();
     socket.deliver(subscribedFrame("session_2"));
     await settle();
     expect(client.remoteStreams.get("attendance_2")?.getTracks()).toHaveLength(2);
@@ -528,12 +603,13 @@ describe("a participant who leaves and comes back", () => {
     // tracks were pulled from. Keyed on the name alone this is silently "already coming in", and
     // their tile is black for the rest of the meeting.
     socket.deliver(rosterOf("session_3", HER_TRACKS));
+    await reconciled();
 
     const subscribes = socket.framesOfType("subscribe");
     expect(subscribes).toHaveLength(2);
     expect(subscribes[1]?.tracks).toEqual([
+      { sessionId: "session_3", trackName: "attendance_2:video", preferredRid: "f" },
       { sessionId: "session_3", trackName: "attendance_2:audio" },
-      { sessionId: "session_3", trackName: "attendance_2:video" },
     ]);
     // The stream the dead session fed is let go, so the fresh tracks land on a stream whose first
     // video track is one that is actually arriving.
@@ -545,6 +621,7 @@ describe("a participant who leaves and comes back", () => {
     socket.deliver(
       rosterOf("session_2", [...HER_TRACKS, { trackName: "attendance_2:screen", kind: "screen" }]),
     );
+    await reconciled();
     socket.deliver(subscribedFrame("session_2"));
     await settle();
     // The fake behind the typed stream, so the case can ask what a MediaStreamTrack cannot be
@@ -564,6 +641,7 @@ describe("a pull the unit did not serve", () => {
   it("un-marks the tracks when the room sends no offer at all", async () => {
     const { socket } = harness();
     socket.deliver(rosterOf("session_2", HER_TRACKS));
+    await reconciled();
     socket.deliver({
       v: 1,
       type: "subscribed",
@@ -578,16 +656,19 @@ describe("a pull the unit did not serve", () => {
     // The same roster again: the tracks are asked for a second time rather than being counted as
     // already coming in for the rest of the meeting.
     socket.deliver(rosterOf("session_2", HER_TRACKS));
+    await reconciled();
     expect(socket.framesOfType("subscribe")).toHaveLength(2);
   });
 
   it("un-marks them when the room says the pull needed no renegotiation", async () => {
     const { socket } = harness();
     socket.deliver(rosterOf("session_2", HER_TRACKS));
+    await reconciled();
     socket.deliver(subscribedFrame("session_2", { requiresImmediateRenegotiation: false }));
     await settle();
 
     socket.deliver(rosterOf("session_2", HER_TRACKS));
+    await reconciled();
     expect(socket.framesOfType("subscribe")).toHaveLength(2);
   });
 });
@@ -609,15 +690,17 @@ describe("what the room refuses", () => {
     expect(client.failureReason).toBe("not-a-participant");
   });
 
-  it("asks again for the tracks a refused subscribe lost", () => {
+  it("asks again for the tracks a refused subscribe lost", async () => {
     const { client, socket } = harness();
     socket.deliver(rosterOf("session_2", HER_TRACKS));
+    await reconciled();
     expect(socket.framesOfType("subscribe")).toHaveLength(1);
 
     socket.deliver({ v: 1, type: "refused", reason: "sfu-unavailable" });
     expect(client.state).toBe("live");
 
     socket.deliver(rosterOf("session_2", HER_TRACKS));
+    await reconciled();
     expect(socket.framesOfType("subscribe")).toHaveLength(2);
   });
 
@@ -664,13 +747,15 @@ describe("what the room refuses", () => {
     );
   });
 
-  it("does not ask again for somebody else's tracks over a refusal about its own", () => {
+  it("does not ask again for somebody else's tracks over a refusal about its own", async () => {
     const { socket } = harness();
     socket.deliver(rosterOf("session_2", HER_TRACKS));
+    await reconciled();
     expect(socket.framesOfType("subscribe")).toHaveLength(1);
 
     socket.deliver({ v: 1, type: "refused", reason: "track-limit-reached" });
     socket.deliver(rosterOf("session_2", HER_TRACKS));
+    await reconciled();
 
     expect(socket.framesOfType("subscribe")).toHaveLength(1);
   });
@@ -680,6 +765,7 @@ describe("a participant whose media has gone quiet", () => {
   it("keeps their tile, with nothing in it, rather than taking the grid down", async () => {
     const { client, socket } = harness();
     socket.deliver(rosterOf("session_2", HER_TRACKS));
+    await reconciled();
     socket.deliver(subscribedFrame("session_2"));
     await settle();
     expect(client.remoteStreams.has("attendance_2")).toBe(true);
@@ -854,5 +940,298 @@ describe("the keepalive", () => {
     expect(socket.sent.filter((frame) => frame === '{"type":"ping"}')).toHaveLength(2);
     expect(client.state).toBe("failed");
     expect(client.failureReason).toBe("socket-closed");
+  });
+});
+
+/*
+ * A large room: what it pulls, how it is told what changed, and who is talking. The four rules a
+ * three-hundred-person meeting rests on, asserted one at a time.
+ */
+
+/** A roster of however many other people, each publishing a camera and a microphone. */
+function many(count: number): Record<string, unknown>[] {
+  return Array.from({ length: count }, (_unused, index) => {
+    const participantId = `attendance_${index + 2}`;
+    return {
+      participantId,
+      userId: `user_${index + 2}`,
+      displayName: `Member ${index + 2}`,
+      sfuSessionId: `session_${index + 2}`,
+      tracks: [
+        { trackName: `${participantId}:audio`, kind: "audio" },
+        { trackName: `${participantId}:video`, kind: "video" },
+      ],
+    };
+  });
+}
+
+/** One participant as a delta frame states them. */
+function joiner(ordinal: number): Record<string, unknown> {
+  const participantId = `attendance_${ordinal}`;
+  return {
+    participantId,
+    userId: `user_${ordinal}`,
+    displayName: `Member ${ordinal}`,
+    sfuSessionId: `session_${ordinal}`,
+    tracks: [{ trackName: `${participantId}:audio`, kind: "audio" }],
+  };
+}
+
+/** A room of forty, with the first two cameras answered so their media sections are known. */
+async function largeRoom(): Promise<Harness> {
+  const harnessed = harness();
+  harnessed.socket.deliver({ v: 1, type: "roster", participants: many(40) });
+  await reconciled();
+  harnessed.socket.deliver({
+    v: 1,
+    type: "subscribed",
+    sessionDescription: { type: "offer", sdp: "unit-offer mids=7,8" },
+    tracks: [
+      { sessionId: "session_2", trackName: "attendance_2:video", mid: "7" },
+      { sessionId: "session_3", trackName: "attendance_3:video", mid: "8" },
+    ],
+  });
+  await settle();
+  await reconciled();
+  return harnessed;
+}
+
+describe("what a camera is published as", () => {
+  it("offers three layers for the camera and one for the microphone", async () => {
+    const { client, peerConnection } = harness();
+
+    await client.publish();
+
+    // A room of three hundred draws its tiles small, and the unit cannot make a small picture out
+    // of a large one: the publisher sends all three sizes so each subscriber can name one.
+    expect(peerConnection.offered).toEqual([
+      { kind: "audio", sendEncodings: null },
+      {
+        kind: "video",
+        sendEncodings: [
+          { rid: "f", scale: 1 },
+          { rid: "h", scale: 2 },
+          { rid: "q", scale: 4 },
+        ],
+      },
+    ]);
+  });
+
+  it("offers one layer for a screen share, because a quarter-size document is unreadable", async () => {
+    const { client, peerConnection } = harness();
+    await client.publish();
+
+    await client.shareScreen();
+
+    expect(peerConnection.offered[2]).toEqual({ kind: "video", sendEncodings: null });
+  });
+});
+
+describe("a room that is told only what changed", () => {
+  it("applies joined, updated and left, and lets go of the media of the departed", async () => {
+    const { client, socket } = harness();
+    socket.deliver(rosterOf("session_2", HER_TRACKS));
+    await reconciled();
+    socket.deliver(subscribedFrame("session_2"));
+    await settle();
+    expect(client.remoteStreams.has("attendance_2")).toBe(true);
+
+    socket.deliver({ v: 1, type: "roster-delta", joined: [joiner(3)], updated: [], left: [] });
+    await reconciled();
+    expect(client.participants.map((one) => one.participantId)).toEqual([
+      "attendance_2",
+      "attendance_3",
+    ]);
+
+    socket.deliver({
+      v: 1,
+      type: "roster-delta",
+      joined: [],
+      updated: [{ ...joiner(3), displayName: "Rosalind Chase" }],
+      left: ["attendance_2"],
+    });
+    await reconciled();
+
+    expect(client.participants.map((one) => one.displayName)).toEqual(["Rosalind Chase"]);
+    expect(client.remoteStreams.has("attendance_2")).toBe(false);
+  });
+
+  it("asks for the whole roster once where a delta names somebody it has never heard of", async () => {
+    const { socket } = harness();
+    socket.deliver({ v: 1, type: "roster", participants: many(3) });
+    await reconciled();
+    // Nothing is asked for on the way in: `welcome` carried the whole room.
+    expect(socket.framesOfType("sync")).toHaveLength(0);
+
+    socket.deliver({ v: 1, type: "roster-delta", joined: [], updated: [joiner(90)], left: [] });
+    expect(socket.framesOfType("sync")).toHaveLength(1);
+
+    // A second gap while the first is unanswered asks nothing: one hole and one question.
+    socket.deliver({
+      v: 1,
+      type: "roster-delta",
+      joined: [],
+      updated: [],
+      left: ["attendance_91"],
+    });
+    expect(socket.framesOfType("sync")).toHaveLength(1);
+
+    // The full roster settles it, and the next gap is a fresh question.
+    socket.deliver({ v: 1, type: "roster", participants: many(3) });
+    socket.deliver({
+      v: 1,
+      type: "roster-delta",
+      joined: [],
+      updated: [],
+      left: ["attendance_92"],
+    });
+    expect(socket.framesOfType("sync")).toHaveLength(2);
+  });
+});
+
+describe("who is talking", () => {
+  it("moves a speaker onto the first page, ahead of the roster's own order", async () => {
+    const { client, socket } = harness();
+    socket.deliver({ v: 1, type: "roster", participants: many(40) });
+    await reconciled();
+    expect(client.shown).not.toContain("attendance_39");
+
+    socket.deliver({
+      v: 1,
+      type: "presence",
+      participantId: "attendance_39",
+      speaking: true,
+      muted: false,
+      at: "2026-09-20T15:00:00.000Z",
+    });
+    await reconciled();
+
+    expect(client.shown[0]).toBe("attendance_39");
+    expect(client.participants.find((one) => one.participantId === "attendance_39")?.speaking).toBe(
+      true,
+    );
+    // And their camera is now among the ones being pulled, which is the point of the re-ordering.
+    const pulled = socket.framesOfType("subscribe").at(-1)?.tracks as { trackName: string }[];
+    expect(pulled.map((track) => track.trackName)).toContain("attendance_39:video");
+  });
+
+  it("tells the room when this browser starts and stops talking, and never twice over", async () => {
+    const { client, socket, meter } = harness();
+    await client.publish();
+    expect(meter.started).toBe(true);
+
+    meter.say(true);
+    meter.say(true);
+    meter.say(false);
+
+    expect(socket.framesOfType("presence")).toEqual([
+      { v: 1, type: "presence", speaking: true, muted: false },
+      { v: 1, type: "presence", speaking: false, muted: false },
+    ]);
+  });
+
+  it("says the microphone is off the moment it is muted, which nothing else could tell", async () => {
+    const { client, socket, meter } = harness();
+    await client.publish();
+    meter.say(true);
+
+    client.toggleMicrophone();
+    client.toggleMicrophone();
+
+    expect(socket.framesOfType("presence").slice(1)).toEqual([
+      { v: 1, type: "presence", speaking: false, muted: true },
+      { v: 1, type: "presence", speaking: false, muted: false },
+    ]);
+  });
+
+  it("stops measuring when the meeting is left", async () => {
+    const { client, meter } = harness();
+    await client.publish();
+
+    client.leave();
+
+    expect(meter.stopped).toBe(true);
+  });
+});
+
+describe("what a large room pulls", () => {
+  it("pulls the page it is showing and the voices it can hear, and no more", async () => {
+    const { client, socket } = harness();
+    socket.deliver({ v: 1, type: "roster", participants: many(40) });
+    await reconciled();
+
+    const asked = socket.framesOfType("subscribe")[0]?.tracks as { trackName: string }[];
+    const cameras = asked.filter((track) => track.trackName.endsWith(":video"));
+    const microphones = asked.filter((track) => track.trackName.endsWith(":audio"));
+    expect(cameras).toHaveLength(16);
+    expect(microphones).toHaveLength(24);
+    expect(client.shown).toHaveLength(16);
+    expect(client.pages).toBe(3);
+  });
+
+  it("closes the cameras of the page it has left, by their media sections", async () => {
+    const { client, socket } = await largeRoom();
+
+    client.setPage(1);
+    await reconciled();
+
+    expect(socket.framesOfType("close").at(-1)?.mids).toEqual(["7", "8"]);
+    const asked = socket.framesOfType("subscribe").at(-1)?.tracks as { trackName: string }[];
+    expect(asked).toHaveLength(16);
+    // The page changed, not who is audible: sound is ranked by who has been talking, never by what
+    // happens to be on screen.
+    expect(asked.every((track) => track.trackName.endsWith(":video"))).toBe(true);
+    expect(client.page).toBe(1);
+  });
+
+  it("asks for a larger layer when the page turns into fewer tiles", async () => {
+    const { client, socket } = await largeRoom();
+
+    client.toggleSpeakerView();
+    await reconciled();
+
+    expect(socket.framesOfType("layer").at(-1)?.tracks).toEqual([
+      { sessionId: "session_2", trackName: "attendance_2:video", mid: "7", preferredRid: "h" },
+      { sessionId: "session_3", trackName: "attendance_3:video", mid: "8", preferredRid: "h" },
+    ]);
+  });
+
+  it("sends one layer frame per change, not one per pass", async () => {
+    const { client, socket } = await largeRoom();
+    client.toggleSpeakerView();
+    await reconciled();
+    expect(socket.framesOfType("layer")).toHaveLength(1);
+
+    socket.deliver({
+      v: 1,
+      type: "layered",
+      tracks: [
+        { mid: "7", preferredRid: "h" },
+        { mid: "8", preferredRid: "h" },
+      ],
+    });
+    socket.deliver({ v: 1, type: "roster", participants: many(40) });
+    await reconciled();
+
+    expect(socket.framesOfType("layer")).toHaveLength(1);
+  });
+
+  it("brings a pinned participant to the front, and the gallery back to the first page", async () => {
+    const { client, socket } = harness();
+    socket.deliver({ v: 1, type: "roster", participants: many(40) });
+    await reconciled();
+    client.setPage(1);
+    await reconciled();
+
+    client.pin("attendance_39");
+    await reconciled();
+
+    expect(client.page).toBe(0);
+    expect(client.shown[0]).toBe("attendance_39");
+    expect(client.isPinned("attendance_39")).toBe(true);
+
+    client.unpin("attendance_39");
+    await reconciled();
+    expect(client.shown[0]).not.toBe("attendance_39");
   });
 });

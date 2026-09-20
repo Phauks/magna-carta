@@ -276,3 +276,35 @@ describe("a newer socket for the same stay", () => {
     expect(joinRequests()).toHaveLength(1);
   });
 });
+
+describe("a large room", () => {
+  it("pages the gallery and states how much of the room is on screen", async () => {
+    const rendered = await draw();
+    const socket = sockets[0];
+    expect(socket).toBeDefined();
+
+    socket?.deliver({
+      v: 1,
+      type: "roster",
+      participants: Array.from({ length: 40 }, (_unused, index) => {
+        const participantId = `attendance_${index + 2}`;
+        return {
+          participantId,
+          userId: `user_${index + 2}`,
+          displayName: `Member ${index + 2}`,
+          sfuSessionId: `session_${index + 2}`,
+          tracks: [
+            { trackName: `${participantId}:audio`, kind: "audio" },
+            { trackName: `${participantId}:video`, kind: "video" },
+          ],
+        };
+      }),
+    });
+    await settle();
+
+    // Sixteen tiles of forty people: the gallery says so rather than silently showing a fraction.
+    expect(rendered.textContent).toContain("Page 1 of 3");
+    expect(rendered.textContent).toContain("Showing 17 of 40");
+    expect(rendered.textContent).toContain("In the Room (40)");
+  });
+});

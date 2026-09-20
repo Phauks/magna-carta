@@ -69,8 +69,9 @@ Joining is the same act: where somebody has started a call, the event says **Joi
 Open the same event. Where **Start meeting** was, it now says **Join meeting**, with a count of how
 many people are already in the room. Press it and you are in.
 
-A meeting holds twelve people. The thirteenth is told the room is full rather than being let in
-halfway.
+A meeting holds three hundred people. The three hundred and first is told the room is full rather
+than being let in halfway. Rooms of more than a dozen read differently once you are in them, and
+**Large meetings** below is what changes.
 
 ## The Meetings page
 
@@ -91,7 +92,9 @@ matter, the row links back to it.
 ## While you are in the meeting
 
 Everybody in the room has a tile of their own, with your own picture pinned so you can see what you
-are showing. Down the side is the list of who is in the room. Along the bottom are the controls:
+are showing. A gold edge around a tile means that person is talking. Down the side is the list of who
+is in the room, with the same marks beside each name: who is speaking, who is muted, who is sharing a
+screen. Along the bottom are the controls:
 
 - **Microphone** — mutes and unmutes you. Muting stops your sound reaching the room; nothing is
   recorded either way.
@@ -101,12 +104,44 @@ are showing. Down the side is the list of who is in the room. Along the bottom a
   whole screen to share, and everybody in the room sees it beside the faces rather than instead of
   them. Press it again to stop sharing. Your camera keeps running while you share, so you are not
   reduced to a disembodied document.
+- **Speaker view** — shows whoever is talking large, with the last few speakers in a strip beside
+  them, instead of an even grid. It changes how the room looks to you and to nobody else.
 - **Leave** — takes you out of the room. The meeting carries on without you and the record notes the
   time you left. Pressing **Join meeting** again puts you back in, and the record shows both stretches.
 
 If you close the tab, or your connection drops, you are shown as having left within about a minute.
 So you cannot get stuck in a room by walking away from it, and nobody is left looking at a tile with
 nobody behind it for long.
+
+## Large meetings
+
+A room holds up to three hundred people, and a meeting that size is read differently from a meeting
+of four. Nothing below has to be turned on; it is what the screen does once the room is big enough to
+need it.
+
+**You see a page of the room at a time.** Up to sixteen tiles, with a count and **Page 2 of 19** under
+them, and arrows either side to walk through the rest. The order is not the order people arrived:
+anybody you have pinned comes first, then whoever is sharing a screen, then the people who have been
+talking, then everybody else. So page one is the part of the room the meeting is actually happening
+in, and somebody who starts talking on page twelve comes to you rather than waiting to be found.
+
+**Only what you are looking at is sent to you.** Your browser asks for the pictures of the people on
+your page and the sound of the people talking, and nothing else. That is what makes a room of three
+hundred work on an ordinary connection, and it is why most people in a large meeting are a name and
+their initials rather than a picture: their tile says **Not shown**, which means they are in the room
+and their camera is simply not being sent to you at the moment. It is not a picture that failed to
+arrive, and turning the page changes which pictures you get.
+
+**You hear more of the room than you see.** Sound and pictures are chosen separately, so somebody
+answering you from page four is heard perfectly well while their tile is nowhere on your screen.
+
+**Pin** keeps somebody on your screen whatever else the room does. It is on every tile, it moves them
+to the front of the first page, and it is yours alone: pinning a colleague changes nothing about what
+anybody else is looking at. Press it again to let them go.
+
+**The list beside the room gains a search** once there are more than a couple of dozen people in it.
+It narrows the list as you type and answers the question a long list cannot: whether somebody has
+arrived yet.
 
 ## Ending a meeting
 
@@ -139,9 +174,6 @@ way you would after a meeting in a conference room.
   flipped: recording a conversation needs everybody's consent in about a dozen states, and the part of
   Magna Carta that knows which rule applies where is still being designed.
 - **Dialling in by telephone.** There is no number to call. Everybody joins from a browser.
-- **Large meetings.** Twelve people is the limit for now. Bigger rooms need a different layout — one
-  that follows whoever is speaking rather than showing everybody at once — and that is its own piece
-  of work.
 - **Meetings that belong to no event.** Every meeting starts from something on the calendar. If you
   want an unscheduled meeting, record the event first and start the meeting on it.
 

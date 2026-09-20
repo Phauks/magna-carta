@@ -44,7 +44,8 @@
     SUPERSEDED_REASON,
     type MeetingMedium,
   } from "$lib/meetings/meeting-client.svelte.ts";
-  import { meetingTiles, sharedScreenTile } from "$lib/meetings/meeting-tiles.ts";
+  import { meetingTiles, sharedScreenTile, spotlightTile } from "$lib/meetings/meeting-tiles.ts";
+  import MeetingAudio from "$lib/meetings/meeting-audio.svelte";
   import MeetingGrid from "$lib/meetings/meeting-grid.svelte";
   import MeetingControls from "$lib/meetings/meeting-controls.svelte";
   import MeetingRoster from "$lib/meetings/meeting-roster.svelte";
@@ -297,6 +298,13 @@
 
   const tiles = $derived(meetingTiles(client, displayName));
   const sharedScreen = $derived(sharedScreenTile(client, displayName));
+  /*
+   * The large slot in speaker view, which is whoever the plan put first. There is none in the even
+   * gallery, and none in a call: a call has no picture to make large.
+   */
+  const spotlight = $derived(
+    client.speakerView && client.medium === "video" ? spotlightTile(tiles) : null,
+  );
 
   /*
    * The meeting is over when the room says so, and also when the record already said so before this
@@ -432,9 +440,27 @@
         </Alert.Root>
       {/if}
 
+      <!-- Every voice the room is sending, played once and out of sight. It sits outside the grid
+           because the people heard are not the people shown: whoever speaks from another page is
+           pulled and played while their tile is nowhere on this one. -->
+      <MeetingAudio streams={client.remoteStreams} />
+
       <div class="flex min-h-0 flex-1 gap-16">
         <div class="min-h-0 min-w-0 flex-1">
-          <MeetingGrid {tiles} {sharedScreen} medium={client.medium} />
+          <MeetingGrid
+            {tiles}
+            {sharedScreen}
+            {spotlight}
+            medium={client.medium}
+            page={client.page}
+            pages={client.pages}
+            roomSize={client.participants.length}
+            onPage={(wanted) => client.setPage(wanted)}
+            onPin={(participantId) =>
+              client.isPinned(participantId)
+                ? client.unpin(participantId)
+                : client.pin(participantId)}
+          />
         </div>
         <aside class="hidden min-h-0 w-3xs shrink-0 lg:block">
           <MeetingRoster
@@ -448,12 +474,14 @@
         microphoneOn={client.microphoneOn}
         cameraOn={client.cameraOn}
         sharing={client.sharing}
+        speakerView={client.speakerView}
         medium={client.medium}
         canEnd={canHost}
         subtitle={endSubject}
         onToggleMicrophone={() => client.toggleMicrophone()}
         onToggleCamera={() => client.toggleCamera()}
         onToggleSharing={toggleSharing}
+        onToggleSpeakerView={() => client.toggleSpeakerView()}
         onLeave={() => void leave()}
         onEnd={end}
       >
