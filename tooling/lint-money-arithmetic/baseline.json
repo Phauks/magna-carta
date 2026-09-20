@@ -35,6 +35,7 @@
     "apps/web/src/lib/time/time-sheet-columns.ts": 2,
     "apps/web/src/lib/time/time-sheet.svelte": 1,
     "apps/web/src/lib/trust/firm-trust-vocabulary.ts": 1,
+    "apps/web/src/lib/trust/statement-entry.ts": 4,
     "apps/web/src/lib/trust/trust-columns.ts": 1,
     "apps/web/src/lib/trust/trust-details-panel.svelte": 1,
     "apps/web/src/lib/trust/trust-figures.ts": 1,
