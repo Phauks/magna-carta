@@ -257,7 +257,7 @@ affairs need it, long after the matter that brought it in has closed.
 
 **"No active numbering scheme is configured."** A matter draws its number from your firm's numbering
 scheme, and the firm has not set one up. An administrator sets it in **Settings › Practice ›
-Matter Numbering** ([`../admin/matter-numbering.md`](../admin/matter-numbering.md)). Recording the file as a consultation instead still works: consultations number
+Numbering** ([`../admin/numbering.md`](../admin/numbering.md)). Recording the file as a consultation instead still works: consultations number
 themselves from a built-in sequence until the firm sets its own, so a file can always be taken down
 while the numbering is being decided.
 

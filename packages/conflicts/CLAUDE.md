@@ -23,6 +23,12 @@ and never calls external services.
   `content`), `Strictness` (`balanced`/`over_inclusive`), `ConflictsTrigger`, `DispositionKind`,
   `SourceAvailability` (`searched`/`unavailable`), `EvidenceTier` (1-4, ordering only), `MatchEvidence`,
   `EdgeStep`
+- `src/check-numbering.ts` — the check-number sequence's tables (`conflicts_check_number_counter` /
+  `conflicts_check_number_allocation`, owner column `check_id`) and the rendered-number collision
+  the counter cannot see. The number's SHAPE is not here: it is the `conflicts_check` purpose on
+  `@magna-carta/sequence-numbering`'s numbering register (CC2026-00001 by default, restarting each
+  year), written by the firm on the one numbering settings screen and drawn in `check-run.ts`
+  through the shared planner under the shared bounded retry — never `MAX + 1`
 - `src/settings.ts` — `ConflictsPolicy` (the firm-set floor), `resolveScope` (raises a request to the
   floor, never lowers it), `normalizeConflictsPolicy` (every guard the floor carries, in one
   function), `readConflictsPolicy` (falls back to `DEFAULT_CONFLICTS_POLICY`, normalizing whatever it

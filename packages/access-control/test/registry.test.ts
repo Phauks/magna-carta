@@ -50,6 +50,7 @@ describe("permission registry", () => {
       "firm:scanFile",
       "firm:manageSecrets",
       "firm:manageScanPolicy",
+      "firm:manageEditingPolicy",
       "firm:manageReleaseChannel",
       "firm:manageNotificationPolicy",
       "firm:manageReportPolicy",
@@ -70,6 +71,7 @@ describe("permission registry", () => {
       "matters:renumber",
       "matters:manageTypes",
       "matters:manageNumbering",
+      "matters:viewNumbering",
     ]);
   });
 

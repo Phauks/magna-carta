@@ -7,11 +7,10 @@ import {
   openedRunBody,
   parseRunProgress,
   parseStoredRunRequest,
-  readNextCheckSequence,
+  previewNextCheckNumber,
   readNumberedCheckByAnyId,
   readLatestNumberedCheckForMatter,
   readRunsForCheck,
-  renderCheckNumber,
   RUN_STAGES,
   RUN_STATUSES,
   settleStaleRuns,
@@ -1482,11 +1481,8 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
     { ...nextCheckNumberRoute, middleware: chokepointMiddleware(chokepoint, nextCheckNumberRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      const sequence = await readNextCheckSequence(firm.firmDatabase);
-      return c.json(
-        { checkNumber: renderCheckNumber(sequence) } as z.infer<typeof NextCheckNumberResponse>,
-        200,
-      );
+      const checkNumber = await previewNextCheckNumber(firm.firmDatabase, nowInstant());
+      return c.json({ checkNumber } as z.infer<typeof NextCheckNumberResponse>, 200);
     },
   );
 

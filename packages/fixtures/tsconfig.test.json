@@ -79,6 +79,9 @@
       "path": "../reporting/tsconfig.build.json"
     },
     {
+      "path": "../sequence-numbering/tsconfig.build.json"
+    },
+    {
       "path": "../tasks/tsconfig.build.json"
     },
     {

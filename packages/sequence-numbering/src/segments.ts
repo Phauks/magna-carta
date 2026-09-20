@@ -1,8 +1,11 @@
 import { z } from "zod";
 
-// The matter-number scheme is an ordered template of segments; rendered values join in order and
-// separators are just literal segments. Counter scope is derived from the template — any segment may
-// be marked `scoping`, and the counter resets per distinct combination of rendered scoping values.
+// A numbering scheme is an ordered template of segments; rendered values join in order and
+// separators are just literal segments. Counter scope is derived from the template — any valued
+// segment may be marked `scoping`, and the counter resets per distinct combination of rendered
+// scoping values. The same template shapes every sequence the firm configures (matter numbers,
+// consultation and intake numbers, conflicts check numbers, custody numbers); which segment kinds a
+// given sequence may use is the purpose registry's answer (purposes.ts), not this file's.
 export type NumberSegment =
   | { kind: "literal"; text: string }
   | { kind: "counter"; padWidth: number; start?: number }
@@ -13,6 +16,22 @@ export type NumberSegment =
   | { kind: "client_code"; scoping?: boolean }
   | { kind: "staff_initials"; scoping?: boolean }
   | { kind: "client_name"; scoping?: boolean };
+
+export type NumberSegmentKind = NumberSegment["kind"];
+
+// Every kind, in the order an editor offers them: the two structural parts, then the dates, then
+// what the record carries.
+export const NUMBER_SEGMENT_KINDS: readonly NumberSegmentKind[] = [
+  "literal",
+  "counter",
+  "year",
+  "date_opened",
+  "location_code",
+  "matter_type_code",
+  "client_code",
+  "staff_initials",
+  "client_name",
+];
 
 // The rendered number must be URL-safe (it is both primary key and public id, and rides in URLs).
 // RFC 3986 unreserved characters only — a literal authored in the settings UI is validated here.
@@ -49,3 +68,8 @@ export const numberingSchemeSchema: z.ZodType<readonly NumberSegment[]> = z
       });
     }
   });
+
+// numberingSchemeSchema guarantees exactly one counter; the start defaults to 1.
+export function startValueOf(segments: readonly NumberSegment[]): number {
+  return segments.find((segment) => segment.kind === "counter")?.start ?? 1;
+}

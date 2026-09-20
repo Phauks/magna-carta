@@ -27,6 +27,19 @@
     line-height: var(--mc-leading-tight);
     color: var(--mc-text-subtle);
   }
+  .mc-progress-steps-label {
+    flex: auto;
+  }
+  /* The note keeps its width; the label takes the rest and wraps. Centred on the row like the
+     marker, which is the recipe's one vertical rule. */
+  .mc-progress-steps-note {
+    flex: none;
+    align-self: center;
+    font-size: var(--mc-font-size-xs);
+    font-weight: var(--mc-weight-regular);
+    font-variant-numeric: tabular-nums;
+    color: var(--mc-text-muted);
+  }
   .mc-progress-steps-marker {
     display: flex;
     align-items: center;

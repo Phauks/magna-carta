@@ -136,6 +136,31 @@ describe("WOPI CheckFileInfo", () => {
     expect("SupportsGetLock" in info).toBe(false);
   });
 
+  it("keeps recording on under the firm's policy, and steps back rather than forbidding when the policy is off", async () => {
+    // The editor's property is inverted and tri-state: an explicit false forces recording ON with
+    // the control withheld, an explicit true forces it OFF the same way, and absence leaves the
+    // document alone. The firm's policy maps onto the first and the third, never the second.
+    const { fileId, versionId } = await seedCleanFile("Recorded.docx", "hello");
+    const base = { database: firmDb, bucket: env.R2, currentMeta: null, liveSessionId: null };
+
+    const recording = await checkFileInfo(claimsFor(fileId, versionId, "edit"), {
+      ...base,
+      recordChanges: true,
+    });
+    expect(recording.DisableChangeTrackingRecord).toBe(false);
+
+    // The policy defaults on, so a caller that resolved nothing reads as a firm that has not
+    // decided otherwise.
+    const unresolved = await checkFileInfo(claimsFor(fileId, versionId, "edit"), base);
+    expect(unresolved.DisableChangeTrackingRecord).toBe(false);
+
+    const off = await checkFileInfo(claimsFor(fileId, versionId, "edit"), {
+      ...base,
+      recordChanges: false,
+    });
+    expect("DisableChangeTrackingRecord" in off).toBe(false);
+  });
+
   it("names the member as the editor shows them, and omits the name where the host has none", async () => {
     // The editor labels the member's cursor, seat and changes with UserFriendlyName; without it the
     // member is "UnknownUser" with an identifier appended, which is what co-authors would read.

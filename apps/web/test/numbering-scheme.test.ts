@@ -5,22 +5,74 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  isSchemeNumberingPurpose,
   matterNumberRefusal,
   moveNumberSegment,
   newNumberSegment,
   NUMBER_SEGMENT_VOCABULARY,
   NUMBERING_STARTERS,
+  numberingFrozenSentence,
+  numberingInForceDescriptor,
   numberingNothingInForceSentence,
+  numberingSampleSentence,
+  numberingSampleYear,
   numberingSavedSentence,
   numberingSchemeLabel,
   numberingSchemeRefusal,
   numberingSchemesEqual,
+  numberingStartersFor,
   numberSegmentCellRefusal,
   numberSegmentSummary,
+  numberSegmentVocabularyFor,
   removeNumberSegment,
   replaceNumberSegment,
+  type NumberingPurposeRecord,
   type NumberSegment,
 } from "../src/lib/matters/numbering-scheme.ts";
+
+// Two purposes as the listing describes them: the matter run, which may use every part and has no
+// default, and the conflicts check run, which carries only the day it was numbered.
+const MATTER: NumberingPurposeRecord = {
+  purpose: "matter",
+  title: "Matter Numbers",
+  label: "matter number",
+  subject: "matter",
+  subjects: "matters",
+  drawnWhen: "Drawn once, the moment a matter opens, and frozen from then on.",
+  formulation: "scheme",
+  segmentKinds: NUMBER_SEGMENT_VOCABULARY.map((entry) => entry.kind),
+  segments: null,
+  usingDefault: false,
+  fixedShape: null,
+  example: null,
+};
+const CONFLICTS_CHECK: NumberingPurposeRecord = {
+  purpose: "conflicts_check",
+  title: "Conflicts Check Numbers",
+  label: "conflicts check number",
+  subject: "conflicts check",
+  subjects: "conflicts checks",
+  drawnWhen: "Drawn the moment a conflicts check is opened.",
+  formulation: "scheme",
+  segmentKinds: ["literal", "counter", "year", "date_opened"],
+  segments: [
+    { kind: "literal", text: "CC" },
+    { kind: "year", digits: 4, scoping: true },
+    { kind: "literal", text: "-" },
+    { kind: "counter", padWidth: 5, start: 1 },
+  ],
+  usingDefault: true,
+  fixedShape: null,
+  example: "CC2026-00001",
+};
+const SAMPLE = {
+  openedDate: "2026-09-18",
+  locationCode: "RNO",
+  matterTypeCode: "LIT",
+  clientCode: "ASH",
+  staffInitials: "EV",
+  clientName: "Ashcombe Mercantile",
+};
 
 const YEAR_COUNTER: readonly NumberSegment[] = [
   { kind: "year", digits: 4, scoping: true },
@@ -131,11 +183,61 @@ describe("the list operations", () => {
   });
 });
 
+describe("a purpose's vocabulary", () => {
+  it("offers only the parts the listing names for the purpose, in the picker's order", () => {
+    expect(
+      numberSegmentVocabularyFor(CONFLICTS_CHECK.segmentKinds ?? []).map((e) => e.kind),
+    ).toEqual(["literal", "counter", "year", "date_opened"]);
+    expect(numberSegmentVocabularyFor(MATTER.segmentKinds ?? [])).toHaveLength(
+      NUMBER_SEGMENT_VOCABULARY.length,
+    );
+  });
+
+  it("offers a starter only where every part of it is one the purpose may use", () => {
+    const keys = numberingStartersFor(CONFLICTS_CHECK.segmentKinds ?? []).map((s) => s.key);
+    expect(keys).toEqual(["year-counter", "counter"]);
+    expect(numberingStartersFor(MATTER.segmentKinds ?? [])).toHaveLength(NUMBERING_STARTERS.length);
+  });
+
+  it("tells a scheme-shaped purpose from a fixed one", () => {
+    expect(isSchemeNumberingPurpose("custody_packet")).toBe(true);
+    expect(isSchemeNumberingPurpose("invoice")).toBe(false);
+  });
+
+  it("names in the sample sentence only the facts the purpose's parts can use", () => {
+    expect(numberingSampleSentence(SAMPLE, CONFLICTS_CHECK)).toBe(
+      "Previewed for a conflicts check numbered Sep 18, 2026.",
+    );
+    expect(numberingSampleSentence(SAMPLE, MATTER)).toBe(
+      "Previewed for a matter numbered Sep 18, 2026 at office RNO, practice area LIT, client code ASH, attorney EV, client Ashcombe Mercantile.",
+    );
+  });
+
+  it("names the sample's year, never a hard-coded one, in a starter's example", () => {
+    expect(numberingSampleYear(SAMPLE)).toBe("2026");
+    const yearCounter = NUMBERING_STARTERS.find((starter) => starter.key === "year-counter");
+    expect(yearCounter?.exampleFor("2027")).toBe("2027-0001");
+  });
+
+  it("describes what is in force under the number: the parts, the built-in sequence, or nothing", () => {
+    expect(numberingInForceDescriptor(MATTER, null, false)).toMatch(/cannot open/);
+    expect(numberingInForceDescriptor(CONFLICTS_CHECK, CONFLICTS_CHECK.segments, true)).toBe(
+      'The built-in sequence: "CC" · Year, 4 digits, restarts the count · "-" · Counter, 5 digits',
+    );
+    expect(numberingInForceDescriptor(MATTER, YEAR_COUNTER, false)).toBe(
+      'Year, 4 digits, restarts the count · "-" · Counter, 4 digits',
+    );
+  });
+});
+
 describe("the editor's words", () => {
   it("names the scheme row for the sequence it shapes, never for the gesture", () => {
     // Owner ruling, 2026-09-11: "Start from" reads "Matter Numbering Scheme".
-    expect(numberingSchemeLabel("matter")).toBe("Matter Numbering Scheme");
-    expect(numberingSchemeLabel("consultation")).toBe("Consultation Numbering Scheme");
+    expect(numberingSchemeLabel(MATTER)).toBe("Matter Numbering Scheme");
+    expect(numberingSchemeLabel({ title: "Consultation Numbers" })).toBe(
+      "Consultation Numbering Scheme",
+    );
+    expect(numberingSchemeLabel(CONFLICTS_CHECK)).toBe("Conflicts Check Numbering Scheme");
   });
 
   it("says on a part's hover why a column holds no fact for it, and nothing where it does", () => {
@@ -151,12 +253,18 @@ describe("the editor's words", () => {
   });
 
   it("states the consequence of an unset scheme in the sequence's own terms, without an em dash", () => {
-    expect(numberingNothingInForceSentence("matter")).toMatch(/cannot open/);
-    expect(numberingNothingInForceSentence("consultation")).toMatch(/built-in sequence/);
-    for (const purpose of ["matter", "consultation"] as const) {
-      expect(numberingNothingInForceSentence(purpose)).not.toContain("—");
-      expect(numberingSavedSentence(purpose)).toMatch(/^Saved\./);
+    expect(numberingNothingInForceSentence(MATTER)).toMatch(/cannot open/);
+    expect(numberingNothingInForceSentence(CONFLICTS_CHECK)).toBe(
+      "Nothing of the firm's; the built-in sequence numbers conflicts checks until one is set.",
+    );
+    for (const record of [MATTER, CONFLICTS_CHECK]) {
+      expect(numberingNothingInForceSentence(record)).not.toContain("—");
+      expect(numberingSavedSentence(record)).toMatch(/^Saved\./);
+      expect(numberingFrozenSentence(record)).toContain(record.subjects);
     }
+    expect(numberingSavedSentence(CONFLICTS_CHECK)).toBe(
+      "Saved. Conflicts checks numbered from now on draw their number from this scheme; numbers already drawn are unchanged.",
+    );
   });
 });
 

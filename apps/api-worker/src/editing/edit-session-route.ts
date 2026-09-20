@@ -2,6 +2,7 @@ import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { getActiveExclusiveLock } from "@magna-carta/file-manager/checkout-statements";
+import { readRecordChanges } from "@magna-carta/file-manager/editing-policy-settings";
 import { setFileEditStateStatement } from "@magna-carta/file-manager/file-statements";
 import { getFileWithCurrentCleanVersion } from "@magna-carta/file-manager/queries";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -95,6 +96,10 @@ const SessionLaunchResponse = z
     // The capability granted: 'edit' for an editing session, or 'view' — including when an edit launch
     // is forced read-only because another member holds an exclusive lock. The viewer is never blocked.
     capability: z.enum(["edit", "view"]),
+    // Whether the firm's editing policy has this document record its changes. The host tells the
+    // editor so on every CheckFileInfo; this is the same fact for the screen framing the editor,
+    // which turns the showing of the marks off once the document is up.
+    recordsChanges: z.boolean(),
   })
   .openapi("SessionLaunchResponse");
 
@@ -138,9 +143,11 @@ async function buildLaunch(
     memberId: string;
     capability: EditCapability;
     sessionId: string;
+    database: ProxyBatchDatabase;
   },
 ): Promise<z.infer<typeof SessionLaunchResponse>> {
   const exp = Date.now() + TOKEN_WINDOW_MS;
+  const recordsChanges = await readRecordChanges(input.database);
   // A fresh open record for this member, whatever the seat: the marks the screen reads while it waits
   // are those of THIS launch and never of the attempt before it.
   await documentSessionStub(c.env, input.fileId).beginOpen(
@@ -181,6 +188,7 @@ async function buildLaunch(
     accessToken,
     accessTokenTtl: exp,
     capability: input.capability,
+    recordsChanges,
   };
 }
 
@@ -342,6 +350,7 @@ export function registerDocumentEditingRoutes(
           memberId,
           capability: "view",
           sessionId,
+          database: firmContext.firmDatabase,
         });
         return c.json(viewLaunch, 200);
       }
@@ -390,6 +399,7 @@ export function registerDocumentEditingRoutes(
         memberId,
         capability: "edit",
         sessionId,
+        database: firmContext.firmDatabase,
       });
       return c.json(launch, 200);
     },
@@ -418,6 +428,7 @@ export function registerDocumentEditingRoutes(
         memberId,
         capability: "view",
         sessionId,
+        database: firmContext.firmDatabase,
       });
       return c.json(launch, 200);
     },

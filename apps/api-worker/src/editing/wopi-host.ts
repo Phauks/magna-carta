@@ -1,5 +1,6 @@
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import { readMemberDisplayName } from "@magna-carta/data-access/member-statements";
+import { readRecordChanges } from "@magna-carta/file-manager/editing-policy-settings";
 import type { FileId, UserId } from "@magna-carta/identifiers/types";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Context } from "hono";
@@ -127,12 +128,17 @@ export function registerWopiHostRoutes(
   // CheckFileInfo — GET /wopi/files/{fileId}
   app.get("/wopi/files/:fileId", (c) =>
     withWopi(c, "wopi:check-file-info", async ({ claims, firmDatabase, bucket, state }) => {
+      const [memberName, recordChanges] = await Promise.all([
+        readMemberDisplayName(firmDatabase, claims.memberId as UserId),
+        readRecordChanges(firmDatabase),
+      ]);
       const body = await checkFileInfo(claims, {
         database: firmDatabase,
         bucket,
         currentMeta: state.current,
         liveSessionId: state.sessionId,
-        memberName: await readMemberDisplayName(firmDatabase, claims.memberId as UserId),
+        memberName,
+        recordChanges,
       });
       return Response.json(body);
     }),

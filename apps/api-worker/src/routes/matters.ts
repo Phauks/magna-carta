@@ -31,7 +31,7 @@ import { matterIntakeGraduationPrecondition } from "@magna-carta/intake/graduati
 import { INTAKE_STEP_READERS } from "./intake.ts";
 import { matterCustodyCloseAdvisory } from "@magna-carta/custodian/close-advisory";
 import { matterTasksCloseAdvisory } from "@magna-carta/tasks/close-advisory";
-import { NumberingRenderError } from "@magna-carta/matters/numbering/render";
+import { NumberingRenderError } from "@magna-carta/sequence-numbering/render";
 import { listConsultations, listMatters } from "@magna-carta/matters/queries";
 import {
   readMatterClientEntityId,

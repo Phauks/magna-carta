@@ -611,23 +611,27 @@ export const documentType = sqliteTable(
   ],
 );
 
-// The matter-number template: an ordered array of segments stored as validated JSON. One active
-// scheme per firm is enforced in the write path; superseded schemes are retained so a historical
-// number still explains how it was rendered.
+// A numbering template: an ordered array of segments stored as validated JSON. One active scheme
+// per firm PER PURPOSE is enforced in the write path; superseded schemes are retained so a
+// historical number still explains how it was rendered.
 export const numberingScheme = sqliteTable(
   "numbering_scheme",
   {
     id: text("id").primaryKey().$type<NumberingSchemeId>(), // numberingScheme_ handle
     segments: text("segments").notNull(), // JSON; shape validated by numberingSchemeSchema
-    // Which sequence this template renders. A firm numbers three different things and must be able
-    // to shape them independently: the permanent matter number, the tentative number a consultation
-    // carries before anyone knows whether it will become a matter, and the number an intake wears
-    // from the moment the enquiry is written down. One active scheme per purpose; a firm that has
-    // configured no consultation or intake scheme falls back to the built-in default, so neither is
-    // ever unnumbered while somebody gets round to the settings screen. Only the matter purpose
+    // Which sequence this template renders — one value per purpose on the firm-wide numbering
+    // register (@magna-carta/sequence-numbering/purposes) that takes a scheme: the permanent matter
+    // number, the tentative number a consultation carries, the number an intake wears from the
+    // moment the enquiry is written down, the number a conflicts check is opened under, and the
+    // number a custody packet is labelled with. One active scheme per purpose; a firm that has
+    // configured nothing for a purpose falls back to the register's built-in default, so nothing
+    // is ever unnumbered while somebody gets round to the settings screen. Only the matter purpose
     // refuses to default, because a matter number is the firm's own file spine and there is no
-    // defensible shape to invent for one.
-    purpose: text("purpose", { enum: ["matter", "consultation", "intake"] })
+    // defensible shape to invent for one. Widening this enum is the whole of admitting a new
+    // purpose here: there is no CHECK on the column (below), so no migration rewrites the table.
+    purpose: text("purpose", {
+      enum: ["matter", "consultation", "intake", "conflicts_check", "custody_packet"],
+    })
       .notNull()
       .default("matter"),
     active: integer("active").notNull().default(1),
@@ -2766,8 +2770,11 @@ export const conflictsNumberedCheck = sqliteTable(
   "conflicts_numbered_check",
   {
     id: text("id").primaryKey().$type<ConflictsCheckId>(),
-    // The firm's own sequence, drawn once and never re-drawn: 1, 2, 3. The rendered form is stored
-    // beside it so the log lists and searches the number a person actually says.
+    // The counter value the draw consumed, under the scheme's scope, and the rendered number a
+    // person actually says — stored beside it so the log lists and searches that. Drawn through
+    // the firm's conflicts check numbering scheme (the conflicts_check_number_counter below), so the
+    // sequence restarts wherever the scheme's scoping parts say it does and is unique only together
+    // with the scope; the rendered number is what is unique on its own.
     checkSequence: integer("check_sequence").notNull(),
     checkNumber: text("check_number").notNull(),
     // Where the check is FILED. Null for the pre-engagement screen — a check run on a name given
@@ -2785,7 +2792,6 @@ export const conflictsNumberedCheck = sqliteTable(
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
-    uniqueIndex("conflicts_numbered_check_sequence_unique_index").on(table.checkSequence),
     uniqueIndex("conflicts_numbered_check_number_unique_index").on(table.checkNumber),
     // A matter's own checks, newest first, and the firm-wide log in the same order.
     index("conflicts_numbered_check_matter_created_index").on(
@@ -2796,6 +2802,37 @@ export const conflictsNumberedCheck = sqliteTable(
     index("conflicts_numbered_check_created_id_index").on(table.createdAt, table.id),
     check("conflicts_numbered_check_sequence_check", sql`${table.checkSequence} > 0`),
     check("conflicts_numbered_check_number_check", sql`length(${table.checkNumber}) > 0`),
+  ],
+);
+
+// The conflicts check number counter, one row per {firm, scope_key} — the same ensure-row +
+// guarded-increment shape matter_number_counter carries, for the same reason: concurrent draws must
+// yield distinct, sequential numbers with no interactive transaction available. The check number
+// used to be MAX(check_sequence) + 1 under a unique index; that gave the firm a shape it could not
+// change, and a firm-wide four-digit run that every intake, party and automatic re-check drew from.
+export const conflictsCheckNumberCounter = sqliteTable("conflicts_check_number_counter", {
+  scopeKey: text("scope_key").primaryKey(),
+  nextValue: integer("next_value").notNull(),
+});
+
+// One row per counter value a draw consumed. This composite primary key — not the unique index on the
+// rendered check_number string — is the load-bearing backstop on the draw race, for the reason
+// matter_number_allocation gives: a scheme may render different strings from the same counter value,
+// so only a claim on the VALUE catches two draws that observed the same counter.
+export const conflictsCheckNumberAllocation = sqliteTable(
+  "conflicts_check_number_allocation",
+  {
+    scopeKey: text("scope_key").notNull(),
+    drawnValue: integer("drawn_value").notNull(),
+    checkId: text("check_id")
+      .notNull()
+      .$type<ConflictsCheckId>()
+      .references(() => conflictsNumberedCheck.id),
+    allocatedAt: text("allocated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.scopeKey, table.drawnValue] }),
+    index("conflicts_check_number_allocation_check_index").on(table.checkId),
   ],
 );
 

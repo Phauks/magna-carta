@@ -4,8 +4,8 @@ import type { UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_MAX_DRAW_ATTEMPTS } from "@magna-carta/sequence-numbering/bounded-retry";
 import { createMatter } from "../src/matter-service.ts";
-import type { NumberingPurpose } from "../src/matter-statements.ts";
-import type { NumberSegment } from "../src/numbering/segments.ts";
+import type { NumberSegment } from "@magna-carta/sequence-numbering/segments";
+import type { MatterNumberingPurpose } from "../src/matter-statements.ts";
 
 // THE INVARIANT, asked over many draws rather than two.
 //
@@ -41,7 +41,7 @@ async function setup(): Promise<BatchDatabase> {
   return database;
 }
 
-async function seedScheme(database: BatchDatabase, purpose: NumberingPurpose): Promise<void> {
+async function seedScheme(database: BatchDatabase, purpose: MatterNumberingPurpose): Promise<void> {
   await database
     .prepare("UPDATE numbering_scheme SET active = 0 WHERE purpose = ?1")
     .bind(purpose)

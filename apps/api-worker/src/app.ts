@@ -62,6 +62,7 @@ import { registerScanDiagnoseRoute } from "./routes/scan-diagnose.ts";
 import { registerUploadReadinessRoute } from "./routes/upload-readiness.ts";
 import { registerScanMatterRoute } from "./routes/scan-matter.ts";
 import { registerFileScanRoutes } from "./routes/file-scans.ts";
+import { registerEditingPolicyRoutes } from "./routes/editing-policy.ts";
 import { registerScanPolicyRoutes } from "./routes/scan-policy.ts";
 import { registerFirmsRoute } from "./routes/firms.ts";
 import { registerPlatformReleaseChannelRoute } from "./routes/platform-release-channel.ts";
@@ -89,6 +90,7 @@ import {
   registerSafeBrowseStreamRoute,
   type SafeBrowseRouteDeps,
 } from "./routes/safe-browse.ts";
+import { registerSafeBrowseSessionProbeRoute } from "./routes/safe-browse-session-probe.ts";
 import { registerDecryptionRoutes } from "./routes/decryption.ts";
 import { registerDocumentSealRoutes } from "./routes/document-seal.ts";
 import { registerRecoveryRoutes } from "./routes/recovery.ts";
@@ -309,6 +311,7 @@ export function createApp(options: CreateAppOptions = {}) {
   // createFetchRedirectProbe() — built lazily in the handler, never at startup.
   registerSafeBrowseRoute(app, chokepoint, options.safeBrowseDeps ?? {});
   registerSafeBrowseStreamRoute(app, chokepoint, options.safeBrowseDeps ?? {});
+  registerSafeBrowseSessionProbeRoute(app, chokepoint);
   registerDecryptionRoutes(app, chokepoint);
   // Password recovery: mints a job and fans it out through the recovery coordinator Durable
   // Object. Registered beside decryption — the button-initiated surface for the SAME extracted
@@ -402,6 +405,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerFileScanRoutes(app, chokepoint);
   // Read and update the firm's malware scan-policy settings (tier, score floor, flagged treatment).
   registerScanPolicyRoutes(app, chokepoint);
+  registerEditingPolicyRoutes(app, chokepoint);
   // The async bulk-download poll endpoint — the status side of the download route's 202 hand-off.
   registerBundleStatusRoute(app, chokepoint);
   // Slice 1·3: the directory (persons/organizations, names, sensitive identifiers, edges,
