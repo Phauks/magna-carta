@@ -4,7 +4,8 @@ import {
   BUILD_BLOCK_ID,
   buildBlockHandler,
   buildBlockHtml,
-  buildLines,
+  buildRows,
+  REPOSITORY_URL,
   withBuildIdentity,
   type AboutRewriter,
 } from "../src/editor-about.ts";
@@ -39,25 +40,27 @@ function fakeRewriter(): { rewriter: AboutRewriter; selectors: string[]; appende
   return { rewriter, selectors, appended };
 }
 
-describe("the block's lines", () => {
-  it("name the build and read its two instants as a person would", () => {
-    expect(buildLines(RELEASE)).toEqual([
-      "Magna Carta build 3396b89",
-      "Committed 2026-09-19 21:04 UTC",
-      "Built 2026-09-19 21:09 UTC",
+describe("the block's rows", () => {
+  it("name the build, link it to its commit, and read the two instants as a person would", () => {
+    expect(buildRows(RELEASE)).toEqual([
+      { label: "Build", value: "3396b89", href: `${REPOSITORY_URL}/commit/3396b89` },
+      { label: "Committed", value: "2026-09-19 21:04 UTC" },
+      { label: "Built", value: "2026-09-19 21:09 UTC" },
     ]);
   });
 
-  it("say a development build is one, rather than inventing a version", () => {
-    expect(buildLines(DEVELOPMENT)).toEqual(["Magna Carta: development build"]);
+  it("say a development build is one, rather than inventing a version or a link", () => {
+    expect(buildRows(DEVELOPMENT)).toEqual([{ label: "Build", value: "development build" }]);
+    expect(buildBlockHtml(DEVELOPMENT)).not.toContain("<a ");
   });
 
-  it("render in the dialog's own row class, one line per row, escaped", () => {
+  it("render a heading and one line per row, the link in a new tab, everything escaped", () => {
     const html = buildBlockHtml({ ...RELEASE, commit: "<x>" });
-    expect(html.startsWith(`<div id="${BUILD_BLOCK_ID}" class="about-dialog-info-div">`)).toBe(
-      true,
-    );
-    expect(html).toContain("Magna Carta build &lt;x&gt;");
+    expect(html.startsWith(`<div id="${BUILD_BLOCK_ID}" dir="ltr">`)).toBe(true);
+    expect(html).toContain('<div class="mc-about-label">Magna Carta</div>');
+    expect(html.match(/class="mc-about-row"/g)).toHaveLength(3);
+    expect(html).toContain('target="_blank" rel="noreferrer">&lt;x&gt;</a>');
+    expect(html).toContain("commit/%3Cx%3E");
     expect(html).not.toContain("<x>");
   });
 });
