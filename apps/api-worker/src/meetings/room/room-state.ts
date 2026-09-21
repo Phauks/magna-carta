@@ -72,6 +72,31 @@ export interface RoomContext {
 }
 
 /**
+ * WHAT THIS BROWSER LAST SAID ABOUT ITS OWN CONNECTION, kept flat and kept once.
+ *
+ * Flat because the telemetry event built from it is flat — a declared field carries a primitive and
+ * a structure has no way through the allowlist — so flattening once here is what keeps the stored
+ * sample and the recorded one from disagreeing about what a field means. A measurement the browser
+ * did not take is null rather than zero: somebody who published nothing has no outbound layer, which
+ * is a different fact from an outbound layer of none.
+ *
+ * ONLY THE LATEST, and it dies with the room. A history would be a record of how somebody's
+ * connection behaved, which is not a fact about the meeting and must never become one.
+ */
+export interface StoredClientSample {
+  readonly at: string;
+  readonly quality: string | null;
+  readonly roundTripMilliseconds: number | null;
+  readonly lossFraction: number | null;
+  readonly jitterMilliseconds: number | null;
+  readonly outboundRid: string | null;
+  readonly outboundWidth: number | null;
+  readonly outboundHeight: number | null;
+  readonly outboundBitsPerSecond: number | null;
+  readonly inboundCount: number | null;
+}
+
+/**
  * One track this participant is publishing, as the room holds it.
  *
  * `mid` is the media section the routing service put it in, and it is kept because it is the ONLY
@@ -141,6 +166,15 @@ export interface StoredParticipant {
   // The upgrade seeds it, because the socket route has just read the live grants to decide the
   // caller may be in the room at all and a second round trip from the room would buy nothing.
   readonly hostRole: MeetingHostRole | null;
+  // When this browser's last connection report was ACCEPTED, and the sample it carried. The first is
+  // the other bounded frame's throttle, on exactly the terms `syncAt` and `layerAt` above are: a
+  // report costs a write and an event, and one inside the window is dropped because the next
+  // measurement is along in a moment. The second is what an operator's inspect call reads.
+  //
+  // Optional, because a record written by a build that predated diagnostics carries neither — which
+  // reads as "never reported", which is what it was.
+  readonly reportAt?: string | null;
+  readonly lastSample?: StoredClientSample | null;
 }
 
 /**
@@ -229,12 +263,29 @@ export interface MeetingSocketAttachment {
 
 // ---------------------------------------------------------------------------------------------
 // The roster, in storage
+//
+// AND WHAT IT COSTS, COUNTED WHERE IT IS SPENT. The room's whole economy is one rule — the roster is
+// read at most once per frame, because in a room of three hundred that read is three hundred keys —
+// and until these two counters existed nothing measured whether it held. They are bumped by the
+// reads that are proportional to the size of the meeting and by nothing else, so a frame's delta is
+// the number the rule is about; room-diagnostics.ts samples it. Module state rather than instance
+// state, which is right for a measurement in a way it would not be for a fact: it does not survive
+// hibernation, and a delta taken across a wake is as good as one taken within it.
 // ---------------------------------------------------------------------------------------------
+
+let storageListCount = 0;
+let storageGetCount = 0;
+
+/** The room's storage spend since this instance woke — a running total, read as a difference. */
+export function storageReadCounts(): { readonly lists: number; readonly gets: number } {
+  return { lists: storageListCount, gets: storageGetCount };
+}
 
 export async function readParticipant(
   room: RoomContext,
   attendanceId: string,
 ): Promise<StoredParticipant | undefined> {
+  storageGetCount += 1;
   return await room.ctx.storage.get<StoredParticipant>(`${PARTICIPANT_PREFIX}${attendanceId}`);
 }
 
@@ -261,6 +312,7 @@ export async function deleteParticipant(room: RoomContext, attendanceId: string)
 export async function storedParticipants(
   room: RoomContext,
 ): Promise<Map<string, StoredParticipant>> {
+  storageListCount += 1;
   const stored = await room.ctx.storage.list<StoredParticipant>({ prefix: PARTICIPANT_PREFIX });
   return new Map(
     [...stored].map(([key, participant]) => [key.slice(PARTICIPANT_PREFIX.length), participant]),
@@ -280,6 +332,7 @@ export async function readWaiting(
   room: RoomContext,
   attendanceId: string,
 ): Promise<StoredWaiting | undefined> {
+  storageGetCount += 1;
   return await room.ctx.storage.get<StoredWaiting>(`${WAITING_PREFIX}${attendanceId}`);
 }
 
@@ -305,6 +358,7 @@ export async function deleteWaiting(room: RoomContext, attendanceId: string): Pr
  * arrived.
  */
 export async function storedWaiting(room: RoomContext): Promise<Map<string, StoredWaiting>> {
+  storageListCount += 1;
   const stored = await room.ctx.storage.list<StoredWaiting>({ prefix: WAITING_PREFIX });
   return new Map(
     [...stored]
@@ -487,6 +541,31 @@ export function broadcastExcludingStay(
   sendToRoom(room, payload, (socket) => attachmentOf(socket)?.attendanceId === attendanceId);
 }
 
+/**
+ * ONE FRAME TO ONE SOCKET, AND A SOCKET THAT HAS GONE IS NOT A FAILURE.
+ *
+ * `send` on a closed socket THROWS, and a throw out of `webSocketMessage` does not fail one frame —
+ * the runtime terminates and resets the object, which drops every socket in the meeting. So one
+ * member's browser closing between the room deciding to answer them and the answer going out would
+ * end the meeting for everybody in it.
+ *
+ * It is not a rare race. A supersede closes the socket a frame may already be queued behind, ending
+ * the meeting closes every socket at once, and a member pressing Leave closes theirs while whatever
+ * they last asked for is still being served. The room-wide broadcast has swallowed this since it was
+ * written; the DIRECT replies had not, and the load harness is what surfaced it — three hundred
+ * browsers reconnecting is the case where the window stops being theoretical.
+ *
+ * Nothing is lost by swallowing it: the socket's close handler is already running, and the roster and
+ * the record are that path's to fix.
+ */
+export function trySend(socket: WebSocket, payload: string): void {
+  try {
+    socket.send(payload);
+  } catch {
+    // Deliberately empty — see above.
+  }
+}
+
 function sendToRoom(
   room: RoomContext,
   payload: string,
@@ -499,21 +578,23 @@ function sendToRoom(
     // can only resolve by asking for the whole list. Its own welcome carries everything this frame
     // would have said, and it is already being built.
     if (attachmentOf(socket)?.welcomed !== true) continue;
-    try {
-      socket.send(payload);
-    } catch {
-      // A socket that went away between the list and the send is exactly the case a roster
-      // broadcast exists to announce, so failing the whole broadcast over it would stop everybody
-      // else learning. The close handler removes it from the roster on its own.
-    }
+    // A socket that went away between the list and the send is exactly the case a roster broadcast
+    // exists to announce, so failing the whole broadcast over it would stop everybody else
+    // learning. The close handler removes it from the roster on its own.
+    trySend(socket, payload);
   }
 }
 
 export function refuseAndClose(socket: WebSocket, reason: MeetingRefusalReason): void {
   // The reason goes out BEFORE the close, so a browser always learns why rather than inferring it
   // from a code. The code is from the private-use range, the only range an application may define.
-  socket.send(refusedFrame(reason));
-  socket.close(UNSERVICEABLE_CLOSE_CODE, "reconnect required");
+  trySend(socket, refusedFrame(reason));
+  try {
+    socket.close(UNSERVICEABLE_CLOSE_CODE, "reconnect required");
+  } catch {
+    // Closed already — by the peer, or by a supersede that beat this one. The outcome asked for is
+    // the outcome there is.
+  }
 }
 
 /**

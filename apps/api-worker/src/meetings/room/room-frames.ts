@@ -2,7 +2,6 @@ import {
   NORMAL_CLOSE_CODE,
   parseMeetingClientFrame,
   PONG_FRAME,
-  refusedFrame,
   rosterFrame,
   TRACK_NAME_SEPARATOR,
   type MeetingClientFrame,
@@ -20,9 +19,21 @@ import {
 } from "./room-media.ts";
 import { handleHostFrame } from "./room-hosting.ts";
 import { giveUpWaiting } from "./room-lobby.ts";
-import { armAlarm } from "./room-lifecycle.ts";
+import { armAlarmFor } from "./room-lifecycle.ts";
 import { relayPresence } from "./room-presence.ts";
 import { namesOnlyRosterTracks, rosterFrom } from "./room-roster.ts";
+import {
+  acceptClientReport,
+  beginFrameBudget,
+  recordClientReport,
+  recordFrameBudget,
+  recordLayerChanged,
+  recordPublished,
+  recordSubscribed,
+  refuseAndCloseRecorded,
+  refuseAndRecord,
+  storedSampleOf,
+} from "./room-diagnostics.ts";
 import {
   attachmentOf,
   putParticipant,
@@ -30,8 +41,8 @@ import {
   readParticipant,
   readRoom,
   recordRoomFailure,
-  refuseAndClose,
   storedParticipants,
+  trySend,
   type MeetingSocketAttachment,
   type RoomContext,
   type StoredParticipant,
@@ -86,6 +97,7 @@ type SignalingFrame = Exclude<
   | { type: "mute-all" }
   | { type: "ask-to-unmute" }
   | { type: "spotlight" }
+  | { type: "diagnostic-report" }
 >;
 
 // The track kinds that carry a picture, which is what a call does not have. A camera and a screen
@@ -96,34 +108,80 @@ function isPicture(kind: string): boolean {
   return kind !== "audio";
 }
 
-/** One frame off one socket, from the bytes to whichever module owns what it asks for. */
+/**
+ * One frame off one socket, from the bytes to whichever module owns what it asks for.
+ *
+ * The routing is `routeClientFrame` below; what this adds is the STORAGE BUDGET, opened around the
+ * whole of it and closed however the frame ends. The room's economy is one rule — the roster is read
+ * at most once per frame — and a rule nothing measures is a rule that has already been broken
+ * somewhere. It is sampled rather than taken on every frame (room-diagnostics.ts), so a frame that
+ * is not being watched pays a counter increment and nothing else.
+ */
 export async function dispatchClientFrame(
   room: RoomContext,
   socket: WebSocket,
   message: string | ArrayBuffer,
 ): Promise<void> {
+  const budget = beginFrameBudget();
+  let frameType: MeetingClientFrame["type"] | "" = "";
+  try {
+    frameType = await routeClientFrame(room, socket, message);
+  } finally {
+    // The attachment is read again HERE rather than carried out of the routing, and only for a
+    // frame that is being watched: reading one deserializes it, so paying for a second read on
+    // every frame to fill in a field on one in twenty would cost more than the measurement is
+    // worth. A socket whose attachment cannot be read has no meeting to charge the spend to.
+    if (budget !== null) {
+      await recordFrameBudget(room, attachmentOf(socket) ?? undefined, frameType, budget);
+    }
+  }
+}
+
+/** The routing itself, answering what kind of frame it turned out to be. */
+async function routeClientFrame(
+  room: RoomContext,
+  socket: WebSocket,
+  message: string | ArrayBuffer,
+): Promise<MeetingClientFrame["type"] | ""> {
   const parsed = parseMeetingClientFrame(message);
   if ("refusal" in parsed) {
     // The socket STAYS OPEN. A frame this room could not read is a bug in one message, not a
     // reason to drop somebody out of a meeting they are otherwise in — and a browser that
     // reconnects has to renegotiate every track from nothing.
-    socket.send(refusedFrame(parsed.refusal));
-    return;
+    //
+    // The frame type recorded is the empty string, because there genuinely is not one: a frame this
+    // parse refused either named no type this room speaks or could not be read at all.
+    await refuseAndRecord(
+      room,
+      socket,
+      attachmentOf(socket) ?? undefined,
+      attachmentOf(socket)?.attendanceId ?? null,
+      parsed.refusal,
+      "",
+    );
+    return "";
   }
 
   // A ping reaching here means the browser did not send the byte-exact auto-response frame. Answer
   // it anyway: the contract is the frame, not the optimization.
   if (parsed.frame.type === "ping") {
-    socket.send(PONG_FRAME);
-    return;
+    trySend(socket, PONG_FRAME);
+    return "ping";
   }
 
   const attachment = attachmentOf(socket);
   if (attachment === null) {
     // The room cannot say who this is, so it cannot route anything on their behalf. Unlike a bad
     // frame this does not improve by trying again on the same socket.
-    refuseAndClose(socket, "not-a-participant");
-    return;
+    await refuseAndCloseRecorded(
+      room,
+      socket,
+      undefined,
+      null,
+      "not-a-participant",
+      parsed.frame.type,
+    );
+    return parsed.frame.type;
   }
 
   if (parsed.frame.type === "leave") {
@@ -132,7 +190,7 @@ export async function dispatchClientFrame(
     if (attachment.waiting === true) await giveUpWaiting(room, attachment.attendanceId);
     else await releaseParticipant(room, attachment.attendanceId);
     socket.close(NORMAL_CLOSE_CODE, "left the meeting");
-    return;
+    return "leave";
   }
 
   // A SOCKET THAT IS STILL AT THE DOOR MAY SEND `ping` AND `leave` AND NOTHING ELSE, and both are
@@ -145,8 +203,15 @@ export async function dispatchClientFrame(
   // THE SOCKET STAYS OPEN: they are at the door, and the door may open. Closing here would make a
   // misbehaving client's first frame the end of their place in the queue.
   if (attachment.waiting === true) {
-    socket.send(refusedFrame("not-admitted"));
-    return;
+    await refuseAndRecord(
+      room,
+      socket,
+      attachment,
+      attachment.attendanceId,
+      "not-admitted",
+      parsed.frame.type,
+    );
+    return parsed.frame.type;
   }
 
   // THE TWO FRAMES THAT ASK NOTHING OF THE ROUTING SERVICE, answered before it is even resolved.
@@ -164,17 +229,17 @@ export async function dispatchClientFrame(
         SYNC_INTERVAL_MILLISECONDS,
       ))
     ) {
-      return;
+      return "sync";
     }
     // ONE SOCKET, and the whole list. This is the way back to the truth for a client that has been
     // applying differences: without it, a browser that suspects a gap could only reconnect, which
     // costs it every track it holds.
-    socket.send(rosterFrame(rosterFrom(await storedParticipants(room))));
-    return;
+    trySend(socket, rosterFrame(rosterFrom(await storedParticipants(room))));
+    return "sync";
   }
 
   if (parsed.frame.type === "presence") {
-    const deferred = await relayPresence(
+    const dueAt = await relayPresence(
       room,
       socket,
       attachment.attendanceId,
@@ -184,8 +249,32 @@ export async function dispatchClientFrame(
     // A transition the throttle held back is relayed by the alarm instead. Armed from here rather
     // than from inside the presence module because a room has ONE alarm and one place that
     // reconciles every deadline into it.
-    if (deferred) await armAlarm(room);
-    return;
+    // Armed for the deadline the presence module already knows rather than through the full
+    // reconciliation: this is the frame a room of three hundred sends most, and reconciling would
+    // read every key the room holds, twice, for a window that is a second away.
+    if (dueAt !== null) await armAlarmFor(room, dueAt);
+    return "presence";
+  }
+
+  // WHAT THIS BROWSER SAYS ABOUT ITS OWN CONNECTION, answered here for the reason the two above are:
+  // it asks nothing of the routing service, and a room whose media credentials went away under an
+  // open meeting must still be able to hear that a connection is the reason a tile is black.
+  //
+  // Nothing is sent back. A report is a statement, not a request, and a client that had to be
+  // acknowledged would be a client the room owes a frame to every five seconds per participant.
+  // Inside the window it is dropped silently — a sample is a restatement and the browser takes
+  // another in a moment — so a client is never refused for reporting too often.
+  if (parsed.frame.type === "diagnostic-report") {
+    const at = new Date().toISOString();
+    if (await acceptClientReport(room, attachment.attendanceId, parsed.frame.sample)) {
+      await recordClientReport(
+        room,
+        attachment,
+        attachment.attendanceId,
+        storedSampleOf(parsed.frame.sample, at),
+      );
+    }
+    return "diagnostic-report";
   }
 
   // THE HOST'S OWN FRAMES, answered before a routing session for the SENDER is resolved — none of
@@ -203,7 +292,7 @@ export async function dispatchClientFrame(
     parsed.frame.type === "spotlight"
   ) {
     await handleHostFrame(room, socket, attachment.attendanceId, parsed.frame);
-    return;
+    return parsed.frame.type;
   }
 
   // Same claim, one frame earlier than the roster read and the upstream call it would make.
@@ -216,7 +305,7 @@ export async function dispatchClientFrame(
       LAYER_INTERVAL_MILLISECONDS,
     ))
   ) {
-    return;
+    return "layer";
   }
 
   const sfu = sfuClientForEnv(room.env);
@@ -226,8 +315,15 @@ export async function dispatchClientFrame(
     // left to a timeout inside the browser's connection. No Error ID: nothing failed, the
     // deployment simply cannot route media, and a handle would send somebody looking for a trace
     // that does not exist.
-    socket.send(refusedFrame("sfu-unavailable"));
-    return;
+    await refuseAndRecord(
+      room,
+      socket,
+      attachment,
+      attachment.attendanceId,
+      "sfu-unavailable",
+      parsed.frame.type,
+    );
+    return parsed.frame.type;
   }
 
   try {
@@ -236,12 +332,22 @@ export async function dispatchClientFrame(
     if (caught instanceof SfuUnavailableError) {
       // Carries no word of what the routing service said: that text can name the application the
       // whole fleet's meetings run on. What it does carry is the handle that joins what this
-      // member saw to the redacted trace of what actually happened.
-      socket.send(refusedFrame("sfu-unavailable", recordRoomFailure(room, "signaling", caught)));
-      return;
+      // member saw to the redacted trace of what actually happened — the SAME handle on the record
+      // and on the wire, which is what the one refusal call is for.
+      await refuseAndRecord(
+        room,
+        socket,
+        attachment,
+        attachment.attendanceId,
+        "sfu-unavailable",
+        parsed.frame.type,
+        recordRoomFailure(room, "signaling", caught),
+      );
+      return parsed.frame.type;
     }
     throw caught;
   }
+  return parsed.frame.type;
 }
 
 async function handleSignalingFrame(
@@ -260,7 +366,7 @@ async function handleSignalingFrame(
   const stored = namesOthersTracks ? await storedParticipants(room) : null;
   const refusal = await refuseFrame(room, attachment.attendanceId, frame, stored);
   if (refusal !== null) {
-    socket.send(refusedFrame(refusal));
+    await refuseAndRecord(room, socket, attachment, attachment.attendanceId, refusal, frame.type);
     return;
   }
 
@@ -268,8 +374,14 @@ async function handleSignalingFrame(
   // once here — and its absence is one answer rather than four.
   const outcome = await sessionFor(room, attachment.attendanceId, sfu);
   if (outcome.kind === "unavailable") {
-    socket.send(
-      refusedFrame("sfu-unavailable", recordRoomFailure(room, "create-session", outcome.caught)),
+    await refuseAndRecord(
+      room,
+      socket,
+      attachment,
+      attachment.attendanceId,
+      "sfu-unavailable",
+      frame.type,
+      recordRoomFailure(room, "create-session", outcome.caught),
     );
     return;
   }
@@ -278,21 +390,57 @@ async function handleSignalingFrame(
     // under this socket, or this participant's stay was closed. A browser retries the second and
     // must not retry the first.
     const endedAt = await readEndedAt(room);
-    refuseAndClose(socket, endedAt === undefined ? "not-a-participant" : "meeting-ended");
+    await refuseAndCloseRecorded(
+      room,
+      socket,
+      attachment,
+      attachment.attendanceId,
+      endedAt === undefined ? "not-a-participant" : "meeting-ended",
+      frame.type,
+    );
     return;
   }
   const sessionId = outcome.sessionId;
 
   if (frame.type === "publish") {
-    await publishTracks(room, socket, attachment.attendanceId, sessionId, frame, sfu);
+    const published = await publishTracks(
+      room,
+      socket,
+      attachment.attendanceId,
+      sessionId,
+      frame,
+      sfu,
+    );
+    await recordPublished(room, attachment, attachment.attendanceId, published);
     return;
   }
   if (frame.type === "layer") {
-    await changeLayers(socket, sessionId, frame, sfu);
+    const layered = await changeLayers(socket, sessionId, frame, sfu);
+    await recordLayerChanged(
+      room,
+      attachment,
+      attachment.attendanceId,
+      layered.trackCount,
+      layered.refusedCount,
+    );
     return;
   }
   if (frame.type === "subscribe") {
-    await subscribeTracks(room, socket, attachment.attendanceId, sessionId, frame, sfu);
+    const subscribed = await subscribeTracks(
+      room,
+      socket,
+      attachment.attendanceId,
+      sessionId,
+      frame,
+      sfu,
+    );
+    await recordSubscribed(
+      room,
+      attachment,
+      attachment.attendanceId,
+      subscribed.requestedCount,
+      subscribed.forwardedCount,
+    );
     return;
   }
   if (frame.type === "renegotiate") {

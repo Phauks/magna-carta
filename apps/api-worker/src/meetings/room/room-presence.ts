@@ -42,9 +42,16 @@ export const PRESENCE_RELAY_INTERVAL_MILLISECONDS = 1000;
  * read, so holding the store back would make the throttle a source of wrong answers rather than
  * of fewer frames.
  *
- * Answers whether a transition is now waiting on the alarm, so the caller arms it. The arming is the
- * caller's rather than this module's because reconciling deadlines is the lifecycle module's job and
- * a room has exactly one alarm to reconcile them into.
+ * Answers WHEN a held-back transition is due, or null when nothing is waiting — so the caller arms
+ * the alarm for that instant. The arming is the caller's rather than this module's because a room
+ * has exactly one alarm and one module that reconciles deadlines into it.
+ *
+ * THE DEADLINE IS ANSWERED RATHER THAN THE FACT, and that is a cost rather than a nicety. A bare
+ * "something is waiting" forces the caller into the full reconciliation, which reads the whole
+ * roster and the whole door to find the nearest deadline — and the load harness measured that at
+ * two list reads for every deferred transition, on the one frame a room of three hundred sends most.
+ * The deadline is already known here, and arming for a known instant needs neither read: the alarm
+ * is never pushed LATER, and the full reconciliation runs at the end of every wake anyway.
  *
  * The sender is not told what it just said.
  */
@@ -54,18 +61,18 @@ export async function relayPresence(
   attendanceId: string,
   speaking: boolean,
   muted: boolean,
-): Promise<boolean> {
+): Promise<number | null> {
   const now = Date.now();
   const outcome = await room.ctx.blockConcurrencyWhile(
-    async (): Promise<{ relayAt: string | null; deferred: boolean }> => {
+    async (): Promise<{ relayAt: string | null; dueAt: number | null }> => {
       const participant = await readParticipant(room, attendanceId);
-      if (participant === undefined) return { relayAt: null, deferred: false };
+      if (participant === undefined) return { relayAt: null, dueAt: null };
       // A frame restating what the room already holds is not a transition, whatever the browser
       // believes, and relaying it would spend a frame on every other socket to say nothing. It also
       // clears nothing: a deferred transition is deferred because the room has not said it yet, and
       // a restatement of what is stored is not the room having said it.
       if (participant.speaking === speaking && participant.muted === muted) {
-        return { relayAt: null, deferred: false };
+        return { relayAt: null, dueAt: null };
       }
       const due = relayIsDue(participant, now);
       const at = new Date(now).toISOString();
@@ -76,15 +83,22 @@ export async function relayPresence(
         presenceAt: due ? at : participant.presenceAt,
         presenceDirty: !due,
       });
-      return { relayAt: due ? at : null, deferred: !due };
+      return {
+        relayAt: due ? at : null,
+        // The window this transition is waiting on, measured from the last relay — which is exactly
+        // what `presenceFlushDeadlineOf` would answer for the record just written.
+        dueAt: due
+          ? null
+          : presenceFlushDeadlineOf({ ...participant, presenceDirty: true, speaking, muted }),
+      };
     },
   );
-  if (outcome.relayAt === null) return outcome.deferred;
+  if (outcome.relayAt === null) return outcome.dueAt;
   // Its own frame rather than a roster difference: this is the one change to a participant that
   // happens while nothing else about them has, and wrapping two booleans in a roster entry would
   // carry their name, their session and every track they publish to say one of them moved.
   broadcast(room, presenceDeltaFrame(attendanceId, speaking, muted, outcome.relayAt), socket);
-  return false;
+  return null;
 }
 
 /**
@@ -113,12 +127,19 @@ export function presenceFlushDeadlineOf(participant: StoredParticipant): number 
  *
  * The write happens whether or not anybody is left to send to: the flag is the room's state, and a
  * flag nobody lowered would arm the alarm again on the next reconciliation, forever.
+ *
+ * Answers how many transitions this flush covered, which is the only number that says whether the
+ * throttle is earning its place: one is a quiet meeting, forty is a discussion in which forty
+ * separate broadcasts were collapsed into one wake. It is recorded per FLUSH and never per
+ * transition — an event for each would cost more than the relaying does.
  */
-export async function flushDeferredPresence(room: RoomContext, now: number): Promise<void> {
+export async function flushDeferredPresence(room: RoomContext, now: number): Promise<number> {
   const stored = await storedParticipants(room);
+  let relayed = 0;
   for (const [attendanceId, participant] of stored) {
     const deadline = presenceFlushDeadlineOf(participant);
     if (deadline === null || deadline > now) continue;
+    relayed += 1;
     const at = new Date(now).toISOString();
     await putParticipant(room, attendanceId, {
       ...participant,
@@ -131,6 +152,7 @@ export async function flushDeferredPresence(room: RoomContext, now: number): Pro
       attendanceId,
     );
   }
+  return relayed;
 }
 
 // Whether this participant's window has closed. A stay that has never had a presence relayed has no

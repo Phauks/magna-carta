@@ -1240,6 +1240,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "meetings.getForFirmEvent",
       "meetings.grantHosting",
       "meetings.hosts",
+      "meetings.inspect",
       "meetings.join",
       "meetings.leave",
       "meetings.list",

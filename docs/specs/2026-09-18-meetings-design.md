@@ -756,3 +756,69 @@ sketch above:
   acknowledgement of a browser's answer — had no handler in the browser at all; it fell through the
   receive switch's `default`. It is now wired explicitly and does nothing, which is a different
   statement from not being wired.
+
+## 16. Diagnosability, as built (2026-09-20)
+
+The diagnosability bullet of section 15 named four things: a per-meeting structured event stream, a
+browser-side connection sample reported to the room, an operator's `inspect` call, and a load
+harness. All four are built. What differs from the sketch, and what the build settled that the sketch
+did not:
+
+- **The event family is `meetings.room.*` in the telemetry catalog**, one allowlist builder per act,
+  correlated by `firmId`, `meetingId` and — where the act is about a person — `attendanceId`:
+  `joined`, `welcomed`, `published`, `subscribed`, `layerChanged`, `presenceRelayed`, `refused`,
+  `socketLost`, `swept`, `superseded`, `admitted`, `denied`, `muted`, `removed`, `locked`, `ended`,
+  `alarmRan`, `storageReadBudget`, `clientReport`. The redaction is structural rather than a rule at
+  the call sites: there is no declared field for a display name, a track name, a session description
+  or a chat line, so a future edit cannot add one without adding it to the catalog first.
+- **Two of them are deliberately not per occurrence**, because they are the frames a large room sends
+  most. Presence is recorded once per coalesced flush with the count it covered, never per
+  transition. What a frame spends in storage is SAMPLED, one frame in twenty, and is approximate
+  under concurrency — the counters belong to the room, so two frames in flight share their spend. It
+  is a budget, never a ledger, and the note in the catalog says so.
+- **The room's emitter is a concern module** (`room/room-diagnostics.ts`) that nothing may throw out
+  of, and every other module reaches it with one call per event. A refusal is SENT and RECORDED in
+  one call, because a refusal recorded and not sent — or sent and not recorded — is the drift the
+  Error ID exists to close: the member holds a handle the record does not know.
+- **The browser's report is a `diagnostic-report` client frame**, additive, every field optional and
+  bounded field by field in the protocol package: quality, round trip, loss fraction, jitter, the
+  outbound layer (rid, width, height, bitrate) and the count of inbound streams. Bounded because it
+  is the one frame whose whole content is an unverifiable claim about the sender, and telemetry
+  aggregates these. The room accepts one per participant per five seconds and DROPS the rest in
+  silence, on the sync throttle's reasoning; it keeps the last sample on the participant record for
+  the inspect call, and that record dies with the room. Nothing is acknowledged back.
+- **`inspect()` is an RPC on the room behind the platform-operator guard**, at
+  `GET /api/v1/meetings/{meetingId}/inspect` in `routes/meeting-inspect.ts`. It is the ONE meeting
+  route that names the firm in the query rather than addressing the room by the session firm, and the
+  reason is structural: the caller belongs to no firm, so there is no session firm to read and the
+  guard rather than the address is what decides. A firm-scoped permission was rejected — a member who
+  could read the room's internals could read a colleague's connection quality and their place in the
+  meeting. It answers with the roster (role, presence, track and subscription counts, last sample),
+  the door, the open sockets and which stay each carries, the alarm with which of its deadlines are
+  pending, the storage key count and approximate size, the routing session ids and the ended marker,
+  and carries no session description, display name or track name. A room nobody has ever addressed
+  answers with empty lists rather than a refusal, because that is itself the finding.
+- **The load harness is an api-worker test rather than a `tooling/` command**, because it has to
+  drive real socket pairs against the real Durable Object and that is only possible inside the test
+  pool. The driver is `test/support/meeting-room-load.ts`; the fast variant (forty clients) runs in
+  the ordinary suite as an assertion on the two bounds, and the full variant (three hundred) is
+  `MEETING_ROOM_LOAD_PARTICIPANTS=300` on the same file. The counts are the result; the wall time is
+  a fact about the machine.
+
+### What the harness found
+
+It was built to make a claim measurable and it immediately falsified one. Every deferred presence
+transition armed the alarm through the full reconciliation, which reads the whole roster AND the
+whole door to find the nearest deadline — two list reads, on the frame a room of three hundred sends
+most, measured at 1.2 storage lists per frame against a design that claims one. The deadline is
+already known where the transition is deferred, so `relayPresence` now answers WITH it and the
+caller arms for that instant (`armAlarmFor`), which is safe on exactly the grounds the full
+reconciliation was: an alarm is never pushed later, and every wake ends by reconciling the whole room
+again. The same pass fell to 0.4 lists per frame.
+
+It found a second thing, which is a correctness bug rather than a cost: the room's DIRECT replies to
+one socket called `send` unguarded, and `send` on a closed socket throws. A throw out of
+`webSocketMessage` does not fail one frame — the runtime resets the object and every socket in the
+meeting drops — so a supersede, a leave or the end of a meeting racing a queued frame would end the
+meeting for everybody in it. The room-wide broadcast had swallowed that since it was written; the
+direct replies now go through the same `trySend`.

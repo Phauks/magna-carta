@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  MEETING_CONNECTION_QUALITIES,
   PREFERRED_RIDS,
   type MeetingRoomState,
   type PreferredRid,
@@ -84,6 +85,26 @@ export const MAX_LAYER_TRACKS = 32;
 // everything it asked for.
 export const MAX_SUBSCRIBE_TRACKS = 64;
 export const MAX_CLOSE_MIDS = 64;
+
+// THE CEILINGS ON A CONNECTION REPORT, and they are sanity bounds rather than expectations.
+//
+// Every number on a `diagnostic-report` is measured by the browser sending it, which makes it the one
+// frame in this protocol whose whole content is a claim about the sender that nothing can check. The
+// bounds exist so that a claim which cannot be true is refused at the parse rather than recorded:
+// telemetry aggregates these, and one browser reporting a round trip of a hundred million
+// milliseconds moves an average nobody can then explain. Each is far above anything a working
+// connection produces and far below anything that would be believed.
+//
+// A minute of round trip is a connection that has already failed every other way; ten seconds of
+// jitter likewise. A hundred megabits is two orders above the camera's own ceiling. Sixteen thousand
+// pixels is past any display. The inbound count is a count of streams arriving, not of people in the
+// room — the room's own ceiling is a number only the server reads (see the note on `MAX_MEETING_LOBBY`
+// in this package's area note), so this is a bound of its own.
+export const MAX_DIAGNOSTIC_ROUND_TRIP_MILLISECONDS = 60_000;
+export const MAX_DIAGNOSTIC_JITTER_MILLISECONDS = 10_000;
+export const MAX_DIAGNOSTIC_BITS_PER_SECOND = 100_000_000;
+export const MAX_DIAGNOSTIC_PIXELS = 16_384;
+export const MAX_DIAGNOSTIC_INBOUND_COUNT = 1_000;
 
 // The separator between a participant's handle and the name they gave a track. A track name is the
 // pair, and the roster is how every other browser resolves one to a tile — so the room checks a
@@ -266,6 +287,57 @@ const spotlightFrame = z.object({
   participantId: participantHandle.nullable(),
 });
 
+/**
+ * WHAT THIS BROWSER'S CONNECTION IS DOING, told to the room.
+ *
+ * It is the one frame whose content is a MEASUREMENT rather than a request, and the direction is
+ * forced: once a browser has stopped pulling every stream in a room of three hundred, nothing but
+ * that browser can say whether its own picture is arriving anywhere. The room records the numbers
+ * through the standard telemetry pipeline and keeps the LAST of them on the participant record, so
+ * an operator inspecting a meeting that is going badly can see which end it is going badly at.
+ *
+ * EVERY FIELD IS OPTIONAL, AND THAT IS THE SHAPE RATHER THAN A CONVENIENCE. A browser that has not
+ * published anything has no outbound layer to describe, a connection in its first seconds has no
+ * rates yet, and a report that had to invent a zero for each of those would put a measurement in
+ * the record that nobody took. An absent field is "not measured"; it is never "none".
+ *
+ * WHAT IT CANNOT CARRY. No track name, no session description, no display name, nothing a person
+ * typed — the numbers are rates, counts and one enum, and unknown keys are stripped by the parse.
+ * A connection's behaviour is not a fact about the meeting and never reaches its record; what the
+ * room keeps is the latest sample, which dies with the room.
+ *
+ * The room accepts one of these per participant per window and drops the rest, exactly as it drops a
+ * `sync` inside its window: a sample is a restatement, and the next one is along in a moment.
+ */
+const diagnosticReportFrame = z.object({
+  ...versioned,
+  type: z.literal("diagnostic-report"),
+  sample: z.object({
+    quality: z.enum(MEETING_CONNECTION_QUALITIES).optional(),
+    roundTripMilliseconds: z.number().min(0).max(MAX_DIAGNOSTIC_ROUND_TRIP_MILLISECONDS).optional(),
+    // A fraction of what was sent, never a packet count: a count is a number whose meaning depends
+    // on an interval the room does not know.
+    lossFraction: z.number().min(0).max(1).optional(),
+    jitterMilliseconds: z.number().min(0).max(MAX_DIAGNOSTIC_JITTER_MILLISECONDS).optional(),
+    // The camera as it is actually going out — which simulcast layer, at what size, at what rate.
+    // Absent for somebody who joined to listen, and for a call, where there is no picture at all.
+    outbound: z
+      .object({
+        rid: z.enum(PREFERRED_RIDS).optional(),
+        width: z.number().int().min(1).max(MAX_DIAGNOSTIC_PIXELS).optional(),
+        height: z.number().int().min(1).max(MAX_DIAGNOSTIC_PIXELS).optional(),
+        bitrate: z.number().min(0).max(MAX_DIAGNOSTIC_BITS_PER_SECOND).optional(),
+      })
+      .optional(),
+    // How many streams this browser is receiving — the number that says whether a member seeing
+    // nothing is subscribed to nothing or subscribed to everything and receiving none of it.
+    inboundCount: z.number().int().min(0).max(MAX_DIAGNOSTIC_INBOUND_COUNT).optional(),
+  }),
+});
+
+/** The measurement a `diagnostic-report` carries, as both ends read it. */
+export type MeetingDiagnosticSample = z.infer<typeof diagnosticReportFrame>["sample"];
+
 // The ping is the byte-exact frame the runtime answers without waking the room, and it carries no
 // version field for that reason: the auto-response matches the bytes, so adding one would make every
 // keepalive a wake. Accepted here as well, because a browser that pretty-printed its ping still
@@ -285,6 +357,7 @@ export const MeetingClientFrame = z.union([
   muteAllFrame,
   askToUnmuteFrame,
   spotlightFrame,
+  diagnosticReportFrame,
   pingFrame,
 ]);
 
@@ -681,6 +754,7 @@ export function refusedFrame(reason: MeetingRefusalReason, errorId?: string): st
 }
 
 export type {
+  MeetingConnectionQuality,
   MeetingHostRole,
   MeetingLobbyMode,
   MeetingRoomState,
@@ -689,3 +763,4 @@ export type {
   RosterParticipant,
   WaitingParticipant,
 } from "./types.ts";
+export { MEETING_CONNECTION_QUALITIES } from "./types.ts";

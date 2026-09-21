@@ -421,7 +421,11 @@ let fakeRoutingServiceFetch: typeof fetch | null = null;
 // reading is kept for a runner that bundles this module without Vite's define pass, where
 // `import.meta.env` is absent and the node-side variable is the only signal. Neither is set in a
 // deployment, and neither read may throw — this runs on the request path.
-function runningUnderTest(): boolean {
+//
+// Exported because room-diagnostics.ts installs its logger through a seam with exactly this
+// posture, and two spellings of "is a test runner what is running this" would be two answers to
+// whether a module-level override may act.
+export function runningUnderTest(): boolean {
   const mode = (import.meta as { env?: { MODE?: string } }).env?.MODE;
   if (mode === "test") return true;
   // Read off `globalThis` rather than as a bare identifier: this Worker's types do not declare

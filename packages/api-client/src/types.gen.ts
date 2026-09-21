@@ -3316,6 +3316,7 @@ export type MatterEventParticipantInput = {
 
 export type CalendarEventMeetingInput = {
     medium: 'video' | 'audio';
+    lobby?: 'off' | 'on';
 } | null;
 
 export type CalendarEventUpdatedResponse = {
@@ -3912,6 +3913,73 @@ export type MeetingLobbyDecisions = {
 
 export type MeetingLobbyDecisionRequest = {
     participantIds: Array<string>;
+};
+
+export type MeetingRoomInspection = {
+    firmId: string | null;
+    meetingId: string | null;
+    medium: string | null;
+    locked: boolean;
+    lobby: string;
+    spotlight: {
+        participantId: string;
+        by: string;
+        at: string;
+    } | null;
+    endedAt: string | null;
+    roster: Array<MeetingRoomInspectedParticipant>;
+    waiting: Array<MeetingRoomInspectedWaiting>;
+    sockets: {
+        count: number;
+        attendanceIds: Array<string>;
+        unreadable: number;
+        welcomed: number;
+    };
+    alarm: {
+        at: string | null;
+        pendingJobs: Array<'participant-grace' | 'door-grace' | 'presence-flush' | 'ended-marker-retirement'>;
+    };
+    storage: {
+        keyCount: number;
+        approximateBytes: number;
+    };
+    sfuSessionIds: Array<string>;
+};
+
+export type MeetingRoomInspectedParticipant = {
+    participantId: string;
+    userId: string;
+    hostRole: 'host' | 'co-host' | null;
+    speaking: boolean;
+    muted: boolean;
+    presenceDirty: boolean;
+    connected: boolean;
+    socketLostAt: string | null;
+    sfuSessionId: string | null;
+    trackCount: number;
+    subscribedMidCount: number;
+    reportAt: string | null;
+    lastSample: MeetingRoomClientSample;
+};
+
+export type MeetingRoomClientSample = {
+    at: string;
+    quality: string | null;
+    roundTripMilliseconds: number | null;
+    lossFraction: number | null;
+    jitterMilliseconds: number | null;
+    outboundRid: string | null;
+    outboundWidth: number | null;
+    outboundHeight: number | null;
+    outboundBitsPerSecond: number | null;
+    inboundCount: number | null;
+} | null;
+
+export type MeetingRoomInspectedWaiting = {
+    participantId: string;
+    userId: string;
+    waitingFrom: string;
+    socketLostAt: string | null;
 };
 
 export type MatterSearchAnswer = {
@@ -22610,6 +22678,47 @@ export type MeetingsDenyFromLobbyResponses = {
 };
 
 export type MeetingsDenyFromLobbyResponse = MeetingsDenyFromLobbyResponses[keyof MeetingsDenyFromLobbyResponses];
+
+export type MeetingsInspectData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query: {
+        firmId: string;
+    };
+    url: '/api/v1/meetings/{meetingId}/inspect';
+};
+
+export type MeetingsInspectErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * The meeting or firm handle is not a well-formed identifier
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsInspectError = MeetingsInspectErrors[keyof MeetingsInspectErrors];
+
+export type MeetingsInspectResponses = {
+    /**
+     * What the room is holding
+     */
+    200: MeetingRoomInspection;
+};
+
+export type MeetingsInspectResponse = MeetingsInspectResponses[keyof MeetingsInspectResponses];
 
 export type MatterSearchSearchData = {
     body?: never;

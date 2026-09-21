@@ -118,6 +118,27 @@ export interface WaitingParticipant {
   readonly waitingFrom: string;
 }
 
+/**
+ * HOW A CONNECTION IS BEHAVING, as one word.
+ *
+ * The browser measures its own connection and judges it; the room never measures anything, because
+ * nothing but that browser can once it has stopped pulling three hundred streams. So this is a
+ * verdict travelling from the end that can reach the numbers to the end that keeps the record of
+ * what the meeting was like — and `unknown` is deliberately a value rather than an absence: a
+ * connection nothing has measured yet is a different fact from one measured and found good.
+ *
+ * The third twin union in this file, beside the medium and the host role, and the browser's own
+ * `ConnectionQuality` is its structural match — a mismatch is a type error at the seam carrying it.
+ */
+export const MEETING_CONNECTION_QUALITIES = Object.freeze([
+  "good",
+  "fair",
+  "poor",
+  "unknown",
+] as const);
+
+export type MeetingConnectionQuality = (typeof MEETING_CONNECTION_QUALITIES)[number];
+
 /** One track a participant publishes, as the roster names it to everybody else. */
 export interface RosterTrack {
   readonly trackName: string;

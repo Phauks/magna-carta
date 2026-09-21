@@ -10,6 +10,7 @@ import { isMeetingMedium } from "@magna-carta/meetings/types";
 import type { Bindings } from "../app.ts";
 import { isWebSocketUpgrade } from "../progress/job-progress-sockets.ts";
 import { dispatchClientFrame } from "./room/room-frames.ts";
+import { inspectRoom, type MeetingRoomInspection } from "./room/room-inspect.ts";
 import { hostingChanged, participantRemoved, roomStateChanged } from "./room/room-hosting.ts";
 import {
   admitToLobby,
@@ -272,5 +273,19 @@ export class MeetingRoom extends DurableObject<Bindings> {
   /** The lobby setting moved. Nobody at the door is admitted by it. */
   async lobbyChanged(lobby: MeetingLobbyMode): Promise<void> {
     await lobbyChanged(this.room, lobby);
+  }
+
+  /**
+   * Everything this room is holding — for a platform operator, and for nobody else.
+   *
+   * The read is `room/room-inspect.ts`, which is where what it may and may not carry is argued out:
+   * handles, counts, instants and the browsers' own measurements, and never a session description,
+   * a display name or a track name. The route is behind the platform-operator guard
+   * (`routes/meeting-inspect.ts`), and this method does nothing about authority itself — the
+   * firm-scoped door every other read of a meeting goes through cannot serve a caller who belongs to
+   * no firm, which is exactly what a platform operator is.
+   */
+  async inspect(): Promise<MeetingRoomInspection> {
+    return await inspectRoom(this.room);
   }
 }

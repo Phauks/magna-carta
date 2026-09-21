@@ -124,6 +124,15 @@
   public-summary: Hold arrivals in a lobby and let them in when you are ready.
   notes: The owner's ruling of 2026-09-20 — meetings run concurrently, so the lobby belongs to the meeting, never to the firm. Guests always wait regardless of the setting; the signed one-time link is its own slice and nothing here mints one.
 
+- id: meetings.diagnostics
+  name: Diagnosability
+  scope: A per-meeting structured event stream through the standard telemetry pipeline correlated by firm, meeting and stay; the browser's own connection sample reported to the room and kept only as the latest; an operator's inspect call into one live room behind the platform-operator guard; and a load harness that drives three hundred fake clients against the room so the fan-out cost is a number.
+  status: partial
+  surface: internal
+  spec: docs/specs/2026-09-18-meetings-design.md
+  evidence: Both halves shipped. Browser — apps/web/src/lib/meetings/client/connection-quality.ts and client/diagnostics.svelte.ts with the marks in screen/meeting-connection.ts. Room — the meetings.room.\* event family in packages/telemetry/src/events.ts, apps/api-worker/src/meetings/room/room-diagnostics.ts wired at one call per act, the diagnostic-report frame in packages/meeting-protocol/src/frames.ts, apps/api-worker/src/meetings/room/room-inspect.ts behind apps/api-worker/src/routes/meeting-inspect.ts, and the harness in apps/api-worker/test/support/meeting-room-load.ts. Partial because nothing READS the stream yet: the operator console page over inspect, and a dashboard over the events, are the remaining halves.
+  notes: The harness falsified a design claim on its first run — every deferred presence transition armed the alarm through the full reconciliation, two roster-wide reads on the frame a large room sends most, measured at 1.2 storage lists per frame against a design that claims one. Arming for the known deadline instead took the same pass to 0.4.
+
 - id: meetings.reactions
   name: Raise hand and reactions
   scope: A raised hand the host sees in order, and a small closed set of reactions, relayed as presence rather than stored.

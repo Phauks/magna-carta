@@ -8,6 +8,12 @@ import {
 import type { MeetingLobbyMode } from "@magna-carta/meeting-protocol/types";
 import { announceRoster, rosterEntryFor, rosterFrom } from "./room-roster.ts";
 import {
+  recordAdmitted,
+  recordDenied,
+  recordJoined,
+  recordSuperseded,
+} from "./room-diagnostics.ts";
+import {
   announceRoomState,
   attachmentOf,
   deleteWaiting,
@@ -21,6 +27,7 @@ import {
   socketsFor,
   storedParticipants,
   storedWaiting,
+  trySend,
   type MeetingSocketAttachment,
   type RoomContext,
   type StoredWaiting,
@@ -87,9 +94,21 @@ export async function admitToLobby(
   });
 
   for (const older of superseded) refuseAndClose(older, "superseded");
+  if (superseded.length > 0) {
+    await recordSuperseded(room, attachment, attachment.attendanceId, superseded.length);
+  }
+  // A door arrival is a join like any other and is recorded as one, carrying `waiting` — the whole
+  // question an operator has about somebody who says they never got into the meeting is whether the
+  // room ever saw them and, if it did, which side of the door it put them on.
+  await recordJoined(room, attachment, attachment.attendanceId, {
+    medium: attachment.medium,
+    hostRole: attachment.hostRole ?? null,
+    waiting: true,
+    rejoined: false,
+  });
 
   const waiting = await storedWaiting(room);
-  server.send(lobbyStateFrameFor(waiting, attachment.attendanceId));
+  trySend(server, lobbyStateFrameFor(waiting, attachment.attendanceId));
   await announceLobbyToHosts(room, waiting);
 }
 
@@ -143,6 +162,35 @@ export async function announceLobbyToHosts(
     const attendanceId = attachmentOf(socket)?.attendanceId;
     if (attendanceId === undefined) continue;
     if ((stored.get(attendanceId)?.hostRole ?? null) === null) continue;
+    trySend(socket, payload);
+  }
+}
+
+/**
+ * THE DOOR LIST, TO SOMEBODY WHO HAS JUST BEEN GIVEN A GRANT — the one arrival of this frame that is
+ * not caused by the door moving.
+ *
+ * Every other `waiting` frame goes out because the queue changed. This one goes out because the
+ * AUDIENCE changed: a member made co-host at the twentieth minute is told the roster moved and
+ * nothing whatever about the people already standing outside, because nobody arrived and nobody was
+ * decided about. Their panel would stay empty until the next knock — which, in the case that matters,
+ * is a meeting where somebody has been waiting a while and the host who could let them in has just
+ * been appointed.
+ *
+ * Sent even when the door is EMPTY, and that is not a wasted frame: the browser holds "who is
+ * waiting" as something the wire states, so an empty list is the statement that there is nobody
+ * there. Without it the screen would be showing an absence it had never been told about.
+ */
+export async function announceLobbyToNewHosts(
+  room: RoomContext,
+  attendanceIds: readonly string[],
+): Promise<void> {
+  if (attendanceIds.length === 0) return;
+  const stays = new Set(attendanceIds);
+  const payload = waitingFrame(waitingParticipantsFrom(await storedWaiting(room)));
+  for (const socket of room.ctx.getWebSockets()) {
+    const attendanceId = attachmentOf(socket)?.attendanceId;
+    if (attendanceId === undefined || !stays.has(attendanceId)) continue;
     trySend(socket, payload);
   }
 }
@@ -234,6 +282,9 @@ export async function participantsAdmitted(
       return participant === undefined ? [] : [rosterEntryFor(attendanceId, participant)];
     }),
   });
+  // ONE EVENT FOR THE DECISION, matching the one broadcast: a host admitting twenty people took one
+  // act, and twenty events would be twenty answers to a question that has one.
+  await recordAdmitted(room, undefined, admitted.length);
   await tellTheDoorItMoved(room);
 }
 
@@ -248,14 +299,16 @@ export async function participantsDenied(
   room: RoomContext,
   attendanceIds: readonly string[],
 ): Promise<void> {
-  let removed = false;
+  let removed = 0;
   for (const attendanceId of attendanceIds) {
-    if (await deleteWaiting(room, attendanceId)) removed = true;
+    if (await deleteWaiting(room, attendanceId)) removed += 1;
     for (const socket of socketsFor(room, attendanceId)) {
       refuseAndClose(socket, "denied");
     }
   }
-  if (removed) await tellTheDoorItMoved(room);
+  if (removed === 0) return;
+  await recordDenied(room, undefined, removed);
+  await tellTheDoorItMoved(room);
 }
 
 /**
@@ -313,14 +366,4 @@ async function tellTheDoorItMoved(room: RoomContext): Promise<void> {
     trySend(socket, lobbyStateFrameFor(waiting, attachment.attendanceId));
   }
   await announceLobbyToHosts(room, waiting);
-}
-
-// A socket that went away between the walk and the send is one whose close handler is already
-// running; the door and the record are that path's to fix, not this one's.
-function trySend(socket: WebSocket, payload: string): void {
-  try {
-    socket.send(payload);
-  } catch {
-    // Deliberately empty — see above.
-  }
 }

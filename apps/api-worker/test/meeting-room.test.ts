@@ -20,6 +20,8 @@ import {
 } from "../src/progress/job-progress-protocol.ts";
 import { setSfuFetchForTests } from "../src/meetings/sfu/sfu-client.ts";
 import { PRESENCE_RELAY_INTERVAL_MILLISECONDS } from "../src/meetings/room/room-presence.ts";
+import { setRoomDiagnosticsLoggerForTests } from "../src/meetings/room/room-diagnostics.ts";
+import { createMemoryLogger, type MemoryLogger } from "@magna-carta/telemetry/logger";
 
 // The meeting's signaling protocol, against a fake media routing service.
 //
@@ -2545,5 +2547,326 @@ describe("the door, from the signaling side", () => {
     await runDurableObjectAlarm(stub);
 
     expect(await storedAt(stub, `waiting:${WAITER_STAY}`)).toBeUndefined();
+  });
+
+  it("tells a member who is GIVEN a grant who is already at the door", async () => {
+    const { meetingId, stub } = freshRoom();
+    await connect(stub, meetingId, HOST_STAY, "A Host", "video", "host");
+    const member = await connect(stub, meetingId, MEMBER_STAY, "A Member");
+    await knock(stub, meetingId, WAITER_STAY, "A Late Arrival");
+    await settle();
+    // Nothing yet: who is at the door is not something the room may see, and this member is not
+    // running the meeting.
+    expect(lastFrame(member, "waiting")).toBeUndefined();
+
+    await stub.hostingChanged([
+      { userId: `user_${HOST_STAY}`, role: "host" },
+      { userId: `user_${MEMBER_STAY}`, role: "co-host" },
+    ]);
+
+    // THE AUDIENCE CHANGED, NOT THE QUEUE — nobody arrived and nobody was decided about, so no
+    // ordinary lobby frame is coming. Without this the new co-host's panel would stay empty until
+    // the next knock, which in the case that matters is a meeting where the person who could let
+    // somebody in has just been appointed.
+    await waitFor(() => lastFrame(member, "waiting") !== undefined);
+    expect(
+      (
+        lastFrame(member, "waiting") as { participants: { participantId: string }[] }
+      ).participants.map((one) => one.participantId),
+    ).toEqual([WAITER_STAY]);
+  });
+
+  it("states an empty door to a new host rather than saying nothing", async () => {
+    const { meetingId, stub } = freshRoom();
+    await connect(stub, meetingId, HOST_STAY, "A Host", "video", "host");
+    const member = await connect(stub, meetingId, MEMBER_STAY, "A Member");
+
+    await stub.hostingChanged([
+      { userId: `user_${HOST_STAY}`, role: "host" },
+      { userId: `user_${MEMBER_STAY}`, role: "co-host" },
+    ]);
+
+    // An empty list is a statement; silence is not. The browser holds who is waiting as something
+    // the wire says, so a panel that was never told there is nobody there is showing an absence it
+    // has no authority for.
+    await waitFor(() => lastFrame(member, "waiting") !== undefined);
+    expect(lastFrame(member, "waiting")).toMatchObject({ participants: [] });
+  });
+
+  it("says nothing new to somebody whose grant was WITHDRAWN", async () => {
+    const { meetingId, stub } = freshRoom();
+    await connect(stub, meetingId, HOST_STAY, "A Host", "video", "host");
+    const member = await connect(stub, meetingId, MEMBER_STAY, "A Member", "video", "co-host");
+    await knock(stub, meetingId, WAITER_STAY, "A Late Arrival");
+    await waitFor(() => lastFrame(member, "waiting") !== undefined);
+    const before = member.frames.filter((frame) => frame["type"] === "waiting").length;
+
+    await stub.hostingChanged([{ userId: `user_${HOST_STAY}`, role: "host" }]);
+    await settle();
+    // Losing a grant is not an occasion to be sent the door: the roster frame that carries the
+    // withdrawal is what takes the panel away.
+    expect(member.frames.filter((frame) => frame["type"] === "waiting")).toHaveLength(before);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// What the room records about itself
+// ---------------------------------------------------------------------------------------------
+
+describe("what the room records about itself", () => {
+  const STAY = "meetingAttendance_diagnosticsOne";
+  const OTHER_STAY = "meetingAttendance_diagnosticsTwo";
+
+  let recorder: MemoryLogger;
+
+  beforeEach(() => {
+    // Installing the logger also restarts the storage-budget sampler, which is what makes the
+    // sampled frame a known one rather than whichever frame this file happened to reach.
+    recorder = createMemoryLogger();
+    setRoomDiagnosticsLoggerForTests(recorder);
+  });
+
+  afterAll(() => {
+    // Removed rather than left installed, on the same terms the routing-service seam is: a suite
+    // that left it set would send every later file's meeting telemetry into a dead array.
+    setRoomDiagnosticsLoggerForTests(null);
+  });
+
+  function recorded(name: string): Record<string, unknown>[] {
+    return recorder.events
+      .filter((event) => event.name === name)
+      .map((event) => event.fields as Record<string, unknown>);
+  }
+
+  function send(participant: Participant, frame: Record<string, unknown>): void {
+    participant.send(JSON.stringify({ v: 1, ...frame }));
+  }
+
+  /** One participant's whole stored record, which is where the last sample is kept. */
+  async function participantRecordOf(
+    stub: ReturnType<typeof roomStub>,
+    attendanceId: string,
+  ): Promise<Record<string, unknown>> {
+    let found: Record<string, unknown> = {};
+    await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
+      found =
+        (await state.storage.get<Record<string, unknown>>(`participant:${attendanceId}`)) ?? {};
+    });
+    return found;
+  }
+
+  it("records the arrival, the welcome and the publish, correlated by firm, meeting and stay", async () => {
+    const { meetingId, stub } = freshRoom();
+    const participant = await connect(stub, meetingId, STAY, "A Member");
+    await publish(participant, STAY, [{ name: "camera", kind: "video" }]);
+    await waitFor(() => recorded("meetings.room.published").length > 0);
+
+    expect(recorded("meetings.room.joined")[0]).toMatchObject({
+      firmId: FIRM,
+      meetingId,
+      attendanceId: STAY,
+      medium: "video",
+      waiting: false,
+      // The first socket for a stay is an arrival; the same path taken again is a rejoin, and the
+      // two are the difference between somebody joining and somebody's connection failing.
+      rejoined: false,
+    });
+    expect(recorded("meetings.room.welcomed")[0]).toMatchObject({
+      meetingId,
+      attendanceId: STAY,
+      rosterSize: 1,
+    });
+    expect(recorded("meetings.room.published")[0]).toMatchObject({
+      meetingId,
+      attendanceId: STAY,
+      trackCount: 1,
+      audioCount: 0,
+      videoCount: 1,
+      refusedCount: 0,
+    });
+  });
+
+  it("records a rejoin as a rejoin, and the socket it superseded", async () => {
+    const { meetingId, stub } = freshRoom();
+    await connect(stub, meetingId, STAY, "A Member");
+    await connect(stub, meetingId, STAY, "A Member");
+    await waitFor(() => recorded("meetings.room.superseded").length > 0);
+
+    expect(recorded("meetings.room.joined").at(-1)).toMatchObject({ rejoined: true });
+    expect(recorded("meetings.room.superseded")[0]).toMatchObject({
+      attendanceId: STAY,
+      socketCount: 1,
+    });
+  });
+
+  it("records a refusal with its reason, the frame that caused it, and no Error ID where none was minted", async () => {
+    const { meetingId, stub } = freshRoom();
+    const participant = await connect(stub, meetingId, STAY, "A Member");
+    send(participant, {
+      type: "subscribe",
+      tracks: [{ sessionId: "routing-session-nobody", trackName: `${OTHER_STAY}:camera` }],
+    });
+    await waitFor(() => recorded("meetings.room.refused").length > 0);
+
+    expect(recorded("meetings.room.refused")[0]).toMatchObject({
+      meetingId,
+      attendanceId: STAY,
+      reason: "unknown-track",
+      frameType: "subscribe",
+      // Absent because nothing failed on this side: the frame named a pair this room is not
+      // carrying, and an Error ID would send somebody looking for a trace that does not exist.
+      errorId: null,
+    });
+  });
+
+  it("gives the member and the record the SAME Error ID when the routing service will not answer", async () => {
+    const { meetingId, stub } = freshRoom();
+    const participant = await connect(stub, meetingId, STAY, "A Member");
+    sessionsAreUnavailable = true;
+    await publish(participant, STAY, [{ name: "camera", kind: "video" }]);
+    await waitFor(() => recorded("meetings.room.refused").length > 0);
+
+    const refusal = lastFrame(participant, "refused") as { reason: string; errorId?: string };
+    expect(refusal.reason).toBe("sfu-unavailable");
+    // One failure, one handle. A record naming an id the member does not hold is a support search
+    // that finds nothing, which is the one thing the field exists for.
+    expect(recorded("meetings.room.refused")[0]).toMatchObject({ errorId: refusal.errorId });
+  });
+
+  it("has no slot for a display name, a track name or a session description", async () => {
+    const { meetingId, stub } = freshRoom();
+    const participant = await connect(stub, meetingId, STAY, "Jane Attorney-Smith");
+    await publish(participant, STAY, [{ name: "camera", kind: "video" }]);
+    await waitFor(() => recorded("meetings.room.published").length > 0);
+
+    // Read as TEXT rather than field by field, which is the only form of this assertion that keeps
+    // holding when somebody adds a field: the redaction is structural (the allowlist has no slot
+    // for any of these), and this is what says so from outside the catalog.
+    const asText = JSON.stringify(recorder.events);
+    expect(asText).not.toContain("Jane");
+    expect(asText).not.toContain("Attorney-Smith");
+    expect(asText).not.toContain("camera");
+    expect(asText).not.toContain("v=0");
+    // And the handles that ARE there, because a record nothing can be correlated by is worth
+    // nothing at all.
+    expect(asText).toContain(STAY);
+    expect(asText).toContain(meetingId);
+  });
+
+  it("takes one connection report per participant per window and drops the rest", async () => {
+    const { meetingId, stub } = freshRoom();
+    const participant = await connect(stub, meetingId, STAY, "A Member");
+    send(participant, {
+      type: "diagnostic-report",
+      sample: {
+        quality: "poor",
+        roundTripMilliseconds: 410,
+        lossFraction: 0.12,
+        jitterMilliseconds: 48,
+        outbound: { rid: "q", width: 320, height: 180, bitrate: 90_000 },
+        inboundCount: 7,
+      },
+    });
+    await waitFor(() => recorded("meetings.room.clientReport").length > 0);
+
+    expect(recorded("meetings.room.clientReport")[0]).toMatchObject({
+      meetingId,
+      attendanceId: STAY,
+      quality: "poor",
+      roundTripMilliseconds: 410,
+      outboundRid: "q",
+      outboundWidth: 320,
+      inboundCount: 7,
+    });
+    // THE LAST SAMPLE IS ON THE RECORD, which is what the operator's inspect call reads.
+    const stored = (await participantRecordOf(stub, STAY))["lastSample"] as Record<string, unknown>;
+    expect(stored).toMatchObject({ quality: "poor", outboundHeight: 180 });
+
+    // A second one inside the window is dropped in silence: a sample is a restatement, and a
+    // refusal would be a vocabulary every browser has to learn to treat as non-fatal.
+    send(participant, { type: "diagnostic-report", sample: { quality: "good" } });
+    await settle();
+    expect(recorded("meetings.room.clientReport")).toHaveLength(1);
+    expect(lastFrame(participant, "refused")).toBeUndefined();
+  });
+
+  it("refuses a report that claims something no connection could measure", async () => {
+    const { meetingId, stub } = freshRoom();
+    const participant = await connect(stub, meetingId, STAY, "A Member");
+    // A hundred million milliseconds of round trip is not a bad connection; it is a claim. The
+    // bound is in the frame schema, so it is refused at the parse rather than aggregated.
+    send(participant, {
+      type: "diagnostic-report",
+      sample: { roundTripMilliseconds: 100_000_000 },
+    });
+    await waitFor(() => lastFrame(participant, "refused") !== undefined);
+
+    expect(lastFrame(participant, "refused")).toMatchObject({ reason: "malformed-frame" });
+    expect(recorded("meetings.room.clientReport")).toHaveLength(0);
+    // The stay is still in the room: a report the room could not read is a bug in one message, not
+    // a reason to drop somebody out of a meeting.
+    expect(participant.closeCode()).toBeNull();
+  });
+
+  it("samples what a frame costs the room in storage", async () => {
+    const { meetingId, stub } = freshRoom();
+    const participant = await connect(stub, meetingId, STAY, "A Member");
+    // The first frame after the logger is installed is the sampled one, and a `sync` is the frame
+    // the budget exists for: it reads every key the room holds.
+    send(participant, { type: "sync" });
+    await waitFor(() => recorded("meetings.room.storageReadBudget").length > 0);
+
+    expect(recorded("meetings.room.storageReadBudget")[0]).toMatchObject({
+      meetingId,
+      frameType: "sync",
+      // ONE list. This is the room's whole economy stated as a number: in a room of three hundred
+      // a second list would double the cost of the busiest thing it does.
+      listCount: 1,
+    });
+  });
+
+  it("records which of the alarm's jobs were due, including when none were", async () => {
+    const { meetingId, stub } = freshRoom();
+    const participant = await connect(stub, meetingId, STAY, "A Member");
+    // A room holding no deadline has no alarm to run, so one is armed the way the room arms one:
+    // a socket goes away and this stay's own minute starts.
+    participant.close();
+    await waitForStored(async () => {
+      let lost = false;
+      await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
+        const stored = await state.storage.get<Record<string, unknown>>(`participant:${STAY}`);
+        lost = stored?.["socketLostAt"] !== null && stored?.["socketLostAt"] !== undefined;
+      });
+      return lost;
+    });
+    expect(recorded("meetings.room.socketLost")[0]).toMatchObject({ attendanceId: STAY });
+
+    await runDurableObjectAlarm(stub);
+
+    // The grace has not run out, so the wake found nothing due — which is the case worth recording:
+    // an alarm that runs, does none of its jobs and re-arms anyway is the one shape in which this
+    // mechanism can spin, and it is invisible without the counts beside the re-arm.
+    expect(recorded("meetings.room.alarmRan")[0]).toMatchObject({
+      meetingId,
+      sweptParticipants: 0,
+      sweptWaiting: 0,
+      presenceFlushed: 0,
+      endedMarkerRetired: false,
+      rearmed: true,
+    });
+  });
+
+  it("records the end of the meeting with the size it ended at", async () => {
+    const { meetingId, stub } = freshRoom();
+    await connect(stub, meetingId, STAY, "A Member");
+    await connect(stub, meetingId, OTHER_STAY, "Another Member");
+    await stub.end(ENDED_AT);
+    await waitFor(() => recorded("meetings.room.ended").length > 0);
+
+    expect(recorded("meetings.room.ended")[0]).toMatchObject({
+      meetingId,
+      participantCount: 2,
+      waitingCount: 0,
+    });
   });
 });

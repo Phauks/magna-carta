@@ -9,6 +9,16 @@ import {
   sweepWaitingPastTheirGrace,
   waitingParticipantsFrom,
 } from "./room-lobby.ts";
+import {
+  recordAlarmRan,
+  recordEnded,
+  recordJoined,
+  recordPresenceRelayed,
+  recordSocketLost,
+  recordSuperseded,
+  recordSwept,
+  recordWelcomed,
+} from "./room-diagnostics.ts";
 import { releaseMedia, releaseParticipant } from "./room-media.ts";
 import { flushDeferredPresence, presenceFlushDeadlineOf } from "./room-presence.ts";
 import { announceRoster, rosterEntryFor, rosterFrom } from "./room-roster.ts";
@@ -35,6 +45,7 @@ import {
   socketsFor,
   storedParticipants,
   storedWaiting,
+  trySend,
   type MeetingSocketAttachment,
   type RoomContext,
   type StoredParticipant,
@@ -142,6 +153,18 @@ export async function admitParticipant(
   // Told BEFORE anything else, so the displaced browser learns why rather than watching a socket
   // go quiet. Its close handler finds this newer socket and arms nothing.
   for (const older of superseded) refuseAndClose(older, "superseded");
+  if (superseded.length > 0) {
+    await recordSuperseded(room, attachment, attachment.attendanceId, superseded.length);
+  }
+  await recordJoined(room, attachment, attachment.attendanceId, {
+    medium: attachment.medium,
+    hostRole: attachment.hostRole ?? null,
+    waiting: false,
+    // A rejoin and an arrival are the same code path and a different event to whoever is reading
+    // it: one of them is somebody's connection failing, and it is the one behind most reports of a
+    // tile that went black.
+    rejoined: previous !== undefined,
+  });
 
   const stored = await storedParticipants(room);
   // A SOCKET THAT HAS JUST ARRIVED HOLDS NOTHING TO APPLY A DIFFERENCE TO, so the welcome carries
@@ -152,16 +175,15 @@ export async function admitParticipant(
   // meeting: who is at the door is a list of people a host has not yet decided about, and telling
   // the room who is outside it is the leak the door was shut to prevent. The seeded role is what
   // decides, which is the one thing the attachment is allowed to answer before the record is read.
-  server.send(
-    welcomeFrame(
-      attachment.attendanceId,
-      rosterFrom(stored),
-      await roomStateOf(room),
-      (attachment.hostRole ?? null) === null
-        ? []
-        : waitingParticipantsFrom(await storedWaiting(room)),
-    ),
+  const doorList =
+    (attachment.hostRole ?? null) === null
+      ? []
+      : waitingParticipantsFrom(await storedWaiting(room));
+  trySend(
+    server,
+    welcomeFrame(attachment.attendanceId, rosterFrom(stored), await roomStateOf(room), doorList),
   );
+  await recordWelcomed(room, attachment, attachment.attendanceId, stored.size, doorList.length);
   // IN THE ROOM FROM HERE, and not before: until this frame is on the wire the browser holds no
   // roster, so a difference broadcast at it is a gap it can only close by asking for the whole list.
   // Raised after the send rather than before it so the window can only ever be too long by nothing.
@@ -230,7 +252,9 @@ export async function noteSocketLost(room: RoomContext, socket: WebSocket): Prom
     await putWaiting(room, attachment.attendanceId, { ...waiting, socketLostAt: lostAt });
     return true;
   });
-  if (timed) await armAlarm(room);
+  if (!timed) return;
+  await recordSocketLost(room, attachment, attachment.attendanceId, attachment.waiting === true);
+  await armAlarm(room);
 }
 
 /**
@@ -242,20 +266,37 @@ export async function noteSocketLost(room: RoomContext, socket: WebSocket): Prom
  */
 export async function runAlarm(room: RoomContext): Promise<void> {
   const now = Date.now();
-  await sweepParticipantsPastTheirGrace(room, now);
-  await sweepTheDoorPastItsGrace(room, now);
+  const sweptParticipants = await sweepParticipantsPastTheirGrace(room, now);
+  const sweptWaiting = await sweepTheDoorPastItsGrace(room, now);
 
   // AFTER the sweep, so a transition is never relayed about somebody the same alarm has just
   // removed from the roster: their departure is the frame everybody needs, and a presence delta
   // arriving behind it would ask every browser to draw a tile that is gone.
-  await flushDeferredPresence(room, now);
+  const presenceFlushed = await flushDeferredPresence(room, now);
 
   const purgeAt = await endedPurgeDeadline(room);
-  if (purgeAt !== null && purgeAt <= now) await deleteEndedMarker(room);
+  const endedMarkerRetired = purgeAt !== null && purgeAt <= now;
+  if (endedMarkerRetired) await deleteEndedMarker(room);
 
   // The re-arm is what makes one alarm serve several graces: whoever is still inside theirs when
   // this fires gets their own deadline set here.
-  await armAlarm(room);
+  const rearmed = await armAlarm(room);
+
+  // ONE EVENT FOR THE WAKE, naming which of the four jobs were due — an alarm that ran and did none
+  // of them, and re-armed anyway, is the only shape in which this mechanism can spin, and it is
+  // invisible from outside without this. The room's own record is read once and handed to both, so
+  // an alarm costs one read to say where it happened rather than one per event; a room whose record
+  // is gone has just been ended and there is nothing left to correlate by.
+  const identity = await readRoom(room);
+  await recordSwept(room, identity, sweptParticipants, sweptWaiting);
+  await recordPresenceRelayed(room, identity, presenceFlushed);
+  await recordAlarmRan(room, identity, {
+    sweptParticipants,
+    sweptWaiting,
+    presenceFlushed,
+    endedMarkerRetired,
+    rearmed,
+  });
 }
 
 /**
@@ -267,6 +308,11 @@ export async function runAlarm(room: RoomContext): Promise<void> {
  * a connection alive waiting for it.
  */
 export async function endMeeting(room: RoomContext, endedAt: string): Promise<void> {
+  // Read before anything is deleted, and before the broadcast, so the event can say the size the
+  // meeting actually ended at — which is the one moment that number exists anywhere.
+  const identity = await readRoom(room);
+  const atTheDoor = await storedWaiting(room);
+
   broadcast(room, endedFrame(endedAt));
   // AND EVERYBODY AT THE DOOR, who share exactly this one piece of news with the room. `broadcast`
   // cannot reach them: it skips every socket that has not been welcomed, and a waiting socket never
@@ -292,6 +338,7 @@ export async function endMeeting(room: RoomContext, endedAt: string): Promise<vo
   // The marker is kept for a day and then retired, so an ended room does not hold a key for the
   // life of the deployment.
   await armAlarm(room);
+  await recordEnded(room, identity, departing.size, atTheDoor.size);
 
   for (const socket of room.ctx.getWebSockets()) {
     socket.close(NORMAL_CLOSE_CODE, "meeting ended");
@@ -375,9 +422,9 @@ function nextWaitingDeadline(
  * There is no media to release and no spotlight to clear, because a waiter has published nothing and
  * cannot be spotlit.
  */
-async function sweepTheDoorPastItsGrace(room: RoomContext, now: number): Promise<void> {
+async function sweepTheDoorPastItsGrace(room: RoomContext, now: number): Promise<number> {
   const waiting = await storedWaiting(room);
-  if (waiting.size === 0) return;
+  if (waiting.size === 0) return 0;
   const connected = connectedAttendanceIds(room);
   const gone = [...waiting]
     .filter(([attendanceId, one]) => {
@@ -385,10 +432,11 @@ async function sweepTheDoorPastItsGrace(room: RoomContext, now: number): Promise
       return deadline !== null && deadline <= now;
     })
     .map(([attendanceId]) => attendanceId);
-  if (gone.length === 0) return;
+  if (gone.length === 0) return 0;
 
   for (const attendanceId of gone) await closeStay(room, attendanceId);
   await sweepWaitingPastTheirGrace(room, gone);
+  return gone.length;
 }
 
 /** When the ended marker should be retired, or null when there is none. */
@@ -401,7 +449,24 @@ async function endedPurgeDeadline(room: RoomContext): Promise<number | null> {
 
 // One alarm, set to the nearest deadline the room is holding. Never pushed later: an alarm already
 // due sooner is doing a job this one would delay.
-export async function armAlarm(room: RoomContext): Promise<void> {
+//
+// Answers whether the room is now holding a deadline at all — which the alarm's own event records,
+// because an alarm that finds nothing due and re-arms anyway is the one shape in which this can
+// spin, and it cannot be told from a quiet room without the answer.
+/**
+ * The alarm, set for ONE deadline the caller already knows — no reconciliation, no reads.
+ *
+ * Safe precisely because `armAlarm` never pushes an alarm later either: the only thing a re-arm can
+ * do is bring it forward, and every wake ends by reconciling the whole room again. What it saves is
+ * the two list reads the full reconciliation spends — which, on a deferred presence transition, is
+ * the most frequent frame in a large meeting paying for a read of every key the room holds.
+ */
+export async function armAlarmFor(room: RoomContext, deadline: number): Promise<void> {
+  const current = await room.ctx.storage.getAlarm();
+  if (current === null || current > deadline) await room.ctx.storage.setAlarm(deadline);
+}
+
+export async function armAlarm(room: RoomContext): Promise<boolean> {
   const deadlines: number[] = [];
   // ONE roster read and ONE pass over the sockets, whatever the room is holding deadlines for: both
   // are proportional to the size of the meeting, and this runs on every socket loss and every
@@ -415,11 +480,12 @@ export async function armAlarm(room: RoomContext): Promise<void> {
   if (doorAt !== null) deadlines.push(doorAt);
   const purgeAt = await endedPurgeDeadline(room);
   if (purgeAt !== null) deadlines.push(purgeAt);
-  if (deadlines.length === 0) return;
+  if (deadlines.length === 0) return false;
 
   const nearest = Math.min(...deadlines);
   const current = await room.ctx.storage.getAlarm();
   if (current === null || current > nearest) await room.ctx.storage.setAlarm(nearest);
+  return true;
 }
 
 /**
@@ -435,14 +501,14 @@ export async function armAlarm(room: RoomContext): Promise<void> {
  * put an ending in the record that nobody decided on — and a host whose laptop slept would come
  * back to a meeting they cannot resume.
  */
-async function sweepParticipantsPastTheirGrace(room: RoomContext, now: number): Promise<void> {
+async function sweepParticipantsPastTheirGrace(room: RoomContext, now: number): Promise<number> {
   const stored = await storedParticipants(room);
   const connected = connectedAttendanceIds(room);
   const lost = [...stored].filter(([attendanceId, participant]) => {
     const deadline = graceDeadlineOf(attendanceId, participant, connected);
     return deadline !== null && deadline <= now;
   });
-  if (lost.length === 0) return;
+  if (lost.length === 0) return 0;
 
   // THE RECORD FIRST, then the roster, then the media. The record is the only durable one of the
   // three, so it is written while there is still something naming who it is about; the media is
@@ -466,6 +532,7 @@ async function sweepParticipantsPastTheirGrace(room: RoomContext, now: number): 
     room,
     lost.map(([, participant]) => participant),
   );
+  return lost.length;
 }
 
 /** Closes one stay in the firm's own record, through the firm-scoped data-access layer. */

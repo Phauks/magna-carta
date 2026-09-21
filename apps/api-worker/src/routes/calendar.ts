@@ -114,6 +114,7 @@ import {
   openMeetingOnEvent,
 } from "@magna-carta/meetings/meeting-service";
 import { readMeetingForEvent } from "@magna-carta/meetings/meeting-statements";
+import { MEETING_LOBBY_MODES } from "@magna-carta/meetings/lobby-types";
 import { MEETING_MEDIA, type MeetingEventKind } from "@magna-carta/meetings/types";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
 import type {
@@ -184,6 +185,13 @@ const MeetingRequest = z
   .object({
     // Sound alone, or sound and pictures.
     medium: z.enum(MEETING_MEDIA),
+    // WHETHER ARRIVALS WAIT AT A DOOR, decided as the room is opened and by the same person who
+    // decided there would be one. It is optional and defaults to `off` because that is what every
+    // meeting scheduled before the door existed was, and because a form that did not ask must not
+    // silently put a firm's colleagues in a queue. Read on the CREATE path only, exactly as the
+    // medium beside it is: a meeting's door is then moved through the lobby route, which writes the
+    // record and tells the room, rather than through a re-save of the calendar entry.
+    lobby: z.enum(MEETING_LOBBY_MODES).default("off"),
   })
   .openapi("CalendarEventMeetingInput");
 
@@ -2369,6 +2377,7 @@ function scheduleMeetingOnNewEvent(
       eventId: event.id,
       matterId: event.matterId,
       medium: choice.medium,
+      lobby: choice.lobby,
     },
     serviceOptions(userId),
   );

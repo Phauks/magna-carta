@@ -13601,6 +13601,14 @@
               "video",
               "audio"
             ]
+          },
+          "lobby": {
+            "type": "string",
+            "enum": [
+              "off",
+              "on"
+            ],
+            "default": "off"
           }
         },
         "required": [
@@ -16379,6 +16387,343 @@
         },
         "required": [
           "participantIds"
+        ]
+      },
+      "MeetingRoomInspection": {
+        "type": "object",
+        "properties": {
+          "firmId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meetingId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "medium": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "locked": {
+            "type": "boolean"
+          },
+          "lobby": {
+            "type": "string"
+          },
+          "spotlight": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "participantId": {
+                "type": "string"
+              },
+              "by": {
+                "type": "string"
+              },
+              "at": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "participantId",
+              "by",
+              "at"
+            ]
+          },
+          "endedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "roster": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingRoomInspectedParticipant"
+            }
+          },
+          "waiting": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeetingRoomInspectedWaiting"
+            }
+          },
+          "sockets": {
+            "type": "object",
+            "properties": {
+              "count": {
+                "type": "integer"
+              },
+              "attendanceIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "unreadable": {
+                "type": "integer"
+              },
+              "welcomed": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "count",
+              "attendanceIds",
+              "unreadable",
+              "welcomed"
+            ]
+          },
+          "alarm": {
+            "type": "object",
+            "properties": {
+              "at": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "pendingJobs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "participant-grace",
+                    "door-grace",
+                    "presence-flush",
+                    "ended-marker-retirement"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "at",
+              "pendingJobs"
+            ]
+          },
+          "storage": {
+            "type": "object",
+            "properties": {
+              "keyCount": {
+                "type": "integer"
+              },
+              "approximateBytes": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "keyCount",
+              "approximateBytes"
+            ]
+          },
+          "sfuSessionIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "firmId",
+          "meetingId",
+          "medium",
+          "locked",
+          "lobby",
+          "spotlight",
+          "endedAt",
+          "roster",
+          "waiting",
+          "sockets",
+          "alarm",
+          "storage",
+          "sfuSessionIds"
+        ]
+      },
+      "MeetingRoomInspectedParticipant": {
+        "type": "object",
+        "properties": {
+          "participantId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "hostRole": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "host",
+              "co-host",
+              null
+            ]
+          },
+          "speaking": {
+            "type": "boolean"
+          },
+          "muted": {
+            "type": "boolean"
+          },
+          "presenceDirty": {
+            "type": "boolean"
+          },
+          "connected": {
+            "type": "boolean"
+          },
+          "socketLostAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sfuSessionId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "trackCount": {
+            "type": "integer"
+          },
+          "subscribedMidCount": {
+            "type": "integer"
+          },
+          "reportAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastSample": {
+            "$ref": "#/components/schemas/MeetingRoomClientSample"
+          }
+        },
+        "required": [
+          "participantId",
+          "userId",
+          "hostRole",
+          "speaking",
+          "muted",
+          "presenceDirty",
+          "connected",
+          "socketLostAt",
+          "sfuSessionId",
+          "trackCount",
+          "subscribedMidCount",
+          "reportAt",
+          "lastSample"
+        ]
+      },
+      "MeetingRoomClientSample": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "at": {
+            "type": "string"
+          },
+          "quality": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "roundTripMilliseconds": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "lossFraction": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "jitterMilliseconds": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "outboundRid": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "outboundWidth": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "outboundHeight": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "outboundBitsPerSecond": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "inboundCount": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "at",
+          "quality",
+          "roundTripMilliseconds",
+          "lossFraction",
+          "jitterMilliseconds",
+          "outboundRid",
+          "outboundWidth",
+          "outboundHeight",
+          "outboundBitsPerSecond",
+          "inboundCount"
+        ]
+      },
+      "MeetingRoomInspectedWaiting": {
+        "type": "object",
+        "properties": {
+          "participantId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "waitingFrom": {
+            "type": "string"
+          },
+          "socketLostAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "participantId",
+          "userId",
+          "waitingFrom",
+          "socketLostAt"
         ]
       },
       "MatterSearchAnswer": {
@@ -70298,6 +70643,100 @@
           },
           "429": {
             "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/{meetingId}/inspect": {
+      "get": {
+        "description": "A platform operator reads what one meeting's signaling room is holding: the roster with each participant's hosting role, presence, track and subscription counts and last connection report; who is at the door; the open sockets and which stay each carries; the alarm and which of its deadlines are pending; the storage key count and approximate size; the routing sessions; and the ended marker. It carries no session description, no display name and no track name, and it changes nothing. A room that has never been addressed answers with empty lists rather than a refusal — that is itself the finding.",
+        "operationId": "meetings.inspect",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.inspect",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^meeting_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "meetingId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^firm_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "firmId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What the room is holding",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingRoomInspection"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a platform operator, or 2FA not enabled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The meeting or firm handle is not a well-formed identifier",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
             "content": {
               "application/problem+json": {
                 "schema": {

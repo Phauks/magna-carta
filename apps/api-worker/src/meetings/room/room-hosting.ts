@@ -1,11 +1,12 @@
 import {
   closedFrame,
   mutedFrame,
-  refusedFrame,
   unmuteRequestedFrame,
 } from "@magna-carta/meeting-protocol/frames";
 import type { MeetingHostRole } from "@magna-carta/meeting-protocol/types";
 import { sfuClientForEnv, SfuUnavailableError, type SfuClient } from "../sfu/sfu-client.ts";
+import { recordLocked, recordMuted, recordRemoved, refuseAndRecord } from "./room-diagnostics.ts";
+import { announceLobbyToNewHosts } from "./room-lobby.ts";
 import { forgetTracks, releaseParticipant } from "./room-media.ts";
 import { announceRoster, rosterEntryFor } from "./room-roster.ts";
 import {
@@ -19,6 +20,7 @@ import {
   setRoomLocked,
   socketsFor,
   storedParticipants,
+  trySend,
   type RoomContext,
   type StoredParticipant,
 } from "./room-state.ts";
@@ -77,7 +79,11 @@ export async function handleHostFrame(
     // THE SOCKET STAYS OPEN. The member is in the meeting and everything else they can do still
     // works; what they cannot do is run it. Closing here would drop somebody out of a meeting over
     // a menu item they should not have been shown.
-    socket.send(refusedFrame("not-host"));
+    //
+    // It is also the one refusal here worth reading after the fact: a host frame from a socket
+    // holding no grant is either a menu that should not have been drawn or somebody trying the
+    // directive by hand, and the record is where those two become distinguishable.
+    await refuseAndRecord(room, socket, undefined, attendanceId, "not-host", frame.type);
     return;
   }
 
@@ -93,7 +99,7 @@ export async function handleHostFrame(
     // the next two minutes were not in the meeting. Their screen offers Unmute and Stay muted, and
     // the host sees no acknowledgement because there is nothing to acknowledge — they asked.
     if (!stored.has(frame.participantId)) {
-      socket.send(refusedFrame("unknown-track"));
+      await refuseAndRecord(room, socket, undefined, attendanceId, "unknown-track", frame.type);
       return;
     }
     sendToStay(
@@ -109,17 +115,23 @@ export async function handleHostFrame(
     // A mute is the one host act that reaches the routing service, and it cannot be honoured by
     // asking the browser nicely — see `closeAudio` below. Said plainly rather than left looking
     // like it worked. No Error ID: nothing failed, the deployment simply cannot route media.
-    socket.send(refusedFrame("sfu-unavailable"));
+    await refuseAndRecord(room, socket, undefined, attendanceId, "sfu-unavailable", frame.type);
     return;
   }
 
   if (frame.type === "mute") {
     const target = stored.get(frame.participantId);
     if (target === undefined) {
-      socket.send(refusedFrame("unknown-track"));
+      await refuseAndRecord(room, socket, undefined, attendanceId, "unknown-track", frame.type);
       return;
     }
     await closeAudio(room, attendanceId, frame.participantId, target, sfu, true);
+    await recordMuted(room, undefined, {
+      attendanceId: frame.participantId,
+      byAttendanceId: attendanceId,
+      scope: "one",
+      mutedCount: 1,
+    });
     return;
   }
 
@@ -232,6 +244,15 @@ async function muteEveryoneElse(
       return participant === undefined ? [] : [rosterEntryFor(attendanceId, participant)];
     }),
   });
+  // ONE EVENT FOR THE ACT, carrying its count — the same arrangement as the one broadcast above,
+  // and for the same reason: a host clearing the floor in a room of three hundred did one thing.
+  // `attendanceId` is null because this is not about a person; the count is what it is about.
+  await recordMuted(room, undefined, {
+    attendanceId: null,
+    byAttendanceId,
+    scope: "everyone",
+    mutedCount: queue.length,
+  });
 }
 
 /**
@@ -282,6 +303,10 @@ export async function participantRemoved(room: RoomContext, attendanceId: string
   for (const socket of socketsFor(room, attendanceId)) {
     refuseAndClose(socket, "removed");
   }
+  // WHO did it is the hosting route's audit row, on the firm's own record, because a member put out
+  // of a meeting is something somebody could later ask about. What this adds is that the room
+  // carried it out, which is the half the audit row cannot say.
+  await recordRemoved(room, undefined, attendanceId);
 }
 
 /**
@@ -300,6 +325,7 @@ export async function hostingChanged(
   const roleByUser = new Map(grants.map((grant) => [grant.userId, grant.role]));
   const stored = await storedParticipants(room);
   const moved: string[] = [];
+  const newlyGranted: string[] = [];
   for (const [attendanceId, participant] of stored) {
     const role = roleByUser.get(participant.userId) ?? null;
     if (hostRoleOf(participant) === role) continue;
@@ -307,6 +333,7 @@ export async function hostingChanged(
     await putParticipant(room, attendanceId, rewritten);
     stored.set(attendanceId, rewritten);
     moved.push(attendanceId);
+    if (role !== null) newlyGranted.push(attendanceId);
   }
   if (moved.length === 0) return;
   announceRoster(room, stored, {
@@ -315,12 +342,18 @@ export async function hostingChanged(
       return participant === undefined ? [] : [rosterEntryFor(attendanceId, participant)];
     }),
   });
+  // AND THE DOOR, to whoever has just been given the grant that lets them open it. A roster frame
+  // says their role moved; it says nothing about the people already standing outside, because
+  // nobody arrived and nobody was decided about — so without this a member made co-host at the
+  // twentieth minute sees an empty lobby panel while somebody waits in it.
+  await announceLobbyToNewHosts(room, newlyGranted);
 }
 
 /** The door moved. The room's own copy is rewritten and everybody is told what is now true. */
 export async function roomStateChanged(room: RoomContext, locked: boolean): Promise<void> {
   await setRoomLocked(room, locked);
   await announceRoomState(room);
+  await recordLocked(room, undefined, locked);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -355,12 +388,7 @@ async function announceOne(room: RoomContext, attendanceId: string): Promise<voi
 
 /** Sends one frame to every socket carrying one stay — a directive addressed to one person. */
 function sendToStay(room: RoomContext, attendanceId: string, payload: string): void {
-  for (const socket of socketsFor(room, attendanceId)) {
-    try {
-      socket.send(payload);
-    } catch {
-      // A socket that went away between the walk and the send is one whose close handler is already
-      // running; the roster and the record are that path's to fix, not this one's.
-    }
-  }
+  // A socket that went away between the walk and the send is one whose close handler is already
+  // running; the roster and the record are that path's to fix, not this one's.
+  for (const socket of socketsFor(room, attendanceId)) trySend(socket, payload);
 }

@@ -5,6 +5,9 @@ import {
   emailSent,
   errorCaptured,
   incidentCreated,
+  meetingRoomClientReport,
+  meetingRoomPublished,
+  meetingRoomRefused,
   migrationApplied,
   operationFailed,
   outboxDeadLettered,
@@ -130,5 +133,81 @@ describe("event catalog", () => {
 
   it("every catalog event name is unique", () => {
     expect(new Set(EVENT_NAMES).size).toBe(EVENT_NAMES.length);
+  });
+
+  it("the meeting-room family carries the three correlation handles and counts, and nothing a person said", () => {
+    const event = meetingRoomPublished(context, {
+      firmId: "firm_abc",
+      meetingId: "meeting_abc",
+      attendanceId: "meetingAttendance_abc",
+      trackCount: 2,
+      audioCount: 1,
+      videoCount: 1,
+      refusedCount: 0,
+    });
+    expect(event.name).toBe("meetings.room.published");
+    expect(event.fields).toEqual({
+      firmId: "firm_abc",
+      meetingId: "meeting_abc",
+      attendanceId: "meetingAttendance_abc",
+      trackCount: 2,
+      audioCount: 1,
+      videoCount: 1,
+      refusedCount: 0,
+    });
+  });
+
+  it("a meeting-room refusal has no slot for a track name or a session description", () => {
+    // The cast is the point: a call site reaching the builder through `any` — a parsed frame, a
+    // caught error's payload — still cannot get an undeclared key past the allowlist.
+    const event = (
+      meetingRoomRefused as unknown as (
+        eventContext: typeof context,
+        fields: Record<string, unknown>,
+      ) => ReturnType<typeof meetingRoomRefused>
+    )(context, {
+      firmId: "firm_abc",
+      meetingId: "meeting_abc",
+      attendanceId: "meetingAttendance_abc",
+      reason: "unknown-track",
+      errorId: null,
+      frameType: "subscribe",
+      trackName: "meetingAttendance_abc:camera",
+      sdp: "v=0 an offer",
+    });
+    expect(Object.keys(event.fields).toSorted()).toEqual([
+      "attendanceId",
+      "errorId",
+      "firmId",
+      "frameType",
+      "meetingId",
+      "reason",
+    ]);
+  });
+
+  it("a client report carries measurements only, flattened out of the frame's own shape", () => {
+    const event = meetingRoomClientReport(context, {
+      firmId: "firm_abc",
+      meetingId: "meeting_abc",
+      attendanceId: "meetingAttendance_abc",
+      quality: "poor",
+      roundTripMilliseconds: 410,
+      lossFraction: 0.12,
+      jitterMilliseconds: 48,
+      outboundRid: "q",
+      outboundWidth: 320,
+      outboundHeight: 180,
+      outboundBitsPerSecond: 90_000,
+      inboundCount: 7,
+    });
+    expect(event.name).toBe("meetings.room.clientReport");
+    expect(event.fields["quality"]).toBe("poor");
+    expect(event.fields["outboundRid"]).toBe("q");
+  });
+
+  it("every meeting-room event is named under the one family prefix", () => {
+    const family = EVENT_NAMES.filter((name) => name.startsWith("meetings."));
+    expect(family.length).toBeGreaterThan(15);
+    for (const name of family) expect(name.startsWith("meetings.room.")).toBe(true);
   });
 });

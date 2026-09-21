@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 859 nodes of the feature ledger in
+is the complete register rather than a digest: all 860 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,9 +21,9 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**859 capabilities across 32 areas.** Every one of them is listed in [the register](#the-register)
+**860 capabilities across 32 areas.** Every one of them is listed in [the register](#the-register)
 below. 145 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **714 that are units of work**, for the reason set out under [What a roll-up is
+count the **715 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
@@ -31,29 +31,29 @@ not](#what-a-roll-up-is-not).
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
 | Done | shipped | 328 | 46% |
-| Part-built | partial, in-build | 127 | 18% |
+| Part-built | partial, in-build | 128 | 18% |
 | Ahead | designed, planned, researching, not-started | 217 | 30% |
 | Parked | deferred, cut | 42 | 6% |
-| **All units of work** | | **714** | **100%** |
+| **All units of work** | | **715** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
 | `shipped` | 328 | 46% |
-| `partial` | 124 | 17% |
+| `partial` | 125 | 18% |
 | `in-build` | 3 | 0% |
-| `designed` | 53 | 8% |
+| `designed` | 53 | 7% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
 | `not-started` | 144 | 20% |
 | `deferred` | 38 | 5% |
 | `cut` | 4 | 1% |
-| **All statuses** | **714** | **100%** |
+| **All statuses** | **715** | **100%** |
 
 ### What a roll-up is not
 
-**145 of the 859 nodes are parents, and 113 of those parents are `partial`.** A parent's status is a
+**145 of the 860 nodes are parents, and 113 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 328 of 714 (46%). Shipped plus partial is 452 (63%).**
+**Shipped alone is 328 of 715 (46%). Shipped plus partial is 453 (63%).**
 
-The 124 units between those two numbers are work that is engineered and paid for and is not
+The 125 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,7 +74,7 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**455 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**456 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
@@ -83,9 +83,9 @@ ledger records it separately, in `surface:`.
 | --- | ---: | ---: |
 | A person can open it today (`screen`) | 111 | 24% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 159 | 35% |
-| No user surface by nature (`internal`) | 185 | 41% |
+| No user surface by nature (`internal`) | 186 | 41% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **455** | **100%** |
+| **Everything with something built** | **456** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -112,7 +112,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
 | Integrations & Plugins | 17 | 2 | 0 | 1 | 0 | 3 | 15 | 3 | 1 | 42 | 40% |
 | Maintenance Agents | 2 | 3 | 0 | 0 | 0 | 0 | 5 | 0 | 0 | 10 | 20% |
-| Meetings | 8 | 0 | 3 | 7 | 0 | 0 | 11 | 0 | 0 | 29 | 28% |
+| Meetings | 8 | 1 | 3 | 7 | 0 | 0 | 11 | 0 | 0 | 30 | 27% |
 | Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 12 | 58% |
 | Notifications | 4 | 6 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 14 | 29% |
 | Observability & Diagnostics | 14 | 0 | 0 | 0 | 0 | 0 | 4 | 2 | 0 | 20 | 70% |
@@ -127,7 +127,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 14 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 21 | 67% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **328** | **124** | **3** | **53** | **15** | **5** | **144** | **38** | **4** | **714** | **46%** |
+| **All areas** | **328** | **125** | **3** | **53** | **15** | **5** | **144** | **38** | **4** | **715** | **46%** |
 
 ## Where we have been
 
@@ -1058,7 +1058,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Meetings
 
-[`roadmap.d/meetings.md`](../roadmap.d/meetings.md) — 29 units of work, 28% shipped. 8 done, 3 part-built, 18 ahead, 0 parked.
+[`roadmap.d/meetings.md`](../roadmap.d/meetings.md) — 30 units of work, 27% shipped. 8 done, 4 part-built, 18 ahead, 0 parked.
 
 - `meetings` · `partial` · **Meetings** — In-app video conferencing — a meeting started from a calendar event, media browser-to-Cloudflare Realtime SFU, signaling through a per-meeting Durable Object, attendance recorded on the event. _Note: The owner's ruling of 2026-09-18 — bundled into the product so a firm runs fewer tools; a Zoom/Teams port may exist later, never as the default._
   - `meetings.record` · `shipped` · **Meeting record and attendance** — One meeting per calendar event (matter or firm), status scheduled/live/ended, an attendance row per join with joined and left instants, audit rows of identifiers and instants only.
@@ -1073,6 +1073,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `meetings.large-rooms` · `shipped` · **Large rooms (300 participants)** — The cap lifted to 300 — simulcast cameras, a subscription policy that pulls only the tiles shown and the people talking, roster deltas instead of full broadcasts, relayed speaking presence, a paged gallery, speaker view and pin. _Note: The owner's target of 2026-09-20 is the capacity Zoom sells on its Business tier._
   - `meetings.host-controls` · `in-build` · **Host controls** — Mute one or all, remove a participant, lock the room, hand hosting to a co-host, spotlight a participant for everyone — over a grant on the meeting rather than a permission key, so ending it needs one too.
   - `meetings.waiting-room` · `in-build` · **Waiting room** — Arrivals held in a lobby until a host admits them, one by one or all; the door for external guests and late joiners. One lobby per meeting, because a firm holds several meetings at once. _Note: The owner's ruling of 2026-09-20 — meetings run concurrently, so the lobby belongs to the meeting, never to the firm. Guests always wait regardless of the setting; the signed one-time link is its own slice and nothing here mints one._
+  - `meetings.diagnostics` · `partial` · **Diagnosability** — A per-meeting structured event stream through the standard telemetry pipeline correlated by firm, meeting and stay; the browser's own connection sample reported to the room and kept only as the latest; an operator's inspect call into one live room behind the platform-operator guard; and a load harness that drives three hundred fake clients against the room so the fan-out cost is a number. _Note: The harness falsified a design claim on its first run — every deferred presence transition armed the alarm through the full reconciliation, two roster-wide reads on the frame a large room sends most, measured at 1.2 storage lists per frame against a design that claims one. Arming for the known deadline instead took the same pass to 0.4._
   - `meetings.reactions` · `designed` · **Raise hand and reactions** — A raised hand the host sees in order, and a small closed set of reactions, relayed as presence rather than stored.
   - `meetings.chat` · `not-started` · **In-meeting chat** — Text between participants during a meeting, kept on the record as the meeting's first stored content — filed under the event with the attendance. _Note: The owner's ruling of 2026-09-20 — chat is kept on the record. The meeting therefore stores content for the first time, which means the chat rows carry the same redaction, retention and PII treatment as a filed email, and the audit row still carries identifiers only._
   - `meetings.breakout-rooms` · `not-started` · **Breakout rooms** — A host splits the room into smaller rooms and brings them back; each is a room of its own under the same meeting.

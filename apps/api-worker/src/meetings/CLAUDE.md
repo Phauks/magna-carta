@@ -44,6 +44,14 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   (mute one, mute everybody else, ask to unmute, spotlight), and the three the hosting routes call
   back into the room after their own writes commit (`hostingChanged`, `participantRemoved`,
   `roomStateChanged`).
+- `room/room-diagnostics.ts` — the room's one emitter: the `meetings.room.*` event family through the
+  standard telemetry pipeline, the refusal that is sent and recorded in one act, the browser's own
+  connection report (its window, and the last sample kept on the participant), and the sampled
+  storage budget a frame is measured against. Nothing here may throw into a caller.
+- `room/room-inspect.ts` — what one room is holding, for a platform operator: the roster with each
+  person's role, presence, counts and last connection report, the door, the sockets, the alarm and
+  which of its deadlines are pending, the storage size, the routing sessions, the ended marker. One
+  pass over storage, and it changes nothing.
 - `sfu/sfu-client.ts` — the client for Cloudflare Realtime's selective forwarding unit, and the test
   seam a meeting-room test installs a fake through.
 - `sfu/turn-credentials.ts` — minting relay credentials from Realtime's TURN service, shared with
@@ -127,3 +135,51 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   browser and Realtime. Nothing here has a redaction step because there is nothing here to redact —
   and an upstream body is never carried into a refusal, because it can name the application the whole
   fleet's meetings run on.
+- **A direct reply to one socket goes through `trySend`, never `socket.send`.** `send` on a closed
+  socket THROWS, and a throw out of `webSocketMessage` does not fail one frame — the runtime resets
+  the object, which drops every socket in the meeting. So one member's browser closing between the
+  room deciding to answer them and the answer going out would end the meeting for everybody. The
+  room-wide broadcast has swallowed that since it was written; the direct replies had not, and the
+  load harness is what surfaced it. One home: `room-state.ts`.
+- **Every act the room takes records ONE event, and the counts are part of the act.** The family is
+  `meetings.room.*` in `@magna-carta/telemetry`'s catalog, which is where what may be recorded is
+  decided — there is no declared field for a display name, a track name or a session description, so
+  a call site cannot add one without adding it to the catalog first. Two things are deliberately not
+  recorded per occurrence, because they are the frames a room of three hundred sends most: presence
+  is recorded once per coalesced flush with the count it covered, and what a frame spends in storage
+  is SAMPLED (`STORAGE_BUDGET_SAMPLE_EVERY`). A record that costs what the thing it measures costs is
+  not a record.
+- **An operator's read is the platform-operator guard, never a firm permission.** A capability that
+  let a member read the room's internals would be a capability to read a colleague's connection
+  quality and their place in the meeting. `routes/meeting-inspect.ts` runs in the same lane
+  `routes/platform-status.ts` does, and names the firm in the query because there is no session firm
+  to read — the one meeting route that does, and only because its caller belongs to no firm.
+
+## The load harness — the room's fan-out cost as a number
+
+Every rule this directory is built around is a claim about what happens at three hundred: the roster
+is read at most once per frame, a join above `ROSTER_DELTA_THRESHOLD` costs each other socket one
+frame, a burst of presence costs one wake rather than one frame per transition. The driver is
+`test/support/meeting-room-load.ts` and it drives real socket pairs against the real object in the
+test pool — everybody arrives, everybody publishes, everybody talks at once, the gallery turns a
+page, a tenth of the room reconnects, the host ends it.
+
+- **The fast variant (forty clients) runs in the ordinary suite**, `test/meeting-room-load.test.ts`,
+  as an assertion on the two bounds: frames per join per socket at or above the delta threshold, and
+  storage lists per frame.
+- **The full variant is run by hand**, and it is the same driver:
+
+  ```
+  VITE_MEETING_ROOM_LOAD_PARTICIPANTS=300 \
+    pnpm --filter @magna-carta/api-worker exec vp test run test/meeting-room-load.test.ts \
+    --reporter=verbose
+  ```
+
+  The `VITE_` prefix is load-bearing: the test file is evaluated inside workerd, which has none of
+  the host's environment, and Vite's env pass is what carries a prefixed variable across. The
+  verbose reporter is what shows the printed line — the default one hides a passing test's output.
+
+**The counts are the result and the wall time is not.** This runs against Miniflare on whatever
+machine is free, so a duration is a fact about the machine where frames per socket and lists per
+frame are facts about the room. Print the line into a pull request when a change touches the
+broadcast, the throttles or the alarm.

@@ -807,11 +807,11 @@ describe("scheduling a meeting on an event", () => {
   async function meetingRow(
     eventId: string,
     column: "matter_event_id" | "firm_event_id" = "matter_event_id",
-  ): Promise<{ id: string; medium: string; status: string } | undefined> {
+  ): Promise<{ id: string; medium: string; status: string; lobby: string } | undefined> {
     const { results } = await firmDatabase
-      .prepare(`SELECT id, medium, status FROM meeting WHERE ${column} = ?1`)
+      .prepare(`SELECT id, medium, status, lobby FROM meeting WHERE ${column} = ?1`)
       .bind(eventId)
-      .all<{ id: string; medium: string; status: string }>();
+      .all<{ id: string; medium: string; status: string; lobby: string }>();
     return results[0];
   }
 
@@ -841,6 +841,31 @@ describe("scheduling a meeting on an event", () => {
     expect(row?.medium).toBe("video");
     // Scheduled, not live: nobody has walked into it. The first arrival is what makes a room live.
     expect(row?.status).toBe("scheduled");
+  });
+
+  it("opens the door the event asked for, and leaves it open when the form did not ask", async () => {
+    const waiting = await post(`/api/v1/matters/${matterId}/events`, {
+      title: "Settlement conference with a waiting room",
+      startsOn: "2026-10-08",
+      startsAtTime: "09:00",
+      timeZone: "America/Los_Angeles",
+      meeting: { medium: "video", lobby: "on" },
+    });
+    expect(waiting.status).toBe(201);
+    const waitingBody = (await waiting.json()) as { id: string };
+    expect((await meetingRow(waitingBody.id))?.lobby).toBe("on");
+
+    // OMITTED IS `off`, and it has to be: every meeting scheduled before the door existed was, and
+    // a form that did not ask must not quietly put a firm's own colleagues in a queue.
+    const open = await post(`/api/v1/matters/${matterId}/events`, {
+      title: "Team catch-up with no door",
+      startsOn: "2026-10-09",
+      startsAtTime: "09:30",
+      timeZone: "America/Los_Angeles",
+      meeting: { medium: "video" },
+    });
+    const openBody = (await open.json()) as { id: string };
+    expect((await meetingRow(openBody.id))?.lobby).toBe("off");
   });
 
   it("records a call as a call, and an event with no meeting as having none", async () => {

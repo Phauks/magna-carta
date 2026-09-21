@@ -14,6 +14,7 @@ import {
   readParticipant,
   recordRoomFailure,
   storedParticipants,
+  trySend,
   type RoomContext,
   type StoredParticipant,
   type StoredTrack,
@@ -26,6 +27,32 @@ import {
 // Nothing here decides whether a frame is ALLOWED — that is answered from the roster alone, before a
 // session exists, in room-frames.ts. By the time anything here runs the frame has been accepted and
 // the only remaining question is what the service says.
+
+/**
+ * What an act at the routing service actually amounted to, for the module that records it.
+ *
+ * The counts are returned rather than recorded here, because this module is where the service is
+ * spoken to and room-frames.ts is where a frame's whole story is known — it holds the socket's
+ * attachment, and therefore the meeting a count belongs to. Counting here and recording there also
+ * keeps the media path free of telemetry, which is the arrangement every refusal in this room
+ * already has.
+ */
+export interface PublishOutcome {
+  readonly trackCount: number;
+  readonly audioCount: number;
+  readonly videoCount: number;
+  readonly refusedCount: number;
+}
+
+export interface SubscribeOutcome {
+  readonly requestedCount: number;
+  readonly forwardedCount: number;
+}
+
+export interface LayerOutcome {
+  readonly trackCount: number;
+  readonly refusedCount: number;
+}
 
 /** The routing session this participant publishes through, or why there is none to resolve. */
 export type SessionOutcome =
@@ -93,7 +120,7 @@ export async function publishTracks(
     }[];
   },
   sfu: SfuClient,
-): Promise<void> {
+): Promise<PublishOutcome> {
   const answer = await sfu.addTracks(sessionId, {
     sessionDescription: frame.sessionDescription,
     tracks: frame.tracks.map((track) => ({
@@ -115,7 +142,8 @@ export async function publishTracks(
           },
         ],
   );
-  socket.send(
+  trySend(
+    socket,
     publishedFrame(
       answer.sessionDescription,
       confirmed.map((track) => ({ trackName: track.trackName, mid: track.mid })),
@@ -125,6 +153,16 @@ export async function publishTracks(
   // this participant now publishes through, which a first publish is what creates.
   await recordPublishedTracks(room, attendanceId, confirmed);
   await announceParticipantUpdated(room, attendanceId);
+  return {
+    trackCount: confirmed.length,
+    // Counted by kind rather than named: how many cameras and microphones a room is carrying is the
+    // shape of the meeting, and a track NAME carries the handle of whoever published it.
+    audioCount: confirmed.filter((track) => track.kind === "audio").length,
+    videoCount: confirmed.filter((track) => track.kind !== "audio").length,
+    // What the browser offered and the service would not carry — the difference between "nobody can
+    // see them" and "they never offered a camera".
+    refusedCount: frame.tracks.length - confirmed.length,
+  };
 }
 
 /**
@@ -146,7 +184,7 @@ export async function subscribeTracks(
     }[];
   },
   sfu: SfuClient,
-): Promise<void> {
+): Promise<SubscribeOutcome> {
   const answer = await sfu.addTracks(sessionId, {
     tracks: frame.tracks.map((track) => ({
       location: "remote" as const,
@@ -165,7 +203,8 @@ export async function subscribeTracks(
       ? []
       : [{ sessionId: track.sessionId, trackName: track.trackName, mid: track.mid }],
   );
-  socket.send(
+  trySend(
+    socket,
     subscribedFrame(answer.sessionDescription, forwarded, answer.requiresImmediateRenegotiation),
   );
   // THE SECTIONS THE ROOM OPENED FOR THIS BROWSER, remembered because they are the whole of what it
@@ -178,6 +217,7 @@ export async function subscribeTracks(
     attendanceId,
     forwarded.map((track) => track.mid),
   );
+  return { requestedCount: frame.tracks.length, forwardedCount: forwarded.length };
 }
 
 /**
@@ -198,7 +238,7 @@ export async function changeLayers(
     }[];
   },
   sfu: SfuClient,
-): Promise<void> {
+): Promise<LayerOutcome> {
   const answer = await sfu.updateTracks(sessionId, {
     tracks: frame.tracks.map((track) => ({
       mid: track.mid,
@@ -215,7 +255,8 @@ export async function changeLayers(
         : [[track.mid, track.errorCode] as const],
     ),
   );
-  socket.send(
+  trySend(
+    socket,
     layeredFrame(
       frame.tracks.map((track) => {
         const errorCode = refusedByMid.get(track.mid);
@@ -227,6 +268,7 @@ export async function changeLayers(
       }),
     ),
   );
+  return { trackCount: frame.tracks.length, refusedCount: refusedByMid.size };
 }
 
 /** The browser's answer to a description the service offered. Nothing comes back but the ack. */
@@ -237,7 +279,7 @@ export async function renegotiateSession(
   sfu: SfuClient,
 ): Promise<void> {
   await sfu.renegotiate(sessionId, { sessionDescription });
-  socket.send(renegotiatedFrame());
+  trySend(socket, renegotiatedFrame());
 }
 
 /**
@@ -256,7 +298,7 @@ export async function closePublishedTracks(
   sfu: SfuClient,
 ): Promise<void> {
   const closed = await sfu.closeTracks(sessionId, { tracks: mids.map((mid) => ({ mid })) });
-  socket.send(closedFrame(closed.sessionDescription));
+  trySend(socket, closedFrame(closed.sessionDescription));
   // The service's own answer is what says which sections actually closed; an answer that names
   // none is not a statement that nothing did, so the requested set stands in for it.
   const confirmedMids = closed.tracks.flatMap((track) =>
