@@ -205,8 +205,17 @@ export async function dispatchClientFrame(
  * unchanged — a refused frame must not consume what it was refused for, and the refill has to go on
  * accruing or a socket that keeps trying would never be let back in.
  */
+// THE BUCKET'S CLOCK, replaceable by a test. The refill is arithmetic on the wall clock, so a test
+// that counts refusals on a loaded machine would otherwise be measuring how slowly the burst was
+// delivered rather than the budget; frozen, the same burst is refused the same way at any speed.
+let frameBudgetClock: () => number = () => Date.now();
+
+export function setFrameBudgetClockForTests(clock: (() => number) | null): void {
+  frameBudgetClock = clock ?? (() => Date.now());
+}
+
 function spendFrameToken(socket: WebSocket, attachment: MeetingSocketAttachment): boolean {
-  const now = Date.now();
+  const now = frameBudgetClock();
   const measuredAt =
     attachment.frameBudgetAt === undefined ? Number.NaN : Date.parse(attachment.frameBudgetAt);
   const carried =

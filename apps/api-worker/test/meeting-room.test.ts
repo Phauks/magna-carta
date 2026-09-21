@@ -1,7 +1,7 @@
 import { env, runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { MAX_MEETING_PARTICIPANTS } from "@magna-carta/meetings/types";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import type { MeetingRoom } from "../src/meetings/meeting-room.ts";
 import {
@@ -25,6 +25,7 @@ import { setSfuFetchForTests } from "../src/meetings/sfu/sfu-client.ts";
 import { PRESENCE_RELAY_INTERVAL_MILLISECONDS } from "../src/meetings/room/room-presence.ts";
 import { REACTION_COALESCE_INTERVAL_MILLISECONDS } from "../src/meetings/room/room-reactions.ts";
 import { setRoomDiagnosticsLoggerForTests } from "../src/meetings/room/room-diagnostics.ts";
+import { setFrameBudgetClockForTests } from "../src/meetings/room/room-frames.ts";
 import { createMemoryLogger, type MemoryLogger } from "@magna-carta/telemetry/logger";
 
 // The meeting's signaling protocol, against a fake media routing service.
@@ -619,8 +620,28 @@ async function rewindThrottle(
   });
 }
 
+// FREEZE THE BUCKET'S CLOCK so a budget test is a fact about the budget rather than about the
+// sweep's load. The bucket refills by the wall clock, so a loaded machine that delivers a burst
+// slowly hands the socket tokens back while the burst is still in flight, and a test counting
+// refusals then measures how busy the machine was. Frozen, no token comes back until the test says.
+let frameBudgetFrozenAt: number | null = null;
+
+function freezeFrameBudgetClock(): void {
+  frameBudgetFrozenAt = Date.now();
+}
+
+function advanceFrameBudgetClock(milliseconds: number): void {
+  if (frameBudgetFrozenAt === null) throw new Error("the bucket's clock is not frozen");
+  frameBudgetFrozenAt += milliseconds;
+}
+
 beforeAll(() => {
   setSfuFetchForTests(fakeRoutingService);
+  setFrameBudgetClockForTests(() => frameBudgetFrozenAt ?? Date.now());
+});
+
+afterEach(() => {
+  frameBudgetFrozenAt = null;
 });
 
 afterAll(() => {
@@ -3240,22 +3261,22 @@ describe("what one socket may send, whatever it sends", () => {
     // EVERY FRAME SPENDS FROM THE SAME BUCKET, whatever it is. A `sync` is used because its own
     // window makes every one of them past the first cost the room nothing — so what is left to
     // measure is the general budget alone.
+    freezeFrameBudgetClock();
     burst(member, { type: "sync" }, FRAME_BUDGET_BURST + 20);
-    await waitFor(() => refusals(member).length >= 15);
+    await waitFor(() => refusals(member).length >= 20);
     await settle();
 
     // The burst is answered in full and the tail is refused, in the room's non-fatal vocabulary.
-    expect(refusals(member).length).toBeGreaterThanOrEqual(15);
+    expect(refusals(member).length).toBe(20);
     expect(refusals(member).every((frame) => frame["reason"] === "rate-limited")).toBe(true);
     // THE SOCKET STAYS OPEN. A browser sending too fast is still somebody in the meeting, and
     // dropping it would cost them every track they hold.
     expect(member.closeCode()).toBeNull();
 
-    // AND A BURST IS NOT A BAN. The bucket refills by the clock rather than by a timer this test
-    // could advance, so the wait is a real one — two settles is several tokens back at the pace both
-    // ends of the wire agree on.
-    await settle();
-    await settle();
+    // AND A BURST IS NOT A BAN. The bucket refills by the clock, so the clock is moved rather than
+    // waited on: a measurement a second in the past is a second's worth of tokens back at the pace
+    // both ends of the wire agree on.
+    advanceFrameBudgetClock(1000);
     await rewindThrottle(stub, STAY, "syncAt", 2000);
     member.send(JSON.stringify({ v: 1, type: "sync" }));
     await waitFor(() => rosters() > before);
@@ -3272,13 +3293,14 @@ describe("what one socket may send, whatever it sends", () => {
     // booleans writes the participant record. Alternating them is what a microphone crossing a
     // detector's threshold looks like, and a client doing it in a loop looks the same.
     const sent = 100;
+    freezeFrameBudgetClock();
     const writes = await countStorageWrites(stub, async () => {
       for (let frame = 0; frame < sent; frame += 1) {
         member.send(
           JSON.stringify({ v: 1, type: "presence", speaking: frame % 2 === 0, muted: false }),
         );
       }
-      await waitFor(() => refusals(member).length >= sent - FRAME_BUDGET_BURST - 5);
+      await waitFor(() => refusals(member).length >= sent - FRAME_BUDGET_BURST);
       await settle();
     });
 
@@ -3652,9 +3674,10 @@ describe("what the room records about itself", () => {
     // room: each is one thing the room would not do, and there are a bounded number of them in a
     // meeting. This one is what a client in a loop receives, so an event apiece would make the
     // record of a flood cost more than the flood.
+    freezeFrameBudgetClock();
     for (let frame = 0; frame < FRAME_BUDGET_BURST + 40; frame += 1)
       send(participant, { type: "sync" });
-    await waitFor(() => participant.frames.filter((one) => one["type"] === "refused").length >= 30);
+    await waitFor(() => participant.frames.filter((one) => one["type"] === "refused").length >= 40);
     await settle();
 
     const refused = participant.frames.filter((one) => one["type"] === "refused").length;
@@ -3663,7 +3686,7 @@ describe("what the room records about itself", () => {
     );
     // EVERY REFUSED FRAME IS ANSWERED ON THE WIRE — a browser that is told nothing cannot slow down
     // — and only a sample of them is recorded.
-    expect(refused).toBeGreaterThanOrEqual(30);
+    expect(refused).toBe(40);
     expect(kept.length).toBeGreaterThan(0);
     expect(kept.length).toBeLessThan(refused / 4);
     // No frame type, and that is a fact rather than a gap: the budget is spent before the frame is

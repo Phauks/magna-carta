@@ -2,7 +2,7 @@
 worktree: (none — this stream runs in the primary checkout)
 area: Meetings slices 3-5 — large rooms to 300 participants, host controls as a grant on the meeting, and the waiting room (one lobby per meeting)
 status: building
-touches: packages/database/src/per-firm-schema.ts, packages/database/drizzle/per-firm/, packages/meetings/, packages/meeting-protocol/, packages/telemetry/src/events.ts, packages/api-client/, packages/design-system/src/lib/styles/, apps/api-worker/src/meetings/, apps/api-worker/src/routes/meeting-chat.ts, apps/api-worker/src/routes/meeting-lobby.ts, apps/api-worker/src/routes/meetings.ts, apps/api-worker/src/routes/meeting-hosting.ts, apps/api-worker/src/routes/meeting-inspect.ts, apps/api-worker/openapi/openapi.json, apps/api-worker/test/, apps/web/src/lib/meetings/, apps/web/src/routes/(app)/meetings/[id]/, tooling/lint-modal-headers/modal-headers.mjs, roadmap.d/meetings.md, docs/now.md, status.d/meetings.md, STATUS.md, docs/user/features/meetings.md, changelog.d/
+touches: packages/database/src/per-firm-schema.ts, packages/database/drizzle/per-firm/, packages/meetings/, packages/meeting-protocol/, packages/telemetry/src/events.ts, packages/api-client/, packages/design-system/src/lib/styles/, apps/api-worker/src/meetings/, apps/api-worker/src/routes/meeting-chat.ts, apps/api-worker/src/routes/meeting-lobby.ts, apps/api-worker/src/routes/meetings.ts, apps/api-worker/src/routes/meeting-hosting.ts, apps/api-worker/src/routes/meeting-inspect.ts, apps/api-worker/openapi/openapi.json, apps/api-worker/test/, apps/web/src/lib/meetings/, apps/web/src/lib/calendar/, apps/web/src/routes/(app)/meetings/[id]/, apps/web/test/, tooling/lint-modal-headers/modal-headers.mjs, docs/specs/, docs/decisions/pending/, roadmap.d/meetings.md, docs/now.md, status.d/meetings.md, STATUS.md, docs/user/features/meetings.md, changelog.d/
 ---
 
 Lifts the meeting cap from twelve to three hundred and makes a room of that size work: cameras
@@ -30,3 +30,10 @@ here: the corrections from the adversarial review of the hosting and door slices
 leaving the outgoing host a co-host, a resignable grant, a claim that counts only a present host,
 the door enforced in the insert's own predicate, the `waiting:` key a removal used to leave behind,
 and the no-op lock or lobby write that used to broadcast anyway.
+
+The security review of the branch closed the wave: every frame a socket sends spends from a token
+bucket carried on the socket, the four frames that each cost a routing-service call have windows of
+their own, a hostless room is claimed only from inside it, a reconnect is welcomed with the role the
+room holds rather than the one the upgrade read, and an operator's read into a live room is audited.
+Two questions stay open for the owner in the host-controls design's amendments: a socket that
+outlives its session, and a transcript readable without ever having joined.
