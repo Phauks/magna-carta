@@ -106,8 +106,8 @@
 - id: meetings.host-controls
   name: Host controls
   scope: Mute one or all, remove a participant, lock the room, hand hosting to a co-host, spotlight a participant for everyone — over a grant on the meeting rather than a permission key, so ending it needs one too.
-  status: in-build
-  surface: awaiting-screen
+  status: shipped
+  surface: screen
   spec: docs/specs/2026-09-20-meetings-host-controls-and-waiting-room-design.md
   evidence: Server half built — the meeting_host table with its two partial unique indexes plus meeting.locked_at and meeting_attendance.ended_reason in packages/database/src/per-firm-schema.ts, the hosting trio in packages/meetings (hosting-types/hosting-statements/hosting-service, with requireHostGrant as the one authority chokepoint), the four host frames and room-state in packages/meeting-protocol/src/frames.ts, apps/api-worker/src/meetings/room/room-hosting.ts, and apps/api-worker/src/routes/meeting-hosting.ts. The per-tile menu, the Host controls band and the spotlight's subscription band are the web half and are not built. Stream docs/active-work/claude/focused-edison-ylxfiy.md.
   audience: public
@@ -116,8 +116,8 @@
 - id: meetings.waiting-room
   name: Waiting room
   scope: Arrivals held in a lobby until a host admits them, one by one or all; the door for external guests and late joiners. One lobby per meeting, because a firm holds several meetings at once.
-  status: in-build
-  surface: awaiting-screen
+  status: shipped
+  surface: screen
   spec: docs/specs/2026-09-20-meetings-host-controls-and-waiting-room-design.md
   evidence: Server half built — meeting.lobby plus meeting_attendance.waiting_from / admitted_at and their partial index in packages/database/src/per-firm-schema.ts, the lobby trio in packages/meetings (lobby-types/lobby-statements/lobby-service, with MAX_MEETING_LOBBY at the door and the room's own capacity guard moved onto the admission), the two presence predicates as single exported fragments in meeting-statements.ts, the lobby/admitted/waiting frames and the two refusal reasons in packages/meeting-protocol/src/frames.ts, the waiting: storage prefix in apps/api-worker/src/meetings/room/room-lobby.ts, and apps/api-worker/src/routes/meeting-lobby.ts. The waiting screen, the host's lobby sheet and the lobby switch at Start are the web half and are not built. Stream docs/active-work/claude/focused-edison-ylxfiy.md.
   audience: public
@@ -143,7 +143,8 @@
 - id: meetings.chat
   name: In-meeting chat
   scope: Text between participants during a meeting, kept on the record as the meeting's first stored content — filed under the event with the attendance.
-  status: not-started
+  status: shipped
+  surface: screen
   evidence: No code.
   notes: The owner's ruling of 2026-09-20 — chat is kept on the record. The meeting therefore stores content for the first time, which means the chat rows carry the same redaction, retention and PII treatment as a filed email, and the audit row still carries identifiers only.
 
@@ -217,10 +218,10 @@
 - id: meetings.scheduling.from-the-calendar
   name: Scheduling from the event form
   scope: A Meeting choice on the one event form (None, Video meeting, Audio call) that writes the meeting row as the event is saved, invites the member participants through the notifications subsystem, reads each colleague's conflicting entries for the chosen hour, and adds New Meeting to the Meetings page.
-  status: in-build
+  status: shipped
   surface: screen
   spec: docs/specs/2026-09-18-meetings-design.md
-  evidence: The Meeting choice in apps/web/src/lib/calendar/record-event-dialog.svelte over event-draft.ts and firm-event-draft.ts; the meeting field and its scheduling helpers in apps/api-worker/src/routes/calendar.ts; the invitation topic in packages/calendar/src/notifications.ts with the meetings.meeting.scheduled type and the named-members audience in packages/notifications; availability in apps/web/src/lib/calendar/member-availability.ts; New Meeting on apps/web/src/routes/(app)/meetings/+page.svelte; stream docs/active-work/claude/focused-edison-ylxfiy.md.
+  evidence: The Meeting choice in apps/web/src/lib/calendar/record-event-dialog.svelte over event-draft.ts and firm-event-draft.ts; the meeting field and its scheduling helpers in apps/api-worker/src/routes/calendar.ts; the invitation topic in packages/calendar/src/notifications.ts with the meetings.meeting.scheduled type and the named-members audience in packages/notifications; availability in apps/web/src/lib/calendar/member-availability.ts; New Meeting on apps/web/src/routes/(app)/meetings/+page.svelte.
   audience: public
   public-summary: Choose Video meeting or Audio call when you record an event, and the room is there the moment it is saved.
   notes: Firm events raise no invitation yet — notification_event.subject_kind is a SQLite CHECK with no firmEvent value, and widening it rebuilds a table notification_recipient points at. Reminders and Directory-guest invitations are the remaining halves.
