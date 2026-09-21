@@ -86,6 +86,15 @@ describe("the heading names the act", () => {
     expect(ACT_VERBS.has("write")).toBe(true);
     expect(ACT_VERBS.has("status")).toBe(false);
   });
+
+  it("names the four acts a trust request and a transfer are decided by", () => {
+    // The heading's verb is the control's verb: Approve, Reject and Withdraw are the queue's own
+    // three, and Transfer is what the control that opens the panel says.
+    expect(problemsFor("Approve Payment Out")).toEqual([]);
+    expect(problemsFor("Reject Payment Out")).toEqual([]);
+    expect(problemsFor("Withdraw Payment Out")).toEqual([]);
+    expect(problemsFor("Transfer to Another Matter")).toEqual([]);
+  });
 });
 
 describe("a fact is not a sentence", () => {

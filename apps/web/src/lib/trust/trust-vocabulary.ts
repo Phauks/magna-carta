@@ -18,6 +18,7 @@
 import { UNRECORDED_PERSON } from "@magna-carta/design-system/formatters";
 import type {
   TrustAuthorizationBasis,
+  TrustBankMovementMethod,
   TrustMovementKind,
   TrustMovementMethod,
   TrustMovementRecord,
@@ -38,6 +39,21 @@ export const TRUST_MOVEMENT_METHODS: readonly TrustMovementMethod[] = [
   "electronic_transfer",
   "card",
   "internal",
+];
+
+/**
+ * The methods a person may STATE, in the order a form offers them.
+ *
+ * `internal` is missing on purpose: it is a transfer's own method, set by the server because
+ * nothing left the bank, and offering it on a deposit or a payment out would invite somebody to
+ * record money as having moved inside an account when it crossed the institution's counter.
+ */
+export const TRUST_BANK_MOVEMENT_METHODS: readonly TrustBankMovementMethod[] = [
+  "check",
+  "cash",
+  "wire",
+  "electronic_transfer",
+  "card",
 ];
 
 /** What a movement is called in a cell, a filter list and the panel: one wording, one home. */
@@ -169,6 +185,39 @@ export function authorizedByTitle(movement: TrustMovementRecord): string {
   if (movement.authorizationBasis !== null) return basisSentence(movement.authorizationBasis);
   if (movement.authorizedBy !== null) return "The person who released this movement.";
   return "A deposit takes no second person: it puts money in and pays nothing out.";
+}
+
+/**
+ * What the In or Out cell says where the money went the other way.
+ *
+ * A movement lands on one side of the ledger and the other side is blank; the dash says the cell is
+ * deliberately empty, and the hover says why, the way a cost's unserved cell does.
+ */
+export const NO_AMOUNT_ON_THIS_SIDE =
+  "This movement went the other way, so it carries no amount on this side of the ledger.";
+
+/**
+ * What both Trust surfaces say where the roster read stopped short of the firm's whole record.
+ *
+ * One wording, because it is one fact: a matter reading its ledger against an account and the
+ * firm's own register of accounts are both looking at a page of the roster rather than all of it,
+ * and two sentences for one fact is how a reader learns the two screens are two products.
+ */
+export const ROSTER_CAPPED_WARNING =
+  "The roster stopped short of the end, so these are some of the firm's trust accounts rather than all of them.";
+
+/**
+ * What the notices band says about payments nobody has decided yet.
+ *
+ * The queue itself lives in the details panel, where a request states its whole terms; the band
+ * carries the COUNT alone, because a reader passing the ledger needs to know somebody is owed an
+ * answer without the ledger giving its room up to a list of requests. One sentence, in the count's
+ * own grammar, so the line never reads "1 payments".
+ */
+export function waitingOnApprovalSentence(count: number): string {
+  return count === 1
+    ? "1 payment is waiting on approval."
+    : `${count} payments are waiting on approval.`;
 }
 
 /** The movements a figure is allowed to count. Every movement counts: none is a draft or a void. */

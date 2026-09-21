@@ -269,8 +269,13 @@ Double-click a row, press Enter on it, or choose **Open** from its right-click m
 The tab the editor opens in is its own: leave it open while you go back to the file list, and open
 several documents at once. The editor fills that tab. To return to the matter's files, use the
 first button on the editor's bar, the arrow with the matter's number beside it (or the word
-"Matter", for a matter that has no number yet). It saves first and then takes you back with the
+"Matter", for a matter that has no number yet). A long number is cut short with an ellipsis;
+resting the pointer on the button shows the whole of it. It saves first and then takes you back with the
 document selected; closing the document from the editor's own menu does the same.
+
+The editor's **Help › About** names the editor's own versions and, beneath them, the Magna Carta
+build serving the document, which is what to quote when reporting a problem from inside the
+editor.
 
 ## Saving a new version
 
