@@ -207,6 +207,7 @@ describe("the control bar's own menu", () => {
       onToggleMicrophone: () => {},
       onToggleCamera: () => {},
       onToggleSharing: () => {},
+      onToggleHand: () => {},
       onMuteAll: () => asked.push("mute-all"),
       onSetLocked: (wanted: boolean) => asked.push(wanted ? "lock" : "unlock"),
       onSetLobby: (wanted: string) => asked.push(wanted === "on" ? "lobby-on" : "lobby-off"),

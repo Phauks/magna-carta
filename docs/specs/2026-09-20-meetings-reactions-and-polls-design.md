@@ -158,6 +158,24 @@ Room to client:
 
 ---
 
+## 10b. Amendments taken during the build of slice one (2026-09-21)
+
+Six, each named where the built thing differs from what is above. The frames are the contract two agents built against in parallel, so a difference in one of them is the one kind that cannot be discovered late.
+
+**`hands-lowered` is not built; a lowered hand travels on the roster.** Section 3 gave the act its own room frame. The built room announces it as a roster change instead — `updated` entries carrying the cleared `handRaisedAt` — for the reason the section itself gives for putting the hand on the roster at all: the roster is what a late arrival, a `sync` answer and every browser applying differences all read, so a hand that travelled only as its own frame would be invisible to the browser that joined a minute after it went up, and the room would be maintaining two paths for one fact. The whole-room form still costs one frame, which was that frame's own argument. **What is lost is the `by`**: a member whose hand a host lowers is not told who did it. That is a real cost against the `muted { by, at }` precedent and is the open half of this amendment — if it is wanted, it is a directed frame beside the roster change rather than in place of it.
+
+**The interval is `SIGNAL_INTERVAL_MILLISECONDS`, not `MEETING_SIGNAL_INTERVAL_MILLISECONDS`.** Section 6's name, shortened to match every other exported constant in that package, none of which carries the `MEETING_` prefix when the package is already named for it.
+
+**`reactions` carries `counts` as an object keyed by name, not an array of pairs.** Section 7 wrote `counts: [{ name, count }]`. The built frame is `counts: { [name]: number }`, which is what a browser drawing a strip indexes anyway, and it carries only the names that actually arrived — a zero for a name nobody chose is a field on every frame in a large room saying nothing.
+
+**One module, not two.** Section 22 split the relay from the coalescing bucket (`room-reactions.ts` and `room-coalescing.ts`) so slice two could reuse the second. The built slice puts both in `room-reactions.ts`: the bucket is thirty lines and has exactly one user, and a module extracted before its second caller exists is a shape guessed rather than measured. Slice two extracts it when it needs it, which is a move with two call sites to check rather than one.
+
+**The threshold is counted over the WELCOMED SOCKETS, not over the roster.** Section 5 says "at or below `ROSTER_DELTA_THRESHOLD` participants". The built branch asks `welcomedSocketCount`, because the question it decides is a fan-out — one frame per reactor, or one frame for the room — and that is a question about the sockets a frame would reach. Reading the roster here would spend three hundred keys on every reaction in exactly the room the coalescing exists for; the load harness now reports `lists/reaction` at zero because of it. A stay inside its grace period with no socket open receives nothing either way.
+
+**The alarm's own event gains `reactionsFlushed`, and the operator's read gains the bucket.** Section 5 asks only that the alarm be the backstop. Two things follow that the section does not name and that the room's own rules require: `meetings.room.alarmRan` records which jobs a wake was for, and a wake that flushed a bucket and reported none of its four jobs is indistinguishable from the spin that event exists to expose; and `room-inspect.ts` shows which deadlines a room is holding, so a bucket it could not see would be an armed alarm naming no job — which that module reads as a fault.
+
+---
+
 # Slice two — polls and questions
 
 ## 11. What a poll is, and what a question is

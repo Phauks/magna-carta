@@ -208,6 +208,26 @@ describe("who may ask", () => {
     expect(response.status).toBe(403);
   });
 
+  it("refuses a platform operator whose second factor is not enabled", async () => {
+    const email = "inspect-operator-no-second-factor@example.com";
+    const seeded = await seedCredentialedUser(email);
+    const cookie = await signInForSessionCookie(email);
+    await insertPlatformOperatorStatement(env.DB_CONTROL, {
+      userId: seeded.userId,
+      grantedByUserId: newIdentifier("user") as UserId,
+      grantedAt: new Date().toISOString(),
+      expiresAt: null,
+      note: "meeting inspect route test, second factor absent",
+    }).run();
+    // Deliberately NOT raising `two_factor_enabled`, which is the whole case: the grant on its own
+    // is not the authority. What this read reaches is every live meeting in the fleet — a colleague's
+    // connection quality, who is in which room, who is standing at which door — so the standing rule
+    // for a platform-operator surface is a grant AND a second factor, and a session that holds only
+    // the first is a session an intercepted password would have.
+    const response = await get("meeting_inspectGuardNoSecond0", cookie);
+    expect(response.status).toBe(403);
+  });
+
   it("answers a platform operator with two-factor authentication enabled", async () => {
     const email = "inspect-operator@example.com";
     const seeded = await seedCredentialedUser(email);

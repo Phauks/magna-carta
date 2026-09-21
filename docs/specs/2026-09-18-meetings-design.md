@@ -491,11 +491,35 @@ disagree about where they are.
 
 ### The record and the relay
 
-**The route is the record either way.** The room will later relay a `message` frame, so a message
-reaches the other browsers in the room as it is said rather than on the poller's next tick — but the
-frame is a copy of a row that is already committed, and a browser that misses one is caught up by
-the read. The write never goes through the socket: a record that existed only where a Durable
-Object's transient storage holds it would be a record that empties when the room does.
+**The route is the record either way.** The room relays a `message` frame, so a message reaches the
+other browsers in the room as it is said rather than on the poller's next tick — but the frame is a
+copy of a row that is already committed, and a browser that misses one is caught up by the read. The
+write never goes through the socket: a record that existed only where a Durable Object's transient
+storage holds it would be a record that empties when the room does.
+
+**As built (2026-09-21).** Two additive room frames and two RPCs the routes call after their own
+writes commit, on the `participantLeft` / `end` precedent:
+
+| frame              | fields                                              | called by                             |
+| ------------------ | --------------------------------------------------- | ------------------------------------- |
+| `message`          | `message` — the whole record the list route returns | `MeetingRoom.messageSent(message)`    |
+| `message-redacted` | `messageId`, `redactedAt`                           | `MeetingRoom.messageRedacted(id, at)` |
+
+The whole record travels rather than a projection of it, so the frame and the read answer with the
+same object and a screen has one shape to draw. Both reach every WELCOMED socket and never the
+lobby, which is structural rather than filtered: a waiting socket is never welcomed, and the
+broadcast skips everything that is not. **The room stores nothing about a message** — no key, no
+count — and a room nobody holds a socket on is a no-op. One event, `meetings.room.messageRelayed`,
+carrying the socket count and which of the two acts it was, and no field for the handle or the body.
+
+**The read converges what the relay cannot.** A poller walks forward on `(sent_at, id)` and a
+REDACTION moves no row's position in that ordering, so a message already handed to a browser could
+be taken back somewhere the poll would never look again — the frame covers a browser with a socket
+open, and nothing covered the one that reconnected or missed it. The list therefore carries a second
+array beside the page: **`redacted: [{ id, redactedAt }]`**, the messages taken back since the
+caller's own `since` instant, bounded like any other read. It is populated only for a caller that
+says where it read to, because a first page already carries whatever the record holds, and it may
+repeat a redaction on a later poll — blanking a body that is already blank is the same act twice.
 
 ### Personal data and the audit log
 

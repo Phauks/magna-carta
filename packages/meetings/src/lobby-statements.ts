@@ -2,6 +2,7 @@ import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempot
 import type { MeetingAttendanceId, MeetingId, UserId } from "@magna-carta/identifiers/types";
 import type { MeetingLobbyEntry, MeetingLobbyMode } from "./lobby-types.ts";
 import {
+  DOOR_QUEUES_PREDICATE,
   IN_THE_ROOM_PREDICATE,
   MEETING_ATTENDANCE_TABLE,
   MEETING_TABLE,
@@ -132,7 +133,11 @@ export function insertWaitingAttendanceUnderCapStatement(
         `waiting_from, admitted_at, created_at, updated_at) ` +
         `SELECT ?1, ?2, ?3, ?4, NULL, ?4, NULL, ?4, ?4 WHERE ` +
         `(SELECT COUNT(*) FROM ${MEETING_ATTENDANCE_TABLE} WHERE meeting_id = ?2 ` +
-        `AND ${WAITING_PREDICATE}) < ?5`,
+        `AND ${WAITING_PREDICATE}) < ?5 ` +
+        // AND THE DOOR ITSELF, at the instant of the write rather than a round trip earlier — the
+        // arrival's own predicate inverted, because this row belongs at a door that is there to
+        // stand at. See `DOOR_QUEUES_PREDICATE`.
+        `AND ${DOOR_QUEUES_PREDICATE}`,
     )
     .bind(input.id, input.meetingId, input.userId, input.now, input.lobbyCapacity);
 }

@@ -417,28 +417,36 @@ export function registerMeetingLobbyRoutes(
       const { meetingId } = c.req.valid("param");
       const { lobby } = c.req.valid("json");
 
+      // Whether the write actually moved anything, kept from inside the effect because the answer
+      // decides whether the room is told at all and the commit hands back only what it was given.
+      let changed = false;
       const outcome = await commitLobbyEffect<{ ok: true }>(
         c,
         firm.firmDatabase,
         idempotency,
-        async () => ({
-          value: { ok: true },
-          effect: (
-            await setMeetingLobby(
-              firm.firmDatabase,
-              meetingId as MeetingId,
-              lobby,
-              hostingOptions(c),
-            )
-          ).effect,
-        }),
+        async () => {
+          const set = await setMeetingLobby(
+            firm.firmDatabase,
+            meetingId as MeetingId,
+            lobby,
+            hostingOptions(c),
+          );
+          changed = set.changed;
+          return { value: { ok: true }, effect: set.effect };
+        },
       );
       if (!outcome.ok) return outcome.problem;
 
       // AFTER the commit, on the standing precedent: nobody is told the door moved by a write that
       // then failed. The room rewrites its own copy and broadcasts the room state; it admits
       // nobody, because a setting is not a decision about a named person.
-      await meetingRoomFor(c.env, firmId, meetingId).lobbyChanged(lobby);
+      //
+      // AND ONLY WHEN IT MOVED. A setting written to the value it already held produces no
+      // statements, so there is nothing for anybody to be told about — broadcasting anyway would
+      // spend a frame on every socket in the room to restate what each of them already draws, and
+      // would report an event that did not happen. A REPLAYED request takes the same path: it
+      // commits nothing, so `changed` is false and the room is left alone.
+      if (changed) await meetingRoomFor(c.env, firmId, meetingId).lobbyChanged(lobby);
       return c.json({ ok: true } as const, 200);
     },
   );

@@ -335,6 +335,15 @@ export function listEventTypes(
 export interface EventMeetingInput {
   /** Sound alone, or sound and pictures. Chosen once and never changed. */
   medium: "video" | "audio";
+  /**
+   * Whether arrivals wait at a door, as the room OPENS.
+   *
+   * A standing the room starts with rather than a property of the meeting: a host changes it from
+   * inside, because who may come in has no bearing on what the people already in the room agreed
+   * to. Absent means the door is open, which is what every meeting recorded before this field
+   * existed meant and what almost every hearing wants.
+   */
+  lobby?: "off" | "on";
 }
 
 export interface CreateEventRequest {

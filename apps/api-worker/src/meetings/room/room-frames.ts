@@ -20,7 +20,8 @@ import {
 import { handleHostFrame } from "./room-hosting.ts";
 import { giveUpWaiting } from "./room-lobby.ts";
 import { armAlarmFor } from "./room-lifecycle.ts";
-import { relayPresence } from "./room-presence.ts";
+import { changeHand, relayPresence } from "./room-presence.ts";
+import { claimSignalSlot, relayReaction } from "./room-reactions.ts";
 import { namesOnlyRosterTracks, rosterFrom } from "./room-roster.ts";
 import {
   acceptClientReport,
@@ -97,6 +98,8 @@ type SignalingFrame = Exclude<
   | { type: "mute-all" }
   | { type: "ask-to-unmute" }
   | { type: "spotlight" }
+  | { type: "lower-hands" }
+  | { type: "reaction" }
   | { type: "diagnostic-report" }
 >;
 
@@ -239,6 +242,36 @@ async function routeClientFrame(
   }
 
   if (parsed.frame.type === "presence") {
+    // ONE FRAME, TWO RULES, DECIDED BY WHICH FIELD MOVED — and that is legible precisely because the
+    // frame states its whole subject rather than a difference. `speaking` and `muted` keep the
+    // drop-throttle below: a suppressed transition loses nothing a later one restates. A change to
+    // the HAND does not restate itself — it may be the last thing somebody does for ten minutes — so
+    // it answers to the signal window instead and is refused rather than dropped.
+    //
+    // An ABSENT `hand` is a browser with nothing to say about one, which is what every browser left
+    // open across the deploy that added it sends. Reading absence as `false` would lower the hand of
+    // every participant who had not reloaded.
+    if (parsed.frame.hand !== undefined) {
+      const refusal = await changeHandWithinWindow(
+        room,
+        attachment.attendanceId,
+        parsed.frame.hand,
+      );
+      if (refusal) {
+        // THE WHOLE FRAME IS REFUSED, not its hand alone. The browser sends its three facts
+        // together and re-sends them together, so half-applying one would leave the two ends
+        // disagreeing about a fact neither of them said had changed.
+        await refuseAndRecord(
+          room,
+          socket,
+          attachment,
+          attachment.attendanceId,
+          "rate-limited",
+          "presence",
+        );
+        return "presence";
+      }
+    }
     const dueAt = await relayPresence(
       room,
       socket,
@@ -289,10 +322,47 @@ async function routeClientFrame(
     parsed.frame.type === "mute" ||
     parsed.frame.type === "mute-all" ||
     parsed.frame.type === "ask-to-unmute" ||
-    parsed.frame.type === "spotlight"
+    parsed.frame.type === "spotlight" ||
+    parsed.frame.type === "lower-hands"
   ) {
     await handleHostFrame(room, socket, attachment.attendanceId, parsed.frame);
     return parsed.frame.type;
+  }
+
+  // SOMETHING THROWN ON A TILE, answered here for the reason presence is: it asks nothing of the
+  // routing service, and a room whose media credentials went away under an open meeting must still
+  // carry what people are saying to each other about what is being said.
+  //
+  // REFUSED RATHER THAN DROPPED inside the window, which is the opposite of every other throttle in
+  // this room. A reaction is a single act with no later frame to restate it, so one held back simply
+  // did not happen for anybody but its sender.
+  if (parsed.frame.type === "reaction") {
+    const now = Date.now();
+    if (!(await claimSignalSlot(room, attachment.attendanceId, now))) {
+      await refuseAndRecord(
+        room,
+        socket,
+        attachment,
+        attachment.attendanceId,
+        "rate-limited",
+        "reaction",
+      );
+      return "reaction";
+    }
+    const dueAt = await relayReaction(
+      room,
+      socket,
+      attachment.attendanceId,
+      parsed.frame.name,
+      now,
+    );
+    // A bucket with nothing after it would sit unsent, so opening one arms the room's existing alarm
+    // for its flush instant — armed from HERE rather than from inside the reactions module because a
+    // room has ONE alarm and one place that reconciles every deadline into it, and armed for the
+    // known deadline rather than through the full reconciliation for the reason the presence flush
+    // is: that reconciliation reads every key the room holds, twice, for a window a second away.
+    if (dueAt !== null) await armAlarmFor(room, dueAt);
+    return "reaction";
   }
 
   // Same claim, one frame earlier than the roster read and the upstream call it would make.
@@ -508,6 +578,29 @@ async function refuseFrame(
   // anything.
   const mine = new Set(stored.get(attendanceId)?.subscribedMids ?? []);
   return frame.tracks.every((track) => mine.has(track.mid)) ? null : "unknown-track";
+}
+
+/**
+ * Moves this participant's hand if the window allows it, answering whether it was REFUSED.
+ *
+ * The order is what makes the rule readable: whether the hand actually moved is asked first, so a
+ * browser restating a hand that is already up spends no allowance and is never refused for saying
+ * nothing. Only a real change claims the window, and only a claim that fails is a refusal.
+ */
+async function changeHandWithinWindow(
+  room: RoomContext,
+  attendanceId: string,
+  raised: boolean,
+): Promise<boolean> {
+  const participant = await readParticipant(room, attendanceId);
+  // No roster entry: nothing to move, and the frame is answered a little further on by the path that
+  // can tell a closed stay from a meeting that ended.
+  if (participant === undefined) return false;
+  if (((participant.handRaisedAt ?? null) !== null) === raised) return false;
+  const now = Date.now();
+  if (!(await claimSignalSlot(room, attendanceId, now))) return true;
+  await changeHand(room, attendanceId, raised, now);
+  return false;
 }
 
 /**

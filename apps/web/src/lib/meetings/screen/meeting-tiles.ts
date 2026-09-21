@@ -11,6 +11,7 @@
  * tile drawing a picture nobody asked the unit for, or a picture arriving with no tile to put it
  * in. The grid draws `plan.shown`, in order, and nothing else.
  */
+import type { ShownReaction } from "../client/reactions.svelte.ts";
 import type {
   ConnectionQuality,
   MeetingClient,
@@ -48,6 +49,21 @@ export interface MeetingTileModel {
   readonly microphoneOff: boolean | null;
   /** Their microphone is carrying speech right now. */
   readonly speaking: boolean;
+  /**
+   * Their hand is up: they want the floor.
+   *
+   * It is on the tile as well as on the roster row and in the host's queue, because those are three
+   * different readers — the gallery, the list that holds the whole room, and the person working
+   * through it in order. A mark in only one of them is a hand most of the room never sees.
+   */
+  readonly handRaised: boolean;
+  /**
+   * What is rising off this tile right now.
+   *
+   * Empty for almost every tile almost always. Bounded where it is not, because a burst of
+   * agreement must not cover the face it is about.
+   */
+  readonly reactions: readonly ShownReaction[];
   /** This member is holding them on screen. */
   readonly pinned: boolean;
   /**
@@ -93,6 +109,13 @@ export function participantName(participant: MeetingParticipant): string {
   return participant.displayName === "" ? UNNAMED_PARTICIPANT : participant.displayName;
 }
 
+/** What is rising off one person's tile. The empty array is shared, so an unreacted tile is cheap. */
+function reactionsOn(client: MeetingClient, participantId: string): readonly ShownReaction[] {
+  return client.reactions.shown.get(participantId) ?? NO_REACTIONS;
+}
+
+const NO_REACTIONS: readonly ShownReaction[] = Object.freeze([]);
+
 /** Whether a participant is publishing an audio track at all. */
 function publishesAudio(participant: MeetingParticipant): boolean {
   return participant.tracks.some((track) => track.kind === "audio");
@@ -122,6 +145,10 @@ export function meetingTiles(client: MeetingClient, localName: string): MeetingT
       local: true,
       microphoneOff: !client.microphoneOn,
       speaking: own !== undefined && client.presenceOf(own).speaking,
+      // This browser's OWN hand is the client's own answer rather than the roster's: the control
+      // has to answer the press at once, and the roster is a round trip behind it.
+      handRaised: client.reactions.hand,
+      reactions: client.participantId === null ? [] : reactionsOn(client, client.participantId),
       pinned: false,
       videoPulled: client.localStream !== null && client.localStream.getVideoTracks().length > 0,
       quality: client.diagnostics.quality,
@@ -150,6 +177,8 @@ export function meetingTiles(client: MeetingClient, localName: string): MeetingT
       local: false,
       microphoneOff: presence.muted || !publishesAudio(participant),
       speaking: presence.speaking,
+      handRaised: presence.hand,
+      reactions: reactionsOn(client, participantId),
       pinned: client.isPinned(participantId),
       videoPulled: withVideo.has(participantId),
       quality: client.qualityOf(participantId),
@@ -197,6 +226,8 @@ export function sharedScreenTile(
       local: true,
       microphoneOff: null,
       speaking: false,
+      handRaised: false,
+      reactions: [],
       pinned: false,
       videoPulled: true,
       // This browser's own share goes out on the same connection as its camera, so the uplink's
@@ -221,6 +252,8 @@ export function sharedScreenTile(
     local: false,
     microphoneOff: null,
     speaking: false,
+    handRaised: false,
+    reactions: [],
     pinned: false,
     videoPulled: true,
     quality: client.qualityOf(sharer.participantId),

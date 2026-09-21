@@ -36,6 +36,8 @@ function tile(ordinal: number, over: Partial<MeetingTileModel> = {}): MeetingTil
     local: false,
     microphoneOff: false,
     speaking: false,
+    handRaised: false,
+    reactions: [],
     pinned: false,
     videoPulled: true,
     quality: "unknown",
@@ -53,6 +55,8 @@ function participant(ordinal: number, over: Partial<MeetingParticipant> = {}): M
     tracks: [{ trackName: `${participantId}:audio`, kind: "audio" }],
     speaking: false,
     muted: false,
+    hand: false,
+    handRaisedAt: null,
     hostRole: null,
     ...over,
   };

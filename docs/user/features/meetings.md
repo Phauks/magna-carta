@@ -143,6 +143,12 @@ end. Poor marks on everybody, or on your own preview, usually means it is at you
 A number on the control counts what has been said since you last looked, so you can watch the room
 instead of watching a button. Opening the panel clears it.
 
+**Messages arrive as they are said.** The room passes each one along the moment it reaches the
+record, so a colleague's message is on your screen while they are still looking at the send button,
+and a message taken back goes blank on every screen at once. The panel still reads the record behind
+that, quietly and less often, which is what catches you up on anything that did not reach you — a
+connection that dropped and came back, a tab that was asleep.
+
 Each line says who said it and when. Type in the box at the foot and press Enter to send it; Shift
 and Enter writes a second line instead. One message holds 4,000 characters, and the panel starts
 telling you how much room is left as you approach that. You have to be in the meeting to say
@@ -158,6 +164,48 @@ accordingly.
 message for whoever is running the meeting. The words go and the line stays, saying that a message
 was taken back. Nothing is deleted outright, because the record is an account of what happened, and
 that something was said and then removed is part of what happened.
+
+## Raising your hand and reacting
+
+Two ways to say something without interrupting anybody, and neither is kept: a raised hand and a
+reaction live for as long as the meeting does and leave nothing on the record. What was said in
+chat is on the file; that you agreed with a sentence four seconds ago is not.
+
+**Raise hand** is the hand in the control bar. Pressing it puts a mark beside your name — on your
+tile, on your row in the list down the side, and in the queue whoever is running the meeting works
+through. Pressing it again takes it down, and so does a host clearing the floor. It is a request
+for the floor rather than a setting: nothing about your microphone changes, and nobody is muted or
+unmuted by it.
+
+**The queue is in the order the hands went up**, which is why it is worth using in a room of thirty
+rather than catching somebody's eye. A host opens it from **Hands** in the control bar, which
+carries the number of people waiting so nobody is left with their hand up while everybody watches
+the room instead of a button.
+
+**Reactions are six, and that is all of them**: Agree, Disagree, Thank you, That is funny, Well
+said, and Congratulations. Press the face in the control bar and pick one; it rises off your tile,
+everybody sees it for about four seconds, and it is gone. There is no seventh, nothing to type, and
+no emoji anywhere in this product — the six are drawn with the same icons as the rest of the
+screen.
+
+**One at a time.** A hand going up or down and a reaction each take a moment before the next one
+will send, so a room of three hundred applauding is a room the connection can carry. Pressing again
+inside that moment does nothing rather than queueing.
+
+**In a large meeting the reactions become a count.** Above sixteen people the room stops saying who
+reacted and says how many did, as a short row beside the meeting's own details at the top of the
+screen. That is the honest answer at that size: only sixteen tiles are on your screen, so a mark on
+the right face is a promise the screen could not keep for most of the room. A raised hand is still
+named, however big the room, because it is a request somebody has to answer.
+
+**If you use a screen reader**, a hand going up is announced whatever the size of the room, and a
+reaction is announced where the room named who threw it. The count row is not read out: a stream of
+changing numbers once a second is noise rather than information, and the reactions control says
+what it offers.
+
+**If you have asked for less motion**, the reaction appears on the tile and fades where it is
+instead of rising. It stays for the same four seconds, because how long it is there is part of what
+it says.
 
 ## Large meetings
 
@@ -256,7 +304,7 @@ the person leaves, and it is gone when the meeting ends.
 **Remove from the meeting** takes somebody out of the room. It asks first, because it is not a step
 you can take back: their screen says a host removed them, they cannot rejoin this meeting, and the
 record keeps when their stay began and when it ended. It is this MEETING they are out of and nothing
-else — a new meeting on the same event is a new room, and their place on the calendar entry is
+else — a meeting on a new calendar entry is a new room, and their place on this entry is
 untouched. A co-host cannot remove the host, and nobody removes themselves this way: **Leave** is how
 a person leaves.
 
@@ -276,9 +324,11 @@ rather not have somebody wander into halfway through.
 
 **Turning it on.** Beside **Start meeting** and **Start call** on the event is a switch reading
 **Hold arrivals in a lobby**. Set it before you open the room and everybody who joins after you waits
-until you let them in. Inside a meeting it is **Host controls › Hold arrivals in a lobby**, and the
-same item reads **Let arrivals straight in** once it is on, so you can shut the door in the middle of
-a meeting that has taken a turn, or open it again once everybody has arrived.
+until you let them in. The same switch is on the event form itself, under **Where**, once you have
+chosen a meeting — so a room you are scheduling for next Tuesday can be set to hold arrivals now
+rather than being remembered on the day. Inside a meeting it is **Host controls › Hold arrivals in a
+lobby**, and the same item reads **Let arrivals straight in** once it is on, so you can shut the door
+in the middle of a meeting that has taken a turn, or open it again once everybody has arrived.
 
 **Turning it off does not let in the people already outside.** They stay at the door until you decide
 about each of them. A switch is a standing decision about arrivals in general, and somebody may be
@@ -313,8 +363,8 @@ the panel says how many, so you can end somebody else's stay or wait for a seat.
 
 **A denial bars that person from this meeting.** They are told a host did not let them in, and
 pressing Join again will not put them back in the queue — otherwise Deny would be a button that does
-nothing at all. It is this meeting they are barred from and nothing else: a new meeting on the same
-event is a new room, their place on the calendar entry is untouched, and the record keeps when they
+nothing at all. It is this meeting they are barred from and nothing else: a meeting on a new calendar
+entry is a new room, their place on this entry is untouched, and the record keeps when they
 arrived and when their stay closed.
 
 ## Ending a meeting
@@ -359,6 +409,11 @@ room.
 - **Dialling in by telephone.** There is no number to call. Everybody joins from a browser.
 - **Meetings that belong to no event.** Every meeting starts from something on the calendar. If you
   want an unscheduled meeting, record the event first and start the meeting on it.
+- **A seventh reaction.** The six are a closed set. Nothing lets you add one, and nothing here takes
+  free text or an emoji — a firm's client can be watching the screen.
+- **Polls and a question queue.** Asking the room a question and seeing the answers, and a queue the
+  room asks the host through, are the next piece of this feature. A raised hand is what a room has
+  until then.
 
 ## Related
 

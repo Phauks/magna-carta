@@ -323,6 +323,22 @@ export async function giveUpWaiting(room: RoomContext, attendanceId: string): Pr
 }
 
 /**
+ * The door's share of a removal — the key a stay leaves behind when it is put out FROM the door.
+ *
+ * A host removing somebody is one act reaching two keyspaces, and the roster half cannot see the
+ * other: `releaseParticipant` drops a `participant:` record and a stay at the door has never had
+ * one. Without this, removing a waiting member closed their stay in the firm's record and left a
+ * `waiting:` key behind — so the host's own lobby panel went on showing somebody the record says is
+ * not in the meeting, their grace deadline went on arming the alarm, and the key outlived the
+ * meeting's roster. Answers whether there was one, so the caller records the act once either way.
+ */
+export async function waitingRemoved(room: RoomContext, attendanceId: string): Promise<boolean> {
+  if (!(await deleteWaiting(room, attendanceId))) return false;
+  await tellTheDoorItMoved(room);
+  return true;
+}
+
+/**
  * The door's own setting moved — called by the lobby route after its own write commits.
  *
  * TURNING THE LOBBY OFF ADMITS NOBODY. The people already at the door stay there until a host

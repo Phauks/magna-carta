@@ -10,9 +10,11 @@ import {
 } from "../src/meetings/meeting-room.ts";
 import {
   MAX_MEETING_FRAME_BYTES,
+  MEETING_REACTIONS,
   PING_FRAME,
   PONG_FRAME,
   ROSTER_DELTA_THRESHOLD,
+  SIGNAL_INTERVAL_MILLISECONDS,
 } from "@magna-carta/meeting-protocol/frames";
 import {
   PING_FRAME as PROGRESS_PING_FRAME,
@@ -20,6 +22,7 @@ import {
 } from "../src/progress/job-progress-protocol.ts";
 import { setSfuFetchForTests } from "../src/meetings/sfu/sfu-client.ts";
 import { PRESENCE_RELAY_INTERVAL_MILLISECONDS } from "../src/meetings/room/room-presence.ts";
+import { REACTION_COALESCE_INTERVAL_MILLISECONDS } from "../src/meetings/room/room-reactions.ts";
 import { setRoomDiagnosticsLoggerForTests } from "../src/meetings/room/room-diagnostics.ts";
 import { createMemoryLogger, type MemoryLogger } from "@magna-carta/telemetry/logger";
 
@@ -197,6 +200,8 @@ interface RosterEntry {
   speaking: boolean;
   muted: boolean;
   hostRole: "host" | "co-host" | null;
+  hand: boolean;
+  handRaisedAt: string | null;
 }
 interface RosterFrame {
   participants: RosterEntry[];
@@ -363,6 +368,80 @@ async function seedRoster(stub: ReturnType<typeof roomStub>, count: number): Pro
       }
       await state.storage.put(batch);
     }
+  });
+}
+
+/**
+ * Opens this many more real sockets, so the room is genuinely past a size rather than seeded past it.
+ *
+ * `seedRoster` writes roster entries with no sockets behind them, which is right for everything
+ * decided from the roster — the delta threshold, a subscription check — and wrong for anything
+ * decided over the sockets a frame would actually reach. The reactions branch is the second kind.
+ */
+async function fillRoom(
+  stub: ReturnType<typeof roomStub>,
+  meetingId: string,
+  prefix: string,
+  count: number,
+): Promise<void> {
+  for (let seat = 0; seat < count; seat += 1) {
+    await connect(
+      stub,
+      meetingId,
+      `meetingAttendance_${prefix}${String(seat).padStart(3, "0")}`,
+      `Seat ${String(seat)}`,
+    );
+  }
+}
+
+/** What the room currently holds about one participant's hand — the one stored half of it. */
+async function handRaisedAtOf(
+  stub: ReturnType<typeof roomStub>,
+  attendanceId: string,
+): Promise<string | null> {
+  let found: string | null = null;
+  await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
+    const participant = await state.storage.get<{ handRaisedAt?: string | null }>(
+      `participant:${attendanceId}`,
+    );
+    found = participant?.handRaisedAt ?? null;
+  });
+  return found;
+}
+
+/** Winds a participant's signal window back, so the next hand or reaction is not refused. */
+async function rewindSignal(
+  stub: ReturnType<typeof roomStub>,
+  attendanceId: string,
+  milliseconds: number,
+): Promise<void> {
+  await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
+    const key = `participant:${attendanceId}`;
+    const participant = await state.storage.get<Record<string, unknown>>(key);
+    if (participant === undefined) throw new Error(`no participant at ${key}`);
+    const claimed = participant["signalAt"];
+    const claimedAt = Date.parse(typeof claimed === "string" ? claimed : "");
+    await state.storage.put(key, {
+      ...participant,
+      signalAt: Number.isNaN(claimedAt) ? null : new Date(claimedAt - milliseconds).toISOString(),
+    });
+  });
+}
+
+/** Winds the coalescing bucket's window back, so the next frame or alarm flushes it. */
+async function rewindReactionBucket(
+  stub: ReturnType<typeof roomStub>,
+  milliseconds: number,
+): Promise<void> {
+  await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
+    const bucket = await state.storage.get<{ openedAt: string; counts: Record<string, number> }>(
+      "reactions",
+    );
+    if (bucket === undefined) throw new Error("no reaction bucket to wind back");
+    await state.storage.put("reactions", {
+      ...bucket,
+      openedAt: new Date(Date.parse(bucket.openedAt) - milliseconds).toISOString(),
+    });
   });
 }
 
@@ -579,6 +658,11 @@ describe("joining the room", () => {
           // Whether this person is running the meeting, drawn as a badge by every browser and read
           // by the room itself for every host frame. Null for somebody who is not.
           hostRole: null,
+          // TWO WIRE FIELDS OVER ONE STORED FACT. The room stores the instant alone; the boolean is
+          // the comparison against null, carried because every tile and roster row branches on it
+          // and only the hands panel wants the instant.
+          hand: false,
+          handRaisedAt: null,
         },
       ],
       // WHAT IS TRUE OF THE ROOM rather than of anybody in it, carried inline for the reason the
@@ -872,6 +956,8 @@ describe("telling a large room what changed", () => {
           speaking: false,
           muted: false,
           hostRole: null,
+          hand: false,
+          handRaisedAt: null,
         },
       ],
       // Always present and empty rather than absent, so a client reads three arrays rather than
@@ -2393,7 +2479,13 @@ describe("the door, from the signaling side", () => {
       { type: "sync" },
       { type: "presence", speaking: true, muted: false },
       { type: "mute", participantId: HOST_STAY },
+      { type: "mute-all" },
       { type: "spotlight", participantId: HOST_STAY },
+      { type: "lower-hands", participantId: null },
+      { type: "reaction", name: "applause" },
+      // A report is a statement rather than a request and costs the room a write and an event, so
+      // it is refused here like everything else: somebody at the door is not being measured yet.
+      { type: "diagnostic-report", sample: { quality: "good" } },
       {
         type: "publish",
         sessionDescription: { type: "offer", sdp: "v=0 browser-offer" },
@@ -2416,6 +2508,30 @@ describe("the door, from the signaling side", () => {
     expect(upstream).toEqual([]);
     // AND THE SOCKET STAYS OPEN: they are at the door, and the door may open.
     expect(waiter.closeCode()).toBeNull();
+  });
+
+  it("leaves no key behind when the member it removes was still at the DOOR", async () => {
+    const { meetingId, stub } = freshRoom();
+    const host = await connect(stub, meetingId, HOST_STAY, "A Host", "video", "host");
+    const waiter = await knock(stub, meetingId, WAITER_STAY, "A Late Arrival");
+    await waitFor(() => lastFrame(host, "waiting") !== undefined);
+
+    // A REMOVAL REACHES A STAY WHEREVER IT IS STANDING. The route closes the stay in the firm's
+    // record either way; the room's release only knows the `participant:` keyspace, and somebody at
+    // the door has never had an entry in it.
+    await stub.participantRemoved(WAITER_STAY);
+    await waitFor(() => waiter.closeCode() !== null);
+
+    await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
+      const keys = [...(await state.storage.list({ prefix: "waiting:" })).keys()];
+      // Left behind, this key made the host's own lobby panel go on offering to admit somebody the
+      // record says is not in the meeting, and kept arming the door's grace deadline.
+      expect(keys).toEqual([]);
+    });
+    // And the hosts are told the door moved, rather than being left with a stale list.
+    await waitFor(
+      () => (lastFrame(host, "waiting") as { participants: unknown[] }).participants.length === 0,
+    );
   });
 
   it("admits on the wire: `admitted`, then `welcome`, then a roster join to the room", async () => {
@@ -2612,6 +2728,430 @@ describe("the door, from the signaling side", () => {
 // ---------------------------------------------------------------------------------------------
 // What the room records about itself
 // ---------------------------------------------------------------------------------------------
+
+describe("a hand put up, and the queue a host works through", () => {
+  it("stamps the room's own instant, relays it on the roster, and is not held by the presence throttle", async () => {
+    const { meetingId, stub } = freshRoom();
+    const raising = "meetingAttendance_handOne";
+    const member = await connect(stub, meetingId, raising, "A Member");
+    const watcher = await connect(stub, meetingId, "meetingAttendance_handWatch", "A Guest");
+
+    // A TRANSITION FIRST, so the presence window is already open when the hand goes up. A hand
+    // relayed under that throttle would be dropped here, and a member who wants the floor would be
+    // invisible to the host until they next happened to toggle their microphone.
+    member.send(JSON.stringify({ v: 1, type: "presence", speaking: true, muted: false }));
+    await waitFor(() => lastFrame(watcher, "presence") !== undefined);
+
+    member.send(
+      JSON.stringify({ v: 1, type: "presence", speaking: true, muted: false, hand: true }),
+    );
+
+    await waitFor(
+      () =>
+        rosterOf(watcher)?.participants.find((one) => one.participantId === raising)?.hand === true,
+    );
+    const entry = rosterOf(watcher)?.participants.find((one) => one.participantId === raising);
+    // TWO WIRE FIELDS OVER ONE STORED FACT: the boolean every tile branches on, and the instant the
+    // hands panel sorts by. The room decides the clock — a queue ordered by what each person's own
+    // machine said is not one ordering.
+    expect(entry?.hand).toBe(true);
+    expect(Date.parse(String(entry?.handRaisedAt))).not.toBeNaN();
+    expect(await handRaisedAtOf(stub, raising)).toBe(entry?.handRaisedAt);
+  });
+
+  it("refuses a second signal inside the window, and leaves the socket open", async () => {
+    const { meetingId, stub } = freshRoom();
+    const raising = "meetingAttendance_handFast";
+    const member = await connect(stub, meetingId, raising, "A Member");
+
+    member.send(
+      JSON.stringify({ v: 1, type: "presence", speaking: false, muted: false, hand: true }),
+    );
+    await waitForStored(async () => (await handRaisedAtOf(stub, raising)) !== null);
+
+    // A hand DROPPED inside the window would be a member asking for the floor and never being
+    // relayed, which is why this is the one throttle in the room that refuses.
+    member.send(
+      JSON.stringify({ v: 1, type: "presence", speaking: false, muted: false, hand: false }),
+    );
+    await waitFor(() => lastFrame(member, "refused") !== undefined);
+    expect(lastFrame(member, "refused")).toEqual({ v: 1, type: "refused", reason: "rate-limited" });
+    expect(member.closeCode()).toBeNull();
+    // And nothing moved: the browser re-sends the settled state when the window passes.
+    expect(await handRaisedAtOf(stub, raising)).not.toBeNull();
+
+    await rewindSignal(stub, raising, SIGNAL_INTERVAL_MILLISECONDS + 1);
+    member.send(
+      JSON.stringify({ v: 1, type: "presence", speaking: false, muted: false, hand: false }),
+    );
+    await waitForStored(async () => (await handRaisedAtOf(stub, raising)) === null);
+    expect(await handRaisedAtOf(stub, raising)).toBeNull();
+  });
+
+  it("spends no allowance on a frame that restates a hand the room already holds", async () => {
+    const { meetingId, stub } = freshRoom();
+    const raising = "meetingAttendance_handSame";
+    const member = await connect(stub, meetingId, raising, "A Member");
+
+    // Three frames, one change. A browser states its whole subject on every transition of any of
+    // the three facts, so a hand that has not moved must not consume the window the next real
+    // change needs.
+    member.send(
+      JSON.stringify({ v: 1, type: "presence", speaking: false, muted: false, hand: false }),
+    );
+    member.send(
+      JSON.stringify({ v: 1, type: "presence", speaking: true, muted: false, hand: false }),
+    );
+    await settle();
+    expect(lastFrame(member, "refused")).toBeUndefined();
+  });
+
+  it("carries the hand on a roster delta and through a sync, so a host's queue stays right", async () => {
+    const { meetingId, stub } = freshRoom();
+    const raising = "meetingAttendance_handDelta";
+    const member = await connect(stub, meetingId, raising, "A Member");
+    const watcher = await connect(stub, meetingId, "meetingAttendance_handDeltaWatch", "A Guest");
+    await seedRoster(stub, ROSTER_DELTA_THRESHOLD);
+
+    member.send(
+      JSON.stringify({ v: 1, type: "presence", speaking: false, muted: false, hand: true }),
+    );
+
+    // ABOVE THE THRESHOLD the room states what CHANGED, and a hand is one `updated` entry rather
+    // than a roster of three hundred — the same arithmetic the difference was built for.
+    await waitFor(() => deltasOf(watcher).some((delta) => delta.updated.some((one) => one.hand)));
+    const updated = deltasOf(watcher)
+      .flatMap((delta) => delta.updated)
+      .find((one) => one.participantId === raising);
+    expect(updated?.hand).toBe(true);
+
+    // And a browser that asks for the whole list gets the queue with it, which is how somebody who
+    // joined after the hand went up learns about it at all.
+    watcher.send(JSON.stringify({ v: 1, type: "sync" }));
+    await waitFor(
+      () =>
+        rosterOf(watcher)?.participants.find((one) => one.participantId === raising)?.hand === true,
+    );
+    expect(
+      rosterOf(watcher)?.participants.find((one) => one.participantId === raising)?.handRaisedAt,
+    ).toBe(await handRaisedAtOf(stub, raising));
+  });
+
+  it("refuses lower-hands from a socket holding no grant, and changes nothing", async () => {
+    const { meetingId, stub } = freshRoom();
+    const raising = "meetingAttendance_handGuard";
+    const member = await connect(stub, meetingId, raising, "A Member");
+    member.send(
+      JSON.stringify({ v: 1, type: "presence", speaking: false, muted: false, hand: true }),
+    );
+    await waitForStored(async () => (await handRaisedAtOf(stub, raising)) !== null);
+
+    // Decided from the STORED participant record, never from the socket's attachment — the one
+    // place this room answers the authority question.
+    member.send(JSON.stringify({ v: 1, type: "lower-hands", participantId: raising }));
+    await waitFor(() => lastFrame(member, "refused") !== undefined);
+    expect(lastFrame(member, "refused")).toEqual({ v: 1, type: "refused", reason: "not-host" });
+    expect(member.closeCode()).toBeNull();
+    expect(await handRaisedAtOf(stub, raising)).not.toBeNull();
+  });
+
+  it("clears every hand in the room in ONE frame, sparing nobody including the host", async () => {
+    const { meetingId, stub } = freshRoom();
+    const host = "meetingAttendance_handHost";
+    const first = "meetingAttendance_handA";
+    const second = "meetingAttendance_handB";
+    const hosting = await connect(stub, meetingId, host, "A Host", "video", "host");
+    const one = await connect(stub, meetingId, first, "Member One");
+    const two = await connect(stub, meetingId, second, "Member Two");
+
+    for (const [socket, stay] of [
+      [hosting, host],
+      [one, first],
+      [two, second],
+    ] as const) {
+      socket.send(
+        JSON.stringify({ v: 1, type: "presence", speaking: false, muted: false, hand: true }),
+      );
+      await waitForStored(async () => (await handRaisedAtOf(stub, stay)) !== null);
+    }
+
+    const before = one.frames.length;
+    hosting.send(JSON.stringify({ v: 1, type: "lower-hands", participantId: null }));
+    await waitForStored(async () => (await handRaisedAtOf(stub, first)) === null);
+
+    // A HOST CLEARING THE FLOOR IS CLEARING IT. Their own hand goes down with the rest — the
+    // opposite of the mute-all rule and deliberately so: mute-all exists so a host can speak, and
+    // this exists so a host can start the queue again.
+    expect(await handRaisedAtOf(stub, host)).toBeNull();
+    expect(await handRaisedAtOf(stub, first)).toBeNull();
+    expect(await handRaisedAtOf(stub, second)).toBeNull();
+    await settle();
+    // ONE frame, not one per hand: three hundred cleared hands travel as one roster change.
+    expect(one.frames.length - before).toBe(1);
+  });
+
+  it("lowers one named hand and leaves the others up", async () => {
+    const { meetingId, stub } = freshRoom();
+    const host = "meetingAttendance_handHostOne";
+    const target = "meetingAttendance_handTarget";
+    const other = "meetingAttendance_handOther";
+    const hosting = await connect(stub, meetingId, host, "A Host", "video", "host");
+    const lowered = await connect(stub, meetingId, target, "Member One");
+    const kept = await connect(stub, meetingId, other, "Member Two");
+
+    for (const [socket, stay] of [
+      [lowered, target],
+      [kept, other],
+    ] as const) {
+      socket.send(
+        JSON.stringify({ v: 1, type: "presence", speaking: false, muted: false, hand: true }),
+      );
+      await waitForStored(async () => (await handRaisedAtOf(stub, stay)) !== null);
+    }
+
+    hosting.send(JSON.stringify({ v: 1, type: "lower-hands", participantId: target }));
+    await waitForStored(async () => (await handRaisedAtOf(stub, target)) === null);
+    expect(await handRaisedAtOf(stub, other)).not.toBeNull();
+  });
+});
+
+describe("something thrown on a tile", () => {
+  it("names the reactor in a small room, and never echoes to the sender", async () => {
+    const { meetingId, stub } = freshRoom();
+    const reactor = "meetingAttendance_reactOne";
+    const throwing = await connect(stub, meetingId, reactor, "A Member");
+    const watching = await connect(stub, meetingId, "meetingAttendance_reactWatch", "A Guest");
+
+    throwing.send(JSON.stringify({ v: 1, type: "reaction", name: "applause" }));
+
+    await waitFor(() => lastFrame(watching, "reaction") !== undefined);
+    const relayed = lastFrame(watching, "reaction") as Record<string, unknown>;
+    expect(relayed["participantId"]).toBe(reactor);
+    expect(relayed["name"]).toBe("applause");
+    expect(Date.parse(String(relayed["at"]))).not.toBeNaN();
+    // The sender's own screen drew the bubble the moment the button was pressed, which is what
+    // makes the control feel like a button rather than a request.
+    expect(lastFrame(throwing, "reaction")).toBeUndefined();
+    // And no coalesced frame at this size: a bubble on the right face is a promise a small room
+    // can keep.
+    expect(lastFrame(watching, "reactions")).toBeUndefined();
+  });
+
+  it("refuses a second reaction inside the signal window, socket open", async () => {
+    const { meetingId, stub } = freshRoom();
+    const reactor = "meetingAttendance_reactFast";
+    const throwing = await connect(stub, meetingId, reactor, "A Member");
+    const watching = await connect(stub, meetingId, "meetingAttendance_reactFastWatch", "A Guest");
+
+    throwing.send(JSON.stringify({ v: 1, type: "reaction", name: "heart" }));
+    await waitFor(() => lastFrame(watching, "reaction") !== undefined);
+    throwing.send(JSON.stringify({ v: 1, type: "reaction", name: "laugh" }));
+
+    await waitFor(() => lastFrame(throwing, "refused") !== undefined);
+    expect(lastFrame(throwing, "refused")).toEqual({
+      v: 1,
+      type: "refused",
+      reason: "rate-limited",
+    });
+    expect(throwing.closeCode()).toBeNull();
+    await settle();
+    // REFUSED RATHER THAN RELAYED: the second act did not happen for anybody, and the browser is
+    // told so rather than left believing it landed.
+    expect(watching.frames.filter((frame) => frame["type"] === "reaction")).toHaveLength(1);
+  });
+
+  it("shares ONE window with the hand, so a browser cannot spend its allowance twice", async () => {
+    const { meetingId, stub } = freshRoom();
+    const reactor = "meetingAttendance_reactShare";
+    const member = await connect(stub, meetingId, reactor, "A Member");
+
+    member.send(
+      JSON.stringify({ v: 1, type: "presence", speaking: false, muted: false, hand: true }),
+    );
+    await waitForStored(async () => (await handRaisedAtOf(stub, reactor)) !== null);
+    member.send(JSON.stringify({ v: 1, type: "reaction", name: "celebrate" }));
+
+    await waitFor(() => lastFrame(member, "refused") !== undefined);
+    expect(lastFrame(member, "refused")).toEqual({ v: 1, type: "refused", reason: "rate-limited" });
+  });
+
+  it("coalesces a large room's reactions into ONE frame carrying the counts", async () => {
+    const { meetingId, stub } = freshRoom();
+    const first = "meetingAttendance_reactBigOne";
+    const second = "meetingAttendance_reactBigTwo";
+    const one = await connect(stub, meetingId, first, "Member One");
+    const two = await connect(stub, meetingId, second, "Member Two");
+    // REAL SOCKETS rather than a seeded roster, because the branch is decided over the sockets a
+    // frame would actually reach — a roster read per reaction would spend three hundred keys on
+    // every one of them in exactly the room the coalescing exists for, and a stay inside its grace
+    // period with no socket open receives nothing either way.
+    await fillRoom(stub, meetingId, "reactBig", ROSTER_DELTA_THRESHOLD - 1);
+
+    one.send(JSON.stringify({ v: 1, type: "reaction", name: "applause" }));
+    two.send(JSON.stringify({ v: 1, type: "reaction", name: "applause" }));
+    await settle();
+
+    // NOTHING individual, and nothing yet at all: the bucket is open and the window has not run.
+    expect(one.frames.filter((frame) => frame["type"] === "reaction")).toHaveLength(0);
+    expect(one.frames.filter((frame) => frame["type"] === "reactions")).toHaveLength(0);
+
+    // A reaction arriving after the window has closed flushes the bucket INCLUDING ITSELF.
+    await rewindReactionBucket(stub, REACTION_COALESCE_INTERVAL_MILLISECONDS + 1);
+    await rewindSignal(stub, first, SIGNAL_INTERVAL_MILLISECONDS + 1);
+    one.send(JSON.stringify({ v: 1, type: "reaction", name: "heart" }));
+
+    await waitFor(() => lastFrame(one, "reactions") !== undefined);
+    const counts = (lastFrame(one, "reactions") as { counts: Record<string, number> }).counts;
+    expect(counts).toEqual({ applause: 2, heart: 1 });
+    // Sent to EVERY socket including the reactors: a count that excluded the reader would be a
+    // different number per socket, and the room would build three hundred frames to avoid one
+    // double-count.
+    await waitFor(() => lastFrame(two, "reactions") !== undefined);
+    expect((lastFrame(two, "reactions") as { counts: Record<string, number> }).counts).toEqual(
+      counts,
+    );
+  });
+
+  it("flushes a bucket nothing follows on the alarm, and the alarm's other deadlines still fire", async () => {
+    const { meetingId, stub } = freshRoom();
+    const reactor = "meetingAttendance_reactAlarm";
+    const speaker = "meetingAttendance_reactAlarmSpeaker";
+    const throwing = await connect(stub, meetingId, reactor, "A Member");
+    const talking = await connect(stub, meetingId, speaker, "A Guest");
+    await fillRoom(stub, meetingId, "reactAlarmSeat", ROSTER_DELTA_THRESHOLD - 1);
+
+    // A DEFERRED PRESENCE TRANSITION beside the bucket, so this asserts the two share one alarm
+    // rather than one of them taking it.
+    talking.send(JSON.stringify({ v: 1, type: "presence", speaking: true, muted: false }));
+    await waitFor(() => lastFrame(throwing, "presence") !== undefined);
+    talking.send(JSON.stringify({ v: 1, type: "presence", speaking: false, muted: false }));
+    await waitForStored(async () => (await presenceOf(stub, speaker)).presenceDirty);
+
+    throwing.send(JSON.stringify({ v: 1, type: "reaction", name: "thumbs-up" }));
+    // A bucket opens and nothing follows it. Paused on rather than waited on, because the assertion
+    // is a NEGATIVE — the coalesced frame must not have gone out yet — and a negative has no
+    // condition to wait for.
+    await settle();
+    expect(lastFrame(throwing, "reactions")).toBeUndefined();
+
+    await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
+      expect(await state.storage.getAlarm()).not.toBeNull();
+    });
+    await rewindReactionBucket(stub, REACTION_COALESCE_INTERVAL_MILLISECONDS + 1);
+    await rewindPresence(stub, speaker, PRESENCE_RELAY_INTERVAL_MILLISECONDS + 1);
+    expect(await runDurableObjectAlarm(stub)).toBe(true);
+
+    await waitFor(() => lastFrame(throwing, "reactions") !== undefined);
+    expect((lastFrame(throwing, "reactions") as { counts: Record<string, number> }).counts).toEqual(
+      { "thumbs-up": 1 },
+    );
+    // And the presence flush the same wake owed happened too.
+    expect((await presenceOf(stub, speaker)).presenceDirty).toBe(false);
+  });
+
+  it("stores nothing about a reaction once it has been sent", async () => {
+    const { meetingId, stub } = freshRoom();
+    const reactor = "meetingAttendance_reactStore";
+    const throwing = await connect(stub, meetingId, reactor, "A Member");
+    await connect(stub, meetingId, "meetingAttendance_reactStoreWatch", "A Guest");
+
+    throwing.send(JSON.stringify({ v: 1, type: "reaction", name: "laugh" }));
+    await settle();
+
+    // NO TABLE, NO AUDIT ROW, AND NOT EVEN A KEY IN THE ROOM below the threshold: a reaction says
+    // somebody agreed with a sentence four seconds ago, and when the meeting ends there is nothing
+    // anybody would ask about.
+    await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
+      expect(await state.storage.get("reactions")).toBeUndefined();
+    });
+  });
+
+  it("refuses a name outside the six", async () => {
+    const { meetingId, stub } = freshRoom();
+    const member = await connect(stub, meetingId, "meetingAttendance_reactBad", "A Member");
+
+    member.send(JSON.stringify({ v: 1, type: "reaction", name: "shrug" }));
+    await waitFor(() => lastFrame(member, "refused") !== undefined);
+    // A closed vocabulary, refused at the parse: a free string here would put arbitrary text on a
+    // tile in a firm's meeting.
+    expect(lastFrame(member, "refused")).toEqual({
+      v: 1,
+      type: "refused",
+      reason: "malformed-frame",
+    });
+    expect(MEETING_REACTIONS).not.toContain("shrug");
+  });
+});
+
+describe("the chat relay, which is a copy and never the record", () => {
+  const SAID = {
+    id: "meetingMessage_relayOne",
+    meetingId: "meeting_relayOne",
+    participantKind: "member",
+    participantId: "meetingAttendance_relaySpeaker",
+    userId: "user_relaySpeaker",
+    sentAt: "2026-09-21T10:00:00.000Z",
+    body: "The exhibits are in the shared folder.",
+    redactedAt: null,
+    redactedByUserId: null,
+  } as const;
+
+  it("reaches every welcomed socket and nobody at the door, and stores nothing", async () => {
+    const { meetingId, stub } = freshRoom();
+    const inside = await connect(stub, meetingId, "meetingAttendance_relayIn", "A Member");
+    const alsoInside = await connect(stub, meetingId, "meetingAttendance_relayIn2", "A Guest");
+    const waiting = await connect(
+      stub,
+      meetingId,
+      "meetingAttendance_relayDoor",
+      "At The Door",
+      "video",
+      null,
+      false,
+      true,
+    );
+    const doorFramesBefore = waiting.frames.length;
+
+    await stub.messageSent(SAID);
+
+    await waitFor(() => lastFrame(inside, "message") !== undefined);
+    expect(lastFrame(inside, "message")).toEqual({ v: 1, type: "message", message: SAID });
+    await waitFor(() => lastFrame(alsoInside, "message") !== undefined);
+    // WHAT IS SAID INSIDE A ROOM IS EXACTLY WHAT SOMEBODY AT THE DOOR MUST NOT REACH, and it is
+    // structural rather than filtered here: a waiting socket is never welcomed, and the broadcast
+    // skips everything that is not.
+    await settle();
+    expect(waiting.frames.length).toBe(doorFramesBefore);
+
+    // The room is a relay and holds nothing: the transcript is the firm's own record.
+    await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
+      const keys = [...(await state.storage.list()).keys()];
+      expect(keys.some((key) => key.includes("message"))).toBe(false);
+    });
+  });
+
+  it("says a message was taken back with the handle and the instant alone", async () => {
+    const { meetingId, stub } = freshRoom();
+    const inside = await connect(stub, meetingId, "meetingAttendance_relayRedact", "A Member");
+
+    await stub.messageRedacted(SAID.id, "2026-09-21T10:05:00.000Z");
+
+    await waitFor(() => lastFrame(inside, "message-redacted") !== undefined);
+    expect(lastFrame(inside, "message-redacted")).toEqual({
+      v: 1,
+      type: "message-redacted",
+      messageId: SAID.id,
+      redactedAt: "2026-09-21T10:05:00.000Z",
+    });
+  });
+
+  it("is a no-op for a room nobody holds a socket on", async () => {
+    const { stub } = freshRoom();
+    // Addressed by every commit, including for a meeting that has never been opened in a browser.
+    await expect(stub.messageSent(SAID)).resolves.toBeUndefined();
+    await expect(stub.messageRedacted(SAID.id, SAID.sentAt)).resolves.toBeUndefined();
+  });
+});
 
 describe("what the room records about itself", () => {
   const STAY = "meetingAttendance_diagnosticsOne";

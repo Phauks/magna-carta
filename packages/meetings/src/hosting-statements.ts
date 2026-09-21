@@ -75,13 +75,19 @@ export async function readLiveHostGrant(
 }
 
 /**
- * WHETHER ANYBODY IS ACTUALLY RUNNING THE ROOM — a live grant held by somebody with an open stay.
+ * WHETHER ANYBODY IS ACTUALLY RUNNING THE ROOM — a live HOST grant held by somebody in the room.
  *
  * This is the question a claim is refused on, and it is deliberately not "is there a live grant".
  * Hosting does not pass on its own when a host leaves: a host whose tunnel drops for ninety seconds
  * has not stopped hosting, and a rule that reassigned the room on a socket loss would hand a client
  * meeting to whoever happened to be next in the roster. So the grant stands while its holder is
- * away, and what the claim asks instead is whether anybody holding one is in the room.
+ * away, and what the claim asks instead is whether the HOST is in the room.
+ *
+ * TWO WORDS DO THE WORK, AND BOTH WERE WRONG ONCE. "In the room" excludes a grant-holder standing at
+ * the door, who cannot admit anybody including themselves — counting them refused the claim that is
+ * the lobby's one way out of a hostless room. And "host" excludes a co-host: counting every role
+ * meant two co-hosts in a room whose host had gone each saw the other and neither could claim, which
+ * left the meeting permanently without a host. A co-host does not prevent the claim; the host does.
  */
 export async function countOtherHostsPresent(
   database: SqlDatabase,
@@ -93,6 +99,13 @@ export async function countOtherHostsPresent(
       `SELECT COUNT(*) AS count FROM ${MEETING_HOST_TABLE} ` +
         `WHERE ${MEETING_HOST_TABLE}.meeting_id = ?1 AND ${MEETING_HOST_TABLE}.revoked_at IS NULL ` +
         `AND ${MEETING_HOST_TABLE}.user_id <> ?2 ` +
+        // A HOST'S GRANT AND NOT A CO-HOST'S, and that word is the whole of this predicate. A
+        // co-host is running the meeting WITH somebody; they are not the somebody. Counting them
+        // here refused the claim in exactly the room that needs it most — two co-hosts present and
+        // the host gone — because each of them saw the other and neither could take a room that
+        // nobody was holding. The result was a meeting permanently without a host, which is the
+        // state the claim exists to end.
+        `AND ${MEETING_HOST_TABLE}.role = 'host' ` +
         `AND EXISTS (SELECT 1 FROM ${MEETING_ATTENDANCE_TABLE} ` +
         `WHERE ${MEETING_ATTENDANCE_TABLE}.meeting_id = ?1 ` +
         `AND ${MEETING_ATTENDANCE_TABLE}.user_id = ${MEETING_HOST_TABLE}.user_id ` +
@@ -208,14 +221,31 @@ export function revokeHostGrantStatement(
     readonly userId: UserId;
     readonly revokedByUserId: UserId;
     readonly now: string;
+    /**
+     * The role this closes, where the caller is closing a PARTICULAR grant rather than whatever the
+     * member holds.
+     *
+     * A member holds at most one live grant — a partial unique index refuses a second — so
+     * addressing by member alone is exact against any COMMITTED state, and every caller relied on
+     * that. It stops being exact inside a batch that closes one grant and opens another for the same
+     * member, which is what a hand-over now does: the outgoing host steps down to co-host in the
+     * same transaction. A second hand-over composed against the state before that one would then
+     * close the co-host grant it had never read, pass its own guard on a row it did not mean, and
+     * fail one statement later on the live-host index — a raw constraint error where the guard was
+     * the thing meant to catch it. Naming the role makes the statement say which grant it is
+     * closing, so the guard fires where it should.
+     */
+    readonly role?: MeetingHostRole;
   },
 ): SqlStatement {
-  return database
-    .prepare(
-      `UPDATE ${MEETING_HOST_TABLE} SET revoked_at = ?1, revoked_by_user_id = ?2, updated_at = ?1 ` +
-        `WHERE meeting_id = ?3 AND user_id = ?4 AND revoked_at IS NULL`,
-    )
-    .bind(input.now, input.revokedByUserId, input.meetingId, input.userId);
+  const roleClause = input.role === undefined ? "" : ` AND role = ?5`;
+  const statement = database.prepare(
+    `UPDATE ${MEETING_HOST_TABLE} SET revoked_at = ?1, revoked_by_user_id = ?2, updated_at = ?1 ` +
+      `WHERE meeting_id = ?3 AND user_id = ?4 AND revoked_at IS NULL${roleClause}`,
+  );
+  return input.role === undefined
+    ? statement.bind(input.now, input.revokedByUserId, input.meetingId, input.userId)
+    : statement.bind(input.now, input.revokedByUserId, input.meetingId, input.userId, input.role);
 }
 
 // THE DOOR, SHUT OR OPENED. One statement for both directions, because they are one act with

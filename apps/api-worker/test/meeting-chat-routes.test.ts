@@ -1,4 +1,5 @@
 import { env } from "cloudflare:test";
+import { meetingSocketRequestUrl } from "../src/meetings/meeting-room.ts";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, MatterEventId, MatterId } from "@magna-carta/identifiers/types";
 import { MAX_MEETING_MESSAGE_LENGTH } from "@magna-carta/meetings/chat-types";
@@ -105,6 +106,68 @@ interface Message {
 interface MessagePage {
   data: Message[];
   nextCursor: string | null;
+  redacted: { id: string; redactedAt: string }[];
+}
+
+/**
+ * A socket in the meeting's own signaling room, which is how the RELAY is observed.
+ *
+ * The room is a real Durable Object in this pool and the route addresses it by the session firm and
+ * the meeting, so the object a test opens a socket on is the object the handler reaches — no spy,
+ * and the whole path is what is measured: the route commits, calls the room, the room broadcasts to
+ * every welcomed socket. A stub here would have asserted that a method was called and proved nothing
+ * about a frame arriving.
+ */
+async function openRoomSocket(
+  meetingId: string,
+  attendanceId: string,
+): Promise<{ frames: Record<string, unknown>[] }> {
+  const stub = env.MEETING_ROOM.get(env.MEETING_ROOM.idFromName(`${firmId}:${meetingId}`));
+  const response = await stub.fetch(
+    new Request(
+      meetingSocketRequestUrl({
+        firmId,
+        meetingId,
+        userId: `user_${attendanceId}`,
+        attendanceId,
+        displayName: "A Member",
+        medium: "video",
+        hostRole: null,
+        locked: false,
+        lobby: "off",
+        waiting: false,
+        waitingFrom: "",
+      }),
+      { headers: { Upgrade: "websocket" } },
+    ),
+  );
+  const socket = response.webSocket;
+  if (socket === null || socket === undefined) throw new Error("no WebSocket on the 101");
+  const frames: Record<string, unknown>[] = [];
+  socket.accept();
+  socket.addEventListener("message", (event) => {
+    frames.push(JSON.parse(String(event.data)) as Record<string, unknown>);
+  });
+  // The welcome crosses the pair before anything else does; every assertion below is about a frame
+  // that arrives after it.
+  await waitFor(() => frames.length > 0);
+  return { frames };
+}
+
+/** Waits on elapsed time for a condition, because a push has to cross a socket pair to be seen. */
+async function waitFor(condition: () => boolean): Promise<void> {
+  const deadline = Date.now() + 10_000;
+  while (!condition() && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+/** The frame of this type this socket most recently received. */
+function lastFrame(
+  frames: readonly Record<string, unknown>[],
+  type: string,
+): Record<string, unknown> | undefined {
+  return frames.filter((frame) => frame["type"] === type).at(-1);
 }
 
 const EVENT_COLUMNS =
@@ -345,6 +408,122 @@ describe("reading a meeting's chat", () => {
     const response = await get(`/api/v1/meetings/${meetingId}/messages`, billingCookie);
     expect(response.status).toBe(200);
     expect((await readJson<MessagePage>(response)).data).toHaveLength(1);
+  });
+});
+
+describe("the relay, which reaches the room as the message is said", () => {
+  it("carries the committed record to every socket in the room, after the write", async () => {
+    const meetingId = await joinedMeeting();
+    // A stay of its own: the relay is a broadcast to the room, so the socket does not have to be
+    // the sender's — and the sender's own browser has the 201 already.
+    const listening = await openRoomSocket(meetingId, newIdentifier("meetingAttendance"));
+
+    const said = await say(meetingId, "The exhibits are in the shared folder.");
+
+    await waitFor(() => lastFrame(listening.frames, "message") !== undefined);
+    // THE WHOLE RECORD, in the shape the list route returns — so a browser applies the frame and
+    // the read with one code path, and the two can never disagree about a field name. Read back off
+    // the row rather than projected from what the service composed, which is why the instants match
+    // the 201 exactly.
+    expect(lastFrame(listening.frames, "message")).toEqual({
+      v: 1,
+      type: "message",
+      message: said,
+    });
+  });
+
+  it("says a message was taken back, with the instant the record kept", async () => {
+    const meetingId = await joinedMeeting();
+    const message = await say(meetingId, "Wrong window — ignore that.");
+    const listening = await openRoomSocket(meetingId, newIdentifier("meetingAttendance"));
+
+    const response = await post(
+      `/api/v1/meetings/${meetingId}/messages/${message.id}/redact`,
+      ownerCookie,
+    );
+    expect(response.status).toBe(200);
+    const taken = await readJson<Message>(response);
+
+    await waitFor(() => lastFrame(listening.frames, "message-redacted") !== undefined);
+    expect(lastFrame(listening.frames, "message-redacted")).toEqual({
+      v: 1,
+      type: "message-redacted",
+      messageId: message.id,
+      // Off the settled row rather than off the clock, so a redaction that lost a race relays the
+      // instant the record actually holds rather than a second one nobody wrote.
+      redactedAt: taken.redactedAt,
+    });
+  });
+
+  it("is a no-op for a meeting nobody has a socket open on", async () => {
+    // Every commit addresses the room, including for a message typed into a meeting one person is
+    // sitting in and a redaction long after everybody left. The record is what the caller is
+    // answered from either way.
+    const meetingId = await joinedMeeting();
+    const said = await say(meetingId, "Said into an empty room");
+    expect(said.body).toBe("Said into an empty room");
+    expect(
+      (await post(`/api/v1/meetings/${meetingId}/messages/${said.id}/redact`, ownerCookie)).status,
+    ).toBe(200);
+  });
+});
+
+describe("a redaction a forward-only reader would never see", () => {
+  it("comes back beside the page, for a caller that says where it read to", async () => {
+    const meetingId = await joinedMeeting();
+    const first = await say(meetingId, "Said first");
+    const second = await say(meetingId, "Said second");
+
+    // The poller has read to the end of the transcript and holds that position.
+    const page = await readJson<MessagePage>(
+      await get(`/api/v1/meetings/${meetingId}/messages`, ownerCookie),
+    );
+    expect(page.data).toHaveLength(2);
+    expect(page.redacted).toEqual([]);
+    const last = page.data.at(-1);
+    const position =
+      `since=${encodeURIComponent(last?.sentAt ?? "")}` +
+      `&sinceId=${encodeURIComponent(last?.id ?? "")}`;
+
+    // NOTHING NEW IS SAID, and the FIRST message — behind the poller's cursor — is taken back. A
+    // redaction moves no row's position in the `(sent_at, id)` ordering, so a forward walk asks for
+    // everything after the second message forever and is never told the first one is gone.
+    expect(
+      (await post(`/api/v1/meetings/${meetingId}/messages/${first.id}/redact`, ownerCookie)).status,
+    ).toBe(200);
+
+    const polled = await readJson<MessagePage>(
+      await get(`/api/v1/meetings/${meetingId}/messages?${position}`, ownerCookie),
+    );
+    expect(polled.data).toEqual([]);
+    expect(polled.redacted.map((one) => one.id)).toEqual([first.id]);
+    expect(Date.parse(polled.redacted[0]?.redactedAt ?? "")).not.toBeNaN();
+
+    // And the second, taken back after it, joins the same list — ordered by when each was removed.
+    expect(
+      (await post(`/api/v1/meetings/${meetingId}/messages/${second.id}/redact`, ownerCookie))
+        .status,
+    ).toBe(200);
+    const again = await readJson<MessagePage>(
+      await get(`/api/v1/meetings/${meetingId}/messages?${position}`, ownerCookie),
+    );
+    expect(again.redacted.map((one) => one.id)).toEqual([first.id, second.id]);
+  });
+
+  it("is absent from a first page, which already carries whatever the record holds", async () => {
+    const meetingId = await joinedMeeting();
+    const message = await say(meetingId, "Taken back before anybody read it");
+    expect(
+      (await post(`/api/v1/meetings/${meetingId}/messages/${message.id}/redact`, ownerCookie))
+        .status,
+    ).toBe(200);
+
+    const page = await readJson<MessagePage>(
+      await get(`/api/v1/meetings/${meetingId}/messages`, ownerCookie),
+    );
+    // Nothing to converge: the row is on the page with its body already blank.
+    expect(page.data[0]?.body).toBe("");
+    expect(page.redacted).toEqual([]);
   });
 });
 

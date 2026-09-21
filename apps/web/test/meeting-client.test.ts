@@ -156,9 +156,24 @@ class FakeAudioLevelMeter {
 class FakeTransceiver {
   mid: string | null = null;
   receiver: { track: FakeTrack | null };
+  /**
+   * The sending half, which is what a REUSED media section is reused through. A browser swaps what
+   * a sender carries with `replaceTrack` and the section keeps its place in the description; the
+   * fake carries it so a case can ask whether coming back after a host's mute reused the section
+   * or added one.
+   */
+  sender: { track: FakeTrack | null; replaceTrack: (track: FakeTrack) => Promise<void> };
+  direction = "sendonly";
 
   constructor(track: FakeTrack | null) {
     this.receiver = { track };
+    this.sender = {
+      track,
+      replaceTrack: (replacement: FakeTrack) => {
+        this.sender.track = replacement;
+        return Promise.resolve();
+      },
+    };
   }
 }
 
@@ -1059,6 +1074,14 @@ function joiner(ordinal: number): Record<string, unknown> {
   };
 }
 
+/** The same participant with their hand up, as the roster carries it: the boolean and the instant. */
+function withHand(
+  participant: Record<string, unknown>,
+  handRaisedAt: string,
+): Record<string, unknown> {
+  return { ...participant, hand: true, handRaisedAt };
+}
+
 /** A room of forty, with the first two cameras answered so their media sections are known. */
 async function largeRoom(): Promise<Harness> {
   const harnessed = harness();
@@ -1253,6 +1276,217 @@ describe("who is talking", () => {
     client.leave();
 
     expect(meter.stopped).toBe(true);
+  });
+});
+
+describe("a raised hand on the wire", () => {
+  it("rides the ORDINARY presence frame, stating all three facts", async () => {
+    const { client, socket, meter } = harness();
+    await client.publish();
+    meter.say(true);
+
+    expect(client.raiseHand()).toBe(true);
+
+    // The three facts are measured by one browser about one person at one moment, so the hand does
+    // not get a frame of its own — and the frame states the whole of what a presence frame is
+    // about, rather than the one field that moved.
+    expect(socket.framesOfType("presence").at(-1)).toEqual({
+      v: 1,
+      type: "presence",
+      speaking: true,
+      muted: false,
+      hand: true,
+    });
+    expect(client.reactions.hand).toBe(true);
+  });
+
+  it("leaves the hand out of a frame that is only about the microphone", async () => {
+    const { client, socket, meter } = harness();
+    await client.publish();
+    meter.say(true);
+
+    // An ABSENT hand means "this browser has nothing to say about a hand", which is what keeps the
+    // field additive: read as false, it would lower the hand of everybody who had not reloaded.
+    expect(socket.framesOfType("presence").at(-1)).toEqual({
+      v: 1,
+      type: "presence",
+      speaking: true,
+      muted: false,
+    });
+  });
+
+  it("names the stay a host lowers, and null for the whole room", () => {
+    const { client, socket } = harness();
+
+    client.lowerHands("attendance_2");
+    client.lowerHands(null);
+
+    // One act with different arguments rather than two frames whose invariants can drift apart.
+    expect(socket.framesOfType("lower-hands")).toEqual([
+      { v: 1, type: "lower-hands", participantId: "attendance_2" },
+      { v: 1, type: "lower-hands", participantId: null },
+    ]);
+  });
+
+  it("puts a host's OWN hand down with the rest, rather than sparing it", async () => {
+    const { client } = harness();
+    await client.publish();
+    client.raiseHand();
+    expect(client.reactions.hand).toBe(true);
+
+    client.lowerHands(null);
+
+    // The opposite of the mute-all rule, and deliberately so: mute-all exists so a host can speak,
+    // and this exists so a host can start the queue again.
+    expect(client.reactions.hand).toBe(false);
+  });
+
+  it("orders the queue by when each hand went up, never by roster order", () => {
+    const { client, socket } = harness();
+    socket.deliver({
+      v: 1,
+      type: "roster",
+      participants: [
+        withHand(joiner(2), "2026-09-20T15:05:00.000Z"),
+        withHand(joiner(3), "2026-09-20T15:01:00.000Z"),
+        joiner(4),
+      ],
+    });
+
+    expect(client.raisedHands.map((hand) => hand.participantId)).toEqual([
+      "attendance_3",
+      "attendance_2",
+    ]);
+  });
+
+  it("takes a hand off a presence frame and stamps it where the room stated none", () => {
+    const { client, socket } = harness();
+    socket.deliver({ v: 1, type: "roster", participants: [joiner(2)] });
+
+    socket.deliver({
+      v: 1,
+      type: "presence",
+      participantId: "attendance_2",
+      speaking: false,
+      muted: false,
+      hand: true,
+      at: "2026-09-20T15:00:00.000Z",
+    });
+
+    // The room's presence frame carries the boolean without the instant, so the queue is ordered
+    // by the moment this browser learned of it rather than by nothing at all.
+    expect(client.raisedHands.map((hand) => hand.participantId)).toEqual(["attendance_2"]);
+    expect(client.raisedHands[0]?.handRaisedAt).not.toBeNull();
+    // And a reader who cannot see the mark is told, because a hand is a request for the floor.
+    expect(client.reactions.announcement).toBe("Member 2 raised their hand");
+  });
+});
+
+describe("a reaction on the wire", () => {
+  it("draws the sender's own bubble at once, without waiting for the room", async () => {
+    const { client, socket } = harness();
+    await client.publish();
+
+    expect(client.react("thumbs-up")).toBe(true);
+
+    expect(socket.framesOfType("reaction")).toEqual([
+      { v: 1, type: "reaction", name: "thumbs-up" },
+    ]);
+    // The room does not echo a reaction to its sender, which is what makes the control feel like a
+    // button rather than a request.
+    expect(client.reactions.shown.get("attendance_1")?.map((one) => one.name)).toEqual([
+      "thumbs-up",
+    ]);
+  });
+
+  it("puts a relayed reaction on the right tile, and on nobody else's", () => {
+    const { client, socket } = harness();
+    socket.deliver({ v: 1, type: "roster", participants: [joiner(2), joiner(3)] });
+
+    socket.deliver({
+      v: 1,
+      type: "reaction",
+      participantId: "attendance_2",
+      name: "applause",
+      at: "2026-09-20T15:00:00.000Z",
+    });
+
+    expect(client.reactions.shown.get("attendance_2")?.map((one) => one.name)).toEqual([
+      "applause",
+    ]);
+    expect(client.reactions.shown.has("attendance_3")).toBe(false);
+    expect(client.reactions.announcement).toBe("Member 2 reacted: Well said");
+  });
+
+  it("draws the counts strip and no bubble at all when the room coalesces", () => {
+    const { client, socket } = harness();
+    socket.deliver({ v: 1, type: "roster", participants: [joiner(2)] });
+
+    socket.deliver({
+      v: 1,
+      type: "reactions",
+      counts: { applause: 11, "thumbs-up": 3, laugh: 0 },
+      at: "2026-09-20T15:00:00.000Z",
+    });
+
+    // Above the threshold a bubble on the right face is a promise a sixteen-tile gallery cannot
+    // keep, so what the reader gets is the number, in the vocabulary's own order and never a zero.
+    expect(client.reactions.counts).toEqual([
+      { name: "thumbs-up", count: 3 },
+      { name: "applause", count: 11 },
+    ]);
+    expect(client.reactions.shown.size).toBe(0);
+    // And the strip is not announced: a stream of changing counts read out is noise.
+    expect(client.reactions.announcement).toBe("");
+  });
+
+  it("drops a reaction naming something outside the vocabulary", () => {
+    const { client, socket } = harness();
+    socket.deliver({ v: 1, type: "roster", participants: [joiner(2)] });
+
+    socket.deliver({
+      v: 1,
+      type: "reaction",
+      participantId: "attendance_2",
+      name: "shrug",
+      at: "2026-09-20T15:00:00.000Z",
+    });
+
+    expect(client.reactions.shown.size).toBe(0);
+  });
+});
+
+describe("coming back after a host's mute", () => {
+  it("reuses the microphone's own media section rather than adding one per cycle", async () => {
+    const { client, socket, peerConnection } = harness();
+    await client.publish();
+    const afterPublish = peerConnection.transceivers.length;
+
+    /** A host muting this browser, and the member turning their microphone back on. */
+    const mutedAndBack = async (by: string): Promise<void> => {
+      socket.deliver({ v: 1, type: "muted", by, at: "2026-09-20T15:00:00.000Z" });
+      client.toggleMicrophone();
+      await settle();
+    };
+
+    // Three times, one after another: the point is what the third return costs, and three cycles
+    // run in parallel would be three renegotiations racing rather than a meeting.
+    await mutedAndBack("attendance_9");
+    await mutedAndBack("attendance_8");
+    await mutedAndBack("attendance_7");
+
+    /*
+     * A meeting where a host mutes the room every few minutes is a meeting where one member comes
+     * back many times, and a media section per return grows the session description without bound
+     * — with every renegotiation after it carrying the whole accumulated list. The mid is also what
+     * every later frame addresses the sound by.
+     */
+    expect(peerConnection.transceivers.length).toBe(afterPublish);
+    const republished = socket.framesOfType("publish").slice(1);
+    expect(republished).toHaveLength(3);
+    for (const frame of republished) {
+      expect(frame.tracks).toEqual([{ trackName: "attendance_1:audio", mid: "0", kind: "audio" }]);
+    }
   });
 });
 
@@ -1989,13 +2223,14 @@ describe("a host muting this browser", () => {
     client.toggleMicrophone();
     await settle();
 
-    // A second offer, on a media section of its own, naming this browser's own microphone. A client
-    // that only flipped `enabled` would sit showing itself as sending with nobody able to hear it
-    // for the rest of the meeting, and nothing anywhere would say so.
+    // A second offer naming this browser's own microphone, on the media section it always went up.
+    // A client that only flipped `enabled` would sit showing itself as sending with nobody able to
+    // hear it for the rest of the meeting, and nothing anywhere would say so — and a client that
+    // ADDED a section per return would grow the description for as long as the meeting ran.
     const publishes = socket.framesOfType("publish");
     expect(publishes).toHaveLength(2);
     expect(publishes[1]?.tracks).toEqual([
-      { trackName: "attendance_1:audio", mid: "2", kind: "audio" },
+      { trackName: "attendance_1:audio", mid: "0", kind: "audio" },
     ]);
     expect(client.microphoneOn).toBe(true);
     expect(captured.getAudioTracks()[0]?.enabled).toBe(true);

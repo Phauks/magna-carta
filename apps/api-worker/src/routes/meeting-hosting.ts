@@ -236,10 +236,12 @@ const revokeRoute = defineOpenAPIRoute(writeMeta("revokeHosting"), {
   method: "post",
   path: "/api/v1/meetings/{meetingId}/hosts/{userId}/revoke",
   description:
-    "Withdraws a co-host's grant. The host's own grant is handed over rather than withdrawn — a " +
-    "co-host withdrawing it would be taking the room, and a host withdrawing their own would " +
-    "leave a running meeting with nobody holding it. A member who holds no grant answers 200 " +
-    "unchanged: what the caller asked for is already true.",
+    "Withdraws a grant. Naming somebody else is the host's act and reaches only a co-host — a " +
+    "co-host withdrawing the host's would be taking the room, which is what a hand-over is for. " +
+    "Naming YOURSELF is a resignation and is anybody's to make, so a co-host can stop being one " +
+    "without asking; the one refusal is the sole grant-holder, because a host resigning out of a " +
+    "room where nobody else holds anything would leave a running meeting with nobody running it. A " +
+    "member who holds no grant answers 200 unchanged: what the caller asked for is already true.",
   request: { params: hostParams, headers: idempotencyKeyHeader },
   responses: {
     200: {
@@ -568,19 +570,27 @@ export function registerMeetingHostingRoutes(
       const { meetingId } = c.req.valid("param");
       const { locked } = c.req.valid("json");
 
-      const outcome = await commitHostingEffect(c, firm.firmDatabase, idempotency, async () => ({
-        write: (
-          await setMeetingLocked(
-            firm.firmDatabase,
-            meetingId as MeetingId,
-            locked,
-            hostingOptions(c),
-          )
-        ).effect,
-      }));
+      // Whether the write moved anything, kept from inside the effect: it decides whether the room
+      // is told, and the commit hands back only what it was given.
+      let changed = false;
+      const outcome = await commitHostingEffect(c, firm.firmDatabase, idempotency, async () => {
+        const set = await setMeetingLocked(
+          firm.firmDatabase,
+          meetingId as MeetingId,
+          locked,
+          hostingOptions(c),
+        );
+        changed = set.changed;
+        return { write: set.effect };
+      });
       if (!outcome.ok) return outcome.problem;
 
-      await meetingRoomFor(c.env, firmId, meetingId).roomStateChanged(locked);
+      // ONLY WHEN THE DOOR ACTUALLY MOVED. Locking a room that is already locked produces no
+      // statements, so there is nothing anybody needs telling: a room-state broadcast to three
+      // hundred sockets to restate what each of them already draws is a frame that says nothing, and
+      // a screen redrawing its door reports an event that did not happen. A replayed request takes
+      // the same path, because it commits nothing either.
+      if (changed) await meetingRoomFor(c.env, firmId, meetingId).roomStateChanged(locked);
       return c.json({ ok: true } as const, 200);
     },
   );

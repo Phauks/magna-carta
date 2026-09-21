@@ -540,3 +540,60 @@ sketch above, and why:
   `waiting` on the browser side, and its dispatch-equality check fails against
   `apps/web/src/lib/meetings/client/signaling.ts`. That failure is the point of the function: it
   names the end that has not been built yet, at the moment the frame is added.
+
+## Amendments from the adversarial review (2026-09-21)
+
+Six corrections, each a defect the design's own reasoning implied and the build did not carry.
+
+**A hand-over leaves the outgoing host a co-host.** Section 3 treats hand-over as closing one grant
+and opening another, which is what was built — and the effect was that a host handing the room to a
+colleague mid-meeting was dropped to an ordinary member, losing the mute, the spotlight and the door
+with nothing on any screen to say it had happened. Handing the room over is not leaving it. The
+outgoing host's co-host grant is now written in the SAME batch as the revocation, so there is no
+instant in which they hold nothing. `revokeHostGrantStatement` takes an optional `role` for a
+consequence of that: a batch that closes one grant and opens another for one member is the only place
+"whatever this member holds" stops being one row, so a second hand-over racing it would otherwise
+close the co-host grant it had never read, pass its own guard on a row it did not mean, and fail one
+statement later on the live-host index — a raw constraint error where the guard was meant to catch
+it.
+
+**A co-host may resign.** The design gave a co-host no way to stop being one: a grant only the host
+could close meant somebody named for one agenda item carried the authority for the rest of the
+meeting. `revokeHosting` naming the CALLER is now a resignation, on the same route, with its own
+audit event (`meetings.meeting.hostingResigned`) because both rows carry the caller as the actor. The
+one refusal is the sole grant-holder — a host resigning out of a room where nobody else holds
+anything would leave a running meeting with nobody running it, which is a state to hand over out of
+rather than walk out of.
+
+**`countOtherHostsPresent` counts a HOST grant, not any grant.** The slice-one amendment above
+narrowed it to grant-holders in the room and stopped there, which left the worse half: two co-hosts
+present with the host gone each saw the other's live grant, neither could claim, and the meeting was
+permanently without a host — exactly the state the claim exists to end. A co-host is running the
+meeting WITH somebody; they are not the somebody.
+
+**The door is enforced in the statement.** The join path read the lock and the lobby a round trip
+before its insert, so a host shutting the door in that instant had the arrival land in a locked room,
+and a host turning the LOBBY on in the same instant put somebody straight into the discussion the
+door was opened to keep them out of. Both are now predicates on `insertAttendanceUnderCapStatement`
+and, inverted, on the waiting insert, so a lost race rolls the whole batch back. That window is not
+theoretical: it is exactly the moment the control is being used, because a host shuts a door because
+of who is about to arrive.
+
+**Removing somebody who was at the door clears the `waiting:` key.** `participantRemoved` released
+the `participant:` record and a waiting stay has never had one, so the record said the member was out
+of the meeting while the host's own lobby panel went on offering to admit them and the key went on
+arming the door's grace deadline. The room now drops the door record in the same act and tells the
+hosts.
+
+**A lock or lobby write that changed nothing does not disturb the room.** Both services already
+answered `changed: false` for a no-op; the routes ignored it and called the room anyway, spending a
+room-state broadcast on every socket to restate what each of them already drew — and reporting an
+event that did not happen.
+
+**Two decisions recorded rather than changed.** A LOCKED ROOM DOES NOT REFUSE AN ADMISSION: the lock
+is what the room answers an arrival with, and an admission is a host deciding about a named person,
+so refusing it would mean a host who shut the door could no longer let in the colleague they shut it
+for. And the operator's inspect payload keeps `userId` beside the stay: a report of "my tile went
+black" arrives as a person, often as the second of that person's two stays, and the member handle is
+what joins it to the room that was serving them. Both are minted identifiers; neither says who
+anybody is.

@@ -127,6 +127,7 @@ describe("the control bar in a call", () => {
     onToggleMicrophone: () => {},
     onToggleCamera: () => {},
     onToggleSharing: () => {},
+    onToggleHand: () => {},
     onLeave: () => {},
   };
 

@@ -749,6 +749,22 @@ Host controls follow it, because a room that size has somebody running it. Autho
 
 The waiting room hangs from that grant, because admitting somebody is a host act. One lobby per meeting and never one per firm: a firm runs several at once, so a firm-level door would queue the people arriving at a deposition behind the people arriving at a staff briefing. An arrival at the door is a stay from the moment it knocks — the socket upgrade's ticket is an open stay, and the record has to be able to say who waited and was never let in — which split "in the room" from "has an open stay" and moved the room's capacity guard onto the admission, with a much smaller ceiling at the door. The server half is built: the columns, the lobby trio, the four routes, and the `waiting:` storage prefix that keeps a waiter structurally out of every roster rather than filtered out of it. The waiting screen, the host's lobby sheet and the switch at Start are the web half.
 
+Chat, a raised hand and reactions are the in-meeting tools, and they split on the one question that
+matters here: does the meeting record keep it. Chat does — the owner ruled it on the record, so a
+message carries what a filed email carries — and the route is the record either way; what the room
+adds is a RELAY, a copy of a committed row broadcast to every welcomed socket and to nobody at the
+door, so a message arrives as it is said rather than on a poller's next tick. The read converges the
+half a relay cannot: a redaction moves no row's position in a forward walk, so the list carries the
+messages taken back since the reader's own position beside the page. A hand and a reaction do not
+reach the record at all — no table, no migration, no audit row, no personal-data registration — and
+that absence is the slice's whole claim. The room stamps the instant a hand goes up and relays it on
+the roster so a late arrival gets the queue; a reaction is named on its thrower's tile in a small
+room and counted for the whole of a large one, one frame a second, because three hundred people
+applauding one sentence relayed individually is ninety thousand frames inside a second. Both are the
+first frames here that are REFUSED rather than dropped when they arrive too fast, because neither
+restates itself. The control bar, the bubbles, the counts strip and the host's hands panel are the
+web half.
+
 Diagnosability is the slice that makes a meeting answerable after it has ended, which nothing else
 here can be: the room holds no rows, deletes its own state as it goes, and hibernates between frames,
 so a three-hundred-person meeting that went wrong used to leave attendance and an Error ID on

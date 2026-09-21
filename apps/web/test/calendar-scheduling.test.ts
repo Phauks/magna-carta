@@ -31,6 +31,7 @@ import {
   meetingGuestsSentence,
   meetingInput,
   memberParticipant,
+  MEETING_LOBBY_LABEL,
   FIRM_MEETING_GUESTS_SENTENCE,
   MEETING_GUESTS_SENTENCE,
   entityParticipant,
@@ -73,8 +74,8 @@ describe("the meeting an event carries", () => {
   });
 
   it("sends the medium the reader chose, and null where they chose none", () => {
-    expect(eventDraftRequest(draft("video")).meeting).toEqual({ medium: "video" });
-    expect(eventDraftRequest(draft("audio")).meeting).toEqual({ medium: "audio" });
+    expect(eventDraftRequest(draft("video")).meeting).toEqual({ medium: "video", lobby: "off" });
+    expect(eventDraftRequest(draft("audio")).meeting).toEqual({ medium: "audio", lobby: "off" });
     // Null rather than absent: "no meeting" and "a client that has not heard of meetings" must not
     // be the same request.
     expect(eventDraftRequest(draft("none")).meeting).toBeNull();
@@ -83,8 +84,41 @@ describe("the meeting an event carries", () => {
 
   it("sends it the same way on a firm event, because it is one form", () => {
     const firm = { ...emptyFirmEventDraft(ZONE, "2026-10-05", "audio"), title: "All-hands" };
-    expect(firmEventDraftRequest(firm).meeting).toEqual({ medium: "audio" });
+    expect(firmEventDraftRequest(firm).meeting).toEqual({ medium: "audio", lobby: "off" });
     expect(firmEventDraftRequest(emptyFirmEventDraft(ZONE, "2026-10-05")).meeting).toBeNull();
+  });
+
+  it("opens the room with the door the reader asked for, on either arm", () => {
+    // A standing the room STARTS with rather than a setting of the meeting's: a host changes it
+    // from inside, and nothing before the room exists can be changed from inside it.
+    expect(eventDraftRequest({ ...draft("video"), meetingLobby: "on" }).meeting).toEqual({
+      medium: "video",
+      lobby: "on",
+    });
+    const firm = {
+      ...emptyFirmEventDraft(ZONE, "2026-10-05", "video"),
+      title: "All-hands",
+      meetingLobby: "on" as const,
+    };
+    expect(firmEventDraftRequest(firm).meeting).toEqual({ medium: "video", lobby: "on" });
+  });
+
+  it("sends the door only where a meeting is being opened at all", () => {
+    // A lobby answer on an event with no meeting is an answer to a question nobody asked, and the
+    // request would be carrying a standing for a room that does not exist.
+    expect(eventDraftRequest({ ...draft("none"), meetingLobby: "on" }).meeting).toBeNull();
+    expect(meetingInput("none", "on")).toBeNull();
+  });
+
+  it("rests OFF, because every participant today is already on the event", () => {
+    // A lobby resting on would put a colleague in a queue for every ordinary hearing.
+    expect(emptyEventDraft(ZONE, "2026-10-05", "video").meetingLobby).toBe("off");
+    expect(emptyFirmEventDraft(ZONE, "2026-10-05", "video").meetingLobby).toBe("off");
+  });
+
+  it("counts a changed door as work worth asking about before closing", () => {
+    const opened = draft("video");
+    expect(eventDraftStarted({ ...opened, meetingLobby: "on" }, opened)).toBe(true);
   });
 
   it("puts the question on Where, beside the link it stands in for", () => {
@@ -359,6 +393,11 @@ const EVENT_FORM = readFileSync(
   "utf8",
 );
 
+const ENTRY_ACTION = readFileSync(
+  fileURLToPath(new URL("../src/lib/meetings/meeting-entry-action.svelte", import.meta.url)),
+  "utf8",
+);
+
 describe("what the form promises about who is told", () => {
   it("says the colleagues on a matter event are invited, and that a client is not", () => {
     expect(meetingGuestsSentence("matter")).toBe(MEETING_GUESTS_SENTENCE);
@@ -383,6 +422,24 @@ describe("what the form promises about who is told", () => {
     // The one wiring fact with no value to assert it through: which of the two sentences the form
     // puts on the screen. A regression here is a promise the product does not keep.
     expect(EVENT_FORM).toContain("meetingGuestsSentence(owner)");
+  });
+});
+
+describe("the door the event form opens a room with", () => {
+  it("is asked beside the Meeting choice, in the one home the words are written in", () => {
+    // The same question is asked at the other door into a room — Start on a recorded entry — and
+    // two spellings of one control is how a reader learns that two parts of one product were
+    // written by two people.
+    expect(EVENT_FORM).toContain("MEETING_LOBBY_LABEL");
+    expect(ENTRY_ACTION).toContain("MEETING_LOBBY_LABEL");
+    expect(MEETING_LOBBY_LABEL).toBe("Hold arrivals in a lobby");
+  });
+
+  it("is asked only once a meeting has been chosen", () => {
+    // It sits inside the branch the guests sentence sits in: a door means nothing without a room.
+    const where = EVENT_FORM.slice(EVENT_FORM.indexOf('{#if draft.meeting !== "none"}'));
+    expect(where.indexOf("MEETING_LOBBY_LABEL")).toBeGreaterThan(-1);
+    expect(where.indexOf("MEETING_LOBBY_LABEL")).toBeLessThan(where.indexOf("{/if}"));
   });
 });
 

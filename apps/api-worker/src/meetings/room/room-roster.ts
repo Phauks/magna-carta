@@ -50,6 +50,14 @@ export function rosterEntryFor(
     // so a badge every browser draws and an authority check the room makes can never disagree.
     // Older entries, written before hosting existed, carry nothing and read as nobody.
     hostRole: participant.hostRole ?? null,
+    // TWO WIRE FIELDS FROM ONE STORED FACT, projected HERE and nowhere else. The room stores the
+    // instant alone; `hand` is the comparison against null, carried because every tile, roster row
+    // and badge branches on the boolean and none of them wants to compare against null, while only
+    // the hands panel wants the instant. Written in one place so the two can never say different
+    // things about one person. Entries written before hands existed carry no stamp, which reads as
+    // a hand that is down.
+    hand: (participant.handRaisedAt ?? null) !== null,
+    handRaisedAt: participant.handRaisedAt ?? null,
     // The media section is the room's own handle for closing a track and is deliberately not on
     // the wire: a subscriber names a track by its publisher's session and its name, so a section
     // number would be a field every browser could read and none could use.

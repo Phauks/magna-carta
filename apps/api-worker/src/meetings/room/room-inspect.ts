@@ -43,6 +43,8 @@ export interface InspectedParticipant {
   readonly muted: boolean;
   /** A transition the throttle held back, waiting on the alarm. The room's own half of presence. */
   readonly presenceDirty: boolean;
+  /** When this person put their hand up, or null while it is down — the room's one stored half. */
+  readonly handRaisedAt: string | null;
   /** Whether a socket is open for this stay right now — the answer a roster entry cannot give. */
   readonly connected: boolean;
   readonly socketLostAt: string | null;
@@ -67,6 +69,7 @@ export type PendingAlarmJob =
   | "participant-grace"
   | "door-grace"
   | "presence-flush"
+  | "reaction-flush"
   | "ended-marker-retirement";
 
 /** The whole of what one room is holding. */
@@ -107,6 +110,7 @@ const WAITING_PREFIX = "waiting:";
 const ROOM_KEY = "room";
 const ENDED_KEY = "ended";
 const SPOTLIGHT_KEY = "spotlight";
+const REACTIONS_KEY = "reactions";
 
 /**
  * Everything the room holds, in ONE pass over its storage.
@@ -128,6 +132,10 @@ export async function inspectRoom(room: RoomContext): Promise<MeetingRoomInspect
   let stored: StoredRoom | undefined;
   let endedAt: string | null = null;
   let spotlight: MeetingSpotlight | null = null;
+  // Whether a second's reactions are waiting to go out as one frame. Read from the same pass, and
+  // named here for the alarm alone: an armed alarm with no job to show for it is the shape of a
+  // deadline nobody lowered, and a bucket the operator's read could not see would be exactly that.
+  let reactionsPending = false;
 
   for (const [key, value] of everything) {
     approximateBytes += key.length + jsonSizeOf(value);
@@ -141,6 +149,7 @@ export async function inspectRoom(room: RoomContext): Promise<MeetingRoomInspect
         speaking: participant.speaking,
         muted: participant.muted,
         presenceDirty: participant.presenceDirty,
+        handRaisedAt: participant.handRaisedAt ?? null,
         connected: connected.has(participantId),
         socketLostAt: participant.socketLostAt,
         sfuSessionId: participant.sfuSessionId,
@@ -165,6 +174,7 @@ export async function inspectRoom(room: RoomContext): Promise<MeetingRoomInspect
     if (key === ROOM_KEY) stored = value as StoredRoom;
     else if (key === ENDED_KEY) endedAt = value as string;
     else if (key === SPOTLIGHT_KEY) spotlight = value as MeetingSpotlight;
+    else if (key === REACTIONS_KEY) reactionsPending = true;
   }
 
   const attendanceIds: string[] = [];
@@ -194,7 +204,7 @@ export async function inspectRoom(room: RoomContext): Promise<MeetingRoomInspect
     sockets: { count: attendanceIds.length + unreadable, attendanceIds, unreadable, welcomed },
     alarm: {
       at: alarmAt === null ? null : new Date(alarmAt).toISOString(),
-      pendingJobs: pendingJobsOf(roster, waiting, endedAt),
+      pendingJobs: pendingJobsOf(roster, waiting, endedAt, reactionsPending),
     },
     storage: { keyCount: everything.size, approximateBytes },
     sfuSessionIds,
@@ -202,7 +212,7 @@ export async function inspectRoom(room: RoomContext): Promise<MeetingRoomInspect
 }
 
 /**
- * Which of the four deadlines this room is actually holding.
+ * Which of the room's deadlines it is actually holding.
  *
  * Derived from the state that armed them rather than from the alarm, which is one instant and cannot
  * say what it is for. An armed alarm naming no job is the shape of a deadline nobody lowered; an
@@ -213,6 +223,7 @@ function pendingJobsOf(
   roster: readonly InspectedParticipant[],
   waiting: readonly InspectedWaiting[],
   endedAt: string | null,
+  reactionsPending: boolean,
 ): PendingAlarmJob[] {
   const jobs: PendingAlarmJob[] = [];
   if (roster.some((one) => one.socketLostAt !== null && !one.connected)) {
@@ -220,6 +231,7 @@ function pendingJobsOf(
   }
   if (waiting.some((one) => one.socketLostAt !== null)) jobs.push("door-grace");
   if (roster.some((one) => one.presenceDirty)) jobs.push("presence-flush");
+  if (reactionsPending) jobs.push("reaction-flush");
   if (endedAt !== null) jobs.push("ended-marker-retirement");
   return jobs;
 }

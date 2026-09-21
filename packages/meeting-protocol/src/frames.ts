@@ -1,7 +1,10 @@
 import { z } from "zod";
 import {
   MEETING_CONNECTION_QUALITIES,
+  MEETING_REACTIONS,
   PREFERRED_RIDS,
+  type MeetingChatMessage,
+  type MeetingReaction,
   type MeetingRoomState,
   type PreferredRid,
   type RosterParticipant,
@@ -69,6 +72,24 @@ export const MAX_MEETING_FRAME_BYTES = 64 * 1024;
 // Sixteen is the tile count a gallery page shows, which is the size at which a browser stops being
 // able to draw everybody anyway.
 export const ROSTER_DELTA_THRESHOLD = 16;
+
+// HOW OFTEN ONE PARTICIPANT MAY SEND A SIGNAL THAT CANNOT BE RESTATED — a change to their hand, or
+// a reaction.
+//
+// THE ROOM'S OTHER THROTTLES DROP, AND THIS ONE REFUSES, because the reasoning behind dropping does
+// not carry here. A presence frame states the WHOLE of what it is about, so a suppressed one loses
+// nothing a later one does not restate; a `sync` is a request the asker repeats. A raised hand may
+// be the last thing somebody does for ten minutes — dropped, it is never relayed and the host never
+// learns that somebody wants the floor — and a reaction is a single act with no later frame to
+// restate it. So neither is ever silently discarded: one per window is relayed, and the next inside
+// it is refused `rate-limited` with the socket left open, so the browser knows its act did not land
+// and can send the settled state again when the window passes.
+//
+// It is HERE rather than in the room because it is a number both ends have to agree on: a client
+// that paced itself differently would be refused for behaving correctly. The room's own coalescing
+// window is not here, for the opposite reason — a browser draws whatever arrives and divides by
+// nothing.
+export const SIGNAL_INTERVAL_MILLISECONDS = 1000;
 
 // The most layer changes one frame may carry. A browser re-chooses layers when its gallery page
 // turns or its window resizes, so a frame is naturally the size of a page of tiles; thirty-two is
@@ -196,11 +217,38 @@ const layerFrame = z.object({
 // WHO IS TALKING IS A FACT THE ROOM RELAYS, NOT ONE EVERY BROWSER MEASURES. A browser measures its
 // OWN microphone — nothing else can, once it stops pulling everybody's audio — and states the two
 // facts a tile shows. Sent on transitions only: a level is not news, a change of level is.
+//
+// `hand` IS OPTIONAL HERE AND REQUIRED ON THE ROOM'S OWN PRESENCE FRAME, and the asymmetry is the
+// whole of what makes this additive. A browser left open across the deploy goes on sending two
+// booleans, and an absent `hand` means "this browser has nothing to say about a hand" — the stored
+// value is left exactly as it stands. Reading absence as `false` would lower the hand of every
+// participant who had not reloaded. Room to client the field is always present, because the room is
+// the one writing it and a reader branching on presence is a reader with two code paths.
+//
+// The three facts are measured by the same browser about the same person at the same moment, which
+// is why the hand rides here rather than on a frame of its own — but they are governed by two
+// different rules, decided by which field moved: `speaking` and `muted` keep the drop-throttle, and
+// a frame that changes the hand answers to `SIGNAL_INTERVAL_MILLISECONDS` above.
 const presenceFrame = z.object({
   ...versioned,
   type: z.literal("presence"),
   speaking: z.boolean(),
   muted: z.boolean(),
+  hand: z.boolean().optional(),
+});
+
+/**
+ * SOMETHING THROWN ON A TILE, from the closed vocabulary and nothing else.
+ *
+ * A name outside `MEETING_REACTIONS` does not parse, which is what keeps arbitrary text off a tile
+ * in a firm's meeting. Nothing else rides here: the sender is taken from the socket's own
+ * attachment, and the instant is the room's — a modified client can no more react as somebody else
+ * than it can publish under their name.
+ */
+const reactionFrame = z.object({
+  ...versioned,
+  type: z.literal("reaction"),
+  name: z.enum(MEETING_REACTIONS),
 });
 
 // A BROWSER THAT SUSPECTS IT HAS MISSED SOMETHING, asking for the whole list again. It exists
@@ -280,6 +328,26 @@ const askToUnmuteFrame = z.object({
   participantId: participantHandle,
 });
 
+/**
+ * A HAND PUT DOWN BY SOMEBODY OTHER THAN ITS OWNER — one, or the whole room's.
+ *
+ * ONE ACT WITH DIFFERENT ARGUMENTS rather than two frames, on the hosting route's own precedent:
+ * null means everybody, and two frames whose invariants can drift apart is how "lower one" and
+ * "lower all" end up disagreeing about whose hand is spared. Nobody's is: a host clearing the floor
+ * is clearing it, and their own hand goes down with the rest. That is the opposite of the mute-all
+ * rule and deliberately so — mute-all exists so a host can speak, and this exists so a host can
+ * start the queue again.
+ *
+ * A FRAME AND NOT A ROUTE, by the rule the four above are frames: a lowered hand leaves nothing
+ * behind that anybody could later ask who did. The participant lowers their own with the ordinary
+ * presence frame, which is why this is the host's half alone.
+ */
+const lowerHandsFrame = z.object({
+  ...versioned,
+  type: z.literal("lower-hands"),
+  participantId: participantHandle.nullable(),
+});
+
 /** One participant on every screen, or null to clear it. A room-level fact, not a per-browser one. */
 const spotlightFrame = z.object({
   ...versioned,
@@ -349,6 +417,7 @@ export const MeetingClientFrame = z.union([
   subscribeFrame,
   layerFrame,
   presenceFrame,
+  reactionFrame,
   syncFrame,
   renegotiateFrame,
   closeFrame,
@@ -356,6 +425,7 @@ export const MeetingClientFrame = z.union([
   muteFrame,
   muteAllFrame,
   askToUnmuteFrame,
+  lowerHandsFrame,
   spotlightFrame,
   diagnosticReportFrame,
   pingFrame,
@@ -396,6 +466,17 @@ export const MEETING_ROOM_FRAME_TYPES = Object.freeze([
   "room-state",
   "muted",
   "unmute-requested",
+  // THE TWO SIGNALS THAT ARE RELAYED AND NEVER STORED, and which of them arrives depends on the
+  // size of the room: `reaction` names the person at or below `ROSTER_DELTA_THRESHOLD`, and above it
+  // the room sends `reactions` — one frame a second carrying the counts for the whole room. A client
+  // has to handle both at any size, which it must anyway: it cannot know how many people were in the
+  // room at the instant the room decided.
+  "reaction",
+  "reactions",
+  // A COPY OF SOMETHING ALREADY ON THE RECORD. The route is the record either way — the write never
+  // goes through this socket — so a browser that misses one of these is caught up by the read.
+  "message",
+  "message-redacted",
   // THE THREE THE DOOR ADDED. `lobby` and `admitted` go to a socket that is WAITING and to nobody
   // else; `waiting` goes to the sockets holding a grant and to nobody else. A waiting socket is
   // never sent a `welcome`, a `roster` or a `roster-delta` — see the note on `lobby` below.
@@ -455,6 +536,12 @@ export const MEETING_REFUSAL_REASONS = Object.freeze([
   // all. Whoever connected last is the one holding the media. Nothing about this improves by
   // retrying on this socket, so it is followed by a close.
   "superseded",
+  // A SIGNAL THAT CANNOT BE RESTATED, ARRIVING TOO FAST — a second change of hand, or a second
+  // reaction, inside `SIGNAL_INTERVAL_MILLISECONDS`. NON-FATAL, and the socket stays open: it is
+  // about the frame that arrived and nothing else, so a browser re-sends the settled state when the
+  // window passes. It exists because the room's other throttles DROP, and dropping a hand or a
+  // reaction loses an act that nothing later restates — so this is the price of never losing one.
+  "rate-limited",
   // A HOST FRAME FROM A SOCKET HOLDING NO GRANT. The socket stays open: the member is in the
   // meeting and everything else they can do still works — what they cannot do is run it. Decided
   // from the STORED participant record rather than from the socket's attachment, because a co-host
@@ -638,9 +725,78 @@ export function presenceDeltaFrame(
   participantId: string,
   speaking: boolean,
   muted: boolean,
+  hand: boolean,
   at: string,
 ): string {
-  return frame({ type: "presence", participantId, speaking, muted, at });
+  return frame({ type: "presence", participantId, speaking, muted, hand, at });
+}
+
+/**
+ * ONE REACTION, ON THE TILE OF THE PERSON WHO THREW IT — the shape a small room gets.
+ *
+ * Sent at or below `ROSTER_DELTA_THRESHOLD`, and NEVER to its own sender: that browser drew its own
+ * bubble the moment the button was pressed, which is what makes the control feel like a button
+ * rather than a request. Above the threshold the room sends `reactions` instead, because a bubble on
+ * the right face is a promise a screen drawing sixteen tiles out of three hundred cannot keep.
+ *
+ * `at` is the room's instant, not the sender's, on the terms every other instant on this wire is.
+ */
+export function reactionRelayFrame(
+  participantId: string,
+  name: MeetingReaction,
+  at: string,
+): string {
+  return frame({ type: "reaction", participantId, name, at });
+}
+
+/**
+ * WHAT THE WHOLE ROOM THREW IN ONE SECOND, as counts — the shape a large room gets.
+ *
+ * Three hundred people applauding one sentence is three hundred inbound frames and, relayed one by
+ * one, ninety thousand outbound in a single second. So above the threshold the room accumulates them
+ * into a per-name count and sends this once a second for the whole room, which is the design target:
+ * one frame a second whatever the applause.
+ *
+ * What coalescing costs is attribution, and that is the honest trade — above sixteen participants
+ * nobody can see three hundred tiles anyway, and the count is the thing that is actually true at that
+ * size. It goes to EVERY socket including the reactors, because a count that excluded the reader
+ * would be a different number per socket and the room would be building three hundred frames to
+ * avoid one double-count; the client draws its own glyph on its own tile and the counts in the
+ * strip, so nothing is counted twice on any screen.
+ *
+ * `counts` is keyed by the reaction's name and carries only the names that actually arrived — a zero
+ * for a name nobody chose is a fact nobody is waiting for.
+ */
+export function reactionsFrame(counts: Readonly<Record<string, number>>, at: string): string {
+  return frame({ type: "reactions", counts, at });
+}
+
+/**
+ * SOMETHING SOMEBODY SAID, RELAYED AS IT WAS SAID — a copy of a row that is already committed.
+ *
+ * THE ROUTE IS THE RECORD AND STAYS THE RECORD. This frame exists so a message reaches the other
+ * browsers in the room now rather than on a poller's next tick; a browser that misses one is caught
+ * up by the read, and the write never goes through the socket, because a record that existed only
+ * where a Durable Object's transient storage holds it would empty when the room does.
+ *
+ * The whole record travels rather than a projection of it, so the frame and the list answer with the
+ * same object and a screen has one shape to draw. It reaches every WELCOMED socket and never the
+ * lobby: what is being said inside a room is exactly what somebody standing at the door must not
+ * reach.
+ */
+export function messageFrame(message: MeetingChatMessage): string {
+  return frame({ type: "message", message });
+}
+
+/**
+ * A message taken back, as the handle and the instant alone.
+ *
+ * The body is already blank on the record and there is nothing here to blank: what a client holds is
+ * a copy, so this is the news that the copy is stale and what to put in its place. A whole record
+ * would carry an empty body and say the same thing at more expense.
+ */
+export function messageRedactedFrame(messageId: string, redactedAt: string): string {
+  return frame({ type: "message-redacted", messageId, redactedAt });
 }
 
 /**
@@ -754,13 +910,15 @@ export function refusedFrame(reason: MeetingRefusalReason, errorId?: string): st
 }
 
 export type {
+  MeetingChatMessage,
   MeetingConnectionQuality,
   MeetingHostRole,
   MeetingLobbyMode,
+  MeetingReaction,
   MeetingRoomState,
   MeetingSpotlight,
   PreferredRid,
   RosterParticipant,
   WaitingParticipant,
 } from "./types.ts";
-export { MEETING_CONNECTION_QUALITIES } from "./types.ts";
+export { MEETING_CONNECTION_QUALITIES, MEETING_REACTIONS } from "./types.ts";

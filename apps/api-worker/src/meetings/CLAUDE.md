@@ -27,7 +27,13 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   subscription names only tracks this room is carrying.
 - `room/room-presence.ts` — who is talking, relayed; the throttle that makes relaying it affordable
   in a room of three hundred, and the deferred flush that keeps the throttle from losing the last
-  transition of a burst.
+  transition of a burst. It also owns THE HAND — the stamp the room writes, the relay that travels
+  on a roster change, and the lowering a host asks for (authorized next door, in `room-hosting.ts`).
+- `room/room-reactions.ts` — something thrown on a tile: the relay that names the reactor in a small
+  room and the per-second bucket that counts the whole of a large one, and the ONE window a hand and
+  a reaction share — the only throttle here that refuses rather than drops.
+- `room/room-chat.ts` — the relay of a message the chat ROUTE has already committed, and the
+  redaction of one. Two broadcasts and no storage key: the transcript is the firm's own record.
 - `room/room-media.ts` — the routing-service session opened on first use, the four acts that reach
   that service (publish, subscribe, layer, close), the tracks the roster remembers because of them,
   and the release that stops the forwarding when somebody is gone.
@@ -76,6 +82,14 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
 - **The roster is read at most once per frame.** In a room of three hundred that read is three
   hundred keys. Every function here that needs it takes the map the caller already paid for rather
   than reading storage again.
+- **What restates itself is DROPPED; what does not is REFUSED.** The presence throttle discards a
+  transition inside its window and keeps the stored booleans current, which is safe because a
+  presence frame carries the whole of what it is about — an unsent one loses nothing a later one
+  restates, and a `sync` is a request the asker repeats. A raised hand and a reaction have no later
+  frame to carry them: a hand may be the last thing somebody does for ten minutes, and a reaction is
+  a single act. So both answer to `SIGNAL_INTERVAL_MILLISECONDS` and the frame inside the window is
+  refused `rate-limited` with the socket kept open. That reason is on the wire, and the interval is
+  too, because a client that paced itself differently would be refused for behaving correctly.
 - **A frame that costs the ROOM is throttled per participant; a frame that costs the sender is not.**
   A `sync` is a read of every key the room holds and a `layer` is a call to the routing service, and
   a browser can send either as fast as it can write to a socket — so each carries its own instant on
@@ -149,6 +163,19 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   is recorded once per coalesced flush with the count it covered, and what a frame spends in storage
   is SAMPLED (`STORAGE_BUDGET_SAMPLE_EVERY`). A record that costs what the thing it measures costs is
   not a record.
+- **A branch about FAN-OUT is decided over the sockets; a branch about the ROSTER is decided over
+  the roster.** The roster difference reads `storedParticipants()` because it is about who is in the
+  meeting. The reactions branch does not: it is choosing between one frame per reactor and one frame
+  for the room, which is a question about the sockets a frame would actually reach — and a roster
+  read there would spend three hundred keys on every reaction in exactly the room the coalescing
+  exists for. `welcomedSocketCount` is that measure, and the load harness reports `lists/reaction` at
+  zero because of it.
+- **A room-level fact the ALARM waits on is reconciled in `armAlarm`, not only armed for.**
+  `armAlarmFor` brings the alarm forward for a deadline the caller already knows, which is what keeps
+  a sub-second window off the full reconciliation. But every wake ends by re-arming from the
+  reconciliation alone, so a deadline missing from it is a deadline that survives exactly until the
+  next wake for something else. The reaction bucket is in both places for that reason, and its cost
+  there is one `get` rather than a pass over anything.
 - **An operator's read is the platform-operator guard, never a firm permission.** A capability that
   let a member read the room's internals would be a capability to read a colleague's connection
   quality and their place in the meeting. `routes/meeting-inspect.ts` runs in the same lane

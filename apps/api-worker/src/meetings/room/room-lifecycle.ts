@@ -21,6 +21,7 @@ import {
 } from "./room-diagnostics.ts";
 import { releaseMedia, releaseParticipant } from "./room-media.ts";
 import { flushDeferredPresence, presenceFlushDeadlineOf } from "./room-presence.ts";
+import { flushReactions, reactionFlushDeadlineOf } from "./room-reactions.ts";
 import { announceRoster, rosterEntryFor, rosterFrom } from "./room-roster.ts";
 import {
   attachmentOf,
@@ -56,11 +57,16 @@ import {
 //
 // The three are one module because they share one deadline mechanism. A Durable Object has exactly
 // ONE alarm; what it can have is several deadlines in storage and a re-arm to the nearest one left.
-// Three are reconciled in `armAlarm`: each dropped connection's own grace, the retirement of the
-// ended marker, and the end of a presence throttle's window with a transition waiting behind it
-// (room-presence.ts). The third is sub-second where the other two are minutes and a day, which is
-// the point — it is armed only while somebody is mid-burst, and a room where nobody is toggling
-// anything holds no presence deadline at all.
+// Four are reconciled in `armAlarm`: each dropped connection's own grace, the retirement of the
+// ended marker, the end of a presence throttle's window with a transition waiting behind it
+// (room-presence.ts), and the flush of a second's reactions (room-reactions.ts). The last two are
+// sub-second where the other two are minutes and a day, which is the point — each is armed only
+// while somebody is toggling or reacting, and a quiet room holds neither.
+//
+// THE SUB-SECOND DEADLINES ARE AFFORDABLE FOR DIFFERENT REASONS, and the reactions one is the
+// cheaper: a presence deadline is per PERSON and a reaction bucket is one for the whole room, so a
+// burst of applause from three hundred people arms this at most once a second however loud it is —
+// and during that burst the room is already being woken by the inbound frames themselves.
 
 // HOW LONG A DROPPED CONNECTION IS GIVEN before the room writes down that the member left.
 //
@@ -258,11 +264,12 @@ export async function noteSocketLost(room: RoomContext, socket: WebSocket): Prom
 }
 
 /**
- * The one alarm, doing whichever of its two jobs is due.
+ * The one alarm, doing whichever of its jobs are due.
  *
- * Both are deadlines rather than schedules — a grace period after a connection dropped, and the
- * retirement of the ended marker — so they share one alarm and are told apart by the stored state
- * that armed them.
+ * Every one of them is a DEADLINE rather than a schedule — a grace period after a connection
+ * dropped, the retirement of the ended marker, a presence transition the throttle held back, a
+ * second's reactions waiting to go out as one frame — so they share one alarm and are told apart by
+ * the stored state that armed them.
  */
 export async function runAlarm(room: RoomContext): Promise<void> {
   const now = Date.now();
@@ -273,6 +280,9 @@ export async function runAlarm(room: RoomContext): Promise<void> {
   // removed from the roster: their departure is the frame everybody needs, and a presence delta
   // arriving behind it would ask every browser to draw a tile that is gone.
   const presenceFlushed = await flushDeferredPresence(room, now);
+  // AND THE SECOND'S REACTIONS, on the same terms: a bucket with no frame behind it would otherwise
+  // sit unsent until somebody reacted again, which for the last clap of a burst is forever.
+  const reactionsFlushed = await flushReactions(room, now);
 
   const purgeAt = await endedPurgeDeadline(room);
   const endedMarkerRetired = purgeAt !== null && purgeAt <= now;
@@ -294,6 +304,7 @@ export async function runAlarm(room: RoomContext): Promise<void> {
     sweptParticipants,
     sweptWaiting,
     presenceFlushed,
+    reactionsFlushed,
     endedMarkerRetired,
     rearmed,
   });
@@ -480,6 +491,12 @@ export async function armAlarm(room: RoomContext): Promise<boolean> {
   if (doorAt !== null) deadlines.push(doorAt);
   const purgeAt = await endedPurgeDeadline(room);
   if (purgeAt !== null) deadlines.push(purgeAt);
+  // ONE key rather than a pass over anything: the coalescing bucket is a fact about the room, so the
+  // reconciliation pays a single get for it however large the meeting is. It has to be here and not
+  // only on `armAlarmFor`: a wake for some other deadline re-arms from this set alone, and a bucket
+  // missing from it would be a second's applause the room never sent.
+  const reactionsAt = await reactionFlushDeadlineOf(room);
+  if (reactionsAt !== null) deadlines.push(reactionsAt);
   if (deadlines.length === 0) return false;
 
   const nearest = Math.min(...deadlines);

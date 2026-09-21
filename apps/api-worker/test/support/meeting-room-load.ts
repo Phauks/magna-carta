@@ -1,5 +1,5 @@
 import { env, runInDurableObject } from "cloudflare:test";
-import { ROSTER_DELTA_THRESHOLD } from "@magna-carta/meeting-protocol/frames";
+import { MEETING_REACTIONS, ROSTER_DELTA_THRESHOLD } from "@magna-carta/meeting-protocol/frames";
 import type { MeetingRoom } from "../../src/meetings/meeting-room.ts";
 import { meetingSocketRequestUrl } from "../../src/meetings/meeting-room.ts";
 
@@ -48,8 +48,28 @@ export interface MeetingRoomLoadReport {
   readonly storageLists: number;
   /** The rule the room is built around, as a number. */
   readonly storageListsPerFrame: number;
+  /**
+   * THE SAME RULE, PER FRAME TYPE — and the reason the mean above cannot be the assertion.
+   *
+   * A mean over the whole phase is an average of frames that read the roster and frames that read
+   * nothing, so it falls as the cheap ones multiply: presence spends no list at all, and enough of
+   * it hides a `subscribe` that started reading the roster twice. The bound is a claim about ONE
+   * frame — the roster is read at most once to serve it — so it is measured where it is made.
+   */
+  readonly storageListsPerFrameByType: Readonly<Record<string, number>>;
   /** Storage get operations across the same phase. */
   readonly storageGets: number;
+  /**
+   * WHAT A SECOND OF APPLAUSE COSTS EACH SOCKET, which is the coalescing claim as a number.
+   *
+   * Everybody in the room reacting at once is the worst fan-out shape in this subsystem: relayed one
+   * by one it is N² frames arriving inside one second. Above the delta threshold the room
+   * accumulates them into a per-name count and sends ONE frame a second for the whole room, so this
+   * is the number that says whether the bucket is working — one, and never the size of the room.
+   */
+  readonly reactionFramesOnBusiestSocket: number;
+  /** Reactions the burst actually sent into the room, so the measurement above is not vacuous. */
+  readonly reactionsSent: number;
   /** Alarms armed across the whole pass. */
   readonly alarmsArmed: number;
   /**
@@ -63,6 +83,8 @@ export interface MeetingRoomLoadReport {
 interface LoadClient {
   readonly attendanceId: string;
   frames: number;
+  /** Coalesced reaction frames alone, counted apart because they are the bound of their own phase. */
+  reactionFrames: number;
   send(text: string): void;
   close(): void;
 }
@@ -232,43 +254,80 @@ export async function runMeetingRoomLoad(
   const listsBefore = counted.lists;
   const getsBefore = counted.gets;
   let framesSent = 0;
+  // THE SAME SPEND, SPLIT BY THE FRAME THAT CAUSED IT. Each phase below sends exactly one kind of
+  // frame, so the difference across a phase divided by the frames it sent is that frame's own cost —
+  // which is the number the room's rule is actually about. The mean over the whole pass is kept as
+  // well, because it is what the two earlier runs were reported at, but it is not what is asserted.
+  const listsPerFrameByType: Record<string, number> = {};
+  const measurePhase = async (frameType: string, send: () => number): Promise<void> => {
+    const before = counted.lists;
+    const sent = send();
+    framesSent += sent;
+    await waitUntilQuiet(clients);
+    listsPerFrameByType[frameType] = sent === 0 ? 0 : (counted.lists - before) / sent;
+  };
 
   // ---- everybody publishes a microphone and a camera ----
-  for (const client of clients) {
-    client.send(
-      JSON.stringify({
-        v: 1,
-        type: "publish",
-        sessionDescription: { type: "offer", sdp: "v=0 load-offer" },
-        tracks: [
-          { trackName: `${client.attendanceId}:microphone`, mid: "0", kind: "audio" },
-          { trackName: `${client.attendanceId}:camera`, mid: "1", kind: "video" },
-        ],
-      }),
-    );
-    framesSent += 1;
-  }
-  await waitUntilQuiet(clients);
+  await measurePhase("publish", () => {
+    for (const client of clients) {
+      client.send(
+        JSON.stringify({
+          v: 1,
+          type: "publish",
+          sessionDescription: { type: "offer", sdp: "v=0 load-offer" },
+          tracks: [
+            { trackName: `${client.attendanceId}:microphone`, mid: "0", kind: "audio" },
+            { trackName: `${client.attendanceId}:camera`, mid: "1", kind: "video" },
+          ],
+        }),
+      );
+    }
+    return clients.length;
+  });
 
   // ---- everybody talks at once, several times, which is what the presence throttle is for ----
   const alarmsBeforePresence = counted.alarms;
-  for (let burst = 0; burst < 3; burst += 1) {
-    for (const client of clients) {
-      client.send(
-        JSON.stringify({ v: 1, type: "presence", speaking: burst % 2 === 0, muted: false }),
-      );
-      framesSent += 1;
+  await measurePhase("presence", () => {
+    for (let burst = 0; burst < 3; burst += 1) {
+      for (const client of clients) {
+        client.send(
+          JSON.stringify({ v: 1, type: "presence", speaking: burst % 2 === 0, muted: false }),
+        );
+      }
     }
-  }
-  await waitUntilQuiet(clients);
+    return clients.length * 3;
+  });
   const presenceAlarms = counted.alarms - alarmsBeforePresence;
 
+  // ---- ONE SECOND OF APPLAUSE: everybody reacts at once, which is the coalescing's whole case ----
+  //
+  // Relayed one by one this is N² frames inside a second — three hundred people applauding one
+  // sentence is ninety thousand — so the room accumulates them and sends ONE frame a second for the
+  // whole room. The count below is what says whether that held, and it is measured per SOCKET
+  // because that is the browser that has to keep up with it.
+  for (const client of clients) client.reactionFrames = 0;
+  let reactionsSent = 0;
+  await measurePhase("reaction", () => {
+    for (const [seat, client] of clients.entries()) {
+      // A name from the vocabulary per seat, so the flushed counts carry more than one entry —
+      // a bucket that merged every name into one would satisfy a single-name burst.
+      const name = MEETING_REACTIONS[seat % MEETING_REACTIONS.length] ?? "thumbs-up";
+      client.send(JSON.stringify({ v: 1, type: "reaction", name }));
+      reactionsSent += 1;
+    }
+    return clients.length;
+  });
+  // The bucket's own flush deadline is a second away and nothing follows it, so the alarm is what
+  // sends it — waited for rather than assumed, because a burst whose frame never arrived would
+  // otherwise report the best possible number.
+  await waitFor(() => clients.some((client) => client.reactionFrames > 0), 5_000);
+  await settle(100);
+
   // ---- the gallery turns a page: everybody asks for the whole list again ----
-  for (const client of clients) {
-    client.send(JSON.stringify({ v: 1, type: "sync" }));
-    framesSent += 1;
-  }
-  await waitUntilQuiet(clients);
+  await measurePhase("sync", () => {
+    for (const client of clients) client.send(JSON.stringify({ v: 1, type: "sync" }));
+    return clients.length;
+  });
 
   const listsAfter = counted.lists;
   const getsAfter = counted.gets;
@@ -298,7 +357,13 @@ export async function runMeetingRoomLoad(
     framesSent,
     storageLists: listsAfter - listsBefore,
     storageListsPerFrame: framesSent === 0 ? 0 : (listsAfter - listsBefore) / framesSent,
+    storageListsPerFrameByType: listsPerFrameByType,
     storageGets: getsAfter - getsBefore,
+    reactionFramesOnBusiestSocket: clients.reduce(
+      (most, client) => Math.max(most, client.reactionFrames),
+      0,
+    ),
+    reactionsSent,
     alarmsArmed: counted.alarms,
     presenceAlarms,
     wallMilliseconds: Date.now() - startedAt,
@@ -337,6 +402,7 @@ async function openSocket(
   const client: LoadClient = {
     attendanceId,
     frames: 0,
+    reactionFrames: 0,
     send: (text) => {
       socket.send(text);
     },
@@ -351,8 +417,12 @@ async function openSocket(
   socket.accept();
   // COUNTED, NEVER KEPT. Three hundred sockets holding every frame they were sent is the harness
   // running out of memory measuring a room that did not.
-  socket.addEventListener("message", () => {
+  socket.addEventListener("message", (event) => {
     client.frames += 1;
+    // COUNTED BY A SUBSTRING, NEVER PARSED. Three hundred sockets parsing every frame they are sent
+    // is the harness spending more than the room it is measuring; the coalesced frame's type is the
+    // only thing this needs off the wire, and it is the first field after the version.
+    if (String(event.data).includes('"type":"reactions"')) client.reactionFrames += 1;
   });
   await waitFor(() => client.frames > 0, 10_000);
   return client;
@@ -368,7 +438,13 @@ export function reportLine(report: MeetingRoomLoadReport): string {
     `framesSent=${String(report.framesSent)}`,
     `storageLists=${String(report.storageLists)}`,
     `storageListsPerFrame=${report.storageListsPerFrame.toFixed(3)}`,
+    // The per-type numbers are what the bound is asserted on; the mean beside them is context.
+    ...Object.entries(report.storageListsPerFrameByType).map(
+      ([frameType, perFrame]) => `lists/${frameType}=${perFrame.toFixed(3)}`,
+    ),
     `storageGets=${String(report.storageGets)}`,
+    `reactionsSent=${String(report.reactionsSent)}`,
+    `reactionFramesOnBusiestSocket=${String(report.reactionFramesOnBusiestSocket)}`,
     `alarmsArmed=${String(report.alarmsArmed)}`,
     `presenceAlarms=${String(report.presenceAlarms)}`,
     `wallMilliseconds=${String(report.wallMilliseconds)}`,

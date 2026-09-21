@@ -24,6 +24,7 @@
   import DoorClosed from "@lucide/svelte/icons/door-closed";
   import DoorOpen from "@lucide/svelte/icons/door-open";
   import Focus from "@lucide/svelte/icons/focus";
+  import Hand from "@lucide/svelte/icons/hand";
   import Lock from "@lucide/svelte/icons/lock";
   import LockOpen from "@lucide/svelte/icons/lock-open";
   import Mic from "@lucide/svelte/icons/mic";
@@ -54,6 +55,8 @@
     medium = "video",
     canEnd = false,
     hosting = false,
+    handRaised = false,
+    raisedHandCount = 0,
     locked = false,
     lobby = "off",
     waitingCount = 0,
@@ -62,6 +65,9 @@
     onToggleMicrophone,
     onToggleCamera,
     onToggleSharing,
+    onToggleHand,
+    onOpenHands,
+    onLowerAllHands,
     onToggleSpeakerView,
     onMuteAll,
     onSetLocked,
@@ -73,6 +79,7 @@
     onEnd,
     connection,
     chat,
+    reactions,
     endFailure,
   }: {
     microphoneOn: boolean;
@@ -93,6 +100,16 @@
      * the space, and a disabled control would say "this could happen here" when it could not.
      */
     hosting?: boolean;
+    /** Whether THIS member's hand is up, which is what the toggle says next. */
+    handRaised?: boolean;
+    /**
+     * How many hands are up in the room.
+     *
+     * It rides a control of its own for the reason the door's count does: somebody running a
+     * meeting learns that a colleague wants the floor by SEEING the number, and a count inside a
+     * menu is a person with their hand up for ten minutes.
+     */
+    raisedHandCount?: number;
     /** Whether the door is shut, which is what the menu's item says next. */
     locked?: boolean;
     /** Whether arrivals wait at a door, which is what the menu's other item says next. */
@@ -111,6 +128,19 @@
     onToggleMicrophone: () => void;
     onToggleCamera: () => void;
     onToggleSharing: () => void;
+    /**
+     * Put this member's hand up or down.
+     *
+     * ONE CONTROL, NOT TWO, like every other toggle in this band: raising and lowering are the same
+     * act read from either side, so the control holds its place and changes what it says. The
+     * raised state is MARKED rather than merely pressed — a hand up is a request standing in the
+     * room, not a mode this browser is in.
+     */
+    onToggleHand: () => void;
+    /** Open the queue. Absent for everybody who is not running the meeting. */
+    onOpenHands?: () => void;
+    /** Clear the floor, from the host menu. A host's own hand goes down with the rest. */
+    onLowerAllHands?: () => void;
     /** Swap between the even gallery and the large speaker. Absent where it is not offered. */
     onToggleSpeakerView?: () => void;
     /** Silence everybody who is neither this member nor a host or co-host. */
@@ -143,6 +173,11 @@
      * includes the count of what has been said since it was last opened.
      */
     chat?: Snippet;
+    /**
+     * The reactions control, which the room screen supplies for the reason the two above are
+     * supplied: the band owns WHERE a control sits, and the control owns what it offers.
+     */
+    reactions?: Snippet;
     onLeave: () => void;
     /** Ends it for everybody. Reports how the write went, so the panel can stand its ground. */
     onEnd?: () => Promise<ActionOutcome>;
@@ -253,6 +288,34 @@
     {/if}
   {/if}
 
+  <!-- ASKING FOR THE FLOOR. It is a toggle like the microphone beside it, and it is MARKED rather
+       than merely pressed: a hand up is a request standing in the room that somebody else can put
+       down, so the glyph carries the accent and the label says which way the press goes. -->
+  <Tooltip.Root>
+    <Tooltip.Trigger>
+      {#snippet child({ props })}
+        <Button
+          {...props}
+          variant={handRaised ? "secondary" : "ghost"}
+          size="icon"
+          aria-pressed={handRaised}
+          aria-label={handRaised ? "Lower your hand" : "Raise your hand"}
+          onclick={onToggleHand}
+        >
+          <Hand
+            class={handRaised ? "size-16 text-accent-default" : "size-16"}
+            aria-hidden="true"
+          />
+        </Button>
+      {/snippet}
+    </Tooltip.Trigger>
+    <Tooltip.Content side="top">{handRaised ? "Lower hand" : "Raise hand"}</Tooltip.Content>
+  </Tooltip.Root>
+
+  <!-- The six, behind one control. It is the screen's snippet for the reason the two below are:
+       what the menu offers is the client's vocabulary, and where it sits is the band's. -->
+  {@render reactions?.()}
+
   <!-- The way to the numbers behind the marks. It is not a toggle, so it wears no fill and no
        pressed state: the band's other controls change what the room is doing, and this one only
        shows what it is already doing. -->
@@ -277,6 +340,21 @@
       Lobby
       {#if waitingCount > 0}
         <Badge variant="primary">{waitingCount}</Badge>
+      {/if}
+    </Button>
+  {/if}
+
+  {#if hosting && onOpenHands !== undefined}
+    <!-- THE SECOND ROOM ACT THAT EARNS ITS OWN CONTROL, on the lobby control's own argument: the
+         queue has something to SAY, and a host who is watching the room rather than a menu learns
+         that somebody wants the floor by seeing the count. It sits before the menu for the same
+         reason the lobby does — the end of the band is an anchor, and a control whose badge comes
+         and goes must not hold it. -->
+    <Button variant="secondary" onclick={onOpenHands}>
+      <Hand class="size-16" aria-hidden="true" />
+      Hands
+      {#if raisedHandCount > 0}
+        <Badge variant="primary">{raisedHandCount}</Badge>
       {/if}
     </Button>
   {/if}
@@ -316,6 +394,14 @@
             Hold Arrivals in a Lobby
           {/if}
         </DropdownMenu.Item>
+        {#if raisedHandCount > 0}
+          <!-- Offered only while there is a floor to clear: an item that lowers nothing teaches a
+               reader that the menu does not mean what it says. -->
+          <DropdownMenu.Item onSelect={() => onLowerAllHands?.()}>
+            <Hand class="size-16 shrink-0" aria-hidden="true" />
+            Lower All Hands
+          </DropdownMenu.Item>
+        {/if}
         {#if spotlighted}
           <!-- Offered only while somebody is on every screen: an item that clears nothing is an
                item that teaches a reader the menu does not mean what it says. -->

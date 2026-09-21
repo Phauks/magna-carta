@@ -101,6 +101,11 @@ export async function requireHostGrant(
  * THE TARGET MUST BE IN THE ROOM. A running meeting is not handed to somebody who is not in it —
  * the room would be held by a browser that is not open, and the next act would be a claim. The
  * claim is the exception and is the whole of why it exists.
+ *
+ * A HAND-OVER LEAVES THE OUTGOING HOST A CO-HOST. They handed the room over; they did not leave it
+ * and did not stop running it with the person they handed it to. Dropping them to an ordinary member
+ * would take away the mute, the spotlight and the door from somebody who was hosting a second
+ * earlier, with nothing on any screen to say so.
  */
 export async function grantHosting(
   database: SqlDatabase,
@@ -146,6 +151,15 @@ export async function grantHosting(
   const now = options.clock.now();
   const grantId = newIdentifier("meetingHost", options.randomSource);
   const handingOver = input.role === "host";
+  // THE OUTGOING HOST STAYS ON AS A CO-HOST, and that is what hand-over means rather than a nicety
+  // added to it. A host handing the room to a colleague mid-meeting has not left and has not stopped
+  // running it with them — and a hand-over that dropped the outgoing host to an ordinary member
+  // would take the mute, the spotlight and the door away from the person who was hosting a second
+  // ago, with nothing on any screen to say it had happened. It is written in the SAME batch as the
+  // revocation above, so there is no instant in which the outgoing host holds nothing.
+  const steppingDownGrantId = handingOver
+    ? newIdentifier("meetingHost", options.randomSource)
+    : null;
   const admission = admitWaitingStay(database, meetingId, stay, now);
   return {
     claimed: false,
@@ -177,6 +191,12 @@ export async function grantHosting(
                   userId: options.actorUserId,
                   revokedByUserId: options.actorUserId,
                   now,
+                  // THE HOST GRANT, NAMED — because this batch also opens a co-host grant for the
+                  // same member, so "whatever they hold" stops being one row for the length of the
+                  // transaction. A second hand-over racing this one would otherwise close the
+                  // co-host row it never read, pass its own guard on it, and fail a statement later
+                  // on the live-host index.
+                  role: "host",
                 }),
                 HANDOVER_GUARD,
               ),
@@ -190,6 +210,23 @@ export async function grantHosting(
           grantedByUserId: options.actorUserId,
           now,
         }),
+        // AFTER the new host's row, because the live-host index is what settles a race and the
+        // co-host insert must not be what a losing batch aborts on: the order here is close the old
+        // grants, open the new host's, then seat the person who stepped down.
+        ...(steppingDownGrantId === null
+          ? []
+          : [
+              insertHostGrantStatement(database, {
+                id: steppingDownGrantId,
+                meetingId,
+                userId: options.actorUserId,
+                role: "co-host",
+                // Given by themselves, which is what stepping down is. The hand-over's own audit row
+                // beside it is where the act is read from; this records who holds what now.
+                grantedByUserId: options.actorUserId,
+                now,
+              }),
+            ]),
         domainAuditStatement(database, {
           event: handingOver
             ? "meetings.meeting.hostingHandedOver"
@@ -316,12 +353,23 @@ export async function claimHosting(
 }
 
 /**
- * A co-host's grant withdrawn.
+ * A grant withdrawn — a co-host's by the host, or the caller's own by the person holding it.
  *
- * ONLY A CO-HOST'S. The host's own grant is not withdrawable by this route in either direction — a
- * co-host withdrawing it would be taking the room, which is what a hand-over is for, and a host
- * withdrawing their own would leave a running meeting with nobody holding it and no act left but a
- * claim.
+ * ONE PATH FOR BOTH, because they are one act with different arguments — closing a grant — and the
+ * two questions that differ are asked of the SAME pair of facts: who the caller is, and who the
+ * grant belongs to. Two paths would be two places for the "who is left running this room" invariant
+ * to drift, which is the only hard part of either.
+ *
+ * WITHDRAWING SOMEBODY ELSE'S IS THE HOST'S ACT AND REACHES ONLY A CO-HOST. A co-host withdrawing
+ * the host's would be taking the room, which is what a hand-over is for.
+ *
+ * RESIGNING ONE'S OWN IS ANYBODY'S, and it is how a co-host stops being one — a grant nobody but the
+ * host could close meant a co-host named for one agenda item carried the mute and the door for the
+ * rest of the meeting, and the only exit was asking the host to do it. The one refusal is the SOLE
+ * grant-holder: a host resigning out of a room where nobody else holds anything would leave a
+ * running meeting with nobody running it, which is a state to hand over out of rather than to walk
+ * out of. With a co-host still standing there is somebody left — and, since a co-host may claim a
+ * room whose host has gone, a way back to a host as well.
  */
 export async function revokeHosting(
   database: SqlDatabase,
@@ -333,7 +381,8 @@ export async function revokeHosting(
   assertNotEnded(meeting);
 
   const caller = await requireHostGrant(database, meetingId, options.actorUserId);
-  if (caller.role !== "host") {
+  const resigning = userId === options.actorUserId;
+  if (!resigning && caller.role !== "host") {
     refuse("meeting-not-host", "only the host of this meeting can withdraw a co-host");
   }
 
@@ -343,8 +392,22 @@ export async function revokeHosting(
     // running the room and they are not, so this is a success with nothing to write.
     return { effect: { statements: [], outboxMessages: [] } };
   }
-  if (grant.role === "host") {
+  if (grant.role === "host" && !resigning) {
     refuse("meeting-not-host", "the host's own grant is handed over rather than withdrawn");
+  }
+  if (resigning) {
+    // Counted over the GRANTS and not over who is present, deliberately: this is about what the
+    // record says is left running the room, and a colleague whose connection dropped a minute ago
+    // still holds theirs. A host who is the only grant-holder hands the room over instead.
+    const others = (await readLiveHostGrants(database, meetingId)).filter(
+      (one) => one.user_id !== options.actorUserId,
+    );
+    if (grant.role === "host" && others.length === 0) {
+      refuse(
+        "meeting-not-host",
+        "the only person running this meeting hands it over rather than resigning",
+      );
+    }
   }
 
   const now = options.clock.now();
@@ -361,7 +424,13 @@ export async function revokeHosting(
           REVOKE_HOSTING_GUARD,
         ),
         domainAuditStatement(database, {
-          event: "meetings.meeting.coHostWithdrawn",
+          // TWO EVENTS FOR TWO DIFFERENT FACTS, and the actor cannot tell them apart on its own:
+          // both rows carry the caller as the actor, so a stream with one name would make "did
+          // somebody stand down, or were they stood down" a question you answer by comparing two
+          // identifiers. The record of a firm's meetings is read for exactly that difference.
+          event: resigning
+            ? "meetings.meeting.hostingResigned"
+            : "meetings.meeting.coHostWithdrawn",
           subjectId: meetingId,
           actorUserId: options.actorUserId,
           clock: options.clock,

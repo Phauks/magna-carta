@@ -78,9 +78,21 @@ import type { EffectedCapture } from "./media-effects.ts";
 import { MeetingNegotiation } from "./negotiation.ts";
 import { MeetingPresence } from "./presence.ts";
 import {
+  browserReactionSeams,
+  handsInRaisedOrder,
+  isMeetingReaction,
+  MeetingReactions,
+  readReactionCounts,
+  UNNAMED_REACTOR,
+  type MeetingReaction,
+  type RaisedHand,
+} from "./reactions.svelte.ts";
+import type { MeetingChatRelay } from "./chat.svelte.ts";
+import {
   isRecord,
   MeetingSignaling,
   namesAScreen,
+  readChatMessage,
   readIdentifiers,
   readParticipants,
   readPreferredRid,
@@ -116,11 +128,13 @@ export type {
   MeetingLobbyMode,
   MeetingMedium,
   MeetingParticipant,
+  MeetingReaction,
   MeetingRefusal,
   MeetingRoomState,
   MeetingTrack,
   MeetingTrackKind,
   MeetingWaitingPlace,
+  RaisedHand,
   WaitingParticipant,
 };
 
@@ -175,6 +189,14 @@ const FATAL_REFUSAL_REASONS = new Set([
 const NOT_HOST_REASON = "not-host";
 
 /**
+ * A hand change or a reaction inside the room's signal window.
+ *
+ * Non-fatal and not a fault: the room refuses these rather than dropping them precisely so the
+ * browser learns its act did not land and can settle the state again once the window passes.
+ */
+const RATE_LIMITED_REASON = "rate-limited";
+
+/**
  * The refusals that mean the tracks just asked for are not coming: the unit could not be reached,
  * the room does not hold a track under the name it was asked for, or the room could not read the
  * frame that asked at all. Those tracks stop counting as pulled, so the next roster asks for them
@@ -220,6 +242,20 @@ export type MeetingState = "idle" | "joining" | "waiting" | "live" | "ended" | "
 export interface MeetingPresenceFact {
   readonly speaking: boolean;
   readonly muted: boolean;
+  /** Their hand is up. The third fact a tile shows, measured by the same browser as the other two. */
+  readonly hand: boolean;
+  /**
+   * When the hand went up, for the queue a host works through. Null where it is down.
+   *
+   * THE ROSTER'S INSTANT WHERE THERE IS ONE, AND THIS BROWSER'S WHERE THERE IS NOT. The room stamps
+   * the instant on the stored participant and carries it on every roster row, so a browser arriving
+   * late sorts the queue from the roster alone. A `presence` frame is the other door and carries the
+   * boolean without the instant — it is a small frame about a change, not a restatement of a record
+   * — so a hand learned that way is stamped here, the way `#lastSpokeAt` is and for the same reason:
+   * what is available is the order the frames arrived in, and a queue ordered by nothing is worse
+   * than a queue ordered by that.
+   */
+  readonly handRaisedAt: string | null;
 }
 
 /** What the join route answered with, plus where the room's socket lives. */
@@ -454,6 +490,15 @@ export class MeetingClient {
    */
   readonly diagnostics: MeetingDiagnostics;
 
+  /**
+   * A raised hand and a thrown reaction: the two signals the record never keeps.
+   *
+   * Public because the screen renders the bubbles, the counts strip and the hand's own control
+   * straight off it, and its own concern rather than a set of fields here — the rule this directory
+   * is arranged by. Nothing it holds outlives the meeting, and nothing in it is written anywhere.
+   */
+  readonly reactions: MeetingReactions;
+
   /** Everybody but this browser — the people the gallery pages over. */
   readonly others = $derived(
     this.participants.filter((participant) => participant.participantId !== this.participantId),
@@ -474,6 +519,29 @@ export class MeetingClient {
 
   /** Whether this member may run the meeting at all. What every host surface is shown behind. */
   readonly hosting = $derived(mayRunTheMeeting(this.myRole));
+
+  /**
+   * Everybody with a hand up, in the order the hands went up.
+   *
+   * THE CLIENT IS WHAT SORTS, NEVER THE ROOM: the room relays facts and the browser arranges them,
+   * which is the same division the subscription policy already holds and for the same reason — a
+   * room of three hundred must not be asked to keep a sorted list in storage and rewrite it on
+   * every change. It is a pure derivation of what every browser already holds.
+   */
+  readonly raisedHands = $derived<readonly RaisedHand[]>(
+    handsInRaisedOrder(
+      this.participants
+        .map((participant) => {
+          const presence = this.presenceOf(participant);
+          return {
+            participantId: participant.participantId,
+            handRaisedAt: presence.handRaisedAt,
+            hand: presence.hand,
+          };
+        })
+        .filter((row) => row.hand),
+    ),
+  );
 
   /**
    * What should be coming in, and what the gallery should be drawing. Everything the screen renders
@@ -524,6 +592,12 @@ export class MeetingClient {
   /** The screen share's transceiver mid, which is what closing it names. */
   #screenMid: string | null = null;
   /**
+   * The media section this browser's microphone goes up, so coming back after a host's mute reuses
+   * it rather than adding one. A meeting where a host mutes the room repeatedly would otherwise
+   * grow a section per return, for the length of the meeting.
+   */
+  #microphoneMid: string | null = null;
+  /**
    * True while this browser's microphone is closed AT THE ROUTING SERVICE because a host muted it.
    *
    * It is what makes un-muting afterwards a republish rather than a flipped flag. A member's own
@@ -548,6 +622,14 @@ export class MeetingClient {
   #publishOnWelcome = false;
   /** True once this browser asked to leave, so the socket closing is expected rather than a fault. */
   #leaving = false;
+  /**
+   * Where a relayed message goes. A no-op until the screen that READS the transcript wires itself
+   * in, so a client with no chat panel beside it drops the frame rather than holding a record.
+   */
+  #chat: MeetingChatRelay = {
+    noteMessageFrame: () => {},
+    noteMessageRedacted: () => {},
+  };
 
   constructor(
     seams: MeetingClientSeams,
@@ -555,6 +637,15 @@ export class MeetingClient {
   ) {
     this.#seams = seams;
     this.diagnostics = diagnostics;
+    this.reactions = new MeetingReactions(
+      browserReactionSeams(
+        (frame) => this.#signaling.send(frame),
+        // The two facts a presence frame has to carry whole, as the room was last told them: a
+        // frame that stated the hand and guessed at the other two would relay a speaking
+        // transition nobody measured.
+        () => this.#presence.announced(),
+      ),
+    );
     this.#negotiation = new MeetingNegotiation((problem) => {
       this.lastProblem = problem;
     });
@@ -577,6 +668,23 @@ export class MeetingClient {
         roster: (frame) => this.#adoptRoster(readParticipants(frame.participants)),
         rosterDelta: (frame) => this.#handleRosterDelta(frame),
         presence: (frame) => this.#handlePresence(frame),
+        reaction: (frame) => this.#handleReaction(frame),
+        reactions: (frame) => {
+          // The strip and a bubble are drawn in different places, so a room that sends counts to
+          // everybody — reactors included — is not counting anybody twice on any screen.
+          this.reactions.noteCounts(readReactionCounts(frame.counts));
+        },
+        message: (frame) => {
+          const message = readChatMessage(frame.message);
+          if (message !== null) this.#chat.noteMessageFrame(message);
+        },
+        messageRedacted: (frame) => {
+          const messageId = readString(frame, "messageId");
+          const redactedAt = readString(frame, "redactedAt");
+          if (messageId !== null && redactedAt !== null) {
+            this.#chat.noteMessageRedacted(messageId, redactedAt);
+          }
+        },
         layered: (frame) => this.#handleLayered(frame),
         published: (frame) =>
           void this.#negotiation.enqueue(
@@ -683,6 +791,49 @@ export class MeetingClient {
     this.lobbyList = waiting;
   }
 
+  /**
+   * Let the transcript hear what the room relays.
+   *
+   * The screen wires this because the screen is what holds the transcript: a message is a route and
+   * a row, and the client's job is to carry the copy the room sends so it arrives as it is said
+   * rather than on the poll's next tick.
+   */
+  relayMessagesTo(chat: MeetingChatRelay): void {
+    this.#chat = chat;
+  }
+
+  /**
+   * Put this member's hand up, or take it down.
+   *
+   * It goes out on the ORDINARY presence frame, paced against the window the room refuses on.
+   * Answers false where the window has not passed, which is what a control reads to say nothing
+   * happened; the room's own refusal, if one arrives anyway, is answered by re-sending the settled
+   * hand rather than by telling the member their meeting is broken.
+   */
+  raiseHand(): boolean {
+    return this.reactions.raiseHand();
+  }
+
+  lowerHand(): boolean {
+    return this.reactions.lowerHand();
+  }
+
+  /** Throw one of the six reactions. Answers whether it left, so a menu closes on an act. */
+  react(name: MeetingReaction): boolean {
+    return this.reactions.react(name, this.participantId);
+  }
+
+  /**
+   * A host putting a hand down: one, or every hand in the room.
+   *
+   * A host's OWN hand goes down with the rest — clearing the floor is clearing it — which is the
+   * opposite of the mute-all rule and deliberately so: mute-all exists so a host can speak, and
+   * this exists so a host can start the queue again.
+   */
+  lowerHands(participantId: string | null): void {
+    this.reactions.lowerHands(participantId, this.participantId);
+  }
+
   /** How somebody else's picture and sound are arriving, for a surface that draws the mark. */
   qualityOf(participantId: string): ConnectionQuality {
     return this.diagnostics.qualityOf(participantId);
@@ -700,6 +851,8 @@ export class MeetingClient {
       this.#presenceByParticipant.get(participant.participantId) ?? {
         speaking: participant.speaking,
         muted: participant.muted,
+        hand: participant.hand,
+        handRaisedAt: participant.handRaisedAt,
       }
     );
   }
@@ -757,6 +910,10 @@ export class MeetingClient {
     await this.#negotiation.enqueue(notOffered, async () => {
       const offered = offerCapturedTracks(peerConnection, stream, wantsPicture);
       const sessionDescription = await this.#negotiation.offer(peerConnection);
+      // Read AFTER the local description, like every other mid here: a transceiver has none until
+      // the browser has described the connection it sits on.
+      this.#microphoneMid =
+        offered.find((entry) => entry.kind === "audio")?.transceiver.mid ?? null;
       this.#signaling.send({
         type: "publish",
         sessionDescription,
@@ -898,8 +1055,11 @@ export class MeetingClient {
     await this.#negotiation.enqueue(
       "Your microphone was not offered to the room again.",
       async () => {
-        const transceiver = offerMicrophoneTrack(peerConnection, track);
+        // The section the microphone last went up is reused, so a member muted and unmuted twenty
+        // times over an hour leaves the description exactly as long as it started.
+        const transceiver = await offerMicrophoneTrack(peerConnection, track, this.#microphoneMid);
         const sessionDescription = await this.#negotiation.offer(peerConnection);
+        this.#microphoneMid = transceiver.mid;
         this.#signaling.send({
           type: "publish",
           sessionDescription,
@@ -1021,7 +1181,9 @@ export class MeetingClient {
     if (!this.#presence.isTransition(speaking, muted)) return;
     this.#presence.noteAnnounced(speaking, muted);
     const self = this.participantId;
-    if (self !== null) this.#recordPresence(self, speaking, muted);
+    // The hand is restated rather than re-decided: this frame is about the microphone, and the one
+    // browser that knows whether the hand is up is this one.
+    if (self !== null) this.#recordPresence(self, speaking, muted, this.reactions.hand);
     this.#signaling.send({ type: "presence", speaking, muted });
     this.#subscriptions.schedule();
   }
@@ -1138,12 +1300,27 @@ export class MeetingClient {
 
     for (const row of stated) {
       const before = next.get(row.participantId);
-      if (before?.speaking === row.speaking && before.muted === row.muted) continue;
+      if (
+        before?.speaking === row.speaking &&
+        before.muted === row.muted &&
+        before.hand === row.hand &&
+        before.handRaisedAt === row.handRaisedAt
+      ) {
+        continue;
+      }
       // The moment somebody STARTS is what orders the gallery, and a row is one of the two places
       // it can be learned. Stamped on this browser's own clock for the reason a presence frame is:
       // the room's clock and this one are not the same clock.
       if (row.speaking && before?.speaking !== true) spoke.push(row.participantId);
-      next.set(row.participantId, { speaking: row.speaking, muted: row.muted });
+      next.set(row.participantId, {
+        speaking: row.speaking,
+        muted: row.muted,
+        hand: row.hand,
+        // The row's own instant, which is the room's and is what the queue is ordered by. A room
+        // that states a hand without one keeps whatever this browser stamped when it first learned
+        // of it, so a roster arriving mid-meeting never reshuffles a queue a host is working.
+        handRaisedAt: row.handRaisedAt ?? (row.hand ? (before?.handRaisedAt ?? null) : null),
+      });
       changed = true;
     }
 
@@ -1193,20 +1370,31 @@ export class MeetingClient {
   }
 
   /**
-   * Somebody started or stopped talking, or turned their microphone off.
+   * Somebody started or stopped talking, turned their microphone off, or moved their hand.
    *
    * It is what the gallery's order is built from, so it arrives as its own small frame rather than
    * as a roster: a room where a dozen people take turns speaking would otherwise be re-stating
-   * three hundred participant records every second to carry two booleans.
+   * three hundred participant records every second to carry two booleans. The hand rides here for
+   * the opposite reason — it moves rarely — but it is the same browser measuring the same person at
+   * the same moment, and a second frame would be a second small message about one subject.
    */
   #handlePresence(frame: Record<string, unknown>): void {
     const participantId = readString(frame, "participantId");
     if (participantId === null) return;
+    const hand = frame.hand === true;
+    const wasRaised = this.#presenceByParticipant.get(participantId)?.hand === true;
     const known = this.#recordPresence(
       participantId,
       frame.speaking === true,
       frame.muted === true,
+      hand,
     );
+    // A HAND GOING UP IS ANNOUNCED AT EVERY ROOM SIZE, unlike a reaction: it is a request for the
+    // floor, and somebody running the meeting by ear has no other way to learn about it. Only the
+    // change is said — a roster restating a hand that was already up is not news.
+    if (hand && !wasRaised && known) {
+      this.reactions.noteHandRaised(this.#nameOf(participantId));
+    }
     // Presence about somebody this browser has never heard of is the same gap a delta shows, by a
     // different route: their join went missing.
     if (!known) this.#signaling.requestSync();
@@ -1214,24 +1402,64 @@ export class MeetingClient {
   }
 
   /**
-   * Note what somebody's microphone is doing. Answers whether the roster knows them at all.
+   * Somebody threw a reaction, in a room small enough for the room to say who.
+   *
+   * It is never about this browser itself: the room does not echo a `reaction` to its sender, whose
+   * own bubble was drawn the moment the control was pressed. A reaction about somebody the roster
+   * does not name is dropped rather than drawn — a bubble with no tile under it is a bubble in the
+   * corner of the screen, and the sync a missing roster row would ask for is already asked by the
+   * presence and delta paths.
+   */
+  #handleReaction(frame: Record<string, unknown>): void {
+    const participantId = readString(frame, "participantId");
+    const name = frame.name;
+    if (participantId === null || !isMeetingReaction(name)) return;
+    if (!this.participants.some((one) => one.participantId === participantId)) return;
+    this.reactions.noteReaction(participantId, name, this.#nameOf(participantId));
+  }
+
+  /** What somebody is called, for a sentence a screen reader reads out. */
+  #nameOf(participantId: string): string {
+    const displayName = this.participants.find(
+      (participant) => participant.participantId === participantId,
+    )?.displayName;
+    return displayName === undefined || displayName === "" ? UNNAMED_REACTOR : displayName;
+  }
+
+  /**
+   * Note what somebody's microphone and hand are doing. Answers whether the roster knows them.
    *
    * The moment they STOP is recorded as well as the moment they start, because "who spoke most
    * recently" is what orders the gallery — and the person who just finished a sentence is the one a
    * member is most likely to want to keep looking at.
    */
-  #recordPresence(participantId: string, speaking: boolean, muted: boolean): boolean {
+  #recordPresence(
+    participantId: string,
+    speaking: boolean,
+    muted: boolean,
+    hand: boolean,
+  ): boolean {
     const onRoster = this.participants.find(
       (participant) => participant.participantId === participantId,
     );
     const known = onRoster !== undefined;
-    const wasSpeaking =
-      this.#presenceByParticipant.get(participantId)?.speaking ?? onRoster?.speaking === true;
-    // The roster array is left exactly as it was. A presence frame is two booleans about one
+    const held = this.#presenceByParticipant.get(participantId);
+    const wasSpeaking = held?.speaking ?? onRoster?.speaking === true;
+    // The roster array is left exactly as it was. A presence frame is three facts about one
     // person, and rebuilding three hundred roster rows to carry them re-rendered every surface
     // reading the roster — many times a second in a discussion.
     const stated = new Map(this.#presenceByParticipant);
-    stated.set(participantId, { speaking, muted });
+    stated.set(participantId, {
+      speaking,
+      muted,
+      hand,
+      // The frame carries the boolean and not the instant, so a hand that was already up keeps the
+      // stamp it had and a hand going up now is stamped where this browser learned of it. Never
+      // stored and never sent anywhere: it is an ordering key for one queue in one tab.
+      handRaisedAt: hand
+        ? (held?.handRaisedAt ?? onRoster?.handRaisedAt ?? new Date().toISOString())
+        : null,
+    });
     this.#presenceByParticipant = stated;
     if (speaking || wasSpeaking) {
       const stamped = new Map(this.#lastSpokeAt);
@@ -1321,6 +1549,18 @@ export class MeetingClient {
       this.lastNotice = NOT_ADMITTED_NOTICE;
       return;
     }
+    /*
+     * A SIGNAL THAT ARRIVED TOO FAST, and the one refusal that is answered rather than reported.
+     * The room refuses instead of dropping precisely so this browser can tell its act did not land
+     * — a hand is a standing state the room is now wrong about, so it is sent again once the window
+     * passes. Nothing goes on the screen: the member pressed a control, the control answered, and a
+     * band saying the room refused a frame would be the product reporting its own pacing to
+     * somebody who did nothing wrong.
+     */
+    if (reason === RATE_LIMITED_REASON) {
+      this.reactions.noteRateLimited();
+      return;
+    }
     this.lastRefusal = { reason, errorId: readString(frame, "errorId") };
     if (REFUSALS_THAT_LOSE_A_SUBSCRIPTION.has(reason)) this.#subscriptions.forgetPending();
   }
@@ -1405,6 +1645,9 @@ export class MeetingClient {
     // the last thing that happened is usually the reason the meeting is over.
     this.diagnostics.stop();
     this.#presence.stop();
+    // The bubbles, the counts and this browser's own hand go with the room they were about: every
+    // one of them is a fact about the next few seconds of a meeting that is over.
+    this.reactions.clear();
     this.#capture?.close();
     this.#capture = null;
     const screen = this.screenStream;
@@ -1413,6 +1656,7 @@ export class MeetingClient {
     this.screenStream = null;
     this.sharing = false;
     this.#screenMid = null;
+    this.#microphoneMid = null;
     this.remoteStreams = new Map();
     this.remoteScreens = new Map();
     this.#negotiation.close();
@@ -1441,6 +1685,7 @@ export class MeetingClient {
     this.sharing = false;
     this.#leaving = false;
     this.#screenMid = null;
+    this.#microphoneMid = null;
     this.page = 0;
     this.pinned = [];
     this.speakerView = false;
@@ -1449,6 +1694,7 @@ export class MeetingClient {
     this.#subscriptions.clear();
     this.#signaling.reset();
     this.#presence.stop();
+    this.reactions.clear();
     this.diagnostics.clear();
   }
 }

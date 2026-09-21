@@ -6,7 +6,8 @@ import {
 import type { MeetingHostRole } from "@magna-carta/meeting-protocol/types";
 import { sfuClientForEnv, SfuUnavailableError, type SfuClient } from "../sfu/sfu-client.ts";
 import { recordLocked, recordMuted, recordRemoved, refuseAndRecord } from "./room-diagnostics.ts";
-import { announceLobbyToNewHosts } from "./room-lobby.ts";
+import { announceLobbyToNewHosts, waitingRemoved } from "./room-lobby.ts";
+import { lowerHands } from "./room-presence.ts";
 import { forgetTracks, releaseParticipant } from "./room-media.ts";
 import { announceRoster, rosterEntryFor } from "./room-roster.ts";
 import {
@@ -25,7 +26,7 @@ import {
   type StoredParticipant,
 } from "./room-state.ts";
 
-// RUNNING THE ROOM FROM INSIDE IT — the four acts a host performs as a frame rather than as a
+// RUNNING THE ROOM FROM INSIDE IT — the five acts a host performs as a frame rather than as a
 // request, and the three the hosting routes call back into the room to finish.
 //
 // The split between a frame and a route is not about where the code is easiest to put. An act is a
@@ -53,12 +54,13 @@ import {
 // the time a host expects and narrow enough that nothing upstream sees a burst.
 export const MUTE_ALL_CONCURRENCY = 8;
 
-/** The four frames a host may send, as the dispatch hands them over. */
+/** The five frames a host may send, as the dispatch hands them over. */
 export type MeetingHostFrame =
   | { readonly type: "mute"; readonly participantId: string }
   | { readonly type: "mute-all" }
   | { readonly type: "ask-to-unmute"; readonly participantId: string }
-  | { readonly type: "spotlight"; readonly participantId: string | null };
+  | { readonly type: "spotlight"; readonly participantId: string | null }
+  | { readonly type: "lower-hands"; readonly participantId: string | null };
 
 /**
  * One host frame, from the authority question to the act.
@@ -89,6 +91,15 @@ export async function handleHostFrame(
 
   if (frame.type === "spotlight") {
     await setSpotlight(room, attendanceId, frame.participantId, stored);
+    return;
+  }
+
+  if (frame.type === "lower-hands") {
+    // THE ACT ITSELF IS room-presence.ts's, because the hand is that module's fact; what is decided
+    // here is the one thing this module owns — whether the socket that asked is running the meeting.
+    // The roster this frame already paid for is handed over rather than read again, which is what
+    // keeps clearing three hundred hands at one list of the room's keys.
+    await lowerHands(room, stored, frame.participantId);
     return;
   }
 
@@ -299,6 +310,12 @@ async function setSpotlight(
  */
 export async function participantRemoved(room: RoomContext, attendanceId: string): Promise<void> {
   await releaseParticipant(room, attendanceId);
+  // AND THE DOOR, because a removal reaches a stay wherever it is standing. A member put out while
+  // they were WAITING has no `participant:` record for the release above to find and does have a
+  // `waiting:` one, which nothing else would ever drop: the record would say they are not in the
+  // meeting while the host's own lobby panel went on offering to admit them, and the key would
+  // outlive the roster it was never part of.
+  await waitingRemoved(room, attendanceId);
   await clearSpotlightFor(room, [attendanceId]);
   for (const socket of socketsFor(room, attendanceId)) {
     refuseAndClose(socket, "removed");
@@ -349,7 +366,15 @@ export async function hostingChanged(
   await announceLobbyToNewHosts(room, newlyGranted);
 }
 
-/** The door moved. The room's own copy is rewritten and everybody is told what is now true. */
+/**
+ * The door moved. The room's own copy is rewritten and everybody is told what is now true.
+ *
+ * Called only for a write that CHANGED something — the route asks the service and skips this
+ * otherwise. A no-op lock spending a room-state broadcast on three hundred sockets is a frame that
+ * says nothing, and the honest reading of it is worse than the cost: a room redrawing its door
+ * because somebody pressed a control that did nothing is a screen reporting an event that did not
+ * happen.
+ */
 export async function roomStateChanged(room: RoomContext, locked: boolean): Promise<void> {
   await setRoomLocked(room, locked);
   await announceRoomState(room);

@@ -5,10 +5,15 @@ import {
   PING_FRAME,
   PONG_FRAME,
 } from "@magna-carta/meeting-protocol/frames";
-import type { MeetingHostRole, MeetingLobbyMode } from "@magna-carta/meeting-protocol/types";
+import type {
+  MeetingChatMessage,
+  MeetingHostRole,
+  MeetingLobbyMode,
+} from "@magna-carta/meeting-protocol/types";
 import { isMeetingMedium } from "@magna-carta/meetings/types";
 import type { Bindings } from "../app.ts";
 import { isWebSocketUpgrade } from "../progress/job-progress-sockets.ts";
+import { relayMessage, relayMessageRedaction } from "./room/room-chat.ts";
 import { dispatchClientFrame } from "./room/room-frames.ts";
 import { inspectRoom, type MeetingRoomInspection } from "./room/room-inspect.ts";
 import { hostingChanged, participantRemoved, roomStateChanged } from "./room/room-hosting.ts";
@@ -248,6 +253,25 @@ export class MeetingRoom extends DurableObject<Bindings> {
   /** A host removed somebody: the roster, the media and their socket all go. */
   async participantRemoved(attendanceId: string): Promise<void> {
     await participantRemoved(this.room, attendanceId);
+  }
+
+  /**
+   * SOMEBODY SAID SOMETHING — called by the chat route AFTER its own write commits, on the
+   * `participantLeft` / `end` precedent and for the same reason: nobody is shown a message by a
+   * write that then failed.
+   *
+   * THE ROOM STORES NOTHING ABOUT IT. The transcript is rows in the firm's own database and this is
+   * a relay of one that has already committed, so a browser reaches it as it is said rather than on
+   * a poller's next tick — and a browser that misses one is caught up by the read. A room nobody
+   * holds a socket on is a no-op.
+   */
+  async messageSent(message: MeetingChatMessage): Promise<void> {
+    await relayMessage(this.room, message);
+  }
+
+  /** A message was taken back: every browser blanks the copy it is holding. */
+  async messageRedacted(messageId: string, redactedAt: string): Promise<void> {
+    await relayMessageRedaction(this.room, messageId, redactedAt);
   }
 
   /** The door moved. */

@@ -136,17 +136,20 @@
 - id: meetings.reactions
   name: Raise hand and reactions
   scope: A raised hand the host sees in order, and a small closed set of reactions, relayed as presence rather than stored.
-  status: designed
+  status: in-build
+  surface: awaiting-screen
   spec: docs/specs/2026-09-20-meetings-reactions-and-polls-design.md
-  evidence: No code; designed 2026-09-20 — a hand on the presence frame and on the roster with the room stamping the instant, six named reactions drawn as Lucide glyphs, and a per-second coalescing bucket so a room of three hundred applauding costs one frame a second. Nothing reaches the record, so the slice adds no table and no personal-data registration. Sequenced after host controls, whose grant authorizes lowering the room's hands.
+  evidence: Server half built — the hand and the reaction on the wire in packages/meeting-protocol (hand and handRaisedAt on RosterParticipant, the reaction and lower-hands client frames, the reaction and reactions room frames, MEETING_REACTIONS, SIGNAL_INTERVAL_MILLISECONDS and the rate-limited refusal), the stamp and the lowering in apps/api-worker/src/meetings/room/room-presence.ts, the relay and the per-second bucket in room/room-reactions.ts, the flush on the room's own alarm in room/room-lifecycle.ts, and meetings.room.reactionsRelayed in packages/telemetry/src/events.ts. The load harness measures a whole room reacting at once at one frame per socket per second and no roster read per reaction. Nothing reaches the record: no table, no migration, no audit row and no personal-data registration. Stream docs/active-work/claude/focused-edison-ylxfiy.md.
+  notes: Awaiting-screen because the control bar, the tile bubbles, the counts strip and the host's hands panel are the web half and are built by a concurrent stream.
 
 - id: meetings.chat
   name: In-meeting chat
   scope: Text between participants during a meeting, kept on the record as the meeting's first stored content — filed under the event with the attendance.
   status: shipped
   surface: screen
-  evidence: No code.
-  notes: The owner's ruling of 2026-09-20 — chat is kept on the record. The meeting therefore stores content for the first time, which means the chat rows carry the same redaction, retention and PII treatment as a filed email, and the audit row still carries identifiers only.
+  spec: docs/specs/2026-09-18-meetings-design.md
+  evidence: The meeting_message table in packages/database/src/per-firm-schema.ts, the chat trio in packages/meetings (chat-service, chat-statements, chat-types, chat-validation), the three routes in apps/api-worker/src/routes/meeting-chat.ts, and the chat panel in apps/web/src/lib/meetings. The RELAY now exists beside the record — apps/api-worker/src/meetings/room/room-chat.ts broadcasts a copy of the committed row to every welcomed socket as the message and message-redacted frames, and the list route carries a redacted array so a reader that missed a frame converges on what a forward-only walk cannot reach.
+  notes: The owner's ruling of 2026-09-20 — chat is kept on the record. The meeting therefore stores content for the first time, which means the chat rows carry the same redaction, retention and PII treatment as a filed email, and the audit row still carries identifiers only. The route is the record and the room stores nothing about a message; a browser that misses a frame is caught up by the read.
 
 - id: meetings.breakout-rooms
   name: Breakout rooms

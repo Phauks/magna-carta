@@ -33,6 +33,7 @@
   import { goto } from "$app/navigation";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
+  import { MEETING_LOBBY_LABEL } from "$lib/calendar/event-draft.ts";
   import { startMeeting } from "./meetings-api.ts";
   import type { Failure } from "$lib/api/problem.ts";
   import type { MeetingMedium } from "./meeting-client.svelte.ts";
@@ -205,7 +206,10 @@
           bind:checked={holdArrivals}
           disabled={starting !== null}
         />
-        <Label id="{eventId}-hold-arrivals-label">Hold arrivals in a lobby</Label>
+        <!-- The same words the event form asks it in, from the one home they are written in: two
+             spellings of one control is how a reader learns that two parts of one product were
+             written by two people. -->
+        <Label id="{eventId}-hold-arrivals-label">{MEETING_LOBBY_LABEL}</Label>
       </div>
       {#if startFailure !== null}
         <FailureNotice

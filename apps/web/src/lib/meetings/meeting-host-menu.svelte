@@ -152,7 +152,7 @@
     {#snippet fields()}
       <p class="text-sm">
         They are taken out of the room and cannot come back into this meeting. Their stay closes on
-        the record with the reason, and a new meeting on this event is a new room.
+        the record with the reason, and a meeting on a new calendar entry is a new room.
       </p>
     {/snippet}
   </ActionDialog>

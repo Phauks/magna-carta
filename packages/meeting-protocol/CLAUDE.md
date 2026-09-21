@@ -26,8 +26,9 @@ package deliberately does not depend on.
     `MAX_LAYER_TRACKS`, `TRACK_NAME_SEPARATOR`, the two close codes, and `PING_FRAME`/`PONG_FRAME`.
 - `src/types.ts` (`@magna-carta/meeting-protocol/types`) — `RosterParticipant`,
   `WaitingParticipant`, `MeetingRoomState`, `MeetingSpotlight`, `PreferredRid`, `MeetingMedium`,
-  `MeetingHostRole` and `MeetingLobbyMode`, the values the frames are made of. The last three are
-  the twin string unions this package keeps beside the domain's own — see the note in the file.
+  `MeetingHostRole`, `MeetingLobbyMode`, `MEETING_REACTIONS` and `MeetingChatMessage`, the values the
+  frames are made of. The string unions among them are twins of the domain's own — see the note in
+  the file.
 - `test/frames-have-handlers.test.ts` — the repo-wide fitness function: every frame type declared
   here has a handler at the far end and a sender at the near one, named by the side that is missing
   it.
@@ -59,5 +60,22 @@ package deliberately does not depend on.
   and the bytes must stay identical, because the runtime's WebSocket auto-response matches them
   exactly. The equality is asserted in `apps/api-worker/test/meeting-room.test.ts`, which is the only
   place both modules are reachable at once.
+- **A REACTION IS NAMED BY ITS MEANING AND DRAWN BY A GLYPH, and the two lists are separate on
+  purpose.** `MEETING_REACTIONS` is the whole vocabulary and a `reaction` naming anything else does
+  not parse — closed rather than open, because a free string or an emoji code point would put
+  arbitrary text on a tile in a firm's meeting, and because this product draws no emoji anywhere.
+  What is on the wire is never the ICON's name: an icon package renames its glyphs between releases,
+  so a name taken from one would make upgrading the drawing a change to this protocol. The mapping
+  lives in one table in the browser's reactions module. A seventh reaction is a protocol change and a
+  deliberate act.
+- **A throttle that DROPS needs no vocabulary; one that REFUSES needs both ends.** Every other
+  throttle in this room discards a frame inside its window and says nothing, which is safe because
+  those frames restate themselves. A hand and a reaction do not — a hand may be the last thing
+  somebody does for ten minutes, and a reaction is a single act with no later frame to carry it — so
+  they are refused `rate-limited` instead, socket open. That puts two things HERE that a dropping
+  throttle keeps to itself: the reason, which the client has to learn to treat as non-fatal, and
+  `SIGNAL_INTERVAL_MILLISECONDS`, because a client that paced itself by a different number would be
+  refused for behaving correctly. The room's own coalescing window is deliberately NOT here, by this
+  package's own test: a browser draws whatever arrives and divides by nothing.
 - **The version is stated, never negotiated.** `MEETING_PROTOCOL_VERSION` rides on every frame in
   both directions and is bumped only when a shape changes incompatibly.

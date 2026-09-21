@@ -587,6 +587,22 @@ const ANONYMOUS_JOINING_OPERATIONS: ReadonlySet<string> = new Set([
   "invitations.redeem",
 ]);
 
+/**
+ * THE THIRD POPULATION ON THE PUBLIC SURFACE: a PLATFORM OPERATOR's read.
+ *
+ * It is neither of the other two and must not be filed under either. The platform-admin set is a
+ * header secret with no session at all; the joining set is no session and no authentication. This
+ * one is a signed-in human — with a platform-operator grant and a second factor — reading something
+ * no firm permission could ever authorize, because every permission in the registry is firm-scoped
+ * and an operator belongs to no firm. So it rides `surface: "public"` to skip the session-firm and
+ * RBAC gates, names NO permission for the same reason the firmless doors name none, and is guarded
+ * by `platformOperatorGuard` instead.
+ *
+ * Enumerated rather than allowed by shape, on the same terms as the two sets above: a future route
+ * that named no permission and rode the public surface would otherwise hide behind this one.
+ */
+const PLATFORM_OPERATOR_OPERATIONS: ReadonlySet<string> = new Set(["meetings.inspect"]);
+
 interface EmittedOperation {
   readonly path: string;
   readonly method: string;
@@ -703,7 +719,9 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       (entry) => entry.operation["x-mc-surface"] === "public",
     );
     const platformAdminSurface = publicSurface.filter(
-      (entry) => !ANONYMOUS_JOINING_OPERATIONS.has(entry.operation["operationId"] as string),
+      (entry) =>
+        !ANONYMOUS_JOINING_OPERATIONS.has(entry.operation["operationId"] as string) &&
+        !PLATFORM_OPERATOR_OPERATIONS.has(entry.operation["operationId"] as string),
     );
     expect(platformAdminSurface.map((entry) => entry.operation["operationId"]).toSorted()).toEqual([
       "firms.provision",
@@ -731,6 +749,27 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
         .map((entry) => entry.operation["operationId"])
         .toSorted(),
     ).toEqual([...ANONYMOUS_JOINING_OPERATIONS].toSorted());
+
+    // AND THE OPERATOR SET, asserted in its own shape rather than folded into either of the others.
+    // Authenticated like the platform-admin set and permissionless like the joining one, which is
+    // exactly why conflating it with either would let a future route inherit the wrong pin: filed
+    // under platform-admin it would be asserted to name a permission it cannot have, and filed
+    // under joining it would be asserted unauthenticated, which would be a genuine hole.
+    const operatorSurface = publicSurface.filter((entry) =>
+      PLATFORM_OPERATOR_OPERATIONS.has(entry.operation["operationId"] as string),
+    );
+    expect(operatorSurface.map((entry) => entry.operation["operationId"]).toSorted()).toEqual(
+      [...PLATFORM_OPERATOR_OPERATIONS].toSorted(),
+    );
+    for (const { operation, method, label } of operatorSurface) {
+      // A signed-in human, and no firm permission to name — the guard is the authority, and it
+      // demands the operator grant AND a second factor before the handler runs.
+      expect(operation["x-mc-authenticated"], label).toBe(true);
+      expect(operation["x-mc-permission"], label).toBeNull();
+      // A READ. An operator act that CHANGED a firm's data would be a different posture needing its
+      // own argument, so this pin refuses one here rather than waiting to be told about it.
+      expect(MUTATING_METHODS, label).not.toContain(method);
+    }
 
     // Every other /v1 operation is an app-surface (session cookie) operation.
     const publicOperations = new Set(publicSurface.map((entry) => entry.operation));

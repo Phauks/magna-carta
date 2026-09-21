@@ -1,4 +1,5 @@
 import { env } from "cloudflare:test";
+import { meetingSocketRequestUrl } from "../src/meetings/meeting-room.ts";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, MatterEventId, MatterId } from "@magna-carta/identifiers/types";
 import { ADMIT_PARTICIPANT_GUARD } from "@magna-carta/meetings/lobby-service";
@@ -241,6 +242,61 @@ beforeAll(async () => {
     .run();
 });
 
+/**
+ * A socket in the meeting's own signaling room, which is how a BROADCAST is observed.
+ *
+ * The room is a real Durable Object in this pool and the route addresses it by the session firm and
+ * the meeting, so the object a test opens a socket on is the object the handler reaches — and, for
+ * the no-op case, the place where the absence of a frame can be asserted at all.
+ */
+async function openRoomSocket(
+  meetingId: string,
+  attendanceId: string,
+): Promise<{ frames: Record<string, unknown>[] }> {
+  const stub = env.MEETING_ROOM.get(env.MEETING_ROOM.idFromName(`${firmId}:${meetingId}`));
+  const response = await stub.fetch(
+    new Request(
+      meetingSocketRequestUrl({
+        firmId,
+        meetingId,
+        userId: `user_${attendanceId}`,
+        attendanceId,
+        displayName: "A Member",
+        medium: "video",
+        hostRole: null,
+        locked: false,
+        lobby: "off",
+        waiting: false,
+        waitingFrom: "",
+      }),
+      { headers: { Upgrade: "websocket" } },
+    ),
+  );
+  const socket = response.webSocket;
+  if (socket === null || socket === undefined) throw new Error("no WebSocket on the 101");
+  const frames: Record<string, unknown>[] = [];
+  socket.accept();
+  socket.addEventListener("message", (event) => {
+    frames.push(JSON.parse(String(event.data)) as Record<string, unknown>);
+  });
+  await waitFor(() => frames.length > 0);
+  frames.length = 0;
+  return { frames };
+}
+
+/** Waits on elapsed time, because a push has to cross a socket pair before it can be seen. */
+async function waitFor(condition: () => boolean): Promise<void> {
+  const deadline = Date.now() + 10_000;
+  while (!condition() && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+/** A short pause, used ONLY to assert that nothing arrived. */
+async function settle(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 150));
+}
+
 describe("arriving at a door", () => {
   it("answers waiting, keeps the live count where it was, and shows on the lobby list", async () => {
     const meetingId = await meetingWithALobby();
@@ -377,6 +433,31 @@ describe("who may see and move the door", () => {
     expect(
       (await auditEvents(meetingId)).filter((event) => event === "meetings.meeting.lobbyChanged"),
     ).toHaveLength(1);
+  });
+
+  it("does not disturb the room for a setting that moved nothing", async () => {
+    const meetingId = await meetingWithALobby("Lobby set twice, watched");
+    const watching = await openRoomSocket(meetingId, newIdentifier("meetingAttendance"));
+
+    // The value the meeting already holds: the write produces no statements, so nobody in the room
+    // has anything to be told. Broadcasting anyway would restate what every socket already draws
+    // and would report an event that did not happen.
+    expect(
+      (await post(`/api/v1/meetings/${meetingId}/lobby`, ownerCookie, { lobby: "on" })).status,
+    ).toBe(200);
+    await settle();
+    expect(watching.frames.filter((frame) => frame["type"] === "room-state")).toHaveLength(0);
+
+    // And a write that DOES move it still reaches the room, so this is a skip rather than a break.
+    expect(
+      (await post(`/api/v1/meetings/${meetingId}/lobby`, ownerCookie, { lobby: "off" })).status,
+    ).toBe(200);
+    await waitFor(
+      () => watching.frames.filter((frame) => frame["type"] === "room-state").length > 0,
+    );
+    expect(watching.frames.filter((frame) => frame["type"] === "room-state").at(-1)).toMatchObject({
+      lobby: "off",
+    });
   });
 });
 

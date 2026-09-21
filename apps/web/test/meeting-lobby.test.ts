@@ -32,6 +32,8 @@ type PanelProps = ComponentProps<typeof Panel>;
 type ControlsProps = ComponentProps<typeof Controls>;
 
 /** Somebody at the door, as the room's own `waiting` frame carries them. */
+type WaitingRow = ReturnType<typeof waiter>;
+
 function waiter(ordinal: number, displayName: string) {
   return {
     participantId: `attendance_${ordinal}`,
@@ -59,6 +61,13 @@ function controls(): HTMLButtonElement[] {
 
 function named(name: string): HTMLButtonElement | undefined {
   return controls().find((control) => control.getAttribute("aria-label") === name);
+}
+
+/** Lets every queued step settle; a commit is a handful of microtasks deep. */
+async function settle(remaining = 10): Promise<void> {
+  if (remaining === 0) return;
+  await Promise.resolve();
+  await settle(remaining - 1);
 }
 
 function labelled(words: string): HTMLButtonElement | undefined {
@@ -159,6 +168,40 @@ describe("the host's lobby panel", () => {
     // would turn away whoever arrived in the millisecond after the host looked.
     expect(denied).toEqual([["attendance_2", "attendance_3"]]);
     expect(admitted).toEqual([]);
+  });
+
+  it("does not turn away somebody who arrived while the question was standing", async () => {
+    // The question stands over an OPEN DOOR. A list read at the commit would bar a person the host
+    // never saw, which is exactly the harm the absence of a server-side "everybody" exists to
+    // prevent — arriving by the other door.
+    const door: { arrive: ((waiting: readonly WaitingRow[]) => void) | null } = { arrive: null };
+    instance = mount(Panel, {
+      target,
+      props: {
+        ...panelProps(),
+        registerArrivals: (next: (waiting: readonly WaitingRow[]) => void) => {
+          door.arrive = next;
+        },
+      },
+    });
+    flushSync();
+
+    labelled("Deny All")?.click();
+    flushSync();
+
+    door.arrive?.([
+      waiter(2, "Rosalind Chase"),
+      waiter(3, "Theodore Vance"),
+      waiter(4, "Mira Okafor"),
+    ]);
+    flushSync();
+    await settle();
+
+    labelled("Deny Everyone")?.click();
+    flushSync();
+    await settle();
+
+    expect(denied).toEqual([["attendance_2", "attendance_3"]]);
   });
 
   it("states an empty door inside the list rather than beside it", () => {
@@ -300,6 +343,7 @@ describe("the control bar's lobby control", () => {
       onToggleMicrophone: () => {},
       onToggleCamera: () => {},
       onToggleSharing: () => {},
+      onToggleHand: () => {},
       onOpenLobby: () => admitted.push(["opened"]),
       onLeave: () => {},
       ...over,

@@ -303,8 +303,14 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   more question — Meeting: None, Video meeting, Audio call — and the save writes the meeting row
   beside the event, in the same batch, so the entry window offers Join from the moment the event
   exists. `MeetingChoice` and `meetingInput` are the draft's half; the request carries
-  `meeting: { medium } | null`, and null rather than absent because "no meeting" and "a client that
-  has not heard of meetings" must not be one answer. A CORRECTION never sends it
+  `meeting: { medium, lobby } | null`, and null rather than absent because "no meeting" and "a client
+  that has not heard of meetings" must not be one answer. **The door rides with the medium and only
+  with it**: `lobby` is the standing the ROOM OPENS with, which is why it is asked here rather than
+  only inside a running meeting — a host changes it from inside, and nothing before the room exists
+  can be changed from inside it. It rests `off`, because every participant today is a firm member
+  arriving at an event they are already on. Its words are `MEETING_LOBBY_LABEL`, which the Start
+  control on a recorded entry reads too: two spellings of one control is how a reader learns that
+  two parts of one product were written by two people. A CORRECTION never sends it
   (`entry-updates.ts`): a meeting can be added when an event is recorded or edited from the record
   form, and it is ended through its own act — an edit that closed a room as a side effect of moving
   a hearing would be the one calendar correction that reached into a gathering. A recorded event's

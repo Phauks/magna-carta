@@ -2,7 +2,7 @@ import { GuardedWriteRefusedError } from "@magna-carta/data-access/effect-batch"
 import { runInterleaved } from "@magna-carta/data-access/interleave";
 import type { MeetingAttendanceId, MeetingId, UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
-import { claimHosting, grantHosting } from "../src/hosting-service.ts";
+import { claimHosting, grantHosting, setMeetingLocked } from "../src/hosting-service.ts";
 import { readBarredStay, readLiveHostGrants } from "../src/hosting-statements.ts";
 import {
   admitParticipants,
@@ -333,6 +333,79 @@ describe("arriving at a lobby", () => {
 
     expect(racing).toBeInstanceOf(GuardedWriteRefusedError);
     expect(await countWaitingAttendance(database.database, meetingId)).toBe(MAX_MEETING_LOBBY);
+  });
+
+  it("is refused by the door's OWN predicate when the lobby is turned on inside the window", async () => {
+    const database = fresh();
+    const meetingId = await start(database, "off");
+    await join(database, meetingId, HOST);
+
+    // THE WINDOW IS THE MOMENT THE CONTROL IS BEING USED. The service reads the lobby setting a
+    // round trip before the insert, so a host turning the door on in that instant had the arrival
+    // land straight in the room — which is precisely the person the door was opened for, because a
+    // host shuts a door because of who is about to arrive.
+    const racing = await runInterleaved({
+      database: database.database,
+      concurrentWriter: async () => {
+        const shut = await setMeetingLobby(database.database, meetingId, "on", deciding());
+        await commit(database.database, shut.effect);
+      },
+      operation: async (raced) => {
+        const mine = await joinMeeting(raced, meetingId, optionsFor(GUEST, tickingClock()));
+        await commit(raced, mine.effect);
+      },
+    }).catch((error: unknown) => error);
+
+    // The insert carries the door in its own WHERE and is guarded, so the batch rolls back whole
+    // and the member is answered with something they can act on — they knock again and wait.
+    expect(racing).toBeInstanceOf(GuardedWriteRefusedError);
+    expect(await countOpenAttendance(database.database, meetingId)).toBe(1);
+  });
+
+  it("is refused by the same predicate when the room is LOCKED inside the window", async () => {
+    const database = fresh();
+    const meetingId = await start(database, "off");
+    await join(database, meetingId, HOST);
+
+    const racing = await runInterleaved({
+      database: database.database,
+      concurrentWriter: async () => {
+        const shut = await setMeetingLocked(database.database, meetingId, true, deciding());
+        await commit(database.database, shut.effect);
+      },
+      operation: async (raced) => {
+        const mine = await joinMeeting(raced, meetingId, optionsFor(GUEST, tickingClock()));
+        await commit(raced, mine.effect);
+      },
+    }).catch((error: unknown) => error);
+
+    // A lock read a round trip earlier cannot refuse an arrival that commits after it; the
+    // statement's own predicate can, and does.
+    expect(racing).toBeInstanceOf(GuardedWriteRefusedError);
+    expect(await countOpenAttendance(database.database, meetingId)).toBe(1);
+  });
+
+  it("refuses a WAITING stay opened into a room that was locked inside the window", async () => {
+    const database = fresh();
+    const meetingId = await start(database);
+    await join(database, meetingId, HOST);
+
+    const racing = await runInterleaved({
+      database: database.database,
+      concurrentWriter: async () => {
+        const shut = await setMeetingLocked(database.database, meetingId, true, deciding());
+        await commit(database.database, shut.effect);
+      },
+      operation: async (raced) => {
+        const mine = await joinMeeting(raced, meetingId, optionsFor(GUEST, tickingClock()));
+        await commit(raced, mine.effect);
+      },
+    }).catch((error: unknown) => error);
+
+    // The door's own insert carries the same two conditions, inverted: a queue for a door that will
+    // not be answered is worse than a refusal the member can read.
+    expect(racing).toBeInstanceOf(GuardedWriteRefusedError);
+    expect(await countWaitingAttendance(database.database, meetingId)).toBe(0);
   });
 
   it("is beaten by the lock: a shut door is shut to everybody", async () => {

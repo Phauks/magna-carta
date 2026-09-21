@@ -54,6 +54,7 @@
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
+  import Switch from "@magna-carta/design-system/switch";
   import Textarea from "@magna-carta/design-system/textarea";
   import * as Tabs from "@magna-carta/design-system/tabs";
   import ChoicePicker from "$lib/components/choice-picker.svelte";
@@ -84,6 +85,7 @@
     isEventOwner,
     isMeetingChoice,
     MEETING_CHOICE_OPTIONS,
+    MEETING_LOBBY_LABEL,
     meetingGuestsSentence,
     withMemberListed,
     type EventDraft,
@@ -316,6 +318,7 @@
       locationText: draft.locationText,
       conferenceUrl: draft.conferenceUrl,
       recurrence: draft.recurrence,
+      meetingLobby: draft.meetingLobby,
       participants:
         member === null
           ? draft.participants
@@ -613,6 +616,22 @@
             }}
           />
           {#if draft.meeting !== "none"}
+            <!-- THE ONE THING DECIDED BEFORE THE ROOM OPENS RATHER THAN INSIDE IT, and it sits
+                 beside the choice it belongs to rather than on a line of its own: a door is a
+                 property of the meeting being scheduled, and it means nothing without one. A host
+                 changes it from inside the room afterwards, because who may come in has no bearing
+                 on what the people already in the room agreed to. -->
+            <div class="flex items-center gap-8">
+              <Switch
+                aria-labelledby="{idPrefix}-meeting-lobby-label"
+                disabled={busy}
+                bind:checked={
+                  () => draft.meetingLobby === "on",
+                  (held) => (draft.meetingLobby = held ? "on" : "off")
+                }
+              />
+              <Label id="{idPrefix}-meeting-lobby-label">{MEETING_LOBBY_LABEL}</Label>
+            </div>
             <!-- Said here rather than discovered later from a client who never arrived: only
                  colleagues are invited, because an external guest has no way in yet. It is the
                  record's own sentence, because a firm event tells NOBODY yet — a form promising a

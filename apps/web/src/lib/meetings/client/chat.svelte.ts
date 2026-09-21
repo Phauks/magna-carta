@@ -32,14 +32,30 @@ import {
 import type { Failure } from "$lib/api/problem.ts";
 
 /**
- * How often the transcript is asked for what it has gained.
+ * How often the transcript is asked for what it has gained, BEFORE the room has relayed anything.
  *
  * Short, because a message nobody sees for a quarter of a minute is a message answered after the
  * subject changed — and the read is a keyset walk from a cursor, which is index-covered and returns
- * an empty page when nothing has been said. The relay frame is what will make this the fallback
- * rather than the path; until it exists this is how a message arrives.
+ * an empty page when nothing has been said. This is the pace of a browser that has no evidence the
+ * relay reaches it: a room on an older build, a socket that has not carried one yet, a member who
+ * joined a conversation nobody has added to since.
  */
 export const CHAT_POLL_INTERVAL_MILLISECONDS = 3_000;
+
+/**
+ * And how often once a relayed message HAS arrived, which is when the poll stops being the path.
+ *
+ * THE POLL IS NEVER TURNED OFF, only stretched, and the difference is the whole reason it is still
+ * here. A frame reaches a socket that is open and has not missed anything; the read is what catches
+ * a browser up on the frames it did not get — a socket that dropped and came back, a room that
+ * relayed while this tab was asleep, a message whose frame was lost behind a `sync`. The transcript
+ * is a RECORD, so being three seconds late is a nuisance and being silently wrong is not
+ * acceptable, which is what a poll-free client would be the first time a frame went missing.
+ *
+ * Fifteen seconds rather than a minute because that is a quarter of what a stretched interval costs
+ * over an hour-long meeting and still bounds how long a missed message can be invisible.
+ */
+export const CHAT_BACKSTOP_POLL_INTERVAL_MILLISECONDS = 15_000;
 
 /** The edges this module reaches the outside world through. */
 export interface MeetingChatSeams {
@@ -68,6 +84,21 @@ export function meetingChatSeams(meetingId: () => string): MeetingChatSeams {
       return () => clearInterval(ticking);
     },
   };
+}
+
+/**
+ * Where the room's relay lands.
+ *
+ * THE TRANSCRIPT IS NOT THE CLIENT'S, and this seam is why. The socket belongs to the state machine
+ * and the record belongs to the screen that reads it — a meeting's messages are a route and a row,
+ * and folding them into the client would put the one stored thing in this subsystem inside the
+ * object that is torn down when a connection drops. So the client relays through an interface with
+ * a no-op default, exactly as it emits diagnostics through one, and neither knows what the other
+ * is.
+ */
+export interface MeetingChatRelay {
+  noteMessageFrame: (message: MeetingMessage) => void;
+  noteMessageRedacted: (messageId: string, redactedAt: string) => void;
 }
 
 /** Whether a message has been taken back, which is a blanked body and a stamped redaction. */
@@ -99,6 +130,14 @@ export class MeetingChat {
   #caughtUp = false;
   /** True while the panel is showing, which is what stops a message counting as unread. */
   #open = false;
+  /**
+   * True once the ROOM has relayed something, which is the evidence that stretches the poll.
+   *
+   * It is evidence rather than a setting: nothing tells this browser whether the room it is in
+   * relays messages, so the first frame that arrives is what says so, and until one does the short
+   * interval is what makes chat work at all.
+   */
+  #relayed = false;
 
   constructor(seams: MeetingChatSeams) {
     this.#seams = seams;
@@ -113,9 +152,7 @@ export class MeetingChat {
   start(): void {
     this.stop();
     this.reading = true;
-    this.#stopTicking = this.#seams.every(CHAT_POLL_INTERVAL_MILLISECONDS, () => {
-      void this.refresh();
-    });
+    this.#tick(CHAT_POLL_INTERVAL_MILLISECONDS);
     void this.refresh();
   }
 
@@ -133,6 +170,7 @@ export class MeetingChat {
     this.#cursor = null;
     this.#polling = false;
     this.#caughtUp = false;
+    this.#relayed = false;
     this.reading = false;
     this.sending = false;
     this.unread = 0;
@@ -175,6 +213,19 @@ export class MeetingChat {
     // awaiting, and take the next three seconds' poll with it.
     const arrived = Array.isArray(outcome.value.data) ? outcome.value.data : [];
     this.#adopt(arrived);
+    /*
+     * WHAT WAS TAKEN BACK BEHIND THE CURSOR, which the forward walk cannot reach on its own. A
+     * redaction does not move a row — the instant it was said at is unchanged — so a poller reading
+     * forward from where it left off would never see it, and a browser that had the message on
+     * screen before it was withdrawn would be the only one still showing the words. So the page
+     * carries the handles and the instants of what has been redacted since the cursor, and they are
+     * applied to whatever this browser is still holding.
+     */
+    const redacted = Array.isArray(outcome.value.redacted) ? outcome.value.redacted : [];
+    for (const row of redacted) {
+      if (typeof row.id !== "string" || typeof row.redactedAt !== "string") continue;
+      this.#markRedacted(row.id, row.redactedAt);
+    }
     // A page with nothing in it carries no cursor, so the one we hold is still where to continue.
     if (typeof outcome.value.nextCursor === "string") this.#cursor = outcome.value.nextCursor;
     this.#caughtUp = true;
@@ -230,7 +281,61 @@ export class MeetingChat {
    * the poll behind it reads the same row and the two collapse into one.
    */
   noteMessageFrame(message: MeetingMessage): void {
+    this.#noteRelayReaches();
     this.#adopt([message]);
+  }
+
+  /**
+   * A message the room says was taken back.
+   *
+   * The frame carries the handle and the instant alone — the body is already blank on the record,
+   * and sending it again would be sending the words back down the wire that were just removed. So
+   * the row this browser holds is blanked here and STAMPED, which is what the panel reads to draw
+   * the mark where the words were; who took it back arrives with the next page, because only the
+   * read carries it and nothing on screen depends on the name.
+   *
+   * A row nobody holds is not invented: the page that first carries the message will carry it
+   * already redacted, so a browser that missed the message and the redaction alike ends up with the
+   * same transcript as one that saw both.
+   */
+  noteMessageRedacted(messageId: string, redactedAt: string): void {
+    this.#noteRelayReaches();
+    this.#markRedacted(messageId, redactedAt);
+  }
+
+  /**
+   * Blank a row this browser holds and stamp it, whichever door the redaction arrived through.
+   *
+   * ONE DOOR FOR TWO ROUTES: the room's frame and the page's own `redacted` list say the same
+   * thing, so a browser that saw the frame and a browser that only ever polls end up with the same
+   * transcript. A row already stamped is left exactly as it is — the read carries who took it back
+   * and the frame does not, and overwriting the fuller answer with the emptier one would lose it.
+   */
+  #markRedacted(messageId: string, redactedAt: string): void {
+    const held = this.messages.find((message) => message.id === messageId);
+    if (held === undefined || held.redactedAt !== null) return;
+    this.#adopt([{ ...held, body: "", redactedAt }], false);
+  }
+
+  /**
+   * The room relays, so the poll becomes the backstop it was always meant to be.
+   *
+   * The ticker is restarted rather than left alone, because the interval is decided when it is
+   * armed; a browser that learned the room relays and went on asking every three seconds would be
+   * paying for a path it is no longer on. Done once — the second frame changes nothing.
+   */
+  #noteRelayReaches(): void {
+    if (this.#relayed || this.#stopTicking === null) return;
+    this.#relayed = true;
+    this.#tick(CHAT_BACKSTOP_POLL_INTERVAL_MILLISECONDS);
+  }
+
+  /** Arm the poll at one interval, replacing whatever was armed before. */
+  #tick(milliseconds: number): void {
+    this.#stopTicking?.();
+    this.#stopTicking = this.#seams.every(milliseconds, () => {
+      void this.refresh();
+    });
   }
 
   /**

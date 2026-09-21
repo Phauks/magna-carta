@@ -12,7 +12,14 @@
    * opened from a control that is absent for everybody who is not running the meeting, and it would
    * have nothing to draw for them either.
    *
-   * ADMIT ALL SENDS THE IDENTIFIERS ON SCREEN, and that is the whole reason there is no server-side
+   * DENY ALL IS ANSWERED FROM THE LIST THE QUESTION WAS ASKED ABOUT, not from the live one. The
+ * question stands over an open door: somebody can arrive between the press and the commit, and a
+ * live list read at the commit would bar a person the host never saw — which is exactly the harm
+ * the absence of a server-side "everybody" exists to prevent, arriving by the other door. The
+ * snapshot is taken when the question opens and nothing widens it afterwards; somebody admitted
+ * while it stood is simply no longer waiting, which the batch's own per-identifier answer says.
+ *
+ * ADMIT ALL SENDS THE IDENTIFIERS ON SCREEN, and that is the whole reason there is no server-side
    * "everybody". A server-side "all" would admit whoever arrived in the millisecond after the host
    * looked at the list, which in a lobby that exists because somebody might arrive who should not is
    * precisely the person the host did not decide about. Deny all is the same list under the same
@@ -73,16 +80,26 @@
 
   /** Whether the question about turning everybody away is standing. */
   let denyingAll = $state(false);
+  /** Exactly who was at the door when the question was asked. Empty while it is not standing. */
+  let denyingTheseIds = $state<readonly string[]>([]);
+
+  /** Ask the question, over the people the host is looking at as they ask it. */
+  function askToDenyEveryone(): void {
+    denyingTheseIds = shown;
+    denyingAll = true;
+  }
 
   /**
    * Turn away exactly the people the panel was showing when the question was asked.
    *
-   * The list is read at the COMMIT rather than held from the press, so somebody who was admitted
-   * while the question stood is not denied on their way in. It is the same list Admit all sends and
-   * the same route, so what the batch did not do is stated in the one place both report it.
+   * The snapshot is what is sent, never the live list: somebody who arrived while the question
+   * stood is a person the host has not decided about, and barring them would be the server-side
+   * "everybody" this panel refuses to have. Somebody ADMITTED while it stood is simply no longer
+   * waiting, and the batch's own per-identifier answer says so. It is the same route Admit all
+   * uses, so what the batch did not do is stated in the one place both report it.
    */
   function denyEveryone(): Promise<ActionOutcome> {
-    onDeny(shown);
+    onDeny(denyingTheseIds);
     return Promise.resolve("committed");
   }
 </script>
@@ -135,7 +152,7 @@
              They sit in the row's own order, so the answer a host reaches for is in the place they
              have been reaching for it on every line above. -->
         <div class="flex items-center justify-end gap-8">
-          <Button variant="ghost" onclick={() => (denyingAll = true)}>
+          <Button variant="ghost" onclick={askToDenyEveryone}>
             <DoorClosed class="size-16" aria-hidden="true" />
             Deny All
           </Button>
@@ -164,7 +181,7 @@
   {#snippet fields()}
     <p class="text-sm">
       Everybody at the door is turned away, and each of them is barred from this meeting while it
-      runs. They can be let in again only from a new meeting on this event.
+      runs. They can be let in again only from a meeting on a new calendar entry.
     </p>
   {/snippet}
 </ActionDialog>

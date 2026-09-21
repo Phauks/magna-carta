@@ -55,6 +55,9 @@ const InspectedParticipant = z
     speaking: z.boolean(),
     muted: z.boolean(),
     presenceDirty: z.boolean(),
+    // When this person asked for the floor, or null while their hand is down. The room's one stored
+    // half of the hand; the queue a host works through is every entry with one, oldest first.
+    handRaisedAt: z.string().nullable(),
     connected: z.boolean(),
     socketLostAt: z.string().nullable(),
     sfuSessionId: z.string().nullable(),
@@ -94,7 +97,13 @@ const RoomInspection = z
     alarm: z.object({
       at: z.string().nullable(),
       pendingJobs: z.array(
-        z.enum(["participant-grace", "door-grace", "presence-flush", "ended-marker-retirement"]),
+        z.enum([
+          "participant-grace",
+          "door-grace",
+          "presence-flush",
+          "reaction-flush",
+          "ended-marker-retirement",
+        ]),
       ),
     }),
     storage: z.object({ keyCount: z.number().int(), approximateBytes: z.number().int() }),
@@ -140,8 +149,13 @@ export const inspectRoomRoute = defineOpenAPIRoute(inspectMeta, {
     "report; who is at the door; the open sockets and which stay each carries; the alarm and which " +
     "of its deadlines are pending; the storage key count and approximate size; the routing " +
     "sessions; and the ended marker. It carries no session description, no display name and no " +
-    "track name, and it changes nothing. A room that has never been addressed answers with empty " +
-    "lists rather than a refusal — that is itself the finding.",
+    "track name, and it changes nothing. Each participant is named by the stay and by the member " +
+    "handle behind it: the stay is what every frame, every event and the member's own screen " +
+    'correlate by, and the member handle is what joins a report of "my tile went black" — which ' +
+    "arrives as a person, and often as the second of that person's two stays — to the room that " +
+    "was serving them. Both are minted identifiers; neither says who anybody is. A room that has " +
+    "never been addressed answers with empty lists rather than a refusal — that is itself the " +
+    "finding.",
   request: {
     params: z.object({ meetingId: identifierPathParam("meeting", "meetingId") }),
     query: inspectQuery,

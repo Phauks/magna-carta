@@ -58,6 +58,13 @@ const ROOM_KEY = "room";
 // room, which is why it is here and not in the firm's record.
 const SPOTLIGHT_KEY = "spotlight";
 
+// WHAT THE ROOM HAS BEEN THROWN THIS SECOND AND NOT YET SENT ON — the coalescing bucket a large
+// room's reactions accumulate into. Room-level for the same reason the spotlight is: it is a fact
+// about the room rather than about anybody in it, and three hundred per-participant buckets would be
+// three hundred keys to read to flush one frame. It exists only while somebody is reacting, and it
+// dies with the room.
+const REACTIONS_KEY = "reactions";
+
 /**
  * What a room module is given: the Durable Object's own context and the deployment's environment,
  * and nothing else.
@@ -175,6 +182,31 @@ export interface StoredParticipant {
   // reads as "never reported", which is what it was.
   readonly reportAt?: string | null;
   readonly lastSample?: StoredClientSample | null;
+  // WHEN THIS PERSON PUT THEIR HAND UP, or null while it is down — ONE stored fact behind the two
+  // fields the wire carries (`hand` and `handRaisedAt` on the roster entry, projected in
+  // room-roster.ts and nowhere else).
+  //
+  // The instant is the ROOM's rather than the browser's, for the reason a chat message's is: a
+  // queue ordered by what each participant's own machine said is not one ordering, and the
+  // disagreement is invisible to the host reading it. What the room does NOT keep is a sorted queue
+  // — every browser holds the roster and `filter(hand).sort(by handRaisedAt)` is a pure derivation
+  // of it, where a sorted list in storage would be rewritten on every change in a room of three
+  // hundred.
+  //
+  // Nothing about a hand ever reaches the firm's record: no table, no audit row, no personal-data
+  // registration. It is deleted with the rest of the roster when this stay ends or the meeting does,
+  // which is the whole claim of the slice that added it. Optional, because a record written before
+  // hands existed carries none — which reads as a hand that is down, which is what it was.
+  readonly handRaisedAt?: string | null;
+  // WHEN THIS PARTICIPANT'S LAST SIGNAL WAS ACCEPTED — a change of hand, or a reaction.
+  //
+  // The third throttle on this record and the only one that REFUSES rather than drops, because
+  // neither of the two frames it governs restates itself: a raised hand may be the last thing
+  // somebody does for ten minutes, and a reaction is a single act with no later frame to carry it.
+  // So a frame inside `SIGNAL_INTERVAL_MILLISECONDS` is answered `rate-limited` with the socket left
+  // open rather than silently discarded, and the window is on the wire because a client that paced
+  // itself differently would be refused for behaving correctly.
+  readonly signalAt?: string | null;
 }
 
 /**
@@ -406,6 +438,39 @@ export async function putSpotlight(
   else await room.ctx.storage.put(SPOTLIGHT_KEY, spotlight);
 }
 
+/**
+ * THE REACTIONS OF ONE SECOND, WAITING TO GO OUT AS ONE FRAME.
+ *
+ * Opened by the first reaction in a window and flushed by the next frame past it, with the room's
+ * own alarm as the backstop for a bucket nothing follows. `openedAt` is the window's start rather
+ * than its deadline, so a reader here needs no arithmetic to know when the window began and the
+ * interval stays the one number the reactions module divides by.
+ *
+ * `counts` carries only the names that actually arrived: a zero for a name nobody chose is a fact
+ * nobody is waiting for, and it would cost a field on every frame in a large room.
+ */
+export interface StoredReactionBucket {
+  readonly openedAt: string;
+  readonly counts: Readonly<Record<string, number>>;
+}
+
+export async function readReactionBucket(
+  room: RoomContext,
+): Promise<StoredReactionBucket | undefined> {
+  return await room.ctx.storage.get<StoredReactionBucket>(REACTIONS_KEY);
+}
+
+export async function putReactionBucket(
+  room: RoomContext,
+  bucket: StoredReactionBucket,
+): Promise<void> {
+  await room.ctx.storage.put(REACTIONS_KEY, bucket);
+}
+
+export async function deleteReactionBucket(room: RoomContext): Promise<void> {
+  await room.ctx.storage.delete(REACTIONS_KEY);
+}
+
 /** The three room-level facts, composed for the wire. */
 export async function roomStateOf(room: RoomContext): Promise<MeetingRoomState> {
   const [spotlight, stored] = await Promise.all([readSpotlight(room), readRoom(room)]);
@@ -525,8 +590,26 @@ export function connectedAttendanceIds(room: RoomContext): Set<string> {
   return connected;
 }
 
-export function broadcast(room: RoomContext, payload: string, except?: WebSocket): void {
-  sendToRoom(room, payload, (socket) => socket === except);
+/**
+ * One frame to everybody in the room, answering how many sockets it actually reached.
+ *
+ * The COUNT is returned rather than discarded because a relay that reached nobody and one that
+ * reached three hundred people are the same call and a very different fact, and the walk has already
+ * been paid for — deriving it afterwards would be a second pass over every socket. Every existing
+ * caller ignores it, which is right: a roster change is announced whether or not anybody is left to
+ * hear it.
+ */
+export function broadcast(room: RoomContext, payload: string, except?: WebSocket): number {
+  return sendToRoom(room, payload, (socket) => socket === except);
+}
+
+/** How many sockets are in the ROOM — welcomed, and therefore able to receive a broadcast. */
+export function welcomedSocketCount(room: RoomContext): number {
+  let welcomed = 0;
+  for (const socket of room.ctx.getWebSockets()) {
+    if (attachmentOf(socket)?.welcomed === true) welcomed += 1;
+  }
+  return welcomed;
 }
 
 /**
@@ -537,8 +620,8 @@ export function broadcastExcludingStay(
   room: RoomContext,
   payload: string,
   attendanceId: string,
-): void {
-  sendToRoom(room, payload, (socket) => attachmentOf(socket)?.attendanceId === attendanceId);
+): number {
+  return sendToRoom(room, payload, (socket) => attachmentOf(socket)?.attendanceId === attendanceId);
 }
 
 /**
@@ -570,7 +653,8 @@ function sendToRoom(
   room: RoomContext,
   payload: string,
   skip: (socket: WebSocket) => boolean,
-): void {
+): number {
+  let sent = 0;
   for (const socket of room.ctx.getWebSockets()) {
     if (skip(socket)) continue;
     // A SOCKET THAT HAS NOT BEEN WELCOMED IS NOT YET IN THE ROOM, and sending to it is worse than
@@ -582,7 +666,12 @@ function sendToRoom(
     // exists to announce, so failing the whole broadcast over it would stop everybody else
     // learning. The close handler removes it from the roster on its own.
     trySend(socket, payload);
+    // Counted as ATTEMPTED rather than as delivered, and said so here: a socket that closed between
+    // the walk and the send swallows its frame in `trySend`, which is exactly the case nothing on
+    // this side can observe. The number is what the room decided to send to.
+    sent += 1;
   }
+  return sent;
 }
 
 export function refuseAndClose(socket: WebSocket, reason: MeetingRefusalReason): void {

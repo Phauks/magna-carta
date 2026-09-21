@@ -68,6 +68,9 @@
   import MeetingRoster from "$lib/meetings/screen/meeting-roster.svelte";
   import MeetingConnectionPanel from "$lib/meetings/screen/meeting-connection-panel.svelte";
   import MeetingChatPanel from "$lib/meetings/screen/meeting-chat-panel.svelte";
+  import MeetingHandsPanel from "$lib/meetings/screen/meeting-hands-panel.svelte";
+  import MeetingReactionCounts from "$lib/meetings/screen/meeting-reaction-counts.svelte";
+  import MeetingReactions from "$lib/meetings/screen/meeting-reactions.svelte";
   import { MeetingChat, meetingChatSeams } from "$lib/meetings/client/chat.svelte.ts";
   import {
     connectionEvents,
@@ -436,10 +439,19 @@
     hostingRefusal = null;
     const outcome = await act();
     if (outcome.kind === "ok") {
-      // The room rewrites its stored roles and broadcasts, so the badges and the menus follow from
-      // the roster rather than from anything held here. The panel's own list is the exception: it
-      // carries when each grant was written, which no frame does.
-      if (hostsOpen) void refreshHosts();
+      /*
+       * The room rewrites its stored roles and broadcasts, so the badges and the menus follow from
+       * the roster rather than from anything held here. The panel's own list is the exception: it
+       * carries when each grant was written, which no frame does.
+       *
+       * IT IS RE-READ WHETHER OR NOT THE PANEL IS OPEN, and handing the meeting over is why. That
+       * act is taken from a tile or a roster row, and it changes the ACTOR's own grant as well as
+       * the other person's — the outgoing host keeps a co-host grant rather than losing everything
+       * — so a panel that only re-read on its own opening would have shown a list in which the
+       * person who pressed the control was still the host. A hosting write is a handful per
+       * meeting; a read each is not a cost worth reasoning about.
+       */
+      void refreshHosts();
       return "committed";
     }
     hostingRefusal = outcome.failure;
@@ -492,10 +504,48 @@
    * catches a browser back up that missed the frame.
    */
   const chat = new MeetingChat(meetingChatSeams(() => meetingId));
+  /*
+   * The room relays a copy of every committed row, so a message arrives as it is said rather than
+   * on the poll's next tick — and the poll stretches to its backstop pace the moment the first
+   * frame lands. Wired here rather than inside the client because the transcript is the SCREEN's:
+   * it is a route and a record, and the client is what is torn down when a connection drops.
+   */
+  client.relayMessagesTo(chat);
   /** Whether the chat panel is showing, which is also what decides if a message counts as unread. */
   let chatOpen = $state(false);
   /** What is typed and not yet said. Held by the screen, so closing the panel does not lose it. */
   let chatDraft = $state("");
+
+  /*
+   * ASKING FOR THE FLOOR, AND WORKING THE QUEUE. A raised hand and a reaction are the two signals
+   * this subsystem relays and never stores; what the screen adds is the place to put them.
+   */
+
+  /** Whether the host's queue is open. */
+  let handsOpen = $state(false);
+
+  /**
+   * The queue, with the names and microphones the panel draws.
+   *
+   * The ORDER is the client's — a pure sort of the instants the room stamped — and what is added
+   * here is only what the panel has to read: what somebody is called, and whether their microphone
+   * is off, which is what decides whether Ask to Unmute is worth offering at all.
+   */
+  const raisedHands = $derived(
+    client.raisedHands.flatMap((hand) => {
+      const participant = client.participants.find(
+        (one) => one.participantId === hand.participantId,
+      );
+      if (participant === undefined) return [];
+      return [
+        {
+          participantId: hand.participantId,
+          name: participantName(participant),
+          muted: client.presenceOf(participant).muted,
+        },
+      ];
+    }),
+  );
 
   /*
    * Followed while this browser is IN the room and never before: a socket at the door has no stay
@@ -775,6 +825,14 @@
   </MeetingChatPanel>
 {/snippet}
 
+<!--
+  The six, behind one control in the band. Passed as a snippet for the reason the chat and
+  connection controls are: the band owns where a control sits, the control owns what it offers.
+-->
+{#snippet reactionsControl()}
+  <MeetingReactions onReact={(name) => client.react(name)} />
+{/snippet}
+
 <!-- One reading of a refused hosting write, rendered wherever the act was asked for. -->
 {#snippet hostingFailure()}
   {#if hostingRefusal !== null}
@@ -807,6 +865,11 @@
           <span>Locked</span>
         {/if}
         <span>{summary.liveCount === 1 ? "1 in the room" : `${summary.liveCount} in the room`}</span>
+        <!-- ABOVE THE THRESHOLD THE ROOM SENDS COUNTS RATHER THAN BUBBLES, and the counts are what
+             is true at that size: a bubble on the right face is a promise a sixteen-tile gallery
+             cannot keep for three hundred people. It draws nothing at all when nothing has
+             arrived, and it fades on the same dwell a bubble does. -->
+        <MeetingReactionCounts counts={client.reactions.counts} />
       {/if}
     {/snippet}
   </ScreenHeader>
@@ -1011,6 +1074,12 @@
         </aside>
       </div>
 
+      <!-- WHAT A READER WHO CANNOT SEE THE MARKS IS TOLD, politely and once. A raised hand is
+           announced at every room size, because it is a request for the floor; a reaction is
+           announced only where the room named who threw it, and the coalesced counts strip is not
+           announced at all — a stream of changing numbers read out once a second is noise. -->
+      <div aria-live="polite" class="sr-only">{client.reactions.announcement}</div>
+
       <MeetingControls
         microphoneOn={client.microphoneOn}
         cameraOn={client.cameraOn}
@@ -1019,6 +1088,8 @@
         medium={client.medium}
         canEnd={canHost}
         hosting={myRole !== null}
+        handRaised={client.reactions.hand}
+        raisedHandCount={client.raisedHands.length}
         locked={client.roomState.locked}
         lobby={client.roomState.lobby}
         waitingCount={client.lobbyList.length}
@@ -1027,6 +1098,9 @@
         onToggleMicrophone={() => client.toggleMicrophone()}
         onToggleCamera={() => client.toggleCamera()}
         onToggleSharing={toggleSharing}
+        onToggleHand={() => (client.reactions.hand ? client.lowerHand() : client.raiseHand())}
+        onOpenHands={() => (handsOpen = true)}
+        onLowerAllHands={() => client.lowerHands(null)}
         onToggleSpeakerView={() => client.toggleSpeakerView()}
         onMuteAll={() => client.muteAll()}
         onSetLocked={(wanted) => void hostingWrite(() => setMeetingLocked(meetingId, wanted))}
@@ -1038,6 +1112,7 @@
         onLeave={() => void leave()}
         onEnd={end}
         chat={chatControl}
+        reactions={reactionsControl}
       >
         {#snippet connection()}
           <MeetingConnectionPanel
@@ -1069,6 +1144,18 @@
           {/if}
         {/snippet}
       </MeetingControls>
+
+      <!-- The queue, in the order the hands went up. Opened from a control that is absent for
+           everybody who is not running the meeting: lowering somebody else's hand is a host act,
+           and everybody lowers their own from the band's own toggle. -->
+      <MeetingHandsPanel
+        bind:open={handsOpen}
+        subject={endSubject}
+        hands={raisedHands}
+        onAskToUnmute={(participantId) => client.askToUnmute(participantId)}
+        onLowerHand={(participantId) => client.lowerHands(participantId)}
+        onLowerAll={() => client.lowerHands(null)}
+      />
 
       <!-- Who is at the door. Opened from a control that is absent for everybody who is not running
            the meeting, and it would have nothing to draw for them either: the room sends the list

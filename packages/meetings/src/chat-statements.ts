@@ -149,6 +149,46 @@ export async function listMeetingMessages(
 }
 
 /**
+ * THE MESSAGES TAKEN BACK SINCE A READER GOT HERE — the half a forward-only walk cannot see.
+ *
+ * A transcript is read forwards and a poller continues from the last `(sent_at, id)` it saw, which
+ * is right for what is SAID and blind to what is UNSAID: a redaction moves no row's position in that
+ * ordering, so a message already handed to a browser is taken back where nothing the poller asks for
+ * will ever mention it again. The relay frame closes that for a browser with a socket open; this
+ * closes it for the one that reconnected, was asleep, or missed the frame — which is the case the
+ * relay explicitly does not cover, because the read is what a browser is caught up by.
+ *
+ * Keyed on `redacted_at` rather than on the message's own position, which is the whole point: the
+ * rows this returns are BEHIND the caller's cursor by construction. It is bounded like any other
+ * read — a meeting whose whole transcript was redacted at once is a real shape — and the bound is
+ * safe to truncate against, because the next poll asks the same question and a reader that already
+ * blanked a row blanks it again to no effect.
+ *
+ * Only the handle and the instant come back. The body is already empty on the row, and sending a
+ * whole record to say a body is gone would carry an empty string to say what two fields say.
+ */
+export async function listMeetingMessagesRedactedSince(
+  database: SqlDatabase,
+  meetingId: MeetingId,
+  since: string,
+  limit: number,
+): Promise<readonly { readonly id: MeetingMessageId; readonly redactedAt: string }[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT ${MEETING_MESSAGE_TABLE}.id, ${MEETING_MESSAGE_TABLE}.redacted_at ` +
+        `FROM ${MEETING_MESSAGE_TABLE} ` +
+        `WHERE ${MEETING_MESSAGE_TABLE}.meeting_id = ? ` +
+        `AND ${MEETING_MESSAGE_TABLE}.redacted_at IS NOT NULL ` +
+        `AND ${MEETING_MESSAGE_TABLE}.redacted_at > ? ` +
+        `ORDER BY ${MEETING_MESSAGE_TABLE}.redacted_at ASC, ${MEETING_MESSAGE_TABLE}.id ASC ` +
+        `LIMIT ?`,
+    )
+    .bind(meetingId, since, limit)
+    .all<{ readonly id: MeetingMessageId; readonly redacted_at: string }>();
+  return results.map((row) => ({ id: row.id, redactedAt: row.redacted_at }));
+}
+
+/**
  * One message, addressed by its own handle AND by the meeting it belongs to.
  *
  * Both, deliberately: the caller was authorized against a meeting, so a message handle from another

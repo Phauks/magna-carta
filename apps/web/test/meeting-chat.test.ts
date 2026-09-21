@@ -17,6 +17,7 @@ import { flushSync, mount, unmount, type ComponentProps } from "svelte";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { MeetingMessage, MeetingMessagePage } from "@magna-carta/api-client";
 import {
+  CHAT_BACKSTOP_POLL_INTERVAL_MILLISECONDS,
   CHAT_POLL_INTERVAL_MILLISECONDS,
   MeetingChat,
   wasTakenBack,
@@ -42,13 +43,23 @@ function message(ordinal: number, over: Partial<MeetingMessage> = {}): MeetingMe
   };
 }
 
-/** A page of the transcript, answering with the key of its own last row. */
-function pageOf(messages: readonly MeetingMessage[]): MeetingMessagePage {
+/**
+ * A page of the transcript, answering with the key of its own last row.
+ *
+ * `redacted` is the OTHER half of a page: a redaction does not move a row, so a forward walk from
+ * the cursor can never reach it, and the page carries the handles and instants of whatever has been
+ * taken back behind the reader.
+ */
+function pageOf(
+  messages: readonly MeetingMessage[],
+  redacted: readonly { id: string; redactedAt: string }[] = [],
+): MeetingMessagePage {
   return {
     data: [...messages],
     // The contract answers with a cursor for the last row of a non-empty page, and with none for a
     // page that had nothing in it.
     nextCursor: messages.length === 0 ? null : `cursor-${messages[messages.length - 1]?.id ?? ""}`,
+    redacted: [...redacted],
   };
 }
 
@@ -64,6 +75,8 @@ class Seams implements MeetingChatSeams {
   redacted: MeetingMessage = message(9, { body: "", redactedAt: "2026-09-20T15:10:00.000Z" });
   #tick: (() => void) | null = null;
   milliseconds = 0;
+  /** Every interval the poll has been armed at, in order — a re-arm is a fresh entry. */
+  readonly intervals: number[] = [];
 
   list(cursor: string | null): Promise<{ kind: "ok"; value: MeetingMessagePage }> {
     this.asked.push(cursor);
@@ -84,6 +97,7 @@ class Seams implements MeetingChatSeams {
 
   every(milliseconds: number, tick: () => void): () => void {
     this.milliseconds = milliseconds;
+    this.intervals.push(milliseconds);
     this.#tick = tick;
     return () => {
       this.#tick = null;
@@ -257,6 +271,80 @@ describe("following what is said in the room", () => {
 
     expect(chat.messages.map((one) => one.id)).toEqual(["meetingMessage_1", "meetingMessage_2"]);
     expect(chat.unread).toBe(1);
+  });
+
+  it("marks a message the ROOM says was taken back, and leaves the row where it was", async () => {
+    const seams = new Seams();
+    seams.pages = [pageOf([message(1), message(2)])];
+    const chat = new MeetingChat(seams);
+
+    chat.start();
+    await settle();
+    chat.noteMessageRedacted("meetingMessage_1", "2026-09-20T15:10:00.000Z");
+
+    // The frame carries the handle and the instant alone — the body is already blank on the
+    // record, and sending the words back down the wire to remove them would be absurd.
+    expect(chat.messages.map((one) => one.id)).toEqual(["meetingMessage_1", "meetingMessage_2"]);
+    expect(wasTakenBack(chat.messages[0]!)).toBe(true);
+    expect(chat.messages[0]?.body).toBe("");
+    // Not news: a mark inviting somebody to go and read a blank row is a mark that lies.
+    expect(chat.unread).toBe(0);
+  });
+
+  it("invents no row for a redaction about a message it has never held", () => {
+    const seams = new Seams();
+    const chat = new MeetingChat(seams);
+
+    chat.noteMessageRedacted("meetingMessage_9", "2026-09-20T15:10:00.000Z");
+
+    // The page that first carries the message will carry it already redacted, so a browser that
+    // missed both ends up with the same transcript as one that saw both.
+    expect(chat.messages).toEqual([]);
+  });
+
+  it("takes a redaction the PAGE reports, for a browser that missed the frame", async () => {
+    const seams = new Seams();
+    seams.pages = [
+      pageOf([message(1), message(2)]),
+      // A redaction does not move a row, so a poller walking forward from its cursor would never
+      // see it: the page reports what has been taken back BEHIND the reader, by handle and instant.
+      pageOf([], [{ id: "meetingMessage_1", redactedAt: "2026-09-20T15:10:00.000Z" }]),
+    ];
+    const chat = new MeetingChat(seams);
+
+    chat.start();
+    await settle();
+    await seams.fire();
+
+    expect(chat.messages.map((one) => one.id)).toEqual(["meetingMessage_1", "meetingMessage_2"]);
+    expect(wasTakenBack(chat.messages[0]!)).toBe(true);
+    // The row keeps its place: the redaction changes the body, never the instant it was said at.
+    expect(chat.messages[1]?.id).toBe("meetingMessage_2");
+    expect(chat.unread).toBe(0);
+  });
+
+  it("stretches the poll to its backstop once the room has relayed something", async () => {
+    const seams = new Seams();
+    seams.pages = [pageOf([message(1)])];
+    const chat = new MeetingChat(seams);
+
+    chat.start();
+    await settle();
+    expect(seams.intervals).toEqual([CHAT_POLL_INTERVAL_MILLISECONDS]);
+
+    chat.noteMessageFrame(message(2));
+
+    // The poll is never turned off, only stretched: a frame reaches a socket that has not missed
+    // anything, and the read is what catches a browser up on the frames it did not get.
+    expect(seams.intervals).toEqual([
+      CHAT_POLL_INTERVAL_MILLISECONDS,
+      CHAT_BACKSTOP_POLL_INTERVAL_MILLISECONDS,
+    ]);
+    expect(seams.running).toBe(true);
+
+    // Said once. The second frame changes nothing.
+    chat.noteMessageFrame(message(3));
+    expect(seams.intervals).toHaveLength(2);
   });
 
   it("keeps what is on screen when a poll is refused, and says so with nothing to show", async () => {

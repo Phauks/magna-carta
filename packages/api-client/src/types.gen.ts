@@ -3860,6 +3860,12 @@ export type SendMeetingMessageRequest = {
 export type MeetingMessagePage = {
     data: Array<MeetingMessage>;
     nextCursor: string | null;
+    redacted: Array<RedactedMeetingMessage>;
+};
+
+export type RedactedMeetingMessage = {
+    id: string;
+    redactedAt: string;
 };
 
 export type MeetingHostGrants = {
@@ -3937,7 +3943,7 @@ export type MeetingRoomInspection = {
     };
     alarm: {
         at: string | null;
-        pendingJobs: Array<'participant-grace' | 'door-grace' | 'presence-flush' | 'ended-marker-retirement'>;
+        pendingJobs: Array<'participant-grace' | 'door-grace' | 'presence-flush' | 'reaction-flush' | 'ended-marker-retirement'>;
     };
     storage: {
         keyCount: number;
@@ -3953,6 +3959,7 @@ export type MeetingRoomInspectedParticipant = {
     speaking: boolean;
     muted: boolean;
     presenceDirty: boolean;
+    handRaisedAt: string | null;
     connected: boolean;
     socketLostAt: string | null;
     sfuSessionId: string | null;

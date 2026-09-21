@@ -15,7 +15,11 @@ import {
   redactMeetingMessage,
   REDACT_MESSAGE_GUARD,
 } from "@magna-carta/meetings/chat-service";
-import { listMeetingMessages, readMeetingMessage } from "@magna-carta/meetings/chat-statements";
+import {
+  listMeetingMessages,
+  listMeetingMessagesRedactedSince,
+  readMeetingMessage,
+} from "@magna-carta/meetings/chat-statements";
 import {
   MAX_MEETING_MESSAGE_LENGTH,
   MAX_MEETING_MESSAGE_PAGE_SIZE,
@@ -29,6 +33,7 @@ import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
+  requireChokepointFirmId,
   requireChokepointIdempotency,
   requireChokepointPermissions,
   requireChokepointUserId,
@@ -44,7 +49,7 @@ import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-p
 // One refusal for every way a room is out of reach is a rule that only holds if every door in the
 // family gives the same answer, and two copies of the switch are two places for that to stop being
 // true.
-import { meetingErrorResponse } from "./meetings.ts";
+import { meetingErrorResponse, meetingRoomFor } from "./meetings.ts";
 import { assertPermission } from "@magna-carta/access-control/registry";
 
 // The in-meeting chat's HTTP surface: say something in a room, read the transcript, take something
@@ -56,11 +61,17 @@ import { assertPermission } from "@magna-carta/access-control/registry";
 // message carries: it is retained under the matter, it is personal data, and it can be taken back in
 // a way that leaves the taking-back on the record.
 //
-// THE ROUTE IS THE RECORD, AND IT STAYS THE RECORD. The room will later relay a `message` frame so a
-// message reaches the other browsers as it is said rather than on a poller's next tick — but that
-// frame is a copy of a row this route has already committed, and a browser that misses one is caught
-// up by the read below. A write that went through the socket instead would put the firm's record in
-// a Durable Object's transient storage, which empties when the room does.
+// THE ROUTE IS THE RECORD, AND IT STAYS THE RECORD. The room relays a `message` frame so a message
+// reaches the other browsers as it is said rather than on a poller's next tick — but that frame is a
+// copy of a row this route has already committed, and a browser that misses one is caught up by the
+// read below. A write that went through the socket instead would put the firm's record in a Durable
+// Object's transient storage, which empties when the room does.
+//
+// THE RELAY HAPPENS AFTER THE COMMIT AND CARRIES WHAT THE RECORD NOW HOLDS — the row read back, not
+// what the service composed — on the `participantLeft` / `end` precedent the hosting routes follow:
+// nobody is shown a message by a write that then failed, and nobody is shown a different message
+// from the one the transcript will hand them a second later. A room nobody holds a socket on is a
+// no-op, which is most redactions and every message typed into a meeting one person is sitting in.
 //
 // ONE REFUSAL FOR EVERY WAY A ROOM IS OUT OF REACH, exactly as the meetings routes hold it: an
 // unknown meeting handle and a meeting on a matter the member may not see are both 404, because a
@@ -104,7 +115,32 @@ const MeetingMessage = z
   })
   .openapi("MeetingMessage");
 
-const MeetingMessagePage = paginated(MeetingMessage).openapi("MeetingMessagePage");
+/**
+ * One message taken back since the caller last read — the handle, and when.
+ *
+ * The body is already empty on the row and on any copy a client is holding; what this carries is the
+ * news that the copy is stale and the instant to put beside it.
+ */
+const RedactedMeetingMessage = z
+  .object({ id: z.string(), redactedAt: z.string() })
+  .openapi("RedactedMeetingMessage");
+
+// A TRANSCRIPT PAGE HAS A SECOND LIST, and it is the half a forward walk structurally cannot carry.
+//
+// `data` is ordered by `(sent_at, id)` and a poller continues from the last of them, which is right
+// for what was SAID and blind to what was UNSAID: taking a message back moves no row's position in
+// that ordering, so a message already handed to a browser is redacted somewhere the poller will
+// never look again. The room relays `message-redacted` to a browser with a socket open; this is what
+// catches up the one that reconnected or missed the frame, and the two agree because both carry the
+// instant off the same row.
+//
+// It is populated only for a caller that says where it read to (`since`), because a first page needs
+// no convergence — every body on it is already whatever the record now holds — and it may repeat a
+// redaction on a later poll, which costs a client nothing: blanking a body that is already blank is
+// the same act twice.
+const MeetingMessagePage = paginated(MeetingMessage)
+  .extend({ redacted: z.array(RedactedMeetingMessage) })
+  .openapi("MeetingMessagePage");
 
 // WHAT A POLLER CARRIES IS A POSITION, NOT A WATERMARK. `since` is the instant it read to and
 // `sinceId` is the handle of the row it read there, and the pair is compared as one `(sent_at, id)`
@@ -242,7 +278,10 @@ const listRoute = defineOpenAPIRoute(readMeta("listMessages"), {
     "lost to a reader that asks for what came strictly after it. `since` with `sinceId` is the " +
     "same position spelled out for a caller that holds the pair rather than the cursor. A message " +
     "that has been taken back is still returned, with an empty body beside the instant and the " +
-    "member that say it was removed.",
+    "member that say it was removed. A caller that sends `since` also receives `redacted`: the " +
+    "messages taken back since that instant, which a forward walk cannot reach because a " +
+    "redaction moves no row's position in the ordering. Blank the body of each one you are " +
+    "holding; a repeat is harmless.",
   request: { params: meetingIdParam, query: listMessagesQuery },
   responses: {
     200: {
@@ -483,10 +522,15 @@ export function registerMeetingChatRoutes(
         return { message: sent.message, responseCode: 201, effect: sent.effect };
       });
       if (!outcome.ok) return outcome.problem;
-      return c.json(
-        await messageOnTheRecord(firm.firmDatabase, meetingId as MeetingId, outcome.messageId),
-        201,
+      const message = await messageOnTheRecord(
+        firm.firmDatabase,
+        meetingId as MeetingId,
+        outcome.messageId,
       );
+      // The whole record, as the list route would hand it over — so a browser applies the frame and
+      // the read with one code path, and the two can never disagree about a field name.
+      await meetingRoomFor(c.env, requireChokepointFirmId(c), meetingId).messageSent(message);
+      return c.json(message, 201);
     },
   );
 
@@ -513,6 +557,17 @@ export function registerMeetingChatRoutes(
         since,
         sinceId,
       });
+      // The convergence half, and only for a caller that says where it read to: a first page already
+      // carries whatever the record now holds, so there is nothing behind it to reconcile.
+      const redacted =
+        since === undefined
+          ? []
+          : await listMeetingMessagesRedactedSince(
+              firm.firmDatabase,
+              meetingId as MeetingId,
+              since,
+              MAX_MEETING_MESSAGE_PAGE_SIZE,
+            );
       // The read asks for one row past the page, and that row is the answer to "is there more"
       // rather than part of the page.
       const hasMore = found.length > MAX_MEETING_MESSAGE_PAGE_SIZE;
@@ -532,6 +587,7 @@ export function registerMeetingChatRoutes(
           // either; a caller walking to the end sees one final empty page instead of stopping a
           // page early.
           nextCursor: last === undefined ? null : encodeCursor(last.sentAt, last.id),
+          redacted: [...redacted],
         },
         200,
       );
@@ -558,10 +614,21 @@ export function registerMeetingChatRoutes(
         return { message: taken.message, responseCode: 200, effect: taken.effect };
       });
       if (!outcome.ok) return outcome.problem;
-      return c.json(
-        await messageOnTheRecord(firm.firmDatabase, meetingId as MeetingId, outcome.messageId),
-        200,
+      const message = await messageOnTheRecord(
+        firm.firmDatabase,
+        meetingId as MeetingId,
+        outcome.messageId,
       );
+      // The handle and the instant alone: the record's body is already blank, and what every
+      // browser holds is a copy to blank in its turn. Read off the settled row rather than off the
+      // clock, so a redaction that lost a race relays the instant the record actually kept.
+      if (message.redactedAt !== null) {
+        await meetingRoomFor(c.env, requireChokepointFirmId(c), meetingId).messageRedacted(
+          message.id,
+          message.redactedAt,
+        );
+      }
+      return c.json(message, 200);
     },
   );
 }

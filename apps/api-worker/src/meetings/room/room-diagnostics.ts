@@ -7,8 +7,10 @@ import {
   meetingRoomJoined,
   meetingRoomLayerChanged,
   meetingRoomLocked,
+  meetingRoomMessageRelayed,
   meetingRoomMuted,
   meetingRoomPresenceRelayed,
+  meetingRoomReactionsRelayed,
   meetingRoomPublished,
   meetingRoomRefused,
   meetingRoomRemoved,
@@ -417,6 +419,48 @@ export async function recordPresenceRelayed(
   });
 }
 
+/**
+ * Reactions relayed, once per act — one for a named reaction, one for a whole second's counts.
+ *
+ * Recorded per RELAY rather than per reaction, which is the same arrangement presence has and for
+ * the same arithmetic: below the threshold a participant may send one a second and there are at most
+ * sixteen of them, and above it the room sends one frame a second however many arrived. So this
+ * costs one event a second in the case it is built for, carrying the number it covered.
+ */
+export async function recordReactionsRelayed(
+  room: RoomContext,
+  identity: RoomIdentity | undefined,
+  reactionCount: number,
+  coalesced: boolean,
+): Promise<void> {
+  if (reactionCount === 0) return;
+  const where = await identityFor(room, identity);
+  if (where === undefined) return;
+  emit(room, (logger) => {
+    logger.log(meetingRoomReactionsRelayed(eventContext(), { ...where, reactionCount, coalesced }));
+  });
+}
+
+/**
+ * A chat message's copy carried into the room — the socket count, and which of the two acts it was.
+ *
+ * The record of what was SAID is the firm's own transcript and never this stream: there is no
+ * declared field for the body or for the message handle, so a call site cannot add one without
+ * arguing for it in the catalog first.
+ */
+export async function recordMessageRelayed(
+  room: RoomContext,
+  identity: RoomIdentity | undefined,
+  recipientCount: number,
+  redaction: boolean,
+): Promise<void> {
+  const where = await identityFor(room, identity);
+  if (where === undefined) return;
+  emit(room, (logger) => {
+    logger.log(meetingRoomMessageRelayed(eventContext(), { ...where, recipientCount, redaction }));
+  });
+}
+
 // ---------------------------------------------------------------------------------------------
 // Dropping, sweeping and ending
 // ---------------------------------------------------------------------------------------------
@@ -478,6 +522,7 @@ export async function recordAlarmRan(
     readonly sweptParticipants: number;
     readonly sweptWaiting: number;
     readonly presenceFlushed: number;
+    readonly reactionsFlushed: number;
     readonly endedMarkerRetired: boolean;
     readonly rearmed: boolean;
   },

@@ -165,4 +165,72 @@ export interface RosterParticipant {
   // than from a socket's attachment, because hosting is exactly the thing that changes during a
   // meeting.
   readonly hostRole: MeetingHostRole | null;
+  // TWO WIRE FIELDS OVER ONE STORED FACT, and that is deliberate rather than redundant. The room
+  // stores the INSTANT alone; `hand` is `handRaisedAt !== null`, projected in the room's roster
+  // module and nowhere else. It is carried because every tile, every roster row and every badge
+  // branches on the boolean and none of them wants to compare against null, while only the hands
+  // panel wants the instant. A derived value crossing a wire is not a second home for a fact; a
+  // second stored column would be.
+  //
+  // THE ROOM DECIDES THE CLOCK AND THE PERSON DECIDES THE BOOLEAN. A queue ordered by what each
+  // participant's own machine said is not one ordering, and the disagreement is invisible to the
+  // host reading it — the same reason a chat message's instant is the server's.
+  //
+  // Both ride on the roster as well as on a roster difference, so a browser arriving late draws the
+  // marks and sorts the queue from the roster alone.
+  readonly hand: boolean;
+  readonly handRaisedAt: string | null;
+}
+
+/**
+ * THE WHOLE VOCABULARY OF REACTIONS, named by MEANING rather than by the glyph that draws it.
+ *
+ * Closed rather than open, because the alternative — a free string, or an emoji code point — would
+ * put arbitrary text on a tile in a firm's meeting, and because this product draws no emoji
+ * anywhere. A `reaction` frame naming anything outside this list does not parse.
+ *
+ * WHAT IS ON THE WIRE IS NEVER THE ICON'S NAME, and that separation is the point: an icon package
+ * renames its glyphs between releases, so a name taken from one would make upgrading the drawing a
+ * change to this protocol. The mapping from a name here to a glyph lives in one table in the
+ * browser's own reactions module, and re-choosing a drawing is a line there.
+ *
+ * Six, and closed to growth without a decision: a seventh is a protocol change and a deliberate act
+ * in a place where a firm's client can be watching.
+ */
+export const MEETING_REACTIONS = Object.freeze([
+  "thumbs-up",
+  "thumbs-down",
+  "heart",
+  "laugh",
+  "applause",
+  "celebrate",
+] as const);
+
+/** One thing somebody may throw on a tile, as both ends name it. */
+export type MeetingReaction = (typeof MEETING_REACTIONS)[number];
+
+/**
+ * ONE THING SOMEBODY SAID IN THE ROOM, as the room relays a copy of it.
+ *
+ * It is the shape `GET /api/v1/meetings/{meetingId}/messages` returns, restated here in plain
+ * strings for the reason every other value in this file is restated: the domain package that owns
+ * the row reaches a database, and a browser bundle cannot take one. The two meet at the seam that
+ * carries them — the route hands the room the record it has just read back — so a field renamed on
+ * one side is a type error there rather than a silent divergence.
+ *
+ * THE ROUTE IS THE RECORD AND THIS IS A COPY OF IT. The write never goes through the socket: a
+ * browser that misses this frame is caught up by the read, and a record that existed only where a
+ * Durable Object's transient storage holds it would empty when the room does.
+ */
+export interface MeetingChatMessage {
+  readonly id: string;
+  readonly meetingId: string;
+  readonly participantKind: string;
+  readonly participantId: string;
+  readonly userId: string | null;
+  readonly sentAt: string;
+  /** Empty exactly when the message has been taken back, which the pair below says. */
+  readonly body: string;
+  readonly redactedAt: string | null;
+  readonly redactedByUserId: string | null;
 }

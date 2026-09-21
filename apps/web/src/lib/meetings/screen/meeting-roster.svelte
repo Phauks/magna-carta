@@ -20,6 +20,7 @@
    */
   import AudioLines from "@lucide/svelte/icons/audio-lines";
   import Focus from "@lucide/svelte/icons/focus";
+  import Hand from "@lucide/svelte/icons/hand";
   import MicOff from "@lucide/svelte/icons/mic-off";
   import ScreenShare from "@lucide/svelte/icons/screen-share";
   import * as Avatar from "@magna-carta/design-system/avatar";
@@ -27,7 +28,7 @@
   import NoResults from "@magna-carta/design-system/no-results";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import MeetingQualityMark from "./meeting-quality-mark.svelte";
-  import { hostRoleLabel, SPOTLIGHT_LABEL } from "./meeting-host-labels.ts";
+  import { HAND_RAISED_LABEL, hostRoleLabel, SPOTLIGHT_LABEL } from "./meeting-host-labels.ts";
   import { participantInitials, participantName } from "./meeting-tiles.ts";
   import type { ConnectionQuality, MeetingParticipant } from "../client/meeting-client.svelte.ts";
   import type { Snippet } from "svelte";
@@ -60,6 +61,7 @@
     presenceOf?: (participant: MeetingParticipant) => {
       readonly speaking: boolean;
       readonly muted: boolean;
+      readonly hand: boolean;
     };
     /**
      * How well one person's media is getting through. The rail is where a member scans the room for
@@ -120,6 +122,11 @@
           <Badge variant="neutral" caps>{hostRoleLabel(participant.hostRole)}</Badge>
         {/if}
         <MeetingQualityMark quality={qualityOf(participant)} />
+        {#if presence.hand}
+          <!-- THIS is where a host of a large room actually sees a hand: sixteen of three hundred
+               people have a tile, and all three hundred have a row. -->
+          <Hand class="size-16 text-accent-default" aria-label={HAND_RAISED_LABEL} />
+        {/if}
         {#if participant.participantId === spotlightedParticipantId}
           <Focus class="size-16 text-accent-default" aria-label={SPOTLIGHT_LABEL} />
         {/if}

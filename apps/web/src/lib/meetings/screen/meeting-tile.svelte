@@ -29,6 +29,7 @@
    * work happening in the tile is the picture, and the identity stays at its edge.
    */
   import Focus from "@lucide/svelte/icons/focus";
+  import Hand from "@lucide/svelte/icons/hand";
   import MicOff from "@lucide/svelte/icons/mic-off";
   import Pin from "@lucide/svelte/icons/pin";
   import PinOff from "@lucide/svelte/icons/pin-off";
@@ -38,7 +39,10 @@
   import * as Avatar from "@magna-carta/design-system/avatar";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
   import MeetingQualityMark from "./meeting-quality-mark.svelte";
+  import MeetingReactionMark from "./meeting-reaction-mark.svelte";
+  import { HAND_RAISED_LABEL } from "./meeting-host-labels.ts";
   import { participantInitials } from "./meeting-tiles.ts";
+  import type { ShownReaction } from "$lib/meetings/client/reactions.svelte.ts";
   import { hostRoleLabel, SPOTLIGHT_LABEL } from "./meeting-host-labels.ts";
   import type { ConnectionQuality } from "$lib/meetings/client/connection-quality.ts";
   import type { MeetingHostRole, MeetingMedium } from "@magna-carta/meeting-protocol/types";
@@ -50,6 +54,8 @@
     microphoneOff = false,
     medium = "video",
     speaking = false,
+    handRaised = false,
+    reactions = [],
     pinned = false,
     videoPulled = true,
     quality = "unknown",
@@ -77,6 +83,17 @@
     medium?: MeetingMedium;
     /** Their microphone is carrying speech right now, which is what the edge mark states. */
     speaking?: boolean;
+    /**
+     * Their hand is up. Drawn on the strip beside the other marks rather than over the picture:
+     * a mark laid on a face is a mark over whatever the camera happens to be showing, and the
+     * strip is the one part of a tile whose surface this product paints.
+     */
+    handRaised?: boolean;
+    /**
+     * What is rising off this tile right now: what somebody threw, for as long as it is worth
+     * looking at. Empty for almost every tile almost always.
+     */
+    reactions?: readonly ShownReaction[];
     /** This member is holding them on screen. */
     pinned?: boolean;
     /** Whether this browser asked for their camera. False draws the name tile rather than a wait. */
@@ -163,11 +180,32 @@
     </div>
   {/if}
 
+  {#if reactions.length > 0}
+    <!-- What was thrown, rising out of the tile. It sits above the name strip so a burst never
+         covers the one thing the strip is for, and it takes no pointer: a reaction is something to
+         look at rather than something to press. It is HIDDEN from a reader, because the room
+         announces a reaction once, politely, in its own live region — a second voice per tile would
+         read the same sentence again for every bubble on the screen. -->
+    <div
+      class="pointer-events-none absolute inset-x-0 bottom-40 flex items-end justify-center gap-8"
+      aria-hidden="true"
+    >
+      {#each reactions as reaction (reaction.key)}
+        <MeetingReactionMark name={reaction.name} rising />
+      {/each}
+    </div>
+  {/if}
+
   <figcaption
     class="absolute inset-x-0 bottom-0 flex items-center gap-8 bg-chrome-surface px-12 py-8"
   >
     <span class="min-w-0 flex-1 truncate text-sm text-chrome-text" title={name}>{name}</span>
     <MeetingQualityMark {quality} register="chrome" />
+    {#if handRaised}
+      <!-- A request for the floor, in the accent the room's other live marks wear. It leads the
+           other marks because it is the one a host is scanning for. -->
+      <Hand class="size-16 text-accent-default" aria-label={HAND_RAISED_LABEL} />
+    {/if}
     {#if spotlighted}
       <!-- The one mark on the strip that says something about the ROOM rather than about this
            person: a host decided everybody is looking at them. -->

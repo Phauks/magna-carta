@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { MeetingId, MeetingMessageId } from "@magna-carta/identifiers/types";
 import { postMeetingMessage, redactMeetingMessage } from "../src/chat-service.ts";
-import { listMeetingMessages, readMeetingMessage } from "../src/chat-statements.ts";
+import {
+  listMeetingMessages,
+  listMeetingMessagesRedactedSince,
+  readMeetingMessage,
+} from "../src/chat-statements.ts";
 import { MAX_MEETING_MESSAGE_LENGTH } from "../src/chat-types.ts";
 import { MeetingChatValidationError } from "../src/chat-validation.ts";
 import { createMeeting, joinMeeting, leaveMeeting } from "../src/meeting-service.ts";
@@ -466,5 +470,96 @@ describe("reading a transcript", () => {
         (entry) => entry.body,
       ),
     ).toEqual(["said here"]);
+  });
+});
+
+describe("the redactions a forward-only reader would never see", () => {
+  it("come back keyed on when they happened, from behind the reader's own position", async () => {
+    const database = fresh();
+    const meetingId = await startAndJoin(database);
+    const first = await say(database, meetingId, "said first");
+    const second = await say(database, meetingId, "said second");
+
+    // WHERE THE READER GOT TO: the whole transcript, so the forward walk has nothing left to find.
+    const page = await listMeetingMessages(database.database, meetingId, { limit: 10 });
+    const position = page.at(-1)?.sentAt ?? "";
+
+    // A REDACTION MOVES NO ROW'S POSITION in the `(sent_at, id)` ordering, so the message taken back
+    // here is behind the reader forever: the poll asks for what comes after `second` and will never
+    // mention `first` again, however many times it asks.
+    const taken = await redactMeetingMessage(database.database, meetingId, first, {
+      ...options,
+      clock: { now: () => "2026-09-18T12:30:00.000Z" },
+    });
+    await commit(database.database, taken.effect);
+
+    expect(
+      await listMeetingMessages(database.database, meetingId, { limit: 10, since: position }),
+    ).toEqual([]);
+    const converged = await listMeetingMessagesRedactedSince(
+      database.database,
+      meetingId,
+      position,
+      10,
+    );
+    expect(converged).toEqual([{ id: first, redactedAt: "2026-09-18T12:30:00.000Z" }]);
+    // Only the handle and the instant: the body is already empty on the row, and sending a whole
+    // record to say a body is gone would carry an empty string to say what two fields say.
+    expect(Object.keys(converged[0] ?? {}).toSorted()).toEqual(["id", "redactedAt"]);
+
+    // Ordered by WHEN each was removed, which is the order a reader applies them in.
+    const later = await redactMeetingMessage(database.database, meetingId, second, {
+      ...options,
+      clock: { now: () => "2026-09-18T12:40:00.000Z" },
+    });
+    await commit(database.database, later.effect);
+    expect(
+      (await listMeetingMessagesRedactedSince(database.database, meetingId, position, 10)).map(
+        (one) => one.id,
+      ),
+    ).toEqual([first, second]);
+  });
+
+  it("says nothing about a redaction that happened before the reader got there", async () => {
+    const database = fresh();
+    const meetingId = await startAndJoin(database);
+    const message = await say(database, meetingId, "taken back before anybody read it");
+    const taken = await redactMeetingMessage(database.database, meetingId, message, {
+      ...options,
+      clock: { now: () => "2026-09-18T12:05:00.000Z" },
+    });
+    await commit(database.database, taken.effect);
+
+    // Nothing to converge: a reader arriving now is handed the row with its body already blank, and
+    // a list that repeated every past redaction would grow with the meeting.
+    expect(
+      await listMeetingMessagesRedactedSince(
+        database.database,
+        meetingId,
+        "2026-09-18T12:10:00.000Z",
+        10,
+      ),
+    ).toEqual([]);
+  });
+
+  it("keeps one meeting's redactions out of another's", async () => {
+    const database = fresh();
+    const here = await startAndJoin(database);
+    const there = await startAndJoin(
+      database,
+      anotherEvent(database, "matterEvent_meetingChatRedact"),
+    );
+    const theirs = await say(database, there, "said there");
+    const taken = await redactMeetingMessage(database.database, there, theirs, options);
+    await commit(database.database, taken.effect);
+
+    expect(
+      await listMeetingMessagesRedactedSince(
+        database.database,
+        here,
+        "2026-09-18T00:00:00.000Z",
+        10,
+      ),
+    ).toEqual([]);
   });
 });

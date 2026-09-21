@@ -614,6 +614,49 @@ export interface InsertAttendanceInput {
   readonly now: string;
 }
 
+// THE DOOR, IN THE SAME STATEMENT AS THE ARRIVAL — and the reason a read of it is not enough.
+//
+// The service reads the lock and the lobby a round trip before the insert, which settles the
+// ordinary case and produces the reason a member is shown. It cannot settle the case it was not
+// there for: a host shutting the door in the instant between that read and this write would have the
+// arrival land in a locked room, and a host turning the LOBBY on in the same instant would put
+// somebody straight into a confidential discussion the door was opened to keep them out of. Both are
+// exactly the moment the control is being used, which is what makes the race worth closing rather
+// than noting — a host shuts a door because of who is about to arrive.
+//
+// TWO CONDITIONS, AND THE SECOND HAS AN EXCEPTION THE FIRST DOES NOT. A locked room admits nobody,
+// including a host: the lock is the whole room's, and a host who locked themselves out re-opens it
+// through the route. A lobby-on room admits whoever holds a live grant on the meeting — whoever may
+// run this room does not wait in it — which is the same authority every host act asks about, read
+// here as a subquery rather than trusted from the caller.
+//
+// It is the WHERE of a guarded write, so a lost race matches no row and the whole batch rolls back
+// with a refusal the member can act on, rather than half-landing a stay in a room that is shut.
+//
+// `meeting_host` IS SPELLED OUT rather than imported as `MEETING_HOST_TABLE`, and that is forced
+// rather than careless: the hosting statements import the two presence predicates from this module,
+// so taking its constant back would be a cycle. The name is tracked against the per-firm schema by
+// the schema-name-sync fitness test wherever it appears, which is what stops the literal drifting.
+const DOOR_ADMITS_DIRECTLY_PREDICATE =
+  `EXISTS (SELECT 1 FROM ${MEETING_TABLE} WHERE ${MEETING_TABLE}.id = ?2 ` +
+  `AND ${MEETING_TABLE}.locked_at IS NULL ` +
+  `AND (${MEETING_TABLE}.lobby = 'off' OR EXISTS (SELECT 1 FROM meeting_host ` +
+  `WHERE meeting_host.meeting_id = ?2 AND meeting_host.user_id = ?3 ` +
+  `AND meeting_host.revoked_at IS NULL)))`;
+
+/**
+ * The same door, for the stay that opens AT it — where the two conditions invert.
+ *
+ * A locked room is shut to everybody, so there is nothing to queue for and a waiting stay opened
+ * into one would be somebody standing outside a door that will not be answered. And the lobby has to
+ * be ON: a host turning it off between the service's read and this write means the arrival belongs
+ * in the room rather than at the door, and a row written here would leave them queued for a door
+ * that no longer exists, waiting on a host who has no reason to look.
+ */
+export const DOOR_QUEUES_PREDICATE =
+  `EXISTS (SELECT 1 FROM ${MEETING_TABLE} WHERE ${MEETING_TABLE}.id = ?2 ` +
+  `AND ${MEETING_TABLE}.locked_at IS NULL AND ${MEETING_TABLE}.lobby = 'on')`;
+
 // ONE ARRIVAL, AND THE CEILING IN THE SAME STATEMENT. `left_at` is null and is the only thing that
 // says the person is still here, which is what makes the roster and the cap a fact about the table
 // rather than a number somebody maintains.
@@ -640,7 +683,8 @@ export function insertAttendanceUnderCapStatement(
         `waiting_from, admitted_at, created_at, updated_at) ` +
         `SELECT ?1, ?2, ?3, ?4, NULL, NULL, NULL, ?4, ?4 WHERE ` +
         `(SELECT COUNT(*) FROM ${MEETING_ATTENDANCE_TABLE} WHERE meeting_id = ?2 ` +
-        `AND ${IN_THE_ROOM_PREDICATE}) < ?5`,
+        `AND ${IN_THE_ROOM_PREDICATE}) < ?5 ` +
+        `AND ${DOOR_ADMITS_DIRECTLY_PREDICATE}`,
     )
     .bind(input.id, input.meetingId, input.userId, input.now, input.capacity);
 }

@@ -16184,11 +16184,33 @@
               "string",
               "null"
             ]
+          },
+          "redacted": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RedactedMeetingMessage"
+            }
           }
         },
         "required": [
           "data",
-          "nextCursor"
+          "nextCursor",
+          "redacted"
+        ]
+      },
+      "RedactedMeetingMessage": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "redactedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "redactedAt"
         ]
       },
       "MeetingHostGrants": {
@@ -16499,6 +16521,7 @@
                     "participant-grace",
                     "door-grace",
                     "presence-flush",
+                    "reaction-flush",
                     "ended-marker-retirement"
                   ]
                 }
@@ -16576,6 +16599,12 @@
           "presenceDirty": {
             "type": "boolean"
           },
+          "handRaisedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "connected": {
             "type": "boolean"
           },
@@ -16614,6 +16643,7 @@
           "speaking",
           "muted",
           "presenceDirty",
+          "handRaisedAt",
           "connected",
           "socketLostAt",
           "sfuSessionId",
@@ -69311,7 +69341,7 @@
         }
       },
       "get": {
-        "description": "A meeting's chat, oldest first — a conversation is read forwards, so the first page is the beginning of the meeting rather than the end of it. A poller following a live meeting continues from `nextCursor`, which every page with rows carries whether or not more are waiting; here it is a position in the conversation rather than a has-more flag, so a reader resumes exactly where it stopped and a caller walking to the end sees one final empty page. Never continue from a timestamp alone: two messages can share an instant, and the second is lost to a reader that asks for what came strictly after it. `since` with `sinceId` is the same position spelled out for a caller that holds the pair rather than the cursor. A message that has been taken back is still returned, with an empty body beside the instant and the member that say it was removed.",
+        "description": "A meeting's chat, oldest first — a conversation is read forwards, so the first page is the beginning of the meeting rather than the end of it. A poller following a live meeting continues from `nextCursor`, which every page with rows carries whether or not more are waiting; here it is a position in the conversation rather than a has-more flag, so a reader resumes exactly where it stopped and a caller walking to the end sees one final empty page. Never continue from a timestamp alone: two messages can share an instant, and the second is lost to a reader that asks for what came strictly after it. `since` with `sinceId` is the same position spelled out for a caller that holds the pair rather than the cursor. A message that has been taken back is still returned, with an empty body beside the instant and the member that say it was removed. A caller that sends `since` also receives `redacted`: the messages taken back since that instant, which a forward walk cannot reach because a redaction moves no row's position in the ordering. Blank the body of each one you are holding; a repeat is harmless.",
         "operationId": "meetings.listMessages",
         "tags": [
           "meetings"
@@ -69771,7 +69801,7 @@
     },
     "/api/v1/meetings/{meetingId}/hosts/{userId}/revoke": {
       "post": {
-        "description": "Withdraws a co-host's grant. The host's own grant is handed over rather than withdrawn — a co-host withdrawing it would be taking the room, and a host withdrawing their own would leave a running meeting with nobody holding it. A member who holds no grant answers 200 unchanged: what the caller asked for is already true.",
+        "description": "Withdraws a grant. Naming somebody else is the host's act and reaches only a co-host — a co-host withdrawing the host's would be taking the room, which is what a hand-over is for. Naming YOURSELF is a resignation and is anybody's to make, so a co-host can stop being one without asking; the one refusal is the sole grant-holder, because a host resigning out of a room where nobody else holds anything would leave a running meeting with nobody running it. A member who holds no grant answers 200 unchanged: what the caller asked for is already true.",
         "operationId": "meetings.revokeHosting",
         "tags": [
           "meetings"
@@ -70656,7 +70686,7 @@
     },
     "/api/v1/meetings/{meetingId}/inspect": {
       "get": {
-        "description": "A platform operator reads what one meeting's signaling room is holding: the roster with each participant's hosting role, presence, track and subscription counts and last connection report; who is at the door; the open sockets and which stay each carries; the alarm and which of its deadlines are pending; the storage key count and approximate size; the routing sessions; and the ended marker. It carries no session description, no display name and no track name, and it changes nothing. A room that has never been addressed answers with empty lists rather than a refusal — that is itself the finding.",
+        "description": "A platform operator reads what one meeting's signaling room is holding: the roster with each participant's hosting role, presence, track and subscription counts and last connection report; who is at the door; the open sockets and which stay each carries; the alarm and which of its deadlines are pending; the storage key count and approximate size; the routing sessions; and the ended marker. It carries no session description, no display name and no track name, and it changes nothing. Each participant is named by the stay and by the member handle behind it: the stay is what every frame, every event and the member's own screen correlate by, and the member handle is what joins a report of \"my tile went black\" — which arrives as a person, and often as the second of that person's two stays — to the room that was serving them. Both are minted identifiers; neither says who anybody is. A room that has never been addressed answers with empty lists rather than a refusal — that is itself the finding.",
         "operationId": "meetings.inspect",
         "tags": [
           "meetings"

@@ -127,17 +127,42 @@ export function offerCapturedTracks(
  * A HOST'S MUTE GENUINELY TAKES THE TRACK AWAY. The room closes it at the routing service, which is
  * what makes a mute a mute rather than a request the browser could decline by ignoring it — so
  * un-muting afterwards cannot be a flipped `enabled` flag on a track nothing is carrying any more.
- * It is a fresh media section, a fresh offer, and a fresh `publish` naming it.
+ * It is a fresh offer and a fresh `publish` naming the section the sound goes up.
  *
- * The device's own track is untouched by any of that: the close happened at the far end, so what goes
- * up the new section is the microphone the member has had open all along, and nothing asks them for
+ * THE SECTION IS REUSED, NOT ADDED, and that is the whole of this function. A meeting where a host
+ * mutes the room every few minutes is a meeting where a member is muted and comes back many times,
+ * and a `addTransceiver` per return grows the session description by a media section each time —
+ * unbounded, for the length of the meeting, with every renegotiation after it carrying the whole
+ * accumulated list. The mid is also what every later frame ADDRESSES the sound by (a `close` names
+ * mids), so a stable one is what keeps this browser and the room talking about the same thing. The
+ * old section is already closed AT THE FAR END by the mute itself — the room did that, which is
+ * what made it a mute — so nothing here asks the room to close it a second time.
+ *
+ * `mid` is the section the microphone last went up. Null before anything has been published, or
+ * where the browser never reported one, and then there is nothing to reuse and a section is added.
+ *
+ * The device's own track is untouched by any of that: the close happened at the far end, so what
+ * goes back up is the microphone the member has had open all along, and nothing asks them for
  * permission a second time. One layer, because sound has no resolution to step down.
  */
-export function offerMicrophoneTrack(
+export async function offerMicrophoneTrack(
   peerConnection: RTCPeerConnection,
   track: MediaStreamTrack,
-): RTCRtpTransceiver {
-  return peerConnection.addTransceiver(track, { direction: "sendonly" });
+  mid: string | null = null,
+): Promise<RTCRtpTransceiver> {
+  const held =
+    mid === null
+      ? undefined
+      : peerConnection.getTransceivers().find((candidate) => candidate.mid === mid);
+  if (held === undefined) {
+    return peerConnection.addTransceiver(track, { direction: "sendonly" });
+  }
+  // The sender keeps its place in the description; what changes is what it is carrying and that it
+  // is carrying anything at all. `replaceTrack` is the one way to do that without renegotiating a
+  // section, which is exactly what reusing it is for.
+  await held.sender.replaceTrack(track);
+  held.direction = "sendonly";
+  return held;
 }
 
 /** Put a screen share on the connection: one video track, one layer. */

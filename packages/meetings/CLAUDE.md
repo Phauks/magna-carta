@@ -207,6 +207,30 @@ what dissolves the lobby's one deadlock: a lobby-on meeting whose host has gone.
 deliberately carries no capacity count, because refusing the claimer for a full room would restore the
 deadlock the claim exists to end.
 
+**The door is enforced in the STATEMENT, and an admission deliberately ignores it.** Two rules that
+look like one and are not. The join path reads the lock and the lobby a round trip before it writes,
+which settles the ordinary case and produces the reason a member is shown; it cannot settle the case
+it was not there for, so both conditions are predicates on the insert itself
+(`DOOR_ADMITS_DIRECTLY_PREDICATE` and, inverted, `DOOR_QUEUES_PREDICATE` in `meeting-statements.ts`)
+and the guarded write rolls the whole batch back. That window is exactly the moment the control is
+being used — a host shuts a door because of who is about to arrive.
+
+**A LOCKED ROOM DOES NOT REFUSE AN ADMISSION**, and that is decided rather than missed. The lock is
+what the room answers an ARRIVAL with; an admission is a host looking at a named person and deciding
+that this one comes in. Refusing it would mean a host who shut the door could no longer let in the
+colleague they shut it for, and the remedy would be unlocking the room for everybody standing outside
+in order to admit one of them. The capacity ceiling still binds, because that is a fact about the room
+rather than a decision about a person.
+
+**A hand-over leaves the outgoing host a co-host**, written in the same batch as the revocation, so
+there is no instant in which they hold nothing. Handing the room over is not leaving it. Its twin:
+**a grant is resignable by the person holding it** — `revokeHosting` naming the caller is a
+resignation with its own audit event, refused only for the sole grant-holder, because a host
+resigning out of a room where nobody else holds anything leaves a running meeting with nobody running
+it. And **only a live HOST grant whose holder is in the room refuses a claim**
+(`countOtherHostsPresent`): counting co-hosts meant two of them in an abandoned room each saw the
+other and neither could take it.
+
 **Barred entry is one rule with two labels.** `readBarredStay` finds a stay closed `removed` or
 `denied`; both bar the member for the life of the meeting, and only the sentence differs. A denial
 that did not bar would be a button that does nothing.

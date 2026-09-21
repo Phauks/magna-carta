@@ -90,8 +90,37 @@ describe("what a room of this size costs", () => {
 
       // ONE LIST PER FRAME is the room's other rule — a list is every key the room holds, which is
       // three hundred of them in a full meeting, so a second one doubles the cost of the busiest
-      // thing it does. Presence spends none at all, so the mean sits below one.
+      // thing it does.
+      //
+      // ASSERTED PER FRAME TYPE, because the mean cannot carry it. A mean over the whole phase
+      // averages frames that read the roster together with frames that read nothing, so it FALLS as
+      // the cheap ones multiply: presence and reactions spend no list at all, and enough of them
+      // would hide a `subscribe` that had started reading the roster twice. The rule is a claim
+      // about serving ONE frame, so it is measured where it is made — and every phase is named, so
+      // a phase that stopped sending anything is a missing key rather than a silent zero.
+      expect(Object.keys(report.storageListsPerFrameByType).toSorted()).toEqual([
+        "presence",
+        "publish",
+        "reaction",
+        "sync",
+      ]);
+      for (const [frameType, perFrame] of Object.entries(report.storageListsPerFrameByType)) {
+        expect(
+          perFrame,
+          `${frameType} reads the roster more than once per frame`,
+        ).toBeLessThanOrEqual(1);
+      }
+      // And the mean is still bounded, which is what the two earlier runs were reported at.
       expect(report.storageListsPerFrame).toBeLessThanOrEqual(1);
+
+      // A SECOND OF APPLAUSE COSTS A SOCKET ONE FRAME, whatever the size of the room. Relayed
+      // individually this phase would be one frame per reactor per socket — sixteen hundred on this
+      // variant and ninety thousand on the full one — arriving inside a single second.
+      expect(report.reactionsSent).toBe(participants);
+      expect(report.reactionFramesOnBusiestSocket).toBeGreaterThan(0);
+      // Two is allowed for: the burst is sent as fast as the harness can write, so it can straddle
+      // a window boundary and open a second bucket. At three the coalescing is not coalescing.
+      expect(report.reactionFramesOnBusiestSocket).toBeLessThanOrEqual(2);
 
       // Every socket was still being served at the end: a room that quietly stopped broadcasting
       // would satisfy both bounds above and be broken.

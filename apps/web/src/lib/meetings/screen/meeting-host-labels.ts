@@ -15,3 +15,12 @@ export function hostRoleLabel(role: MeetingHostRole): string {
 
 /** What somebody spotlighted for the room is called, wherever the mark or the act is drawn. */
 export const SPOTLIGHT_LABEL = "Spotlighted for everyone";
+
+/**
+ * What a raised hand is called, wherever the mark is drawn.
+ *
+ * Three surfaces draw it — a tile, a roster row and the host's own queue — which is exactly the
+ * count of surfaces this file exists for. It is the STATE and not the act: the controls that put a
+ * hand up and take it down name themselves.
+ */
+export const HAND_RAISED_LABEL = "Hand raised";

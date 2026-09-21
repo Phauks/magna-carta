@@ -94,9 +94,38 @@ export function meetingGuestsSentence(owner: EventOwner): string {
   return owner === "matter" ? MEETING_GUESTS_SENTENCE : FIRM_MEETING_GUESTS_SENTENCE;
 }
 
-/** The meeting an event draft sends, or null where it carries none. */
-export function meetingInput(choice: MeetingChoice): EventMeetingInput | null {
-  return choice === "none" ? null : { medium: choice };
+/**
+ * WHETHER ARRIVALS WAIT AT A DOOR, as the room OPENS.
+ *
+ * It is the second question the meeting answer asks, and it is asked HERE rather than inside the
+ * room because it is a standing the room starts with: a host changes it from inside a running
+ * meeting, and nothing before the room exists can be changed from inside it. `off` for almost every
+ * setting a firm records — everybody who joins is already on the event — which is why it is a
+ * switch resting off rather than a choice somebody has to make.
+ */
+export type MeetingLobbyChoice = "off" | "on";
+
+/**
+ * What the switch is called, in the ONE place the words are written.
+ *
+ * The same question is asked at the other door into a room — the Start control on a recorded entry,
+ * which opens a meeting on an event that already exists — and two spellings of one control is how a
+ * reader learns that two parts of one product were written by two people.
+ */
+export const MEETING_LOBBY_LABEL = "Hold arrivals in a lobby";
+
+/**
+ * The meeting an event draft sends, or null where it carries none.
+ *
+ * The door rides along ONLY where a meeting is being opened: a lobby answer on an event with no
+ * meeting is an answer to a question nobody asked, and the request would be carrying a standing for
+ * a room that does not exist.
+ */
+export function meetingInput(
+  choice: MeetingChoice,
+  lobby: MeetingLobbyChoice = "off",
+): EventMeetingInput | null {
+  return choice === "none" ? null : { medium: choice, lobby };
 }
 
 /** The dates, times and zone every kind of event shares. */
@@ -126,6 +155,8 @@ export interface EventDraft extends EventTimingDraft {
   participants: ParticipantDraft[];
   /** Whether this setting is also a meeting, and what kind. */
   meeting: MeetingChoice;
+  /** Whether that meeting's room opens with a door. Ignored where there is no meeting. */
+  meetingLobby: MeetingLobbyChoice;
 }
 
 export function emptyEventDraft(
@@ -148,6 +179,9 @@ export function emptyEventDraft(
     recurrence: null,
     participants: [],
     meeting,
+    // Off, because every participant today is a firm member arriving at an event they are already
+    // on: a lobby resting on would put a colleague in a queue for every ordinary hearing.
+    meetingLobby: "off",
   };
 }
 
@@ -368,6 +402,7 @@ export function eventDraftStarted(draft: EventDraft, since: EventDraft): boolean
     draft.conferenceUrl !== since.conferenceUrl ||
     draft.courtReference !== since.courtReference ||
     draft.meeting !== since.meeting ||
+    draft.meetingLobby !== since.meetingLobby ||
     recurrenceChanged(draft.recurrence, since.recurrence) ||
     draft.participants.length !== since.participants.length ||
     draft.participants.some((participant, index) => {
@@ -421,7 +456,7 @@ export function eventDraftRequest(draft: EventDraft): CreateEventRequest {
     courtReference: optionalText(draft.courtReference),
     recurrenceRule: draft.recurrence === null ? null : formatRecurrence(draft.recurrence),
     participants: draft.participants.map(participantInput),
-    meeting: meetingInput(draft.meeting),
+    meeting: meetingInput(draft.meeting, draft.meetingLobby),
   };
 }
 
@@ -451,6 +486,7 @@ export function eventDraftFrom(
     // a correction never takes one off — so the draft opens on None and choosing a medium ADDS a
     // room where there is none. The entry window is what says one is already there.
     meeting: "none",
+    meetingLobby: "off",
   };
 }
 

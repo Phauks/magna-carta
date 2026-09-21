@@ -106,7 +106,7 @@ import {
   CALENDAR_EVENT_MEETING_SCHEDULED_TOPIC,
   type CalendarEventMeetingScheduledPayload,
 } from "@magna-carta/calendar/notifications";
-import { commitEffectBatch, GuardedWriteRefusedError } from "@magna-carta/data-access/effect-batch";
+import { GuardedWriteRefusedError } from "@magna-carta/data-access/effect-batch";
 import {
   CANCEL_CLOSING_GUARD,
   createMeeting,

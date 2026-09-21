@@ -1,4 +1,5 @@
 import { env } from "cloudflare:test";
+import { meetingSocketRequestUrl } from "../src/meetings/meeting-room.ts";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, MatterEventId, MatterId } from "@magna-carta/identifiers/types";
 import { HANDOVER_GUARD, REMOVE_PARTICIPANT_GUARD } from "@magna-carta/meetings/hosting-service";
@@ -169,6 +170,63 @@ async function grantsOf(meetingId: string, cookie = ownerCookie): Promise<HostGr
 
 async function summaryOf(meetingId: string): Promise<MeetingSummary> {
   return await readJson<MeetingSummary>(await get(`/api/v1/meetings/${meetingId}`, ownerCookie));
+}
+
+/**
+ * A socket in the meeting's own signaling room, which is how a BROADCAST is observed.
+ *
+ * The room is a real Durable Object in this pool and the route addresses it by the session firm and
+ * the meeting, so the object a test opens a socket on is the object the handler reaches. What a spy
+ * would assert is that a method was called; what this asserts is that a frame arrived — and, for the
+ * no-op case below, that none did.
+ */
+async function openRoomSocket(
+  meetingId: string,
+  attendanceId: string,
+): Promise<{ frames: Record<string, unknown>[] }> {
+  const stub = env.MEETING_ROOM.get(env.MEETING_ROOM.idFromName(`${firmId}:${meetingId}`));
+  const response = await stub.fetch(
+    new Request(
+      meetingSocketRequestUrl({
+        firmId,
+        meetingId,
+        userId: `user_${attendanceId}`,
+        attendanceId,
+        displayName: "A Member",
+        medium: "video",
+        hostRole: null,
+        locked: false,
+        lobby: "off",
+        waiting: false,
+        waitingFrom: "",
+      }),
+      { headers: { Upgrade: "websocket" } },
+    ),
+  );
+  const socket = response.webSocket;
+  if (socket === null || socket === undefined) throw new Error("no WebSocket on the 101");
+  const frames: Record<string, unknown>[] = [];
+  socket.accept();
+  socket.addEventListener("message", (event) => {
+    frames.push(JSON.parse(String(event.data)) as Record<string, unknown>);
+  });
+  // The welcome crosses the pair before anything else does; the assertions are about what follows.
+  await waitFor(() => frames.length > 0);
+  frames.length = 0;
+  return { frames };
+}
+
+/** Waits on elapsed time, because a push has to cross a socket pair before it can be seen. */
+async function waitFor(condition: () => boolean): Promise<void> {
+  const deadline = Date.now() + 10_000;
+  while (!condition() && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+/** A short pause, used ONLY to assert that nothing arrived — a negative has no condition to wait on. */
+async function settle(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 150));
 }
 
 async function auditEvents(meetingId: string): Promise<string[]> {
@@ -344,17 +402,70 @@ describe("handing the room over and naming a co-host", () => {
       role: "host",
     });
     expect(handedOver.status).toBe(200);
-    expect((await readJson<HostGrants>(handedOver)).data).toEqual([
-      { userId: attorneyUserId, role: "host", grantedAt: expect.any(String) as string },
+    // A HAND-OVER IS NOT A WALK-OUT: the room is the attorney's, and the outgoing host stays on as
+    // a co-host. Dropping them to an ordinary member would take the mute, the spotlight and the
+    // door away from somebody who was hosting a second earlier.
+    expect(
+      (await readJson<HostGrants>(handedOver)).data.map((grant) => [grant.userId, grant.role]),
+    ).toEqual([
+      [attorneyUserId, "host"],
+      [ownerUserId, "co-host"],
     ]);
 
-    // And the authority moved with it, in both directions.
+    // And the authority moved with it: the new host may hand the room on, and the old one may not.
     expect(
       (await post(`/api/v1/meetings/${meetingId}/lock`, attorneyCookie, { locked: true })).status,
     ).toBe(200);
     expect(
-      (await post(`/api/v1/meetings/${meetingId}/lock`, ownerCookie, { locked: false })).status,
+      (
+        await post(`/api/v1/meetings/${meetingId}/hosts`, ownerCookie, {
+          userId: billingUserId,
+          role: "co-host",
+        })
+      ).status,
     ).toBe(403);
+  });
+
+  it("lets a co-host stand down from their own grant without asking the host", async () => {
+    const meetingId = await startedMeeting("Standing down");
+    await joinAs(meetingId, attorneyCookie);
+    expect(
+      (
+        await post(`/api/v1/meetings/${meetingId}/hosts`, ownerCookie, {
+          userId: attorneyUserId,
+          role: "co-host",
+        })
+      ).status,
+    ).toBe(200);
+
+    // A grant only the host could close meant a co-host named for one agenda item carried the mute,
+    // the spotlight and the door for the rest of the meeting, and the only exit was asking.
+    const resigned = await post(
+      `/api/v1/meetings/${meetingId}/hosts/${attorneyUserId}/revoke`,
+      attorneyCookie,
+    );
+    expect(resigned.status).toBe(200);
+    expect((await readJson<HostGrants>(resigned)).data.map((grant) => grant.userId)).toEqual([
+      ownerUserId,
+    ]);
+    // And the authority went with it.
+    expect(
+      (await post(`/api/v1/meetings/${meetingId}/lock`, attorneyCookie, { locked: true })).status,
+    ).toBe(403);
+    expect(await auditEvents(meetingId)).toContain("meetings.meeting.hostingResigned");
+  });
+
+  it("refuses a host who is the only person holding anything", async () => {
+    const meetingId = await startedMeeting("The last one out");
+
+    // The room would be left with nobody running it and no act but a claim. What a host does
+    // instead is hand it over, or end the meeting.
+    const refused = await post(
+      `/api/v1/meetings/${meetingId}/hosts/${ownerUserId}/revoke`,
+      ownerCookie,
+    );
+    expect(refused.status).toBe(403);
+    expect((await readJson<ProblemBody>(refused)).type).toContain("meeting-not-host");
   });
 
   it("names a co-host, who may run the room but not the host", async () => {
@@ -619,6 +730,35 @@ describe("the door", () => {
     expect(
       (await auditEvents(meetingId)).filter((event) => event === "meetings.meeting.lockChanged"),
     ).toHaveLength(1);
+  });
+
+  it("does not disturb the room for a lock that moved nothing", async () => {
+    const meetingId = await startedMeeting("Locking twice, watched");
+    expect(
+      (await post(`/api/v1/meetings/${meetingId}/lock`, ownerCookie, { locked: true })).status,
+    ).toBe(200);
+    const watching = await openRoomSocket(meetingId, newIdentifier("meetingAttendance"));
+
+    // The same value again: the write produces no statements, so there is nothing anybody needs
+    // telling. A room-state broadcast here would spend a frame on every socket in the room to
+    // restate what each of them already draws, and a screen redrawing its door would be reporting
+    // an event that did not happen.
+    expect(
+      (await post(`/api/v1/meetings/${meetingId}/lock`, ownerCookie, { locked: true })).status,
+    ).toBe(200);
+    await settle();
+    expect(watching.frames.filter((frame) => frame["type"] === "room-state")).toHaveLength(0);
+
+    // And a write that DOES move it still reaches the room, so this is a skip rather than a break.
+    expect(
+      (await post(`/api/v1/meetings/${meetingId}/lock`, ownerCookie, { locked: false })).status,
+    ).toBe(200);
+    await waitFor(
+      () => watching.frames.filter((frame) => frame["type"] === "room-state").length > 0,
+    );
+    expect(watching.frames.filter((frame) => frame["type"] === "room-state").at(-1)).toMatchObject({
+      locked: false,
+    });
   });
 });
 

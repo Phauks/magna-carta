@@ -21,6 +21,7 @@ import {
   type PreferredRid,
 } from "@magna-carta/meeting-protocol/frames";
 import type { MeetingHostRole } from "@magna-carta/meeting-protocol/types";
+import type { MeetingMessage } from "@magna-carta/api-client";
 import { noOperationDiagnosticsSink, type DiagnosticsSink } from "./diagnostics.svelte.ts";
 
 /** How long between keepalive pings. */
@@ -74,6 +75,23 @@ export interface MeetingParticipant {
   readonly speaking: boolean;
   /** Their microphone is off, so nothing is coming from it whatever anybody's meter says. */
   readonly muted: boolean;
+  /**
+   * Their hand is up: they want the floor, and a host works the queue in the order the hands went
+   * up. It rides the roster as well as the presence frame that changes it, for the reason the other
+   * two do — a browser arriving at the twentieth minute draws the marks and sorts the queue from
+   * the roster alone rather than being blank until each hand next moves.
+   */
+  readonly hand: boolean;
+  /**
+   * When the room accepted the hand, or null where it is down.
+   *
+   * TWO FIELDS ON THE WIRE, ONE FACT IN STORAGE: the room keeps the instant and projects the
+   * boolean from it, because every tile, every row and every badge branches on the boolean and none
+   * of them wants to compare against null, while only the queue wants the instant. The CLOCK is the
+   * room's for the reason the transcript's own instant is: a queue ordered by what each person's
+   * machine said is not one ordering, and the disagreement is invisible to the host reading it.
+   */
+  readonly handRaisedAt: string | null;
   /**
    * Whether this person is running the meeting, and in which of the two ways. Null for everybody
    * else, which is most of the room.
@@ -180,12 +198,45 @@ export function readParticipants(value: unknown): readonly MeetingParticipant[] 
       // muted" — the state a roster without the two booleans always meant.
       speaking: entry.speaking === true,
       muted: entry.muted === true,
+      // Absent is a hand that is down, which is what a roster without the field always meant and
+      // what is true of everybody in almost every room.
+      hand: entry.hand === true,
+      handRaisedAt: readString(entry, "handRaisedAt"),
       // Absent is "not running this meeting", which is what a roster without the field always meant
       // and what is true of everybody but one or two people in any room.
       hostRole: readHostRole(entry.hostRole),
     });
   }
   return participants;
+}
+
+/**
+ * One message a `message` frame carried, read into the shape the record's own route answers with.
+ *
+ * READ DEFENSIVELY AND WHOLE, like every other frame here: what arrives goes through the same merge
+ * a page does, so a row missing the handle or the instant that ORDERS the transcript is not a row —
+ * drawing it would put a message at an arbitrary place in a conversation, which is worse than
+ * waiting the three seconds for the poll to read the same row correctly.
+ */
+export function readChatMessage(value: unknown): MeetingMessage | null {
+  if (!isRecord(value)) return null;
+  const id = readString(value, "id");
+  const sentAt = readString(value, "sentAt");
+  const participantId = readString(value, "participantId");
+  if (id === null || sentAt === null || participantId === null) return null;
+  return {
+    id,
+    meetingId: readString(value, "meetingId") ?? "",
+    // The record's own two kinds; anything else is a member, which is every row a firm's meeting
+    // holds until guests land.
+    participantKind: value.participantKind === "guest" ? "guest" : "member",
+    participantId,
+    userId: readString(value, "userId"),
+    sentAt,
+    body: readString(value, "body") ?? "",
+    redactedAt: readString(value, "redactedAt"),
+    redactedByUserId: readString(value, "redactedByUserId"),
+  };
 }
 
 /** A simulcast layer as a frame states it, or null where the frame named something else. */
@@ -225,6 +276,27 @@ export interface RoomFrameHandlers {
   roster(frame: Record<string, unknown>): void;
   rosterDelta(frame: Record<string, unknown>): void;
   presence(frame: Record<string, unknown>): void;
+  /**
+   * Somebody threw a reaction, named. It arrives at or below `ROSTER_DELTA_THRESHOLD` and never
+   * about this browser itself — the room does not echo a reaction to its sender, whose own screen
+   * has already drawn it.
+   */
+  reaction(frame: Record<string, unknown>): void;
+  /**
+   * The same second's reactions as COUNTS, which is what a room too large to attribute sends
+   * instead: above the threshold a bubble on the right face is a promise the gallery cannot keep,
+   * and the count is the thing that is actually true at that size. It reaches every socket,
+   * including the people who reacted, so the strip and a bubble are drawn in different places and
+   * nothing is counted twice on any screen.
+   */
+  reactions(frame: Record<string, unknown>): void;
+  /**
+   * A copy of a message the record already holds, so it reaches the other browsers as it is said.
+   * The ROUTE is still the record: a browser that misses this is caught up by the read behind it.
+   */
+  message(frame: Record<string, unknown>): void;
+  /** A message taken back, as the handle and the instant alone — the body is already blank. */
+  messageRedacted(frame: Record<string, unknown>): void;
   layered(frame: Record<string, unknown>): void;
   published(frame: Record<string, unknown>): void;
   subscribed(frame: Record<string, unknown>): void;
@@ -477,6 +549,18 @@ export class MeetingSignaling {
         return;
       case "presence":
         this.#handlers.presence(parsed);
+        return;
+      case "reaction":
+        this.#handlers.reaction(parsed);
+        return;
+      case "reactions":
+        this.#handlers.reactions(parsed);
+        return;
+      case "message":
+        this.#handlers.message(parsed);
+        return;
+      case "message-redacted":
+        this.#handlers.messageRedacted(parsed);
         return;
       case "layered":
         this.#handlers.layered(parsed);

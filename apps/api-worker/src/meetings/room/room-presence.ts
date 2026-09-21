@@ -1,4 +1,5 @@
 import { presenceDeltaFrame } from "@magna-carta/meeting-protocol/frames";
+import { announceRoster, rosterEntryFor } from "./room-roster.ts";
 import {
   broadcast,
   broadcastExcludingStay,
@@ -64,16 +65,20 @@ export async function relayPresence(
 ): Promise<number | null> {
   const now = Date.now();
   const outcome = await room.ctx.blockConcurrencyWhile(
-    async (): Promise<{ relayAt: string | null; dueAt: number | null }> => {
+    async (): Promise<{ relayAt: string | null; dueAt: number | null; hand: boolean }> => {
       const participant = await readParticipant(room, attendanceId);
-      if (participant === undefined) return { relayAt: null, dueAt: null };
+      if (participant === undefined) return { relayAt: null, dueAt: null, hand: false };
       // A frame restating what the room already holds is not a transition, whatever the browser
       // believes, and relaying it would spend a frame on every other socket to say nothing. It also
       // clears nothing: a deferred transition is deferred because the room has not said it yet, and
       // a restatement of what is stored is not the room having said it.
       if (participant.speaking === speaking && participant.muted === muted) {
-        return { relayAt: null, dueAt: null };
+        return { relayAt: null, dueAt: null, hand: false };
       }
+      // Read rather than taken from the frame: the hand is settled by its own path before this runs,
+      // and the record is the one authority on it — a frame relaying what the browser CLAIMED would
+      // be a second answer that disagrees the first time the change was refused.
+      const hand = (participant.handRaisedAt ?? null) !== null;
       const due = relayIsDue(participant, now);
       const at = new Date(now).toISOString();
       await putParticipant(room, attendanceId, {
@@ -84,6 +89,7 @@ export async function relayPresence(
         presenceDirty: !due,
       });
       return {
+        hand,
         relayAt: due ? at : null,
         // The window this transition is waiting on, measured from the last relay — which is exactly
         // what `presenceFlushDeadlineOf` would answer for the record just written.
@@ -97,7 +103,15 @@ export async function relayPresence(
   // Its own frame rather than a roster difference: this is the one change to a participant that
   // happens while nothing else about them has, and wrapping two booleans in a roster entry would
   // carry their name, their session and every track they publish to say one of them moved.
-  broadcast(room, presenceDeltaFrame(attendanceId, speaking, muted, outcome.relayAt), socket);
+  // The hand rides here as well as on the roster, because this frame is what a browser applies to a
+  // tile between roster changes and a reader with two sources for one fact is a reader that can hold
+  // them apart. Always present, never optional: the room is the one writing it, and a client
+  // branching on its presence is a client with two code paths.
+  broadcast(
+    room,
+    presenceDeltaFrame(attendanceId, speaking, muted, outcome.hand, outcome.relayAt),
+    socket,
+  );
   return null;
 }
 
@@ -148,7 +162,13 @@ export async function flushDeferredPresence(room: RoomContext, now: number): Pro
     });
     broadcastExcludingStay(
       room,
-      presenceDeltaFrame(attendanceId, participant.speaking, participant.muted, at),
+      presenceDeltaFrame(
+        attendanceId,
+        participant.speaking,
+        participant.muted,
+        (participant.handRaisedAt ?? null) !== null,
+        at,
+      ),
       attendanceId,
     );
   }
@@ -162,4 +182,110 @@ function relayIsDue(participant: StoredParticipant, now: number): boolean {
   const relayedAt =
     participant.presenceAt === null ? Number.NaN : Date.parse(participant.presenceAt);
   return Number.isNaN(relayedAt) || now - relayedAt >= PRESENCE_RELAY_INTERVAL_MILLISECONDS;
+}
+
+// ---------------------------------------------------------------------------------------------
+// The hand, which rides the same frame and answers to a different rule
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Raises or lowers this participant's own hand, answering whether anything moved.
+ *
+ * THE ROOM STAMPS THE CLOCK AND THE PERSON DECIDES THE BOOLEAN. What is stored is the instant alone;
+ * the roster projects it into the two fields the wire carries. The instant is the room's for the
+ * reason a chat message's is — a queue ordered by what each participant's own machine said is not
+ * one ordering, and the disagreement is invisible to the host reading it.
+ *
+ * IT IS RELAYED ON A ROSTER CHANGE RATHER THAN ON THE PRESENCE FRAME, which is what keeps a host's
+ * queue right: the roster is what a late arrival, a `sync` answer and every browser applying
+ * differences all read, so a hand that travelled only as its own frame would be invisible to the
+ * browser that joined a minute after it went up. A room above the threshold pays one `updated` entry
+ * for it, which is the same arithmetic the difference was built for.
+ *
+ * Nothing is relayed for a frame that restates the hand the room already holds: a browser stating a
+ * fact that has not moved is not a transition, and announcing it would spend a roster frame on every
+ * socket to say nothing.
+ */
+export async function changeHand(
+  room: RoomContext,
+  attendanceId: string,
+  raised: boolean,
+  now: number,
+): Promise<boolean> {
+  const moved = await room.ctx.blockConcurrencyWhile(async () => {
+    const participant = await readParticipant(room, attendanceId);
+    if (participant === undefined) return false;
+    const raisedAt = participant.handRaisedAt ?? null;
+    if ((raisedAt !== null) === raised) return false;
+    await putParticipant(room, attendanceId, {
+      ...participant,
+      handRaisedAt: raised ? new Date(now).toISOString() : null,
+    });
+    return true;
+  });
+  if (!moved) return false;
+  await announceHands(room, [attendanceId]);
+  return true;
+}
+
+/**
+ * A host puts a hand down — one, or every one in the room.
+ *
+ * NOBODY IS SPARED BY "LOWER ALL", including the host who pressed it. A host clearing the floor is
+ * clearing it, and a control that skipped the person pressing it would leave the queue saying
+ * something the panel does not. That is the opposite of the mute-all rule and deliberately so:
+ * mute-all exists so a host can speak, and this exists so a host can start the queue again.
+ *
+ * THE WHOLE ROOM COSTS ONE FRAME. Three hundred cleared hands travel as one roster change carrying
+ * the entries that moved, rather than as three hundred presence frames — the same arithmetic the
+ * roster difference was built for. The caller has already read the roster to decide the authority,
+ * so this takes that map rather than reading three hundred keys again.
+ *
+ * The authority is NOT asked here: a host frame is authorized from the stored participant record in
+ * room-hosting.ts, which is the one place that question is answered in this room.
+ */
+export async function lowerHands(
+  room: RoomContext,
+  stored: ReadonlyMap<string, StoredParticipant>,
+  participantId: string | null,
+): Promise<string[]> {
+  const targets =
+    participantId === null
+      ? [...stored]
+          .filter(([, participant]) => (participant.handRaisedAt ?? null) !== null)
+          .map(([attendanceId]) => attendanceId)
+      : // A hand that is already down, and a stay that is not in the room, are both nothing to do.
+        // Announcing either would tell every browser to redraw a tile over a fact that did not move.
+        (stored.get(participantId)?.handRaisedAt ?? null) === null
+        ? []
+        : [participantId];
+  if (targets.length === 0) return [];
+  await room.ctx.blockConcurrencyWhile(async () => {
+    for (const attendanceId of targets) {
+      const participant = await readParticipant(room, attendanceId);
+      if (participant === undefined) continue;
+      await putParticipant(room, attendanceId, { ...participant, handRaisedAt: null });
+    }
+  });
+  await announceHands(room, targets);
+  return targets;
+}
+
+/**
+ * The hands that moved, as ONE roster change.
+ *
+ * Read after the writes so the entries announced are the ones the room ended with — the same
+ * arrangement mute-everyone takes, and for the same reason: a projection built from what the caller
+ * intended can disagree with what committed.
+ */
+async function announceHands(room: RoomContext, moved: readonly string[]): Promise<void> {
+  const stored = await storedParticipants(room);
+  const updated = moved.flatMap((attendanceId) => {
+    const participant = stored.get(attendanceId);
+    // Gone between the write and this read — they left, or the meeting ended under them. Their
+    // departure is announced by whichever path removed them.
+    return participant === undefined ? [] : [rosterEntryFor(attendanceId, participant)];
+  });
+  if (updated.length === 0) return;
+  announceRoster(room, stored, { updated });
 }

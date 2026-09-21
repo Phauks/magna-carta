@@ -58,9 +58,22 @@ edge is a constructor seam, so the whole machine runs under a test with fakes.
 - `chat.svelte.ts` — what is being said in writing: the transcript, the poll that follows it from
   its own cursor, saying something, taking something back, and the count of what arrived while the
   panel was closed. It is the one thing in this directory that is a RECORD — a message is a route
-  and a row, never a frame — and `noteMessageFrame` is the door the room's later relay lands in.
+  and a row, never a frame — and `noteMessageFrame` / `noteMessageRedacted` are the doors the room's
+  relay lands in. The poll is the BACKSTOP rather than the path once a frame has arrived: it
+  stretches from three seconds to fifteen, and it never stops, because the read is what catches a
+  browser up on the frames it did not get.
+- `reactions.svelte.ts` — a raised hand and a thrown reaction: the two signals that are relayed and
+  never stored. The outgoing window both are paced against, the re-send of a settled hand after a
+  `rate-limited` refusal, the bubbles and their dwell, the coalesced counts a large room draws
+  instead, and the pure sort that puts a host's queue in the order the hands went up. The DWELL is a
+  client constant because only the browser reads it, and it reaches the design system's motion
+  recipe as `--mc-reaction-dwell` rather than being written down a second time in CSS.
 
-**`screen/` — what is drawn.** `meeting-tiles.ts` projects the client's state into tile models and
+**`screen/` — what is drawn.** `meeting-reactions.svelte` (the control-bar menu of six),
+`meeting-reaction-mark.svelte` (the ONE table mapping a reaction's name to a Lucide glyph, and the
+rising mark), `meeting-reaction-counts.svelte` (the strip a large room draws instead of bubbles) and
+`meeting-hands-panel.svelte` (the host's ordered queue) are the raise-hand and reactions surfaces.
+`meeting-tiles.ts` projects the client's state into tile models and
 `meeting-connection.ts` projects its diagnostics into the connection surface's models;
 `meeting-grid.svelte`, `meeting-tile.svelte`, `meeting-roster.svelte`, `meeting-controls.svelte`,
 `meeting-quality-mark.svelte`, `meeting-connection-panel.svelte`, `meeting-chat-panel.svelte` and
@@ -144,6 +157,28 @@ so those modules can take the `MeetingMedium` union without reaching into the ro
   the room and for how long, plus what was said in chat; how somebody's connection behaved is not a
   fact about the meeting and must never become one. The snapshot `report()` builds for the screen
   carries participant handles only, under the same rule.
+- **A HAND AND A REACTION ARE REFUSED, NEVER DROPPED, AND THAT IS WHY THE BROWSER PACES ITSELF.** A
+  presence frame carrying only `speaking` and `muted` states the whole of what it is about, so the
+  room may discard one inside its window and lose nothing a later frame does not restate. A hand and
+  a reaction are single acts with nothing behind them — dropped, a raised hand is never relayed and
+  the host never learns somebody wants the floor — so the room answers `rate-limited` with the
+  socket open instead. This browser's half is `reactions.svelte.ts`: it paces against
+  `SIGNAL_INTERVAL_MILLISECONDS`, and where it is refused anyway it sends the SETTLED hand again
+  once the window passes. A reaction is not re-sent — it was thrown at a moment that has passed.
+- **THE HAND'S INSTANT IS THE ROOM'S WHERE THERE IS ONE, AND THIS BROWSER'S WHERE THERE IS NOT.** A
+  roster row carries `handRaisedAt`, so a browser arriving late sorts the queue from the roster
+  alone; a `presence` frame carries the boolean without the instant, because it is a small frame
+  about a change rather than a restatement of a record. A hand learned that way is stamped where
+  this browser learned of it — the same fallback `#lastSpokeAt` keeps, for the same reason — and a
+  hand with no stamp at all sorts LAST, because putting it first would hand the floor to whoever the
+  room said least about.
+- **THE MICROPHONE'S MEDIA SECTION IS REUSED, NEVER ADDED TO.** A host's mute takes the track away at
+  the routing service, so coming back is a fresh offer and a fresh `publish` — but on the SAME
+  section. A meeting where a host mutes the room every few minutes is a meeting where a member
+  returns many times, and a section per return grows the session description without bound, with
+  every renegotiation after it carrying the whole accumulated list. The mid is also what every later
+  frame addresses the sound by. `#microphoneMid` is what is reused; the old section is already
+  closed at the far end by the mute itself, so nothing here asks the room to close it twice.
 - **A layer is settled by `layered`, never by having sent the frame.** The room drops a `layer`
   frame that follows too closely on the last one, so what the plan WANTS and what the unit is known
   to be sending are two maps, and every pass re-asks for whatever is still outstanding. The same

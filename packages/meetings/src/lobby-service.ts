@@ -143,6 +143,16 @@ export async function setMeetingLobby(
  * it: a host admitting five into two free seats learns which three did not get in. That count cannot
  * hold the ceiling — it is a round trip earlier than the write — so each admission carries the same
  * count in its own WHERE and is guarded, exactly as the arrival's insert is.
+ *
+ * A LOCKED ROOM DOES NOT REFUSE AN ADMISSION, and that is a decision rather than an omission. The
+ * lock is what the room answers an ARRIVAL with: it turns away everybody who was not already inside,
+ * which is what makes it the control a host reaches for when a meeting has started and should not be
+ * interrupted. An admission is the other thing entirely — a host looking at a named person and
+ * deciding, deliberately, that this one comes in. Refusing it would mean a host who shut the door
+ * could no longer let in the colleague they shut it for, and the remedy would be to unlock the room
+ * for everybody standing outside in order to admit one of them, which is the opposite of what the
+ * lock is for. The capacity ceiling still binds, because that is a fact about the room rather than a
+ * decision about a person.
  */
 export async function admitParticipants(
   database: SqlDatabase,

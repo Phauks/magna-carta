@@ -145,7 +145,13 @@ describe("the starter is the host", () => {
     // running the meeting when she was removed" with the name of somebody who had left.
     expect(meeting?.created_by_user_id).toBe(HOST);
     const grants = await readLiveHostGrants(database.database, meetingId);
-    expect(grants.map((grant) => grant.user_id)).toEqual([GUEST]);
+    // The room is GUEST's now; the starter stays on as a co-host, which is what handing over means.
+    expect(grants.filter((grant) => grant.role === "host").map((grant) => grant.user_id)).toEqual([
+      GUEST,
+    ]);
+    expect(
+      grants.filter((grant) => grant.role === "co-host").map((grant) => grant.user_id),
+    ).toEqual([HOST]);
   });
 });
 
@@ -175,7 +181,10 @@ describe("handing the room over", () => {
         revoked_at: string | null;
         revoked_by_user_id: string | null;
       }>();
-    const outgoing = results.find((row) => row.user_id === HOST);
+    // The outgoing host now has TWO rows — the host grant that closed, and the co-host grant that
+    // opened in the same batch — so the closed one is named by its own revocation rather than by
+    // being the only row that member has.
+    const outgoing = results.find((row) => row.user_id === HOST && row.revoked_at !== null);
     const incoming = results.find((row) => row.user_id === GUEST);
     // The room changed hands ONCE, so the closing and the opening carry the same instant: an
     // interval that ended a millisecond before the next began would be a gap nobody was hosting in.
@@ -228,9 +237,12 @@ describe("handing the room over", () => {
 
     expect(racing).toBeInstanceOf(GuardedWriteRefusedError);
     const grants = await readLiveHostGrants(database.database, meetingId);
-    // ONE live host, whatever the order the two landed in.
-    expect(grants.filter((grant) => grant.role === "host")).toHaveLength(1);
-    expect(grants[0]?.user_id).toBe(THIRD);
+    // ONE live host, whatever the order the two landed in. The outgoing host is beside them as a
+    // co-host, which is what a hand-over leaves behind — so the assertion is about the HOST role
+    // rather than about how many grants the room holds.
+    const hosting = grants.filter((grant) => grant.role === "host");
+    expect(hosting).toHaveLength(1);
+    expect(hosting[0]?.user_id).toBe(THIRD);
   });
 });
 
@@ -275,10 +287,12 @@ describe("a co-host", () => {
       { userId: THIRD, role: "co-host" },
       optionsFor(GUEST),
     ).catch((error: unknown) => error);
+    // SOMEBODY ELSE'S grant, which is the act a co-host does not have. Their own is a resignation
+    // and is theirs to make — see the test below.
     const withdrawn = await revokeHosting(
       database.database,
       meetingId,
-      GUEST,
+      HOST,
       optionsFor(GUEST),
     ).catch((error: unknown) => error);
 
@@ -286,6 +300,63 @@ describe("a co-host", () => {
     for (const refusal of [handedOver, named, withdrawn]) {
       expect(codeOf(refusal)).toBe("meeting-not-host");
     }
+  });
+
+  it("may stand down from their own grant without asking the host", async () => {
+    const database = fresh();
+    const meetingId = await roomWithCoHost(database);
+
+    // A grant nobody but the host could close meant a co-host named for one agenda item carried the
+    // mute, the spotlight and the door for the rest of the meeting, and the only way out was asking
+    // the host to do it.
+    const resigned = await revokeHosting(database.database, meetingId, GUEST, optionsFor(GUEST));
+    await commit(database.database, resigned.effect);
+
+    const grants = await readLiveHostGrants(database.database, meetingId);
+    expect(grants.map((grant) => grant.user_id)).toEqual([HOST]);
+    // Its own event, because both rows carry the caller as the actor: a stream with one name would
+    // make "did somebody stand down, or were they stood down" a question you answer by comparing
+    // two identifiers.
+    const rows = await auditRows(database, meetingId);
+    expect(rows.map((row) => row.event)).toContain("meetings.meeting.hostingResigned");
+    expect(rows.map((row) => row.event)).not.toContain("meetings.meeting.coHostWithdrawn");
+  });
+
+  it("is what a host leaves behind when they hand the room over", async () => {
+    const database = fresh();
+    const meetingId = await roomOfTwo(database);
+
+    const { effect } = await grantHosting(
+      database.database,
+      meetingId,
+      { userId: GUEST, role: "host" },
+      options,
+    );
+    await commit(database.database, effect);
+
+    // A HAND-OVER IS NOT A WALK-OUT. The outgoing host is still in the meeting and still running it
+    // with the person they handed it to; dropping them to an ordinary member would take the mute,
+    // the spotlight and the door away from somebody who was hosting a second earlier, with nothing
+    // on any screen to say it had happened.
+    const grants = await readLiveHostGrants(database.database, meetingId);
+    expect(grants.map((grant) => [grant.user_id, grant.role]).toSorted()).toEqual(
+      [
+        [GUEST, "host"],
+        [HOST, "co-host"],
+      ].toSorted(),
+    );
+  });
+
+  it("can stand down even when they are the last grant beside a host who has gone", async () => {
+    const database = fresh();
+    const meetingId = await roomWithCoHost(database);
+
+    // The host's own grant stands while they are away — hosting does not pass on its own — so this
+    // is a co-host resigning out of a room whose only other grant-holder is absent. Allowed: the
+    // room is not left with nobody running it, because the host still holds theirs.
+    const resigned = await revokeHosting(database.database, meetingId, GUEST, optionsFor(GUEST));
+    await commit(database.database, resigned.effect);
+    expect(await readLiveHostGrants(database.database, meetingId)).toHaveLength(1);
   });
 
   it("may not remove the host, and may be withdrawn by them", async () => {
@@ -377,6 +448,62 @@ describe("claiming a room nobody is running", () => {
     expect(await requireHostGrant(database.database, meetingId, GUEST)).toMatchObject({
       role: "host",
     });
+  });
+
+  it("is not blocked by a SECOND co-host sitting in the room with the first", async () => {
+    const database = fresh();
+    const meetingId = await roomOfTwo(database);
+    await join(database, meetingId, THIRD);
+    for (const userId of [GUEST, THIRD]) {
+      const named = await grantHosting(
+        database.database,
+        meetingId,
+        { userId, role: "co-host" },
+        options,
+      );
+      await commit(database.database, named.effect);
+    }
+    const left = await leaveMeeting(database.database, meetingId, optionsFor(HOST, tickingClock()));
+    await commit(database.database, left.effect);
+
+    // TWO CO-HOSTS PRESENT AND THE HOST GONE was the room this refused, and it refused BOTH of
+    // them: each saw the other's live grant and neither could take a room nobody was holding, so
+    // the meeting stayed permanently without a host. A co-host is running the meeting WITH
+    // somebody; they are not the somebody, and only a host in the room answers this question.
+    const claimed = await claimHosting(database.database, meetingId, optionsFor(GUEST));
+    expect(claimed.claimed).toBe(true);
+    await commit(database.database, claimed.effect);
+
+    const grants = await readLiveHostGrants(database.database, meetingId);
+    // The claimer is the host and records the role as one; the OTHER co-host keeps theirs, because
+    // the claim is about the room having nobody running it rather than about stripping grants on
+    // the way past.
+    expect(grants.filter((grant) => grant.role === "host").map((grant) => grant.user_id)).toEqual([
+      GUEST,
+    ]);
+    expect(
+      grants.filter((grant) => grant.role === "co-host").map((grant) => grant.user_id),
+    ).toEqual([THIRD]);
+  });
+
+  it("is still refused while the host is present, whatever else the room holds", async () => {
+    const database = fresh();
+    const meetingId = await roomOfTwo(database);
+    await join(database, meetingId, THIRD);
+    const named = await grantHosting(
+      database.database,
+      meetingId,
+      { userId: THIRD, role: "co-host" },
+      options,
+    );
+    await commit(database.database, named.effect);
+
+    // The host is in the room, so there is nothing to claim — the narrowing above is about which
+    // grant answers the question, not about loosening it.
+    const caught = await claimHosting(database.database, meetingId, optionsFor(GUEST)).catch(
+      (error: unknown) => error,
+    );
+    expect(codeOf(caught)).toBe("meeting-not-host");
   });
 
   it("gives one claimant the room when two claim at once", async () => {

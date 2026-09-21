@@ -300,6 +300,46 @@ export const meetingRoomPresenceRelayed = defineEvent("meetings.room.presenceRel
 ] as const);
 
 /**
+ * REACTIONS RELAYED, and whether the room named the person or counted the room.
+ *
+ * `coalesced` is the branch made visible. False is one reaction in a room small enough for a bubble
+ * on a face, and the count is one. True is a whole second of a large room's applause as a single
+ * frame, and the count is what that frame covered — eleven people applauding is the number the
+ * coalescing exists to be able to send. A stream where `coalesced` is true and the count sits at one
+ * is a room paying for a bucket it does not need.
+ *
+ * There is no field for WHICH reaction and there will not be one: the vocabulary is six names, the
+ * name says something about a person's opinion of what was just said, and the whole subsystem is
+ * careful not to record the mechanics of a conversation.
+ */
+export const meetingRoomReactionsRelayed = defineEvent("meetings.room.reactionsRelayed", [
+  "firmId",
+  "meetingId",
+  "reactionCount",
+  "coalesced",
+] as const);
+
+/**
+ * A chat message carried to the people in the room, as a COUNT OF SOCKETS and nothing else.
+ *
+ * The room is not the record here — the route is, and the row is already committed before this
+ * happens — so what is worth recording is the only thing the route cannot see: whether the copy
+ * reached anybody. A relay to zero sockets is an ordinary meeting nobody is connected to and a relay
+ * to three hundred is a live room; a stream where the first is the only shape is a relay that has
+ * stopped working, which is otherwise invisible because the poller covers for it.
+ *
+ * `redaction` tells the two acts apart. There is NO field for the message handle and none for its
+ * body: what was said is the transcript's to hold, under the matter's own retention, and the
+ * telemetry stream has different readers and a different retention from the record.
+ */
+export const meetingRoomMessageRelayed = defineEvent("meetings.room.messageRelayed", [
+  "firmId",
+  "meetingId",
+  "recipientCount",
+  "redaction",
+] as const);
+
+/**
  * A frame the room would not act on.
  *
  * The reason is the protocol's own closed vocabulary and the Error ID is the handle the member is
@@ -404,6 +444,10 @@ export const meetingRoomAlarmRan = defineEvent("meetings.room.alarmRan", [
   "sweptParticipants",
   "sweptWaiting",
   "presenceFlushed",
+  // How many reactions the wake sent on as one coalesced frame. Zero is the ordinary case — a bucket
+  // exists only while somebody is reacting — and a non-zero is the wake the sub-second deadline was
+  // armed for.
+  "reactionsFlushed",
   "endedMarkerRetired",
   "rearmed",
 ] as const);
@@ -477,6 +521,8 @@ export const EVENT_NAMES = [
   meetingRoomSubscribed,
   meetingRoomLayerChanged,
   meetingRoomPresenceRelayed,
+  meetingRoomReactionsRelayed,
+  meetingRoomMessageRelayed,
   meetingRoomRefused,
   meetingRoomSocketLost,
   meetingRoomSwept,
