@@ -395,6 +395,99 @@ describe("a co-host", () => {
 });
 
 describe("claiming a room nobody is running", () => {
+  it("is refused from a member who is not in the meeting at all", async () => {
+    const database = fresh();
+    // The starter holds the grant and nobody has arrived, so there is no other host PRESENT — which
+    // used to be the whole of the question.
+    const meetingId = await start(database);
+
+    // NOBODY HANDS THIS GRANT OVER, so being in the room is what makes taking it an act of the
+    // meeting rather than of the permission key. Without that, any member a firm lets convene
+    // meetings could take a live one the minute the host's stay closed, from outside it.
+    const caught = await claimHosting(database.database, meetingId, optionsFor(GUEST)).catch(
+      (error: unknown) => error,
+    );
+    expect(codeOf(caught)).toBe("meeting-not-joined");
+    // And nothing moved: the grant the meeting opened with is the grant it still has.
+    expect(
+      (await readLiveHostGrants(database.database, meetingId)).map((one) => one.user_id),
+    ).toEqual([HOST]);
+  });
+
+  it("is refused from a member whose own stay has closed behind them", async () => {
+    const database = fresh();
+    const meetingId = await roomOfTwo(database);
+    for (const userId of [HOST, GUEST]) {
+      const left = await leaveMeeting(
+        database.database,
+        meetingId,
+        optionsFor(userId, tickingClock()),
+      );
+      await commit(database.database, left.effect);
+    }
+
+    // Having BEEN in the room is not being in it. A member who left an hour ago is as outside the
+    // meeting as one who never arrived, and the remedy for both is the same: join.
+    const caught = await claimHosting(database.database, meetingId, optionsFor(GUEST)).catch(
+      (error: unknown) => error,
+    );
+    expect(codeOf(caught)).toBe("meeting-not-joined");
+  });
+
+  it("is accepted from somebody who is in the room when the host's stay has closed", async () => {
+    const database = fresh();
+    const meetingId = await roomOfTwo(database);
+    const left = await leaveMeeting(database.database, meetingId, optionsFor(HOST, tickingClock()));
+    await commit(database.database, left.effect);
+
+    const claimed = await claimHosting(database.database, meetingId, optionsFor(GUEST));
+    expect(claimed.claimed).toBe(true);
+    // Nobody was at a door, so the claim admits nothing — it is the grant alone.
+    expect(claimed.admittedAttendanceId).toBeNull();
+    await commit(database.database, claimed.effect);
+    expect(await requireHostGrant(database.database, meetingId, GUEST)).toMatchObject({
+      role: "host",
+    });
+  });
+
+  it("is accepted from somebody at the DOOR, and admits them in the same batch", async () => {
+    const database = fresh();
+    const { meetingId: lobbyMeeting, effect: opened } = await createMeeting(
+      database.database,
+      { eventKind: "firm", eventId: FIRM_EVENT, lobby: "on" },
+      options,
+    );
+    await commit(database.database, opened);
+    await join(database, lobbyMeeting, HOST);
+    // A lobby-on meeting whose host then goes: everybody queued for somebody who will never admit
+    // them, which is the deadlock the claim exists to end. The claimer is AT the door rather than in
+    // the room, and that counts — a host does not wait in their own lobby.
+    const waiting = await joinMeeting(
+      database.database,
+      lobbyMeeting,
+      optionsFor(GUEST, tickingClock()),
+    );
+    await commit(database.database, waiting.effect);
+    expect(waiting.waiting).toBe(true);
+    const left = await leaveMeeting(
+      database.database,
+      lobbyMeeting,
+      optionsFor(HOST, tickingClock()),
+    );
+    await commit(database.database, left.effect);
+
+    const claimed = await claimHosting(database.database, lobbyMeeting, optionsFor(GUEST));
+    expect(claimed.claimed).toBe(true);
+    expect(claimed.admittedAttendanceId).toBe(waiting.attendanceId);
+    await commit(database.database, claimed.effect);
+
+    const stay = await readOpenAttendance(database.database, lobbyMeeting, GUEST);
+    expect(stay?.admitted_at).not.toBeNull();
+    expect(await requireHostGrant(database.database, lobbyMeeting, GUEST)).toMatchObject({
+      role: "host",
+    });
+  });
+
   it("is refused while a grant holder is in the room", async () => {
     const database = fresh();
     const meetingId = await roomOfTwo(database);

@@ -154,6 +154,30 @@ export interface StoredParticipant {
   // can send either as fast as it can write to a socket, so what bounds them is here.
   readonly syncAt: string | null;
   readonly layerAt: string | null;
+  // THE FOUR ACTS THAT REACH THE ROUTING SERVICE, each carrying the instant the room last spent on
+  // it for this participant. A publish, a subscription, a renegotiation and a close are each a
+  // billed call out of this account, and none of them is bounded by anything the frame itself
+  // carries — the track ceiling bounds how many tracks one participant may HOLD and not how often
+  // they may ask, and a subscription that names the same roster track again is a second forwarding
+  // request for it.
+  //
+  // REFUSED RATHER THAN DROPPED inside the window, which is the opposite of the two throttles above
+  // and follows the same rule they follow: a sync is a request the asker repeats and a layer change
+  // is superseded by the next one, while each of these four is an act the browser is waiting on an
+  // answer to — a dropped publish is a camera that never appears, and a dropped renegotiation is a
+  // subscription that never carries media. So the browser is told, and can ask again.
+  //
+  // Optional, because a record written before these windows existed carries none — which reads as a
+  // participant who has never spent one, which is what they were.
+  readonly publishAt?: string | null;
+  readonly subscribeAt?: string | null;
+  readonly renegotiateAt?: string | null;
+  readonly closeAt?: string | null;
+  // WHEN SOMEBODY LAST ASKED THIS PARTICIPANT TO UNMUTE — kept on the person being asked rather than
+  // on the host asking, because the thing worth bounding is how often one member is tapped on the
+  // shoulder, and two hosts taking turns would otherwise each stay inside their own budget while the
+  // member's screen filled with requests.
+  readonly unmuteAskedAt?: string | null;
   // The media sections the room subscribed on THIS participant's behalf, which is the whole of what
   // they may later ask to change the layer of. A section number is the routing service's handle for
   // a track inside one session, so a browser naming a section the room never subscribed for it is
@@ -291,6 +315,19 @@ export interface MeetingSocketAttachment {
   // answers — a host's panel would then show one waiting time from the lobby route and another from
   // the `waiting` frame, differing by however long the browser took to open its socket.
   readonly waitingFrom?: string;
+  // THE SOCKET'S OWN FRAME BUDGET — what is left of it, and when that was last measured.
+  //
+  // It rides the ATTACHMENT rather than the participant record on purpose, and the two would answer
+  // different questions. The budget is about one connection: a browser sending faster than the room
+  // will serve is a browser, not a person, and a member whose tunnel dropped and who dialled back in
+  // is a new connection that has done nothing yet. Keeping it here also keeps the bound off storage
+  // entirely — every frame would otherwise read and write a key to be told it may proceed, which is
+  // a cost the size of the thing being bounded.
+  //
+  // Absent on a socket that has sent nothing, and on one accepted by a build that predated the
+  // budget — both read as a full bucket, which is what they are.
+  readonly frameBudgetTokens?: number;
+  readonly frameBudgetAt?: string;
 }
 
 // ---------------------------------------------------------------------------------------------

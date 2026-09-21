@@ -158,8 +158,12 @@ one-meeting-per-event precedent — and the route answers with the conflict rath
 
 **Hosting never passes by itself.** A host whose tunnel drops has not stopped hosting, and a room
 reassigned on a socket loss would hand a client meeting to whoever was next in the roster. What
-replaces it is `claimHosting`, refused while any OTHER grant-holder has an open stay and audited as
-a claim, because nobody gave it. **Ending a meeting is a host act for the same reason** — on the key
+replaces it is `claimHosting`, refused while any OTHER grant-holder has an open stay, refused
+(`meeting-not-joined`) to a claimer who holds no open stay of their own, and audited as a claim,
+because nobody gave it. That second refusal is what keeps the claim an act of the MEETING rather
+than of the permission key: nobody hands this grant over, so being in the room — or at its door — is
+the whole of what makes taking it legitimate, and without it any key-holder who could see the event
+could take a live meeting a minute after the host's tunnel dropped. **Ending a meeting is a host act for the same reason** — on the key
 alone, any key-holder could close any meeting they could see the event for, without being in it.
 
 **What is written here and what is a frame.** Removing somebody, shutting the door and changing who

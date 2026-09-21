@@ -268,6 +268,30 @@ describe("who may ask", () => {
     expect(body.sockets.count).toBe(1);
   });
 
+  it("leaves a record of the operator who read into the firm's meeting", async () => {
+    expect(operatorCookie).not.toBe("");
+    const { meetingId, stub } = freshMeeting();
+    await connect(stub, meetingId, "meetingAttendance_inspectAudited", "A Member");
+
+    expect((await get(meetingId, operatorCookie)).status).toBe(200);
+
+    // A READ, AND RECORDED ANYWAY. Nothing else in this platform lets one person see into another
+    // firm's live conversation, so an operator who looked leaves as much of a record as one who
+    // changed something — on the control plane's own log, because the caller belongs to no firm and
+    // the firm being read could neither explain nor attribute a row of its own.
+    const { results } = await env.DB_CONTROL.prepare(
+      "SELECT user_id, metadata FROM auth_audit WHERE event = ?1 ORDER BY created_at DESC",
+    )
+      .bind("meeting.room_inspected")
+      .all<{ user_id: string | null; metadata: string | null }>();
+    const mine = results.filter((row) => (row.metadata ?? "").includes(meetingId));
+    expect(mine).toHaveLength(1);
+    expect(mine[0]?.user_id).not.toBeNull();
+    // The firm and the meeting, and nothing else: who was in the room is what the ANSWER is, and a
+    // second permanent copy of it on the audit row is the one thing this route must not leave.
+    expect(JSON.parse(mine[0]?.metadata ?? "{}")).toEqual({ firmId: FIRM, meetingId });
+  });
+
   it("refuses a firm handle that is not a well-formed identifier before it addresses anything", async () => {
     // The same cookie the case above signed in with, kept rather than signed in for again: a second
     // sign-in spends another attempt against the auth budget for a question that is not about

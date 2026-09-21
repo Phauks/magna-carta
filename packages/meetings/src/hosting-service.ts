@@ -255,8 +255,13 @@ export async function grantHosting(
  * who never asked for the room.
  *
  * So the grant stands while its holder is away, and what a member does instead is CLAIM — refused
- * the moment anybody else holding a grant is in the room, and audited as a claim rather than as a
- * hand-over, because nobody gave it.
+ * the moment anybody else holding a grant is in the room, refused to anybody who is not in the
+ * meeting themselves, and audited as a claim rather than as a hand-over, because nobody gave it.
+ *
+ * THE CLAIMER HAS TO BE THERE. A claim is the one grant nobody hands over, so the only thing making
+ * it an act of the meeting rather than of the permission key is that the person taking the room is
+ * in it — in the room, or standing at its door. Waiting counts and is admitted by the same batch:
+ * that is how a lobby-on meeting whose host has gone gets a host at all.
  *
  * "Anybody ELSE" is the part worth reading twice. A co-host sitting alone in a room whose host went
  * offline holds a live grant, so a count over every grant would refuse them the one act their
@@ -285,6 +290,21 @@ export async function claimHosting(
     };
   }
 
+  // A ROOM IS CLAIMED FROM INSIDE IT, OR FROM ITS DOOR, AND NEVER FROM OUTSIDE THE MEETING. The
+  // permission key says a firm lets this member convene meetings; it says nothing about this one,
+  // and the claim is the one act here that opens a grant without anybody handing it over. Without
+  // this, any key-holder who could see the event could take a live meeting the moment the host's
+  // stay closed — sixty seconds after a tunnel dropped — having never been in the room at all, and
+  // the record would show a host nobody in the meeting had met.
+  //
+  // The stay is read here rather than counted, because the admission below needs the row itself: a
+  // claimer standing at the door is let in by the same batch, which is the whole of how a lobby-on
+  // meeting whose host has gone gets a host again.
+  const stay = await readOpenAttendance(database, meetingId, options.actorUserId);
+  if (stay === undefined) {
+    refuse("meeting-not-joined", "you are not in this meeting");
+  }
+
   if ((await countOtherHostsPresent(database, meetingId, options.actorUserId)) > 0) {
     refuse("meeting-not-host", "somebody is already hosting this meeting");
   }
@@ -302,12 +322,7 @@ export async function claimHosting(
   // queued for somebody who will never admit them; the claim is the way out, and it only works if
   // the claimer is let in by the same batch — a host does not wait in their own lobby, and there
   // must be no instant in which somebody is hosting a room they are not in.
-  const admission = admitWaitingStay(
-    database,
-    meetingId,
-    await readOpenAttendance(database, meetingId, options.actorUserId),
-    now,
-  );
+  const admission = admitWaitingStay(database, meetingId, stay, now);
   return {
     claimed: true,
     admittedAttendanceId: admission.attendanceId,

@@ -143,15 +143,35 @@ export async function admitParticipant(
       presenceDirty: false,
       syncAt: null,
       layerAt: null,
+      // The windows on what a frame costs the routing service start again for the same reason: a
+      // returning browser republishes and re-subscribes everything the moment it is welcomed, and
+      // charging it for what the connection that is already gone spent would refuse the first act
+      // of the reconnection this path exists to perform.
+      publishAt: null,
+      subscribeAt: null,
+      renegotiateAt: null,
+      closeAt: null,
+      // Carried forward rather than reset, because it is a fact about the PERSON being asked rather
+      // than about their connection: a member who reconnects has not stopped having just been asked
+      // to unmute, and clearing it would make reconnecting the way to ask somebody again.
+      unmuteAskedAt: existing?.unmuteAskedAt ?? null,
       // A new socket is a NEW routing session (see above), so every subscription the old one held
       // is gone with it and none of its media sections means anything any more.
       subscribedMids: [],
-      // SEEDED FROM THE UPGRADE, and read from this record for every frame afterwards. The socket
-      // route has just read the live grants to decide the caller may be in the room at all, so this
-      // costs nothing; what it must not do is become the authority, because a frozen attachment
-      // cannot say that a grant was withdrawn ten minutes into a meeting. The hosting routes rewrite
-      // this field when they commit (room-hosting.ts).
-      hostRole: attachment.hostRole ?? null,
+      // SEEDED FROM THE UPGRADE ONLY WHEN THERE IS NOTHING TO SEED, and read from this record for
+      // every frame afterwards. The socket route has just read the live grants to decide the caller
+      // may be in the room at all, so the seed costs nothing; what it must not do is become the
+      // authority, because a frozen attachment cannot say that a grant was withdrawn ten minutes
+      // into a meeting. The hosting routes rewrite this field when they commit (room-hosting.ts).
+      //
+      // WHICH IS WHY A RECORD THAT ALREADY EXISTS KEEPS ITS OWN ROLE. The route reads the grants a
+      // moment before the upgrade, and a withdrawal landing in between commits to the record and
+      // then tells the room — so a reconnect that wrote the attachment's seed over the stored role
+      // would put the grant back for as long as that socket stayed open, undoing the revocation with
+      // no act of anybody's. `hostingChanged` is the only writer of truth here once the first
+      // welcome has been sent.
+      hostRole:
+        existing === undefined ? (attachment.hostRole ?? null) : (existing.hostRole ?? null),
     });
     return existing;
   });
@@ -162,9 +182,14 @@ export async function admitParticipant(
   if (superseded.length > 0) {
     await recordSuperseded(room, attachment, attachment.attendanceId, superseded.length);
   }
+  // WHAT THIS SOCKET IS ACTUALLY RUNNING THE MEETING AS, which is the stored record's answer and
+  // not the attachment's whenever the two can differ. Taken once here and used by everything below
+  // that asks the question, so the record, the event and the door list cannot give three answers.
+  const hostRole =
+    previous === undefined ? (attachment.hostRole ?? null) : (previous.hostRole ?? null);
   await recordJoined(room, attachment, attachment.attendanceId, {
     medium: attachment.medium,
-    hostRole: attachment.hostRole ?? null,
+    hostRole,
     waiting: false,
     // A rejoin and an arrival are the same code path and a different event to whoever is reading
     // it: one of them is somebody's connection failing, and it is the one behind most reports of a
@@ -179,12 +204,10 @@ export async function admitParticipant(
   //
   // The lobby list rides along on the same reasoning and only for a socket that is RUNNING the
   // meeting: who is at the door is a list of people a host has not yet decided about, and telling
-  // the room who is outside it is the leak the door was shut to prevent. The seeded role is what
-  // decides, which is the one thing the attachment is allowed to answer before the record is read.
-  const doorList =
-    (attachment.hostRole ?? null) === null
-      ? []
-      : waitingParticipantsFrom(await storedWaiting(room));
+  // the room who is outside it is the leak the door was shut to prevent. What decides is the role
+  // the record ends up holding — a grant withdrawn between the route's read and this welcome must
+  // not still open the door, which is the same reason the record keeps its own role above.
+  const doorList = hostRole === null ? [] : waitingParticipantsFrom(await storedWaiting(room));
   trySend(
     server,
     welcomeFrame(attachment.attendanceId, rosterFrom(stored), await roomStateOf(room), doorList),

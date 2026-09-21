@@ -9,6 +9,7 @@ import {
   SOCKET_LOSS_GRACE_SECONDS,
 } from "../src/meetings/meeting-room.ts";
 import {
+  FRAME_BUDGET_BURST,
   MAX_MEETING_FRAME_BYTES,
   MEETING_REACTIONS,
   PING_FRAME,
@@ -528,6 +529,32 @@ async function countStorageReads(
 }
 
 /**
+ * How many keys the room WROTE while `run` was in flight.
+ *
+ * The reads above are bounded because a room of three hundred pays three hundred keys for a list;
+ * a write is bounded for a different reason — it is what a browser can make the room do over and
+ * over by restating a fact about itself, and the bound on that is the socket's frame budget.
+ */
+async function countStorageWrites(
+  stub: ReturnType<typeof roomStub>,
+  run: () => Promise<void>,
+): Promise<number> {
+  let writes = 0;
+  await runInDurableObject(stub, (_room: MeetingRoom, state) => {
+    const storage = state.storage as unknown as {
+      put: (...args: unknown[]) => Promise<unknown>;
+    };
+    const underlying = storage.put.bind(state.storage);
+    storage.put = async (...args: unknown[]) => {
+      writes += 1;
+      return await underlying(...args);
+    };
+  });
+  await run();
+  return writes;
+}
+
+/**
  * How many times the room walked its sockets while `run` was in flight.
  *
  * Every walk deserializes every socket's attachment, so this number TIMES the socket count is what a
@@ -576,7 +603,7 @@ async function rewindPresence(
 async function rewindThrottle(
   stub: ReturnType<typeof roomStub>,
   attendanceId: string,
-  field: "syncAt" | "layerAt",
+  field: "syncAt" | "layerAt" | "publishAt" | "subscribeAt" | "renegotiateAt" | "closeAt",
   milliseconds: number,
 ): Promise<void> {
   await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
@@ -1618,9 +1645,19 @@ describe("what a participant may claim to be publishing", () => {
       type: "refused",
       reason: "track-limit-reached",
     });
-    // Republishing one it already has is not a ninth track and is still served.
+    // Republishing one it already has is not a ninth track and is still served. The window on what
+    // a publish costs the routing service is wound back first: this case is about the TRACK ceiling,
+    // and leaving the two to interact would make it pass or fail on how long the refusal above took
+    // to arrive.
+    await rewindThrottle(stub, attendanceId, "publishAt", 2000);
+    const published = participant.frames.filter((frame) => frame["type"] === "published").length;
     await publish(participant, attendanceId, [{ name: "track0", kind: "video" }]);
-    expect(lastFrame(participant, "published")).toBeDefined();
+    await waitFor(
+      () => participant.frames.filter((frame) => frame["type"] === "published").length > published,
+    );
+    expect(participant.frames.filter((frame) => frame["type"] === "published").length).toBe(
+      published + 1,
+    );
   });
 });
 
@@ -2210,6 +2247,33 @@ describe("running the room from inside it", () => {
       lastFrame(coHost, "roster") as { participants: RosterEntry[] }
     ).participants.find((one) => one.participantId === MEMBER_STAY);
     expect(rosterEntry).toMatchObject({ hostRole: null });
+  });
+
+  it("does not hand a withdrawn grant back when that browser reconnects", async () => {
+    const { meetingId, stub } = freshRoom();
+    const coHost = await connect(stub, meetingId, MEMBER_STAY, "A Co-host", "video", "co-host");
+    const other = await connect(stub, meetingId, OTHER_STAY, "Another Member");
+    await publish(other, OTHER_STAY, [{ name: "microphone", kind: "audio" }]);
+
+    // The route commits the withdrawal and tells the room, which rewrites the stored record.
+    await stub.hostingChanged([]);
+    await waitFor(() => lastFrame(coHost, "roster") !== undefined);
+
+    // AND THEN THE BROWSER RECONNECTS, carrying exactly what the socket route seeded when it read
+    // the grants — which, in the window this closes, is a grant that has since been withdrawn. The
+    // route reads the record a moment before the upgrade and the revocation lands in between, so a
+    // reconnect that wrote its own seed over the stored role would put the grant back for as long
+    // as the new socket stayed open, undoing the withdrawal with nobody having asked for it.
+    const again = await connect(stub, meetingId, MEMBER_STAY, "A Co-host", "video", "co-host");
+    expect(welcomeRosterOf(again).find((one) => one.participantId === MEMBER_STAY)).toMatchObject({
+      hostRole: null,
+    });
+
+    send(again, { type: "mute", participantId: OTHER_STAY });
+    await waitFor(() => lastFrame(again, "refused") !== undefined);
+    expect(lastFrame(again, "refused")).toMatchObject({ reason: "not-host" });
+    // Nothing happened to the person they aimed at, which is the half that actually matters.
+    expect((await storedOf(stub, OTHER_STAY))?.["muted"]).toBe(false);
   });
 
   it("mutes everybody else and leaves the caller, the host and every co-host publishing", async () => {
@@ -3153,6 +3217,190 @@ describe("the chat relay, which is a copy and never the record", () => {
   });
 });
 
+describe("what one socket may send, whatever it sends", () => {
+  const STAY = "meetingAttendance_frameBudget01";
+  const OTHER_STAY = "meetingAttendance_frameBudget02";
+
+  function burst(participant: Participant, frame: Record<string, unknown>, count: number): void {
+    for (let sent = 0; sent < count; sent += 1) {
+      participant.send(JSON.stringify({ v: 1, ...frame }));
+    }
+  }
+
+  function refusals(participant: Participant): Record<string, unknown>[] {
+    return participant.frames.filter((frame) => frame["type"] === "refused");
+  }
+
+  it("refuses what arrives past the burst, keeps the socket open, and serves it again as the bucket refills", async () => {
+    const { meetingId, stub } = freshRoom();
+    const member = await connect(stub, meetingId, STAY, "A Member");
+    const rosters = () => member.frames.filter((frame) => frame["type"] === "roster").length;
+    const before = rosters();
+
+    // EVERY FRAME SPENDS FROM THE SAME BUCKET, whatever it is. A `sync` is used because its own
+    // window makes every one of them past the first cost the room nothing — so what is left to
+    // measure is the general budget alone.
+    burst(member, { type: "sync" }, FRAME_BUDGET_BURST + 20);
+    await waitFor(() => refusals(member).length >= 15);
+    await settle();
+
+    // The burst is answered in full and the tail is refused, in the room's non-fatal vocabulary.
+    expect(refusals(member).length).toBeGreaterThanOrEqual(15);
+    expect(refusals(member).every((frame) => frame["reason"] === "rate-limited")).toBe(true);
+    // THE SOCKET STAYS OPEN. A browser sending too fast is still somebody in the meeting, and
+    // dropping it would cost them every track they hold.
+    expect(member.closeCode()).toBeNull();
+
+    // AND A BURST IS NOT A BAN. The bucket refills by the clock rather than by a timer this test
+    // could advance, so the wait is a real one — two settles is several tokens back at the pace both
+    // ends of the wire agree on.
+    await settle();
+    await settle();
+    await rewindThrottle(stub, STAY, "syncAt", 2000);
+    member.send(JSON.stringify({ v: 1, type: "sync" }));
+    await waitFor(() => rosters() > before);
+    expect(rosters()).toBeGreaterThan(before);
+  });
+
+  it("bounds what a burst of presence costs the room in stored writes", async () => {
+    const { meetingId, stub } = freshRoom();
+    const member = await connect(stub, meetingId, STAY, "A Member");
+    await connect(stub, meetingId, OTHER_STAY, "Another Member");
+
+    // PRESENCE IS THE FRAME A BROWSER CAN PRODUCE MOST CHEAPLY AND THE ROOM PAYS FOR MOST OFTEN:
+    // the relay is throttled, the STORE is not, and every frame that carries a different pair of
+    // booleans writes the participant record. Alternating them is what a microphone crossing a
+    // detector's threshold looks like, and a client doing it in a loop looks the same.
+    const sent = 100;
+    const writes = await countStorageWrites(stub, async () => {
+      for (let frame = 0; frame < sent; frame += 1) {
+        member.send(
+          JSON.stringify({ v: 1, type: "presence", speaking: frame % 2 === 0, muted: false }),
+        );
+      }
+      await waitFor(() => refusals(member).length >= sent - FRAME_BUDGET_BURST - 5);
+      await settle();
+    });
+
+    // The budget is what bounds it: the frames past the burst never reach the store at all.
+    expect(writes).toBeLessThanOrEqual(FRAME_BUDGET_BURST + 5);
+    expect(writes).toBeLessThan(sent);
+  });
+
+  it("writes nothing for a presence frame that restates what the room already holds", async () => {
+    const { meetingId, stub } = freshRoom();
+    const member = await connect(stub, meetingId, STAY, "A Member");
+    const other = await connect(stub, meetingId, OTHER_STAY, "Another Member");
+    member.send(JSON.stringify({ v: 1, type: "presence", speaking: true, muted: false }));
+    await waitFor(() => lastFrame(other, "presence") !== undefined);
+
+    // A frame restating what the room holds is not a transition, whatever the browser believes —
+    // so it costs neither a write nor a frame on anybody else's socket. The store is capped by the
+    // same window the relay is: inside it, only a change is worth keeping.
+    const writes = await countStorageWrites(stub, async () => {
+      for (let frame = 0; frame < 5; frame += 1) {
+        member.send(JSON.stringify({ v: 1, type: "presence", speaking: true, muted: false }));
+      }
+      await settle();
+    });
+    expect(writes).toBe(0);
+    expect(await presenceOf(stub, STAY)).toMatchObject({ speaking: true, presenceDirty: false });
+  });
+});
+
+describe("the windows on what a frame costs the routing service", () => {
+  const STAY = "meetingAttendance_upstreamWindow";
+
+  it("refuses a second publish inside its window, and asks the service nothing", async () => {
+    const { meetingId, stub } = freshRoom();
+    const participant = await connect(stub, meetingId, STAY, "A Member");
+    await publish(participant, STAY, [{ name: "camera", kind: "video" }]);
+    const published = upstream.filter((call) => call.path.endsWith("/tracks/new")).length;
+
+    // EACH PUBLISH IS A BILLED CALL OUT OF THIS ACCOUNT, and nothing on the frame bounds how often
+    // one may be sent: the track ceiling bounds what a participant may HOLD. So a second inside the
+    // window is refused, and the service is never asked.
+    participant.send(
+      JSON.stringify({
+        v: 1,
+        type: "publish",
+        sessionDescription: { type: "offer", sdp: "v=0 browser-offer" },
+        tracks: [{ trackName: `${STAY}:screen`, mid: "1", kind: "screen" }],
+      }),
+    );
+    await waitFor(() => lastFrame(participant, "refused") !== undefined);
+    expect(lastFrame(participant, "refused")).toEqual({
+      v: 1,
+      type: "refused",
+      reason: "rate-limited",
+    });
+    expect(upstream.filter((call) => call.path.endsWith("/tracks/new"))).toHaveLength(published);
+    // REFUSED RATHER THAN DROPPED, because the browser is waiting on an answer: a publish that
+    // vanished would be a camera that never appears and nothing on either end to say why.
+    expect(participant.closeCode()).toBeNull();
+
+    // And the window is a window: past it, the same frame is served.
+    await rewindThrottle(stub, STAY, "publishAt", 2000);
+    await publish(participant, STAY, [{ name: "screen", kind: "screen" }]);
+    await waitFor(
+      () => upstream.filter((call) => call.path.endsWith("/tracks/new")).length > published,
+    );
+    expect(upstream.filter((call) => call.path.endsWith("/tracks/new")).length).toBeGreaterThan(
+      published,
+    );
+  });
+
+  it("asks one member to unmute once per window, however many hosts are asking", async () => {
+    const { meetingId, stub } = freshRoom();
+    const host = await connect(
+      stub,
+      meetingId,
+      "meetingAttendance_askHost",
+      "A Host",
+      "video",
+      "host",
+    );
+    const coHost = await connect(
+      stub,
+      meetingId,
+      "meetingAttendance_askCoHost",
+      "A Co-Host",
+      "video",
+      "co-host",
+    );
+    const member = await connect(stub, meetingId, "meetingAttendance_askTarget", "A Member");
+
+    const ask = (from: Participant) => {
+      from.send(
+        JSON.stringify({
+          v: 1,
+          type: "ask-to-unmute",
+          participantId: "meetingAttendance_askTarget",
+        }),
+      );
+    };
+    ask(host);
+    await waitFor(() => lastFrame(member, "unmute-requested") !== undefined);
+    const asked = member.frames.filter((frame) => frame["type"] === "unmute-requested").length;
+    expect(asked).toBe(1);
+
+    // THE WINDOW BELONGS TO THE PERSON BEING ASKED. A member who has already decided not to unmute
+    // must not have their screen filled by a host holding the button down — nor by two hosts taking
+    // turns, each of whom would otherwise be well inside a budget of their own.
+    ask(host);
+    await waitFor(() => lastFrame(host, "refused") !== undefined);
+    expect(lastFrame(host, "refused")).toMatchObject({ reason: "rate-limited" });
+    ask(coHost);
+    await waitFor(() => lastFrame(coHost, "refused") !== undefined);
+    expect(lastFrame(coHost, "refused")).toMatchObject({ reason: "rate-limited" });
+    await settle();
+    expect(member.frames.filter((frame) => frame["type"] === "unmute-requested")).toHaveLength(1);
+    // The member is told nothing about either refusal: what they were asked once, they were asked
+    // once.
+    expect(lastFrame(member, "refused")).toBeUndefined();
+  });
+});
+
 describe("what the room records about itself", () => {
   const STAY = "meetingAttendance_diagnosticsOne";
   const OTHER_STAY = "meetingAttendance_diagnosticsTwo";
@@ -3393,6 +3641,38 @@ describe("what the room records about itself", () => {
       presenceFlushed: 0,
       endedMarkerRetired: false,
       rearmed: true,
+    });
+  });
+
+  it("samples the refusals a socket over its budget produces rather than recording each one", async () => {
+    const { meetingId, stub } = freshRoom();
+    const participant = await connect(stub, meetingId, STAY, "A Member");
+
+    // A REFUSAL IS ORDINARILY ONE EVENT PER ACT, and that is right for every other refusal in this
+    // room: each is one thing the room would not do, and there are a bounded number of them in a
+    // meeting. This one is what a client in a loop receives, so an event apiece would make the
+    // record of a flood cost more than the flood.
+    for (let frame = 0; frame < FRAME_BUDGET_BURST + 40; frame += 1)
+      send(participant, { type: "sync" });
+    await waitFor(() => participant.frames.filter((one) => one["type"] === "refused").length >= 30);
+    await settle();
+
+    const refused = participant.frames.filter((one) => one["type"] === "refused").length;
+    const kept = recorded("meetings.room.refused").filter(
+      (event) => event["reason"] === "rate-limited",
+    );
+    // EVERY REFUSED FRAME IS ANSWERED ON THE WIRE — a browser that is told nothing cannot slow down
+    // — and only a sample of them is recorded.
+    expect(refused).toBeGreaterThanOrEqual(30);
+    expect(kept.length).toBeGreaterThan(0);
+    expect(kept.length).toBeLessThan(refused / 4);
+    // No frame type, and that is a fact rather than a gap: the budget is spent before the frame is
+    // parsed, so the room genuinely did not look at what it was refusing.
+    expect(kept[0]).toMatchObject({
+      meetingId,
+      attendanceId: STAY,
+      reason: "rate-limited",
+      frameType: "",
     });
   });
 

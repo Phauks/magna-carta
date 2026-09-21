@@ -21,6 +21,9 @@
 // The route adds nothing to that set and must not.
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import type { MiddlewareHandler } from "hono";
+import { insertAuthAuditStatement } from "@magna-carta/data-access/auth-audit-statements";
+import { newIdentifier } from "@magna-carta/identifiers/generate";
+import type { AuthAuditId } from "@magna-carta/identifiers/types";
 import { identifierPattern } from "@magna-carta/identifiers/validate";
 import type { Bindings } from "../app.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
@@ -135,7 +138,13 @@ const inspectMeta: RouteMeta = {
   authenticated: true,
   permission: null,
   resource: "firm",
-  audited: false,
+  // A READ, AND AUDITED ANYWAY. Nothing else in this platform lets one person see into another
+  // firm's live conversation — who is in it, who is at its door, how each of them is connected —
+  // and an operator who looked leaves as much of a record as an operator who changed something.
+  // The row goes to the control plane's own `auth_audit` beside the other platform-operator acts,
+  // because the caller belongs to no firm and the firm being read must not be handed a row it
+  // could neither explain nor attribute.
+  audited: true,
   idempotency: "optional",
   rateLimit: "default",
 };
@@ -198,6 +207,17 @@ export function registerMeetingInspectRoutes(
     async (c) => {
       const { meetingId } = c.req.valid("param");
       const { firmId } = c.req.valid("query");
+      // WRITTEN BEFORE THE ROOM IS READ, and awaited, so there is no ordering in which the answer
+      // is served and the record is not there. It carries the operator, the firm and the meeting
+      // and nothing else — who was in the room is what the answer is, and an audit row holding a
+      // copy of it would be a second, permanent copy of the thing this route exists to show once.
+      await insertAuthAuditStatement(c.env.DB_CONTROL, {
+        id: newIdentifier("authAudit") as AuthAuditId,
+        event: "meeting.room_inspected",
+        userId: c.get("platformOperatorUserId") ?? null,
+        metadata: { firmId, meetingId },
+        now: new Date().toISOString(),
+      }).run();
       // Addressed exactly as every other caller addresses it, through the one resolver — a second
       // way of naming the object would be a second answer to which room this is.
       const inspection = await meetingRoomFor(c.env, firmId, meetingId).inspect();

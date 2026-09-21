@@ -1,4 +1,6 @@
 import {
+  FRAME_BUDGET_BURST,
+  FRAME_BUDGET_PER_SECOND,
   NORMAL_CLOSE_CODE,
   parseMeetingClientFrame,
   PONG_FRAME,
@@ -33,6 +35,7 @@ import {
   recordSubscribed,
   refuseAndCloseRecorded,
   refuseAndRecord,
+  refuseOverBudget,
   storedSampleOf,
 } from "./room-diagnostics.ts";
 import {
@@ -87,6 +90,37 @@ const MAX_TRACKS_PER_PARTICIPANT = 8;
 const SYNC_INTERVAL_MILLISECONDS = 1000;
 const LAYER_INTERVAL_MILLISECONDS = 250;
 
+// HOW OFTEN ONE PARTICIPANT MAY SPEND A CALL TO THE ROUTING SERVICE — one window per act, because
+// the four are not interchangeable and a browser doing the ordinary thing does all of them at once.
+//
+// Each of these frames is a billed upstream call and none of them is bounded by anything the frame
+// carries: the track ceiling bounds how many tracks a participant may HOLD rather than how often
+// they may ask, a subscription naming a roster track again is a second forwarding request for it,
+// and a renegotiation and a close are answered by the service whatever was asked a moment ago. The
+// socket's general budget above bounds the total; these bound the part of it that costs money.
+//
+// A RENEGOTIATION IS GIVEN THE SHORTEST WINDOW because it is the one frame here the room ASKED for:
+// it is the browser's answer to an offer the room made in response to a subscription or a close, so
+// its legitimate pace is the pace of those two added together, and refusing one leaves a
+// subscription that never carries media. The other three are acts a person takes — turning a camera
+// on, turning a gallery page — and a quarter of a second is far faster than any of them happens.
+//
+// The claim is made AFTER everything the roster can refuse and BEFORE the session is resolved, so a
+// frame the room was never going to act on spends no window, and one it will act on spends it
+// exactly once.
+const PUBLISH_INTERVAL_MILLISECONDS = 250;
+const SUBSCRIBE_INTERVAL_MILLISECONDS = 250;
+const CLOSE_INTERVAL_MILLISECONDS = 250;
+const RENEGOTIATE_INTERVAL_MILLISECONDS = 100;
+
+/** The window each act that reaches the routing service answers to, and the field it is kept in. */
+const UPSTREAM_WINDOWS = {
+  publish: { field: "publishAt", intervalMilliseconds: PUBLISH_INTERVAL_MILLISECONDS },
+  subscribe: { field: "subscribeAt", intervalMilliseconds: SUBSCRIBE_INTERVAL_MILLISECONDS },
+  renegotiate: { field: "renegotiateAt", intervalMilliseconds: RENEGOTIATE_INTERVAL_MILLISECONDS },
+  close: { field: "closeAt", intervalMilliseconds: CLOSE_INTERVAL_MILLISECONDS },
+} as const;
+
 /** The frames that reach the routing service, which is every one the room does not answer itself. */
 type SignalingFrame = Exclude<
   MeetingClientFrame,
@@ -128,6 +162,21 @@ export async function dispatchClientFrame(
   const budget = beginFrameBudget();
   let frameType: MeetingClientFrame["type"] | "" = "";
   try {
+    // THE GENERAL BUDGET, SPENT BEFORE THE FRAME IS EVEN READ. Every rule below this one bounds a
+    // particular frame against a particular cost, and none of them bounds a browser that sends
+    // something else as fast as it can write — a publish, a subscribe, a renegotiation and a close
+    // are each a billed upstream call, presence writes the participant record, and a frame the room
+    // refuses still costs it the refusal. So the socket carries a token bucket and a frame arriving
+    // with nothing left is answered `rate-limited` with the socket KEPT OPEN.
+    //
+    // Decided ahead of the parse deliberately: a frame the room will not read must not cost it a
+    // parse of up to the frame ceiling, which is what a flood is made of. That is also why the
+    // record carries no frame type for this refusal — the room genuinely did not look.
+    const holder = attachmentOf(socket);
+    if (holder !== null && !spendFrameToken(socket, holder)) {
+      await refuseOverBudget(room, socket, holder, holder.attendanceId, "");
+      return;
+    }
     frameType = await routeClientFrame(room, socket, message);
   } finally {
     // The attachment is read again HERE rather than carried out of the routing, and only for a
@@ -138,6 +187,48 @@ export async function dispatchClientFrame(
       await recordFrameBudget(room, attachmentOf(socket) ?? undefined, frameType, budget);
     }
   }
+}
+
+/**
+ * Takes one token out of this socket's bucket, answering whether there was one to take.
+ *
+ * SYNCHRONOUS FROM READ TO WRITE, with no await between them, which is what makes it safe without a
+ * gate: the runtime interleaves a Durable Object's frames only at an await, so two frames cannot
+ * both read the same bucket and both spend it. Doing it under `blockConcurrencyWhile` instead would
+ * put every frame in the room behind a lock in order to decide it was allowed.
+ *
+ * The refill is measured from the last spend rather than counted down by a timer, because a
+ * hibernating room has no timer: a socket that sent nothing for a minute comes back to a full bucket
+ * by arithmetic on two numbers it carried through the eviction.
+ *
+ * The instant is written on a refusal as well as on a spend, and the tokens are written back
+ * unchanged — a refused frame must not consume what it was refused for, and the refill has to go on
+ * accruing or a socket that keeps trying would never be let back in.
+ */
+function spendFrameToken(socket: WebSocket, attachment: MeetingSocketAttachment): boolean {
+  const now = Date.now();
+  const measuredAt =
+    attachment.frameBudgetAt === undefined ? Number.NaN : Date.parse(attachment.frameBudgetAt);
+  const carried =
+    typeof attachment.frameBudgetTokens === "number" &&
+    Number.isFinite(attachment.frameBudgetTokens)
+      ? attachment.frameBudgetTokens
+      : FRAME_BUDGET_BURST;
+  // A socket that has never spent one starts full, and so does one whose stamp cannot be read — a
+  // bucket the room cannot measure is one it must not refuse from.
+  const held = Number.isNaN(measuredAt)
+    ? FRAME_BUDGET_BURST
+    : Math.min(
+        FRAME_BUDGET_BURST,
+        carried + (Math.max(0, now - measuredAt) * FRAME_BUDGET_PER_SECOND) / 1000,
+      );
+  const allowed = held >= 1;
+  socket.serializeAttachment({
+    ...attachment,
+    frameBudgetTokens: allowed ? held - 1 : held,
+    frameBudgetAt: new Date(now).toISOString(),
+  });
+  return allowed;
 }
 
 /** The routing itself, answering what kind of frame it turned out to be. */
@@ -440,6 +531,37 @@ async function handleSignalingFrame(
     return;
   }
 
+  // AND THE WINDOW ON WHAT THIS PARTICULAR ACT COSTS THE ACCOUNT. Claimed here — past every refusal
+  // the roster can decide and ahead of the session — so a frame the room will not act on spends
+  // nothing, and a frame it will act on spends one call to the service and one window.
+  //
+  // A layer change is the one act here with no entry: it has its own window a frame earlier, ahead
+  // of the roster read it would otherwise pay for, and it is DROPPED rather than refused because the
+  // next one supersedes it.
+  const window = frame.type === "layer" ? null : UPSTREAM_WINDOWS[frame.type];
+  if (
+    window !== null &&
+    !(await claimThrottleSlot(
+      room,
+      attachment.attendanceId,
+      window.field,
+      window.intervalMilliseconds,
+    ))
+  ) {
+    // Refused rather than dropped: the browser is waiting on an answer to each of these four, and
+    // one that never arrives is a camera that does not appear or a subscription that carries no
+    // media. Told, it can ask again.
+    await refuseAndRecord(
+      room,
+      socket,
+      attachment,
+      attachment.attendanceId,
+      "rate-limited",
+      frame.type,
+    );
+    return;
+  }
+
   // Every signaling frame acts on this participant's routing-service session, so it is resolved
   // once here — and its absence is one answer rather than four.
   const outcome = await sessionFor(room, attachment.attendanceId, sfu);
@@ -613,7 +735,7 @@ async function changeHandWithinWindow(
 async function claimThrottleSlot(
   room: RoomContext,
   attendanceId: string,
-  field: "syncAt" | "layerAt",
+  field: "syncAt" | "layerAt" | "publishAt" | "subscribeAt" | "renegotiateAt" | "closeAt",
   intervalMilliseconds: number,
 ): Promise<boolean> {
   const now = Date.now();

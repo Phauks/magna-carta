@@ -846,3 +846,29 @@ one socket called `send` unguarded, and `send` on a closed socket throws. A thro
 meeting drops — so a supersede, a leave or the end of a meeting racing a queued frame would end the
 meeting for everybody in it. The room-wide broadcast had swallowed that since it was written; the
 direct replies now go through the same `trySend`.
+
+## 17. Amendment — what one socket may send (security review, 2026-09-21)
+
+The throttles this design specifies each bound one frame against one cost: a sync against the roster
+read, a layer change against the routing call it makes, a hand and a reaction against the act that
+cannot be restated. Nothing bounded the rest, and the rest is not free — a publish, a subscribe, a
+renegotiation and a close are each a billed call to the routing service, and a presence frame writes
+the participant record.
+
+So every frame now spends from a per-socket token bucket, `FRAME_BUDGET_PER_SECOND` (twenty) with
+`FRAME_BUDGET_BURST` (forty), declared in `@magna-carta/meeting-protocol` beside the signal window
+and for the same reason: a client that paced itself differently would be refused for behaving
+correctly. The bucket rides the socket's own attachment rather than the participant record — it is a
+fact about one connection, and keeping it off storage is what stops the bound costing what it
+bounds — and it is spent BEFORE the frame is parsed, so a flood does not buy a parse of up to the
+frame ceiling apiece. A frame with nothing left is answered `rate-limited` with the socket kept open.
+
+Underneath it, the four acts that reach the routing service carry their own per-participant windows
+on the `syncAt`/`layerAt` pattern (`publishAt`, `subscribeAt`, `renegotiateAt`, `closeAt`), refused
+rather than dropped because the browser is waiting on an answer to each of them, and reset on a
+rejoin like the two beside them. The refusal telemetry is sampled on the terms the storage budget is:
+an event per refused frame would make the record of a flood cost more than the flood.
+
+The load harness sends six frames per socket across a whole pass, so its pace is unchanged and its
+counts are unchanged: `framesPerJoinPerSocket=1.000`, one storage list per publish and per sync, zero
+per presence and per reaction.

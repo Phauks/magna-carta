@@ -90,6 +90,26 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   a single act. So both answer to `SIGNAL_INTERVAL_MILLISECONDS` and the frame inside the window is
   refused `rate-limited` with the socket kept open. That reason is on the wire, and the interval is
   too, because a client that paced itself differently would be refused for behaving correctly.
+- **EVERY frame spends from the socket's own budget first, and the budget is on the wire.** The
+  per-frame rules below bound one kind of frame against one cost; none of them bounds a browser that
+  sends something ELSE as fast as it can write. So `dispatchClientFrame` takes a token from a bucket
+  carried on the socket's attachment (`FRAME_BUDGET_PER_SECOND` / `FRAME_BUDGET_BURST` in the
+  protocol package, because a client that paced itself differently would be refused for behaving
+  correctly) BEFORE the frame is parsed — a frame the room will not read must not buy it a parse of
+  up to the frame ceiling — and answers `rate-limited` with the socket kept open. It rides the
+  attachment rather than the participant record on purpose: the budget is about one connection, and
+  a bound that cost a storage read and a storage write per frame would cost what it is bounding. Its
+  refusals are SAMPLED into telemetry (`FRAME_BUDGET_REFUSAL_SAMPLE_EVERY`) for the reason the
+  storage budget is — a flood recorded frame-by-frame costs more than the flood — while every
+  refused frame is answered on the wire, because a browser that is told nothing cannot slow down.
+- **An act that costs the ACCOUNT carries a window of its own, claimed past every refusal and ahead
+  of the session.** `publish`, `subscribe`, `renegotiate` and `close` are each a billed call to the
+  routing service, and nothing on the frames bounds how often one may be sent — the track ceiling
+  bounds what a participant may HOLD. Each carries its instant on the participant record beside
+  `syncAt` and `layerAt`, and each is REFUSED rather than dropped inside its window, because the
+  browser is waiting on an answer to it: a dropped publish is a camera that never appears. A request
+  to unmute carries the same shape with the window kept on the member being ASKED, since two hosts
+  taking turns would each stay inside a budget of their own while one person's screen filled up.
 - **A frame that costs the ROOM is throttled per participant; a frame that costs the sender is not.**
   A `sync` is a read of every key the room holds and a `layer` is a call to the routing service, and
   a browser can send either as fast as it can write to a socket — so each carries its own instant on
@@ -110,15 +130,19 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
 - **A frame the room will not act on costs the routing service nothing.** The refusals answerable
   from the roster are decided before a session is resolved and before anything is forwarded — the
   service has no notion of a meeting and would honour a subscription to any session in the fleet.
-- **A host frame is authorized from the STORED participant record, never from the socket
-  attachment.** The attachment is written once at upgrade and frozen there, which is right for the
+- **A host frame is authorized from the STORED participant record, and a RECONNECT does not reseed
+  it.** The attachment is written once at upgrade and frozen there, which is right for the
   firm, the meeting and the medium — none of which can change under a socket — and wrong for
   hosting, which is exactly the thing that changes during a meeting. A co-host whose grant was
   withdrawn ten minutes ago would go on muting people for as long as their socket stayed open. So
   the hosting routes tell the room after they commit, the room rewrites the roles on the stored
   records and broadcasts the roster, and the next frame off that socket is decided on what is true
-  now. The upgrade still SEEDS the field, because the route has just read the grants to authorize
-  the socket at all; seeding is not authorizing.
+  now. The upgrade still SEEDS the field for a stay the room has never seen, because the route has
+  just read the grants to authorize the socket at all; seeding is not authorizing. It does NOT seed
+  over a record that already exists: the route reads the grants a moment before the upgrade, so a
+  withdrawal landing in between would be undone by the reconnect for as long as that socket stayed
+  open. `hostingChanged` is the only writer of truth here after the first welcome, and the welcome's
+  own lobby list is decided from the same answer.
 - **An act that somebody could later ask about is a route, not a frame.** Removing a participant,
   shutting the door and changing who is hosting are `routes/meeting-hosting.ts` with audit rows
   through the firm-scoped data-access layer. A mute, a request to unmute and a spotlight are frames:
@@ -176,11 +200,16 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   reconciliation alone, so a deadline missing from it is a deadline that survives exactly until the
   next wake for something else. The reaction bucket is in both places for that reason, and its cost
   there is one `get` rather than a pass over anything.
-- **An operator's read is the platform-operator guard, never a firm permission.** A capability that
-  let a member read the room's internals would be a capability to read a colleague's connection
-  quality and their place in the meeting. `routes/meeting-inspect.ts` runs in the same lane
-  `routes/platform-status.ts` does, and names the firm in the query because there is no session firm
-  to read — the one meeting route that does, and only because its caller belongs to no firm.
+- **An operator's read is the platform-operator guard, never a firm permission — and it is
+  AUDITED.** A capability that let a member read the room's internals would be a capability to read
+  a colleague's connection quality and their place in the meeting.
+  `routes/meeting-inspect.ts` runs in the same lane `routes/platform-status.ts` does, and names the
+  firm in the query because there is no session firm to read — the one meeting route that does, and
+  only because its caller belongs to no firm. Because nothing else in this platform lets one person
+  see into another firm's live conversation, the read writes an `auth_audit` row — on the control
+  plane, where the other platform-operator acts are recorded, since the firm being read could
+  neither explain nor attribute a row of its own — before the room is read, carrying the operator,
+  the firm and the meeting and nothing the answer itself contains.
 
 ## The load harness — the room's fan-out cost as a number
 

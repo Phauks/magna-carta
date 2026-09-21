@@ -94,6 +94,21 @@ export const DIAGNOSTIC_REPORT_INTERVAL_MILLISECONDS = 5_000;
  */
 export const STORAGE_BUDGET_SAMPLE_EVERY = 20;
 
+/**
+ * HOW OFTEN A SOCKET REFUSED FOR ITS FRAME BUDGET IS RECORDED — one refusal in this many.
+ *
+ * Every other refusal in this room is an event, and that is right for all of them: each is one act
+ * the room would not perform, and there is a bounded number of them per meeting. A budget refusal is
+ * the opposite shape — it is what a socket sending in a loop gets, so a client producing a thousand
+ * a second would produce a thousand events a second, and the record of a flood would cost more than
+ * the flood. It is sampled for exactly the reason the storage budget beside it is: a measurement
+ * that costs what the thing it measures costs is not a measurement.
+ *
+ * The SENDING half is never sampled — every refused frame is answered on the wire, because a browser
+ * that is told nothing cannot slow down.
+ */
+export const FRAME_BUDGET_REFUSAL_SAMPLE_EVERY = 20;
+
 /** Which meeting, in which firm — the two handles every event in the family is correlated by. */
 export interface RoomIdentity {
   readonly firmId: string;
@@ -132,6 +147,7 @@ let testLogger: Logger | null = null;
 export function setRoomDiagnosticsLoggerForTests(logger: Logger | null): void {
   testLogger = logger;
   framesSeen = 0;
+  budgetRefusalsSeen = 0;
 }
 
 // A module-level override that anything could set would be a way to redirect the whole fleet's
@@ -368,6 +384,34 @@ export async function refuseAndRecord(
       }),
     );
   });
+}
+
+// How many budget refusals this instance has answered, which is what the sampler counts against.
+// Module state rather than instance state, on exactly the terms the frame counter below is: it does
+// not survive hibernation, and a sample taken across a wake is as good as one taken within it.
+let budgetRefusalsSeen = 0;
+
+/**
+ * A frame refused for arriving faster than the room will serve — sent every time, recorded sometimes.
+ *
+ * The two halves come apart here and nowhere else in this module. A refusal is ordinarily sent and
+ * recorded in one act so the member's Error ID and the record cannot drift; there is no Error ID on
+ * this one, and the thing that would drift instead is the volume — a flood answered with an event
+ * apiece is a flood the record amplifies. So the wire is served in full and the record is sampled.
+ */
+export async function refuseOverBudget(
+  room: RoomContext,
+  socket: WebSocket,
+  identity: RoomIdentity | undefined,
+  attendanceId: string | null,
+  frameType: MeetingClientFrame["type"] | "",
+): Promise<void> {
+  budgetRefusalsSeen += 1;
+  if (budgetRefusalsSeen % FRAME_BUDGET_REFUSAL_SAMPLE_EVERY !== 1) {
+    trySend(socket, refusedFrame("rate-limited"));
+    return;
+  }
+  await refuseAndRecord(room, socket, identity, attendanceId, "rate-limited", frameType);
 }
 
 /**

@@ -54,6 +54,18 @@ import {
 // the time a host expects and narrow enough that nothing upstream sees a burst.
 export const MUTE_ALL_CONCURRENCY = 8;
 
+/**
+ * HOW OFTEN ONE PARTICIPANT MAY BE ASKED TO UNMUTE, counted on the member being asked.
+ *
+ * Every other host act either costs the routing service a call (a mute) or changes a room-level fact
+ * (a spotlight, the hands). This one costs a frame and a notice on one person's screen, which is
+ * exactly why it wants a bound of its own: a host holding the button down would put a queue of
+ * identical requests in front of somebody who has already decided not to unmute. Five seconds is
+ * longer than anybody re-presses a control they believe worked and far shorter than the second ask a
+ * host actually makes, when the first went unanswered for a while.
+ */
+export const ASK_TO_UNMUTE_INTERVAL_MILLISECONDS = 5_000;
+
 /** The five frames a host may send, as the dispatch hands them over. */
 export type MeetingHostFrame =
   | { readonly type: "mute"; readonly participantId: string }
@@ -111,6 +123,16 @@ export async function handleHostFrame(
     // the host sees no acknowledgement because there is nothing to acknowledge — they asked.
     if (!stored.has(frame.participantId)) {
       await refuseAndRecord(room, socket, undefined, attendanceId, "unknown-track", frame.type);
+      return;
+    }
+    // ONE TAP ON THE SHOULDER PER WINDOW, AND THE WINDOW BELONGS TO THE PERSON BEING TAPPED. A
+    // request to unmute is the one host act whose whole effect is a notice on somebody else's
+    // screen, so what is worth bounding is how often that screen is interrupted — and a window kept
+    // on the host asking would let two co-hosts take turns, each inside their own budget, while the
+    // member is asked twice as often. A second request inside the window says nothing the first did
+    // not; the host is told it did not land rather than left believing it did.
+    if (!(await claimUnmuteAsk(room, frame.participantId))) {
+      await refuseAndRecord(room, socket, undefined, attendanceId, "rate-limited", frame.type);
       return;
     }
     sendToStay(
@@ -389,6 +411,35 @@ export async function roomStateChanged(room: RoomContext, locked: boolean): Prom
 // so the two spellings of "not a host" cannot drift.
 function hostRoleOf(participant: StoredParticipant | undefined): MeetingHostRole | null {
   return participant?.hostRole ?? null;
+}
+
+/**
+ * Claims the window on asking THIS member to unmute, answering whether the ask may go out.
+ *
+ * Read-modify-write under the gate, for the reason every other throttle in this room is: two hosts
+ * pressing at once would otherwise both read the same instant and both pass, which is the case this
+ * bounds. A stay that is no longer in the room claims nothing and is answered true — the caller has
+ * already checked the roster, and a record that went away between the two is not this window's to
+ * report on.
+ */
+async function claimUnmuteAsk(room: RoomContext, attendanceId: string): Promise<boolean> {
+  const now = Date.now();
+  return await room.ctx.blockConcurrencyWhile(async () => {
+    const participant = await readParticipant(room, attendanceId);
+    if (participant === undefined) return true;
+    const previous =
+      participant.unmuteAskedAt === undefined || participant.unmuteAskedAt === null
+        ? Number.NaN
+        : Date.parse(participant.unmuteAskedAt);
+    if (!Number.isNaN(previous) && now - previous < ASK_TO_UNMUTE_INTERVAL_MILLISECONDS) {
+      return false;
+    }
+    await putParticipant(room, attendanceId, {
+      ...participant,
+      unmuteAskedAt: new Date(now).toISOString(),
+    });
+    return true;
+  });
 }
 
 // The muted flag on the record everybody else's tile is drawn from. Written under the gate for the

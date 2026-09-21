@@ -159,25 +159,38 @@ async function startMeetingOn(eventId: string): Promise<string> {
  * Fills a room with fabricated members' open stays, so the cap can be met without standing up a
  * session per seat. The rows are what the cap is counted over, so this is the same room state that
  * many real joins produce.
+ *
+ * WRITTEN IN BATCHES RATHER THAN ROW BY ROW, and that is about this test finishing rather than about
+ * tidiness. The firm's database is a Durable Object reached over RPC, so a member and a stay per
+ * seat is two round trips per seat and six hundred of them for a full room — seconds of doing
+ * nothing on a loaded box, all of it inside one test's own timeout, none of it the thing the test is
+ * about. Batched, the same rows are a handful of calls.
  */
 async function fillRoomTo(meetingId: string, occupants: number): Promise<void> {
   const now = new Date().toISOString();
+  const statements = [];
   for (let seat = 0; seat < occupants; seat += 1) {
     const userId = newIdentifier("user");
-    await firmDatabase
-      .prepare(
-        `INSERT INTO member (user_id, display_name, status, created_at) ` +
-          `VALUES (?1, ?2, 'active', ?3)`,
-      )
-      .bind(userId, `Seat ${String(seat)}`, now)
-      .run();
-    await firmDatabase
-      .prepare(
-        `INSERT INTO meeting_attendance (id, meeting_id, user_id, joined_at, left_at, created_at, ` +
-          `updated_at) VALUES (?1, ?2, ?3, ?4, NULL, ?4, ?4)`,
-      )
-      .bind(newIdentifier("meetingAttendance"), meetingId, userId, now)
-      .run();
+    statements.push(
+      firmDatabase
+        .prepare(
+          `INSERT INTO member (user_id, display_name, status, created_at) ` +
+            `VALUES (?1, ?2, 'active', ?3)`,
+        )
+        .bind(userId, `Seat ${String(seat)}`, now),
+      firmDatabase
+        .prepare(
+          `INSERT INTO meeting_attendance (id, meeting_id, user_id, joined_at, left_at, created_at, ` +
+            `updated_at) VALUES (?1, ?2, ?3, ?4, NULL, ?4, ?4)`,
+        )
+        .bind(newIdentifier("meetingAttendance"), meetingId, userId, now),
+    );
+  }
+  // Chunked rather than sent whole: one transaction of six hundred statements is a different thing
+  // to ask a Durable Object for than a few of a hundred, and nothing here needs the seats to arrive
+  // atomically — the room is empty until this returns either way.
+  for (let start = 0; start < statements.length; start += 100) {
+    await firmDatabase.batch(statements.slice(start, start + 100));
   }
 }
 

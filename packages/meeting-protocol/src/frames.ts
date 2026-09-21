@@ -91,6 +91,29 @@ export const ROSTER_DELTA_THRESHOLD = 16;
 // nothing.
 export const SIGNAL_INTERVAL_MILLISECONDS = 1000;
 
+// WHAT ONE SOCKET MAY SEND, WHATEVER IT SENDS — the general budget every frame type answers to,
+// underneath the per-frame rules above it.
+//
+// Each of those rules bounds one kind of frame against one cost: a sync against the roster read, a
+// layer change and a reaction against the act they ask for. None of them bounds a browser that
+// sends something ELSE as fast as it can write to a socket, and most of what it could send is not
+// free — a publish, a subscribe, a renegotiation and a close are each a billed call to the routing
+// service, a presence frame writes the participant record, and a frame the room refuses still costs
+// it the refusal. So the socket carries a token bucket that every frame spends from, and a frame
+// arriving with no token left is refused `rate-limited` with the socket KEPT OPEN: it is about the
+// frame that arrived and nothing else, and a browser that paced itself has lost nothing.
+//
+// TWENTY A SECOND WITH A BURST OF FORTY is far above what a working client produces — the busiest
+// thing a browser sends is presence, on transitions only, and a gallery page turn is a handful of
+// frames at once — and far below what a loop can produce. The burst is what lets a browser arrive,
+// publish, subscribe and ask for the roster in one gesture without meeting the bound.
+//
+// BOTH NUMBERS ARE HERE rather than in the room, on exactly the terms the signal window above is:
+// they are the pace a client has to know in order to keep inside it, and a client that paced itself
+// differently would be refused for behaving correctly.
+export const FRAME_BUDGET_PER_SECOND = 20;
+export const FRAME_BUDGET_BURST = 40;
+
 // The most layer changes one frame may carry. A browser re-chooses layers when its gallery page
 // turns or its window resizes, so a frame is naturally the size of a page of tiles; thirty-two is
 // two such pages, and a ceiling is what stops a client asking the routing service to reshape an
@@ -541,6 +564,11 @@ export const MEETING_REFUSAL_REASONS = Object.freeze([
   // about the frame that arrived and nothing else, so a browser re-sends the settled state when the
   // window passes. It exists because the room's other throttles DROP, and dropping a hand or a
   // reaction loses an act that nothing later restates — so this is the price of never losing one.
+  //
+  // It is also what a socket over its general budget is answered with (`FRAME_BUDGET_PER_SECOND`),
+  // and what an act that costs the routing service is answered with when it arrives faster than the
+  // room will spend on it — one reason for one thing, because what a browser does about all three is
+  // the same: slow down and send it again.
   "rate-limited",
   // A HOST FRAME FROM A SOCKET HOLDING NO GRANT. The socket stays open: the member is in the
   // meeting and everything else they can do still works — what they cannot do is run it. Decided

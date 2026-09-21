@@ -3476,6 +3476,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Host controls</span>
 <code>meetings.host-controls</code>
 <p>Mute one or all, remove a participant, lock the room, hand hosting to a co-host, spotlight a participant for everyone — over a grant on the meeting rather than a permission key, so ending it needs one too.</p>
+<p class="note">Open — the signaling socket outlives the session and the permission that opened it. Authority is read once at the upgrade and the socket then runs for the length of the meeting, so a session revoked elsewhere, a suspended member or a withdrawn meetings-join key changes nothing until that browser reconnects. The hosting half is already covered (a withdrawn grant binds on the next frame, because the routes rewrite the stored record); the rest wants a bounded socket lifetime or a revalidation, and the shape is an owner question recorded in the amendments of docs/specs/2026-09-20-meetings-host-controls-and-waiting-room-design.md.</p>
 </li><li class="n d1" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Waiting room</span>
@@ -3499,7 +3500,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">In-meeting chat</span>
 <code>meetings.chat</code>
 <p>Text between participants during a meeting, kept on the record as the meeting's first stored content — filed under the event with the attendance.</p>
-<p class="note">The owner's ruling of 2026-09-20 — chat is kept on the record. The meeting therefore stores content for the first time, which means the chat rows carry the same redaction, retention and PII treatment as a filed email, and the audit row still carries identifiers only. The route is the record and the room stores nothing about a message; a browser that misses a frame is caught up by the read.</p>
+<p class="note">The owner's ruling of 2026-09-20 — chat is kept on the record. The meeting therefore stores content for the first time, which means the chat rows carry the same redaction, retention and PII treatment as a filed email, and the audit row still carries identifiers only. The route is the record and the room stores nothing about a message; a browser that misses a frame is caught up by the read. Open — the transcript is readable by any member who can see the matter event, including one who never joined the meeting and one added to the matter afterwards; posting needs an open stay but reading inherits the event's visibility. Whether the read should narrow to the people who were in the room is an owner question recorded in the amendments of docs/specs/2026-09-20-meetings-host-controls-and-waiting-room-design.md.</p>
 </li><li class="n d1" data-s="not-started">
 <span class="chip todo">Not started</span>
 <span class="nm">Breakout rooms</span>

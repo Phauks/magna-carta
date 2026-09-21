@@ -344,7 +344,13 @@ export const meetingRoomMessageRelayed = defineEvent("meetings.room.messageRelay
  *
  * The reason is the protocol's own closed vocabulary and the Error ID is the handle the member is
  * holding, so a support call quoting one lands on the frame that produced it. `frameType` is the
- * protocol's own enum; a frame too malformed to name one records the empty string.
+ * protocol's own enum; the empty string means the room never named one — a frame too malformed to
+ * carry a type, or one refused for its socket's frame budget, which is decided before the parse so
+ * that a flood does not buy a parse apiece.
+ *
+ * NOT EVERY REFUSAL OF THAT LAST KIND IS RECORDED. A budget refusal is what a client sending in a
+ * loop receives, so it is sampled where every other refusal here is one event per act; the room's
+ * own module holds the rate. Every refused frame is still answered on the wire.
  */
 export const meetingRoomRefused = defineEvent("meetings.room.refused", [
   "firmId",

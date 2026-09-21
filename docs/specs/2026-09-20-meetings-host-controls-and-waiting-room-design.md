@@ -597,3 +597,66 @@ for. And the operator's inspect payload keeps `userId` beside the stay: a report
 black" arrives as a person, often as the second of that person's two stays, and the member handle is
 what joins it to the room that was serving them. Both are minted identifiers; neither says who
 anybody is.
+
+## Amendments from the security review (2026-09-21)
+
+Four corrections, and two questions for the owner that are deliberately not answered here.
+
+**Every frame answers to a per-socket budget.** The room throttled a sync, a layer change, a hand
+and a reaction, and nothing else — so a publish, a subscribe, a renegotiation, a close and the
+speaking half of a presence frame could each arrive as fast as a browser could write to a socket,
+and each of the first four is a billed call to the routing service while presence writes the
+participant record. A token bucket now rides the socket's own attachment, twenty frames a second
+with a burst of forty (`FRAME_BUDGET_PER_SECOND` / `FRAME_BUDGET_BURST` in
+`@magna-carta/meeting-protocol`, on the wire because a client has to know the pace it is being held
+to), spent before the frame is parsed and answered `rate-limited` with the socket kept open. Host
+frames fold into the same bucket. Beneath it, the four acts that reach the routing service carry
+their own per-participant windows on the existing `syncAt`/`layerAt` pattern, and a request to
+unmute carries one kept on the member being ASKED rather than on the host asking — two hosts taking
+turns would otherwise each stay inside a budget of their own. The refusal telemetry is sampled the
+way the storage budget is: a flood recorded event-per-frame costs more than the flood. The load
+harness sends well inside the budget and its pace is unchanged.
+
+**A claim requires the claimer to be in the meeting.** `claimHosting` asked only whether any OTHER
+grant-holder had an open stay, so a member holding `meetings:host` who had never joined could seize a
+live meeting sixty seconds after the host's tunnel dropped, from outside it. Nobody hands this grant
+over, so being in the room — or at its door, which the claim admits in the same batch, as before — is
+the whole of what makes taking it an act of the meeting rather than of the permission key. Refused
+`meeting-not-joined`.
+
+**A reconnect does not undo a revocation.** The socket route reads the live grants to authorize the
+upgrade and seeds the stored participant with what it read; `admitParticipant` wrote that seed even
+over a record that already existed, so a withdrawal landing between the read and the admit was
+undone for as long as the new socket stayed open. An existing record now keeps its own `hostRole`,
+and `hostingChanged` is the only writer of truth after the first welcome. The welcome's lobby list
+follows the same answer.
+
+**The operator's read into a live meeting is audited.** `routes/meeting-inspect.ts` was
+`audited: false`. Nothing else in this platform lets one person see into another firm's live
+conversation, so the row is written — to the control plane's own `auth_audit`, beside the other
+platform-operator acts, because the caller belongs to no firm — before the room is read, and carries
+the operator, the firm and the meeting and nothing else.
+
+### Open — for the owner
+
+**The signaling socket outlives the session and the permission that opened it.** Authority is read
+once at the upgrade: the session, `meetings:join`, the stay, the firm. After that the socket is
+authorized by its attachment and by the stored participant record for as long as it stays open,
+which in a long meeting is hours. A member signed out elsewhere, a session revoked, a member
+suspended, or `meetings:join` withdrawn from their role changes nothing until they reconnect. The
+hosting half of this is already handled — a withdrawn grant takes effect on the next frame, because
+the routes rewrite the record — and the rest is not. What is wanted is a decision on shape: a
+bounded socket lifetime with a re-authorizing reconnect, a revalidation on a cadence or at the
+room's own alarm, or a signal from the session store into the rooms holding that member's sockets.
+Each costs something different, and the first is the only one with no new moving part.
+
+**The chat transcript is readable by anybody who can see the matter event.** Posting a message
+requires an open stay — being in the room is the whole permission to speak — but READING the
+transcript is the meeting's own visibility rule, which is the event's, which is the matter's. So a
+member of the matter team who was never in the meeting can read everything said in it afterwards,
+and so can somebody added to the matter next month. That may be exactly right: a meeting on a matter
+is the firm's record of the matter, the same way a filed email is, and a narrower rule would make
+the transcript less useful than the thing it documents. It may also surprise the people typing,
+whose screen shows a conversation with the people in the room. The question is whether the read
+should be narrowed to the people who were in the meeting (with the matter team as a second, wider
+tier), and if so whether a message sent before somebody arrived is theirs to read.
