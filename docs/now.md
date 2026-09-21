@@ -30,8 +30,8 @@ not](#what-a-roll-up-is-not).
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 333 | 46% |
-| Part-built | partial, in-build | 126 | 18% |
+| Done | shipped | 334 | 47% |
+| Part-built | partial, in-build | 125 | 17% |
 | Ahead | designed, planned, researching, not-started | 215 | 30% |
 | Parked | deferred, cut | 42 | 6% |
 | **All units of work** | | **716** | **100%** |
@@ -40,9 +40,9 @@ not](#what-a-roll-up-is-not).
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 333 | 47% |
+| `shipped` | 334 | 47% |
 | `partial` | 125 | 17% |
-| `in-build` | 1 | 0% |
+| `in-build` | 0 | 0% |
 | `designed` | 52 | 7% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 333 of 716 (47%). Shipped plus partial is 458 (64%).**
+**Shipped alone is 334 of 716 (47%). Shipped plus partial is 459 (64%).**
 
 The 125 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -81,9 +81,9 @@ ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 117 | 25% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 156 | 34% |
-| No user surface by nature (`internal`) | 186 | 41% |
+| A person can open it today (`screen`) | 118 | 26% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 155 | 34% |
+| No user surface by nature (`internal`) | 186 | 40% |
 | Not yet classified | 0 | 0% |
 | **Everything with something built** | **459** | **100%** |
 
@@ -112,7 +112,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
 | Integrations & Plugins | 17 | 2 | 0 | 1 | 0 | 3 | 15 | 3 | 1 | 42 | 40% |
 | Maintenance Agents | 2 | 3 | 0 | 0 | 0 | 0 | 5 | 0 | 0 | 10 | 20% |
-| Meetings | 12 | 1 | 1 | 6 | 0 | 0 | 10 | 0 | 0 | 30 | 40% |
+| Meetings | 13 | 1 | 0 | 6 | 0 | 0 | 10 | 0 | 0 | 30 | 43% |
 | Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 12 | 58% |
 | Notifications | 4 | 6 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 14 | 29% |
 | Observability & Diagnostics | 14 | 0 | 0 | 0 | 0 | 0 | 4 | 2 | 0 | 20 | 70% |
@@ -127,7 +127,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 14 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 21 | 67% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **333** | **125** | **1** | **52** | **15** | **5** | **143** | **38** | **4** | **716** | **47%** |
+| **All areas** | **334** | **125** | **0** | **52** | **15** | **5** | **143** | **38** | **4** | **716** | **47%** |
 
 ## Where we have been
 
@@ -317,7 +317,7 @@ Decisions about a capability only. Account-side steps that no session can perfor
 
 ## Being built now
 
-- `meetings.reactions` · **Raise hand and reactions** — A raised hand the host sees in order, and a small closed set of reactions, relayed as presence rather than stored.
+_No capability is marked `in-build`._
 
 ## Next up
 
@@ -1056,7 +1056,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Meetings
 
-[`roadmap.d/meetings.md`](../roadmap.d/meetings.md) — 30 units of work, 40% shipped. 12 done, 2 part-built, 16 ahead, 0 parked.
+[`roadmap.d/meetings.md`](../roadmap.d/meetings.md) — 30 units of work, 43% shipped. 13 done, 1 part-built, 16 ahead, 0 parked.
 
 - `meetings` · `partial` · **Meetings** — In-app video conferencing — a meeting started from a calendar event, media browser-to-Cloudflare Realtime SFU, signaling through a per-meeting Durable Object, attendance recorded on the event. _Note: The owner's ruling of 2026-09-18 — bundled into the product so a firm runs fewer tools; a Zoom/Teams port may exist later, never as the default._
   - `meetings.record` · `shipped` · **Meeting record and attendance** — One meeting per calendar event (matter or firm), status scheduled/live/ended, an attendance row per join with joined and left instants, audit rows of identifiers and instants only.
@@ -1072,7 +1072,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `meetings.host-controls` · `shipped` · **Host controls** — Mute one or all, remove a participant, lock the room, hand hosting to a co-host, spotlight a participant for everyone — over a grant on the meeting rather than a permission key, so ending it needs one too.
   - `meetings.waiting-room` · `shipped` · **Waiting room** — Arrivals held in a lobby until a host admits them, one by one or all; the door for external guests and late joiners. One lobby per meeting, because a firm holds several meetings at once. _Note: The owner's ruling of 2026-09-20 — meetings run concurrently, so the lobby belongs to the meeting, never to the firm. Guests always wait regardless of the setting; the signed one-time link is its own slice and nothing here mints one._
   - `meetings.diagnostics` · `partial` · **Diagnosability** — A per-meeting structured event stream through the standard telemetry pipeline correlated by firm, meeting and stay; the browser's own connection sample reported to the room and kept only as the latest; an operator's inspect call into one live room behind the platform-operator guard; and a load harness that drives three hundred fake clients against the room so the fan-out cost is a number. _Note: The harness falsified a design claim on its first run — every deferred presence transition armed the alarm through the full reconciliation, two roster-wide reads on the frame a large room sends most, measured at 1.2 storage lists per frame against a design that claims one. Arming for the known deadline instead took the same pass to 0.4._
-  - `meetings.reactions` · `in-build` · **Raise hand and reactions** — A raised hand the host sees in order, and a small closed set of reactions, relayed as presence rather than stored. _Note: Awaiting-screen because the control bar, the tile bubbles, the counts strip and the host's hands panel are the web half and are built by a concurrent stream._
+  - `meetings.reactions` · `shipped` · **Raise hand and reactions** — A raised hand the host sees in order, and a small closed set of reactions, relayed as presence rather than stored. _Note: Unverified in a browser: the rise animation, the hand mark on tile and roster, the counts strip and the reduced-motion fallback have only been rendered under the test DOM. A lowered hand does not tell the member who lowered it (no hands-lowered frame; hands travel on roster deltas) — an open call for the owner._
   - `meetings.chat` · `shipped` · **In-meeting chat** — Text between participants during a meeting, kept on the record as the meeting's first stored content — filed under the event with the attendance. _Note: The owner's ruling of 2026-09-20 — chat is kept on the record. The meeting therefore stores content for the first time, which means the chat rows carry the same redaction, retention and PII treatment as a filed email, and the audit row still carries identifiers only. The route is the record and the room stores nothing about a message; a browser that misses a frame is caught up by the read._
   - `meetings.breakout-rooms` · `not-started` · **Breakout rooms** — A host splits the room into smaller rooms and brings them back; each is a room of its own under the same meeting.
   - `meetings.polls` · `designed` · **Polls and questions** — A host asks the room a question and sees the answers; a question queue the host works through. _Note: The meeting's second stored content after chat, so the poll question, the option labels and a question's body carry a filed message's retention, redaction and personal-data treatment, and no audit row ever carries which option was chosen._

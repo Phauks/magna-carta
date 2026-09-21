@@ -136,11 +136,11 @@
 - id: meetings.reactions
   name: Raise hand and reactions
   scope: A raised hand the host sees in order, and a small closed set of reactions, relayed as presence rather than stored.
-  status: in-build
-  surface: awaiting-screen
+  status: shipped
+  surface: screen
   spec: docs/specs/2026-09-20-meetings-reactions-and-polls-design.md
-  evidence: Server half built — the hand and the reaction on the wire in packages/meeting-protocol (hand and handRaisedAt on RosterParticipant, the reaction and lower-hands client frames, the reaction and reactions room frames, MEETING_REACTIONS, SIGNAL_INTERVAL_MILLISECONDS and the rate-limited refusal), the stamp and the lowering in apps/api-worker/src/meetings/room/room-presence.ts, the relay and the per-second bucket in room/room-reactions.ts, the flush on the room's own alarm in room/room-lifecycle.ts, and meetings.room.reactionsRelayed in packages/telemetry/src/events.ts. The load harness measures a whole room reacting at once at one frame per socket per second and no roster read per reaction. Nothing reaches the record: no table, no migration, no audit row and no personal-data registration. Stream docs/active-work/claude/focused-edison-ylxfiy.md.
-  notes: Awaiting-screen because the control bar, the tile bubbles, the counts strip and the host's hands panel are the web half and are built by a concurrent stream.
+  evidence: Both halves built. The server half — the hand and the reaction on the wire in packages/meeting-protocol (hand and handRaisedAt on RosterParticipant, the reaction and lower-hands client frames, the reaction and reactions room frames, MEETING_REACTIONS, SIGNAL_INTERVAL_MILLISECONDS and the rate-limited refusal), the stamp and the lowering in apps/api-worker/src/meetings/room/room-presence.ts, the relay and the per-second bucket in room/room-reactions.ts, the flush on the room's own alarm in room/room-lifecycle.ts, and meetings.room.reactionsRelayed in packages/telemetry/src/events.ts. The load harness measures a whole room reacting at once at one frame per socket per second and no roster read per reaction. Nothing reaches the record: no table, no migration, no audit row and no personal-data registration. The web half — the concern in apps/web/src/lib/meetings/client/reactions.svelte.ts (a press always lands: a hand the browser paces out is owed and stated when the window passes), the control-bar menu of six in screen/meeting-reactions.svelte, the one name-to-glyph table and the rising mark in screen/meeting-reaction-mark.svelte, the large-room counts strip in screen/meeting-reaction-counts.svelte, the host's ordered queue in screen/meeting-hands-panel.svelte, and the rise recipe in packages/design-system with reduced motion keeping the dwell and dropping the travel.
+  notes: Unverified in a browser: the rise animation, the hand mark on tile and roster, the counts strip and the reduced-motion fallback have only been rendered under the test DOM. A lowered hand does not tell the member who lowered it (no hands-lowered frame; hands travel on roster deltas) — an open call for the owner.
 
 - id: meetings.chat
   name: In-meeting chat

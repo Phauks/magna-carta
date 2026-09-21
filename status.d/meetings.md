@@ -39,8 +39,9 @@ the roster so a late arrival gets the queue; a reaction is named on its thrower'
 room and counted for the whole of a large one, one frame a second, because three hundred people
 applauding one sentence relayed individually is ninety thousand frames inside a second. Both are the
 first frames here that are REFUSED rather than dropped when they arrive too fast, because neither
-restates itself. The control bar, the bubbles, the counts strip and the host's hands panel are the
-web half.
+restates itself. The web half is built too: the control bar's menu of six, the rising mark on the
+thrower's tile, the counts strip in a large room, the hand on tile and roster, and the host's ordered
+queue of hands — none of it yet seen in a browser.
 
 Diagnosability is the slice that makes a meeting answerable after it has ended, which nothing else
 here can be: the room holds no rows, deletes its own state as it goes, and hibernates between frames,
