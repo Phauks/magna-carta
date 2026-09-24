@@ -1569,6 +1569,100 @@
           "elapsedMilliseconds"
         ]
       },
+      "SafeBrowseLocationProbe": {
+        "type": "object",
+        "properties": {
+          "requestedCountry": {
+            "type": "string"
+          },
+          "sessionDefault": {
+            "type": "object",
+            "properties": {
+              "country": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "dataCenter": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "failure": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "country",
+              "dataCenter"
+            ]
+          },
+          "sessionRequested": {
+            "type": "object",
+            "properties": {
+              "country": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "dataCenter": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "failure": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "country",
+              "dataCenter"
+            ]
+          },
+          "quickActionRequested": {
+            "type": "object",
+            "properties": {
+              "country": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "dataCenter": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "failure": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "country",
+              "dataCenter"
+            ]
+          },
+          "sessionHonoursLocation": {
+            "type": "boolean"
+          },
+          "quickActionHonoursLocation": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "requestedCountry",
+          "sessionDefault",
+          "sessionRequested",
+          "quickActionRequested",
+          "sessionHonoursLocation",
+          "quickActionHonoursLocation"
+        ]
+      },
       "SafeBrowseLiveView": {
         "type": "object",
         "properties": {
@@ -38378,6 +38472,92 @@
           },
           "403": {
             "description": "Authenticated, but the member lacks tools:safeBrowse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/safe-browse/location-probe": {
+      "post": {
+        "description": "Diagnostic: read the rendering service's trace endpoint from a browser session launched with no location, from one launched with the requested country, and through a quick action carrying it — reporting the country a website sees each time. Answers whether the isolated browser's apparent country can be chosen. Navigates only to a constant; the one input is a country code.",
+        "operationId": "safeBrowse.locationProbe",
+        "tags": [
+          "safeBrowse"
+        ],
+        "x-mc-operationId": "safeBrowse.locationProbe",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:safeBrowse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "safeBrowse"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z]{2}$",
+              "default": "US"
+            },
+            "required": false,
+            "name": "country",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The probe ran; each observation says what a website saw, or why it could not",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SafeBrowseLocationProbe"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks tools:safeBrowse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The country is not a two-letter upper-case code",
             "content": {
               "application/problem+json": {
                 "schema": {
