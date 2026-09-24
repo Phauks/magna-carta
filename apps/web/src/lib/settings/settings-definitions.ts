@@ -48,10 +48,17 @@ export interface SettingDefinition {
    */
   readonly label: string;
   /**
-   * One muted line under the name — REQUIRED (owner-directed: every setting carries a
-   * descriptor), sentence case, intent not implementation.
+   * One muted line under the name, sentence case, intent not implementation.
+   *
+   * OPTIONAL, and the absence is a real answer rather than an omission (owner correction,
+   * 2026-09-18). A firm SETTING carries a descriptor, because a firm-wide choice has consequences
+   * a name cannot state. A row whose label already says the whole thing — Prefix, Last Name,
+   * Email, Password — earns nothing from a sentence under it but the noise of being told what it
+   * already read, and a surface built of those rows reads as a manual. The account surface states
+   * none for exactly that reason; a settings page that leaves one out is saying the same thing
+   * about that row.
    */
-  readonly description: string;
+  readonly description?: string;
   readonly kind: SettingKind;
   /** select only. */
   readonly options?: readonly SettingOption[];

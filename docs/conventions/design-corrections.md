@@ -3263,6 +3263,52 @@ than allowing to set filters."
   patch now also wraps that event the way Bits already wraps a pointer event. Generalizes: **a
   field that opens a layer of its own is usable wherever the field is**, and a menu is not exempt.
 
+### 2026-09-18 — a row's name is the explanation, and a dropdown that says "several" takes several
+
+The owner, walking Account Settings: "remove all the small text like 'How you are addressed. Several
+is fine: Hon., Dr. Optional.'", "the dropdown says it allows for multiple selections, but once i
+select one, i cannot select another until it is removed", "remove the info screen that says 'A device
+signed out here can take up to five minutes…'", "remove small text like 'The devices signed in to
+your account.' beneath all headers in this area", "add a way to change a password", "allow for
+uploading and adding a profile image", "identity should show the associated email address".
+
+- **A descriptor is for a choice with consequences, not for a field whose name is the whole fact.**
+  Every row on the account surface carried a muted line under its name, and every page carried one
+  under its heading: "Prefix — how you are addressed", "Active Sessions — the devices signed in to
+  your account". A reader passes over each of them forever, and a surface built of them reads as a
+  manual rather than as the reader's own record. `SettingDefinition.description` is optional now and
+  `SettingsRow` renders the line only where there is one; `AccountMasthead` lost the prop entirely.
+  Generalizes: **a firm SETTING earns a descriptor, because a firm-wide choice has consequences its
+  name cannot state. A field whose label is the fact does not, and neither does a page whose heading
+  is.** Where a reader genuinely must be told something, it belongs beside the control it applies to,
+  not under the page's name.
+- **A standing explanation is a control that was not built.** The signed-in-devices screen opened
+  with a notice about the few minutes a revoked device keeps working, which ended by telling the
+  reader to go and find the password reset on the sign-in screen — because the in-account change was
+  a disabled seam. The notice came off and the change got built. Generalizes: **when a screen's
+  standing sentence is an instruction to go somewhere else, the sentence is a placeholder for a
+  control, and removing it means building the control.**
+- **A caption for a fact the row does not carry belongs to nobody.** Every device row read "Address
+  not recorded", on every row, because the deployment was reading a header its front door does not
+  send. The header was fixed; a row that genuinely carries no address now has one fewer clause.
+  Generalizes, and is the second half of the _structured empty_ rule: **a field with no value is left
+  out, never captioned with its own absence — and a caption appearing on EVERY row is a bug report
+  about the read, not a design decision.**
+- **A control that holds several holds several after the first one.** The prefix/suffix combobox
+  narrowed its list against the part of the line after the last comma, which at rest is the entry
+  just chosen — so the list offered exactly the one entry already held and no second pick was
+  reachable. Generalizes: **a multi-hold control must distinguish text somebody is TYPING from a
+  value that has settled; a settled value narrows nothing.** And where the underlying primitive holds
+  one value, the rows carry a per-pick sequence number so the primitive's "you clicked the row I
+  already hold" deselect can never swallow an act.
+- **A fact a member may see and not change is engraved, never a disabled box.** The account's email
+  address is stated in the read-only posture — the same device the settings table uses for any fact a
+  member reads and cannot set — rather than as a greyed input beside a Soon badge. A disabled control
+  reads as broken and invites fiddling; a stated value reads as what it is. The Soon badge went with
+  it, and the seam guard now asserts that a page with no seam claims no badge. Generalizes: **a Soon
+  badge is a promise about the near term. On a row nobody intends to build soon it teaches a reader
+  that the badge means less than it does.**
+
 ### 2026-09-18 — the create control's width is re-measured, not worked around
 
 The owner, on /documents answering with the crash screen: what the report said was `status: 500` and

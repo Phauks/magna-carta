@@ -794,6 +794,22 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // professional email, signature block. The member's own current-state data with no matter
   // retention basis, so it is deletable outright at the subject.
   { table: "member_professional_profile", subjectKey: "member_user_id", action: "hard-delete" },
+  // A member's own photograph. The most plainly personal row the firm database holds and the one
+  // with the least to retain it against: nothing is filed under it, no matter's record depends on
+  // it, and it exists only so colleagues recognise a face. So it goes outright at the subject, the
+  // same line the professional profile sits on.
+  //
+  // ONE NOTE FOR WHOEVER BUILDS THE ORCHESTRATOR: this row is the only thing that names the object
+  // holding the bytes, so deleting it and stopping leaves a photograph of a person in the firm's
+  // bucket that nothing can ever find again to delete. The object key has to be read off the row
+  // before the row goes. The route that removes a picture does exactly that
+  // (apps/api-worker/src/routes/me-photo.ts).
+  {
+    table: "member_photo",
+    subjectKey: "member_user_id",
+    action: "hard-delete",
+    note: "the row names an R2 object; read object_key before deleting the row",
+  },
   // The court-case record names two people-adjacent Directory references: the court organisation
   // and the assigned judge. Both are the matter's own identity facts — which court a case is before
   // is the caption — and the subject-side scrub happens at the Directory entity, as matter_party.
