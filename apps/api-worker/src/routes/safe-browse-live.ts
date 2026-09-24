@@ -262,9 +262,125 @@ async function navigateGuarded(
   }
 }
 
+/** What one live navigation produced, before the route adds the fact about the member's session. */
+export interface LiveNavigationResult {
+  /** The remote browser's session id, recorded so the next navigation can reconnect to it. */
+  readonly sessionId: string;
+  /** The plan actually carried out — a connect to a reaped browser comes back as a launch. */
+  readonly plan: LiveSessionPlan;
+  readonly finalUrl: string;
+  readonly redirectChain: readonly { url: string; status: number; location?: string }[];
+  readonly responseHeaders: Readonly<Record<string, string>>;
+  readonly screenshotBase64: string;
+  readonly title?: string;
+  readonly text?: string;
+  readonly links: readonly string[];
+}
+
+/*
+ * The seam between the route and the remote browser, on the same terms as the static capture's
+ * `BrowserRenderer`: production drives the Browser Rendering binding, tests pass a fake. It exists
+ * because the local test pool has no browser at all, so without it the route's decisions — what a
+ * refused redirect answers, whether a failure ends the session, whether a second navigation reuses
+ * the first one's browser — could only ever be checked by hand against the deployed service.
+ *
+ * A navigator MUST leave the browser alive on success (disconnect, never close) and MUST run the
+ * SSRF guard on every hop it follows, throwing `SsrfRejection` when a main-frame hop is refused.
+ * The route owns everything else.
+ */
+export interface LiveNavigator {
+  navigate(plan: LiveSessionPlan, href: string): Promise<LiveNavigationResult>;
+}
+
+export type SafeBrowseLiveRouteDeps = Partial<{ navigator: LiveNavigator }>;
+
+/** The production navigator: a held Browser Rendering session driven over CDP. */
+export function createPuppeteerLiveNavigator(binding: BrowserWorker): LiveNavigator {
+  return {
+    async navigate(plan, href) {
+      let browser: Browser | null = null;
+      try {
+        const acquired = await browserForPlan(binding, plan);
+        browser = acquired.browser;
+
+        const pages = await browser.pages();
+        const page = pages[0] ?? (await browser.newPage());
+        const { response } = await navigateGuarded(page, href);
+        // A short, bounded settle for client-rendered content. It never fails the navigation: a
+        // page that never goes quiet is shot as it stands rather than refused.
+        await page.waitForNetworkIdle({ idleTime: 500, timeout: 3_000 }).catch(() => {});
+
+        const [screenshot, title, links, text] = await Promise.all([
+          page.screenshot({ encoding: "base64", fullPage: true }) as Promise<string>,
+          page.title().catch(() => undefined),
+          page
+            // The callback is serialized and runs inside the remote page, not in this Worker, so it
+            // cannot name a DOM type this build has no lib for; the shape is asserted structurally.
+            .$$eval(
+              "a[href]",
+              (anchors, maximum) =>
+                anchors
+                  .map((anchor) => (anchor as unknown as { href: string }).href)
+                  .slice(0, maximum),
+              MAXIMUM_LINKS,
+            )
+            .catch(() => [] as string[]),
+          page
+            .evaluate(
+              (maximum) =>
+                String(
+                  (globalThis as unknown as { document?: { body?: { innerText?: string } } })
+                    .document?.body?.innerText ?? "",
+                ).slice(0, maximum),
+              MAXIMUM_TEXT_CHARACTERS,
+            )
+            .catch(() => undefined),
+        ]);
+
+        // The chain the browser actually followed: every hop that redirected, then the answer it
+        // settled on. Read off the navigation itself rather than probed separately, so it is the
+        // chain this session walked — cookies and all — and not a cookieless re-fetch's guess.
+        const redirectChain = [
+          ...(response?.request().redirectChain() ?? []).map((hop) => {
+            const hopResponse = hop.response();
+            const location = hopResponse?.headers()["location"];
+            return {
+              url: hop.url(),
+              status: hopResponse?.status() ?? 0,
+              ...(location !== undefined && { location }),
+            };
+          }),
+          ...(response !== null ? [{ url: response.url(), status: response.status() }] : []),
+        ];
+
+        const result: LiveNavigationResult = {
+          sessionId: browser.sessionId(),
+          plan: acquired.plan,
+          finalUrl: page.url(),
+          redirectChain,
+          responseHeaders: response?.headers() ?? {},
+          screenshotBase64: screenshot,
+          ...(title !== undefined && { title }),
+          ...(text !== undefined && text !== "" && { text }),
+          links,
+        };
+
+        // disconnect, NOT close: the browser must outlive this request for the next navigation to
+        // find it. Closing here would make every hop a cold browser and delete the point.
+        await browser.disconnect();
+        browser = null;
+        return result;
+      } finally {
+        if (browser !== null) await (browser as Browser).disconnect().catch(() => {});
+      }
+    },
+  };
+}
+
 export function registerSafeBrowseLiveRoutes(
   app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
   chokepoint: Chokepoint,
+  deps: SafeBrowseLiveRouteDeps = {},
 ): void {
   app.openapi(
     { ...liveNavigateRoute, middleware: chokepointMiddleware(chokepoint, liveNavigateRoute) },
@@ -299,85 +415,31 @@ export function registerSafeBrowseLiveRoutes(
       const record = await stub.read();
       const planned = planLiveSession(record, Date.now());
 
-      let browser: Browser | null = null;
+      // The binding is read only when no navigator was supplied, so the test pool — which has no
+      // browser — never touches it.
+      const navigator =
+        deps.navigator ?? createPuppeteerLiveNavigator(c.env.BROWSER as BrowserWorker);
       try {
-        const acquired = await browserForPlan(c.env.BROWSER as BrowserWorker, planned);
-        browser = acquired.browser;
-
-        const pages = await browser.pages();
-        const page = pages[0] ?? (await browser.newPage());
-        const { response } = await navigateGuarded(page, target.url.href);
-        // A short, bounded settle for client-rendered content. It never fails the navigation: a
-        // page that never goes quiet is shot as it stands rather than refused.
-        await page.waitForNetworkIdle({ idleTime: 500, timeout: 3_000 }).catch(() => {});
-
-        const [screenshot, title, links, text] = await Promise.all([
-          page.screenshot({ encoding: "base64", fullPage: true }) as Promise<string>,
-          page.title().catch(() => undefined),
-          page
-            // The callback is serialized and runs inside the remote page, not in this Worker, so it
-            // cannot name a DOM type this build has no lib for; the shape is asserted structurally.
-            .$$eval(
-              "a[href]",
-              (anchors, maximum) =>
-                anchors
-                  .map((anchor) => (anchor as unknown as { href: string }).href)
-                  .slice(0, maximum),
-              MAXIMUM_LINKS,
-            )
-            .catch(() => [] as string[]),
-          page
-            .evaluate(
-              (maximum) =>
-                String(
-                  (globalThis as unknown as { document?: { body?: { innerText?: string } } })
-                    .document?.body?.innerText ?? "",
-                ).slice(0, maximum),
-              MAXIMUM_TEXT_CHARACTERS,
-            )
-            .catch(() => undefined),
-        ]);
-        const finalUrl = page.url();
-
-        // The chain the browser actually followed: every hop that redirected, then the answer it
-        // settled on. Read off the navigation itself rather than probed separately, so it is the
-        // chain this session walked — cookies and all — and not a cookieless re-fetch's guess.
-        const redirectChain = [
-          ...(response?.request().redirectChain() ?? []).map((hop) => {
-            const hopResponse = hop.response();
-            const location = hopResponse?.headers()["location"];
-            return {
-              url: hop.url(),
-              status: hopResponse?.status() ?? 0,
-              ...(location !== undefined && { location }),
-            };
-          }),
-          ...(response !== null ? [{ url: response.url(), status: response.status() }] : []),
-        ];
+        const result = await navigator.navigate(planned, target.url.href);
+        const continued = sessionContinued(result.plan);
 
         await stub.write({
-          sessionId: browser.sessionId(),
-          location: finalUrl,
-          openedAt:
-            record !== null && sessionContinued(acquired.plan) ? record.openedAt : Date.now(),
+          sessionId: result.sessionId,
+          location: result.finalUrl,
+          openedAt: record !== null && continued ? record.openedAt : Date.now(),
         });
-
-        // disconnect, NOT close: the browser must outlive this request for the next navigation to
-        // find it. Closing here would make every hop a cold browser and delete the point.
-        await browser.disconnect();
-        browser = null;
 
         return c.json(
           {
             requestedUrl: url,
-            finalUrl,
-            redirectChain,
-            responseHeaders: response?.headers() ?? {},
-            screenshotBase64: screenshot,
-            ...(title !== undefined && { title }),
-            ...(text !== undefined && text !== "" && { markdown: text }),
-            links,
-            sessionContinued: sessionContinued(acquired.plan),
+            finalUrl: result.finalUrl,
+            redirectChain: result.redirectChain.map((hop) => ({ ...hop })),
+            responseHeaders: { ...result.responseHeaders },
+            screenshotBase64: result.screenshotBase64,
+            ...(result.title !== undefined && { title: result.title }),
+            ...(result.text !== undefined && { markdown: result.text }),
+            links: [...result.links],
+            sessionContinued: continued,
           },
           200,
         );
@@ -407,8 +469,6 @@ export function registerSafeBrowseLiveRoutes(
           detail:
             "The isolated browser reached the address but the page did not finish loading. It may be very slow, very large, or broken.",
         });
-      } finally {
-        if (browser !== null) await (browser as Browser).disconnect().catch(() => {});
       }
     },
   );
