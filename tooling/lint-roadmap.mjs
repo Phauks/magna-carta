@@ -7,6 +7,11 @@ import { renderDecisionDesk } from "./doc-fragments/decision-desk.mjs";
 import { publicCopyProblems } from "./doc-fragments/public-copy.mjs";
 import { renderBuildRegisterArtifact } from "./doc-fragments/register-artifact.mjs";
 import {
+  RENDERED_REGISTER_FILES,
+  registerRenderRefusal,
+  renderedFilesChangedOnBranch,
+} from "./doc-fragments/register-renderers.mjs";
+import {
   STATUSES_WITH_SOMETHING_BUILT,
   parseArea,
   renderBuildRegister,
@@ -24,16 +29,26 @@ import {
 //      published from those keys today — the public rendering has no audience yet — and the check
 //      stays on so the copy is already sound on the day it does.
 //   3. `surface:` is set where it means something and absent where it does not — see below.
-//   4. docs/now.md, docs/now.html and docs/decisions-open.html all match a fresh render of the
-//      ledger, byte for byte.
+//   4. Where the register is RENDERED — on main, and on the assembly and docs-sync branches that
+//      render it — docs/now.md, docs/now.html and docs/decisions-open.html all match a fresh render
+//      of the ledger, byte for byte. On every other branch the three files must be UNTOUCHED
+//      against where the branch left the trunk: a branch's change is its edit to roadmap.d/, and
+//      the rendering follows on main.
 //
-// The third is the point of the whole design. A capability that ships flips one word in its ledger
+// The fourth is the point of the whole design. A capability that ships flips one word in its ledger
 // node, and this gate refuses the two ways a derived document rots: flipping the node without
 // rebuilding, and hand-editing the rendered file. Same contract as the committed OpenAPI snapshot.
 // Both renderings are held to it, because the published page is the one the owner actually reads and
 // a page that is only regenerated when somebody remembers is the hand-maintained copy again.
 //
-// Run: `pnpm run lint:roadmap`.
+// Why a branch does not render: it used to, and every two branches that each flipped a node then
+// rewrote the same whole document and conflicted on it — fifteen of forty merges in a row, on a file
+// nobody had written by hand. The register is a derived view of the trunk, so the trunk renders it
+// (tooling/doc-fragments/register-renderers.mjs says who), and a branch that carries the rendered
+// files fails here rather than at the merge.
+//
+// Run: `pnpm run lint:roadmap`. Pass `--rendered` to hold the files to a fresh render wherever you
+// are, which is what a renderer does after rendering.
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const LEDGER_DIR = join(ROOT, "roadmap.d");
@@ -129,7 +144,21 @@ for (const area of areas) {
 // the reconstruction of its own past in docs/register-history.json. Reading the history file here
 // rather than rebuilding it is the point — the gate must be fast and must not depend on the git
 // history being present, and the file is what the document was rendered from.
-if (problems.length === 0) {
+const refusal = process.argv.includes("--rendered") ? null : registerRenderRefusal(ROOT);
+if (problems.length === 0 && refusal !== null) {
+  // A branch. The files must be exactly what the trunk had where this branch left it.
+  const changed = renderedFilesChangedOnBranch(ROOT);
+  if (changed === null) {
+    console.log(
+      `lint:roadmap: ${refusal}; origin/main is not available here, so the rendered files were not compared`,
+    );
+  } else if (changed.length > 0) {
+    problems.push(
+      `${changed.join(", ")} changed on this branch — the register renders on main, never on a branch (${refusal}). Restore them from the trunk: git checkout origin/main -- ${RENDERED_REGISTER_FILES.join(" ")}`,
+    );
+  }
+}
+if (problems.length === 0 && refusal === null) {
   let history = null;
   try {
     history = loadHistory();
@@ -183,5 +212,7 @@ const publicNodes = areas.reduce(
   0,
 );
 console.log(
-  `Feature ledger valid (${seen.size} node(s) across ${areas.length} area(s), ${publicNodes} marked public and not yet published); docs/now.md + docs/now.html + docs/decisions-open.html are current.`,
+  refusal === null
+    ? `Feature ledger valid (${seen.size} node(s) across ${areas.length} area(s), ${publicNodes} marked public and not yet published); docs/now.md + docs/now.html + docs/decisions-open.html are current.`
+    : `Feature ledger valid (${seen.size} node(s) across ${areas.length} area(s), ${publicNodes} marked public and not yet published); the rendered register is untouched on this branch and renders on main.`,
 );

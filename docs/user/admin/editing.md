@@ -16,9 +16,10 @@ it is on:
   looks the way it always did. A member who wants to see the record opens the editor's **Review**
   tab and turns **Show Track Changes** on; that choice is theirs and changes nothing for anybody
   else.
-- The stored document keeps every mark for as long as it lives. Producing every copy that leaves
-  the firm with the marks accepted is coming; until it lands, a download carries them, so review a
-  download before it goes to the other side.
+- The stored document keeps every mark for as long as it lives. Every copy that leaves the firm —
+  a download, a bundle — is produced with the marks accepted, so nobody sends a redline they did
+  not mean to. A document too large for that copy to be made downloads as stored, and the audit
+  trail records that it did.
 
 Recording is what the version history's attribution will be read from. A version records who was in
 the document when it was saved; the marks record which words each of them wrote.

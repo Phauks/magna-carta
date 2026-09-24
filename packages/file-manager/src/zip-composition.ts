@@ -1,5 +1,6 @@
 import type { FileId, FileVersionId, FolderId } from "@magna-carta/identifiers/types";
 import { disambiguate } from "./bundle-paths.ts";
+import type { ExportCopyFacts } from "./export-copy.ts";
 import type { BundleOptions } from "./bundle-options.ts";
 import type { FolderNode, MatterCleanFile } from "./queries.ts";
 
@@ -16,6 +17,9 @@ export interface ZipEntry {
   readonly versionId: FileVersionId;
   readonly r2Key: string;
   readonly sizeBytes: number;
+  // The version's export copy, when it has one: the route swaps the copy's key and size in for the
+  // stored object's before any lane reads the entry, so a bundle never carries a document's marks.
+  readonly exportCopy: ExportCopyFacts;
 }
 
 export interface ZipSelection {
@@ -107,6 +111,11 @@ export function resolveZipSelection(
       versionId: file.versionId,
       r2Key: file.r2Key,
       sizeBytes: file.sizeBytes ?? 0,
+      exportCopy: {
+        exportCopyState: file.exportCopyState,
+        exportR2Key: file.exportR2Key,
+        exportSizeBytes: file.exportSizeBytes,
+      },
     }));
 
   const totalBytes = entries.reduce((sum, entry) => sum + entry.sizeBytes, 0);

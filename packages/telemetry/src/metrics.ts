@@ -124,6 +124,23 @@ export const costsRecoveryUnhandledTopic = defineMetric("costs.recovery.unhandle
   "topic",
 ] as const);
 
+// A version's export copy — the document with every tracked change accepted, made once per
+// word-processing version the editor cuts and served wherever a copy leaves the platform.
+// `produced` counts each outcome of the queue handler (ready, unavailable with its reason, not
+// needed); `request_failed` is a save whose direct ask of the queue failed and is relying on the
+// relay's backstop; `malformed_payload` is a message that names no version, acked rather than
+// retried.
+export const exportsCopyProduced = defineMetric("exports.copy.produced", [
+  "outcome",
+  "reason",
+] as const);
+export const exportsCopyRequestFailed = defineMetric("exports.copy.request_failed", [
+  "reason",
+] as const);
+export const exportsCopyMalformedPayload = defineMetric("exports.copy.malformed_payload", [
+  "topic",
+] as const);
+
 // The automatic conflicts re-check path. Every one of these is a counter rather than an event on
 // purpose: the RATE is what says whether a firm's screening is keeping up with its records, and the
 // per-row detail — a matter, an entity, a cause handle — is firm data with no place in a metric.
@@ -521,6 +538,9 @@ const CATALOG: readonly MetricDefinition[] = [
   notificationsDigestRefusedEscalation,
   emailDeliveryFailed,
   downloadsShelfSwept,
+  exportsCopyProduced,
+  exportsCopyRequestFailed,
+  exportsCopyMalformedPayload,
 ];
 
 const BY_NAME = new Map(CATALOG.map((definition) => [definition.metricName, definition]));

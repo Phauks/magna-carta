@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { build as buildHistory } from "./build-register-history.mjs";
 import { renderDecisionDesk } from "./decision-desk.mjs";
 import { renderBuildRegisterArtifact } from "./register-artifact.mjs";
+import { registerRenderRefusal } from "./register-renderers.mjs";
 import { parseArea, renderBuildRegister } from "./roadmap.mjs";
 
 // Regenerate docs/now.md, docs/now.html and docs/decisions-open.html — the complete build register
@@ -12,9 +13,13 @@ import { parseArea, renderBuildRegister } from "./roadmap.mjs";
 // document is re-rendered whole from the current ledger every run (same shape as build-status.mjs;
 // contrast build-changelog.mjs, which deletes fragments).
 //
-// Run on main after a merge, next to `vp run changelog-build` / `vp run status-build`. The output is
-// a byte-exact function of the ledger and tooling/lint-roadmap.mjs fails the gate when the file on
-// disk differs from a fresh render — which is what makes the register unable to drift.
+// Run on main after a merge, next to `vp run changelog-build` / `vp run status-build` — and ONLY
+// there, or on the assembly and docs-sync branches that render for main. On a feature branch it
+// refuses to write (pass --preview to look at the render anyway, and do not commit it): the
+// rendered files are what every two node-flipping branches used to conflict on, and a branch's
+// change is its edit to the ledger alone. The output is a byte-exact function of the ledger and
+// tooling/lint-roadmap.mjs fails the gate when the file on disk differs from a fresh render where it
+// is rendered, and when a branch carries a change to it where it is not.
 //
 // THREE OUTPUTS, ONE RUN (the same shape as build-status.mjs, which writes STATUS.md +
 // STATUS.json). docs/now.html is the same register as a self-contained web page, for the reader who
@@ -61,6 +66,13 @@ export function render(areas, history = null) {
 
 export function build(argv = []) {
   if (!existsSync(LEDGER_DIR)) throw new Error("roadmap.d/ not found");
+  const refusal = argv.includes("--preview") ? null : registerRenderRefusal(ROOT);
+  if (refusal !== null) {
+    console.log(
+      `roadmap: not rendered — ${refusal}. Commit the roadmap.d/ edit; pass --preview to see the render without committing it.`,
+    );
+    return;
+  }
   const areas = loadAreas();
   // The "where we have been" series first, so this run's own commit is in the document it renders.
   // Cheap by construction: it reads only the commits its file does not already hold, normally none

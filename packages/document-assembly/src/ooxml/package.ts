@@ -24,6 +24,22 @@ export const MAX_INFLATED_BYTES = 24 * 1024 * 1024;
 // folder. The cap bounds the per-entry work regardless of how small each entry inflates to.
 export const MAX_ENTRY_COUNT = 512;
 
+// The three caps as one value, so a reader with a different input in mind can name its own. The
+// defaults are the template caps above; the accept-changes pass over a WORKING document (a member's
+// own file, images and all, rather than a firm's template) takes larger ones in
+// accept-tracked-changes.ts, sized against the same isolate ceiling.
+export interface PackageLimits {
+  readonly maxPackageBytes: number;
+  readonly maxInflatedBytes: number;
+  readonly maxEntryCount: number;
+}
+
+export const TEMPLATE_PACKAGE_LIMITS: PackageLimits = {
+  maxPackageBytes: MAX_TEMPLATE_BYTES,
+  maxInflatedBytes: MAX_INFLATED_BYTES,
+  maxEntryCount: MAX_ENTRY_COUNT,
+};
+
 export type PackageReadFailure =
   | "oversize" // the raw package exceeds MAX_TEMPLATE_BYTES
   | "decompression-bomb" // entry count or inflated size past the caps
@@ -39,27 +55,33 @@ class BombError extends Error {}
 // The per-entry check every read shares: the entry-count cap plus the running total of DECLARED
 // uncompressed sizes, both evaluated BEFORE the entry is inflated, so a well-declared bomb never
 // inflates at all. Returns a stateful callback, so one instance guards exactly one archive.
-function entryGuard(): (file: UnzipFileInfo) => void {
+function entryGuard(limits: PackageLimits): (file: UnzipFileInfo) => void {
   let entryCount = 0;
   let declaredTotal = 0;
   return (file) => {
     entryCount += 1;
-    if (entryCount > MAX_ENTRY_COUNT) {
-      throw new BombError(`package has more than ${MAX_ENTRY_COUNT} entries`);
+    if (entryCount > limits.maxEntryCount) {
+      throw new BombError(`package has more than ${limits.maxEntryCount} entries`);
     }
     declaredTotal += file.originalSize;
-    if (declaredTotal > MAX_INFLATED_BYTES) {
-      throw new BombError(`package declares more than ${MAX_INFLATED_BYTES} inflated bytes`);
+    if (declaredTotal > limits.maxInflatedBytes) {
+      throw new BombError(`package declares more than ${limits.maxInflatedBytes} inflated bytes`);
     }
   };
 }
 
-export function readPackage(bytes: Uint8Array): Outcome<PartMap, PackageReadFailure> {
-  if (bytes.byteLength > MAX_TEMPLATE_BYTES) {
-    return failed("oversize", `package is ${bytes.byteLength} bytes, over ${MAX_TEMPLATE_BYTES}`);
+export function readPackage(
+  bytes: Uint8Array,
+  limits: PackageLimits = TEMPLATE_PACKAGE_LIMITS,
+): Outcome<PartMap, PackageReadFailure> {
+  if (bytes.byteLength > limits.maxPackageBytes) {
+    return failed(
+      "oversize",
+      `package is ${bytes.byteLength} bytes, over ${limits.maxPackageBytes}`,
+    );
   }
 
-  const guardEntry = entryGuard();
+  const guardEntry = entryGuard(limits);
   let entries: Record<string, Uint8Array>;
   try {
     entries = unzipSync(bytes, {
@@ -81,8 +103,8 @@ export function readPackage(bytes: Uint8Array): Outcome<PartMap, PackageReadFail
   let inflated = 0;
   for (const content of Object.values(entries)) {
     inflated += content.byteLength;
-    if (inflated > MAX_INFLATED_BYTES) {
-      return failed("decompression-bomb", `package inflates past ${MAX_INFLATED_BYTES} bytes`);
+    if (inflated > limits.maxInflatedBytes) {
+      return failed("decompression-bomb", `package inflates past ${limits.maxInflatedBytes} bytes`);
     }
   }
 

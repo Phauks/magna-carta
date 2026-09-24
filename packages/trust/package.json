@@ -9,6 +9,7 @@
     "./trust-validation": "./src/trust-validation.ts",
     "./statements": "./src/statements.ts",
     "./account-tree": "./src/account-tree.ts",
+    "./account-position": "./src/account-position.ts",
     "./composition-guard": "./src/composition-guard.ts",
     "./holds": "./src/holds.ts",
     "./movements": "./src/movements.ts",
