@@ -1105,6 +1105,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "files.restore",
       "files.scans",
       "files.update",
+      "files.versionChanges",
       "files.versions",
       "firm.setReleaseChannel",
       "firmAiSettings.get",

@@ -279,6 +279,14 @@
   spec: docs/specs/2026-09-17-document-history-and-attribution-design.md
   evidence: packages/document-assembly/src/ooxml/accept-tracked-changes.ts (the pass) + apps/api-worker/src/exports (the queue handler, the resolver every download lane calls); the outbound paths, what is deliberately not one, and what must join the list when built are enumerated in apps/api-worker/src/editing/CLAUDE.md. A document past the pass's caps downloads as stored with the audit saying so, chosen over refusing a member their own document.
 
+- id: documents.editing.attribution
+  name: Who changed what, per version
+  scope: A version's tracked changes read from the document into rows attributed to members (participants first, roster second), the per-author summary on every history row, and the changes by author opened from Version History.
+  status: shipped
+  surface: screen
+  spec: docs/specs/2026-09-17-document-history-and-attribution-design.md
+  evidence: packages/document-assembly/src/ooxml/read-tracked-changes.ts (the reader) + packages/file-manager/src/version-changes.ts (the rows, the set difference, the summary) + apps/api-worker/src/exports/record-version-changes.ts (attribution, riding the export copy's batch) + files.versionChanges; the Version History tab of apps/web/src/lib/file-manager/file-inspector.svelte.
+
 - id: documents.editing.editor-ui
   name: Editor UI
   scope: In-app surface that opens a document in the Collabora frame, and the in-app plain-text editor beside it.

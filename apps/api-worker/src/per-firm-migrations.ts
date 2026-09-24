@@ -37,6 +37,7 @@ import oneOpenStayPerMemberSql from "@magna-carta/database/drizzle/per-firm/2026
 import aMeetingHasAMediumSql from "@magna-carta/database/drizzle/per-firm/20260919T001022_a-meeting-has-a-medium.sql";
 import memberPhotoSql from "@magna-carta/database/drizzle/per-firm/20260920T182353_member-photo.sql";
 import versionExportCopySql from "@magna-carta/database/drizzle/per-firm/20260924T171146_version-export-copy.sql";
+import versionChangesSql from "@magna-carta/database/drizzle/per-firm/20260924T181432_version-changes.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -69,6 +70,7 @@ export function perFirmMigrations(): Migration[] {
     "20260919T001022_a-meeting-has-a-medium": aMeetingHasAMediumSql,
     "20260920T182353_member-photo": memberPhotoSql,
     "20260924T171146_version-export-copy": versionExportCopySql,
+    "20260924T181432_version-changes": versionChangesSql,
   });
 }
 

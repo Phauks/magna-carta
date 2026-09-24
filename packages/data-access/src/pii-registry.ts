@@ -121,6 +121,10 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // chain-of-custody — that SOMEBODY was in the document at this time — so it is pseudonymized,
   // never deleted.
   { table: "file_version_participant", subjectKey: "member_user_id", action: "pseudonymize-keep" },
+  // A version's tracked changes: who wrote or removed which words. The member reference is
+  // pseudonymized on the same terms as the participant row; the author's name as the DOCUMENT
+  // holds it stays on the row, because it stays in the document the row was read from.
+  { table: "file_version_change", subjectKey: "author_user_id", action: "pseudonymize-keep" },
   { table: "entity_merge", subjectKey: "subordinate_id", action: "pseudonymize-keep" },
   // The conflicts log — append-only compliance records whose RAISE(ABORT) triggers forbid deletion, so
   // the subject reference is pseudonymized in place and the row is never removed (the same discipline as

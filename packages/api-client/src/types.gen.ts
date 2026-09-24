@@ -1907,6 +1907,30 @@ export type FileVersionItem = {
     scanVerdict: 'unscanned' | 'clean' | 'flagged' | null;
     scanEngineVersion: string | null;
     scanDetail: string | null;
+    changes: Array<{
+        authorUserId: string | null;
+        authorName: string;
+        insertions: number;
+        deletions: number;
+        formatting: number;
+    }>;
+};
+
+export type FileVersionChangesResponse = {
+    data: Array<FileVersionChangeItem>;
+};
+
+export type FileVersionChangeItem = {
+    sequence: number;
+    kind: 'insertion' | 'deletion' | 'formatting';
+    authorName: string;
+    authorUserId: string | null;
+    authorCurrentName: string | null;
+    changedAt: string | null;
+    text: string;
+    textTruncated: boolean;
+    part: string;
+    paragraphIndex: number;
 };
 
 export type FileActionAck = {
@@ -15493,6 +15517,42 @@ export type FilesVersionsResponses = {
 };
 
 export type FilesVersionsResponse = FilesVersionsResponses[keyof FilesVersionsResponses];
+
+export type FilesVersionChangesData = {
+    body?: never;
+    path: {
+        id: string;
+        versionId: string;
+    };
+    query?: never;
+    url: '/api/v1/files/{id}/versions/{versionId}/changes';
+};
+
+export type FilesVersionChangesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the file is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FilesVersionChangesError = FilesVersionChangesErrors[keyof FilesVersionChangesErrors];
+
+export type FilesVersionChangesResponses = {
+    /**
+     * The version's changes, in document order
+     */
+    200: FileVersionChangesResponse;
+};
+
+export type FilesVersionChangesResponse = FilesVersionChangesResponses[keyof FilesVersionChangesResponses];
 
 export type FilesDownloadData = {
     body?: never;
