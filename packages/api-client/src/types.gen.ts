@@ -387,9 +387,19 @@ export type SafeBrowseSessionProbe = {
 };
 
 export type SafeBrowseLiveView = {
+    requestedUrl: string;
     finalUrl: string;
+    redirectChain: Array<{
+        url: string;
+        status: number;
+        location?: string;
+    }>;
+    responseHeaders: {
+        [key: string]: string;
+    };
     screenshotBase64: string;
     title?: string;
+    markdown?: string;
     links: Array<string>;
     sessionContinued: boolean;
 };
