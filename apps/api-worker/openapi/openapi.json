@@ -37968,7 +37968,7 @@
         "x-mc-resource": "firm",
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
-        "x-mc-rateLimit": "default",
+        "x-mc-rateLimit": "expensive",
         "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "safeBrowse"
@@ -38032,7 +38032,7 @@
         "x-mc-resource": "firm",
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
-        "x-mc-rateLimit": "default",
+        "x-mc-rateLimit": "expensive",
         "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "safeBrowse"
