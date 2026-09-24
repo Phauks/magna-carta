@@ -58,10 +58,16 @@ describe("addressLookup", () => {
   });
 
   it("passes no-coverage and unavailable through as answers, not failures", async () => {
-    for (const outcome of ["no-coverage", "unavailable"] as const) {
-      const lookup = addressLookup(ports({ suggest: () => Promise.resolve({ outcome }) }));
-      expect(await lookup.suggest("US", "14 Rose")).toEqual({ kind: outcome });
-    }
+    const outcomes = ["no-coverage", "unavailable"] as const;
+    const answers = await Promise.all(
+      outcomes.map((outcome) =>
+        addressLookup(ports({ suggest: () => Promise.resolve({ outcome }) })).suggest(
+          "US",
+          "14 Rose",
+        ),
+      ),
+    );
+    expect(answers).toEqual(outcomes.map((outcome) => ({ kind: outcome })));
   });
 
   it("REJECTS when the call could not run, so the form never shows it as no matches", async () => {
