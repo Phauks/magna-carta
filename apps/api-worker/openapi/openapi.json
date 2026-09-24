@@ -1572,13 +1572,46 @@
       "SafeBrowseLiveView": {
         "type": "object",
         "properties": {
+          "requestedUrl": {
+            "type": "string"
+          },
           "finalUrl": {
             "type": "string"
+          },
+          "redirectChain": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "url": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "number"
+                },
+                "location": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "url",
+                "status"
+              ]
+            }
+          },
+          "responseHeaders": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
           },
           "screenshotBase64": {
             "type": "string"
           },
           "title": {
+            "type": "string"
+          },
+          "markdown": {
             "type": "string"
           },
           "links": {
@@ -1592,7 +1625,10 @@
           }
         },
         "required": [
+          "requestedUrl",
           "finalUrl",
+          "redirectChain",
+          "responseHeaders",
           "screenshotBase64",
           "links",
           "sessionContinued"
