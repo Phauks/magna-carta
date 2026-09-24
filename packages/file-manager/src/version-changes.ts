@@ -130,9 +130,7 @@ export async function readRecordedMarkKeys(
 ): Promise<Set<string>> {
   const { results } = await database
     .prepare(
-      `SELECT c.kind, c.author_name, c.changed_at, c.text, c.part FROM ${FILE_VERSION_CHANGE_TABLE} c ` +
-        `JOIN ${FILE_VERSION_TABLE} v ON v.id = c.version_id ` +
-        `WHERE v.file_id = ?1 AND v.version_number < ?2 AND v.status = 'clean'`,
+      `SELECT c.kind, c.author_name, c.changed_at, c.text, c.part FROM ${FILE_VERSION_CHANGE_TABLE} c JOIN ${FILE_VERSION_TABLE} v ON v.id = c.version_id WHERE v.file_id = ?1 AND v.version_number < ?2 AND v.status = 'clean'`,
     )
     .bind(fileId, beforeVersionNumber)
     .all<{
