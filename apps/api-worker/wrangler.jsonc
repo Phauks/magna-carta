@@ -438,6 +438,10 @@
       // The per-firm SQLite-backed database: one instance per firm (idFromName(firmId)), self-migrating
       // on wake, and the data-plane RPC target for all per-firm SQL.
       { "name": "FIRM_DATABASE", "class_name": "FirmDatabase" },
+      // One live browsing session per member (idFromName(`${firmId}:${userId}`), firm-namespaced so
+      // a session cannot be addressed across firms). Holds the remote browser's session id and an
+      // idle alarm, never the browser handle and never any browsing history.
+      { "name": "SAFE_BROWSE_SESSION", "class_name": "SafeBrowseSession" },
       // The password-recovery job coordinator: fans a recovery job out across shards and aggregates
       // outcomes into the job's final state.
       { "name": "RECOVERY_JOB", "class_name": "RecoveryJobCoordinator" },
@@ -490,6 +494,7 @@
     { "tag": "v7-discovery-load-job", "new_sqlite_classes": ["DiscoveryLoadCoordinator"] },
     { "tag": "v8-search-compaction-job", "new_sqlite_classes": ["SearchCompactionJob"] },
     { "tag": "v9-meeting-room", "new_sqlite_classes": ["MeetingRoom"] },
+    { "tag": "v10-safe-browse-session", "new_sqlite_classes": ["SafeBrowseSession"] },
   ],
   // Workers Logs at full sampling (current volumes; the golden-rule-4 structured-JSON event lines
   // the telemetry Workers logger emits land here). Logpush → R2 is a deploy-time runbook step

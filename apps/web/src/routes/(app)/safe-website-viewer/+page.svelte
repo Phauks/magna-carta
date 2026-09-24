@@ -42,9 +42,11 @@
     type RegistrationState,
   } from "$lib/tools/safe-browse/snapshot-tabs.svelte";
   import {
+    closeLive,
     normalizeTarget,
     problemGuidance,
     screenshotSource,
+    viewLive,
     viewSafelyStaged,
     type SafeBrowseOutcome,
     type SafeWebsiteView,
@@ -66,6 +68,14 @@
   type CaptureFailure = Exclude<SafeBrowseOutcome, { kind: "view" }>;
 
   let query = $state("");
+  // Which browser the address bar drives. Static opens each address in a fresh isolated browser;
+  // Live keeps one for the member between pages, so a link's cookie-gated steps can be followed.
+  let mode = $state<"static" | "live">("static");
+  // Live steps taken since the member switched to Live. A new browser on the FIRST step is simply
+  // the session starting; a new browser on a later one means the cookies behind them were dropped,
+  // which changes how the next page behaves and is worth saying.
+  let liveStepsTaken = $state(0);
+  let sessionDropped = $state(false);
   let capturing = $state(false);
   // The address the running capture was asked for, shown by the shell's loading viewport.
   let capturingTarget = $state<string | null>(null);
@@ -104,7 +114,7 @@
       : null,
   );
 
-  async function capture(target: string, mode: "push" | "replace") {
+  async function capture(target: string, historyMode: "push" | "replace") {
     capturing = true;
     capturingTarget = target;
     probe = null;
@@ -114,12 +124,21 @@
     // The staged capture reports the redirect probe as it settles, well before the renderer
     // finishes its full-page shot; the probed fact reaches the loading viewport and the live
     // region while the wait continues.
-    const result = await viewSafelyStaged(target, (progress) => {
-      if (progress.stage === "probed") {
-        probe = { redirectCount: progress.redirectCount, finalUrl: progress.finalUrl };
-        announcement = probeNarrative(probe);
-      }
-    });
+    // Live has no staged progress to report — the held browser follows the redirects itself and
+    // the chain comes back with the page — so the loading viewport shows only the elapsed time.
+    const result =
+      mode === "live"
+        ? await viewLive(target)
+        : await viewSafelyStaged(target, (progress) => {
+            if (progress.stage === "probed") {
+              probe = { redirectCount: progress.redirectCount, finalUrl: progress.finalUrl };
+              announcement = probeNarrative(probe);
+            }
+          });
+    if (mode === "live" && result.kind === "view" && "sessionContinued" in result) {
+      sessionDropped = liveStepsTaken > 0 && !result.sessionContinued;
+      liveStepsTaken += 1;
+    }
     const elapsedMs = Date.now() - startedAt;
     capturing = false;
     capturingTarget = null;
@@ -131,8 +150,11 @@
         capturedAt: Date.now(),
         elapsedMs,
       };
-      history = mode === "replace" ? replaceCurrent(history, entry) : pushCapture(history, entry);
-      announcement = `Snapshot captured for ${result.view.finalUrl}.`;
+      history =
+        historyMode === "replace" ? replaceCurrent(history, entry) : pushCapture(history, entry);
+      announcement = sessionDropped
+        ? `Page opened for ${result.view.finalUrl} in a fresh browser. Cookies from earlier pages are gone.`
+        : `Snapshot captured for ${result.view.finalUrl}.`;
       // A capture that landed on a different host makes the cached registration someone else's.
       const host = finalHost(result.view.finalUrl);
       if (registration !== null && registration.host !== host) registration = null;
@@ -140,6 +162,31 @@
       failure = result;
     }
   }
+
+  // Switching away from Live ends the member's session: the held browser is billed for the time
+  // it is held, and nobody is walking it any more. Switching TO Live starts nothing until the first
+  // navigation — a session opened on a mode switch alone would bill for a browser showing nothing.
+  function setMode(next: "static" | "live") {
+    if (capturing || next === mode) return;
+    if (mode === "live") closeLive();
+    mode = next;
+    liveStepsTaken = 0;
+    sessionDropped = false;
+  }
+
+  // Leaving the page while in Live releases the browser too. `pagehide` rather than
+  // `beforeunload`, because it fires on mobile and on back-forward cache entry where the other does
+  // not; the unmount covers leaving for another screen inside the app.
+  $effect(() => {
+    const release = () => {
+      if (mode === "live") closeLive();
+    };
+    window.addEventListener("pagehide", release);
+    return () => {
+      window.removeEventListener("pagehide", release);
+      release();
+    };
+  });
 
   function runCapture() {
     if (!canSubmit || normalized === null) return;
@@ -260,7 +307,13 @@
       invalidHint={invalidInput
         ? "This is not a web address this tool can open. Enter one like https://example.com. Private, local, and internal addresses are not accepted."
         : null}
-      note="The page opens in an isolated remote browser and comes back as a static snapshot. It never loads in your own browser."
+      note={sessionDropped
+        ? "That page opened in a fresh isolated browser, so cookies from earlier pages are gone. It still never loads in your own browser."
+        : mode === "live"
+          ? "Live keeps one isolated remote browser for you between pages, for up to 15 minutes, so cookies carry over as you follow a link. Only pictures and text come back; nothing loads in your own browser."
+          : "The page opens in an isolated remote browser and comes back as a static snapshot. It never loads in your own browser."}
+      {mode}
+      onmodechange={setMode}
       canGoBack={canGoBack(history)}
       canGoForward={canGoForward(history)}
       canRefresh={currentEntry(history) !== null}

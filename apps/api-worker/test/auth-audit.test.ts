@@ -16,8 +16,9 @@ import { createAuthenticator, secretFromTotpUri } from "./support/totp.ts";
 // databaseHooks.session.delete.after gated on the /sign-out endpoint,
 // two_factor.enabled/disabled via the paired user.update hooks (1.6.16 exposes no dedicated
 // twoFactor hook — the flip rides internalAdapter.updateUser), password.reset via the
-// emailAndPassword.onPasswordReset server hook. All writes land in control-plane auth_audit
-// with ids-only metadata.
+// emailAndPassword.onPasswordReset server hook, and password.changed via the endpoint after-hook
+// (updateAccount passes no context to the account hooks, so the door has a name only there).
+// All writes land in control-plane auth_audit with ids-only metadata.
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
@@ -151,5 +152,84 @@ describe("auth audit hooks", () => {
     expect(reset.status).toBe(true);
 
     expect(await auditEvents(userId)).toContain("password.reset");
+  });
+
+  // THE IN-ACCOUNT CHANGE, which is a different door from the reset and has to read as one: the
+  // reset proves control of the mailbox, the change proves knowledge of the standing password, and
+  // a trail that could not tell them apart would be no use the day somebody asks how an account's
+  // credential moved.
+  it("writes password.changed when a signed-in member changes their own password", async () => {
+    const { userId } = await seedCredentialedUser("audit-change@example.com");
+    const sessionCookie = await signInForSessionCookie("audit-change@example.com");
+
+    const response = await postJson(
+      "/api/auth/change-password",
+      { currentPassword: PASSWORD, newPassword: "a-sufficiently-long-password" },
+      sessionCookie,
+    );
+    expect(response.status).toBe(200);
+
+    const events = await auditEvents(userId);
+    expect(events.filter((event) => event === "password.changed")).toHaveLength(1);
+    // The change is not a reset, and the trail must not say it was.
+    expect(events).not.toContain("password.reset");
+  });
+
+  // AN AFTER-HOOK RUNS ON FAILED REQUESTS TOO — the dispatcher assigns the thrown error to the
+  // returned value and then runs the hooks over it — so the guard against filing a change that
+  // never happened is the one thing about this wiring that cannot be left to inspection.
+  it("writes nothing when the current password was wrong", async () => {
+    const { userId } = await seedCredentialedUser("audit-change-refused@example.com");
+    const sessionCookie = await signInForSessionCookie("audit-change-refused@example.com");
+
+    const response = await postJson(
+      "/api/auth/change-password",
+      { currentPassword: "not-the-current-password", newPassword: "a-sufficiently-long-password" },
+      sessionCookie,
+    );
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(await auditEvents(userId)).not.toContain("password.changed");
+  });
+
+  // Signing the other devices out is part of the same act, and the member stays signed in here:
+  // the server ends every session for the account and mints a fresh one for the caller. A change
+  // that signed the person out of the tab they performed it in would be read as a failure.
+  it("keeps the caller signed in while ending their other sessions", async () => {
+    const { userId } = await seedCredentialedUser("audit-change-elsewhere@example.com");
+    const elsewhere = await signInForSessionCookie("audit-change-elsewhere@example.com");
+    const here = await signInForSessionCookie("audit-change-elsewhere@example.com");
+
+    const response = await postJson(
+      "/api/auth/change-password",
+      {
+        currentPassword: PASSWORD,
+        newPassword: "a-sufficiently-long-password",
+        revokeOtherSessions: true,
+      },
+      here,
+    );
+    expect(response.status).toBe(200);
+
+    const minted = liveCookie(setCookies(response), "session_token");
+    expect(minted, "the change mints a fresh session for the device that asked").toBeDefined();
+
+    // THE STORE IS WHAT IS ASSERTED, not what the other device can still do. Both sessions were
+    // deleted and one was minted back, so exactly one row survives the act. The device signed in
+    // elsewhere holds a signed cookie this deployment believes for up to five minutes
+    // (session.cookieCache in src/auth.ts) and can finish a request or two before it is turned
+    // away — which is the honest lag, and asserting the opposite here would pin a behaviour the
+    // deployment does not have.
+    const surviving = await env.DB_CONTROL.prepare(
+      "SELECT COUNT(*) AS rows FROM session WHERE user_id = ?1",
+    )
+      .bind(userId)
+      .first<{ rows: number }>();
+    expect(surviving?.rows).toBe(1);
+    expect(elsewhere, "the other device's cookie was a real one").not.toBe("");
+
+    // And the row that survived is the caller's: the freshly minted cookie signs out, which is a
+    // thing only a live session can do.
+    expect((await postJson("/api/auth/sign-out", {}, minted?.pair ?? here)).status).toBe(200);
+    expect(await auditEvents(userId)).toContain("password.changed");
   });
 });

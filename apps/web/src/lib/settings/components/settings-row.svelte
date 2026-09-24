@@ -71,6 +71,12 @@
   } = $props();
 
   const controlId = $derived(`settings-${definition.id}`);
+  // Nothing and "   " are one state: a row either carries a sentence or it does not.
+  const descriptor = $derived(
+    definition.description === undefined || definition.description.trim() === ""
+      ? undefined
+      : definition.description,
+  );
   const editable = $derived(draft !== undefined || instant !== undefined);
   const staged = $derived(draft !== undefined && draft.isStaged(definition));
   // The row is interactive when it carries a control or a per-row action — those rows take the
@@ -142,7 +148,12 @@
     <Label id="{controlId}-label" class="text-md" for={controlId}>
       {definition.label}
     </Label>
-    <p class="text-sm text-text-muted">{definition.description}</p>
+    <!-- The descriptor, only where there is one. A definition that states none renders the label
+         alone rather than an empty line holding space open — see SettingDefinition.description for
+         when a row earns a sentence and when the sentence is noise. -->
+    {#if descriptor !== undefined}
+      <p class="text-sm text-text-muted">{descriptor}</p>
+    {/if}
   </div>
 
   <!-- The fixed tag slot — geometry never changes, only whether the tag is inked. -->

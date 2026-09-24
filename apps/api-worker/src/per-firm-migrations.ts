@@ -35,6 +35,7 @@ import meetingsHangFromACalendarEventSql from "@magna-carta/database/drizzle/per
 import seedMeetingsPermissionsSql from "@magna-carta/database/drizzle/per-firm/20260919T001020_seed-meetings-permissions.sql";
 import oneOpenStayPerMemberSql from "@magna-carta/database/drizzle/per-firm/20260919T001021_one-open-stay-per-member.sql";
 import aMeetingHasAMediumSql from "@magna-carta/database/drizzle/per-firm/20260919T001022_a-meeting-has-a-medium.sql";
+import memberPhotoSql from "@magna-carta/database/drizzle/per-firm/20260920T182353_member-photo.sql";
 import versionExportCopySql from "@magna-carta/database/drizzle/per-firm/20260924T171146_version-export-copy.sql";
 
 export function perFirmMigrations(): Migration[] {
@@ -66,6 +67,7 @@ export function perFirmMigrations(): Migration[] {
     "20260919T001020_seed-meetings-permissions": seedMeetingsPermissionsSql,
     "20260919T001021_one-open-stay-per-member": oneOpenStayPerMemberSql,
     "20260919T001022_a-meeting-has-a-medium": aMeetingHasAMediumSql,
+    "20260920T182353_member-photo": memberPhotoSql,
     "20260924T171146_version-export-copy": versionExportCopySql,
   });
 }

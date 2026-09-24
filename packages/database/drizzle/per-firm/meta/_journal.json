@@ -180,6 +180,13 @@
     {
       "idx": 25,
       "version": "6",
+      "when": 1789772147196,
+      "tag": "20260920T182353_member-photo",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
       "when": 1790269906687,
       "tag": "20260924T171146_version-export-copy",
       "breakpoints": true
