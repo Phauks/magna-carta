@@ -349,15 +349,28 @@ export async function participantRemoved(room: RoomContext, attendanceId: string
 }
 
 /**
- * A guest's link was rotated: every socket holding their stay was opened on the old link, and goes.
+ * Whoever the room holds on a guest's stay is no longer who the record says holds it — let them go.
  *
- * `superseded` rather than `removed`, because the person is not barred — a newer credential has taken
- * over, and the person the fresh mail reached arrives on it and takes the stay back. The roster entry
- * and the record are left to the ordinary grace, exactly as for any socket that closed: if nobody
- * comes back inside it, the sweep closes the stay.
+ * Two acts reach here, each AFTER its own write committed. A ROTATION closed the stay the old link
+ * held, in the same batch, because whoever sits on a replaced link is not known to be whoever the
+ * fresh mail reaches. And an ARRIVAL on an open stay put it back at the door under the name just
+ * typed, because whoever pressed Join this time is not known to be whoever a host let in. Either way
+ * the room is holding somebody the record no longer vouches for: a roster entry, or a place at the
+ * door under a name the stay no longer carries.
+ *
+ * So both go — the roster entry (and its media and any spotlight on it) and the door's entry — and
+ * every socket on the stay is refused `superseded` and closed. Left to the ordinary grace instead,
+ * the old roster entry would outlive the socket the new arrival opens: that socket goes to the door,
+ * which supersedes the old one, and a stay whose socket exists is never timed out — so the first
+ * guest's tile would stay in everybody's meeting for as long as it ran. `superseded` rather than
+ * `removed`, because nobody is barred: the arrival, or the fresh link, is the way back, and the host
+ * decides at the door.
  */
 export async function guestCredentialReplaced(room: RoomContext, stayId: string): Promise<void> {
-  for (const socket of socketsFor(room, stayId)) refuseAndClose(socket, "superseded");
+  const sockets = socketsFor(room, stayId);
+  await releaseParticipant(room, stayId);
+  await waitingRemoved(room, stayId);
+  for (const socket of sockets) refuseAndClose(socket, "superseded");
 }
 
 /**

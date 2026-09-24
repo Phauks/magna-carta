@@ -54,10 +54,11 @@ export const MEETING_GUEST_HEADER = "x-meeting-guest";
  * Close a GUEST's stay in a meeting, from a page that is going away.
  *
  * The guest's twin of the member departure above, on the same transport for the same reason, with
- * two differences that are the whole of what a guest is. The credential is the grant their arrival
- * was answered with, carried in its header, because a guest holds no session. And no cookie is sent
- * at all: the guest page is served from the firm's own origin, and a browser that also happens to
- * hold a member's session must not have it ride along on a request that is about somebody else.
+ * three differences that are the whole of what a guest is. The credential is the grant their arrival
+ * was answered with, carried in its header, because a guest holds no session. No cookie is sent at
+ * all: the guest page is served from the firm's own origin, and a browser that also happens to hold
+ * a member's session must not have it ride along on a request that is about somebody else. And no
+ * referrer is sent, because the page's own address is the link.
  */
 export function leaveMeetingAsGuestOnDeparture(grant: string, send: typeof fetch = fetch): void {
   void send("/api/v1/guest/departures", {
@@ -65,6 +66,9 @@ export function leaveMeetingAsGuestOnDeparture(grant: string, send: typeof fetch
     headers: { ...departureHeaders(), [MEETING_GUEST_HEADER]: grant },
     keepalive: true,
     credentials: "omit",
+    // The page this leaves from is `/join/<token>`, so a referrer would carry the link's secret into
+    // every request record the call passes through.
+    referrerPolicy: "no-referrer",
   }).catch(() => {
     // As above: a departure that did not land is the sweep's to notice.
   });

@@ -412,9 +412,14 @@ export function insertGuestInvitationStatement(
 
 // A FRESH SECRET ON THE SAME ROW — a rotation, and the second mint that is one. The version moves, so
 // every token of the old one stops verifying at once; a withdrawn row is reinstated, because minting
-// again is how a host sends a link they had taken back. The arrival count is NOT reset: it bounds the
-// invitation over its whole life, and a rotation that reset it would be a way to spend a link without
-// limit.
+// again is how a host sends a link they had taken back.
+//
+// THE ARRIVAL COUNT STARTS AGAIN, because what it bounds is a LINK, and this is a new one. The count
+// exists to stop one link forwarded to a crowd being spent without limit; the old link stops working
+// in this same statement, so nothing spent on it can be spent again. Carried forward instead, a guest
+// whose connection failed twenty times would be locked out of the meeting with no remedy a host could
+// apply — sending them a fresh link would arrive already used up. A host sending one is the
+// deliberate act that earns a fresh budget, and it is never the guest's own.
 //
 // The WHERE carries the version the caller read, so two rotations racing do not both land a secret —
 // guarded at the call site, where the loser re-reads.
@@ -436,7 +441,7 @@ export function reissueGuestInvitationStatement(
       `UPDATE ${MEETING_GUEST_INVITATION_TABLE} SET token_secret_hash = ?1, ` +
         `secret_version = secret_version + 1, invited_name = ?2, directory_email_id = ?3, ` +
         `issued_by_user_id = ?4, expires_at = ?5, revoked_at = NULL, revoked_by_user_id = NULL, ` +
-        `updated_at = ?6 WHERE id = ?7 AND secret_version = ?8`,
+        `arrival_count = 0, updated_at = ?6 WHERE id = ?7 AND secret_version = ?8`,
     )
     .bind(
       input.tokenSecretHash,
@@ -525,6 +530,38 @@ export function insertGuestStayAtTheDoorStatement(
       input.now,
       input.lobbyCapacity,
     );
+}
+
+// AN ARRIVAL ON A STAY THAT IS ALREADY OPEN, which puts that stay BACK AT THE DOOR under the name just
+// typed. Whoever holds the link now is not known to be whoever a host let in: the link proves a
+// mailbox, and a second browser on it may be the same person reconnecting or somebody the link was
+// forwarded to. So a host's admission does not carry over to them — the stay waits again, and the host
+// reads the new name beside the invited one before deciding.
+//
+// A stay that was ALREADY WAITING keeps its place in the queue: nothing a host decided is undone, and
+// losing a connection at the door is not going to the back of the line. A stay that had been admitted
+// starts a new wait now, and counts against the door's ceiling from now, which is why the ceiling is
+// in this statement's own WHERE for that case alone. The stay itself must still be open: one a host
+// closed in the round trip matches no row, and the guarded batch rolls back whole.
+export function returnGuestStayToTheDoorStatement(
+  database: SqlDatabase,
+  input: {
+    readonly id: MeetingGuestStayId;
+    readonly meetingId: MeetingId;
+    readonly confirmedName: string;
+    readonly lobbyCapacity: number;
+    readonly now: string;
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MEETING_GUEST_STAY_TABLE} SET confirmed_name = ?1, ` +
+        `waiting_from = CASE WHEN admitted_at IS NULL THEN waiting_from ELSE ?2 END, ` +
+        `admitted_at = NULL, admitted_by_user_id = NULL, updated_at = ?2 ` +
+        `WHERE id = ?3 AND meeting_id = ?4 AND left_at IS NULL ` +
+        `AND (admitted_at IS NULL OR ${waitingCount("?4")} < ?5)`,
+    )
+    .bind(input.confirmedName, input.now, input.id, input.meetingId, input.lobbyCapacity);
 }
 
 // ONE GUEST STAY CLOSED, with how it ended — the member table's `closeAttendanceStatement`, for the

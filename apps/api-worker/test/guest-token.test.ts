@@ -15,8 +15,11 @@ import { describe, expect, it } from "vitest";
 import {
   GUEST_GRANT_TOKEN_TYPE,
   GUEST_INVITATION_TOKEN_TYPE,
+  GUEST_SOCKET_PROTOCOL,
+  guestCredentialFromSocketProtocols,
   mintGuestGrantToken,
   mintGuestInvitationToken,
+  readGuestCredential,
   verifyGuestCredential,
 } from "../src/meetings/guest-token.ts";
 import { mintSignedToken, verifySignedToken } from "../src/signed-token.ts";
@@ -233,5 +236,66 @@ describe("every malformed credential answers null, never a throw", () => {
     await expect(
       verifyGuestCredential(SECRET, presented, "grant", NOW_SECONDS),
     ).resolves.toBeNull();
+  });
+});
+
+describe("an expired credential this deployment signed — the one refusal that is not a stranger's", () => {
+  it("reads as expired rather than as nothing, carrying what it names", async () => {
+    const read = await readGuestCredential(
+      SECRET,
+      await invitation({ expiresAt: EARLIER }),
+      "invitation",
+      NOW_SECONDS,
+    );
+    expect(read?.outcome).toBe("expired");
+    expect(read?.credential.invitationId).toBe(INVITATION);
+    expect(
+      (await readGuestCredential(SECRET, await grant({ expiresAt: EARLIER }), "grant", NOW_SECONDS))
+        ?.outcome,
+    ).toBe("expired");
+  });
+
+  it("is still nothing when the signature is not this deployment's, whatever its expiry says", async () => {
+    const foreign = await mintGuestInvitationToken("another-deployment", {
+      firmId: FIRM,
+      meetingId: MEETING,
+      invitationId: INVITATION,
+      secretVersion: 1,
+      secret: "the-link-secret",
+      expiresAt: EARLIER,
+    });
+    expect(await readGuestCredential(SECRET, foreign, "invitation", NOW_SECONDS)).toBeNull();
+  });
+
+  it("reads a live one as verified", async () => {
+    expect(
+      (await readGuestCredential(SECRET, await invitation(), "invitation", NOW_SECONDS))?.outcome,
+    ).toBe("verified");
+  });
+});
+
+describe("the grant offered as a WebSocket subprotocol", () => {
+  it("takes the entry after the protocol name, and answers with the bare name", () => {
+    expect(guestCredentialFromSocketProtocols(`${GUEST_SOCKET_PROTOCOL}, abc.def`)).toEqual({
+      credential: "abc.def",
+      chosenProtocol: GUEST_SOCKET_PROTOCOL,
+    });
+  });
+
+  it("takes the single-entry form, and must answer with the whole of it", () => {
+    expect(guestCredentialFromSocketProtocols(`chat, ${GUEST_SOCKET_PROTOCOL}.abc.def`)).toEqual({
+      credential: "abc.def",
+      chosenProtocol: `${GUEST_SOCKET_PROTOCOL}.abc.def`,
+    });
+  });
+
+  it.each([
+    ["no header", undefined],
+    ["an empty header", ""],
+    ["another protocol only", "chat"],
+    ["the name with nothing after it", GUEST_SOCKET_PROTOCOL],
+    ["the prefix with nothing after it", `${GUEST_SOCKET_PROTOCOL}.`],
+  ])("finds nothing in %s", (_label, offered) => {
+    expect(guestCredentialFromSocketProtocols(offered)).toBeNull();
   });
 });

@@ -27,10 +27,13 @@ import { defineOpenAPIRoute, type RouteMeta } from "../src/contracts/route-meta.
 import {
   GUEST_CREDENTIAL_HEADER,
   GUEST_CREDENTIAL_QUERY_PARAMETER,
+  GUEST_SOCKET_OPERATION_ID,
+  GUEST_SOCKET_PROTOCOL,
   mintGuestGrantToken,
   mintGuestInvitationToken,
-  verifyGuestCredential,
+  readGuestCredential,
 } from "../src/meetings/guest-token.ts";
+import { guestLinkRefusalFor } from "../src/meetings/guest-refusals.ts";
 
 const SIGNING_SECRET = "guest-lane-test-signing-secret";
 const OTHER_SECRET = "a-secret-this-deployment-does-not-hold";
@@ -89,23 +92,29 @@ function buildChokepoint(script: Script = {}) {
               steps.push("verifyGuestCredential");
               presented.push(credential);
               if (credential === null) return null;
-              const verified = await verifyGuestCredential(
+              const read = await readGuestCredential(
                 SIGNING_SECRET,
                 credential,
                 lane,
                 Math.floor(Date.now() / 1000),
               );
-              return verified === null
-                ? null
-                : {
-                    lane: verified.lane,
-                    firmId: verified.firmId,
-                    meetingId: verified.meetingId,
-                    invitationId: verified.invitationId,
-                    secretVersion: verified.secretVersion,
-                    stayId: verified.stayId,
-                    secret: verified.secret,
-                  };
+              if (read === null) return null;
+              const verified = read.credential;
+              const grant = {
+                lane: verified.lane,
+                firmId: verified.firmId,
+                meetingId: verified.meetingId,
+                invitationId: verified.invitationId,
+                secretVersion: verified.secretVersion,
+                stayId: verified.stayId,
+              };
+              // The production port's split, over the real verifier: an invitation that ran out is
+              // told so, and a grant that did is the flat answer.
+              if (read.outcome === "expired") {
+                const refusal = guestLinkRefusalFor("guest-link-expired");
+                return lane === "invitation" && refusal !== null ? { refusal, grant } : null;
+              }
+              return { ...grant, secret: verified.secret };
             },
             resolveGuestFirmContext: async (_c, grant) => {
               steps.push("resolveGuestFirmContext");
@@ -121,9 +130,10 @@ function buildChokepoint(script: Script = {}) {
   return { chokepoint: createChokepoint(ports), steps, rateLimitKeys, presented };
 }
 
-function guestMeta(lane: "invitation" | "grant"): RouteMeta {
+function guestMeta(lane: "invitation" | "grant", operationId?: string): RouteMeta {
   return {
-    operationId: lane === "grant" ? "guest.meetingSocket" : "guest.meetingSummary",
+    operationId:
+      operationId ?? (lane === "grant" ? GUEST_SOCKET_OPERATION_ID : "guest.meetingSummary"),
     surface: "app",
     authenticated: false,
     permission: null,
@@ -173,16 +183,18 @@ function mounted(
   return { app, seen };
 }
 
-async function invitationToken(secret = SIGNING_SECRET): Promise<string> {
+async function invitationToken(secret = SIGNING_SECRET, expiresAt = IN_AN_HOUR): Promise<string> {
   return await mintGuestInvitationToken(secret, {
     firmId: FIRM,
     meetingId: MEETING,
     invitationId: INVITATION,
     secretVersion: 1,
     secret: "the-link-secret-itself",
-    expiresAt: IN_AN_HOUR,
+    expiresAt,
   });
 }
+
+const AN_HOUR_AGO = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
 async function grantToken(): Promise<string> {
   return await mintGuestGrantToken(SIGNING_SECRET, {
@@ -269,6 +281,35 @@ describe("the guest lane — the flat refusal", () => {
     });
     expect(response.status).toBe(404);
     expect(steps).toEqual(["verifyGuestCredential", "resolveGuestFirmContext"]);
+  });
+});
+
+describe("the guest lane — a signed link that has run out", () => {
+  it("is told it expired, with no firm resolved and no row read, on the link's own bucket", async () => {
+    const { chokepoint, steps, rateLimitKeys } = buildChokepoint();
+    const { app, seen } = mounted(chokepoint, guestMeta("invitation"), steps);
+    const response = await app.request("/api/v1/guest/meeting", {
+      headers: {
+        [GUEST_CREDENTIAL_HEADER]: await invitationToken(SIGNING_SECRET, AN_HOUR_AGO),
+        "cf-connecting-ip": "203.0.113.9",
+      },
+    });
+    expect(response.status).toBe(410);
+    expect(await problemType(response)).toMatch(/\/guest-link-expired$/);
+    expect(seen).toHaveLength(0);
+    // The signature is the whole of the evidence: nothing past it was asked.
+    expect(steps).toEqual(["verifyGuestCredential", "rateLimiter"]);
+    // Keyed by the link, never counted among strangers guessing from an address.
+    expect(rateLimitKeys).toEqual([`guest:${INVITATION}`]);
+  });
+
+  it("is the flat 404 still when the expired link was not signed here", async () => {
+    const { chokepoint, steps } = buildChokepoint();
+    const { app } = mounted(chokepoint, guestMeta("invitation"), steps);
+    const response = await app.request("/api/v1/guest/meeting", {
+      headers: { [GUEST_CREDENTIAL_HEADER]: await invitationToken(OTHER_SECRET, AN_HOUR_AGO) },
+    });
+    expect(response.status).toBe(404);
   });
 });
 
@@ -381,6 +422,24 @@ describe("the guest query parameter — the socket upgrade alone", () => {
     expect(presented).toEqual([null]);
   });
 
+  it("is never read on another grant route's upgrade — the messages route takes the header alone", async () => {
+    const { chokepoint, steps, presented } = buildChokepoint();
+    const messagesPath = "/api/v1/guest/meeting/messages";
+    const { app, seen } = mounted(
+      chokepoint,
+      guestMeta("grant", "guest.listMessages"),
+      steps,
+      messagesPath,
+    );
+    const response = await app.request(
+      `${messagesPath}?${GUEST_CREDENTIAL_QUERY_PARAMETER}=${encodeURIComponent(await grantToken())}`,
+      { headers: { upgrade: "websocket" } },
+    );
+    expect(response.status).toBe(404);
+    expect(presented).toEqual([null]);
+    expect(seen).toHaveLength(0);
+  });
+
   it("is never read on an invitation route, upgrade or not", async () => {
     const { chokepoint, steps, presented } = buildChokepoint();
     const { app } = mounted(chokepoint, guestMeta("invitation"), steps);
@@ -390,6 +449,69 @@ describe("the guest query parameter — the socket upgrade alone", () => {
     );
     expect(response.status).toBe(404);
     expect(presented).toEqual([null]);
+  });
+});
+
+describe("the grant as a subprotocol — the socket upgrade's own header", () => {
+  const socketPath = "/api/v1/guest/meeting/socket";
+
+  it("is read from the two-entry form, the protocol name and then the grant", async () => {
+    const { chokepoint, steps, presented } = buildChokepoint();
+    const { app } = mounted(chokepoint, guestMeta("grant"), steps, socketPath);
+    const grant = await grantToken();
+    const response = await app.request(socketPath, {
+      headers: {
+        upgrade: "websocket",
+        "sec-websocket-protocol": `${GUEST_SOCKET_PROTOCOL}, ${grant}`,
+      },
+    });
+    expect(response.status).toBe(200);
+    expect(presented).toEqual([grant]);
+  });
+
+  it("is read from the single-entry form", async () => {
+    const { chokepoint, steps, presented } = buildChokepoint();
+    const { app } = mounted(chokepoint, guestMeta("grant"), steps, socketPath);
+    const grant = await grantToken();
+    const response = await app.request(socketPath, {
+      headers: {
+        upgrade: "websocket",
+        "sec-websocket-protocol": `${GUEST_SOCKET_PROTOCOL}.${grant}`,
+      },
+    });
+    expect(response.status).toBe(200);
+    expect(presented).toEqual([grant]);
+  });
+
+  it("is never read on another grant route", async () => {
+    const { chokepoint, steps, presented } = buildChokepoint();
+    const { app } = mounted(
+      chokepoint,
+      guestMeta("grant", "guest.depart"),
+      steps,
+      "/api/v1/guest/departures",
+    );
+    const response = await app.request("/api/v1/guest/departures", {
+      headers: {
+        upgrade: "websocket",
+        "sec-websocket-protocol": `${GUEST_SOCKET_PROTOCOL}, ${await grantToken()}`,
+      },
+    });
+    expect(response.status).toBe(404);
+    expect(presented).toEqual([null]);
+  });
+
+  it("is refused with the reserved 404 on a member socket upgrade", async () => {
+    const { chokepoint, steps } = buildChokepoint();
+    const { app } = mounted(chokepoint, memberMeta, steps, "/api/v1/meetings/socket");
+    const response = await app.request("/api/v1/meetings/socket", {
+      headers: {
+        upgrade: "websocket",
+        "sec-websocket-protocol": `${GUEST_SOCKET_PROTOCOL}, ${await grantToken()}`,
+      },
+    });
+    expect(response.status).toBe(404);
+    expect(steps).toEqual([]);
   });
 });
 

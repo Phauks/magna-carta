@@ -27,7 +27,7 @@
   import * as Select from "@magna-carta/design-system/select";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import MeetingTile from "./screen/meeting-tile.svelte";
-  import { MAX_GUEST_NAME_LENGTH, normalizeGuestName } from "./guest-api.ts";
+  import { guestNameRefusal, MAX_GUEST_NAME_LENGTH, normalizeGuestName } from "./guest-api.ts";
   import {
     deviceOf,
     devicesOfKind,
@@ -159,9 +159,15 @@
   });
 
   /** Why Join cannot be pressed yet, stated under the field that is the reason. */
-  const nameRefusal = $derived(
-    confirmedName === "" ? "Enter the name the host will see at the door." : undefined,
-  );
+  const nameRefusal = $derived(guestNameRefusal(typedName));
+
+  /*
+   * The field's own ceiling, which is a guard against a runaway paste and never the rule. A browser
+   * counts `maxlength` in UTF-16 units, and a character outside the Basic Multilingual Plane is two
+   * of them, so a ceiling at the rule itself would cut off a name the server takes. Twice the rule
+   * can never do that; the refusal under the field is what says a name is too long.
+   */
+  const FIELD_CEILING = MAX_GUEST_NAME_LENGTH * 2;
 
   function join(event: SubmitEvent): void {
     event.preventDefault();
@@ -183,7 +189,7 @@
       <Input
         {...props}
         bind:value={typedName}
-        maxlength={MAX_GUEST_NAME_LENGTH}
+        maxlength={FIELD_CEILING}
         autocomplete="name"
         disabled={joining}
       />

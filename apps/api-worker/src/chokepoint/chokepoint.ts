@@ -33,6 +33,8 @@ import { routeMetaOf, type ResolvedRouteMeta, type RouteMeta } from "../contract
 import {
   GUEST_CREDENTIAL_HEADER,
   GUEST_CREDENTIAL_QUERY_PARAMETER,
+  GUEST_SOCKET_OPERATION_ID,
+  guestCredentialFromSocketProtocols,
 } from "../meetings/guest-token.ts";
 import type { RateLimiter, RateLimitVerdict } from "./rate-limiter.ts";
 
@@ -136,11 +138,17 @@ export interface GuestLaneRefusal {
  *    firm sent a link to can present a signed one, and they already know everything it says.
  */
 export interface GuestLanePort<FirmContext> {
+  // The credential, or null for the FLAT refusal, or a SPECIFIC refusal the signature alone earns — a
+  // link this deployment signed whose own expiry has passed, said to its holder with no read at all.
   verifyGuestCredential: (
     c: Context,
     presented: string | null,
     lane: "invitation" | "grant",
-  ) => Promise<(ChokepointGuestGrant & { readonly secret: string | null }) | null>;
+  ) => Promise<
+    | (ChokepointGuestGrant & { readonly secret: string | null })
+    | { readonly refusal: GuestLaneRefusal; readonly grant: ChokepointGuestGrant }
+    | null
+  >;
   resolveGuestFirmContext: (c: Context, grant: ChokepointGuestGrant) => Promise<FirmContext | null>;
   confirmGuestCredentialIsLive: (
     c: Context,
@@ -152,18 +160,41 @@ export interface GuestLanePort<FirmContext> {
 /**
  * Where a guest's credential is on this request, or null.
  *
- * The header on every request; the query parameter ONLY on a grant route's WebSocket upgrade, because
- * a browser cannot set a header on a socket and for no other reason — so no ordinary request can be
- * driven by an address somebody was persuaded to click. A navigation never carries `Upgrade:
- * websocket`, which is what makes the upgrade the one place the address may speak.
+ * The header on every request. On THE SOCKET ROUTE'S upgrade alone — named by its operation, not by
+ * its lane, because the messages and departure routes share the grant lane and must not accept a
+ * credential anywhere but the header — the subprotocol, and then the query parameter an older
+ * browser sends. A browser cannot set an ordinary header on a socket, and that is the only reason
+ * either is read: no other request can be driven by an address somebody was persuaded to click, and a
+ * navigation never carries `Upgrade: websocket`.
  */
-function guestCredentialOf(c: Context, lane: "invitation" | "grant"): string | null {
+function guestCredentialOf(c: Context, meta: RouteMeta): string | null {
   const header = c.req.header(GUEST_CREDENTIAL_HEADER);
   if (header !== undefined && header !== "") return header;
-  const upgrade = c.req.header("upgrade")?.toLowerCase() === "websocket";
-  if (lane !== "grant" || !upgrade) return null;
+  if (meta.operationId !== GUEST_SOCKET_OPERATION_ID || !isWebSocketUpgradeRequest(c)) return null;
+  const offered = guestCredentialFromSocketProtocols(c.req.header("sec-websocket-protocol"));
+  if (offered !== null) return offered.credential;
   const parameter = c.req.query(GUEST_CREDENTIAL_QUERY_PARAMETER);
   return parameter !== undefined && parameter !== "" ? parameter : null;
+}
+
+/**
+ * Whether a request carries anything that looks like a guest's credential, wherever it rides — the
+ * question the OTHER direction asks, so a guest's link is never a key to a route that did not
+ * declare the lane, whichever of the three places it was put.
+ */
+function carriesGuestCredential(c: Context): boolean {
+  const header = c.req.header(GUEST_CREDENTIAL_HEADER);
+  if (header !== undefined && header !== "") return true;
+  if (!isWebSocketUpgradeRequest(c)) return false;
+  if (guestCredentialFromSocketProtocols(c.req.header("sec-websocket-protocol")) !== null) {
+    return true;
+  }
+  const parameter = c.req.query(GUEST_CREDENTIAL_QUERY_PARAMETER);
+  return parameter !== undefined && parameter !== "";
+}
+
+function isWebSocketUpgradeRequest(c: Context): boolean {
+  return c.req.header("upgrade")?.toLowerCase() === "websocket";
 }
 
 // The idempotency port (step 4). Given the request context and the route's resolved meta, returns
@@ -285,13 +316,23 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
     const port = ports.guestLane;
     if (port === undefined) return reservedAbsence();
 
-    const credential = await port.verifyGuestCredential(c, guestCredentialOf(c, lane), lane);
+    const credential = await port.verifyGuestCredential(c, guestCredentialOf(c, meta), lane);
     if (credential === null) {
-      // THE FLAT REFUSAL, and the one place the lane spends the limiter before answering: no read has
-      // happened, so what this bounds is somebody guessing at the route — keyed by the client address,
-      // separately from any real guest's own bucket.
+      // THE FLAT REFUSAL, and one of the two places the lane spends the limiter before answering: no
+      // read has happened, so what this bounds is somebody guessing at the route — keyed by the client
+      // address, separately from any real guest's own bucket.
       const verdict = await ports.rateLimiter.check(meta.rateLimit, clientRateLimitKey(c));
       return verdict.allowed ? reservedAbsence() : rateLimitedResponse(c, verdict);
+    }
+    if ("refusal" in credential) {
+      // A SIGNED CREDENTIAL REFUSED ON ITS SIGNATURE ALONE — a link that has run out. No read has
+      // happened here either, and it is keyed by the invitation, like every other request on that
+      // link: the holder is somebody the firm sent it to, not a stranger guessing at the route.
+      const verdict = await ports.rateLimiter.check(
+        meta.rateLimit,
+        `guest:${credential.grant.invitationId}`,
+      );
+      return verdict.allowed ? problemJson(c, credential.refusal) : rateLimitedResponse(c, verdict);
     }
 
     // What is stashed for the handler is named field by field, so the secret an invitation carried
@@ -412,7 +453,7 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
       // session is even looked for — so a guest page that called a member route, or a browser holding
       // a member's cookie and a guest's link at once, meets one answer rather than a session path
       // deciding what to make of a credential it was never built to read.
-      if (guestCredentialOf(c, "grant") !== null) {
+      if (carriesGuestCredential(c)) {
         return problemJson(c, {
           type: "not-found",
           status: 404,

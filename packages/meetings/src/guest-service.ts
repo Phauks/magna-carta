@@ -27,6 +27,7 @@ import {
   readOpenGuestStay,
   recordGuestArrivalStatement,
   reissueGuestInvitationStatement,
+  returnGuestStayToTheDoorStatement,
   revokeGuestInvitationStatement,
 } from "./guest-statements.ts";
 import {
@@ -38,14 +39,14 @@ import {
   type MeetingGuestEntityKind,
   type MeetingGuestInvitationEntry,
   type MeetingGuestInvitationRow,
+  type MeetingGuestStayRow,
 } from "./guest-types.ts";
-import { removalOfGuestStatements } from "./guest-removal.ts";
 import { requireHostGrant, type MeetingHostingOptions } from "./hosting-service.ts";
 import { countWaitingAttendance } from "./lobby-statements.ts";
 import { MAX_MEETING_LOBBY } from "./lobby-types.ts";
 import { readMeeting } from "./meeting-statements.ts";
 import type { MeetingDepartureReason, MeetingRow, MeetingStatus } from "./types.ts";
-import { refuse, type MeetingValidationCode } from "./validation.ts";
+import { MeetingValidationError, refuse, type MeetingValidationCode } from "./validation.ts";
 
 // SOMEBODY FROM OUTSIDE THE FIRM: the host's three acts on a link (mint, rotate, withdraw), and the
 // guest's three on a stay (look, arrive, leave).
@@ -79,11 +80,40 @@ export const GUEST_DOOR_GUARD = "meeting.guest.door";
 /** The label a guest's own leave carries. */
 export const GUEST_LEAVE_GUARD = "meeting.guest.leave";
 
+/**
+ * The label an arrival on an open stay carries when it puts that stay back at the door: the stay was
+ * closed by a host, or the door filled, in the round trip since the service read it.
+ */
+export const GUEST_RETURN_GUARD = "meeting.guest.return";
+
 // The departure labels a guest's stay closes with, named once so the column, the audit metadata and
 // the barred-entry read cannot drift on a string.
+//
+// A stay a HOST closed by acting on the LINK — withdrawing it, or sending a fresh one in its place —
+// closes `left`, never `removed`. `removed` and `denied` are the two labels that bar re-entry for the
+// life of the meeting, and each is a decision about a PERSON; a withdrawn or replaced link is a
+// decision about a credential, and inviting the entity again must bring them back rather than tell
+// them they were put out. What the host did is on the audit rows beside it (`cause`).
 const DEPARTED = "left" satisfies MeetingDepartureReason;
 const SOCKET_LOST = "socket-lost" satisfies MeetingDepartureReason;
-const REMOVED = "removed" satisfies MeetingDepartureReason;
+
+/** Why a stay was closed by an act on its link rather than by anybody leaving, as the audit says it. */
+type LinkClosureCause = "link-withdrawn" | "link-replaced";
+
+/**
+ * An arrival refused because the entity the link was minted for is no longer on the meeting's event.
+ *
+ * Told to the guest as a withdrawn link — taking somebody off the event is withdrawing their way in,
+ * and it is the sentence they can act on — and carrying the audit row the refusal writes, because a
+ * host who took somebody off an event did not withdraw the link by hand, and the record should say
+ * that it stopped working and why. The route commits `effect` and then answers.
+ */
+export class GuestNoLongerOnTheEventError extends MeetingValidationError {
+  constructor(readonly effect: EffectWrite) {
+    super("guest-link-revoked", "the person this link was sent to is no longer on this meeting");
+    this.name = "GuestNoLongerOnTheEventError";
+  }
+}
 
 // 256 bits of CSPRNG entropy: the bearer secret a link carries. Minted through the platform's one
 // random source, like every other credential here.
@@ -112,8 +142,11 @@ export interface MintedGuestLink {
   readonly emailAddress: string;
   /** The event the mail describes. */
   readonly event: GuestEventFacts;
-  /** A guest stay the old link still holds open, whose sockets the room should close. */
-  readonly openStayId: MeetingGuestStayId | null;
+  /**
+   * A guest stay the old link held open, CLOSED in this same batch — whoever sits on the old link is
+   * not known to be whoever the fresh mail reaches — so the room lets it go once this commits.
+   */
+  readonly closedStayId: MeetingGuestStayId | null;
   readonly effect: EffectWrite;
 }
 
@@ -184,7 +217,7 @@ export async function inviteGuest(
         emailAddress: email.address,
         expiresAt,
         event: facts.event,
-        openStayId: openStay?.id ?? null,
+        openStay: openStay ?? null,
         reinstated: existing.revoked_at !== null,
         now,
         options,
@@ -199,7 +232,7 @@ export async function inviteGuest(
     secretVersion: 1,
     emailAddress: email.address,
     event: facts.event,
-    openStayId: null,
+    closedStayId: null,
     invitation: {
       id: invitationId,
       entityKind,
@@ -252,8 +285,11 @@ export async function inviteGuest(
  * the whole company by accident".
  *
  * Every token of the old version stops verifying at once, and every grant minted from it fails at its
- * next request. A withdrawn link is not rotated: minting again is how a host reinstates one, and a
- * rotation that quietly reinstated a link somebody withdrew would undo a decision nobody re-made.
+ * next request. A stay the old link holds open is CLOSED in the same batch (`left`, which bars
+ * nothing): the person the fresh mail reaches arrives on it and waits at the door, and a host admits
+ * them knowing who they are — the stay was opened by whoever held the link that was just replaced. A
+ * withdrawn link is not rotated: minting again is how a host reinstates one, and a rotation that
+ * quietly reinstated a link somebody withdrew would undo a decision nobody re-made.
  */
 export async function rotateGuestLink(
   database: SqlDatabase,
@@ -299,7 +335,7 @@ export async function rotateGuestLink(
     emailAddress: email.address,
     expiresAt: guestLinkExpiresAt(now, input.eventEndsAt(facts.event)),
     event: facts.event,
-    openStayId: openStay?.id ?? null,
+    openStay: openStay ?? null,
     reinstated: false,
     now,
     options,
@@ -307,13 +343,19 @@ export async function rotateGuestLink(
 }
 
 /**
- * A link withdrawn — and a guest in the room on it put out.
+ * A link withdrawn — and a guest on it, in the room or at the door, put out.
  *
  * THE ROW IS KEPT: who was invited is part of what the record says happened, and deleting it would
  * make an invitation that was withdrawn indistinguishable from one never sent. A guest holding an
- * open stay on the link is closed `removed` in the SAME batch, with the removal's own two audit rows,
- * so the withdrawal and the removal commit together; the route tells the room afterwards, on the
- * standing ordering — nobody is told they are out by a write that then failed.
+ * open stay on the link has it closed in the SAME batch, so the withdrawal and the departure commit
+ * together; the route tells the room afterwards, on the standing ordering — nobody is told they are
+ * out by a write that then failed.
+ *
+ * THE STAY CLOSES `left`, NOT `removed`. A removal bars the person for the life of the meeting, and
+ * withdrawing a link is a decision about the link: a host who invites the entity again means them to
+ * come back, and a stay closed `removed` would answer their return with "you were removed". What the
+ * host did is the withdrawal's own audit row, which names the stay it closed, and the departure row's
+ * `cause`.
  *
  * A link already withdrawn produces no statements: the host asked for it not to work, and it does not.
  */
@@ -324,7 +366,7 @@ export async function revokeGuestLink(
   options: MeetingHostingOptions,
 ): Promise<{
   readonly invitation: MeetingGuestInvitationEntry;
-  readonly removedStayId: MeetingGuestStayId | null;
+  readonly closedStayId: MeetingGuestStayId | null;
   readonly effect: EffectWrite;
 }> {
   await readHostedMeeting(database, meetingId, options);
@@ -332,7 +374,7 @@ export async function revokeGuestLink(
   if (invitation.revoked_at !== null) {
     return {
       invitation: entryOf(invitation),
-      removedStayId: null,
+      closedStayId: null,
       effect: { statements: [], outboxMessages: [] },
     };
   }
@@ -354,22 +396,26 @@ export async function revokeGuestLink(
       actorUserId: options.actorUserId,
       clock: options.clock,
       randomSource: options.randomSource,
-      metadata: { invitationId: invitation.id, entityId: invitation.entity_id, revokedAt: now },
+      metadata: {
+        invitationId: invitation.id,
+        entityId: invitation.entity_id,
+        revokedAt: now,
+        closedStayId: openStay?.id ?? null,
+      },
     }),
   ];
   if (openStay !== undefined) {
     statements.push(
-      ...removalOfGuestStatements(database, meetingId, openStay.id, invitation.id, now, {
-        ...options,
-        reason: REMOVED,
-        joinedAt: openStay.joined_at,
+      ...closureByLinkStatements(database, meetingId, openStay, now, {
+        cause: "link-withdrawn",
         guard: REVOKE_GUEST_LINK_GUARD,
+        options,
       }),
     );
   }
   return {
     invitation: { ...entryOf(invitation), revokedAt: now },
-    removedStayId: openStay?.id ?? null,
+    closedStayId: openStay?.id ?? null,
     effect: { statements, outboxMessages: [] },
   };
 }
@@ -443,6 +489,38 @@ export function guestCredentialRefusal(input: {
 }
 
 /**
+ * Why an arrival's spend matched no row, read back off the row as it stands now.
+ *
+ * The spend carries every condition that makes a link spendable in its own WHERE, so a guarded
+ * refusal of it says only that ONE of them moved in the round trip — withdrawn, replaced, used up or
+ * run out. Each of those is a different sentence to the person holding the link, and a different
+ * remedy, so the route asks the row which one it was rather than answering all four with the same
+ * "replaced" it cannot know is true.
+ */
+export async function whyTheSpendWasRefused(
+  database: SqlDatabase,
+  credential: GuestCredentialFacts,
+  now: string,
+): Promise<MeetingValidationCode> {
+  const [meeting, invitation] = await Promise.all([
+    readMeetingForGuest(database, credential.meetingId),
+    readGuestInvitationInMeeting(database, credential.meetingId, credential.invitationId),
+  ]);
+  const refusal = guestCredentialRefusal({
+    invitation,
+    meetingStatus: meeting?.status,
+    secretVersion: credential.secretVersion,
+    secretMatches: null,
+    now,
+  });
+  if (refusal !== null) return refusal;
+  if (invitation !== undefined && invitation.arrival_count >= MAX_GUEST_ARRIVALS) {
+    return "guest-link-exhausted";
+  }
+  return "guest-link-not-valid";
+}
+
+/**
  * The meeting a link opens onto, reduced to what its holder may know — and nothing written.
  *
  * Opening the link spends nothing: a mail client that prefetches it, a scanner that follows every
@@ -460,6 +538,14 @@ export async function readGuestMeeting(
   );
   if (facts === undefined || invitation === undefined) {
     refuse("guest-link-not-valid", "this link does not open a meeting");
+  }
+  // SOMEBODY TAKEN OFF THE EVENT HAS NO LINK INTO ITS MEETING, whatever the row says. The host who
+  // took them off may never have opened the Guests panel, which lists invitations by entity rather
+  // than by participant — so a live link here would be one nobody running the meeting can see to
+  // withdraw. Refused without an audit row, because opening the link is a read and a prefetching mail
+  // client must cost nothing; the arrival, which is a write, records it.
+  if (!(await isEntityOnMeetingEvent(database, facts, invitation.entity_id))) {
+    refuse("guest-link-revoked", "the person this link was sent to is no longer on this meeting");
   }
   return {
     title: facts.event.title,
@@ -481,10 +567,17 @@ export async function readGuestMeeting(
  * that seats a guest directly.
  *
  * WHAT IS SINGLE-USE IS THE ARRIVAL, NOT THE LINK. A spend while this link already holds an open stay
- * answers with THAT stay rather than opening a second — so a guest whose laptop slept presses Join
- * again and is back where they were, and a second browser on the same link takes the first one's
- * place through the room's one-socket-per-stay rule rather than joining beside it. Every spend is
- * counted against `MAX_GUEST_ARRIVALS`, which is what bounds a link forwarded to a crowd.
+ * answers with THAT stay rather than opening a second, and a second browser on the same link takes
+ * the first one's place through the room's one-socket-per-stay rule rather than joining beside it.
+ * Every spend is counted against `MAX_GUEST_ARRIVALS`, which is what bounds a link forwarded to a
+ * crowd.
+ *
+ * BUT THE OPEN STAY GOES BACK TO THE DOOR, under the name just typed. Whoever pressed Join this time
+ * is not known to be whoever a host let in — it may be the same person on a laptop that slept, or it
+ * may be somebody the link was forwarded to — so an admission is never inherited: the host sees the
+ * name typed now beside the name the link was minted for, and decides again. The name the stay
+ * carried before is kept on the arrival's audit row, because the stay's own column now holds the new
+ * one and the record must still be able to say who was admitted under the old.
  *
  * A LOCKED ROOM IS REFUSED AND THE LINK IS NOT SPENT, on the ruling that lock beats the lobby: a queue
  * in front of a shut door is a queue nobody is admitted from. A guest removed or denied on this link
@@ -498,6 +591,8 @@ export async function arriveAsGuest(
 ): Promise<{
   readonly stayId: MeetingGuestStayId;
   readonly returnedToOpenStay: boolean;
+  /** Whether this arrival took the stay back out of the ROOM — the room has to let it go. */
+  readonly returnedFromTheRoom: boolean;
   readonly confirmedName: string;
   readonly linkExpiresAt: string;
   readonly medium: MeetingRow["medium"];
@@ -522,6 +617,30 @@ export async function arriveAsGuest(
   if (refusal !== null || meeting === undefined || invitation === undefined) {
     refuse(refusal ?? "guest-link-not-valid", "this link cannot be used to join");
   }
+  // THE ENTITY MUST STILL BE ON THE EVENT. Taking somebody off an event is taking away their way into
+  // its meeting, and the host who did it may never have looked at the Guests panel. Refused as a
+  // withdrawn link, and recorded — nobody withdrew it by hand, so the record would otherwise hold a
+  // live-looking invitation that silently stopped working.
+  if (!(await isEntityOnMeetingEvent(database, meeting, invitation.entity_id))) {
+    throw new GuestNoLongerOnTheEventError({
+      statements: [
+        domainAuditStatement(database, {
+          event: "meetings.guest.arrivalRefused",
+          subjectId: credential.meetingId,
+          actorUserId: null,
+          clock: options.clock,
+          randomSource: options.randomSource,
+          metadata: {
+            invitationId: invitation.id,
+            entityId: invitation.entity_id,
+            reason: "not-on-event",
+            refusedAt: now,
+          },
+        }),
+      ],
+      outboxMessages: [],
+    });
+  }
   if (invitation.arrival_count >= MAX_GUEST_ARRIVALS) {
     refuse(
       "guest-link-exhausted",
@@ -542,18 +661,47 @@ export async function arriveAsGuest(
 
   const open = await readOpenGuestStay(database, credential.meetingId, invitation.id);
   if (open !== undefined) {
+    const wasAdmitted = open.admitted_at !== null;
+    // Out of the room and back to the door is a new wait, and the door's one ceiling holds for it
+    // exactly as it holds for a first arrival. This read produces the reason; the statement's own
+    // guard produces the limit.
+    if (
+      wasAdmitted &&
+      (await countWaitingAttendance(database, credential.meetingId)) >= MAX_MEETING_LOBBY
+    ) {
+      refuse(
+        "meeting-lobby-full",
+        `this meeting's lobby is full; it holds ${String(MAX_MEETING_LOBBY)} people`,
+      );
+    }
     return {
       stayId: open.id,
       returnedToOpenStay: true,
-      // The name the stay already carries: a reconnect is the same person at the same door, and a
-      // second name typed on the way back does not rewrite what the host has been reading.
-      confirmedName: open.confirmed_name,
+      returnedFromTheRoom: wasAdmitted,
+      confirmedName,
       linkExpiresAt: invitation.expires_at,
       medium: meeting.medium,
       effect: {
         statements: [
           spend,
-          arrivalAudit(database, credential.meetingId, invitation.id, open.id, now, true, options),
+          guarded(
+            returnGuestStayToTheDoorStatement(database, {
+              id: open.id,
+              meetingId: credential.meetingId,
+              confirmedName,
+              lobbyCapacity: MAX_MEETING_LOBBY,
+              now,
+            }),
+            GUEST_RETURN_GUARD,
+          ),
+          arrivalAudit(database, credential.meetingId, invitation.id, open.id, now, options, {
+            returnedToOpenStay: true,
+            returnedFromTheRoom: wasAdmitted,
+            // The name the stay carried until now — the one a host admitted, if one did. The stay's
+            // column holds the new name from this commit, so this row is where the old one survives.
+            previousConfirmedName: open.confirmed_name,
+            previouslyAdmittedByUserId: open.admitted_by_user_id,
+          }),
         ],
         outboxMessages: [],
       },
@@ -583,6 +731,7 @@ export async function arriveAsGuest(
   return {
     stayId,
     returnedToOpenStay: false,
+    returnedFromTheRoom: false,
     confirmedName,
     linkExpiresAt: invitation.expires_at,
     medium: meeting.medium,
@@ -602,7 +751,9 @@ export async function arriveAsGuest(
           }),
           GUEST_DOOR_GUARD,
         ),
-        arrivalAudit(database, credential.meetingId, invitation.id, stayId, now, false, options),
+        arrivalAudit(database, credential.meetingId, invitation.id, stayId, now, options, {
+          returnedToOpenStay: false,
+        }),
       ],
       outboxMessages: [],
     },
@@ -758,7 +909,7 @@ function reissue(
     readonly emailAddress: string;
     readonly expiresAt: string;
     readonly event: GuestEventFacts;
-    readonly openStayId: MeetingGuestStayId | null;
+    readonly openStay: MeetingGuestStayRow | null;
     readonly reinstated: boolean;
     readonly now: string;
     readonly options: MeetingHostingOptions;
@@ -770,12 +921,14 @@ function reissue(
     secretVersion,
     emailAddress: input.emailAddress,
     event: input.event,
-    openStayId: input.openStayId,
+    closedStayId: input.openStay?.id ?? null,
     invitation: {
       ...entryOf(existing),
       invitedName: input.invitedName,
       expiresAt: input.expiresAt,
       revokedAt: null,
+      // A fresh link, a fresh budget — see `reissueGuestInvitationStatement`.
+      arrivalCount: 0,
     },
     effect: {
       statements: [
@@ -806,12 +959,48 @@ function reissue(
             expiresAt: input.expiresAt,
             // A withdrawn link sent again is a reinstatement, and the record says so.
             reinstated: input.reinstated,
+            closedStayId: input.openStay?.id ?? null,
           },
         }),
+        // THE STAY THE OLD LINK HELD, CLOSED WITH IT. Whoever is sitting on the replaced link is not
+        // known to be whoever the fresh mail reaches — replacing a link is the answer to one that
+        // reached the wrong people — so the admission it carried is not handed to the new one.
+        ...(input.openStay === null
+          ? []
+          : closureByLinkStatements(database, meetingId, input.openStay, input.now, {
+              cause: "link-replaced",
+              guard: REISSUE_GUEST_LINK_GUARD,
+              options: input.options,
+            })),
       ],
       outboxMessages: [],
     },
   };
+}
+
+/**
+ * A guest's stay closed because a host acted on the LINK — withdrew it, or sent a fresh one in its
+ * place — as the statements that write it: `left`, which bars nothing, and the departure row naming
+ * what the host did. The host's own act is its own audit row beside these, carrying the actor.
+ */
+function closureByLinkStatements(
+  database: SqlDatabase,
+  meetingId: MeetingId,
+  stay: MeetingGuestStayRow,
+  now: string,
+  closure: {
+    readonly cause: LinkClosureCause;
+    readonly guard: string;
+    readonly options: MeetingHostingOptions;
+  },
+): EffectStatement[] {
+  return [
+    guarded(
+      closeGuestStayStatement(database, { id: stay.id, reason: DEPARTED, now }),
+      closure.guard,
+    ),
+    guestLeftAudit(database, meetingId, stay, DEPARTED, now, closure.options, closure.cause),
+  ];
 }
 
 function arrivalAudit(
@@ -820,8 +1009,15 @@ function arrivalAudit(
   invitationId: MeetingGuestInvitationId,
   stayId: MeetingGuestStayId,
   now: string,
-  returnedToOpenStay: boolean,
   options: GuestActOptions,
+  arrival:
+    | { readonly returnedToOpenStay: false }
+    | {
+        readonly returnedToOpenStay: true;
+        readonly returnedFromTheRoom: boolean;
+        readonly previousConfirmedName: string;
+        readonly previouslyAdmittedByUserId: string | null;
+      },
 ) {
   return domainAuditStatement(database, {
     event: "meetings.guest.arrived",
@@ -829,9 +1025,10 @@ function arrivalAudit(
     actorUserId: null,
     clock: options.clock,
     randomSource: options.randomSource,
-    // The spend, and whether it opened a stay or came back to one — never the name typed at the door,
-    // which is on the stay row where the record keeps it and nowhere else.
-    metadata: { invitationId, stayId, waitingFrom: now, returnedToOpenStay },
+    // The spend, and whether it opened a stay or came back to one. The name typed at the door is on
+    // the stay row, where the record keeps it; the one exception is the name an arrival REPLACES,
+    // which this row is the only place left to keep.
+    metadata: { invitationId, stayId, waitingFrom: now, ...arrival },
   });
 }
 
@@ -846,6 +1043,7 @@ function guestLeftAudit(
   reason: MeetingDepartureReason,
   now: string,
   options: GuestActOptions,
+  cause: LinkClosureCause | null = null,
 ) {
   return domainAuditStatement(database, {
     event: "meetings.guest.left",
@@ -859,6 +1057,7 @@ function guestLeftAudit(
       joinedAt: stay.joined_at,
       leftAt: now,
       reason,
+      ...(cause === null ? {} : { cause }),
     },
   });
 }

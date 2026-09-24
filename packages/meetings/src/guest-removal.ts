@@ -28,9 +28,10 @@ export function isGuestStayHandle(handle: string): handle is MeetingGuestStayId 
 /**
  * A guest's stay closed by a HOST — removed from the room — as the statements that write it.
  *
- * Reached by two host acts: a removal addressed to the stay (`removeParticipant` in
- * ./hosting-service.ts) and a withdrawal that finds a guest in the room on the link it withdraws
- * (`revokeGuestLink` in ./guest-service.ts). TWO audit rows, on the member removal's reasoning:
+ * Reached by a removal addressed to the stay (`removeParticipant` in ./hosting-service.ts). A
+ * withdrawal of the LINK does not come here: it closes the stay `left` rather than `removed`, because
+ * a removal bars the person and a withdrawal is a decision about a credential (`revokeGuestLink` in
+ * ./guest-service.ts). TWO audit rows, on the member removal's reasoning:
  * `meetings.meeting.removed` records that a host acted, and `meetings.guest.left` is the departure
  * every way of leaving writes. The guard label is the caller's, so each act's lost race is told apart.
  */

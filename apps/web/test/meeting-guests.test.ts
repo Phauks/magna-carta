@@ -5,7 +5,8 @@
  *
  * WHAT IS PINNED is the part a forwarded link turns on. A guest is somebody already on the event
  * and in the Directory, so the panel lists those people and nobody else, and a participant recorded
- * only by name cannot be sent a link. A host at the door reads BOTH names — the one typed there and
+ * only by name cannot be sent a link. A link sent to somebody since taken off the event stays on the
+ * panel, marked, with Withdraw still on it. A host at the door reads BOTH names — the one typed there and
  * the one the link was minted for — and the attendance record keeps both, in one line. The token is
  * never on a screen. Replacing and withdrawing a link each ask first and then reach their routes.
  */
@@ -118,8 +119,26 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
+/**
+ * A live link sent to somebody who has since been taken off the event: nobody on the event holds it,
+ * and it still opens the door.
+ */
+const DEPARTED_INVITATION = {
+  id: "meetingGuestInvitation_9",
+  entityKind: "person",
+  entityId: "directoryPerson_9",
+  invitedName: "Samuel Price",
+  expiresAt: NEXT_YEAR,
+  revokedAt: null,
+  arrivalCount: 0,
+  lastArrivalAt: null,
+};
+
 /** Answer the reads and the three acts, and record every request. */
-function serve(attendance: unknown = { data: [], nextCursor: null }): void {
+function serve(
+  attendance: unknown = { data: [], nextCursor: null },
+  invitations: { data: readonly unknown[] } = INVITATIONS,
+): void {
   const stub = (async (request: Request) => {
     const path = new URL(request.url).pathname;
     const text = await request.clone().text();
@@ -127,7 +146,7 @@ function serve(attendance: unknown = { data: [], nextCursor: null }): void {
     if (path === "/api/v1/events/matterEvent_1") return json(EVENT);
     if (path === "/api/v1/directory/entity-names") return json(NAMES);
     if (path === `/api/v1/meetings/${MEETING_ID}/guests`) {
-      return request.method === "GET" ? json(INVITATIONS) : json(INVITATIONS.data[0], 201);
+      return request.method === "GET" ? json(invitations) : json(INVITATIONS.data[0], 201);
     }
     if (path === `/api/v1/meetings/${MEETING_ID}/attendance`) return json(attendance);
     return json(INVITATIONS.data[0]);
@@ -260,6 +279,47 @@ describe("the Guests panel", () => {
     expect(rotated?.path).toBe(
       `/api/v1/meetings/${MEETING_ID}/guests/meetingGuestInvitation_1/rotation`,
     );
+  });
+
+  it("keeps a link sent to somebody since taken off the event, marked, and lets it be withdrawn", async () => {
+    serve(undefined, { data: [...INVITATIONS.data, DEPARTED_INVITATION] });
+    await drawGuests();
+
+    const row = [...document.body.querySelectorAll("li")].find((candidate) =>
+      candidate.textContent?.includes("Samuel Price"),
+    );
+    expect(row?.textContent).toContain("No longer on the event");
+    expect(row?.textContent).toContain("Link works until");
+    // Nothing that would send them a link: only taking this one back.
+    expect(control("Send a new link to Samuel Price")).toBeUndefined();
+    expect(control("Invite Samuel Price")).toBeUndefined();
+
+    control("Withdraw the link for Samuel Price")?.click();
+    await settle();
+    commit("Withdraw the Link")?.click();
+    await settle();
+
+    const withdrawn = requests.find((request) => request.method === "DELETE");
+    expect(withdrawn?.path).toBe(`/api/v1/meetings/${MEETING_ID}/guests/meetingGuestInvitation_9`);
+    // The event's own people are drawn exactly as before, and none of them is marked.
+    const acme = [...document.body.querySelectorAll("li")].find((candidate) =>
+      candidate.textContent?.includes("Acme Corporation"),
+    );
+    expect(acme?.textContent).not.toContain("No longer on the event");
+  });
+
+  it("leaves a withdrawn link for somebody no longer on the event on the record, with nothing to press", async () => {
+    serve(undefined, {
+      data: [{ ...DEPARTED_INVITATION, revokedAt: "2026-09-24T18:30:00.000Z" }],
+    });
+    await drawGuests();
+
+    const row = [...document.body.querySelectorAll("li")].find((candidate) =>
+      candidate.textContent?.includes("Samuel Price"),
+    );
+    expect(row?.textContent).toContain("No longer on the event");
+    expect(row?.textContent).toContain("Link withdrawn");
+    expect(row?.querySelectorAll("button")).toHaveLength(0);
   });
 
   it("asks before withdrawing a live link, and then withdraws it", async () => {

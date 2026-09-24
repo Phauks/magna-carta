@@ -28,6 +28,8 @@ import {
   arriveAsGuest,
   GUEST_ARRIVAL_GUARD,
   GUEST_DOOR_GUARD,
+  GUEST_RETURN_GUARD,
+  GuestNoLongerOnTheEventError,
   inviteGuest,
   leaveAsGuest,
   listMeetingGuests,
@@ -37,6 +39,7 @@ import {
   revokeGuestLink,
   REVOKE_GUEST_LINK_GUARD,
   rotateGuestLink,
+  whyTheSpendWasRefused,
   type MintedGuestLink,
 } from "@magna-carta/meetings/guest-service";
 import {
@@ -45,7 +48,6 @@ import {
   readGuestInvitationInMeeting,
   readGuestStayInMeeting,
   readMeetingForGuest,
-  readOpenGuestStay,
 } from "@magna-carta/meetings/guest-statements";
 import {
   guestGrantExpiresAt,
@@ -83,7 +85,12 @@ import {
   GUEST_INVITATION_MESSAGE_CLASS,
 } from "../meetings/guest-invitation-mail.ts";
 import { guestLinkRefusalFor } from "../meetings/guest-refusals.ts";
-import { mintGuestGrantToken, mintGuestInvitationToken } from "../meetings/guest-token.ts";
+import {
+  GUEST_SOCKET_OPERATION_ID,
+  guestCredentialFromSocketProtocols,
+  mintGuestGrantToken,
+  mintGuestInvitationToken,
+} from "../meetings/guest-token.ts";
 import { sfuClientForEnv } from "../meetings/sfu/sfu-client.ts";
 import { isWebSocketUpgrade } from "../progress/job-progress-sockets.ts";
 import {
@@ -201,8 +208,8 @@ const GuestArrival = z
     iceServers: z.array(IceServer),
     medium: z.enum(MEETING_MEDIA),
     // The credential every later guest request carries in the `x-meeting-guest` header, and the
-    // socket upgrade carries in its `guest` query parameter. Shorter-lived than the link, and dead
-    // with the meeting.
+    // socket upgrade carries as its second subprotocol after `meeting-guest`. Shorter-lived than the
+    // link, and dead with the meeting.
     guestGrant: z.string(),
   })
   .openapi("GuestArrival");
@@ -231,10 +238,14 @@ const guestCredentialHeader = z.object({
 });
 
 const guestSocketQuery = z.object({
-  guest: z.string().optional().openapi({
-    description:
-      "The grant, on the socket upgrade alone — a browser cannot set a header on a WebSocket.",
-  }),
+  guest: z
+    .string()
+    .optional()
+    .openapi({
+      description:
+        "The grant, from a browser built before the subprotocol form. Prefer the subprotocol: an " +
+        "address can be recorded by request logging a header is not.",
+    }),
 });
 
 const meetingIdParam = z.object({ meetingId: identifierPathParam("meeting", "meetingId") });
@@ -310,7 +321,9 @@ const hostErrors = {
     content: { "application/problem+json": { schema: Problem } },
   },
   503: {
-    description: "The invitation was recorded but its e-mail could not be sent",
+    description:
+      "The invitation was recorded but its e-mail could not be sent; nothing is stored under the " +
+      "Idempotency-Key, so retrying it sends a fresh link",
     content: { "application/problem+json": { schema: Problem } },
   },
 };
@@ -371,7 +384,8 @@ const inviteRoute = defineOpenAPIRoute(hostMeta("inviteGuest", true), {
     "this meeting's event, and e-mails it to them. The link proves possession of a mailbox and " +
     "nothing more: it brings its holder to the lobby, and a host admits them. A second invitation " +
     "for the same entity REPLACES the first — a fresh secret, the old link stops working at once, " +
-    "a withdrawn link is reinstated — rather than standing beside it, and answers 200 rather than " +
+    "a withdrawn link is reinstated, its arrivals counted afresh, and a guest sitting on the old " +
+    "link is put back outside — rather than standing beside it, and answers 200 rather than " +
     "201. The token is never returned, stored or shown; the invitation is.",
   request: {
     params: meetingIdParam,
@@ -415,8 +429,9 @@ const rotateRoute = defineOpenAPIRoute(hostMeta("rotateGuestLink", true), {
   path: "/api/v1/meetings/{meetingId}/guests/{invitationId}/rotation",
   description:
     "Sends a fresh link in place of the old one — the answer to a link forwarded by mistake. Every " +
-    "copy of the old link stops working at once, and a guest in the room on it is disconnected and " +
-    "must arrive again on the new one. A withdrawn link is not rotated; invite the entity again to " +
+    "copy of the old link stops working at once, a guest in the room on it is disconnected and " +
+    "must arrive again on the new one, and the new link's arrivals are counted afresh. A withdrawn " +
+    "link is not rotated; invite the entity again to " +
     "reinstate it.",
   request: { params: invitationParams, headers: idempotencyKeyHeader },
   responses: {
@@ -438,8 +453,8 @@ const revokeRoute = defineOpenAPIRoute(
     path: "/api/v1/meetings/{meetingId}/guests/{invitationId}",
     description:
       "Withdraws a link. The invitation is KEPT, marked withdrawn — who was invited is part of what " +
-      "the record says happened — and a guest in the room on it is removed and cannot come back on " +
-      "it. A link already withdrawn answers 200 unchanged.",
+      "the record says happened — and a guest on it, in the room or at the door, is put out. Inviting " +
+      "the entity again brings them back. A link already withdrawn answers 200 unchanged.",
     request: { params: invitationParams, headers: idempotencyKeyHeader },
     responses: {
       200: {
@@ -480,7 +495,9 @@ const arriveRoute = defineOpenAPIRoute(
       "Presses Join: spends the link, opens the guest's stay AT THE DOOR — a guest always waits for " +
       "a host — and answers with what the browser needs to connect plus the grant every later guest " +
       "request carries. An arrival while this link already holds an open stay answers with that " +
-      "stay and a fresh grant rather than opening a second; a link spent too many times, a locked " +
+      "stay and a fresh grant rather than opening a second — and puts that stay back at the door " +
+      "under the name just given, because whoever holds the link now is not known to be whoever a " +
+      "host let in; the host admits them again. A link spent too many times, a locked " +
       "room, and a guest a host removed or turned away are each refused with a sentence. Answers " +
       "201 when a stay was opened and 200 when an open one was returned. Deliberately not replayed " +
       "from an Idempotency-Key: the answer carries a credential, and a credential is never stored.",
@@ -510,29 +527,36 @@ const arriveRoute = defineOpenAPIRoute(
   },
 );
 
-const socketRoute = defineOpenAPIRoute(guestMeta("meetingSocket", "grant"), {
-  method: "get",
-  path: "/api/v1/guest/meeting/socket",
-  description:
-    "Opens the meeting's signaling socket for a guest — in the lobby state until a host admits " +
-    "them, then in the room exactly as a member is, except that no roster or message frame carries " +
-    "a firm's user identifiers. The grant rides the `guest` query parameter, the one route that " +
-    "accepts it there, because a browser cannot set a header on a WebSocket. Requires Upgrade: " +
-    "websocket; an upgrade carrying another site's Origin is refused.",
-  request: { query: guestSocketQuery },
-  responses: {
-    101: { description: "The signaling socket is open; frames follow" },
-    ...guestErrors,
-    426: {
-      description: "The request did not ask to upgrade to a WebSocket",
-      content: { "application/problem+json": { schema: Problem } },
-    },
-    503: {
-      description: "This deployment cannot route a meeting's media",
-      content: { "application/problem+json": { schema: Problem } },
+// Named by the one constant the chokepoint reads, because this is the only route a grant may reach
+// anywhere but the header — so the two cannot disagree about which route that is.
+const socketRoute = defineOpenAPIRoute(
+  { ...guestMeta("meetingSocket", "grant"), operationId: GUEST_SOCKET_OPERATION_ID },
+  {
+    method: "get",
+    path: "/api/v1/guest/meeting/socket",
+    description:
+      "Opens the meeting's signaling socket for a guest — in the lobby state until a host admits " +
+      "them, then in the room exactly as a member is, except that no roster or message frame carries " +
+      "a firm's user identifiers. A browser cannot set an ordinary header on a WebSocket, so the " +
+      "grant rides the Sec-WebSocket-Protocol header — the protocols `meeting-guest` and then the " +
+      "grant, answered with `meeting-guest` — or, from an older browser, the `guest` query " +
+      "parameter; this is the one route that accepts it anywhere but the x-meeting-guest header. " +
+      "Requires Upgrade: websocket; an upgrade carrying another site's Origin is refused.",
+    request: { query: guestSocketQuery },
+    responses: {
+      101: { description: "The signaling socket is open; frames follow" },
+      ...guestErrors,
+      426: {
+        description: "The request did not ask to upgrade to a WebSocket",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      503: {
+        description: "This deployment cannot route a meeting's media",
+        content: { "application/problem+json": { schema: Problem } },
+      },
     },
   },
-});
+);
 
 const departRoute = defineOpenAPIRoute(guestMeta("depart", "grant", { audited: true }), {
   method: "post",
@@ -665,8 +689,8 @@ function mailNotSent(c: Context, errorId: string): ProblemResponse<503> {
     status: 503,
     title: "The invitation could not be e-mailed",
     detail:
-      "The invitation is recorded, but its e-mail could not be sent just now. Send the link again " +
-      "shortly — the old one stops working when you do.",
+      "The invitation is recorded, but its e-mail could not be sent just now. Try again shortly — " +
+      "the retry sends a fresh link, and the one that was not mailed stops working when it does.",
     errorId,
   });
 }
@@ -684,11 +708,26 @@ function hostingOptions(c: GuestContext): MeetingHostingOptions {
   };
 }
 
+/** The mail a mint or a rotation owed did not go out; nothing is stored, so a retry sends it. */
+class InvitationMailNotSent extends Error {
+  constructor(readonly errorId: string) {
+    super("the invitation's e-mail could not be sent");
+    this.name = "InvitationMailNotSent";
+  }
+}
+
 /**
  * Runs one host act on a link through the idempotency gate. The STORED body is the invitation and
  * never the token — the idempotency store is served verbatim to whoever retries the key, and a bearer
- * credential there would outlive the link it belongs to. `executed` says whether THIS call committed,
- * which is what decides whether a mail goes out: a replay mailed nothing and must mail nothing.
+ * credential there would outlive the link it belongs to. `executed` says whether THIS call committed.
+ *
+ * AN ACT THAT OWES A MAIL COMMITS ITS WRITE FIRST, SENDS, AND ONLY THEN STORES ITS ANSWER. The mail
+ * cannot go before the commit — nobody may be sent a link to an invitation that did not land — and it
+ * cannot ride the batch, because the only thing that could carry it there is the token, which is never
+ * written anywhere. So `afterCommit` runs between the two: the room is told, the mail is sent, and a
+ * mail that fails stores NOTHING under the key. The host's retry then runs the act again, which for a
+ * link that now exists is a fresh secret and a fresh mail — rather than being handed the success the
+ * first call stored before its mail had even been tried, with the guest never mailed.
  */
 async function commitHostGuestEffect(
   c: Context,
@@ -698,10 +737,11 @@ async function commitHostGuestEffect(
     value: MeetingGuestInvitationEntry;
     responseCode: number;
     effect: EffectWrite;
+    afterCommit?: () => Promise<{ delivered: true } | { delivered: false; errorId: string }>;
   }>,
 ): Promise<
   | { ok: true; executed: boolean; value: MeetingGuestInvitationEntry; responseCode: number }
-  | { ok: false; problem: GuestProblem }
+  | { ok: false; problem: GuestProblem | ProblemResponse<503> }
 > {
   let result;
   try {
@@ -711,11 +751,19 @@ async function commitHostGuestEffect(
       fingerprint: idempotency.fingerprint,
       now: () => new Date().toISOString(),
       effect: async () => {
-        const { value, responseCode, effect } = await call();
-        return { write: effect, responseCode, responseBody: canonicalJsonStringify(value) };
+        const { value, responseCode, effect, afterCommit } = await call();
+        const responseBody = canonicalJsonStringify(value);
+        if (afterCommit === undefined) return { write: effect, responseCode, responseBody };
+        await commitEffectBatch(database, effect, { now: () => new Date().toISOString() });
+        const mailed = await afterCommit();
+        if (!mailed.delivered) throw new InvitationMailNotSent(mailed.errorId);
+        return { write: { statements: [], outboxMessages: [] }, responseCode, responseBody };
       },
     });
   } catch (caught) {
+    if (caught instanceof InvitationMailNotSent) {
+      return { ok: false, problem: mailNotSent(c, caught.errorId) };
+    }
     if (caught instanceof MeetingValidationError) {
       return { ok: false, problem: guestErrorResponse(c, caught) };
     }
@@ -789,6 +837,27 @@ async function mailTheLink(
   return delivery.delivered ? { delivered: true } : { delivered: false, errorId: delivery.errorId };
 }
 
+/**
+ * What a mint or a rotation does once its batch has committed: the room lets go of the stay the old
+ * link held — which the same batch closed — and then the fresh link is mailed. In that order, on the
+ * standing ordering: the socket on the old link is closed only once the record says it no longer
+ * works, and nobody is mailed a link while somebody is still sitting in the room on the one it
+ * replaces.
+ */
+async function replaceAndMail(
+  c: GuestContext,
+  sendEmail: (env: Bindings) => SendEmail,
+  meetingId: string,
+  minted: MintedGuestLink,
+): Promise<{ delivered: true } | { delivered: false; errorId: string }> {
+  if (minted.closedStayId !== null) {
+    await meetingRoomFor(c.env, requireChokepointFirmId(c), meetingId).guestCredentialReplaced(
+      minted.closedStayId,
+    );
+  }
+  return await mailTheLink(c, sendEmail, meetingId, minted);
+}
+
 function redactedForGuest<T extends { userId: string | null; redactedByUserId: string | null }>(
   message: T,
 ): T {
@@ -811,11 +880,10 @@ export function registerMeetingGuestRoutes(
       const { meetingId } = c.req.valid("param");
       const { entityId, directoryEmailId } = c.req.valid("json");
 
-      // Kept from inside the effect: the secret and the address exist for this one send and are
-      // written nowhere, so they cannot come back out of the idempotency gate.
-      let minted: (MintedGuestLink & { readonly reissued: boolean }) | undefined;
+      // The secret and the address exist for this one send, inside the effect, and are written
+      // nowhere — so they cannot come back out of the idempotency gate.
       const outcome = await commitHostGuestEffect(c, firm.firmDatabase, idempotency, async () => {
-        minted = await inviteGuest(
+        const minted = await inviteGuest(
           firm.firmDatabase,
           meetingId as MeetingId,
           {
@@ -829,22 +897,10 @@ export function registerMeetingGuestRoutes(
           value: minted.invitation,
           responseCode: minted.reissued ? 200 : 201,
           effect: minted.effect,
+          afterCommit: () => replaceAndMail(c, sendEmail, meetingId, minted),
         };
       });
       if (!outcome.ok) return outcome.problem;
-
-      if (outcome.executed && minted !== undefined) {
-        // A reissue replaced a link somebody may be sitting in the room on.
-        if (minted.openStayId !== null) {
-          await meetingRoomFor(
-            c.env,
-            requireChokepointFirmId(c),
-            meetingId,
-          ).guestCredentialReplaced(minted.openStayId);
-        }
-        const mailed = await mailTheLink(c, sendEmail, meetingId, minted);
-        if (!mailed.delivered) return mailNotSent(c, mailed.errorId);
-      }
       return outcome.responseCode === 201 ? c.json(outcome.value, 201) : c.json(outcome.value, 200);
     },
   );
@@ -907,32 +963,22 @@ export function registerMeetingGuestRoutes(
       const idempotency = requireChokepointIdempotency(c);
       const { meetingId, invitationId } = c.req.valid("param");
 
-      let minted: MintedGuestLink | undefined;
       const outcome = await commitHostGuestEffect(c, firm.firmDatabase, idempotency, async () => {
-        minted = await rotateGuestLink(
+        const minted = await rotateGuestLink(
           firm.firmDatabase,
           meetingId as MeetingId,
           invitationId as MeetingGuestInvitationId,
           { eventEndsAt: eventEndInstant },
           hostingOptions(c),
         );
-        return { value: minted.invitation, responseCode: 200, effect: minted.effect };
+        return {
+          value: minted.invitation,
+          responseCode: 200,
+          effect: minted.effect,
+          afterCommit: () => replaceAndMail(c, sendEmail, meetingId, minted),
+        };
       });
       if (!outcome.ok) return outcome.problem;
-
-      if (outcome.executed && minted !== undefined) {
-        // AFTER the commit, on the standing ordering: the socket opened on the old link is closed only
-        // once the record says the old link no longer works.
-        if (minted.openStayId !== null) {
-          await meetingRoomFor(
-            c.env,
-            requireChokepointFirmId(c),
-            meetingId,
-          ).guestCredentialReplaced(minted.openStayId);
-        }
-        const mailed = await mailTheLink(c, sendEmail, meetingId, minted);
-        if (!mailed.delivered) return mailNotSent(c, mailed.errorId);
-      }
       return c.json(outcome.value, 200);
     },
   );
@@ -945,7 +991,7 @@ export function registerMeetingGuestRoutes(
       const idempotency = requireChokepointIdempotency(c);
       const { meetingId, invitationId } = c.req.valid("param");
 
-      let removedStayId: MeetingGuestStayId | null = null;
+      let closedStayId: MeetingGuestStayId | null = null;
       const outcome = await commitHostGuestEffect(c, firm.firmDatabase, idempotency, async () => {
         const revoked = await revokeGuestLink(
           firm.firmDatabase,
@@ -953,16 +999,18 @@ export function registerMeetingGuestRoutes(
           invitationId as MeetingGuestInvitationId,
           hostingOptions(c),
         );
-        removedStayId = revoked.removedStayId;
+        closedStayId = revoked.closedStayId;
         return { value: revoked.invitation, responseCode: 200, effect: revoked.effect };
       });
       if (!outcome.ok) return outcome.problem;
 
-      // AFTER the commit: the guest in the room on this link is put out — the roster, the media and
-      // their socket — exactly as a host's removal does it.
-      if (outcome.executed && removedStayId !== null) {
+      // AFTER the commit: the guest on this link, in the room or at the door, is put out — the roster,
+      // the door, the media and their socket — by the room's removal, whose refusal is the one a
+      // guest's screen treats as final. Their STAY closed `left`, so inviting them again brings them
+      // back; the socket's refusal only says this connection is over.
+      if (outcome.executed && closedStayId !== null) {
         await meetingRoomFor(c.env, requireChokepointFirmId(c), meetingId).participantRemoved(
-          removedStayId,
+          closedStayId,
         );
       }
       return c.json(outcome.value, 200);
@@ -1000,7 +1048,7 @@ export function registerMeetingGuestRoutes(
         if (caught instanceof MeetingValidationError) {
           return problemJson(
             c,
-            guestLinkRefusalFor("guest-link-not-valid") ?? {
+            guestLinkRefusalFor(caught.code) ?? {
               type: "not-found",
               status: 404,
               title: "Not found",
@@ -1028,76 +1076,101 @@ export function registerMeetingGuestRoutes(
       };
       const now = new Date().toISOString();
 
-      let arrived: Awaited<ReturnType<typeof arriveAsGuest>>;
-      try {
-        arrived = await arriveAsGuest(
-          firm.firmDatabase,
-          credential,
-          { confirmedName },
-          { clock: { now: () => now }, randomSource: cryptoRandomSource },
-        );
-        await commitEffectBatch(firm.firmDatabase, arrived.effect, { now: () => now });
-      } catch (caught) {
-        if (caught instanceof MeetingValidationError) {
-          recordArrivalRefused(c, caught.code);
-          return guestErrorResponse(c, caught);
-        }
-        // THE LINK CHANGED UNDER THE ARRIVAL — withdrawn, rotated, used up or expired between the
-        // lane's check and the commit. The batch rolled back whole; the guest is told what the row
-        // now says, by asking the same table the lane asks.
-        if (caught instanceof GuardedWriteRefusedError && caught.guard === GUEST_ARRIVAL_GUARD) {
-          recordArrivalRefused(c, "guest-link-not-valid");
-          return problemJson(
-            c,
-            guestLinkRefusalFor("guest-link-not-valid") ?? {
-              type: "not-found",
-              status: 404,
-              title: "Not found",
-              detail: "No such resource in this firm.",
-            },
+      // One arrival, composed and committed. A refusal comes back as the problem the guest is told;
+      // the two races a second attempt settles come back as `retry`.
+      const attemptArrival = async (): Promise<
+        | { readonly arrived: Awaited<ReturnType<typeof arriveAsGuest>> }
+        | { readonly refused: GuestProblem }
+        | "retry"
+      > => {
+        try {
+          const composed = await arriveAsGuest(
+            firm.firmDatabase,
+            credential,
+            { confirmedName },
+            { clock: { now: () => now }, randomSource: cryptoRandomSource },
           );
+          await commitEffectBatch(firm.firmDatabase, composed.effect, { now: () => now });
+          return { arrived: composed };
+        } catch (caught) {
+          // Somebody taken off the event: the refusal carries its own audit row, written before the
+          // guest is answered, because nobody withdrew this link by hand.
+          if (caught instanceof GuestNoLongerOnTheEventError) {
+            await commitEffectBatch(firm.firmDatabase, caught.effect, { now: () => now });
+          }
+          if (caught instanceof MeetingValidationError) {
+            recordArrivalRefused(c, caught.code);
+            return { refused: guestErrorResponse(c, caught) };
+          }
+          // THE LINK CHANGED UNDER THE ARRIVAL — withdrawn, rotated, used up or expired between the
+          // lane's check and the commit. The batch rolled back whole, and the guest is told which of
+          // the four it was, read back off the row, because each is a different remedy.
+          if (caught instanceof GuardedWriteRefusedError && caught.guard === GUEST_ARRIVAL_GUARD) {
+            const code = await whyTheSpendWasRefused(firm.firmDatabase, credential, now);
+            recordArrivalRefused(c, code);
+            return {
+              refused: guestErrorResponse(c, new MeetingValidationError(code, "the link changed")),
+            };
+          }
+          // THE DOOR MOVED UNDER THE ARRIVAL — the room was locked or ended, or the lobby filled, in
+          // the round trip since the service read it. The row says which.
+          if (caught instanceof GuardedWriteRefusedError && caught.guard === GUEST_DOOR_GUARD) {
+            const meeting = await readMeetingForGuest(firm.firmDatabase, credential.meetingId);
+            const code =
+              meeting?.status === "ended"
+                ? "meeting-already-ended"
+                : meeting?.locked_at !== null && meeting?.locked_at !== undefined
+                  ? "meeting-locked"
+                  : "meeting-lobby-full";
+            recordArrivalRefused(c, code);
+            return {
+              refused: guestErrorResponse(
+                c,
+                new MeetingValidationError(code, "the door moved while you were arriving"),
+              ),
+            };
+          }
+          if (
+            isOpenGuestStayConflict(caught) ||
+            (caught instanceof GuardedWriteRefusedError && caught.guard === GUEST_RETURN_GUARD)
+          ) {
+            return "retry";
+          }
+          throw caught;
         }
-        // THE DOOR MOVED UNDER THE ARRIVAL — the room was locked or ended, or the lobby filled, in the
-        // round trip since the service read it. The row says which.
-        if (caught instanceof GuardedWriteRefusedError && caught.guard === GUEST_DOOR_GUARD) {
-          const meeting = await readMeetingForGuest(firm.firmDatabase, credential.meetingId);
-          const code =
-            meeting?.status === "ended"
-              ? "meeting-already-ended"
-              : meeting?.locked_at !== null && meeting?.locked_at !== undefined
-                ? "meeting-locked"
-                : "meeting-lobby-full";
-          recordArrivalRefused(c, code);
-          return guestErrorResponse(
-            c,
-            new MeetingValidationError(code, "the door moved while you were arriving"),
-          );
-        }
-        // TWO BROWSERS SPENT ONE LINK IN THE SAME INSTANT. The index held one open stay; this one is
-        // handed the winner's, which is what a second arrival on an open stay is answered with anyway.
-        if (!isOpenGuestStayConflict(caught)) throw caught;
-        const open = await readOpenGuestStay(
-          firm.firmDatabase,
+      };
+
+      // AT MOST TWICE, and only for the two races where the second attempt is the right answer: two
+      // browsers spending one link in the same instant (the index held one open stay, and the loser's
+      // second attempt finds it and puts it back at the door under ITS name — never the winner's stay
+      // handed across under the winner's name), and a host closing the open stay while this arrival
+      // was taking it back to the door (the second attempt opens a fresh stay, or is refused as barred).
+      // Either way the service re-reads everything, so the answer is decided on what is true now; a
+      // third race in a row is a conflict the guest retries rather than a loop the Worker spins in.
+      let outcome = await attemptArrival();
+      if (outcome === "retry") outcome = await attemptArrival();
+      if (outcome === "retry") {
+        return problemJson(c, {
+          type: "conflict",
+          status: 409,
+          title: "Somebody else arrived on this link at the same moment",
+          detail: "Press Join again.",
+        });
+      }
+      if ("refused" in outcome) return outcome.refused;
+      const arrived = outcome.arrived;
+
+      // AN ARRIVAL THAT CAME BACK TO AN OPEN STAY PUT IT BACK AT THE DOOR, and the room still holds
+      // whoever had it — in the room, or at the door under the name the stay no longer carries. Told
+      // AFTER the commit, and before the browser is answered, so their socket is gone before the
+      // arriving browser can open its own: the room never holds the new arrival and the old seat at
+      // once.
+      if (arrived.returnedToOpenStay) {
+        await meetingRoomFor(
+          c.env,
+          requireChokepointFirmId(c),
           credential.meetingId,
-          credential.invitationId,
-        );
-        if (open === undefined) throw caught;
-        arrived = {
-          stayId: open.id,
-          returnedToOpenStay: true,
-          confirmedName: open.confirmed_name,
-          linkExpiresAt:
-            (
-              await readGuestInvitationInMeeting(
-                firm.firmDatabase,
-                credential.meetingId,
-                credential.invitationId,
-              )
-            )?.expires_at ?? now,
-          medium:
-            (await readMeetingForGuest(firm.firmDatabase, credential.meetingId))?.medium ?? "video",
-          effect: { statements: [], outboxMessages: [] },
-        };
+        ).guestCredentialReplaced(arrived.stayId);
       }
 
       // THE GRANT, minted after the stay committed and never stored: shorter-lived than the link, and
@@ -1185,7 +1258,7 @@ export function registerMeetingGuestRoutes(
 
       // Built from server-derived values only, exactly as the member's upgrade is — and marked a
       // GUEST's, which is what the room redacts every roster and message frame to this socket by.
-      return await meetingRoomFor(c.env, firmId, meetingId).fetch(
+      const upgraded = await meetingRoomFor(c.env, firmId, meetingId).fetch(
         meetingSocketRequest({
           medium: meeting.medium,
           firmId,
@@ -1204,6 +1277,15 @@ export function registerMeetingGuestRoutes(
           invitedName: invitation.invited_name,
         }),
       );
+      // A GRANT THAT RODE THE SUBPROTOCOL IS ANSWERED BY NAME, as the WebSocket standard requires:
+      // a browser that offered protocols fails a handshake whose answer names none of them. The
+      // two-entry form is answered with the bare protocol name, so the credential never comes back
+      // in a response header; the single-entry form can only be answered with itself.
+      const offered = guestCredentialFromSocketProtocols(c.req.header("sec-websocket-protocol"));
+      if (offered === null || upgraded.status !== 101) return upgraded;
+      const headers = new Headers(upgraded.headers);
+      headers.set("sec-websocket-protocol", offered.chosenProtocol);
+      return new Response(null, { status: 101, webSocket: upgraded.webSocket, headers });
     },
   );
 

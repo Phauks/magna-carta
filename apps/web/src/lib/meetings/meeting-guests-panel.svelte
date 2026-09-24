@@ -17,6 +17,12 @@
    * THE TOKEN IS NEVER SHOWN, not even in part. It only ever travels by e-mail, and a panel that put
    * it on a screen would be a way for it to travel some other way.
    *
+   * A LINK OUTLIVES ITS PLACE ON THE EVENT. Somebody taken off the event keeps whatever link they
+   * were sent until it expires or is withdrawn, so an invitation with no participant row behind it
+   * is drawn as a row of its own, marked as no longer on the event, with Withdraw still on it.
+   * Building the list from the event alone made exactly that link invisible, and a link nobody can
+   * see is a link nobody can take back.
+   *
    * IT READS WHEN IT OPENS AND NOT BEFORE. It has two entrances — the event's entry window and the
    * room itself — and in the room especially, the host is in the middle of a meeting and has not
    * asked about guests until they open this.
@@ -140,6 +146,8 @@
     readonly entityKind: "person" | "organization" | null;
     /** The invitation this record holds on this meeting, or null where none was ever sent. */
     readonly invitation: MeetingGuestInvitation | null;
+    /** False for an invitation whose person or organization has since been taken off the event. */
+    readonly onTheEvent: boolean;
   }
 
   const rows = $derived.by((): readonly GuestRow[] => {
@@ -163,9 +171,33 @@
           UNNAMED_RECORD,
         entityKind: named?.entityKind ?? invitation?.entityKind ?? null,
         invitation,
+        onTheEvent: true,
       };
     });
   });
+
+  /*
+   * The invitations nobody on the event holds any more, after the event's own people. Drawn only once
+   * the event has been read: before that, every invitation would look like one whose person had left.
+   */
+  const departedRows = $derived.by((): readonly GuestRow[] => {
+    if (eventRead.data === undefined || invitations === null) return [];
+    const stillOnTheEvent = new Set(entityIds);
+    return invitations
+      .filter((invitation) => !stillOnTheEvent.has(invitation.entityId))
+      .map((invitation) => ({
+        key: invitation.id,
+        entityId: invitation.entityId,
+        // The name the link was sent under, frozen when it was minted: the Directory's name today is
+        // not who this invitation was for.
+        name: invitation.invitedName,
+        entityKind: invitation.entityKind,
+        invitation,
+        onTheEvent: false,
+      }));
+  });
+
+  const allRows = $derived([...rows, ...departedRows]);
 
   type LinkStanding = "none" | "live" | "expired" | "withdrawn";
 
@@ -312,7 +344,7 @@
       <!-- The structure renders first and states its own emptiness inside itself: an event with
            nobody on it from outside the firm is the ordinary standing of most internal meetings. -->
       <ul class="flex flex-col gap-12">
-        {#each rows as row (row.key)}
+        {#each allRows as row (row.key)}
           {@const standing = standingOf(row.invitation)}
           {@const busy = busyKey === row.key}
           <li class="flex flex-col gap-8">
@@ -327,6 +359,9 @@
                 <span class="truncate text-xs text-text-muted">
                   {#if row.entityId === null}
                     Not in the Directory
+                  {:else if !row.onTheEvent}
+                    No longer on the event&nbsp;· {standingLine(row.invitation)}{#if row.invitation !== null}&nbsp;·
+                      {arrivalsLine(row.invitation)}{/if}
                   {:else}
                     {standingLine(row.invitation)}{#if row.invitation !== null}&nbsp;·
                       {arrivalsLine(row.invitation)}{/if}
@@ -337,54 +372,69 @@
 
             <!-- Each act is offered on the row it is about, and names the person, because a panel of
                  five rows would otherwise offer five controls all called Invite. -->
-            <div class="flex flex-wrap items-center justify-end gap-8">
-              {#if row.entityId === null}
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled
-                  title="Only somebody in the Directory can be sent a link."
-                >
-                  <Mail class="size-16" aria-hidden="true" />
-                  Invite
-                </Button>
-                <SoonAffordance reason="adding an event's participant to the Directory from here">
-                  {#snippet control(soon)}
-                    <Button {...soon} variant="ghost" size="sm">Add to Directory</Button>
-                  {/snippet}
-                </SoonAffordance>
-              {:else if standing === "live"}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={busy}
-                  aria-label="Withdraw the link for {row.name}"
-                  onclick={() => askToRevoke(row)}
-                >
-                  Withdraw
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={busy}
-                  aria-label="Send a new link to {row.name}"
-                  onclick={() => askToRotate(row)}
-                >
-                  Send a New Link
-                </Button>
-              {:else}
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={busy}
-                  aria-label="Invite {row.name}"
-                  onclick={() => invite(row)}
-                >
-                  <Mail class="size-16" aria-hidden="true" />
-                  Invite
-                </Button>
-              {/if}
-            </div>
+            {#if row.onTheEvent || standing === "live"}
+              <div class="flex flex-wrap items-center justify-end gap-8">
+                {#if row.entityId === null}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled
+                    title="Only somebody in the Directory can be sent a link."
+                  >
+                    <Mail class="size-16" aria-hidden="true" />
+                    Invite
+                  </Button>
+                  <SoonAffordance reason="adding an event's participant to the Directory from here">
+                    {#snippet control(soon)}
+                      <Button {...soon} variant="ghost" size="sm">Add to Directory</Button>
+                    {/snippet}
+                  </SoonAffordance>
+                {:else if !row.onTheEvent}
+                  <!-- Withdraw and nothing else. A new link, or a first one, goes only to somebody the
+                       event still names; for anybody else the one act left is taking this one back,
+                       and a link that has already stopped working leaves nothing to press. -->
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy}
+                    aria-label="Withdraw the link for {row.name}"
+                    onclick={() => askToRevoke(row)}
+                  >
+                    Withdraw
+                  </Button>
+                {:else if standing === "live"}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy}
+                    aria-label="Withdraw the link for {row.name}"
+                    onclick={() => askToRevoke(row)}
+                  >
+                    Withdraw
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={busy}
+                    aria-label="Send a new link to {row.name}"
+                    onclick={() => askToRotate(row)}
+                  >
+                    Send a New Link
+                  </Button>
+                {:else}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={busy}
+                    aria-label="Invite {row.name}"
+                    onclick={() => invite(row)}
+                  >
+                    <Mail class="size-16" aria-hidden="true" />
+                    Invite
+                  </Button>
+                {/if}
+              </div>
+            {/if}
           </li>
         {:else}
           <li class="text-sm text-text-muted">Nobody from outside the firm is on this event.</li>

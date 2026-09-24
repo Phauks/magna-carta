@@ -11,7 +11,9 @@ import { postGuestMeetingMessage } from "../src/chat-service.ts";
 import {
   arriveAsGuest,
   GUEST_ARRIVAL_GUARD,
+  GUEST_RETURN_GUARD,
   guestCredentialRefusal,
+  GuestNoLongerOnTheEventError,
   hashGuestSecret,
   inviteGuest,
   leaveAsGuest,
@@ -20,6 +22,7 @@ import {
   readGuestMeeting,
   revokeGuestLink,
   rotateGuestLink,
+  whyTheSpendWasRefused,
 } from "../src/guest-service.ts";
 import { readGuestInvitation, readGuestStay } from "../src/guest-statements.ts";
 import {
@@ -373,17 +376,197 @@ describe("arriving", () => {
     expect(await auditEvents(database, meetingId)).toContain("meetings.guest.arrived");
   });
 
-  it("a second arrival while the stay is open returns that stay and spends again", async () => {
+  it("a second arrival while the stay is waiting returns that stay under the name just typed, in its place", async () => {
     const database = fresh();
     const meetingId = await start(database);
     const link = await invite(database, meetingId);
     const first = await arrive(database, meetingId, link, "Jane Hollis");
+    const waitingFrom = (await readGuestStay(database.database, first))?.waiting_from;
     const second = await arrive(database, meetingId, link, "Somebody Different");
     expect(second).toBe(first);
-    // The name the host has been reading does not change under them on a reconnect.
-    expect((await readGuestStay(database.database, first))?.confirmed_name).toBe("Jane Hollis");
+    const stay = await readGuestStay(database.database, first);
+    // The host reads the name typed THIS time: whoever holds the link now is who is at the door.
+    expect(stay?.confirmed_name).toBe("Somebody Different");
+    // A waiter who comes back keeps their place in the queue.
+    expect(stay?.waiting_from).toBe(waitingFrom);
+    expect(stay?.admitted_at).toBeNull();
     expect((await readGuestInvitation(database.database, link.invitationId))?.arrival_count).toBe(
       2,
+    );
+  });
+
+  it("a second arrival on an ADMITTED stay puts it back at the door under the new name, and keeps the old one on the record", async () => {
+    const database = fresh();
+    const meetingId = await start(database);
+    await join(database, meetingId, HOST);
+    const link = await invite(database, meetingId);
+    const stayId = await arrive(database, meetingId, link, "Jane Hollis");
+    const admission = await admitParticipants(database.database, meetingId, [stayId], deciding);
+    await commit(database.database, admission.effect);
+    expect((await readMeetingSummary(database.database, meetingId, visibility))?.liveCount).toBe(2);
+
+    // Somebody the link was forwarded to presses Join.
+    const again = await arriveAsGuest(
+      database.database,
+      { meetingId, invitationId: link.invitationId, secretVersion: link.secretVersion },
+      { confirmedName: "A Stranger" },
+      { clock: { now: () => "2026-09-18T14:00:00.000Z" } },
+    );
+    expect(again).toMatchObject({
+      stayId,
+      returnedToOpenStay: true,
+      returnedFromTheRoom: true,
+      confirmedName: "A Stranger",
+    });
+    await commit(database.database, again.effect);
+
+    const stay = await readGuestStay(database.database, stayId);
+    expect(stay).toMatchObject({
+      confirmed_name: "A Stranger",
+      admitted_at: null,
+      admitted_by_user_id: null,
+      waiting_from: "2026-09-18T14:00:00.000Z",
+      left_at: null,
+    });
+    // Out of the room — the stranger does not inherit the seat — and at the door, under the new name.
+    expect((await readMeetingSummary(database.database, meetingId, visibility))?.liveCount).toBe(1);
+    const door = await listWaitingAttendance(database.database, meetingId, 101);
+    expect(door).toEqual([
+      expect.objectContaining({
+        participantId: stayId,
+        displayName: "A Stranger",
+        invitedName: "Jane Hollis",
+      }),
+    ]);
+    // The name the host admitted survives on the arrival's audit row.
+    const { results } = await database.database
+      .prepare(
+        "SELECT metadata FROM audit_log WHERE subject_id = ?1 AND event = 'meetings.guest.arrived' " +
+          "ORDER BY created_at DESC, id DESC LIMIT 1",
+      )
+      .bind(meetingId)
+      .all<{ metadata: string }>();
+    expect(JSON.parse(results[0]?.metadata ?? "{}")).toMatchObject({
+      stayId,
+      returnedToOpenStay: true,
+      returnedFromTheRoom: true,
+      previousConfirmedName: "Jane Hollis",
+      previouslyAdmittedByUserId: HOST,
+    });
+  });
+
+  it("an arrival that would take an admitted stay back to a full door is refused, and changes nothing", async () => {
+    const database = fresh();
+    const meetingId = await start(database, "on");
+    await join(database, meetingId, HOST);
+    const link = await invite(database, meetingId);
+    const stayId = await arrive(database, meetingId, link);
+    const admission = await admitParticipants(database.database, meetingId, [stayId], deciding);
+    await commit(database.database, admission.effect);
+    for (const userId of CROWD.slice(0, MAX_MEETING_LOBBY)) await join(database, meetingId, userId);
+
+    expect(await refusalOf(arrive(database, meetingId, link, "Somebody Else"))).toBe(
+      "meeting-lobby-full",
+    );
+    expect((await readGuestStay(database.database, stayId))?.admitted_at).not.toBeNull();
+  });
+
+  it("an arrival racing a host's removal of the open stay rolls back whole", async () => {
+    const database = fresh();
+    const meetingId = await start(database);
+    await join(database, meetingId, HOST);
+    const link = await invite(database, meetingId);
+    const stayId = await arrive(database, meetingId, link);
+    const composed = await arriveAsGuest(
+      database.database,
+      { meetingId, invitationId: link.invitationId, secretVersion: link.secretVersion },
+      { confirmedName: "Jane Hollis" },
+      { clock: tickingClock() },
+    );
+    const removal = await removeParticipant(database.database, meetingId, stayId, {
+      ...deciding,
+      clock: { now: () => "2026-09-18T13:30:00.000Z" },
+    });
+    await commit(database.database, removal.effect);
+    const racing = await commit(database.database, composed.effect).then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    expect(racing).toBeInstanceOf(GuardedWriteRefusedError);
+    expect((racing as GuardedWriteRefusedError).guard).toBe(GUEST_RETURN_GUARD);
+    expect((await readGuestInvitation(database.database, link.invitationId))?.arrival_count).toBe(
+      1,
+    );
+  });
+
+  it("is refused, and recorded, once the entity is no longer on the event", async () => {
+    const database = fresh();
+    const meetingId = await start(database);
+    const link = await invite(database, meetingId);
+    database.raw.exec(
+      `DELETE FROM matter_event_participant WHERE id = 'matterEventParticipant_meetingGuest01'`,
+    );
+
+    const caught = await arriveAsGuest(
+      database.database,
+      { meetingId, invitationId: link.invitationId, secretVersion: link.secretVersion },
+      { confirmedName: "Jane Hollis" },
+      { clock: tickingClock() },
+    ).then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    expect(caught).toBeInstanceOf(GuestNoLongerOnTheEventError);
+    expect((caught as GuestNoLongerOnTheEventError).code).toBe("guest-link-revoked");
+    await commit(database.database, (caught as GuestNoLongerOnTheEventError).effect);
+    expect(await auditEvents(database, meetingId)).toContain("meetings.guest.arrivalRefused");
+    expect((await readGuestInvitation(database.database, link.invitationId))?.arrival_count).toBe(
+      0,
+    );
+    // Opening the link is refused too — and writes nothing, because opening it is a read.
+    expect(
+      await refusalOf(
+        readGuestMeeting(database.database, {
+          meetingId,
+          invitationId: link.invitationId,
+          secretVersion: link.secretVersion,
+        }),
+      ),
+    ).toBe("guest-link-revoked");
+  });
+
+  it("a refused spend is answered with what the row now says, not one sentence for every cause", async () => {
+    const database = fresh();
+    const meetingId = await start(database);
+    const link = await invite(database, meetingId);
+    const credential = {
+      meetingId,
+      invitationId: link.invitationId,
+      secretVersion: link.secretVersion,
+    };
+    const now = "2026-09-18T12:30:00.000Z";
+    database.raw.exec(
+      `UPDATE meeting_guest_invitation SET arrival_count = ${String(MAX_GUEST_ARRIVALS)} WHERE id = '${link.invitationId}'`,
+    );
+    expect(await whyTheSpendWasRefused(database.database, credential, now)).toBe(
+      "guest-link-exhausted",
+    );
+    expect(
+      await whyTheSpendWasRefused(database.database, credential, "2026-12-01T00:00:00.000Z"),
+    ).toBe("guest-link-expired");
+    await invite(database, meetingId);
+    expect(await whyTheSpendWasRefused(database.database, credential, now)).toBe(
+      "guest-link-not-valid",
+    );
+    const revoked = await revokeGuestLink(
+      database.database,
+      meetingId,
+      link.invitationId,
+      deciding,
+    );
+    await commit(database.database, revoked.effect);
+    expect(await whyTheSpendWasRefused(database.database, credential, now)).toBe(
+      "guest-link-revoked",
     );
   });
 
@@ -745,9 +928,11 @@ describe("withdrawing and rotating", () => {
       ...deciding,
       clock: { now: () => "2026-09-18T13:30:00.000Z" },
     });
-    expect(revoked.removedStayId).toBe(stay);
+    expect(revoked.closedStayId).toBe(stay);
     await commit(database.database, revoked.effect);
-    expect((await readGuestStay(database.database, stay))?.ended_reason).toBe("removed");
+    // Closed `left`, which bars nothing: a withdrawal is a decision about the link, not the person.
+    expect((await readGuestStay(database.database, stay))?.ended_reason).toBe("left");
+    expect(await auditEvents(database, meetingId)).not.toContain("meetings.meeting.removed");
     expect(
       (await readGuestInvitation(database.database, link.invitationId))?.revoked_at,
     ).not.toBeNull();
@@ -767,11 +952,54 @@ describe("withdrawing and rotating", () => {
     ).toBe("guest-link-revoked");
   });
 
-  it("rotating moves the version, sends a fresh mail and names the stay the old link holds", async () => {
+  it("rotating moves the version, sends a fresh mail, and closes the stay the old link held", async () => {
+    const database = fresh();
+    const meetingId = await start(database);
+    await join(database, meetingId, HOST);
+    const link = await invite(database, meetingId);
+    const stay = await arrive(database, meetingId, link);
+    const admission = await admitParticipants(database.database, meetingId, [stay], deciding);
+    await commit(database.database, admission.effect);
+    const rotated = await rotateGuestLink(
+      database.database,
+      meetingId,
+      link.invitationId,
+      {
+        eventEndsAt,
+      },
+      { ...deciding, clock: { now: () => "2026-09-18T13:30:00.000Z" } },
+    );
+    expect(rotated.secretVersion).toBe(2);
+    expect(rotated.emailAddress).toBe("jane@example.test");
+    expect(rotated.closedStayId).toBe(stay);
+    await commit(database.database, rotated.effect);
+
+    // Closed in the same batch as the rotation, `left` — nobody is barred — and out of the room.
+    expect((await readGuestStay(database.database, stay))?.ended_reason).toBe("left");
+    expect((await readMeetingSummary(database.database, meetingId, visibility))?.liveCount).toBe(1);
+    const events = await auditEvents(database, meetingId);
+    expect(events).toContain("meetings.guest.linkRotated");
+    expect(events).toContain("meetings.guest.left");
+    // A fresh link is a fresh budget.
+    expect((await readGuestInvitation(database.database, link.invitationId))?.arrival_count).toBe(
+      0,
+    );
+
+    // The person the fresh mail reached arrives on it, into a new stay, at the door.
+    const renewed = await arrive(database, meetingId, { ...link, secretVersion: 2 });
+    expect(renewed).not.toBe(stay);
+    expect((await readGuestStay(database.database, renewed))?.admitted_at).toBeNull();
+  });
+
+  it("an exhausted link comes back to life when a host sends a fresh one", async () => {
     const database = fresh();
     const meetingId = await start(database);
     const link = await invite(database, meetingId);
-    const stay = await arrive(database, meetingId, link);
+    database.raw.exec(
+      `UPDATE meeting_guest_invitation SET arrival_count = ${String(MAX_GUEST_ARRIVALS)} WHERE id = '${link.invitationId}'`,
+    );
+    expect(await refusalOf(arrive(database, meetingId, link))).toBe("guest-link-exhausted");
+
     const rotated = await rotateGuestLink(
       database.database,
       meetingId,
@@ -779,15 +1007,52 @@ describe("withdrawing and rotating", () => {
       { eventEndsAt },
       deciding,
     );
-    expect(rotated.secretVersion).toBe(2);
-    expect(rotated.emailAddress).toBe("jane@example.test");
-    expect(rotated.openStayId).toBe(stay);
+    expect(rotated.invitation.arrivalCount).toBe(0);
     await commit(database.database, rotated.effect);
-    // The arrival count is not reset: it bounds the invitation over its whole life.
-    expect((await readGuestInvitation(database.database, link.invitationId))?.arrival_count).toBe(
-      1,
+    await arrive(database, meetingId, { ...link, secretVersion: 2 });
+
+    // And inviting the entity again does the same.
+    database.raw.exec(
+      `UPDATE meeting_guest_invitation SET arrival_count = ${String(MAX_GUEST_ARRIVALS)} WHERE id = '${link.invitationId}'`,
     );
-    expect(await auditEvents(database, meetingId)).toContain("meetings.guest.linkRotated");
+    // Stamped after the arrival above, whose stay this reissue closes.
+    const again = await inviteGuest(
+      database.database,
+      meetingId,
+      { entityId: CLIENT, eventEndsAt },
+      { ...options, clock: { now: () => "2026-09-18T15:00:00.000Z" } },
+    );
+    await commit(database.database, again.effect);
+    expect((await readGuestInvitation(database.database, link.invitationId))?.arrival_count).toBe(
+      0,
+    );
+    await arrive(
+      database,
+      meetingId,
+      { invitationId: again.invitation.id, secretVersion: again.secretVersion },
+      "Jane Hollis",
+    );
+  });
+
+  it("withdrawing a waiting guest's link and inviting them again lets them arrive", async () => {
+    const database = fresh();
+    const meetingId = await start(database);
+    const link = await invite(database, meetingId);
+    const waiting = await arrive(database, meetingId, link);
+    const revoked = await revokeGuestLink(
+      database.database,
+      meetingId,
+      link.invitationId,
+      deciding,
+    );
+    expect(revoked.closedStayId).toBe(waiting);
+    await commit(database.database, revoked.effect);
+
+    const reinstated = await invite(database, meetingId);
+    expect(reinstated.invitationId).toBe(link.invitationId);
+    const stay = await arrive(database, meetingId, reinstated);
+    expect(stay).not.toBe(waiting);
+    expect((await readGuestStay(database.database, stay))?.left_at).toBeNull();
   });
 });
 

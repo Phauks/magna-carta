@@ -56,11 +56,13 @@
   import {
     arriveAsGuest,
     guestChatSeams,
+    guestMeetingSocketProtocols,
     guestMeetingSocketUrl,
     guestRefusalNamed,
     guestRefusalOf,
     leaveMeetingAsGuest,
     leaveMeetingAsGuestOnDeparture,
+    openGuestMeetingSocket,
     readGuestMeeting,
     type GuestMeetingSummary,
     type GuestRefusal,
@@ -94,13 +96,20 @@
     token,
     deviceSeams = browserGuestDeviceSeams(),
     clientSeams = browserMeetingSeams(),
+    openSocket = openGuestMeetingSocket,
   }: {
     /** The link's token, read from the address. It never leaves this page except as a header. */
     token: string;
     /** The devices the check at the door reaches, as a seam so it runs under a test. */
     deviceSeams?: GuestDeviceSeams;
-    /** The room client's own seams. */
+    /** The room client's own seams, all but the socket. */
     clientSeams?: MeetingClientSeams;
+    /**
+     * The guest's signaling socket, which offers the grant as its subprotocol. It replaces the room
+     * client's own socket seam rather than wrapping it, because that one takes an address and
+     * nothing else, and the address is exactly where the grant must not travel.
+     */
+    openSocket?: (url: string, protocols: readonly string[]) => WebSocket;
   } = $props();
 
   // ---- what the link opens onto --------------------------------------------------------------
@@ -134,13 +143,22 @@
    */
   let chosenDevices: GuestDeviceChoice = { microphoneId: null, cameraId: null };
 
+  /**
+   * The grant the next socket offers. Not reactive, and read at the moment the socket opens, for
+   * the reason the devices are: the room client asks for its socket through its own seam, and it is
+   * set by the arrival immediately before the client is told to join.
+   */
+  let socketGrant = "";
+
   // The seams are read once, when the room client is built; the client is never rebuilt.
   const roomSeams: MeetingClientSeams = (() => {
     const given = untrack(() => clientSeams);
+    const openGuestSocket = untrack(() => openSocket);
     return {
       ...given,
       getUserMedia: (constraints: MediaStreamConstraints) =>
         given.getUserMedia(withChosenDevices(constraints, chosenDevices)),
+      openSocket: (url: string) => openGuestSocket(url, guestMeetingSocketProtocols(socketGrant)),
     };
   })();
   const client = new MeetingClient(roomSeams);
@@ -187,6 +205,7 @@
     leaving = false;
     closedByLeaving = false;
     grant = outcome.value.guestGrant;
+    socketGrant = outcome.value.guestGrant;
     displayName = outcome.value.displayName;
     client.join({
       // A guest holds no meeting identifier: the meeting is a fact of the grant, not of anything
@@ -194,7 +213,7 @@
       meetingId: "",
       participantId: outcome.value.participantId,
       iceServers: outcome.value.iceServers,
-      socketUrl: guestMeetingSocketUrl(outcome.value.guestGrant),
+      socketUrl: guestMeetingSocketUrl(),
       medium: outcome.value.medium,
       waiting: outcome.value.waiting,
     });
@@ -407,7 +426,12 @@
   }
 </script>
 
-<svelte:head><title>{title}</title></svelte:head>
+<svelte:head>
+  <title>{title}</title>
+  <!-- This page's own address is the link, so nothing it asks for may name it as the referrer. Every
+       guest call also says so for itself; this covers whatever the page loads that is not a call. -->
+  <meta name="referrer" content="no-referrer" />
+</svelte:head>
 
 <svelte:window onpagehide={departOnUnload} onbeforeunload={departOnUnload} />
 

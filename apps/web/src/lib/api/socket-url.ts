@@ -19,22 +19,44 @@ export function meetingSocketUrl(meetingId: string, documentUrl: string = locati
 }
 
 /**
- * The socket a GUEST's signaling rides, carrying the grant their arrival was answered with.
+ * The socket a GUEST's signaling rides. The address carries no credential: the grant travels in the
+ * upgrade's subprotocol list (`guestMeetingSocketProtocols`), never in the query string.
  *
- * THE GRANT RIDES THE QUERY STRING BECAUSE NOTHING ELSE CAN CARRY IT. A browser cannot set a header
- * on a WebSocket upgrade, and a guest holds no session cookie, so the address is the only part of
- * the upgrade a credential can travel in. The server accepts the parameter on this one route alone,
- * so no ordinary request can be driven by an address somebody was persuaded to open, and the
- * exposure is bounded the way the room bounds it: a socket address is not a navigation, so it never
- * reaches the browser's history, it sends no referrer, and the grant dies with the meeting.
+ * NOT THE ADDRESS, BECAUSE AN ADDRESS IS WHAT GETS LOGGED. A browser cannot set a header on a
+ * WebSocket upgrade and a guest holds no session cookie, so the credential needs some other part of
+ * the upgrade to ride in — and a query string is the part every access log, every proxy and every
+ * platform request record writes down whole. `Sec-WebSocket-Protocol` is a header the browser sets
+ * from the list the page hands its constructor, which no request log records as part of the
+ * address, and which the server accepts on this one route alone.
  *
  * THE MEETING IS NOT IN THE PATH. It is a fact of the grant rather than of the request line, so a
  * guest has no identifier to change and cannot address a meeting the link was not minted for.
  */
-export function guestMeetingSocketUrl(grant: string, documentUrl: string = location.href): string {
-  const url = new URL(socketUrl("/api/v1/guest/meeting/socket", documentUrl));
-  url.searchParams.set("guest", grant);
-  return url.href;
+export function guestMeetingSocketUrl(documentUrl: string = location.href): string {
+  return socketUrl("/api/v1/guest/meeting/socket", documentUrl);
+}
+
+/**
+ * The subprotocol a guest's socket names first, ahead of the grant. The server answers the upgrade
+ * by echoing it, which is what a browser requires of a server it offered subprotocols to: an upgrade
+ * answered without one of the offered names is failed by the browser before any frame arrives.
+ */
+export const MEETING_GUEST_SOCKET_PROTOCOL = "meeting-guest";
+
+/**
+ * What a guest's socket offers as its subprotocols: the name above, then the grant itself.
+ *
+ * Two entries rather than one joined string, so the grant is a whole entry the server reads without
+ * parsing it back out of a name. A grant is base64url segments joined by a dot, every character of
+ * which is legal in a subprotocol token, so the browser takes it as it is.
+ */
+export function guestMeetingSocketProtocols(grant: string): readonly [string, string] {
+  return [MEETING_GUEST_SOCKET_PROTOCOL, grant];
+}
+
+/** Open a guest's signaling socket in this browser, offering the grant as its subprotocol. */
+export function openGuestMeetingSocket(url: string, protocols: readonly string[]): WebSocket {
+  return new WebSocket(url, [...protocols]);
 }
 
 /** A relative contract path, resolved against the document and switched to the socket scheme. */

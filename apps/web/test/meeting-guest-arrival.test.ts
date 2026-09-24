@@ -7,22 +7,39 @@
  * nothing: the device preview runs and nothing is joined until the person presses Join. The name
  * at the door starts as the invited Directory name and is theirs to change, and what they typed is
  * what the arrival carries. Every guest call carries the credential in its header and no cookie.
+ * Nor a referrer: the page's own address is the link, so a referrer would carry its secret into
+ * every request record. The socket carries the grant as its subprotocol and never in its address.
  * The waiting surface is the member's, and the room is the member's with the identifiers taken out
- * and no host control anywhere. A link whose signature does not verify gets one flat sentence that
- * says nothing; one that verifies but cannot be used gets a sentence the person can act on.
+ * and no host control anywhere; a guest who comes back after being in the room comes back to the
+ * door. A link whose signature does not verify gets one flat sentence that says nothing; one that
+ * verifies but cannot be used gets a sentence the person can act on. And a page that breaks says
+ * so without printing its own address or offering a way into the application.
  */
 import { flushSync, mount, unmount } from "svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { client } from "@magna-carta/api-client/client";
+import { breadcrumbs, clearBreadcrumbs } from "$lib/diagnostics/breadcrumbs.ts";
 import { queryClient } from "../src/lib/api/screen-data.ts";
 import { meetingProblemType } from "../src/lib/meetings/meetings-api.ts";
+import {
+  guestNameRefusal,
+  MAX_GUEST_NAME_LENGTH,
+  normalizeGuestName,
+} from "../src/lib/meetings/guest-api.ts";
+import { isGuestPageAddress } from "../src/lib/meetings/guest-render-boundary.svelte";
 import type { GuestDeviceSeams } from "../src/lib/meetings/client/guest-devices.ts";
+import GuestErrorPage from "../src/routes/join/+error.svelte";
+import { page } from "./stubs/app-state.ts";
 import Harness from "./guest-meeting-harness.svelte";
+import RootLayoutHarness from "./root-layout-harness.svelte";
+import ThrowingPage from "./throwing-page.svelte";
 
 /** An origin for the client's relative operation paths, which Node cannot resolve on its own. */
 const ORIGIN = "https://app.example";
 const TOKEN = "token_for_acme";
 const GRANT = "grant_for_jane";
+/** The grant a second arrival on the same link is answered with. */
+const SECOND_GRANT = "grant_for_jane_again";
 
 const SUMMARY = {
   firmName: "Goldsmith and Associates",
@@ -50,12 +67,15 @@ interface Recorded {
   readonly path: string;
   readonly guestHeader: string | null;
   readonly credentials: string;
+  readonly referrerPolicy: string;
   readonly body: unknown;
 }
 
 let requests: Recorded[] = [];
 let sockets: FakeSocket[] = [];
 let captures: MediaStreamConstraints[] = [];
+/** How many times the ROOM asked for the microphone and camera, as distinct from the door's preview. */
+let roomCaptures = 0;
 let target: HTMLElement;
 let instance: Record<string, unknown> | undefined;
 
@@ -63,10 +83,13 @@ let instance: Record<string, unknown> | undefined;
 class FakeSocket {
   readonly sent: string[] = [];
   readonly url: string;
+  /** The subprotocols the page offered, which is where the grant travels. */
+  readonly protocols: readonly string[];
   readonly #listeners = new Map<string, (event: { data: string }) => void>();
 
-  constructor(url: string) {
+  constructor(url: string, protocols?: string | string[]) {
     this.url = url;
+    this.protocols = protocols === undefined ? [] : [protocols].flat();
     sockets.push(this);
   }
 
@@ -83,6 +106,11 @@ class FakeSocket {
 
   deliver(frame: Record<string, unknown>): void {
     this.#listeners.get("message")?.({ data: JSON.stringify(frame) });
+  }
+
+  /** The connection going away underneath the page, which is not anybody leaving. */
+  drop(): void {
+    this.#listeners.get("close")?.({ data: "" });
   }
 }
 
@@ -148,8 +176,13 @@ function respond(answer: Answer): Response {
   });
 }
 
-/** Answer the guest routes, and record every request made through either transport. */
-function serve(answers: { summary?: Answer; arrival?: Answer } = {}): void {
+/**
+ * Answer the guest routes, and record every request made through either transport. `arrival` is one
+ * answer for every arrival, or a list given out in order with the last one repeated.
+ */
+function serve(answers: { summary?: Answer; arrival?: Answer | readonly Answer[] } = {}): void {
+  const arrivalAnswers = answers.arrival === undefined ? [] : [answers.arrival].flat();
+  let arrivalsServed = 0;
   const stub = (async (request: Request | string, init?: RequestInit) => {
     const isRequest = typeof request !== "string";
     const method = isRequest ? request.method : (init?.method ?? "GET");
@@ -161,13 +194,16 @@ function serve(answers: { summary?: Answer; arrival?: Answer } = {}): void {
       path,
       guestHeader: headers.get("x-meeting-guest"),
       credentials: isRequest ? request.credentials : (init?.credentials ?? ""),
+      referrerPolicy: isRequest ? request.referrerPolicy : (init?.referrerPolicy ?? ""),
       body: text === "" ? null : JSON.parse(text),
     });
     if (path === "/api/v1/guest/meeting") {
       return respond(answers.summary ?? { status: 200, body: SUMMARY });
     }
     if (path === "/api/v1/guest/arrivals") {
-      return respond(answers.arrival ?? { status: 201, body: ARRIVAL });
+      const answer = arrivalAnswers[Math.min(arrivalsServed, arrivalAnswers.length - 1)];
+      arrivalsServed += 1;
+      return respond(answer ?? { status: 201, body: ARRIVAL });
     }
     if (path === "/api/v1/guest/meeting/messages") {
       return respond({ status: 200, body: { data: [], nextCursor: null, redacted: [] } });
@@ -198,6 +234,45 @@ function nameField(): HTMLInputElement | null {
   return target.querySelector<HTMLInputElement>('input[autocomplete="name"]');
 }
 
+/** Type into the name field as a person would, replacing what is there. */
+function typeName(name: string): void {
+  const field = nameField();
+  if (field !== null) {
+    field.value = name;
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  flushSync();
+}
+
+/** The arrivals the page has made, in order. */
+function arrivals(): Recorded[] {
+  return requests.filter((request) => request.path === "/api/v1/guest/arrivals");
+}
+
+/** Press a control on the page by what it says. */
+function press(label: string): void {
+  [...target.querySelectorAll("button")]
+    .find((control) => control.textContent?.trim() === label)
+    ?.click();
+}
+
+/** Knock, be let in, and be welcomed into an otherwise empty room. */
+async function enterTheRoom(): Promise<FakeSocket | undefined> {
+  pressJoin();
+  await settle();
+  const socket = sockets.at(-1);
+  socket?.deliver({ v: 1, type: "admitted", at: "2026-09-24T18:02:00Z" });
+  socket?.deliver({
+    v: 1,
+    type: "welcome",
+    participantId: ARRIVAL.participantId,
+    roster: [],
+    roomState: { spotlight: null, locked: false },
+  });
+  await settle();
+  return socket;
+}
+
 function pressJoin(): void {
   const join = [...target.querySelectorAll("button")].find(
     (control) => control.textContent?.trim() === "Join Meeting",
@@ -212,7 +287,10 @@ function controlNames(): string[] {
   );
 }
 
-const declinedCapture = (): Promise<never> => Promise.reject(new Error("NotAllowedError"));
+const declinedCapture = (): Promise<never> => {
+  roomCaptures += 1;
+  return Promise.reject(new Error("NotAllowedError"));
+};
 
 beforeEach(() => {
   target = document.createElement("div");
@@ -220,6 +298,7 @@ beforeEach(() => {
   requests = [];
   sockets = [];
   captures = [];
+  roomCaptures = 0;
   queryClient.clear();
   vi.stubGlobal("RTCPeerConnection", FakePeerConnection);
   vi.stubGlobal("WebSocket", FakeSocket);
@@ -227,7 +306,12 @@ beforeEach(() => {
   // needs no media at all: these cases are about the door and the roster, not about pictures.
   Object.defineProperty(globalThis.navigator, "mediaDevices", {
     configurable: true,
-    value: { getUserMedia: declinedCapture, getDisplayMedia: declinedCapture },
+    value: {
+      getUserMedia: declinedCapture,
+      getDisplayMedia: declinedCapture,
+      // What the browser can process a capture with, asked once as the room client is built.
+      getSupportedConstraints: () => ({}),
+    },
   });
   serve();
 });
@@ -253,6 +337,15 @@ describe("opening the link", () => {
     // happens to hold has nothing to do with the person at this door.
     expect(requests[0]?.guestHeader).toBe(TOKEN);
     expect(requests[0]?.credentials).toBe("omit");
+    // And no referrer: the page is at `/join/<token>`, so one would carry the link's secret.
+    expect(requests[0]?.referrerPolicy).toBe("no-referrer");
+  });
+
+  it("tells the browser to send no referrer for anything the page loads", async () => {
+    await draw();
+
+    const meta = document.head.querySelector<HTMLMetaElement>('meta[name="referrer"]');
+    expect(meta?.content).toBe("no-referrer");
   });
 
   it("runs the device preview before anything is joined", async () => {
@@ -299,6 +392,59 @@ describe("the name at the door", () => {
     expect(arrival?.guestHeader).toBe(TOKEN);
   });
 
+  it("keeps a name written outside the Basic Multilingual Plane whole, counting its characters", async () => {
+    await draw();
+    // Fifty-two characters and ninety-two UTF-16 units: over the limit by one count, well inside it
+    // by the count the server keeps.
+    const name = `Jane Hollis ${"\u{1F33B}".repeat(40)}`;
+    expect(name.length).toBeGreaterThan(MAX_GUEST_NAME_LENGTH);
+
+    typeName(name);
+    pressJoin();
+    await settle();
+
+    expect(arrivals()[0]?.body).toEqual({ confirmedName: name });
+  });
+
+  it("strips the controls and invisible marks that make one name read as another", async () => {
+    await draw();
+
+    typeName("\u202EJane\u200B\u200D Hollis\u0007\tEsq.\uFEFF");
+    pressJoin();
+    await settle();
+
+    expect(arrivals()[0]?.body).toEqual({ confirmedName: "Jane Hollis Esq." });
+  });
+
+  it("will not knock under a name made only of invisible characters, and says why", async () => {
+    await draw();
+
+    typeName("\u200B\u200C\u200D\u2060\uFEFF");
+    pressJoin();
+    await settle();
+
+    expect(target.textContent).toContain("Enter the name the host will see at the door.");
+    expect(arrivals()).toHaveLength(0);
+  });
+
+  it("will not knock under a name longer than the door holds, and says how long it may be", async () => {
+    await draw();
+
+    typeName("\u{1F33B}".repeat(MAX_GUEST_NAME_LENGTH + 1));
+    pressJoin();
+    await settle();
+
+    expect(target.textContent).toContain("Enter a name of 80 characters or fewer.");
+    expect(arrivals()).toHaveLength(0);
+  });
+
+  it("counts and cleans a name the way the server does", () => {
+    expect(normalizeGuestName("  Jane \t\n Hollis  ")).toBe("Jane Hollis");
+    expect(normalizeGuestName("\u200B")).toBe("");
+    expect(guestNameRefusal("\u{1F33B}".repeat(MAX_GUEST_NAME_LENGTH))).toBeUndefined();
+    expect(guestNameRefusal("a".repeat(MAX_GUEST_NAME_LENGTH + 1))).toBeDefined();
+  });
+
   it("will not knock with no name at all, and says why", async () => {
     await draw();
 
@@ -323,11 +469,14 @@ describe("after pressing Join", () => {
     await settle();
 
     const socket = sockets[0];
-    // The grant rides the upgrade's address, the one place a browser lets a socket carry it, and
-    // the meeting is not in the path: it is a fact of the grant.
+    // The grant rides the upgrade's subprotocol list, named first so the server can echo the name,
+    // and never the address, which is what request logs write down. The meeting is not in the path
+    // either: it is a fact of the grant.
     const address = new URL(socket?.url ?? "");
     expect(address.pathname).toBe("/api/v1/guest/meeting/socket");
-    expect(address.searchParams.get("guest")).toBe(GRANT);
+    expect(address.search).toBe("");
+    expect(socket?.url).not.toContain(GRANT);
+    expect(socket?.protocols).toEqual(["meeting-guest", GRANT]);
     socket?.deliver({ v: 1, type: "lobby", position: 2, waiting: 2, at: "2026-09-24T18:00:00Z" });
     await settle();
 
@@ -350,6 +499,7 @@ describe("after pressing Join", () => {
     const departure = requests.find((request) => request.path === "/api/v1/guest/departures");
     expect(departure?.method).toBe("POST");
     expect(departure?.guestHeader).toBe(GRANT);
+    expect(departure?.referrerPolicy).toBe("no-referrer");
     expect(target.textContent).toContain("You Left the Meeting");
 
     // Leaving spent nothing: the link still opens the door, and the name is asked for again.
@@ -416,6 +566,58 @@ describe("after pressing Join", () => {
     );
     expect(transcript?.guestHeader).toBe(GRANT);
     expect(transcript?.credentials).toBe("omit");
+    expect(transcript?.referrerPolicy).toBe("no-referrer");
+    const arrival = arrivals()[0];
+    expect(arrival?.referrerPolicy).toBe("no-referrer");
+    expect(arrival?.credentials).toBe("omit");
+  });
+
+  it("goes back to the door, not into the room, when a guest who was in it comes back", async () => {
+    serve({
+      arrival: [
+        { status: 201, body: ARRIVAL },
+        // The server puts a returning arrival on a stay that had been let in back at the door.
+        { status: 201, body: { ...ARRIVAL, guestGrant: SECOND_GRANT } },
+      ],
+    });
+    await draw();
+    const first = await enterTheRoom();
+    expect(controlNames()).toContain("Leave");
+    const capturedInTheRoom = roomCaptures;
+
+    first?.drop();
+    await settle();
+    expect(target.textContent).toContain("The Room Stopped Answering");
+    press("Rejoin");
+    await settle();
+
+    // The same name, a fresh grant on a fresh socket, and the door rather than the room.
+    expect(arrivals()).toHaveLength(2);
+    expect(arrivals()[1]?.body).toEqual(arrivals()[0]?.body);
+    const second = sockets.at(-1);
+    expect(second).not.toBe(first);
+    expect(second?.protocols).toEqual(["meeting-guest", SECOND_GRANT]);
+    second?.deliver({ v: 1, type: "lobby", position: 1, waiting: 1, at: "2026-09-24T18:10:00Z" });
+    await settle();
+
+    expect(target.textContent).toContain("Waiting to Be Let In");
+    expect(target.textContent).not.toContain("The Room Stopped Answering");
+    expect(controlNames()).not.toContain("Mute your microphone");
+    // Nothing is captured at the door, however recently this browser was in the room.
+    expect(roomCaptures).toBe(capturedInTheRoom);
+
+    // Let in again, the room comes back.
+    second?.deliver({ v: 1, type: "admitted", at: "2026-09-24T18:11:00Z" });
+    second?.deliver({
+      v: 1,
+      type: "welcome",
+      participantId: ARRIVAL.participantId,
+      roster: [],
+      roomState: { spotlight: null, locked: false },
+    });
+    await settle();
+    expect(target.textContent).not.toContain("Waiting to Be Let In");
+    expect(controlNames()).toContain("Leave");
   });
 
   it("says a locked room is locked under the control, and leaves the door standing", async () => {
@@ -446,6 +648,25 @@ describe("a link that cannot be used", () => {
     expect(captures).toHaveLength(0);
   });
 
+  it.each([
+    [404, null],
+    [401, null],
+    [
+      403,
+      { type: "https://api.magnacarta.esq/problems/forbidden", title: "Forbidden", status: 403 },
+    ],
+  ])(
+    "answered %i with no problem of the link's own gets the flat sentence",
+    async (status, body) => {
+      serve({ summary: { status, body } });
+      const rendered = await draw();
+
+      expect(rendered.textContent).toContain("This link does not open anything.");
+      expect(rendered.textContent).not.toContain("Ask the firm");
+      expect(nameField()).toBeNull();
+    },
+  );
+
   it("that has expired says so, and says to ask the firm for a new one", async () => {
     serve({
       summary: {
@@ -456,7 +677,38 @@ describe("a link that cannot be used", () => {
     const rendered = await draw();
 
     expect(rendered.textContent).toContain("This Link Has Expired");
-    expect(rendered.textContent).toContain("Ask the firm for a new link.");
+    expect(rendered.textContent).toContain("This link has expired. Ask the firm for a new one.");
+    expect(nameField()).toBeNull();
+  });
+
+  it("that the firm withdrew says so, and nothing more", async () => {
+    serve({
+      summary: {
+        status: 410,
+        body: { type: meetingProblemType("guest-link-revoked"), title: "Withdrawn", status: 410 },
+      },
+    });
+    const rendered = await draw();
+
+    expect(rendered.textContent).toContain("This Link Was Withdrawn");
+    expect(rendered.textContent).toContain("The firm withdrew this link.");
+    expect(nameField()).toBeNull();
+  });
+
+  it("that has been used too many times says so when Join is pressed, and replaces the door", async () => {
+    serve({
+      arrival: {
+        status: 409,
+        body: { type: meetingProblemType("guest-link-exhausted"), title: "Used up", status: 409 },
+      },
+    });
+    await draw();
+    pressJoin();
+    await settle();
+
+    expect(target.textContent).toContain(
+      "This link has been used too many times. Ask the firm for a new one.",
+    );
     expect(nameField()).toBeNull();
   });
 
@@ -466,5 +718,72 @@ describe("a link that cannot be used", () => {
 
     expect(rendered.textContent).toContain("This Meeting Has Ended");
     expect(nameField()).toBeNull();
+  });
+});
+
+describe("a guest's page that breaks", () => {
+  const ADDRESS = `https://magna-carta.test/join/${TOKEN}`;
+
+  afterEach(() => {
+    page.url = new URL("https://magna-carta.test/");
+    page.error = null;
+    clearBreadcrumbs();
+    vi.restoreAllMocks();
+  });
+
+  it("knows a guest's address from the application's", () => {
+    expect(isGuestPageAddress(`/join/${TOKEN}`)).toBe(true);
+    expect(isGuestPageAddress("/join")).toBe(true);
+    expect(isGuestPageAddress("/joinery")).toBe(false);
+    expect(isGuestPageAddress("/meetings/meeting_1")).toBe(false);
+  });
+
+  it("says one sentence and the Error ID, and never prints the address or offers the application", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    page.url = new URL(ADDRESS);
+
+    instance = mount(RootLayoutHarness, { target, props: { Page: ThrowingPage } });
+    flushSync();
+    const text = target.textContent ?? "";
+
+    expect(text).toContain(
+      "Something went wrong on this page. Reload, or ask the firm for a new link.",
+    );
+    expect(text).toMatch(/client_[0-9A-HJKMNP-TV-Z]{8}/u);
+    // The address is the link: not on the screen, not in the markup, not in the breadcrumb.
+    expect(target.innerHTML).not.toContain(TOKEN);
+    expect(text).not.toContain("PAGE /join");
+    expect(target.querySelectorAll("a")).toHaveLength(0);
+    expect(target.innerHTML).not.toContain("/login");
+    expect(controlNames()).not.toContain("Report a problem");
+    const crumb = breadcrumbs().find((entry) => entry.label.startsWith("crash client_"));
+    expect(crumb?.route).toBe("/join");
+  });
+
+  it("keeps the application's own crash screen everywhere else", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    page.url = new URL("https://magna-carta.test/meetings");
+
+    instance = mount(RootLayoutHarness, { target, props: { Page: ThrowingPage } });
+    flushSync();
+
+    expect(target.textContent).toContain("PAGE /meetings");
+    expect(target.textContent).not.toContain("ask the firm for a new link");
+  });
+
+  it("says the same when the page failed while it loaded", () => {
+    page.url = new URL(ADDRESS);
+    page.error = { message: "Internal Error", errorId: "client_ABCDEFGH" };
+
+    instance = mount(GuestErrorPage, { target });
+    flushSync();
+    const text = target.textContent ?? "";
+
+    expect(text).toContain(
+      "Something went wrong on this page. Reload, or ask the firm for a new link.",
+    );
+    expect(text).toContain("client_ABCDEFGH");
+    expect(target.innerHTML).not.toContain(TOKEN);
+    expect(target.querySelectorAll("a")).toHaveLength(0);
   });
 });

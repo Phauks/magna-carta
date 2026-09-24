@@ -4,7 +4,9 @@
  * TWO LANES, AND THEY NEVER MIX. The first four calls are the GUEST'S: they carry the link's token or
  * the grant an arrival was answered with, in the guest header, and never a session — the page they
  * are made from is served from the firm's own origin and must be structurally unable to reach the
- * application, so every one of them sends no cookie at all. The last four are the HOST'S, on the
+ * application, so every one of them sends no cookie at all. Nor a referrer: that page's own address
+ * is `/join/<token>`, so the browser's default would write the link's secret into the `Referer` of
+ * every call, and from there into every request record it passes. The last four are the HOST'S, on the
  * ordinary member routes, and they are here rather than in `meetings-api.ts` only because they are
  * about the same people.
  *
@@ -35,12 +37,21 @@ import {
 } from "@magna-carta/api-client";
 import { failureOf } from "$lib/api/api-client.ts";
 import { leaveMeetingAsGuestOnDeparture, MEETING_GUEST_HEADER } from "$lib/api/departure-write.ts";
-import { guestMeetingSocketUrl } from "$lib/api/socket-url.ts";
+import {
+  guestMeetingSocketProtocols,
+  guestMeetingSocketUrl,
+  openGuestMeetingSocket,
+} from "$lib/api/socket-url.ts";
 import { meetingProblemType, newWriteKey, type MeetingWrite } from "./meetings-api.ts";
 import type { Failure } from "$lib/api/problem.ts";
 import type { MeetingChatSeams } from "./client/chat.svelte.ts";
 
-export { guestMeetingSocketUrl, leaveMeetingAsGuestOnDeparture };
+export {
+  guestMeetingSocketProtocols,
+  guestMeetingSocketUrl,
+  leaveMeetingAsGuestOnDeparture,
+  openGuestMeetingSocket,
+};
 
 /*
  * The three shapes these calls answer with, as the contract states them.
@@ -54,24 +65,57 @@ export { guestMeetingSocketUrl, leaveMeetingAsGuestOnDeparture };
 export type { GuestArrival, GuestMeetingSummary, MeetingGuestInvitation };
 
 /**
- * The most characters a name given at the door holds.
+ * The most characters a name given at the door holds, counted as a person counts them.
  *
- * The browser's mirror of the number the arrival is checked against, stated here because the field
- * has to stop taking characters before anybody presses anything; a name that got past this would be
- * refused rather than stored.
+ * The browser's mirror of the number the arrival is checked against, stated here so the field can
+ * say a name is too long before anybody presses anything; a name that got past it would be refused
+ * rather than stored. A CHARACTER IS A CODE POINT, as the server counts it — not a UTF-16 unit,
+ * which would count a name written outside the Basic Multilingual Plane at twice its length.
  */
 export const MAX_GUEST_NAME_LENGTH = 80;
 
 /**
- * A name as the door takes it: every run of white space one space, nothing at either end, and no
- * longer than the door holds.
+ * Every character a name at the door does not keep: controls, and the invisible formatting marks —
+ * zero-width spaces and joiners, direction overrides, the byte-order mark — that make one name read
+ * as another on a host's screen, or read as a name when there is nothing there at all.
+ */
+const INVISIBLE_CHARACTERS = /[\p{Cc}\p{Cf}]/gu;
+
+/**
+ * A name as the door takes it: every line break and run of white space one space, every control and
+ * formatting character gone, and nothing at either end.
  *
  * The name is untrusted display text that a host reads before deciding who to let in, so spacing a
- * look-alike apart or padding it out to push the real name off a row must not survive the trip.
+ * look-alike apart, padding it out to push the real name off a row, or reversing its direction must
+ * not survive the trip. White space becomes a space BEFORE the invisible characters go, so a name
+ * typed across two lines keeps the space between its halves.
  */
 export function normalizeGuestName(typed: string): string {
-  return typed.replace(/\s+/gu, " ").trim().slice(0, MAX_GUEST_NAME_LENGTH);
+  return typed.replace(/\s/gu, " ").replace(INVISIBLE_CHARACTERS, "").replace(/ +/gu, " ").trim();
 }
+
+/** How long a name is, in the characters a person would count. */
+export function guestNameLength(name: string): number {
+  return Array.from(name).length;
+}
+
+/** Why a typed name cannot be taken to the door, or undefined where it can. */
+export function guestNameRefusal(typed: string): string | undefined {
+  const name = normalizeGuestName(typed);
+  if (name === "") return "Enter the name the host will see at the door.";
+  if (guestNameLength(name) > MAX_GUEST_NAME_LENGTH) {
+    return `Enter a name of ${String(MAX_GUEST_NAME_LENGTH)} characters or fewer.`;
+  }
+  return undefined;
+}
+
+/**
+ * How every guest call is made: no cookie, and no referrer.
+ *
+ * One value rather than two options at every call, because a call that forgot the second half would
+ * put the link's secret back into a request record, and nothing about the call would look wrong.
+ */
+const GUEST_REQUEST = { credentials: "omit", referrerPolicy: "no-referrer" } as const;
 
 /** The header a guest call carries its credential in: the link's token, or the arrival's grant. */
 function guestHeader(credential: string): { [MEETING_GUEST_HEADER]: string } {
@@ -90,7 +134,7 @@ async function outcomeOf<T>(call: () => Promise<{ data: T }>): Promise<MeetingWr
 /** The meeting a link opens onto. Reads; spends nothing and writes nothing. */
 export function readGuestMeeting(token: string): Promise<MeetingWrite<GuestMeetingSummary>> {
   return outcomeOf(() =>
-    guestMeetingSummary({ headers: guestHeader(token), credentials: "omit", throwOnError: true }),
+    guestMeetingSummary({ headers: guestHeader(token), ...GUEST_REQUEST, throwOnError: true }),
   );
 }
 
@@ -111,7 +155,7 @@ export function arriveAsGuest(
     guestArrive({
       headers: guestHeader(token),
       body: { confirmedName: normalizeGuestName(confirmedName) },
-      credentials: "omit",
+      ...GUEST_REQUEST,
       throwOnError: true,
     }),
   );
@@ -127,7 +171,7 @@ export function leaveMeetingAsGuest(grant: string): Promise<MeetingWrite<unknown
   return outcomeOf(() =>
     guestDepart({
       headers: { ...guestHeader(grant), "idempotency-key": newWriteKey() },
-      credentials: "omit",
+      ...GUEST_REQUEST,
       throwOnError: true,
     }),
   );
@@ -157,7 +201,7 @@ export function guestChatSeams(grant: () => string | null): MeetingChatSeams {
         outcomeOf<MeetingMessagePage>(() =>
           guestListMessages({
             headers: guestHeader(held),
-            credentials: "omit",
+            ...GUEST_REQUEST,
             throwOnError: true,
             ...(cursor === null ? {} : { query: { cursor } }),
           }),
@@ -169,7 +213,7 @@ export function guestChatSeams(grant: () => string | null): MeetingChatSeams {
           guestSendMessage({
             headers: { ...guestHeader(held), "idempotency-key": newWriteKey() },
             body: { body },
-            credentials: "omit",
+            ...GUEST_REQUEST,
             throwOnError: true,
           }),
         ),
@@ -283,7 +327,7 @@ export const UNUSABLE_LINK: GuestRefusal = {
   retryable: false,
 };
 
-const ASK_FOR_A_NEW_LINK = "Ask the firm for a new link.";
+const ASK_FOR_A_NEW_ONE = "Ask the firm for a new one.";
 
 /** The refusals a guest can be given a sentence for, by the problem each is sent as. */
 export type GuestRefusalSlug =
@@ -291,13 +335,18 @@ export type GuestRefusalSlug =
   | "guest-link-revoked"
   | "guest-link-not-valid"
   | "guest-link-exhausted"
+  | "guest-name-not-valid"
   | "meeting-ended"
   | "meeting-locked"
   | "meeting-lobby-full"
   | "meeting-removed"
   | "meeting-not-admitted";
 
-/** The link's own refusals, by the problem each is sent as. */
+/*
+ * The link's own refusals, by the problem each is sent as. Each says what happened in the fewest
+ * words that carry it and then what to do, which for a link that is finished is always the same
+ * thing: the firm is the only one who can send another.
+ */
 const REFUSALS: ReadonlyMap<GuestRefusalSlug, GuestRefusal> = new Map<
   GuestRefusalSlug,
   GuestRefusal
@@ -306,7 +355,7 @@ const REFUSALS: ReadonlyMap<GuestRefusalSlug, GuestRefusal> = new Map<
     "guest-link-expired",
     {
       title: "This Link Has Expired",
-      sentence: `This link was only good until shortly after the meeting. ${ASK_FOR_A_NEW_LINK}`,
+      sentence: `This link has expired. ${ASK_FOR_A_NEW_ONE}`,
       retryable: false,
     },
   ],
@@ -314,7 +363,8 @@ const REFUSALS: ReadonlyMap<GuestRefusalSlug, GuestRefusal> = new Map<
     "guest-link-revoked",
     {
       title: "This Link Was Withdrawn",
-      sentence: `The firm has withdrawn this link or sent a newer one in its place. ${ASK_FOR_A_NEW_LINK}`,
+      // No suggestion to ask for another: the firm took this one back on purpose, and knows it did.
+      sentence: "The firm withdrew this link.",
       retryable: false,
     },
   ],
@@ -322,7 +372,7 @@ const REFUSALS: ReadonlyMap<GuestRefusalSlug, GuestRefusal> = new Map<
     "guest-link-not-valid",
     {
       title: "This Link No Longer Works",
-      sentence: `This link has been replaced and no longer opens the meeting. ${ASK_FOR_A_NEW_LINK}`,
+      sentence: `This link has been replaced by a newer one. ${ASK_FOR_A_NEW_ONE}`,
       retryable: false,
     },
   ],
@@ -330,15 +380,26 @@ const REFUSALS: ReadonlyMap<GuestRefusalSlug, GuestRefusal> = new Map<
     "guest-link-exhausted",
     {
       title: "This Link Has Been Used Up",
-      sentence: `This link has been used to join as many times as it can be. ${ASK_FOR_A_NEW_LINK}`,
+      sentence: `This link has been used too many times. ${ASK_FOR_A_NEW_ONE}`,
       retryable: false,
+    },
+  ],
+  [
+    "guest-name-not-valid",
+    {
+      title: "That Name Cannot Be Used",
+      // The field already refuses what the server refuses, so this is only reached by a name the two
+      // count differently; the door stays and the person can type it again.
+      sentence: `Enter a name of ${String(MAX_GUEST_NAME_LENGTH)} characters or fewer.`,
+      retryable: true,
     },
   ],
   [
     "meeting-ended",
     {
       title: "This Meeting Has Ended",
-      sentence: `The meeting this link was for is over. If you expected to be in it, ${ASK_FOR_A_NEW_LINK.toLowerCase()}`,
+      sentence:
+        "The meeting this link was for is over. If you expected to be in it, ask the firm for a new link.",
       retryable: false,
     },
   ],
@@ -366,7 +427,7 @@ const REFUSALS: ReadonlyMap<GuestRefusalSlug, GuestRefusal> = new Map<
     "meeting-removed",
     {
       title: "You Were Removed From This Meeting",
-      sentence: `A host took you out of this meeting, so this link cannot bring you back into it. ${ASK_FOR_A_NEW_LINK}`,
+      sentence: `A host took you out of this meeting, so this link cannot bring you back into it. ${ASK_FOR_A_NEW_ONE}`,
       retryable: false,
     },
   ],
@@ -374,7 +435,7 @@ const REFUSALS: ReadonlyMap<GuestRefusalSlug, GuestRefusal> = new Map<
     "meeting-not-admitted",
     {
       title: "You Were Not Let Into This Meeting",
-      sentence: `A host did not let you into this meeting, so this link cannot bring you back to its door. ${ASK_FOR_A_NEW_LINK}`,
+      sentence: `A host did not let you into this meeting, so this link cannot bring you back to its door. ${ASK_FOR_A_NEW_ONE}`,
       retryable: false,
     },
   ],

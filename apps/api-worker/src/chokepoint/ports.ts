@@ -35,7 +35,7 @@ import { readGuestInvitation, readMeetingForGuest } from "@magna-carta/meetings/
 import type { MeetingGuestInvitationId, MeetingId } from "@magna-carta/identifiers/types";
 import { meetingGuestRefused } from "@magna-carta/telemetry/events";
 import { constantTimeStringEquals } from "../constant-time.ts";
-import { verifyGuestCredential } from "../meetings/guest-token.ts";
+import { readGuestCredential } from "../meetings/guest-token.ts";
 import { guestLinkRefusalFor } from "../meetings/guest-refusals.ts";
 
 // What resolveFirmContext returns and the chokepoint threads to loadPermissions and the handler:
@@ -305,28 +305,40 @@ function makeGuestLane(): GuestLanePort<FirmContext> {
   return {
     verifyGuestCredential: async (c, presented, lane) => {
       const env = (c as Context<{ Bindings: Bindings }>).env;
-      const verified =
+      const read =
         presented === null
           ? null
-          : await verifyGuestCredential(
+          : await readGuestCredential(
               env.AUTH_SECRET,
               presented,
               lane,
               Math.floor(Date.now() / 1000),
             );
-      if (verified === null) {
+      if (read === null) {
         recordRefusal(c, lane, "credential", null);
         return null;
       }
-      return {
+      const verified = read.credential;
+      const grant: ChokepointGuestGrant = {
         lane: verified.lane,
         firmId: verified.firmId,
         meetingId: verified.meetingId,
         invitationId: verified.invitationId,
         secretVersion: verified.secretVersion,
         stayId: verified.stayId,
-        secret: verified.secret,
       };
+      if (read.outcome === "expired") {
+        // COUNTED UNDER ITS OWN REASON, and never as the flat `credential` one: a link that ran out is
+        // somebody the firm invited coming back late, and folding them into the count of strangers
+        // guessing at the route would hide the one number that says whether guessing is happening.
+        recordRefusal(c, lane, "guest-link-expired", grant);
+        // The link's holder is told it ran out. A GRANT past its own life keeps the flat answer: the
+        // page holding it also holds the link it was spent from, and the link is what says why.
+        if (lane === "grant") return null;
+        const refusal = guestLinkRefusalFor("guest-link-expired");
+        return refusal === null ? null : { refusal, grant };
+      }
+      return { ...grant, secret: verified.secret };
     },
 
     // The firm this deployment serves, and nothing about any member of it. A firm the control plane
