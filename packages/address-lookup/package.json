@@ -1,0 +1,18 @@
+{
+  "name": "@magna-carta/address-lookup",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./port": "./src/port.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

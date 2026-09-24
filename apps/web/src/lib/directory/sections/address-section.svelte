@@ -23,6 +23,8 @@
    * Data-blind, like the Contact section beside it: it lists what it is given and hands a checked
    * draft to whoever owns the record.
    */
+  import { administrativeAreasFor } from "@magna-carta/address-formats/administrative-areas";
+  import { postalCodeNoteFor } from "@magna-carta/address-formats/postal-code";
   import AddressFields from "@magna-carta/design-system/address-fields";
   import type { AddressParts } from "@magna-carta/design-system/address-fields";
   import Badge from "@magna-carta/design-system/badge";
@@ -257,6 +259,8 @@
     <AddressFields
       bind:value={() => parts, takeParts}
       countries={countryItems}
+      administrativeAreas={administrativeAreasFor(parts.country)}
+      postalCodeNote={postalCodeNoteFor}
       disabled={!canEdit}
     />
 

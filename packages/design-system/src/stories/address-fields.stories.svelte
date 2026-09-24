@@ -10,7 +10,11 @@
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import { expect, userEvent, waitFor, within } from "storybook/test";
   import AddressFields from "../lib/components/address-fields/address-fields.svelte";
-  import type { AddressCountry, AddressParts } from "../lib/components/address-fields/types.ts";
+  import type {
+    AddressAdministrativeArea,
+    AddressCountry,
+    AddressParts,
+  } from "../lib/components/address-fields/types.ts";
 
   const COUNTRIES: readonly AddressCountry[] = [
     { code: "US", name: "United States" },
@@ -36,6 +40,24 @@
     disabled?: boolean;
     error?: string;
   };
+
+  /*
+   * The constraint half is handed IN, never imported. The component is domain-blind: it takes the
+   * areas to offer and a function that judges a postal code, and knows nothing about where either
+   * comes from. These fixtures stand in for @magna-carta/address-formats, which is what the app
+   * passes — and the fact that a story can satisfy the contract with four lines is the contract
+   * working.
+   */
+  const AMERICAN_STATES: readonly AddressAdministrativeArea[] = [
+    { code: "CA", name: "California" },
+    { code: "NV", name: "Nevada" },
+    { code: "NY", name: "New York" },
+  ];
+
+  function americanZipNote(_country: string | undefined, value: string): string | null {
+    if (value.trim() === "" || /^\d{5}(?:-\d{4})?$/.test(value.trim())) return null;
+    return "This does not look like a postal code for the chosen country — expected something like 95014 or 22162-1010.";
+  }
 </script>
 
 <script lang="ts">
@@ -45,6 +67,8 @@
   let japanese = $state<AddressParts>({ country: "JP" });
   let unknown = $state<AddressParts>({ country: "ZZ" });
   let corrected = $state<AddressParts>({ country: "ZZ", dependentLocality: "Copacabana" });
+  let mistyped = $state<AddressParts>({ country: "US", postal: "9501" });
+  let offered = $state<AddressParts>({ country: "US" });
 </script>
 
 {#snippet american_({ countries, ...rest }: AddressStoryArgs)}
@@ -162,6 +186,74 @@
 
       expect(canvas.queryByLabelText("District or Neighbourhood")).toBeNull();
       expect(canvas.getByText(/Copacabana/)).toBeInTheDocument();
+    });
+  }}
+/>
+
+{#snippet mistyped_({ countries, ...rest }: AddressStoryArgs)}
+  <div class="w-lg">
+    <AddressFields bind:value={mistyped} {countries} postalCodeNote={americanZipNote} {...rest} />
+  </div>
+{/snippet}
+
+<Story
+  name="APostalCodeThatDoesNotLookRight"
+  template={mistyped_}
+  play={async ({ canvas, step }) => {
+    await step("The note is said beside the box, naming an example rather than a pattern", () => {
+      expect(canvas.getByLabelText("ZIP Code")).toHaveAccessibleDescription(/95014/);
+    });
+
+    // The whole claim of this prop. A code can match its country's published format perfectly and
+    // still reach nobody, and a new development can carry one no published format knows yet, so the
+    // box is never marked invalid and nothing here can stop a commit.
+    await step("It is a note and NOT a refusal: the box is never marked invalid", () => {
+      expect(canvas.getByLabelText("ZIP Code")).not.toHaveAttribute("aria-invalid");
+    });
+
+    await step("Correcting it takes the note away", async () => {
+      await userEvent.type(canvas.getByLabelText("ZIP Code"), "4");
+      await waitFor(() =>
+        expect(canvas.getByLabelText("ZIP Code")).not.toHaveAccessibleDescription(/95014/),
+      );
+    });
+  }}
+/>
+
+{#snippet offered_({ countries, ...rest }: AddressStoryArgs)}
+  <div class="w-lg">
+    <AddressFields
+      bind:value={offered}
+      {countries}
+      administrativeAreas={AMERICAN_STATES}
+      {...rest}
+    />
+  </div>
+{/snippet}
+
+<Story
+  name="AdministrativeAreasOffered"
+  template={offered_}
+  play={async ({ canvas, step }) => {
+    await step("The region box is bound to a list of the country's areas", () => {
+      const state = canvas.getByLabelText("State");
+      const listIdentifier = state.getAttribute("list");
+      expect(listIdentifier).not.toBeNull();
+
+      const list = document.getElementById(String(listIdentifier));
+      expect(list?.tagName.toLowerCase()).toBe("datalist");
+      // The option's VALUE is what a record stores and what an envelope prints; its label is what a
+      // reader recognises.
+      const options = [...(list?.querySelectorAll("option") ?? [])];
+      expect(options.map((option) => option.value)).toEqual(["CA", "NV", "NY"]);
+      expect(options.map((option) => option.label)).toContain("California");
+    });
+
+    // Offering a list never closes the field. Addresses exist in places a published list does not
+    // carry, and a form that cannot record one records nothing.
+    await step("A value no list carries is still accepted and kept", async () => {
+      await userEvent.type(canvas.getByLabelText("State"), "Kernow");
+      expect(canvas.getByLabelText("State")).toHaveValue("Kernow");
     });
   }}
 />

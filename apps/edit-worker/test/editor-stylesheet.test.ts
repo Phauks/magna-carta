@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  BACK_LABEL_CHARACTERS,
   EDITOR_STYLESHEET,
   EDITOR_STYLESHEET_PATH,
   HEAD_SELECTOR,
@@ -68,6 +69,16 @@ describe("the rules", () => {
       "html[data-theme='dark'] .notebookbar-shortcuts-bar .integrator-shortcut img",
     );
     expect(EDITOR_STYLESHEET).toContain("filter: invert(0.9)");
+  });
+
+  it("draw the matter's number beside the arrow from the tooltip, cut to a fixed width", () => {
+    // The bar's builder draws no labels and keeps a button's words as its tooltip, so the words
+    // are drawn from that attribute and the editor's own tooltip shows the whole number on hover.
+    expect(EDITOR_STYLESHEET).toContain(".integrator-shortcut::after");
+    expect(EDITOR_STYLESHEET).toContain("content: attr(data-cooltip)");
+    expect(EDITOR_STYLESHEET).toContain(`max-inline-size: ${String(BACK_LABEL_CHARACTERS)}ch`);
+    expect(EDITOR_STYLESHEET).toContain("text-overflow: ellipsis");
+    expect(BACK_LABEL_CHARACTERS).toBe(12);
   });
 });
 

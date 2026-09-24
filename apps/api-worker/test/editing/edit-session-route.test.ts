@@ -160,11 +160,14 @@ describe("GET /api/v1/documents/{fileId}/edit-session/progress", () => {
       editorCookie,
     );
     expect(before.status).toBe(200);
+    // The container's record is null here: the editor worker is not bound under the test pool.
     expect(await before.json()).toEqual({
       launchedAt: null,
       checkFileInfoAt: null,
       getFileAt: null,
       lastCallback: null,
+      callbacks: [],
+      container: null,
     });
 
     expect(
