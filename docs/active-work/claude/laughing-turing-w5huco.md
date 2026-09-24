@@ -2,7 +2,7 @@
 worktree: /home/user/magna-carta (remote session)
 area: Safe website viewer — Live mode, a held isolated browser per member walked page to page
 status: review
-touches: apps/api-worker/src/routes/safe-browse-live.ts, apps/api-worker/src/safe-browse/, apps/api-worker/wrangler.jsonc, apps/api-worker/src/app.ts, apps/api-worker/src/index.ts, apps/web/src/lib/tools/safe-browse/, apps/web/src/routes/(app)/safe-website-viewer/, packages/safe-browse/src/, docs/user/safe-website-viewer.md, roadmap.d/integrations.md
+touches: apps/api-worker/src/routes/safe-browse-live.ts, apps/api-worker/src/safe-browse/, apps/api-worker/wrangler.jsonc, apps/api-worker/src/app.ts, apps/api-worker/src/index.ts, apps/web/src/lib/tools/safe-browse/, apps/web/src/routes/(app)/safe-website-viewer/, packages/safe-browse/src/, docs/user/features/safe-website-viewer.md, roadmap.d/integrations.md
 ---
 
 The viewer's Live toggle, end to end: a `SafeBrowseSession` Durable Object holding one remote browser
