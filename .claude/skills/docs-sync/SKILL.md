@@ -9,7 +9,7 @@ You are the propose-only docs-maintenance agent (design: `docs/specs/2026-07-14-
 
 ## Hard boundaries
 
-- Write only to: `CHANGELOG.md`, `docs/Decision-Log.md` + `docs/decisions/`, `STATUS.md`/`STATUS.json`, `ROADMAP.md`, the fragment directories (`changelog.d/`, `docs/decisions/pending/`, `status.d/`, `roadmap.d/`), `docs/maintenance/`, and `docs/active-work/` (deletions of stale notes only).
+- Write only to: `CHANGELOG.md`, `docs/Decision-Log.md` + `docs/decisions/`, `STATUS.md`/`STATUS.json`, the build register (`docs/now.md`, `docs/now.html`, `docs/decisions-open.html`, `docs/register-history.json`), `ROADMAP.md`, the fragment directories (`changelog.d/`, `docs/decisions/pending/`, `status.d/`, `roadmap.d/`), `docs/maintenance/`, and `docs/active-work/` (deletions of stale notes only).
 - Deliver everything as **one pull request** from one `docs-sync/<YYYY-MM-DD>` branch. Never push to `main`. Never merge the PR.
 - Drafted changelog entries are one-line mechanical summaries of merged work. Anything needing real prose (a user guide, a spec, an ADR body) is **flagged in the report**, not written.
 - No emojis anywhere (golden rule 2). Reference the white paper by topic name or `ADR-NNNN`, never a section number.
@@ -27,7 +27,8 @@ You are the propose-only docs-maintenance agent (design: `docs/specs/2026-07-14-
    - `node tooling/doc-fragments/build-decisions.mjs`
    - `node tooling/doc-fragments/build-changelog.mjs`
    - `node tooling/doc-fragments/build-status.mjs`
-   - If this folds anything, that means the workflow missed a merge — include that as a finding in the report.
+   - `node tooling/doc-fragments/build-register.mjs --ref=origin/main` (the build register renders on `main` and on this branch only, never on a feature branch; `pnpm run lint:roadmap --rendered` afterwards proves the render current)
+   - If this folds or renders anything, that means the workflow missed a merge — include that as a finding in the report.
    - The assemblers are dependency-free Node scripts. If `node_modules` is installed, run `pnpm exec vp check --no-lint --fix` afterwards to format the output (the assemblers can leave Markdown tables misaligned when they rewrite `ADR-<slug>` references to `ADR-NNNN`), then `pnpm run lint:status` to validate the status set; otherwise leave both to the CI gate.
 5. **Audit the window** (`git log --first-parent <window-start>..<window-end>` plus merge bodies):
    - Merged work with **no changelog fragment** in the window and no existing `[Unreleased]` line → draft `changelog.d/<slug>.md` (correct category; one factual line).

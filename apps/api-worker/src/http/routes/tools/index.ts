@@ -1,6 +1,8 @@
 import { fetchHttpClient } from "@magna-carta/integrations/http";
 import { type Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.ts";
+import { registerSafeBrowseLiveRoutes } from "./safe-browse-live.ts";
+import { registerSafeBrowseLocationProbeRoute } from "./safe-browse-location-probe.ts";
 import { registerSafeBrowseSessionProbeRoute } from "./safe-browse-session-probe.ts";
 import { registerSafeBrowseRoute, registerSafeBrowseStreamRoute } from "./safe-browse.ts";
 import { registerToolsConnectionRoute } from "./tools-connection.ts";
@@ -66,5 +68,7 @@ export function mountTools(app: AppRouter, chokepoint: Chokepoint, deps: DomainD
   registerSafeBrowseRoute(domain, chokepoint, deps.safeBrowseDeps ?? {});
   registerSafeBrowseStreamRoute(domain, chokepoint, deps.safeBrowseDeps ?? {});
   registerSafeBrowseSessionProbeRoute(domain, chokepoint);
+  registerSafeBrowseLocationProbeRoute(domain, chokepoint);
+  registerSafeBrowseLiveRoutes(domain, chokepoint);
   app.route("/", domain);
 }

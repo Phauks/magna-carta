@@ -41,7 +41,31 @@
   surface: screen
   slices: 0-7b-auth-ui-deferred-surfaces
   evidence: Sign-in is one screen (email and password together) with channel-aware code entry and real recovery-code entry, on main at apps/web/src/routes/login and account/security; every state renders on apps/web/src/routes/developer-console/sign-in-screens, and apps/web/src/lib/auth/unbuilt-capabilities.ts declares each server capability a control would need before it is rendered. Ending a session is built at both ends: apps/web/src/lib/auth/sign-out.ts (the profile menu's Sign out — server first, local state second, a document load third, and a refusal that stays put) and apps/web/src/routes/account/sessions, the signed-in-devices section over Better Auth's list and revoke routes.
-  notes: Sign-in shipped, so has signing out (and signing another device out), and so are the joining screens — apps/web/src/routes/register (the role fork), register/firm, register/confirm and register/invitation each call startRegistration, confirmRegistration or redeemInvitation against the real endpoints. The two-factor ENROLMENT screens are still missing, which is the half of auth.two-factor.totp nobody can reach: a code is verified at sign-in and no screen sets one up. Passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice remain server-side gaps. Human verification is no longer one of them — the server side exists (auth.hardening.human-verification); what the sign-in surface's Turnstile slot still lacks is a widget that mints a token, which is UI.
+  notes: The ACCOUNT surface is three built pages and no seams — Profile states and edits the member's name in its parts, sets and removes their photograph (auth.first-party-login.member-photo), and states the account's email address without offering to change it (the reason is a pending decision, not a gap); Security changes the password in place and ends the other devices with it (auth.first-party-login.password-change), and adds, removes and re-issues the codes for two-factor (auth.two-factor.totp); Active Sessions is the live list. apps/web/test/account-seams.test.ts now holds the other direction — no account page claims a seam it no longer has. Sign-in shipped, so has signing out (and signing another device out), and so are the joining screens — apps/web/src/routes/register (the role fork), register/firm, register/confirm and register/invitation each call startRegistration, confirmRegistration or redeemInvitation against the real endpoints. Passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice remain server-side gaps. Human verification is no longer one of them — the server side exists (auth.hardening.human-verification); what the sign-in surface's Turnstile slot still lacks is a widget that mints a token, which is UI.
+
+- id: auth.first-party-login.password-change
+  name: In-account password change
+  scope: Changing the password you already have, in place — against the standing password rather than an emailed token, ending every other signed-in device in the same request when asked to.
+  status: shipped
+  surface: screen
+  audience: public
+  public-name: Change your password
+  public-summary: Change your password from your account, with no emailed link — and sign every other device out in the same step.
+  slices: 0-7b-auth-ui-deferred-surfaces
+  evidence: apps/web/src/lib/account/change-password.ts and components/change-password-dialog.svelte over Better Auth's /change-password; apps/web/test/change-password.test.ts pins the refusal wording, apps/api-worker/test/auth-audit.test.ts pins the password.changed event, that a refused change writes nothing, and that the caller keeps a live session while the others end.
+  notes: It is what replaced the signed-in-devices screen's standing notice, which told a member who feared their account was held by somebody else to go and find the reset on the sign-in screen. Sign-out-elsewhere is offered and defaulted on, because asking the two questions separately leaves a gap an intruder changes the password back through.
+
+- id: auth.first-party-login.member-photo
+  name: Member photograph
+  scope: A member's own picture — set, replaced and removed from their profile; stored in the firm's own database and bucket, content-addressed.
+  status: shipped
+  surface: screen
+  audience: public
+  public-name: Your photo
+  public-summary: Put a face beside your name — your colleagues see it across the firm.
+  slices: 0-7b-auth-ui-deferred-surfaces
+  evidence: apps/api-worker/src/http/routes/session/me-photo.ts (me.photo / me.setPhoto / me.removePhoto and the content route), member_photo in packages/database per-firm schema, apps/web/src/lib/account/components/member-photo-plate.svelte; apps/api-worker/test/me-photo-routes.test.ts covers the bytes deciding what they are, the row and object replacing together, one row per member, and removal taking the object with it.
+  notes: FIRM data rather than account data, which is the recorded decision: a name follows a person between accounts, a photograph is what this firm's colleagues see beside this person's work and is already firm-keyed by its storage. Keyed by the member rather than by the bytes, unlike the firm's brand images, because two members may legitimately hold the same image.
 
 - id: auth.two-factor
   name: Second factors
@@ -55,9 +79,13 @@
   name: TOTP
   scope: TOTP enrollment and login with transition-exact audit events.
   status: shipped
-  surface: awaiting-screen
-  slices: 0-4-auth-rbac-skeleton-firm-provisioning
-  evidence: apps/api-worker end-to-end TOTP coverage; two_factor audit hooks
+  surface: screen
+  audience: public
+  public-name: Two-step sign-in with an authenticator app
+  public-summary: Turn on a six-digit code from your phone's authenticator app at sign-in, with recovery codes for the day you cannot reach it.
+  slices: 0-4-auth-rbac-skeleton-firm-provisioning, 0-7b-auth-ui-deferred-surfaces
+  evidence: apps/api-worker end-to-end TOTP coverage; two_factor audit hooks. Enrolment is on Account · Security — apps/web/src/lib/account/two-factor.ts and the add, remove and replace-recovery-codes panels in apps/web/src/lib/account/components/, drawing the secret with the design system's QrCode (packages/design-system/src/lib/components/qr-code). apps/api-worker/test/account-two-factor.test.ts pins the four server facts the page depends on — the session reporting the change at once, a refused removal leaving it on, a second enable replacing a working secret with no code asked, and replaced recovery codes retiring the old ones — and that the authenticator files the account under "Magna Carta".
+  notes: The code screen at sign-in shipped first, and for a while nobody could reach it — no screen set a secret up. Adding is offered only while two-factor is off, because the pinned plugin's enable called on an enrolled account swaps the working secret without asking for a code.
 
 - id: auth.two-factor.passkeys
   name: Passkeys / WebAuthn

@@ -1,7 +1,6 @@
 import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { FirmId } from "@magna-carta/identifiers/types";
-import type { SecretStore } from "@magna-carta/data-access/firm-secret-credential-store";
 import type { HttpClient } from "@magna-carta/integrations/http";
 import { createApp } from "../src/http/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
@@ -9,16 +8,9 @@ import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
   seedFirm,
+  seedFirmKey,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
-
-function memorySecretStore(): SecretStore {
-  const map = new Map<string, string>();
-  return {
-    getSecret: async (ref) => map.get(ref) ?? null,
-    putSecret: async (ref, value) => void map.set(ref, value),
-  };
-}
 
 // Every buy the fake carrier was asked to perform, in order — the record a double-buy shows up in.
 const buyRequests: { url: string; body: unknown }[] = [];
@@ -80,10 +72,11 @@ function fakeEasyPost(): HttpClient {
   };
 }
 
-const secrets = memorySecretStore();
-const app = createApp({
-  pluginRuntime: { secretStoreForFirm: () => secrets, httpClient: fakeEasyPost() },
-});
+// No credential store is injected: this drives the REAL one, over the firm's own
+// integration_credential table, so the key is genuinely sealed under the firm key and genuinely
+// decrypted through the permission-gated, audited chokepoint on every carrier call. A fake here would
+// have proven the adapter and nothing about the seam that kept this subsystem unreachable.
+const app = createApp({ pluginRuntime: { httpClient: fakeEasyPost() } });
 
 let poolFirmId: FirmId;
 // A second, unrelated firm — the one that must not be able to read the first firm's label.
@@ -104,6 +97,11 @@ beforeAll(async () => {
   await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = ?2 WHERE id = ?1")
     .bind(otherFirmId, "other-ship-firm-bucket")
     .run();
+  // The postage credential is sealed under the firm's own data key, so each firm needs one minted —
+  // exactly as provisioning mints it. Without this the connect route fails with FirmKeyUnavailable,
+  // which is the correct answer for a firm whose key was never minted or has been shredded.
+  await seedFirmKey(poolFirmId);
+  await seedFirmKey(otherFirmId);
   // The purchase route copies the label bytes from EasyPost's transient URL into R2 via global fetch;
   // stub it to return a minimal PDF. SELF.fetch (sign-in) dispatches to the worker, not global fetch.
   globalThis.fetch = (async () =>

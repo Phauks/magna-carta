@@ -176,6 +176,27 @@
       "when": 1789773300000,
       "tag": "20260919T001022_a-meeting-has-a-medium",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1789772147196,
+      "tag": "20260920T182353_member-photo",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1790269906687,
+      "tag": "20260924T171146_version-export-copy",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "6",
+      "when": 1789758441099,
+      "tag": "20260924T181527_integration-credentials-have-their-own-gate",
+      "breakpoints": true
     }
   ]
 }

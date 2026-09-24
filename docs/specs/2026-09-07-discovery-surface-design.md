@@ -51,7 +51,7 @@ So the matter section is the **entry** and the workspace is the **destination**,
 `apps/web/src/lib/matters/sections.ts` requires every section to answer for search, for the timeline and for create, and refuses at module load and at lint otherwise. Discovery's answers are:
 
 - **`searchSource: null`**, and the `searchWaitingOn` line is a **permanent** answer rather than an unbuilt one — the shape Overview and Activity use ("searching it would answer twice"), not the shape Tasks uses ("not wired yet"). The line to render on the disabled scope option is that a review set is a separate corpus behind its own access list, so the matter's search does not reach it. Writing "not wired yet" here would schedule work that must never be done.
-- **`createNoun: CREATE_SEVERAL_KINDS`** — a review set and a load are two kinds, and the control's noun budget is seven characters, which "Review set" does not fit and should not be made to. The menu names the two.
+- **`createNoun: CREATE_SEVERAL_KINDS`** — a review set and a load are two kinds, and the control's noun budget is a handful of characters (eight since 2026-09-18), which "Review set" does not fit and should not be made to. The menu names the two.
 - **`timelineSources: []`** — no federated timeline source produces discovery rows today. When one does (a load completing is the obvious first), this section owns it, and the coverage lint is what will say so.
 
 The section's `stage` starts at `soon` and becomes `alpha` with the first build step in section 10. The `/discovery` destination's `shipped` flag flips in the same commit as the register, per the registry's own rule that a destination ships when its user-facing surface does.

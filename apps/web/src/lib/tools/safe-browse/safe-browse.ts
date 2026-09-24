@@ -345,3 +345,22 @@ export async function viewSafely(
 
   return { kind: "view", view };
 }
+
+const LIVE_CLOSE_ENDPOINT = "/api/v1/safe-browse/live/close";
+
+/**
+ * End the member's live session and release the remote browser. Best-effort by design: it runs as
+ * the member leaves, when nothing is left to show a failure to, and the server's idle alarm closes
+ * the browser anyway. `sendBeacon` is preferred because it survives the page unloading, which is
+ * exactly when this is called; a fetch with `keepalive` is the fallback.
+ */
+export function closeLive(): void {
+  try {
+    if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+      if (navigator.sendBeacon(LIVE_CLOSE_ENDPOINT)) return;
+    }
+    void fetch(LIVE_CLOSE_ENDPOINT, { method: "POST", keepalive: true }).catch(() => {});
+  } catch {
+    // Leaving the page must never fail on this; the idle alarm is the backstop.
+  }
+}

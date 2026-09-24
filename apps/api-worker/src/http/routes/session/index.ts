@@ -4,6 +4,7 @@ import { type Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.ts";
 import { registerInvitationRoutes } from "./invitations.ts";
 import { registerMeNameRoutes } from "./me-name.ts";
+import { registerMePhotoRoutes } from "./me-photo.ts";
 import { registerMeRoute } from "./me.ts";
 import { registerMemberAdministrationRoutes } from "./member-administration.ts";
 import { registerMemberProfilesRoutes } from "./member-profiles.ts";
@@ -30,6 +31,7 @@ export function mountSession(app: AppRouter, chokepoint: Chokepoint, deps: Domai
   registerMembersRoute(domain, chokepoint, authForEnv);
   registerMemberAdministrationRoutes(domain, chokepoint);
   registerMeNameRoutes(domain, chokepoint);
+  registerMePhotoRoutes(domain, chokepoint);
   // Joining the platform: the anonymous registration pair and the invitation pair (one issued
   // inside a firm, one redeemed by someone who has no account yet). Every anonymous one of them
   // rides the chokepoint's tightest rate-limit bucket.

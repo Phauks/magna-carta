@@ -23,6 +23,7 @@
  */
 import { client } from "@magna-carta/api-client/client";
 import { problemOf, requestLine, type Failure } from "./problem.ts";
+import type { ApiOutcome } from "./request.ts";
 import { platformHealth } from "$lib/diagnostics/platform-health.svelte.ts";
 
 /**
@@ -51,6 +52,23 @@ export class ApiCallFailed extends Error {
 export function failureOf(error: unknown): Failure {
   if (error instanceof ApiCallFailed) return error.failure;
   return { problem: null, request: "", failedAt: new Date() };
+}
+
+/**
+ * A generated call's result as the three-outcome `ApiOutcome` the screens render from.
+ *
+ * THE BRIDGE BETWEEN THE TWO SEAMS, and it lives here rather than in each migrating module because
+ * there is exactly one correct way to write it and two copies of it would be two chances to collapse
+ * the branch that matters. The generated factories throw on failure; a screen needs the refusal and
+ * the silence told apart, because they are different things for a member to do something about. A
+ * module moving off `requestJson` wraps its call in a try and hands the caught value here, and its
+ * own exported shape does not change — which is what lets a screen migrate without being rewritten.
+ */
+export function outcomeOf<T>(error: unknown): ApiOutcome<T> {
+  const failure = failureOf(error);
+  return failure.problem === null
+    ? { kind: "transport", failure }
+    : { kind: "problem", problem: failure.problem, failure };
 }
 
 /** True when the call failed because the member is not signed in. The session guard reads this. */

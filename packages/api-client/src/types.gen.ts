@@ -203,6 +203,26 @@ export type SetMemberNameRequest = {
     suffix: string | null;
 };
 
+export type MemberPhotoResponse = {
+    photo: MemberPhoto;
+};
+
+export type MemberPhoto = {
+    /**
+     * The SHA-256 of the bytes, which keys the object.
+     */
+    sha256: string;
+    contentType: string;
+    sizeBytes: number;
+    widthPixels: number;
+    heightPixels: number;
+    updatedAt: string;
+} | null;
+
+export type SetMemberPhotoRequest = {
+    imageBase64: string;
+};
+
 export type StartRegistrationResponse = {
     next: 'checkEmail' | 'redeemInvitation';
 };
@@ -2601,6 +2621,27 @@ export type SafeBrowseSessionProbe = {
     sessionReused: boolean;
     cdpAttached: boolean;
     elapsedMilliseconds: number;
+};
+
+export type SafeBrowseLocationProbe = {
+    requestedCountry: string;
+    sessionDefault: {
+        country: string | null;
+        dataCenter: string | null;
+        failure?: string;
+    };
+    sessionRequested: {
+        country: string | null;
+        dataCenter: string | null;
+        failure?: string;
+    };
+    quickActionRequested: {
+        country: string | null;
+        dataCenter: string | null;
+        failure?: string;
+    };
+    sessionHonoursLocation: boolean;
+    quickActionHonoursLocation: boolean;
 };
 
 export type MatterSuggestionList = {
@@ -7693,6 +7734,18 @@ export type TrustAccountOpening = {
     currency: 'USD';
 };
 
+export type TrustAccountPosition = {
+    trustAccountId: string;
+    currency: string;
+    asOfDate: string;
+    bookBalanceMinor: number;
+    clientLedgerTotalMinor: number;
+    heldMinor: number;
+    firmFundsMinor: number | null;
+    matterLedgerCount: number;
+    pendingRequestCount: number;
+};
+
 export type TrustPendingDisbursementRequestsResponse = {
     requests: Array<TrustPendingDisbursementRequest>;
 };
@@ -7711,6 +7764,9 @@ export type TrustPendingDisbursementRequest = {
     effectiveDate: string;
     requestedBy: string;
     requestedAt: string;
+    matterId: string | null;
+    matterNumber: string | null;
+    matterTitle: string | null;
 };
 
 export type TrustAuthorizationPolicyResponse = {
@@ -7978,6 +8034,22 @@ export type TrustMatchSuggestion = {
     ledgerEntryId: string;
     signals: Array<'amount-equal' | 'same-day' | 'within-window' | 'reference-equal' | 'counterparty-similar'>;
     dayGap: number;
+};
+
+export type TrustReconciliationMatchesResponse = {
+    matches: Array<TrustReconciliationMatch>;
+};
+
+export type TrustReconciliationMatch = {
+    id: string;
+    statementLineId: string;
+    ledgerEntryId: string;
+    recordedBy: string;
+    recordedAt: string;
+    withdrawnBy: string | null;
+    withdrawnAt: string | null;
+    line: TrustBankStatementLineRecord;
+    item: TrustBankItem;
 };
 
 export type TrustReconciliationMatchAck = {
@@ -8405,6 +8477,48 @@ export type PurchaseRequest = {
     remoteShipmentId: string;
     remoteRateId: string;
     serviceFeeMinor?: number;
+};
+
+export type ShipmentListResponse = {
+    data: Array<ShipmentListItem>;
+    nextCursor: string | null;
+};
+
+export type ShipmentListItem = {
+    id: string;
+    matterRef: string | null;
+    status: string;
+    recipientName: string | null;
+    carrier: string | null;
+    service: string | null;
+    trackingCode: string | null;
+    postageCostMinor: number | null;
+    serviceFeeMinor: number | null;
+    currency: string | null;
+    createdAt: string;
+};
+
+export type ShipmentDetail = {
+    id: string;
+    matterRef: string | null;
+    status: string;
+    fromAddress?: unknown;
+    toAddress?: unknown;
+    parcel?: unknown;
+    options?: unknown;
+    carrier: string | null;
+    service: string | null;
+    trackingCode: string | null;
+    postageCostMinor: number | null;
+    serviceFeeMinor: number | null;
+    currency: string | null;
+    hasLabel: boolean;
+};
+
+export type ShippingConnectionState = {
+    connected: boolean;
+    status: string | null;
+    adapterId: string | null;
 };
 
 export type TrackingResponse = {
@@ -8840,6 +8954,150 @@ export type MeSetNameResponses = {
 };
 
 export type MeSetNameResponse = MeSetNameResponses[keyof MeSetNameResponses];
+
+export type MeRemovePhotoData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/photo';
+};
+
+export type MeRemovePhotoErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:editOwnProfile
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the session member is deactivated, or there is no picture
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeRemovePhotoError = MeRemovePhotoErrors[keyof MeRemovePhotoErrors];
+
+export type MeRemovePhotoResponses = {
+    /**
+     * The member holds no picture
+     */
+    200: MemberPhotoResponse;
+};
+
+export type MeRemovePhotoResponse = MeRemovePhotoResponses[keyof MeRemovePhotoResponses];
+
+export type MePhotoData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/photo';
+};
+
+export type MePhotoErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the session member is deactivated, or there is no picture
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MePhotoError = MePhotoErrors[keyof MePhotoErrors];
+
+export type MePhotoResponses = {
+    /**
+     * The member's picture, or null
+     */
+    200: MemberPhotoResponse;
+};
+
+export type MePhotoResponse = MePhotoResponses[keyof MePhotoResponses];
+
+export type MeSetPhotoData = {
+    body: SetMemberPhotoRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/photo';
+};
+
+export type MeSetPhotoErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:editOwnProfile
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the session member is deactivated, or there is no picture
+     */
+    404: Problem;
+    /**
+     * The bytes are not a readable PNG or JPEG, or are larger than the image ceiling
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeSetPhotoError = MeSetPhotoErrors[keyof MeSetPhotoErrors];
+
+export type MeSetPhotoResponses = {
+    /**
+     * The member's picture after the write
+     */
+    200: MemberPhotoResponse;
+};
+
+export type MeSetPhotoResponse = MeSetPhotoResponses[keyof MeSetPhotoResponses];
+
+export type MePhotoContentData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/photo/content';
+};
+
+export type MePhotoContentErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the session member is deactivated, or there is no picture
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MePhotoContentError = MePhotoContentErrors[keyof MePhotoContentErrors];
+
+export type MePhotoContentResponses = {
+    /**
+     * The image
+     */
+    200: string;
+};
+
+export type MePhotoContentResponse = MePhotoContentResponses[keyof MePhotoContentResponses];
 
 export type RegistrationsStartData = {
     body: StartRegistrationRequest;
@@ -16796,6 +17054,10 @@ export type DownloadsZipErrors = {
      */
     404: Problem;
     /**
+     * The selection holds documents whose copies for outside the platform (every tracked change accepted) are still being made. Retry shortly; the same request answers once they exist.
+     */
+    409: Problem;
+    /**
      * The supplied bundle options are incoherent for the chosen format (e.g. ZIP with split enabled, or encryption combined with split). The detail field lists each violation.
      */
     422: Problem;
@@ -17313,6 +17575,105 @@ export type SafeBrowseSessionProbeResponses = {
 };
 
 export type SafeBrowseSessionProbeResponse = SafeBrowseSessionProbeResponses[keyof SafeBrowseSessionProbeResponses];
+
+export type SafeBrowseLocationProbeData = {
+    body?: never;
+    path?: never;
+    query?: {
+        country?: string;
+    };
+    url: '/api/v1/safe-browse/location-probe';
+};
+
+export type SafeBrowseLocationProbeErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:safeBrowse
+     */
+    403: Problem;
+    /**
+     * The country is not a two-letter upper-case code
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SafeBrowseLocationProbeError = SafeBrowseLocationProbeErrors[keyof SafeBrowseLocationProbeErrors];
+
+export type SafeBrowseLocationProbeResponses = {
+    /**
+     * The probe ran; each observation says what a website saw, or why it could not
+     */
+    200: SafeBrowseLocationProbe;
+};
+
+export type SafeBrowseLocationProbeResponse = SafeBrowseLocationProbeResponses[keyof SafeBrowseLocationProbeResponses];
+
+export type SafeBrowseLiveStreamData = {
+    body?: never;
+    path?: never;
+    query?: {
+        width?: number;
+        height?: number;
+    };
+    url: '/api/v1/safe-browse/live/stream';
+};
+
+export type SafeBrowseLiveStreamErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:safeBrowse, or the upgrade came from another site
+     */
+    403: Problem;
+    /**
+     * The request did not ask to upgrade to a WebSocket
+     */
+    426: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SafeBrowseLiveStreamError = SafeBrowseLiveStreamErrors[keyof SafeBrowseLiveStreamErrors];
+
+export type SafeBrowseLiveCloseData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/safe-browse/live/close';
+};
+
+export type SafeBrowseLiveCloseErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:safeBrowse
+     */
+    403: Problem;
+};
+
+export type SafeBrowseLiveCloseError = SafeBrowseLiveCloseErrors[keyof SafeBrowseLiveCloseErrors];
+
+export type SafeBrowseLiveCloseResponses = {
+    /**
+     * The session is ended
+     */
+    204: void;
+};
+
+export type SafeBrowseLiveCloseResponse = SafeBrowseLiveCloseResponses[keyof SafeBrowseLiveCloseResponses];
 
 export type EmailInspectorInspectData = {
     body: unknown;
@@ -36724,6 +37085,49 @@ export type TrustOpenAccountResponses = {
 
 export type TrustOpenAccountResponse = TrustOpenAccountResponses[keyof TrustOpenAccountResponses];
 
+export type TrustAccountPositionData = {
+    body?: never;
+    path: {
+        trustAccountId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/accounts/{trustAccountId}/position';
+};
+
+export type TrustAccountPositionErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustAccountPositionError = TrustAccountPositionErrors[keyof TrustAccountPositionErrors];
+
+export type TrustAccountPositionResponses = {
+    /**
+     * The account's position as of today in its office's zone
+     */
+    200: TrustAccountPosition;
+};
+
+export type TrustAccountPositionResponse = TrustAccountPositionResponses[keyof TrustAccountPositionResponses];
+
 export type TrustReadAuthorizationPolicyData = {
     body?: never;
     path?: never;
@@ -37332,6 +37736,49 @@ export type TrustReconciliationSuggestionsResponses = {
 };
 
 export type TrustReconciliationSuggestionsResponse = TrustReconciliationSuggestionsResponses[keyof TrustReconciliationSuggestionsResponses];
+
+export type TrustReconciliationMatchesData = {
+    body?: never;
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/reconciliations/{reconciliationId}/matches';
+};
+
+export type TrustReconciliationMatchesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustReconciliationMatchesError = TrustReconciliationMatchesErrors[keyof TrustReconciliationMatchesErrors];
+
+export type TrustReconciliationMatchesResponses = {
+    /**
+     * The matches recorded on the reconciliation
+     */
+    200: TrustReconciliationMatchesResponse;
+};
+
+export type TrustReconciliationMatchesResponse2 = TrustReconciliationMatchesResponses[keyof TrustReconciliationMatchesResponses];
 
 export type TrustRecordReconciliationMatchData = {
     body: TrustRecordMatchRequest;
@@ -38606,6 +39053,43 @@ export type ShippingDisconnectCarrierResponses = {
 
 export type ShippingDisconnectCarrierResponse = ShippingDisconnectCarrierResponses[keyof ShippingDisconnectCarrierResponses];
 
+export type ShippingReadConnectionData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/integrations/shipping/connection';
+};
+
+export type ShippingReadConnectionErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks shipping:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the shipment is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ShippingReadConnectionError = ShippingReadConnectionErrors[keyof ShippingReadConnectionErrors];
+
+export type ShippingReadConnectionResponses = {
+    /**
+     * Connection state
+     */
+    200: ShippingConnectionState;
+};
+
+export type ShippingReadConnectionResponse = ShippingReadConnectionResponses[keyof ShippingReadConnectionResponses];
+
 export type ShippingConnectData = {
     body: ShippingConnectRequest;
     headers: {
@@ -38646,7 +39130,7 @@ export type ShippingConnectErrors = {
      */
     429: Problem;
     /**
-     * The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run
+     * This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run
      */
     501: Problem;
 };
@@ -38661,6 +39145,50 @@ export type ShippingConnectResponses = {
 };
 
 export type ShippingConnectResponse = ShippingConnectResponses[keyof ShippingConnectResponses];
+
+export type ShippingListShipmentsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        pageSize?: number;
+    };
+    url: '/api/v1/shipments';
+};
+
+export type ShippingListShipmentsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks shipping:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the shipment is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ShippingListShipmentsError = ShippingListShipmentsErrors[keyof ShippingListShipmentsErrors];
+
+export type ShippingListShipmentsResponses = {
+    /**
+     * Shipments
+     */
+    200: ShipmentListResponse;
+};
+
+export type ShippingListShipmentsResponse = ShippingListShipmentsResponses[keyof ShippingListShipmentsResponses];
 
 export type ShippingCreateShipmentData = {
     body: CreateShipmentRequest;
@@ -38749,7 +39277,7 @@ export type ShippingRateShipmentErrors = {
      */
     429: Problem;
     /**
-     * The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run
+     * This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run
      */
     501: Problem;
     /**
@@ -38811,7 +39339,7 @@ export type ShippingPurchaseErrors = {
      */
     429: Problem;
     /**
-     * The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run
+     * This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run
      */
     501: Problem;
     /**
@@ -38830,6 +39358,45 @@ export type ShippingPurchaseResponses = {
 };
 
 export type ShippingPurchaseResponse = ShippingPurchaseResponses[keyof ShippingPurchaseResponses];
+
+export type ShippingReadShipmentData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/shipments/{id}';
+};
+
+export type ShippingReadShipmentErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks shipping:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the shipment is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ShippingReadShipmentError = ShippingReadShipmentErrors[keyof ShippingReadShipmentErrors];
+
+export type ShippingReadShipmentResponses = {
+    /**
+     * Shipment
+     */
+    200: ShipmentDetail;
+};
+
+export type ShippingReadShipmentResponse = ShippingReadShipmentResponses[keyof ShippingReadShipmentResponses];
 
 export type ShippingLabelData = {
     body?: never;
@@ -38905,7 +39472,7 @@ export type ShippingTrackingErrors = {
      */
     429: Problem;
     /**
-     * The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run
+     * This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run
      */
     501: Problem;
     /**
@@ -38967,7 +39534,7 @@ export type ShippingRefundErrors = {
      */
     429: Problem;
     /**
-     * The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run
+     * This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run
      */
     501: Problem;
     /**

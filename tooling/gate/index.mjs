@@ -55,11 +55,19 @@
 //   pnpm gate --skip containers,audit  everything except the named dimensions
 //   pnpm gate --base <ref>             measure the change from <ref> instead of the trunk merge-base
 //
+// EVERY STEP RUNS UNDER A TIME BUDGET. A check that never returns used to be indistinguishable from a
+// slow machine — no error, no exit code, no file named — and the gate of record was unrunnable end to
+// end for six days on one such step before anybody could say which one it was. A step that exceeds its
+// budget is now killed (with its whole process tree, never just the process this holds a handle on) and
+// reported as NO END: its own outcome, never folded into FAILED, because "found problems" and "never
+// finished" call for different next moves. budget.mjs holds the numbers; run-step.mjs holds the
+// teardown. MAGNA_CARTA_GATE_TIMEOUT_SCALE=2 doubles every budget and =off removes them.
+//
 // The pre-push hook runs the diff-scoped `pnpm check:scoped`, not this: this is what runs before a
 // merge, and its result is what a pull request states. Home: docs/conventions/build-performance.md.
 
 import { spawnSync } from "node:child_process";
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { computeAffected, discoverPackages } from "../affected-lint/index.mjs";
 import {
@@ -69,9 +77,11 @@ import {
   ROOT,
 } from "../check-scoped/changed-files.mjs";
 import { runAudit } from "./audit.mjs";
+import { budgetFor, resolveScale, SCALE_VARIABLE } from "./budget.mjs";
 import { acceptanceFor, changedContainers, classify } from "./classify.mjs";
 import { GOVERNANCE_STEPS } from "./governance.mjs";
 import { NEEDS_WASM, parseList, selectDimensions } from "./plan.mjs";
+import { runStep } from "./run-step.mjs";
 import { runStartupCheck } from "./startup.mjs";
 
 const argv = process.argv.slice(2);
@@ -91,6 +101,17 @@ try {
     only: parseList(argv, "--only"),
     skip: parseList(argv, "--skip"),
   };
+} catch (error) {
+  console.error(error.message);
+  process.exit(2);
+}
+
+// Every step runs under a time budget, so a check that never returns is reported as not having
+// finished instead of reading as a slow machine. budget.mjs holds the numbers and why they are what
+// they are. Resolved here, beside the other flags, so a mistyped scale fails before anything runs.
+let scale;
+try {
+  scale = resolveScale(process.env[SCALE_VARIABLE]);
 } catch (error) {
   console.error(error.message);
   process.exit(2);
@@ -180,6 +201,13 @@ console.log(
   `gate: code=${change.code} rust=${change.rust} containers=${containers.join(",") || "none"} lint=${describeScope()}`,
 );
 console.log(`gate: running ${toRun.join(", ")}`);
+if (scale === null) {
+  console.log(
+    `gate: step time budgets are OFF (${SCALE_VARIABLE}) — a step that hangs will hang here`,
+  );
+} else if (scale !== 1) {
+  console.log(`gate: step time budgets scaled x${String(scale)} (${SCALE_VARIABLE})`);
+}
 for (const [name, reason] of skipped) console.log(`gate: skipping ${name} — ${reason}`);
 console.log("");
 
@@ -199,47 +227,24 @@ const environment = (extra = {}) => ({
 });
 
 /**
- * Run one step, streaming its output. `outputFile` sends the child's stdout and stderr to a regular
- * file and replays it afterwards — for the type-aware lint, whose native printer panics on the EAGAIN
- * a non-blocking pipe can return under a large warning flood; a file cannot return EAGAIN.
+ * Run a dimension's steps in order, stopping at the first that fails or exceeds its budget.
+ *
+ * A step that did not finish is reported as its own status, never folded into "failed": the two call
+ * for different next moves, and reporting them as one word is what let a non-terminating check read as
+ * a slow machine for six days. budget.mjs holds that history and the numbers.
  */
-function runStep(dimension, step) {
-  const started = Date.now();
-  process.stdout.write(`--- ${dimension}: ${step.name}\n`);
-  let fd = null;
-  if (step.outputFile !== undefined) {
-    mkdirSync(path.dirname(step.outputFile), { recursive: true });
-    fd = openSync(step.outputFile, "w");
-  }
-  const run = spawnSync(step.command, step.arguments, {
-    cwd: ROOT,
-    stdio: fd === null ? "inherit" : ["inherit", fd, fd],
-    env: environment(step.env),
-    shell: onWindows,
-  });
-  if (fd !== null) {
-    closeSync(fd);
-    process.stdout.write(readFileSync(step.outputFile, "utf8"));
-  }
-  const seconds = ((Date.now() - started) / 1000).toFixed(0);
-  if (run.error !== undefined) {
-    console.error(`    could not start ${step.command}: ${run.error.message}`);
-    return { ok: false, seconds };
-  }
-  if (run.status !== 0) {
-    if (step.onFailure !== undefined) console.error(`    ${step.onFailure}`);
-    console.error(`    FAILED (${seconds}s)\n`);
-    return { ok: false, seconds };
-  }
-  console.log(`    ok (${seconds}s)\n`);
-  return { ok: true, seconds };
-}
-
-/** Run a dimension's steps in order, stopping at the first failure. */
-function runSteps(dimension, steps) {
+async function runSteps(dimension, steps) {
   for (const step of steps) {
-    const { ok } = runStep(dimension, step);
-    if (!ok) return { status: "failed", detail: `at "${step.name}"` };
+    const result = await runStep(dimension, step, {
+      root: ROOT,
+      environment: environment(step.env),
+      budgetMilliseconds: budgetFor(dimension, { scale }),
+      onWindows,
+    });
+    if (result.status === "timed-out") {
+      return { status: "timed-out", detail: `"${step.name}" did not finish` };
+    }
+    if (result.status === "failed") return { status: "failed", detail: `at "${step.name}"` };
   }
   return { status: "passed" };
 }
@@ -485,13 +490,19 @@ for (const name of toRun) {
     continue;
   }
   const at = Date.now();
-  const result = dimensions[name]();
+  const result = await dimensions[name]();
   result.seconds = ((Date.now() - at) / 1000).toFixed(0);
   results.set(name, result);
   if (name === "wasm" && result.status === "failed") wasmFailed = true;
 }
 
-const label = { passed: "passed ", failed: "FAILED ", skipped: "skipped", "not-run": "NOT RUN" };
+const label = {
+  passed: "passed ",
+  failed: "FAILED ",
+  "timed-out": "NO END ",
+  skipped: "skipped",
+  "not-run": "NOT RUN",
+};
 console.log("gate: summary");
 for (const [name, result] of results) {
   const detail = result.detail === undefined ? "" : ` — ${result.detail.split("\n")[0]}`;
@@ -503,10 +514,24 @@ for (const [name, reason] of skipped) console.log(`  ${label.skipped}  ${name} �
 const failed = [...results]
   .filter(([, result]) => result.status === "failed")
   .map(([name]) => name);
+const timedOut = [...results]
+  .filter(([, result]) => result.status === "timed-out")
+  .map(([name]) => name);
 const notRun = [...results]
   .filter(([, result]) => result.status === "not-run")
   .map(([name]) => name);
 const minutes = ((Date.now() - started) / 60000).toFixed(1);
+// Said before the failures, because it is the more surprising fact and the one with a different
+// remedy: a dimension that never finished has not judged the change at all, so neither a pass nor a
+// failure has been established for it.
+if (timedOut.length > 0) {
+  console.error(
+    `\ngate: DID NOT FINISH — ${timedOut.join(", ")} exceeded its budget (${minutes} min). ` +
+      "That dimension reached no verdict, so this change is unverified rather than bad; the timeout " +
+      "above says how to find what does not terminate.",
+  );
+  process.exit(1);
+}
 if (failed.length > 0) {
   console.error(`\ngate: FAILED — ${failed.join(", ")} (${minutes} min)`);
   process.exit(1);

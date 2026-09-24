@@ -1,7 +1,7 @@
 ---
 worktree: (none — this stream runs in a remote checkout)
 area: The api worker's internal shape — domain modules with one constructor and a manifest, contract shapes in the domain packages, the HTTP-versus-background seam, and the fitness tests that hold all three
-status: designing
+status: building
 touches: docs/specs/, docs/decisions/pending, status.d/, roadmap.d/platform.md, changelog.d/, apps/api-worker/src/http/app.ts, apps/api-worker/src/routes, apps/api-worker/src/bindings.ts, apps/api-worker/test, apps/api-worker/CLAUDE.md, apps/api-worker/openapi/openapi.json, packages/api-client/src/types.gen.ts
 ---
 

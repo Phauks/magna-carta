@@ -9,10 +9,11 @@
    * was nothing behind it; a section is what it is now that there is.
    *
    * THE READING IS THE FEATURE. Somebody opens this screen for one reason — to find out whether
-   * anybody else is signed in as them — so the screen is honest about the two things that would
-   * mislead them: it never shows a "last active" stamp it cannot stand behind, and it says up
-   * front that a device signed out here keeps working for a few minutes
-   * ($lib/account/active-sessions.ts holds both rulings and the sentences).
+   * anybody else is signed in as them — so every caption is a fact the row knows: it never shows a
+   * "last active" stamp it cannot stand behind, and it never fills a gap with a sentence about our
+   * own plumbing ($lib/account/active-sessions.ts holds both rulings). The standing notice about
+   * the few minutes a revoked device keeps working came off with the account surface's other
+   * explanatory small text; the remedy it pointed at is a control now, on Account -> Security.
    *
    * THIS DEVICE HAS NO SIGN OUT BUTTON. Ending the session you are reading on is signing out, and
    * signing out lives in the profile menu; a second door to it here would be one that navigates the
@@ -28,7 +29,6 @@
   import { onMount } from "svelte";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
-  import * as Alert from "@magna-carta/design-system/alert";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import { formatInstant, instantAttribute } from "@magna-carta/design-system/formatters";
   import { toast } from "@magna-carta/design-system/toast";
@@ -37,12 +37,10 @@
     activeSessionRows,
     canEndIndividualSessions,
     otherDeviceRows,
-    REVOCATION_LAG_NOTE,
     REVOKE_FAILED,
     SESSIONS_UNAVAILABLE,
     signedOutElsewhereMessage,
     THIS_DEVICE,
-    UNRECORDED_ADDRESS,
     type ActiveSessionRecord,
     type ActiveSessionRow,
   } from "$lib/account/active-sessions.ts";
@@ -142,14 +140,10 @@
   <title>Active Sessions · Account · Magna Carta</title>
 </svelte:head>
 
-<AccountMasthead title="Active Sessions" meta="The devices signed in to your account." />
+<AccountMasthead title="Active Sessions" />
 
 <div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
-    <Alert.Root variant="info">
-      <Alert.Description>{REVOCATION_LAG_NOTE}</Alert.Description>
-    </Alert.Root>
-
     {#if loading}
       <p class="text-sm text-text-muted">Reading your signed-in devices…</p>
     {:else if unavailable}
@@ -207,7 +201,10 @@
                   <time datetime={instantAttribute(row.signedInAt)}>
                     {formatInstant(row.signedInAt)}
                   </time>
-                  · {row.ipAddress ?? UNRECORDED_ADDRESS} · expires
+                  <!-- The address only where the request carried one: a clause naming its own
+                       absence tells a reader about our plumbing, not about their device. -->
+                  {#if row.ipAddress !== null}· {row.ipAddress}{/if}
+                  · expires
                   <time datetime={instantAttribute(row.expiresAt)}>
                     {formatInstant(row.expiresAt)}
                   </time>

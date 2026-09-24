@@ -85,7 +85,9 @@ const sessionProbeMeta: RouteMeta = {
   resource: "firm",
   audited: true,
   idempotency: "optional",
-  rateLimit: "default",
+  // Every run acquires a real browser, so it shares the bucket the live route uses for the same
+  // reason: the account's acquisition budget is small and shared across every member.
+  rateLimit: "expensive",
 };
 
 const sessionProbeRoute = defineOpenAPIRoute(sessionProbeMeta, {

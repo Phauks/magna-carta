@@ -4,31 +4,32 @@
    *
    * THE STRUCTURE STANDS BEFORE THE DATA DOES. Every section renders its own frame — the terms of
    * its definition list, its heading, its acts — from the moment an account is selected, and fills
-   * in as each read lands. A panel that rendered nothing until six reads had all returned would
+   * in as each read lands. A panel that rendered nothing until seven reads had all returned would
    * leave a reader looking at blank space with no way to tell a slow read from an empty account,
    * and no way to see that a section they expected is missing.
    *
-   * SIX SECTIONS, FIVE OF THEM ABOUT THIS ACCOUNT AND ONE ABOUT THE FIRM. The queue, the position,
-   * the reconciliations, the statements and the cushion all move when the selection moves. The
-   * authorization posture does not: it is one rule for every account the firm holds, and the
-   * section says so in its own line rather than leaving a reader to infer that changing it here
-   * would change it only here.
+   * SEVEN SECTIONS, SIX OF THEM ABOUT THIS ACCOUNT AND ONE ABOUT THE FIRM. The queue, the position,
+   * the reconciliations, the statements, the cushion and the unclaimed-funds diligence all move
+   * when the selection moves. The authorization posture does not: it is one rule for every account
+   * the firm holds, and the section says so in its own line rather than leaving a reader to infer
+   * that changing it here would change it only here.
    *
    * EACH READ FAILS ON ITS OWN. A firm whose statements cannot be read still has an approval queue
-   * somebody owes an answer to, so a failed read puts one line in its own section and leaves the
-   * rest of the panel standing. The register behind the panel is unaffected either way.
+   * somebody owes an answer to, so a failed read stands inside its own section — through the one
+   * failure device, which carries the whole failure record, the Error ID and the way to ask again —
+   * and leaves the rest of the panel standing. The register behind the panel is unaffected either
+   * way.
    *
-   * WHAT IS DESIGNED AND NOT SERVED RENDERS ANYWAY, disabled and marked: reconciling a period,
-   * recording or importing a statement, and the three cushion acts. A reader sees the shape of what
-   * is coming and can never mistake it for working. What waits on what is in firm-trust-gaps.ts.
+   * EACH SECTION IS ITS OWN COMPONENT WHERE IT CARRIES ACTS OF ITS OWN. A section with a list, a
+   * failure, an empty state and two or three panels behind its controls is a file's worth of
+   * reading on its own, and the panel's job is the ARRANGEMENT — which sections there are, in what
+   * order, and which of them speak for the account rather than for the firm. Everything a section
+   * renders still flows from the one store the screen reads into.
    */
-  import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import * as Accordion from "@magna-carta/design-system/accordion";
-  import * as Alert from "@magna-carta/design-system/alert";
   import * as DefinitionList from "@magna-carta/design-system/definition-list";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
-  import { SoonAffordance, soonDependencySentence } from "@magna-carta/design-system/maturity";
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import * as DetailsPanel from "$lib/details-panel/index.ts";
   import type { FirmMemberSummary } from "$lib/members/members-api.ts";
@@ -41,38 +42,21 @@
   } from "./trust-api.ts";
   import { memberDisplay } from "./trust-member-names.ts";
   import PendingRequest from "./pending-request.svelte";
+  import FirmTrustReadFailure from "./firm-trust-read-failure.svelte";
+  import FirmTrustSectionCushion from "./firm-trust-section-cushion.svelte";
+  import FirmTrustSectionPosition from "./firm-trust-section-position.svelte";
+  import FirmTrustSectionReconciliations from "./firm-trust-section-reconciliations.svelte";
+  import FirmTrustSectionStatements from "./firm-trust-section-statements.svelte";
+  import UnclaimedFundsSection from "./unclaimed-funds-section.svelte";
   import type { FirmTrust } from "./firm-trust.svelte.ts";
   import {
     postureSentence,
     postureVersionText,
     queueInOrder,
-    reconciliationRows,
-    statementsInOrder,
     type TrustQueueViewer,
     type TrustRequestVerb,
   } from "./firm-trust-model.ts";
-  import { firmTrustGapReason, type FirmTrustGapName } from "./firm-trust-gaps.ts";
-  import {
-    CUSHION_NOT_OPENED,
-    FROZEN_PROOF_MEANING,
-    IOLTA_MEANING,
-    JURISDICTION_NOT_RECORDED,
-    JURISDICTION_NOT_RECORDED_MEANING,
-    NO_CUSHION_MOVEMENTS,
-    NO_RECONCILIATIONS,
-    NO_STATEMENTS,
-    QUEUE_EMPTY,
-    accountStandingLabel,
-    accountStandingMeaning,
-    accountStandingTone,
-    balancedLabel,
-    cushionMovementLabel,
-    dayText,
-    ioltaLabel,
-    reconciliationStandingLabel,
-    statementPeriodText,
-    statementSourceLabel,
-  } from "./firm-trust-vocabulary.ts";
+  import { QUEUE_EMPTY } from "./firm-trust-vocabulary.ts";
 
   let {
     account,
@@ -83,6 +67,8 @@
     officeName,
     money,
     currency,
+    manageRefusal,
+    firmFundsRefusal,
     postureRefusal,
     onLetGo,
     onDecide,
@@ -100,6 +86,15 @@
     officeName: (locationId: string) => string | null;
     money: (amountMinor: number) => string;
     currency: string;
+    /**
+     * Why this reader may not record, import, reconcile or work a diligence file, or undefined
+     * while they may. One capability governs all of them, so it is one sentence read off the
+     * session once by the screen: a section working out its own would be a second answer to the
+     * same question, and the two would drift.
+     */
+    manageRefusal: string | undefined;
+    /** Why this reader may not act on the bank-charge cushion, or undefined while they may. */
+    firmFundsRefusal: string | undefined;
     /** Why the posture cannot be changed by this reader, or undefined while it can. */
     postureRefusal: string | undefined;
     onLetGo: () => void;
@@ -109,10 +104,6 @@
   } = $props();
 
   const queue = $derived(queueInOrder(trust.requests ?? []));
-  const statements = $derived(statementsInOrder(trust.statements ?? []));
-  const reconciliations = $derived(
-    reconciliationRows(trust.reconciliations ?? [], trust.statements ?? []),
-  );
   const posture = $derived(trust.policy?.current ?? null);
   const postureHistory = $derived(trust.policy?.history ?? []);
 
@@ -124,9 +115,6 @@
 
   /** One member identifier as a name where the roster can say, and as itself where it cannot. */
   const asMember = (identifier: string) => memberDisplay(identifier, members);
-
-  /** What the Balance row says instead of a figure nothing serves: in the row, not on a hover. */
-  const balanceWaitsOn = soonDependencySentence(firmTrustGapReason("accountBalance"));
 
   /*
    * Whether the posture's earlier versions stand open. It defaults to open, because the reason a
@@ -151,20 +139,6 @@
       (trust.policy === null ? "Reading the firm's authorization posture." : undefined),
   );
 </script>
-
-{#snippet failureLine(sentence: string)}
-  <Alert.Root variant="warning">
-    <Alert.Description>{sentence}</Alert.Description>
-  </Alert.Root>
-{/snippet}
-
-{#snippet soonAct(gap: FirmTrustGapName, label: string)}
-  <SoonAffordance reason={firmTrustGapReason(gap)} reasonPlacement="line">
-    {#snippet control(soon)}
-      <Button variant="secondary" size="sm" {...soon}>{label}</Button>
-    {/snippet}
-  </SoonAffordance>
-{/snippet}
 
 <DetailsPanel.Root label="Trust account details">
   {#if account === null}
@@ -215,15 +189,20 @@
           failed={trust.requestsFailure !== null}
         >
           {#snippet failure()}
-            {@render failureLine(
-              "The approval queue could not be read, so what is waiting is not shown. Nothing was decided.",
-            )}
+            {#if trust.requestsFailure !== null}
+              <FirmTrustReadFailure
+                failure={trust.requestsFailure}
+                title="The Approval Queue Could Not Be Read"
+                fallback="What is waiting on this account is not shown. Nothing was decided by this failure."
+                onRetry={() => trust.reloadQueue(fetch, account.id)}
+              />
+            {/if}
           {/snippet}
 
           {#each queue as request (request.id)}
             <!-- The same component the matter's own Trust section renders, with the Matter row on:
                  this queue spans the firm, so which matter a payment stands against is the fact a
-                 reader here most needs. -->
+                 reader here most needs, and the row is the way through to that matter's ledger. -->
             <PendingRequest {request} {viewer} {members} {money} showMatter {onDecide} />
           {:else}
             <DefinitionList.Root>
@@ -236,213 +215,40 @@
         </LoadingRegion>
       </DetailsPanel.Section>
 
-      <!-- POSITION — what the account IS is a run of facts, the way every money details panel
-           states one. The balance stands beneath them as a row that renders and says, in the row,
-           that it cannot be filled: nothing serves an account's balance as it stands today, and
-           adding up reconciliations to guess one would put a figure about client money on screen
-           that no route ever stated. -->
+      <!-- POSITION — what the account IS, and what it holds today. -->
       <DetailsPanel.Section label="Position">
-        <DetailsPanel.Facts>
-          <DetailsPanel.Fact label="Currency" value={account.currency} />
-          <DetailsPanel.Fact
-            label="Jurisdiction"
-            value={account.jurisdiction ?? JURISDICTION_NOT_RECORDED}
-            title={account.jurisdiction === null ? JURISDICTION_NOT_RECORDED_MEANING : undefined}
-          />
-          <DetailsPanel.Fact
-            label="Office"
-            value={officeName(account.locationId) ?? account.locationId}
-          />
-          <DetailsPanel.Fact label="IOLTA" value={ioltaLabel(account.iolta)} title={IOLTA_MEANING} />
-          <DetailsPanel.Fact label="Standing">
-            <Badge
-              variant={accountStandingTone(account.status)}
-              title={accountStandingMeaning(account.status)}
-            >
-              {accountStandingLabel(account.status)}
-            </Badge>
-          </DetailsPanel.Fact>
-        </DetailsPanel.Facts>
-
-        <DefinitionList.Root>
-          <DefinitionList.Row term="Balance" empty />
-          <DefinitionList.Empty term="Balance">{balanceWaitsOn}</DefinitionList.Empty>
-        </DefinitionList.Root>
+        <FirmTrustSectionPosition {account} {trust} {officeName} {money} />
       </DetailsPanel.Section>
 
-      <!-- RECONCILIATIONS — most recently opened first, each with the period it was run against. -->
+      <!-- RECONCILIATIONS — most recently opened first, each linking to its own workbench. -->
       <DetailsPanel.Section label="Reconciliations">
-        <LoadingRegion
-          loading={trust.reconciliations === null && trust.reconciliationsFailure === null}
-          label="Reading this account's reconciliations"
-          failed={trust.reconciliationsFailure !== null}
-        >
-          {#snippet failure()}
-            {@render failureLine(
-              "This account's reconciliations could not be read, so none is shown. The record itself is unaffected.",
-            )}
-          {/snippet}
-
-          {#each reconciliations as row (row.reconciliation.id)}
-            {@const opener = asMember(row.reconciliation.openedBy)}
-            {@const proof = row.reconciliation.frozenProof}
-            <DefinitionList.Root>
-              <DefinitionList.Row term="Period" empty={row.statement === null}>
-                {row.statement === null ? "" : statementPeriodText(row.statement)}
-              </DefinitionList.Row>
-              <DefinitionList.Row term="Status">
-                {reconciliationStandingLabel(row.reconciliation.status)}
-              </DefinitionList.Row>
-              <DefinitionList.Row term="Opened By" title={opener.title}>
-                {opener.text}
-              </DefinitionList.Row>
-              <DefinitionList.Row term="Opened On">
-                <span class="tabular-nums">{formatInstant(row.reconciliation.openedAt)}</span>
-              </DefinitionList.Row>
-              <DefinitionList.Row term="Closed By" empty={row.reconciliation.closedBy === null}>
-                {row.reconciliation.closedBy === null
-                  ? ""
-                  : asMember(row.reconciliation.closedBy).text}
-              </DefinitionList.Row>
-              <DefinitionList.Row term="Closed On" empty={row.reconciliation.closedAt === null}>
-                {row.reconciliation.closedAt === null
-                  ? ""
-                  : formatInstant(row.reconciliation.closedAt)}
-              </DefinitionList.Row>
-              <DefinitionList.Row term="Proof" empty={proof === null} title={FROZEN_PROOF_MEANING}>
-                {proof === null ? "" : balancedLabel(proof.balanced)}
-              </DefinitionList.Row>
-              <DefinitionList.Row term="Unmatched Lines" empty={proof === null}>
-                {proof === null ? "" : String(proof.unmatchedLineCount)}
-              </DefinitionList.Row>
-              <DefinitionList.Row term="Unmatched Items" empty={proof === null}>
-                {proof === null ? "" : String(proof.unmatchedItemCount)}
-              </DefinitionList.Row>
-              <DefinitionList.Row term="Adjusted Bank" empty={proof === null}>
-                {proof === null ? "" : money(proof.adjustedBankMinor)}
-              </DefinitionList.Row>
-              <DefinitionList.Row term="Book Balance" empty={proof === null}>
-                {proof === null ? "" : money(proof.bookBalanceMinor)}
-              </DefinitionList.Row>
-              <DefinitionList.Row term="Client Ledgers" empty={proof === null}>
-                {proof === null ? "" : money(proof.clientLedgerTotalMinor)}
-              </DefinitionList.Row>
-            </DefinitionList.Root>
-          {:else}
-            <DefinitionList.Root>
-              <DefinitionList.Row term="Period" empty />
-              <DefinitionList.Row term="Status" empty />
-              <DefinitionList.Row term="Proof" empty />
-              <DefinitionList.Empty>{NO_RECONCILIATIONS}</DefinitionList.Empty>
-            </DefinitionList.Root>
-          {/each}
-        </LoadingRegion>
-
-        {@render soonAct("reconcile", "Reconcile")}
+        <FirmTrustSectionReconciliations {account} {trust} {members} {money} />
       </DetailsPanel.Section>
 
-      <!-- STATEMENTS — most recent period first, as the institution reported it. -->
+      <!-- STATEMENTS — most recent period first, as the institution reported it, with the acts
+           that record one and the act that reconciles it. -->
       <DetailsPanel.Section label="Statements">
-        <LoadingRegion
-          loading={trust.statements === null && trust.statementsFailure === null}
-          label="Reading this account's bank statements"
-          failed={trust.statementsFailure !== null}
-        >
-          {#snippet failure()}
-            {@render failureLine(
-              "This account's statements could not be read, so none is shown. The record itself is unaffected.",
-            )}
-          {/snippet}
-
-          {#each statements as statement (statement.id)}
-            {@const recorder = asMember(statement.recordedBy)}
-            <DefinitionList.Root>
-              <DefinitionList.Row term="Period">
-                {statementPeriodText(statement)}
-              </DefinitionList.Row>
-              <DefinitionList.Row term="Opening">
-                <span class="tabular-nums">{money(statement.openingBalanceMinor)}</span>
-              </DefinitionList.Row>
-              <DefinitionList.Row term="Closing">
-                <span class="tabular-nums">{money(statement.closingBalanceMinor)}</span>
-              </DefinitionList.Row>
-              <DefinitionList.Row
-                term="Reference"
-                empty={statement.statementReference === null}
-              >
-                {statement.statementReference}
-              </DefinitionList.Row>
-              <DefinitionList.Row term="Source">
-                {statementSourceLabel(statement.source)}
-              </DefinitionList.Row>
-              <DefinitionList.Row term="Recorded By" title={recorder.title}>
-                {recorder.text}
-              </DefinitionList.Row>
-              <DefinitionList.Row term="Recorded On">
-                <span class="tabular-nums">{formatInstant(statement.recordedAt)}</span>
-              </DefinitionList.Row>
-            </DefinitionList.Root>
-          {:else}
-            <DefinitionList.Root>
-              <DefinitionList.Row term="Period" empty />
-              <DefinitionList.Row term="Opening" empty />
-              <DefinitionList.Row term="Closing" empty />
-              <DefinitionList.Empty>{NO_STATEMENTS}</DefinitionList.Empty>
-            </DefinitionList.Root>
-          {/each}
-        </LoadingRegion>
-
-        <div class="flex flex-col gap-8">
-          {@render soonAct("recordStatement", "Record Statement")}
-          {@render soonAct("importStatement", "Import Statement")}
-        </div>
+        <FirmTrustSectionStatements {account} {trust} {members} {money} {manageRefusal} />
       </DetailsPanel.Section>
 
       <!-- FIRM FUNDS — the firm's own money in a client trust account, which is there to bear the
            bank's service charges and nothing else. An account that never opened the carve-out is
            in good order and says so. -->
       <DetailsPanel.Section label="Firm Funds">
-        <LoadingRegion
-          loading={trust.cushion === null && trust.cushionFailure === null}
-          label="Reading the bank-charge cushion on this account"
-          failed={trust.cushionFailure !== null}
-        >
-          {#snippet failure()}
-            {@render failureLine(
-              "The bank-charge cushion could not be read, so its position is not shown. The account's client ledgers are unaffected.",
-            )}
-          {/snippet}
+        <FirmTrustSectionCushion {account} {trust} {money} {firmFundsRefusal} />
+      </DetailsPanel.Section>
 
-          <DefinitionList.Root>
-            {#if trust.cushion?.kind === "open"}
-              <DefinitionList.Row term="Balance">
-                <span class="tabular-nums">{money(trust.cushion.position.balanceMinor)}</span>
-              </DefinitionList.Row>
-              {#each trust.cushion.position.movements as movement (movement.id)}
-                <DefinitionList.Row term={cushionMovementLabel(movement.kind)}>
-                  <span class="tabular-nums">{money(movement.amountMinor)}</span>
-                  <span aria-hidden="true">·</span>
-                  {dayText(movement.effectiveDate)}
-                  {#if movement.reference !== null}
-                    <span aria-hidden="true">·</span>
-                    {movement.reference}
-                  {/if}
-                </DefinitionList.Row>
-              {:else}
-                <DefinitionList.Empty>{NO_CUSHION_MOVEMENTS}</DefinitionList.Empty>
-              {/each}
-            {:else}
-              <DefinitionList.Row term="Balance" empty />
-              <DefinitionList.Empty>{CUSHION_NOT_OPENED}</DefinitionList.Empty>
-            {/if}
-          </DefinitionList.Root>
-        </LoadingRegion>
-
-        <div class="flex flex-col gap-8">
-          {@render soonAct("openCushion", "Open Cushion")}
-          {@render soonAct("fundCushion", "Fund Cushion")}
-          {@render soonAct("recordBankCharge", "Record Bank Charge")}
-        </div>
+      <!-- UNCLAIMED FUNDS — client money nobody has come for, and the diligence over it. Dormancy
+           is a comparison against a window the reader states, so the section asks for one. -->
+      <DetailsPanel.Section label="Unclaimed Funds">
+        <UnclaimedFundsSection
+          trustAccountId={account.id}
+          currency={account.currency}
+          timeZone={account.timeZone}
+          {members}
+          {money}
+          {manageRefusal}
+        />
       </DetailsPanel.Section>
     {/if}
 
@@ -455,9 +261,14 @@
         failed={trust.policyFailure !== null}
       >
         {#snippet failure()}
-          {@render failureLine(
-            "The firm's authorization posture could not be read, so the rule in force is not shown. It still governs every payment out.",
-          )}
+          {#if trust.policyFailure !== null}
+            <FirmTrustReadFailure
+              failure={trust.policyFailure}
+              title="The Authorization Posture Could Not Be Read"
+              fallback="The rule in force is not shown. It still governs every payment out of a client ledger."
+              onRetry={() => trust.reloadPolicy(fetch)}
+            />
+          {/if}
         {/snippet}
 
         <DefinitionList.Root>

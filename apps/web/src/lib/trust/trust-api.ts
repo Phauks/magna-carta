@@ -100,6 +100,40 @@ export function trustAccountLabel(account: TrustAccountListing): string {
   return parts.join(" · ");
 }
 
+/**
+ * One trust account's position as it stands today: the bank's book balance, what the client ledgers
+ * come to, what is under hold, the firm's own cushion where one is open, and what is waiting.
+ * Every figure is computed from dated rows at the moment of asking, never a stored total.
+ */
+export interface TrustAccountPosition {
+  trustAccountId: string;
+  currency: string;
+  /** The civil day the figures are as of, in the account's zone. */
+  asOfDate: string;
+  /** The trust bank account's book balance: every posted entry netted. */
+  bookBalanceMinor: number;
+  /** The sum of every client ledger on the account: what the firm holds for other people. */
+  clientLedgerTotalMinor: number;
+  /** The part of the client total under disputed-funds holds. */
+  heldMinor: number;
+  /** The bank-charge cushion's balance, or null where the carve-out was never opened. */
+  firmFundsMinor: number | null;
+  /** How many matter ledgers the account carries, zero-balance ones included. */
+  matterLedgerCount: number;
+  /** How many requests on the account nobody has decided yet. */
+  pendingRequestCount: number;
+}
+
+export function readTrustAccountPosition(
+  fetchImpl: typeof fetch,
+  trustAccountId: string,
+): Promise<ApiOutcome<TrustAccountPosition>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/trust/accounts/${encodeURIComponent(trustAccountId)}/position`,
+  );
+}
+
 /** What opening a trust account states. The jurisdiction is the office's, never the caller's. */
 export interface OpenTrustAccountRequest {
   name: string;
@@ -356,6 +390,10 @@ export interface TrustPendingRequest {
   /** The user identifier of the member who proposed it. */
   requestedBy: string;
   requestedAt: string;
+  /** The matter whose ledger the money would leave. Null only on a node that is not a matter leaf. */
+  matterId: string | null;
+  matterNumber: string | null;
+  matterTitle: string | null;
 }
 
 /** The requests on one trust account that nobody has decided yet, oldest first. */
@@ -496,6 +534,143 @@ export function listTrustBankStatements(
   return requestJson(fetchImpl, `/api/v1/trust/bank-statements?${query.toString()}`);
 }
 
+/** One line of a statement as the bank posted it. */
+export interface TrustBankStatementLine {
+  id: string;
+  postedOn: string;
+  direction: "deposit" | "withdrawal";
+  amountMinor: number;
+  description: string;
+  reference: string | null;
+  counterpartyName: string | null;
+  /** The row of the imported file this line came from; null on a line a member entered. */
+  sourceRowNumber: number | null;
+}
+
+/** One statement's lines in the order the bank posted them. */
+export function listTrustBankStatementLines(
+  fetchImpl: typeof fetch,
+  statementId: string,
+): Promise<ApiOutcome<{ lines: TrustBankStatementLine[] }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/trust/bank-statements/${encodeURIComponent(statementId)}/lines`,
+  );
+}
+
+/** A line a member enters by hand. */
+export interface TrustBankStatementLineEntry {
+  postedOn: string;
+  direction: "deposit" | "withdrawal";
+  amountMinor: number;
+  description: string;
+  reference?: string | null;
+  counterpartyName?: string | null;
+}
+
+export interface TrustBankStatementEntry {
+  trustAccountId: string;
+  periodStart: string;
+  periodEnd: string;
+  openingBalanceMinor: number;
+  closingBalanceMinor: number;
+  currency: "USD";
+  statementReference?: string | null;
+  /** A statement this one replaces, where the bank reissued a period. */
+  supersedesStatementId?: string | null;
+  lines: TrustBankStatementLineEntry[];
+}
+
+/** Records one period of the account as the bank reported it, with its lines, in one write. */
+export function recordTrustBankStatement(
+  fetchImpl: typeof fetch,
+  request: TrustBankStatementEntry,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ trustBankStatementId: string; linesRecorded: number }>> {
+  return requestJson(fetchImpl, "/api/v1/trust/bank-statements", {
+    method: "POST",
+    body: request,
+    idempotencyKey,
+  });
+}
+
+export type TrustStatementDateFormat = "iso" | "month-day-year" | "day-month-year";
+
+/** A row the preview could read, and what it would become. */
+export interface TrustStatementImportRow {
+  rowNumber: number;
+  postedOn: string;
+  direction: "deposit" | "withdrawal";
+  amountMinor: number;
+  description: string;
+  reference: string | null;
+  counterpartyName: string | null;
+}
+
+/**
+ * What a statement file holds, as the preview read it. Nothing is stored by the preview: the
+ * fingerprint is what the import quotes back, so a file that changed in between is refused.
+ */
+export interface TrustStatementImportPreview {
+  /** Which column the reader took each field from, keyed by field. */
+  columnMapping: Record<string, unknown>;
+  rows: TrustStatementImportRow[];
+  rejections: { rowNumber: number; reason: string }[];
+  depositTotalMinor: number;
+  withdrawalTotalMinor: number;
+  earliestPostedOn: string | null;
+  latestPostedOn: string | null;
+  fingerprint: string;
+}
+
+export function previewTrustStatementImport(
+  fetchImpl: typeof fetch,
+  request: { fileText: string; dateFormat?: TrustStatementDateFormat; currency: "USD" },
+  idempotencyKey: string,
+): Promise<ApiOutcome<TrustStatementImportPreview>> {
+  return requestJson(fetchImpl, "/api/v1/trust/bank-statements/import/preview", {
+    method: "POST",
+    body: request,
+    idempotencyKey,
+  });
+}
+
+export interface TrustStatementImportRequest {
+  trustAccountId: string;
+  periodStart: string;
+  periodEnd: string;
+  openingBalanceMinor: number;
+  closingBalanceMinor: number;
+  currency: "USD";
+  statementReference?: string | null;
+  supersedesStatementId?: string | null;
+  fileText: string;
+  dateFormat?: TrustStatementDateFormat;
+  /** The preview's fingerprint, quoted back: the file must still read the same. */
+  confirmedFingerprint: string;
+}
+
+export interface TrustStatementImportAck {
+  trustBankStatementId: string;
+  linesRecorded: number;
+  rowsRejected: number;
+  depositTotalMinor: number;
+  withdrawalTotalMinor: number;
+}
+
+/** Records a statement from a file that was previewed and confirmed. */
+export function importTrustBankStatement(
+  fetchImpl: typeof fetch,
+  request: TrustStatementImportRequest,
+  idempotencyKey: string,
+): Promise<ApiOutcome<TrustStatementImportAck>> {
+  return requestJson(fetchImpl, "/api/v1/trust/bank-statements/import", {
+    method: "POST",
+    body: request,
+    idempotencyKey,
+  });
+}
+
 /** What a closed reconciliation froze: the three-way proof as it stood at the moment of closing. */
 export interface TrustFrozenProof {
   statementClosingMinor: number;
@@ -531,6 +706,191 @@ export function listTrustReconciliations(
 ): Promise<ApiOutcome<{ reconciliations: TrustReconciliation[] }>> {
   const query = new URLSearchParams({ trustAccountId });
   return requestJson(fetchImpl, `/api/v1/trust/reconciliations?${query.toString()}`);
+}
+
+/** Opens a reconciliation of one recorded statement. The account is the statement's, never stated. */
+export function openTrustReconciliation(
+  fetchImpl: typeof fetch,
+  request: {
+    statementId: string;
+    supersedesReconciliationId?: string | null;
+    note?: string | null;
+  },
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ trustReconciliationId: string }>> {
+  return requestJson(fetchImpl, "/api/v1/trust/reconciliations", {
+    method: "POST",
+    body: request,
+    idempotencyKey,
+  });
+}
+
+/** A recorded entry that moved the bank balance and that no statement line clears. */
+export interface TrustBankItem {
+  ledgerEntryId: string;
+  effectiveDate: string;
+  description: string;
+  /** Signed: positive into the bank, negative out of it. */
+  bankDeltaMinor: number;
+  trustMovementId: string | null;
+  movementKind: TrustMovementKind | null;
+  /** Present on an earned-fee transfer out of trust, which posts an entry and no movement. */
+  trustTransferId: string | null;
+  reference: string | null;
+  counterpartyName: string | null;
+}
+
+/** Which leg of the proof disagrees, and by how much. */
+export interface TrustProofDisagreement {
+  leg: "bank-to-book" | "book-to-client";
+  differenceMinor: number;
+}
+
+/**
+ * The three-way proof as it stands NOW: the statement's closing balance adjusted for items the firm
+ * recorded that have not reached the bank, the bank account's book balance, and the sum of the
+ * client ledgers, each as of the statement's period end. A closed reconciliation still answers this,
+ * and the answer may differ from what it froze; a surface shows both and never presents the
+ * recomputed figure as what the firm attested to.
+ */
+export interface TrustThreeWayProof {
+  trustAccountId: string;
+  statementId: string;
+  asOfDate: string;
+  currency: string;
+  statementClosingMinor: number;
+  outstandingDeposits: TrustBankItem[];
+  outstandingDepositsMinor: number;
+  outstandingDisbursements: TrustBankItem[];
+  outstandingDisbursementsMinor: number;
+  adjustedBankMinor: number;
+  bookBalanceMinor: number;
+  clientLedgerTotalMinor: number;
+  unmatchedStatementLines: TrustBankStatementLine[];
+  balanced: boolean;
+  disagreements: TrustProofDisagreement[];
+}
+
+export function readTrustReconciliation(
+  fetchImpl: typeof fetch,
+  reconciliationId: string,
+): Promise<ApiOutcome<{ reconciliation: TrustReconciliation; proof: TrustThreeWayProof }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/trust/reconciliations/${encodeURIComponent(reconciliationId)}`,
+  );
+}
+
+/** Why a line and an item are candidates for each other. */
+export type TrustMatchSignal =
+  | "amount-equal"
+  | "same-day"
+  | "within-window"
+  | "reference-equal"
+  | "counterparty-similar";
+
+export interface TrustMatchSuggestion {
+  statementLineId: string;
+  ledgerEntryId: string;
+  signals: TrustMatchSignal[];
+  /** Days between the bank's posting and the recorded effective date. */
+  dayGap: number;
+}
+
+/**
+ * The lines this reconciliation has not accounted for, the recorded items it has not accounted
+ * for, and the candidate pairings with their reasons. NOTHING is matched by this read: a person
+ * records every match, because a wrong automatic match is a wrong assertion about client money.
+ */
+export interface TrustReconciliationSuggestions {
+  unmatchedLines: TrustBankStatementLine[];
+  outstandingItems: TrustBankItem[];
+  suggestions: TrustMatchSuggestion[];
+}
+
+export function readTrustReconciliationSuggestions(
+  fetchImpl: typeof fetch,
+  reconciliationId: string,
+): Promise<ApiOutcome<TrustReconciliationSuggestions>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/trust/reconciliations/${encodeURIComponent(reconciliationId)}/suggestions`,
+  );
+}
+
+/** One assertion that a statement line and a recorded entry are the same event, and its fate. */
+export interface TrustReconciliationMatch {
+  id: string;
+  statementLineId: string;
+  ledgerEntryId: string;
+  recordedBy: string;
+  recordedAt: string;
+  /** Present once somebody took the assertion back; the item is outstanding again. */
+  withdrawnBy: string | null;
+  withdrawnAt: string | null;
+  line: TrustBankStatementLine;
+  item: TrustBankItem;
+}
+
+/** Every match recorded on a reconciliation, withdrawn ones included, oldest first. */
+export function listTrustReconciliationMatches(
+  fetchImpl: typeof fetch,
+  reconciliationId: string,
+): Promise<ApiOutcome<{ matches: TrustReconciliationMatch[] }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/trust/reconciliations/${encodeURIComponent(reconciliationId)}/matches`,
+  );
+}
+
+/** Records a member's assertion that one line and one recorded entry are the same event. */
+export function recordTrustReconciliationMatch(
+  fetchImpl: typeof fetch,
+  reconciliationId: string,
+  request: { statementLineId: string; ledgerEntryId: string },
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ trustReconciliationMatchId: string }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/trust/reconciliations/${encodeURIComponent(reconciliationId)}/matches`,
+    { method: "POST", body: request, idempotencyKey },
+  );
+}
+
+/** Takes a match back. Appended, never deleted: the item becomes outstanding again. */
+export function withdrawTrustReconciliationMatch(
+  fetchImpl: typeof fetch,
+  reconciliationId: string,
+  matchId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ trustReconciliationMatchId: string }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/trust/reconciliations/${encodeURIComponent(reconciliationId)}/matches/${encodeURIComponent(matchId)}/withdrawal`,
+    { method: "POST", idempotencyKey },
+  );
+}
+
+/**
+ * Closes a reconciliation and freezes what its proof says at that moment. A period that did not
+ * balance closes exactly as readily as one that did, recording that it did not tie out.
+ */
+export function closeTrustReconciliation(
+  fetchImpl: typeof fetch,
+  reconciliationId: string,
+  idempotencyKey: string,
+): Promise<
+  ApiOutcome<{
+    trustReconciliationId: string;
+    frozenProof: TrustFrozenProof;
+    proof: TrustThreeWayProof;
+  }>
+> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/trust/reconciliations/${encodeURIComponent(reconciliationId)}/close`,
+    { method: "POST", idempotencyKey },
+  );
 }
 
 // ---- the firm's own money in a trust account -----------------------------------------------------
@@ -576,4 +936,236 @@ export function readTrustFirmFunds(
 /** Whether a failed cushion read means the carve-out was simply never opened on that account. */
 export function isCushionNotOpened(outcome: ApiOutcome<TrustFirmFundsPosition>): boolean {
   return outcome.kind === "problem" && outcome.problem.status === 404;
+}
+
+/** Opens the bank-charge carve-out on one account: the firm may keep its own money there for that one purpose. */
+export function openTrustFirmFunds(
+  fetchImpl: typeof fetch,
+  request: { trustAccountId: string; nodeName: string },
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ trustLedgerNodeId: string; ledgerAccountId: string }>> {
+  return requestJson(fetchImpl, "/api/v1/trust/firm-funds", {
+    method: "POST",
+    body: request,
+    idempotencyKey,
+  });
+}
+
+export type TrustFirmFundsDepositMethod = "check" | "wire" | "electronic_transfer";
+
+export interface TrustFirmFundsDepositRequest {
+  trustAccountId: string;
+  amountMinor: number;
+  currency: "USD";
+  effectiveDate: string;
+  description: string;
+  reference?: string | null;
+  method: TrustFirmFundsDepositMethod;
+}
+
+export interface TrustFirmFundsMovementAck {
+  trustFirmFundsMovementId: string;
+  ledgerEntryId: string;
+  trustLedgerNodeId: string;
+}
+
+/** Puts the firm's own money into the cushion: the only permitted deposit of firm money into trust. */
+export function depositTrustFirmFunds(
+  fetchImpl: typeof fetch,
+  request: TrustFirmFundsDepositRequest,
+  idempotencyKey: string,
+): Promise<ApiOutcome<TrustFirmFundsMovementAck>> {
+  return requestJson(fetchImpl, "/api/v1/trust/firm-funds/deposits", {
+    method: "POST",
+    body: request,
+    idempotencyKey,
+  });
+}
+
+export interface TrustBankChargeRequest {
+  trustAccountId: string;
+  amountMinor: number;
+  currency: "USD";
+  effectiveDate: string;
+  description: string;
+  reference?: string | null;
+}
+
+/**
+ * Records the institution taking a service charge, borne by the cushion. A charge larger than the
+ * cushion is refused with the remedy named: a bank charge is never borne by client money.
+ */
+export function recordTrustBankCharge(
+  fetchImpl: typeof fetch,
+  request: TrustBankChargeRequest,
+  idempotencyKey: string,
+): Promise<ApiOutcome<TrustFirmFundsMovementAck>> {
+  return requestJson(fetchImpl, "/api/v1/trust/firm-funds/bank-charges", {
+    method: "POST",
+    body: request,
+    idempotencyKey,
+  });
+}
+
+// ---- unclaimed client funds ----------------------------------------------------------------------
+//
+// Dormancy is a comparison made at read time against a window THE READER STATES: no stored flag, no
+// sweep, no default period. The rules' clocks run from receipt, so the earliest receipt still on the
+// ledger is reported separately from the last activity. Nothing on this path moves money.
+
+/** A client ledger still holding money with no movement since the stated day. */
+export interface TrustDormantBalance {
+  trustLedgerNodeId: string;
+  matterId: string;
+  clientEntityId: string;
+  balanceMinor: number;
+  currency: string;
+  earliestReceiptDate: string | null;
+  lastActivityDate: string | null;
+  /** The diligence file already open over this ledger, where one is. */
+  openReviewId: string | null;
+}
+
+export function readDormantTrustBalances(
+  fetchImpl: typeof fetch,
+  trustAccountId: string,
+  quietOnOrBefore: string,
+): Promise<ApiOutcome<{ quietOnOrBefore: string; balances: TrustDormantBalance[] }>> {
+  const query = new URLSearchParams({ trustAccountId, quietOnOrBefore });
+  return requestJson(
+    fetchImpl,
+    `/api/v1/trust/unclaimed-funds/dormant-balances?${query.toString()}`,
+  );
+}
+
+export interface TrustUnclaimedFundsReviewOpening {
+  trustAccountId: string;
+  matterId: string;
+  /** The observation the reviewer acted on, stored as seen; the ledger may move afterwards. */
+  observedBalanceMinor: number;
+  observedEarliestReceiptDate: string | null;
+  observedLastActivityDate: string | null;
+  note?: string | null;
+}
+
+/** Opens a diligence file over one client's matter ledger. One ledger carries one open review. */
+export function openTrustUnclaimedFundsReview(
+  fetchImpl: typeof fetch,
+  request: TrustUnclaimedFundsReviewOpening,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ trustUnclaimedFundsReviewId: string; trustLedgerNodeId: string }>> {
+  return requestJson(fetchImpl, "/api/v1/trust/unclaimed-funds/reviews", {
+    method: "POST",
+    body: request,
+    idempotencyKey,
+  });
+}
+
+export type TrustContactChannel =
+  | "regular_mail"
+  | "certified_mail"
+  | "telephone"
+  | "email"
+  | "record_review"
+  | "other";
+
+export type TrustContactOutcome =
+  | "no_response"
+  | "undeliverable"
+  | "reached"
+  | "declined"
+  | "wrong_contact"
+  | "other";
+
+export interface TrustContactAttemptEntry {
+  channel: TrustContactChannel;
+  attemptedOn: string;
+  /** The address or number actually used. Required on every channel but a review of the firm's own records. */
+  contactUsed?: string | null;
+  outcome: TrustContactOutcome;
+  note?: string | null;
+}
+
+/** Records one attempt to reach the owner, as it was made. */
+export function recordTrustContactAttempt(
+  fetchImpl: typeof fetch,
+  reviewId: string,
+  request: TrustContactAttemptEntry,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ trustUnclaimedFundsContactAttemptId: string }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/trust/unclaimed-funds/reviews/${encodeURIComponent(reviewId)}/contact-attempts`,
+    { method: "POST", body: request, idempotencyKey },
+  );
+}
+
+export type TrustReviewOutcome =
+  | "distributed_to_owner"
+  | "resolved_without_distribution"
+  | "not_dormant"
+  | "search_continues";
+
+/**
+ * Ends one round of diligence. Closing as a distribution ATTACHES a disbursement that already
+ * posted through the ordinary authorized path; this takes no amount, payee, date or method.
+ */
+export function closeTrustUnclaimedFundsReview(
+  fetchImpl: typeof fetch,
+  reviewId: string,
+  request: { outcome: TrustReviewOutcome; trustMovementId?: string | null; note?: string | null },
+  idempotencyKey: string,
+): Promise<
+  ApiOutcome<{ trustUnclaimedFundsReviewClosureId: string; outcome: TrustReviewOutcome }>
+> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/trust/unclaimed-funds/reviews/${encodeURIComponent(reviewId)}/closure`,
+    { method: "POST", body: request, idempotencyKey },
+  );
+}
+
+export interface TrustContactAttempt {
+  id: string;
+  channel: TrustContactChannel;
+  attemptedOn: string;
+  contactUsed: string | null;
+  outcome: TrustContactOutcome;
+  note: string | null;
+  recordedBy: string;
+  recordedAt: string;
+}
+
+export interface TrustUnclaimedFundsReview {
+  id: string;
+  trustAccountId: string;
+  trustLedgerNodeId: string;
+  observedBalanceMinor: number;
+  currency: string;
+  observedEarliestReceiptDate: string | null;
+  observedLastActivityDate: string | null;
+  openedBy: string;
+  openedAt: string;
+  note: string | null;
+  attempts: TrustContactAttempt[];
+  /** Null while the round is open. */
+  closure: {
+    id: string;
+    outcome: TrustReviewOutcome;
+    trustMovementId: string | null;
+    closedBy: string;
+    closedAt: string;
+    note: string | null;
+  } | null;
+}
+
+/** One diligence file whole: the observation, every attempt in order, and its closure if any. */
+export function readTrustUnclaimedFundsReview(
+  fetchImpl: typeof fetch,
+  reviewId: string,
+): Promise<ApiOutcome<TrustUnclaimedFundsReview>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/trust/unclaimed-funds/reviews/${encodeURIComponent(reviewId)}`,
+  );
 }

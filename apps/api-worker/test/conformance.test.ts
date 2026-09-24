@@ -36,8 +36,11 @@ const OUTSIDE_MANIFEST_OPERATIONS: readonly string[] = [
   "shipping.createShipment",
   "shipping.disconnectCarrier",
   "shipping.label",
+  "shipping.listShipments",
   "shipping.purchase",
   "shipping.rateShipment",
+  "shipping.readConnection",
+  "shipping.readShipment",
   "shipping.refund",
   "shipping.tracking",
 ];

@@ -39,9 +39,9 @@
    * The browser-shell for a safe-browse capture. The shell's top bar IS the page's one entry: the
    * address field, the Load Website action, back/forward/refresh over the page's capture history,
    * a copy control for the entered address, screenshot actions (download, full screen), and the
-   * Static/Live view toggle (Live is the interactive remote-browsing capability, rendered
-   * disabled until it is served; its dependency lives on the hover title and in the control's
-   * accessible description, never as visible chrome). The whole viewer is ONE framed unit: the
+   * Static/Live view toggle (Live streams one isolated remote browser the member drives, in place of
+   * the screenshot; what each mode does is stated in the control's accessible description rather
+   * than as visible chrome, which stays clean). The whole viewer is ONE framed unit: the
    * browser window on the left and the caller's inspector panel (the information tabs) attached
    * on the right, joined by a shared hairline so the two halves never read as separate cards; on
    * narrow screens the panel stacks beneath the viewport inside the same frame. Where a capture
@@ -65,12 +65,12 @@
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
-  import { soonControlProperties } from "@magna-carta/design-system/maturity";
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
   import ArrowRight from "@lucide/svelte/icons/arrow-right";
   import Check from "@lucide/svelte/icons/check";
   import Copy from "@lucide/svelte/icons/copy";
   import Download from "@lucide/svelte/icons/download";
+  import FolderDown from "@lucide/svelte/icons/folder-down";
   import Maximize2 from "@lucide/svelte/icons/maximize-2";
   import RotateCw from "@lucide/svelte/icons/rotate-cw";
 
@@ -88,11 +88,15 @@
     screenshot = null,
     downloadFilename = null,
     hasCapture = false,
+    mode = "static",
+    onmodechange,
+    ondownloadcapture,
     onsubmit,
     onback,
     onforward,
     onrefresh,
     problem,
+    screen,
     inspector,
   }: {
     /** The address in the entry field; the page binds and reads it. */
@@ -125,6 +129,16 @@
     downloadFilename?: string | null;
     /** Whether a completed capture is on show (decides the no-screenshot line). */
     hasCapture?: boolean;
+    /**
+     * Which browser the address bar drives. `static` opens every address in a fresh isolated
+     * browser; `live` keeps one for the member between pages, so a link's cookie-gated steps can
+     * be followed. The page owns the value, because switching away from live ends a billed session.
+     */
+    mode?: "static" | "live";
+    /** The member chose the other mode. Disabled while a capture runs, so a result never lands in a mode it was not asked in. */
+    onmodechange?: (mode: "static" | "live") => void;
+    /** Save the screenshot and every fact the panel shows as one archive. Absent while there is none. */
+    ondownloadcapture?: () => void;
     /** Starts a capture of the entered address; the shell has already prevented the submit. */
     onsubmit?: () => void;
     onback?: () => void;
@@ -132,23 +146,18 @@
     onrefresh?: () => void;
     /** A failed capture's alert, rendered inside the viewport so the frame holds. */
     problem?: Snippet;
+    /**
+     * What fills the viewport instead of a captured screenshot: in Live, the streamed remote
+     * screen. When given, it owns the viewport outright — the capture states do not apply to it.
+     */
+    screen?: Snippet;
     /** The attached inspector panel — the frame's right half, stacking beneath on narrow screens. */
     inspector?: Snippet;
   } = $props();
 
   const addressInputIdentifier = $props.id();
   const invalidHintIdentifier = `${addressInputIdentifier}-invalid`;
-  const liveSoonIdentifier = `${addressInputIdentifier}-live-soon`;
-
-  // The Live toggle is designed but not served. SoonAffordance always draws the visible Soon
-  // badge, and this chrome carries none (docs/conventions/design-corrections.md: the top bar
-  // stays clean) — so the shell composes the same disabled/title/aria-describedby properties
-  // directly, keeping the one shared sentence. If SoonAffordance grows a badge-less mode, this
-  // composes through it instead.
-  const liveSoonProperties = soonControlProperties(
-    "the interactive remote-browsing service",
-    liveSoonIdentifier,
-  );
+  const modeDescriptionIdentifier = `${addressInputIdentifier}-mode`;
 
   let copiedAddress = $state(false);
   let addressCopyTimer: ReturnType<typeof setTimeout> | null = null;
@@ -239,19 +248,35 @@
            hairline between them, and the group's rounding on the outer corners only, so the pair
            reads as one two-state control whose filled side is the active view. -->
       <div class="inline-flex items-center" role="group" aria-label="View Mode">
-        <Button variant="primary" size="sm" class="rounded-e-none" aria-pressed="true">
+        <!-- The unpressed half carries the hairline on the side that faces the other, so the pair
+             reads as one control whichever side is filled. -->
+        <Button
+          variant={mode === "static" ? "primary" : "ghost"}
+          size="sm"
+          class={mode === "static" ? "rounded-e-none" : "rounded-e-none border-e border-border-default"}
+          aria-pressed={mode === "static"}
+          aria-describedby={modeDescriptionIdentifier}
+          disabled={capturing}
+          onclick={() => onmodechange?.("static")}
+        >
           Static
         </Button>
         <Button
-          variant="ghost"
+          variant={mode === "live" ? "primary" : "ghost"}
           size="sm"
-          class="rounded-s-none border-s border-border-default"
-          aria-pressed="false"
-          {...liveSoonProperties}
+          class={mode === "live" ? "rounded-s-none" : "rounded-s-none border-s border-border-default"}
+          aria-pressed={mode === "live"}
+          aria-describedby={modeDescriptionIdentifier}
+          disabled={capturing}
+          onclick={() => onmodechange?.("live")}
         >
           Live
         </Button>
-        <p id={liveSoonIdentifier} class="sr-only">{liveSoonProperties.title}</p>
+        <p id={modeDescriptionIdentifier} class="sr-only">
+          Static opens each address in a fresh isolated browser and shows a picture of it. Live
+          streams one isolated browser you can click, scroll and type into, keeping its cookies as
+          you follow a link through its steps.
+        </p>
       </div>
       <Label for={addressInputIdentifier} class="sr-only">Web address to view</Label>
       <Input
@@ -283,24 +308,44 @@
         {capturing ? "Capturing…" : "Load Website"}
       </Button>
       <div class="flex items-center gap-4">
+        <!-- The picture-only controls are absent while a streamed screen fills the viewport: there is
+             no single picture to save or enlarge, and a control that is always disabled states
+             nothing. The archive download below takes a fresh full-page capture instead. -->
+        {#if !screen}
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Download Image"
+            disabled={screenshot === null || downloadFilename === null}
+            onclick={downloadScreenshot}
+          >
+            <Download class="size-16" aria-hidden="true" />
+          </Button>
+        {/if}
+        <!-- Everything the capture found, not only the picture: the screenshot plus every fact the
+             panel shows, in one archive. Beside the image download because a member reaching for
+             one is usually deciding whether they need the other. -->
         <Button
           variant="ghost"
           size="icon"
-          aria-label="Download Image"
-          disabled={screenshot === null || downloadFilename === null}
-          onclick={downloadScreenshot}
+          aria-label="Download Screenshot and Details"
+          title="Download the screenshot and everything in the panel as one file"
+          disabled={!hasCapture || ondownloadcapture === undefined}
+          onclick={() => ondownloadcapture?.()}
         >
-          <Download class="size-16" aria-hidden="true" />
+          <FolderDown class="size-16" aria-hidden="true" />
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="View Full Screen"
-          disabled={screenshot === null}
-          onclick={() => (expanded = true)}
-        >
-          <Maximize2 class="size-16" aria-hidden="true" />
-        </Button>
+        {#if !screen}
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="View Full Screen"
+            disabled={screenshot === null}
+            onclick={() => (expanded = true)}
+          >
+            <Maximize2 class="size-16" aria-hidden="true" />
+          </Button>
+        {/if}
       </div>
     </form>
 
@@ -320,7 +365,9 @@
     <div
       class="mc-scrollbar aspect-video grow overflow-y-auto bg-surface-sunken lg:aspect-auto lg:min-h-0"
     >
-      {#if capturing}
+      {#if screen}
+        {@render screen()}
+      {:else if capturing}
         <!-- The probe settles before the renderer, so once it reports the viewport shows its two
              honest facts early: the landed address takes the mono line and the status line says
              how many redirects it took. The tabs still wait for completion. This is a live act

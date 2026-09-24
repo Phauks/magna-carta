@@ -2,6 +2,7 @@
 // test/conformance.test.ts). Regenerate with `pnpm --filter @magna-carta/api-worker run
 // emit-domain-operations`; a hand edit here is a claim the suite will check against the module.
 export const OPERATIONS: readonly string[] = [
+  "trust.accountPosition",
   "trust.approveDisbursement",
   "trust.bankStatementLines",
   "trust.changeAuthorizationPolicy",
@@ -25,6 +26,7 @@ export const OPERATIONS: readonly string[] = [
   "trust.openUnclaimedFundsReview",
   "trust.previewStatementImport",
   "trust.readAuthorizationPolicy",
+  "trust.reconciliationMatches",
   "trust.reconciliationSuggestions",
   "trust.recordBankCharge",
   "trust.recordBankStatement",

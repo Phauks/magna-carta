@@ -19,7 +19,7 @@ import { registerSplitObjectHostRoutes } from "../search/split-object-host.ts";
 import { fetchHttpClient } from "@magna-carta/integrations/http";
 import { workerPlugins } from "../plugins/registry.ts";
 import type { PluginRuntime } from "../plugins/runtime.ts";
-import { firmSecretStoreNotYetAvailable } from "../plugins/secret-store.ts";
+import { integrationCredentialStoreForFirm } from "../plugins/credential-store.ts";
 import { devControlPlaneMigrationMiddleware } from "./dev-control-plane-bootstrap.ts";
 import { attemptBudgetMiddleware, createAttemptLadder } from "./auth-attempt-budget.ts";
 import { registerPreviewServeRoute } from "../files/preview-serve.ts";
@@ -173,7 +173,8 @@ export function createApp(options: CreateAppOptions = {}) {
   // in tests.
   const pluginRuntime: PluginRuntime = {
     httpClient: options.pluginRuntime?.httpClient ?? fetchHttpClient(),
-    secretStoreForFirm: options.pluginRuntime?.secretStoreForFirm ?? firmSecretStoreNotYetAvailable,
+    credentialStoreForFirm:
+      options.pluginRuntime?.credentialStoreForFirm ?? integrationCredentialStoreForFirm,
   };
   // Plugins mount from the registry — the core names no plugin. Each registers through the chokepoint.
   for (const plugin of workerPlugins) plugin.registerRoutes?.(app, chokepoint, pluginRuntime);

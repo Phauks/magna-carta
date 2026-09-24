@@ -1,4 +1,5 @@
 import { todayInUtc } from "@magna-carta/civil-time/civil-date";
+import { zonedReading } from "@magna-carta/civil-time/time-zone";
 import { env, SELF } from "cloudflare:test";
 import { insertMemberStatement } from "@magna-carta/data-access/member-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -260,6 +261,237 @@ describe("opening a trust account", () => {
     expect(refused.status).toBe(422);
     expect((await readJson<ProblemBody>(refused)).type).toBe(
       "https://api.magnacarta.esq/problems/trust-jurisdiction-unavailable",
+    );
+  });
+});
+
+// An account's position over HTTP. What is proved here is that the figures come from the ledger's
+// own dated rows rather than from anything stored: a fresh account reads as zeros, a deposit moves
+// the book and the client legs together, and the firm's own cushion is reported beside the client
+// total rather than inside it.
+describe("a trust account's position", () => {
+  interface PositionRow {
+    trustAccountId: string;
+    currency: string;
+    asOfDate: string;
+    bookBalanceMinor: number;
+    clientLedgerTotalMinor: number;
+    heldMinor: number;
+    firmFundsMinor: number | null;
+    matterLedgerCount: number;
+    pendingRequestCount: number;
+  }
+
+  // The bank-charge carve-out is refused on a pooled interest-bearing account, so an account that is
+  // to hold the firm's cushion is opened as a non-pooled one.
+  async function openAccountForPosition(name: string): Promise<string> {
+    const opened = await post("/api/v1/trust/accounts", {
+      ...openingBody(nevadaLocationId, name),
+      iolta: false,
+    });
+    expect(opened.status).toBe(201);
+    return (await readJson<TrustAccountRow>(opened)).id;
+  }
+
+  const positionOf = async (accountId: string): Promise<PositionRow> => {
+    const response = await get(`/api/v1/trust/accounts/${accountId}/position`);
+    expect(response.status).toBe(200);
+    return await readJson<PositionRow>(response);
+  };
+
+  it("reads a fresh account as zeros, with no cushion rather than an empty one", async () => {
+    const accountId = await openAccountForPosition("IOLTA — Fresh Position");
+    const position = await positionOf(accountId);
+    expect(position).toEqual({
+      trustAccountId: accountId,
+      currency: "USD",
+      // The day in the HOLDING OFFICE'S zone, which is what makes the figure right for a firm that
+      // is not where the server is.
+      asOfDate: zonedReading(Date.now(), "America/Los_Angeles").civilDate,
+      bookBalanceMinor: 0,
+      clientLedgerTotalMinor: 0,
+      heldMinor: 0,
+      // Null, not zero: the carve-out was never opened on this account, and a zero would say the
+      // firm keeps money there and has spent it.
+      firmFundsMinor: null,
+      matterLedgerCount: 0,
+      pendingRequestCount: 0,
+    });
+  });
+
+  it("moves the book and the client legs together on a deposit, and counts the ledger", async () => {
+    const accountId = await openAccountForPosition("IOLTA — Deposit Position");
+    const matterId = await openMatterWithClient("Position Matter", "entity_position");
+    const deposited = await post("/api/v1/trust/deposits", {
+      trustAccountId: accountId,
+      matterId,
+      amountMinor: 250000,
+      currency: "USD",
+      effectiveDate: todayInUtc(),
+      description: "Retainer received",
+      method: "check",
+      reference: "7781",
+      source: "Position Holdings",
+      purpose: "Advance on fees and costs",
+    });
+    expect(deposited.status).toBe(201);
+
+    const position = await positionOf(accountId);
+    // Book and client agree by construction while the composition guard holds; this is that
+    // identity read back over HTTP.
+    expect(position.bookBalanceMinor).toBe(250000);
+    expect(position.clientLedgerTotalMinor).toBe(250000);
+    expect(position.matterLedgerCount).toBe(1);
+    expect(position.heldMinor).toBe(0);
+    expect(position.firmFundsMinor).toBeNull();
+  });
+
+  it("reports the firm's cushion as its own figure, leaving the client total alone", async () => {
+    const accountId = await openAccountForPosition("IOLTA — Cushion Position");
+    const matterId = await openMatterWithClient("Cushion Position Matter", "entity_cushion");
+    expect(
+      (
+        await post("/api/v1/trust/deposits", {
+          trustAccountId: accountId,
+          matterId,
+          amountMinor: 400000,
+          currency: "USD",
+          effectiveDate: todayInUtc(),
+          description: "Retainer received",
+          method: "check",
+          reference: "7782",
+          source: "Cushion Holdings",
+          purpose: "Advance on fees and costs",
+        })
+      ).status,
+    ).toBe(201);
+
+    expect(
+      (
+        await post("/api/v1/trust/firm-funds", {
+          trustAccountId: accountId,
+          nodeName: "Trust — bank charges",
+        })
+      ).status,
+    ).toBe(201);
+    expect(
+      (
+        await post("/api/v1/trust/firm-funds/deposits", {
+          trustAccountId: accountId,
+          amountMinor: 15000,
+          currency: "USD",
+          effectiveDate: todayInUtc(),
+          description: "Cushion for service charges",
+          method: "electronic_transfer",
+        })
+      ).status,
+    ).toBe(201);
+
+    const position = await positionOf(accountId);
+    expect(position.firmFundsMinor).toBe(15000);
+    // The client leg is what the firm owes other people, and the firm's own money is not that.
+    expect(position.clientLedgerTotalMinor).toBe(400000);
+    // The book holds everything in the bank account, which is both of them.
+    expect(position.bookBalanceMinor).toBe(415000);
+  });
+
+  it("counts a request nobody has decided, and the queue names the matter it would leave", async () => {
+    // A SECOND member holding the trust capability, so the lone-trust-manager exception does not
+    // apply: in a firm with one trust manager that member authorizes their own payment, and there
+    // would be nothing pending to count. The member never signs in — what matters is that the
+    // firm has somebody else who could approve.
+    const secondManagerId = newIdentifier("user") as UserId;
+    await insertMemberStatement(firmDatabase, {
+      userId: secondManagerId,
+      displayName: "Second Trust Manager",
+      now: clock.now(),
+    }).run();
+    await firmDatabase
+      .prepare(
+        "INSERT INTO direct_grant (id, member_user_id, permission, granted_by, expires_at, created_at) VALUES (?1, ?2, 'trust:manage', ?2, NULL, ?3)",
+      )
+      .bind(newIdentifier("grant"), secondManagerId, clock.now())
+      .run();
+
+    // A posture that requires a second person is what leaves a request pending at all: with the
+    // shipped default the owner releases their own proposal in the same write.
+    const posture = await SELF.fetch("https://example.com/api/v1/trust/authorization-policy", {
+      method: "PUT",
+      headers: {
+        "content-type": "application/json",
+        origin: "https://example.com",
+        cookie: ownerCookie,
+        "Idempotency-Key": crypto.randomUUID(),
+      },
+      body: JSON.stringify({ policy: "always", requireAuthorizedApprover: false }),
+    });
+    expect(posture.status).toBe(201);
+
+    const accountId = await openAccountForPosition("IOLTA — Queue Position");
+    const matterId = await openMatterWithClient("Queued Payment Matter", "entity_queued");
+    expect(
+      (
+        await post("/api/v1/trust/deposits", {
+          trustAccountId: accountId,
+          matterId,
+          amountMinor: 300000,
+          currency: "USD",
+          effectiveDate: todayInUtc(),
+          description: "Retainer received",
+          method: "check",
+          reference: "7783",
+          source: "Queued Holdings",
+          purpose: "Advance on fees and costs",
+        })
+      ).status,
+    ).toBe(201);
+
+    const proposed = await post("/api/v1/trust/disbursement-requests", {
+      trustAccountId: accountId,
+      matterId,
+      amountMinor: 90000,
+      currency: "USD",
+      effectiveDate: todayInUtc(),
+      description: "Filing fee",
+      method: "check",
+      reference: "2207",
+      payee: "Second Judicial District Court",
+      purpose: "Complaint filing fee",
+    });
+    expect(proposed.status).toBe(201);
+    const { trustDisbursementRequestId, status } = await readJson<{
+      trustDisbursementRequestId: string;
+      status: string;
+    }>(proposed);
+    expect(status).toBe("pending");
+
+    expect((await positionOf(accountId)).pendingRequestCount).toBe(1);
+
+    // The matter as the firm recorded it, read straight off the row: an approver looking at a payee
+    // and an amount cannot otherwise tell whose money is being paid out.
+    const { results } = await firmDatabase
+      .prepare("SELECT matter_number, title FROM matter WHERE id = ?1")
+      .bind(matterId)
+      .all<{ matter_number: string | null; title: string }>();
+    const matterRow = results[0];
+
+    const queued = await get(`/api/v1/trust/disbursement-requests?trustAccountId=${accountId}`);
+    expect(queued.status).toBe(200);
+    const queue = await readJson<{
+      requests: {
+        id: string;
+        matterId: string | null;
+        matterNumber: string | null;
+        matterTitle: string | null;
+      }[];
+    }>(queued);
+    expect(queue.requests).toContainEqual(
+      expect.objectContaining({
+        id: trustDisbursementRequestId,
+        matterId,
+        matterNumber: matterRow?.matter_number,
+        matterTitle: matterRow?.title,
+      }),
     );
   });
 });

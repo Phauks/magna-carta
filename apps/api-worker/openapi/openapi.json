@@ -574,6 +574,64 @@
           "suffix"
         ]
       },
+      "MemberPhotoResponse": {
+        "type": "object",
+        "properties": {
+          "photo": {
+            "$ref": "#/components/schemas/MemberPhoto"
+          }
+        },
+        "required": [
+          "photo"
+        ]
+      },
+      "MemberPhoto": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "sha256": {
+            "type": "string",
+            "description": "The SHA-256 of the bytes, which keys the object."
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer"
+          },
+          "widthPixels": {
+            "type": "integer"
+          },
+          "heightPixels": {
+            "type": "integer"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sha256",
+          "contentType",
+          "sizeBytes",
+          "widthPixels",
+          "heightPixels",
+          "updatedAt"
+        ]
+      },
+      "SetMemberPhotoRequest": {
+        "type": "object",
+        "properties": {
+          "imageBase64": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "imageBase64"
+        ]
+      },
       "StartRegistrationResponse": {
         "type": "object",
         "properties": {
@@ -10979,6 +11037,100 @@
           "sessionReused",
           "cdpAttached",
           "elapsedMilliseconds"
+        ]
+      },
+      "SafeBrowseLocationProbe": {
+        "type": "object",
+        "properties": {
+          "requestedCountry": {
+            "type": "string"
+          },
+          "sessionDefault": {
+            "type": "object",
+            "properties": {
+              "country": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "dataCenter": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "failure": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "country",
+              "dataCenter"
+            ]
+          },
+          "sessionRequested": {
+            "type": "object",
+            "properties": {
+              "country": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "dataCenter": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "failure": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "country",
+              "dataCenter"
+            ]
+          },
+          "quickActionRequested": {
+            "type": "object",
+            "properties": {
+              "country": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "dataCenter": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "failure": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "country",
+              "dataCenter"
+            ]
+          },
+          "sessionHonoursLocation": {
+            "type": "boolean"
+          },
+          "quickActionHonoursLocation": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "requestedCountry",
+          "sessionDefault",
+          "sessionRequested",
+          "quickActionRequested",
+          "sessionHonoursLocation",
+          "quickActionHonoursLocation"
         ]
       },
       "MatterSuggestionList": {
@@ -33199,6 +33351,52 @@
           "currency"
         ]
       },
+      "TrustAccountPosition": {
+        "type": "object",
+        "properties": {
+          "trustAccountId": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "asOfDate": {
+            "type": "string"
+          },
+          "bookBalanceMinor": {
+            "type": "integer"
+          },
+          "clientLedgerTotalMinor": {
+            "type": "integer"
+          },
+          "heldMinor": {
+            "type": "integer"
+          },
+          "firmFundsMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "matterLedgerCount": {
+            "type": "integer"
+          },
+          "pendingRequestCount": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "trustAccountId",
+          "currency",
+          "asOfDate",
+          "bookBalanceMinor",
+          "clientLedgerTotalMinor",
+          "heldMinor",
+          "firmFundsMinor",
+          "matterLedgerCount",
+          "pendingRequestCount"
+        ]
+      },
       "TrustPendingDisbursementRequestsResponse": {
         "type": "object",
         "properties": {
@@ -33268,6 +33466,24 @@
           },
           "requestedAt": {
             "type": "string"
+          },
+          "matterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterTitle": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -33283,7 +33499,10 @@
           "description",
           "effectiveDate",
           "requestedBy",
-          "requestedAt"
+          "requestedAt",
+          "matterId",
+          "matterNumber",
+          "matterTitle"
         ]
       },
       "TrustAuthorizationPolicyResponse": {
@@ -34473,6 +34692,69 @@
           "ledgerEntryId",
           "signals",
           "dayGap"
+        ]
+      },
+      "TrustReconciliationMatchesResponse": {
+        "type": "object",
+        "properties": {
+          "matches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustReconciliationMatch"
+            }
+          }
+        },
+        "required": [
+          "matches"
+        ]
+      },
+      "TrustReconciliationMatch": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "statementLineId": {
+            "type": "string"
+          },
+          "ledgerEntryId": {
+            "type": "string"
+          },
+          "recordedBy": {
+            "type": "string"
+          },
+          "recordedAt": {
+            "type": "string"
+          },
+          "withdrawnBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "withdrawnAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "line": {
+            "$ref": "#/components/schemas/TrustBankStatementLineRecord"
+          },
+          "item": {
+            "$ref": "#/components/schemas/TrustBankItem"
+          }
+        },
+        "required": [
+          "id",
+          "statementLineId",
+          "ledgerEntryId",
+          "recordedBy",
+          "recordedAt",
+          "withdrawnBy",
+          "withdrawnAt",
+          "line",
+          "item"
         ]
       },
       "TrustReconciliationMatchAck": {
@@ -36442,6 +36724,199 @@
           "remoteRateId"
         ]
       },
+      "ShipmentListResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ShipmentListItem"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "ShipmentListItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "matterRef": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "recipientName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "carrier": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "service": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "trackingCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "postageCostMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "serviceFeeMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "matterRef",
+          "status",
+          "recipientName",
+          "carrier",
+          "service",
+          "trackingCode",
+          "postageCostMinor",
+          "serviceFeeMinor",
+          "currency",
+          "createdAt"
+        ]
+      },
+      "ShipmentDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "matterRef": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "fromAddress": {},
+          "toAddress": {},
+          "parcel": {},
+          "options": {},
+          "carrier": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "service": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "trackingCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "postageCostMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "serviceFeeMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hasLabel": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "matterRef",
+          "status",
+          "carrier",
+          "service",
+          "trackingCode",
+          "postageCostMinor",
+          "serviceFeeMinor",
+          "currency",
+          "hasLabel"
+        ]
+      },
+      "ShippingConnectionState": {
+        "type": "object",
+        "properties": {
+          "connected": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "adapterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "connected",
+          "status",
+          "adapterId"
+        ]
+      },
       "TrackingResponse": {
         "type": "object",
         "properties": {
@@ -37400,6 +37875,307 @@
           },
           "422": {
             "description": "The request body is invalid, or every part is empty",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/photo": {
+      "get": {
+        "description": "The session member's own picture, as facts about it — what the bytes are, how large they are, and when they were set. Null where they hold none. The bytes themselves are a separate read.",
+        "operationId": "me.photo",
+        "tags": [
+          "me"
+        ],
+        "x-mc-operationId": "me.photo",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "me"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The member's picture, or null",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberPhotoResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the session member is deactivated, or there is no picture",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "description": "Sets the session member's own picture, replacing whatever they held. The bytes are read to decide what they are — a PNG or a JPEG, and nothing else — so nothing can be stored that a screen will later refuse to draw.",
+        "operationId": "me.setPhoto",
+        "tags": [
+          "me"
+        ],
+        "x-mc-operationId": "me.setPhoto",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:editOwnProfile",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "me"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMemberPhotoRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The member's picture after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberPhotoResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:editOwnProfile",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the session member is deactivated, or there is no picture",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The bytes are not a readable PNG or JPEG, or are larger than the image ceiling",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Removes the session member's own picture. A member who holds none is answered the same way: the act says what is true afterwards, not what was true before.",
+        "operationId": "me.removePhoto",
+        "tags": [
+          "me"
+        ],
+        "x-mc-operationId": "me.removePhoto",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:editOwnProfile",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "me.setPhoto"
+        },
+        "x-mc-tags": [
+          "me"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The member holds no picture",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberPhotoResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:editOwnProfile",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the session member is deactivated, or there is no picture",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/photo/content": {
+      "get": {
+        "description": "The bytes of the session member's own picture, in the type they were sniffed to be when they were stored. Rides the session like every other read and is never publicly addressable.",
+        "operationId": "me.photoContent",
+        "tags": [
+          "me"
+        ],
+        "x-mc-operationId": "me.photoContent",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "me"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The image",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the session member is deactivated, or there is no picture",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -56327,6 +57103,16 @@
               }
             }
           },
+          "409": {
+            "description": "The selection holds documents whose copies for outside the platform (every tracked change accepted) are still being made. Retry shortly; the same request answers once they exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "422": {
             "description": "The supplied bundle options are incoherent for the chosen format (e.g. ZIP with split enabled, or encryption combined with split). The detail field lists each violation.",
             "content": {
@@ -57396,7 +58182,7 @@
         "x-mc-resource": "firm",
         "x-mc-audited": true,
         "x-mc-idempotency": "optional",
-        "x-mc-rateLimit": "default",
+        "x-mc-rateLimit": "expensive",
         "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
           "safeBrowse"
@@ -57435,6 +58221,228 @@
           },
           "429": {
             "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/safe-browse/location-probe": {
+      "post": {
+        "description": "Diagnostic: read the rendering service's trace endpoint from a browser session launched with no location, from one launched with the requested country, and through a quick action carrying it — reporting the country a website sees each time. Answers whether the isolated browser's apparent country can be chosen. Navigates only to a constant; the one input is a country code.",
+        "operationId": "safeBrowse.locationProbe",
+        "tags": [
+          "safeBrowse"
+        ],
+        "x-mc-operationId": "safeBrowse.locationProbe",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:safeBrowse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "safeBrowse"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z]{2}$",
+              "default": "US"
+            },
+            "required": false,
+            "name": "country",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The probe ran; each observation says what a website saw, or why it could not",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SafeBrowseLocationProbe"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks tools:safeBrowse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The country is not a two-letter upper-case code",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/safe-browse/live/stream": {
+      "get": {
+        "description": "Opens the member's live browsing stream over a WebSocket. The server sends a ready frame once a remote browser is theirs (reconnecting to the one they hold, or launching one), then JPEG frames of its screen, its location, and the inspector's facts after each page load. The client sends pointer, wheel, key and pasted-text input, navigations, and an acknowledgement per frame drawn. Every document the remote browser requests passes the public-address guard; no markup or script reaches the member's browser. One stream per member: a second one takes the browser over. Requires an Upgrade: websocket request from this application's own origin.",
+        "operationId": "safeBrowse.liveStream",
+        "tags": [
+          "safeBrowse"
+        ],
+        "x-mc-operationId": "safeBrowse.liveStream",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:safeBrowse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "safeBrowse"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8000
+            },
+            "required": false,
+            "name": "width",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8000
+            },
+            "required": false,
+            "name": "height",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "101": {
+            "description": "The stream is open; frames follow"
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks tools:safeBrowse, or the upgrade came from another site",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "426": {
+            "description": "The request did not ask to upgrade to a WebSocket",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/safe-browse/live/close": {
+      "post": {
+        "description": "End the member's live browsing session: end any open stream and close the remote browser. Idempotent: closing a session that has already ended is success, because the service reaps idle sessions itself.",
+        "operationId": "safeBrowse.liveClose",
+        "tags": [
+          "safeBrowse"
+        ],
+        "x-mc-operationId": "safeBrowse.liveClose",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:safeBrowse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "safeBrowse"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "204": {
+            "description": "The session is ended"
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks tools:safeBrowse",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -104202,6 +105210,101 @@
         }
       }
     },
+    "/api/v1/trust/accounts/{trustAccountId}/position": {
+      "get": {
+        "description": "Returns where one trust account stands as of today in the holding office's own time zone: the trust bank account's book balance, the sum of every client ledger under it, how much of that is under disputed-funds holds, the firm's bank-charge cushion where the account has one, how many client ledgers the account carries, and how many payments out are waiting on a decision. Every money figure is computed from dated ledger rows at the moment of asking — the same computation a reconciliation's proof is built on — never read off a stored total, so the figure shown on an account and the figure a period attests to can never come from two different definitions. The cushion reads as null rather than zero on an account that never opened the carve-out, because the firm keeping its own money there is something a firm opts into.",
+        "operationId": "trust.accountPosition",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.accountPosition",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustAccount_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "trustAccountId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The account's position as of today in its office's zone",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustAccountPosition"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/trust/authorization-policy": {
       "get": {
         "description": "Returns the firm's disbursement-authorization posture — whether money leaving a client ledger takes a second person (off, above a threshold amount, or always) and whether whoever authorizes it must hold the authority capability — together with every version the firm has ever written. A firm that has never written one has the shipped default: always two-person, no authority requirement.",
@@ -105600,6 +106703,99 @@
       }
     },
     "/api/v1/trust/reconciliations/{reconciliationId}/matches": {
+      "get": {
+        "description": "Returns every match recorded on one reconciliation, oldest first, each with the statement line and the recorded item it pairs — the record of what members asserted about this period. Withdrawn matches are listed too, carrying who took the assertion back and when: a withdrawal is appended rather than deleted, and the list a person reads must show that the pairing was once made. What is still unaccounted for is a different question, answered by the suggestions read beside this one.",
+        "operationId": "trust.reconciliationMatches",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.reconciliationMatches",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustReconciliation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reconciliationId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matches recorded on the reconciliation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustReconciliationMatchesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "description": "Records a member's assertion that one statement line and one recorded ledger entry are the same event. Both ends are named by the caller. The book side is a ledger entry rather than a trust movement because an earned-fee transfer out of trust posts a bank-affecting entry and no movement record, and an item that could never be matched would sit outstanding forever.",
         "operationId": "trust.recordReconciliationMatch",
@@ -108610,7 +109806,7 @@
             }
           },
           "501": {
-            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+            "description": "This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -108718,6 +109914,78 @@
           },
           "422": {
             "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "Whether the firm has a postage account connected, and its health.",
+        "operationId": "shipping.readConnection",
+        "tags": [
+          "shipping"
+        ],
+        "x-mc-operationId": "shipping.readConnection",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "shipping:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "shipping"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "Connection state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShippingConnectionState"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks shipping:manage",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the shipment is unknown",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -108862,6 +110130,108 @@
             }
           }
         }
+      },
+      "get": {
+        "description": "The firm's shipments, newest first.",
+        "operationId": "shipping.listShipments",
+        "tags": [
+          "shipping"
+        ],
+        "x-mc-operationId": "shipping.listShipments",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "shipping:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "shipping"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "required": false,
+            "name": "pageSize",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shipments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShipmentListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks shipping:manage",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the shipment is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/shipments/{id}/rates": {
@@ -108966,7 +110336,7 @@
             }
           },
           "501": {
-            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+            "description": "This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -109119,7 +110489,7 @@
             }
           },
           "501": {
-            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+            "description": "This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -109130,6 +110500,90 @@
           },
           "502": {
             "description": "The postage provider rejected the request or is unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shipments/{id}": {
+      "get": {
+        "description": "One shipment: addresses, package, options, carrier and costs.",
+        "operationId": "shipping.readShipment",
+        "tags": [
+          "shipping"
+        ],
+        "x-mc-operationId": "shipping.readShipment",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "shipping:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "shipping"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shipment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShipmentDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks shipping:manage",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the shipment is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -109327,7 +110781,7 @@
             }
           },
           "501": {
-            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+            "description": "This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -109470,7 +110924,7 @@
             }
           },
           "501": {
-            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+            "description": "This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run",
             "content": {
               "application/problem+json": {
                 "schema": {

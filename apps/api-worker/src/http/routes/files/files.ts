@@ -93,6 +93,7 @@ import type { ProblemTypeKey } from "../../contracts/problem-types.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
 import { maybeEnqueueRescanOnAccess } from "../../../files/access-rescan.ts";
 import { resolveFirmBucket } from "../../../files/firm-bucket.ts";
+import { resolveExportObject } from "../../../exports/export-object.ts";
 import { registerDownload } from "../../../downloads/download-register.ts";
 import { enqueueDevIngestEvent } from "../../../files/presign.ts";
 import { presignerForEnv } from "../../../files/presigner-wiring.ts";
@@ -1531,7 +1532,18 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
       // object-create event for an already-committed version re-measures the stored bytes against the
       // hash recorded at commit and withdraws the version when they differ, so a swapped object stops
       // passing this route's status gate rather than being served under the old verdict.
-      const url = await presigner.presignGet(bucket, version.r2Key, DOWNLOAD_TTL_SECONDS);
+      //
+      // The KEY is the version's export object, not its own: a word-processing version the editor
+      // cut keeps its tracked changes, and a copy that leaves is served from the copy with every
+      // change accepted (../exports/export-object.ts). The audit says which it was.
+      const now = new Date().toISOString();
+      const exportObject = await resolveExportObject(
+        firm.firmDatabase,
+        resolveFirmBucket(c.env, firm.bucketName).bucket,
+        version,
+        () => now,
+      );
+      const url = await presigner.presignGet(bucket, exportObject.r2Key, DOWNLOAD_TTL_SECONDS);
       // The export is recorded before the redirect — metadata names the version exported, no content.
       //
       // TWO RECORDS, AND THEY ANSWER DIFFERENT QUESTIONS. The audit entry is the FIRM's: who pulled
@@ -1543,7 +1555,6 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
       // It is a REFERENCE, which means it holds no object key and cannot be presigned from the
       // register: coming back for this file returns here, and this route's own capability check runs
       // again. That is what keeps the row a record rather than a standing grant.
-      const now = new Date().toISOString();
       await commitEffectBatch(
         firm.firmDatabase,
         {
@@ -1553,7 +1564,16 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
               event: downloadAuditEvent,
               actorUserId: userId,
               subjectId: version.id,
-              metadata: { fileId: id, versionId: version.id, ...downloadAuditExtra },
+              metadata: {
+                fileId: id,
+                versionId: version.id,
+                ...downloadAuditExtra,
+                // Only for a version that records changes: whether the copy handed out had them
+                // accepted, or went out with its marks because no copy could be made.
+                ...(exportObject.disposition !== "not-needed" && {
+                  exportCopy: exportObject.disposition,
+                }),
+              },
               now,
             }),
             registerDownload(firm.firmDatabase, {

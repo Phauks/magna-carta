@@ -30,6 +30,11 @@ export type Bindings = {
   FIRM_DATABASE: DurableObjectNamespace<
     import("./firm-database/firm-database-object.ts").FirmDatabase
   >;
+  // One live browsing session per member, addressed idFromName(`${firmId}:${userId}`). Holds the
+  // remote browser's session id and an idle alarm — never the handle, never any history.
+  SAFE_BROWSE_SESSION: DurableObjectNamespace<
+    import("./safe-browse/safe-browse-session.ts").SafeBrowseSession
+  >;
   // The bundle-build queue the coordinator enqueues onto; its consumer streams R2 -> client-zip -> R2.
   BUNDLE_BUILD: Queue<import("./downloads/bundle-types.ts").BundleBuildMessage>;
   // The malware-scan Worker service binding. Dispatches file content to the scan worker for a

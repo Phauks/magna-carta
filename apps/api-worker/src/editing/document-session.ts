@@ -3,10 +3,15 @@ import type { EffectStatement } from "@magna-carta/data-access/effect-batch";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { OutboxMessage } from "@magna-carta/data-access/outbox-statements";
+import {
+  markVersionExportCopyPendingStatement,
+  needsExportCopy,
+} from "@magna-carta/file-manager/export-copy";
 import { commitEditedVersion } from "@magna-carta/file-manager/file-service";
 import {
   currentObjectKey,
   setFileEditStateStatement,
+  selectFileStatement,
 } from "@magna-carta/file-manager/file-statements";
 import type { FileId, UserId } from "@magna-carta/identifiers/types";
 import type { Bindings } from "../bindings.ts";
@@ -319,6 +324,16 @@ export class DocumentSession extends DurableObject<Bindings> {
           );
           statements.push(...committed.effect.statements);
           outboxMessages.push(...committed.effect.outboxMessages);
+          // A word-processing version owes its export copy (every change accepted) from the moment
+          // it exists — see ./working-copy-version.ts. The reap has no request to ask the queue
+          // from; the relay's publication of the commit reaches the copy's consumer as its backstop,
+          // and a download in between makes the pending copy on the spot.
+          if (!committed.skipped) {
+            const { results } = await selectFileStatement(database, fileId).all<{ name: string }>();
+            if (needsExportCopy(results[0]?.name ?? "", "reap")) {
+              statements.push(markVersionExportCopyPendingStatement(database, committed.versionId));
+            }
+          }
         }
 
         statements.push(setFileEditStateStatement(database, fileId, "idle", now()));

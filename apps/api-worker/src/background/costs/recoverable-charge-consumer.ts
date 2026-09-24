@@ -25,6 +25,11 @@ import {
 import { consumeRecheckRequest } from "../conflicts/recheck-request-consumer.ts";
 import { consumeRecheckRun } from "../conflicts/recheck-run-consumer.ts";
 import { CAPTURE_ROUTE_TOPIC } from "../../emails/capture-address-service.ts";
+import { FILE_VERSION_COMMITTED_TOPIC } from "@magna-carta/file-manager/topics";
+import {
+  EXPORT_COPY_REQUESTED_TOPIC,
+  handleExportCopyRequested,
+} from "../../exports/export-copy-consumer.ts";
 import { consumeCaptureRouteRegistration } from "../emails/capture-route-consumer.ts";
 import {
   firmDatabaseFor,
@@ -124,6 +129,11 @@ const PER_FIRM_CONSUMERS: Readonly<Record<string, PerFirmTopicHandler>> = {
   [NATURAL_LANGUAGE_INSTANCE_PROVISION_TOPIC]: handleNaturalLanguageInstanceProvision,
   [NATURAL_LANGUAGE_INSTANCE_TEARDOWN_TOPIC]: handleNaturalLanguageInstanceTeardown,
   [NATURAL_LANGUAGE_FEED_DELETION_TOPIC]: handleNaturalLanguageFeedDeletionRequest,
+  // A version's export copy (every tracked change accepted): asked for directly by the save that
+  // cut the version, and reached again by the relay's publication of every commit as the backstop.
+  // One handler, idempotent — see ../exports/export-copy-consumer.ts.
+  [EXPORT_COPY_REQUESTED_TOPIC]: handleExportCopyRequested,
+  [FILE_VERSION_COMMITTED_TOPIC]: handleExportCopyRequested,
 };
 
 // The three natural-language search lifecycle topics. Each rides this bus rather than a queue of its

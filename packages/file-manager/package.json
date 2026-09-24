@@ -7,6 +7,7 @@
   "exports": {
     "./folder-statements": "./src/folder-statements.ts",
     "./folder-service": "./src/folder-service.ts",
+    "./export-copy": "./src/export-copy.ts",
     "./file-statements": "./src/file-statements.ts",
     "./checkout-statements": "./src/checkout-statements.ts",
     "./file-service": "./src/file-service.ts",

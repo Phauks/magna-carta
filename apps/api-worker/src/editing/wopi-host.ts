@@ -5,6 +5,7 @@ import type { FileId, UserId } from "@magna-carta/identifiers/types";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Context } from "hono";
 import type { Bindings } from "../bindings.ts";
+import { requestExportCopy } from "../exports/export-copy-consumer.ts";
 import { resolveFirmBucketForFirmId } from "../files/firm-bucket.ts";
 import type { AppVariables } from "../http/chokepoint/ports.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
@@ -193,7 +194,7 @@ export function registerWopiHostRoutes(
           // save and everyone in the session on it. A save with unchanged bytes cuts nothing.
           recordCurrentMeta: async (meta) => {
             await stub.setCurrentMeta(meta);
-            await cutVersionFromWorkingCopy(
+            const cut = await cutVersionFromWorkingCopy(
               firmDatabase,
               bucket,
               fileId,
@@ -203,6 +204,20 @@ export function registerWopiHostRoutes(
               Object.keys(state.participants) as UserId[],
               now,
             );
+            // The copy a download of this version is served from, asked for now so it is usually
+            // there before anyone asks. Best-effort: the version is marked as owing it, the relay
+            // reaches it as a backstop, and a download makes a pending copy on the spot.
+            if (cut.versionId !== null && cut.owesExportCopy) {
+              try {
+                await requestExportCopy(c.env, claims.firmId, { fileId, versionId: cut.versionId });
+              } catch (caught) {
+                createWorkersLogger(c.env.TELEMETRY).count(
+                  "exports.copy.request_failed",
+                  { reason: caught instanceof Error ? caught.name : "unknown" },
+                  1,
+                );
+              }
+            }
           },
           now,
         });

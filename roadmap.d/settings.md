@@ -79,7 +79,7 @@
   scope: Person-scoped /account secure shell: profile (name, email, avatar) and security (password, 2FA, sessions), no app chrome.
   status: partial
   spec: docs/specs/2026-07-10-account-settings-surface-design.md
-  evidence: apps/web/src/routes/account/ — its own layout outside the app chrome, with profile and security pages behind it. The NAME is live end to end (see settings.area-ui.my-account.name); email, avatar and the whole security page are honest seams activating when the authentication UI ships.
+  evidence: apps/web/src/routes/account/ — its own layout outside the app chrome, with profile, security and active-sessions pages behind it. The NAME is live end to end (see settings.area-ui.my-account.name); the photograph (auth.first-party-login.member-photo), the password change (auth.first-party-login.password-change) and two-factor (auth.two-factor.totp) are too, and the email address is stated read-only on purpose. No row on the surface is a seam any more.
 
 - id: settings.area-ui.my-account.name
   name: A member's own name
