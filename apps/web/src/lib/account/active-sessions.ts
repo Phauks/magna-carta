@@ -13,6 +13,25 @@
  * "active 3 days ago" for a device somebody is holding is worse than no stamp, because the whole
  * point of this screen is deciding which row is an intruder. So the screen states when a session
  * was ESTABLISHED and when it expires, both of which the row knows exactly.
+ *
+ * AND ONE IT NO LONGER SPELLS OUT. A revoked session's device holds a signed cookie this deployment
+ * believes for up to five minutes before it re-reads the session store (the cookie cache in
+ * apps/api-worker/src/auth.ts), so a device signed out here can finish a request or two before it
+ * is turned away. That fact is true and it used to open the screen as a standing notice — a
+ * paragraph every reader paid for on every visit, about a delay most of them will never observe.
+ * It came off with the rest of the account surface's explanatory small text (owner correction,
+ * 2026-09-18). What replaced it is the remedy being present instead of described: Account ->
+ * Security now changes a password in place, which invalidates what the stale cookie proves rather
+ * than waiting for it to lapse. The delay is documented for readers in
+ * docs/user/features/signed-in-devices.md.
+ *
+ * AN ADDRESS THE REQUEST DID NOT CARRY IS LEFT OUT, not named. A row that said "Address not
+ * recorded" spent a line of every device's caption on a fact about our own plumbing, and it was on
+ * every row, because the deployment was reading the wrong header — Cloudflare's client address
+ * arrives as `cf-connecting-ip`, and Better Auth's default reads `x-forwarded-for` alone and
+ * refuses a multi-hop value outright. The header is configured now (apps/api-worker/src/auth.ts),
+ * so an address is the ordinary case; where one is genuinely absent the caption simply has one
+ * fewer clause.
  */
 import { readInstant, type Instant } from "@magna-carta/design-system/formatters";
 
@@ -56,9 +75,6 @@ export const THIS_DEVICE = "This device";
 /** A user agent that names nothing recognisable. Never guessed at. */
 export const UNKNOWN_DEVICE = "Unrecognised device";
 
-/** A session whose request carried no client address. */
-export const UNRECORDED_ADDRESS = "Address not recorded";
-
 /** The list could not be read. Says nothing about whether the sessions exist. */
 export const SESSIONS_UNAVAILABLE =
   "Your signed-in devices could not be listed. Try again, and if it keeps happening, contact your firm's administrator.";
@@ -66,24 +82,6 @@ export const SESSIONS_UNAVAILABLE =
 /** A revocation the server refused or never answered. The session is assumed still live. */
 export const REVOKE_FAILED =
   "That device could not be signed out — it may still be signed in. Try again.";
-
-/**
- * THE HONEST LAG, stated on the screen rather than left to be discovered. A revoked session's
- * device holds a signed cookie that this deployment believes for up to five minutes before it
- * re-reads the session store (the cookie cache in apps/api-worker/src/auth.ts), so a device signed
- * out here can finish a request or two before it is turned away. Somebody using this screen because
- * they believe an account is compromised needs that fact in front of them — it is the difference
- * between "it did not work" and "wait a moment" — and it is also why the sentence names a password
- * change, which invalidates what the cookie proves rather than waiting for it to lapse.
- *
- * IT NAMES THE DOOR THAT IS ACTUALLY OPEN. The sentence used to say "change your password", and
- * Account -> Security's password row is a disabled Soon seam — so the one instruction given to
- * somebody who believes their account is compromised pointed at a control that does nothing. What
- * works today is the reset from the sign-in screen, so that is what it says. When the in-account
- * change lands, this sentence is the thing to update with it.
- */
-export const REVOCATION_LAG_NOTE =
-  "A device signed out here can take up to five minutes to be turned away. If you think somebody else has your account, reset your password too — Forgot Password, on the sign-in screen.";
 
 /*
  * USER AGENT → DEVICE, in the only way this is honestly done: a short table of exact tokens, tried
