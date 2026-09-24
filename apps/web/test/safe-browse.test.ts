@@ -12,6 +12,7 @@ import {
   problemGuidance,
   screenshotSource,
   sortedHeaders,
+  viewLive,
   viewSafely,
   viewSafelyStaged,
   type SafeWebsiteView,
@@ -304,5 +305,57 @@ describe("viewSafelyStaged", () => {
     expect(await viewSafelyStaged("https://example.com/", () => {}, throwing)).toMatchObject({
       kind: "transport",
     });
+  });
+});
+
+describe("viewLive", () => {
+  const liveBody = (sessionContinued: boolean) =>
+    new Response(JSON.stringify({ ...capturedView, sessionContinued }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+
+  it("splits the view from whether the held browser carried over", async () => {
+    const outcome = await viewLive("https://example.com/", async () => liveBody(true));
+    expect(outcome.kind).toBe("view");
+    if (outcome.kind !== "view") return;
+    expect(outcome.sessionContinued).toBe(true);
+    // The view is exactly what the capture returns, so the inspector renders it unchanged; the
+    // session fact must not leak into it and be mistaken for page data.
+    expect(outcome.view).toEqual(capturedView);
+    expect("sessionContinued" in outcome.view).toBe(false);
+  });
+
+  it("reports a dropped session rather than hiding it", async () => {
+    const outcome = await viewLive("https://example.com/", async () => liveBody(false));
+    expect(outcome.kind === "view" && outcome.sessionContinued).toBe(false);
+  });
+
+  it("answers a failed render with the same problem the capture would", async () => {
+    // One failure vocabulary for both modes, so the page renders one set of failure states.
+    const outcome = await viewLive(
+      "https://example.com/",
+      async () =>
+        new Response(JSON.stringify({ status: 422, type: "page-render-failed" }), {
+          status: 422,
+          headers: { "content-type": "application/problem+json" },
+        }),
+    );
+    expect(outcome.kind).toBe("problem");
+  });
+
+  it("reports nothing answering as transport, never as a thrown error", async () => {
+    const outcome = await viewLive("https://example.com/", async () => {
+      throw new TypeError("network down");
+    });
+    expect(outcome.kind).toBe("transport");
+  });
+
+  it("never puts the target in the request line a trace would carry", async () => {
+    const outcome = await viewLive("https://suspect.example/secret", async () => {
+      throw new TypeError("network down");
+    });
+    if (outcome.kind !== "transport") throw new Error("expected transport");
+    expect(JSON.stringify(outcome.failure.request)).not.toContain("suspect.example");
   });
 });

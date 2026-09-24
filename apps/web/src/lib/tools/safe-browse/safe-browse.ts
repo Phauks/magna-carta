@@ -345,3 +345,71 @@ export async function viewSafely(
 
   return { kind: "view", view };
 }
+
+const LIVE_NAVIGATE_ENDPOINT = "/api/v1/safe-browse/live/navigate";
+const LIVE_CLOSE_ENDPOINT = "/api/v1/safe-browse/live/close";
+
+/**
+ * A live navigation's answer: the same view the static capture returns, plus whether the member's
+ * held browser carried over from the last step. `sessionContinued: false` after an earlier live
+ * step means the cookies behind the member were dropped — the remote service reaped an idle
+ * browser, or it reached its age ceiling — and the next page may behave differently for it.
+ */
+export type LiveOutcome =
+  | { kind: "view"; view: SafeWebsiteView; sessionContinued: boolean }
+  | Exclude<SafeBrowseOutcome, { kind: "view" }>;
+
+/**
+ * Navigate the member's held remote browser to `url`. Same failure vocabulary as the capture —
+ * the route answers the same refusals — so the page renders one set of failure states for both
+ * modes. Never throws.
+ */
+export async function viewLive(url: string, fetchImpl: typeof fetch = fetch): Promise<LiveOutcome> {
+  // The request line never carries the target, for the same reason as the capture's.
+  const line = requestLine("POST", LIVE_NAVIGATE_ENDPOINT);
+  const nothingAnswered = (): LiveOutcome => ({
+    kind: "transport",
+    failure: { problem: null, request: line, failedAt: new Date() },
+  });
+
+  let response: Response;
+  try {
+    response = await fetchImpl(LIVE_NAVIGATE_ENDPOINT, {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({ url }),
+    });
+  } catch {
+    return nothingAnswered();
+  }
+
+  if (!response.ok) {
+    const problem = await readProblem(response);
+    return { kind: "problem", problem, failure: { problem, request: line, failedAt: new Date() } };
+  }
+
+  try {
+    const body = (await response.json()) as SafeWebsiteView & { sessionContinued: boolean };
+    const { sessionContinued, ...view } = body;
+    return { kind: "view", view, sessionContinued };
+  } catch {
+    return nothingAnswered();
+  }
+}
+
+/**
+ * End the member's live session and release the remote browser. Best-effort by design: it runs as
+ * the member leaves, when nothing is left to show a failure to, and the server's idle alarm closes
+ * the browser anyway. `sendBeacon` is preferred because it survives the page unloading, which is
+ * exactly when this is called; a fetch with `keepalive` is the fallback.
+ */
+export function closeLive(): void {
+  try {
+    if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+      if (navigator.sendBeacon(LIVE_CLOSE_ENDPOINT)) return;
+    }
+    void fetch(LIVE_CLOSE_ENDPOINT, { method: "POST", keepalive: true }).catch(() => {});
+  } catch {
+    // Leaving the page must never fail on this; the idle alarm is the backstop.
+  }
+}
