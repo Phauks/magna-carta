@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "95e7c5bd-2434-4c9e-a8f0-31257470e720",
+  "id": "45f5421b-b6f7-46b1-9907-55574f03a660",
   "prevId": "a3bb30fe-006c-4da5-8977-448957b68d1a",
   "tables": {
     "account_balance": {
@@ -9296,6 +9296,27 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "export_copy_state": {
+          "name": "export_copy_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "export_r2_key": {
+          "name": "export_r2_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "export_size_bytes": {
+          "name": "export_size_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -11121,59 +11142,6 @@
           "columns": [
             "category",
             "principal_ref"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "integration_credential": {
-      "name": "integration_credential",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "credential_ref": {
-          "name": "credential_ref",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "ciphertext": {
-          "name": "ciphertext",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "integration_credential_credential_ref_unique": {
-          "name": "integration_credential_credential_ref_unique",
-          "columns": [
-            "credential_ref"
           ],
           "isUnique": true
         }
