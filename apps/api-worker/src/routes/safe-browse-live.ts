@@ -84,7 +84,10 @@ const liveNavigateMeta: RouteMeta = {
   // row. The audit records the act, never the address.
   audited: true,
   idempotency: "optional",
-  rateLimit: "default",
+  // `expensive`, not `default`: a navigation can acquire a real browser, and the account's
+  // acquisition budget is ten in the rate window across every member. Session reuse keeps most
+  // steps from acquiring at all; this bounds the ones that do.
+  rateLimit: "expensive",
 };
 
 const liveNavigateRoute = defineOpenAPIRoute(liveNavigateMeta, {
