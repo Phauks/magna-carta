@@ -100,10 +100,7 @@ import {
 } from "./routes/safe-browse.ts";
 import { registerSafeBrowseSessionProbeRoute } from "./routes/safe-browse-session-probe.ts";
 import { registerSafeBrowseLocationProbeRoute } from "./routes/safe-browse-location-probe.ts";
-import {
-  registerSafeBrowseLiveRoutes,
-  type SafeBrowseLiveRouteDeps,
-} from "./routes/safe-browse-live.ts";
+import { registerSafeBrowseLiveRoutes } from "./routes/safe-browse-live.ts";
 import { registerDecryptionRoutes } from "./routes/decryption.ts";
 import { registerDocumentSealRoutes } from "./routes/document-seal.ts";
 import { registerRecoveryRoutes } from "./routes/recovery.ts";
@@ -562,9 +559,6 @@ export interface CreateAppOptions {
   // Production defaults: createBrowserRenderer(c.env.BROWSER) + createFetchRedirectProbe().
   // Tests ALWAYS supply safeBrowseDeps so c.env.BROWSER is never accessed in the test pool.
   safeBrowseDeps?: SafeBrowseRouteDeps;
-  // The live route's navigator, on the same terms: the test pool has no browser, so tests supply
-  // one and the Browser Rendering binding is only ever read in a deployment.
-  safeBrowseLiveDeps?: SafeBrowseLiveRouteDeps;
   // Overrides the seal port for tests (a fake SealPort). Production resolves it from the SIGN_SERVICE
   // binding inside the route; while that binding is unset, the route returns 503 (deferred activation).
   sealPort?: SealPort;
@@ -728,7 +722,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerSafeBrowseStreamRoute(app, chokepoint, options.safeBrowseDeps ?? {});
   registerSafeBrowseSessionProbeRoute(app, chokepoint);
   registerSafeBrowseLocationProbeRoute(app, chokepoint);
-  registerSafeBrowseLiveRoutes(app, chokepoint, options.safeBrowseLiveDeps ?? {});
+  registerSafeBrowseLiveRoutes(app, chokepoint);
   registerDecryptionRoutes(app, chokepoint);
   // Password recovery: mints a job and fans it out through the recovery coordinator Durable
   // Object. Registered beside decryption — the button-initiated surface for the SAME extracted

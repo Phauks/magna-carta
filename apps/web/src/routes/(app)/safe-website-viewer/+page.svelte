@@ -31,6 +31,14 @@
    * registry; a capture landing on a different host drops the cache. The fetch-and-classify
    * branching lives in safe-browse.ts, the derived facts in capture-facts.ts; all three modules
    * stay testable off the DOM. Runs outside any matter and stores nothing.
+   *
+   * LIVE REPLACES THE SCREENSHOT WITH A STREAM. In Live the viewport is the remote browser itself,
+   * streamed as pictures the member clicks, scrolls and types into (live-screen.svelte over
+   * live-stream-client.svelte.ts). The address bar, back, forward and refresh then drive that
+   * browser rather than the capture history, the inspector's tabs follow each page it loads, and
+   * the archive download asks it for a full capture of the page as it stands. The stream opens on
+   * the first address entered, never on the mode switch alone: a held browser is billed from the
+   * moment it is acquired.
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
@@ -46,11 +54,13 @@
     normalizeTarget,
     problemGuidance,
     screenshotSource,
-    viewLive,
     viewSafelyStaged,
     type SafeBrowseOutcome,
     type SafeWebsiteView,
   } from "$lib/tools/safe-browse/safe-browse.ts";
+  import LiveScreen from "$lib/tools/safe-browse/live-screen.svelte";
+  import { LiveStreamClient } from "$lib/tools/safe-browse/live-stream-client.svelte.ts";
+  import type { LiveView } from "@magna-carta/safe-browse/live-stream-protocol";
   import { finalHost, screenshotFilename } from "$lib/tools/safe-browse/capture-facts.ts";
   import { downloadCaptureArchive } from "$lib/tools/safe-browse/capture-export.ts";
   import {
@@ -69,14 +79,10 @@
   type CaptureFailure = Exclude<SafeBrowseOutcome, { kind: "view" }>;
 
   let query = $state("");
-  // Which browser the address bar drives. Static opens each address in a fresh isolated browser;
-  // Live keeps one for the member between pages, so a link's cookie-gated steps can be followed.
+  // Which browser the address bar drives. Static opens each address in a fresh isolated browser and
+  // shows a picture of it; Live streams one the member drives, keeping its cookies between pages.
   let mode = $state<"static" | "live">("static");
-  // Live steps taken since the member switched to Live. A new browser on the FIRST step is simply
-  // the session starting; a new browser on a later one means the cookies behind them were dropped,
-  // which changes how the next page behaves and is worth saying.
-  let liveStepsTaken = $state(0);
-  let sessionDropped = $state(false);
+  const live = new LiveStreamClient();
   let capturing = $state(false);
   // The address the running capture was asked for, shown by the shell's loading viewport.
   let capturingTarget = $state<string | null>(null);
@@ -108,12 +114,42 @@
   // then the viewport carries the alert and the tabs sit empty, so two captures are never mixed
   // on one screen.
   const currentCapture = $derived(failure === null ? currentEntry(history) : null);
-  const displayView = $derived(currentCapture?.view ?? null);
+  // In Live the inspector follows the remote browser: the facts it sent after its last page load.
+  const liveView = $derived(live.details === null ? null : asCapturedView(live.details.view));
+  const displayView = $derived(mode === "live" ? liveView : (currentCapture?.view ?? null));
   const downloadFilename = $derived(
-    currentCapture !== null && screenshotSource(currentCapture.view.screenshotBase64) !== null
+    mode === "static" &&
+      currentCapture !== null &&
+      screenshotSource(currentCapture.view.screenshotBase64) !== null
       ? screenshotFilename(currentCapture.view.finalUrl, currentCapture.capturedAt)
       : null,
   );
+
+  // The stream's view is read-only data from the protocol; the inspector takes the capture's shape.
+  function asCapturedView(view: LiveView): SafeWebsiteView {
+    return {
+      ...view,
+      redirectChain: view.redirectChain.map((hop) => ({ ...hop })),
+      responseHeaders: { ...view.responseHeaders },
+      links: [...view.links],
+    };
+  }
+
+  // The address bar follows the remote browser as the member clicks through it.
+  $effect(() => {
+    const location = live.location;
+    if (mode === "live" && location !== null) query = location;
+  });
+
+  // A page landing on another host makes the cached registration someone else's, and a loaded page
+  // is worth announcing — the stream itself is pictures a screen reader cannot read.
+  $effect(() => {
+    const details = live.details;
+    if (mode !== "live" || details === null) return;
+    const host = finalHost(details.view.finalUrl);
+    if (registration !== null && registration.host !== host) registration = null;
+    announcement = `Live page loaded: ${details.view.finalUrl}.`;
+  });
 
   async function capture(target: string, historyMode: "push" | "replace") {
     capturing = true;
@@ -125,21 +161,12 @@
     // The staged capture reports the redirect probe as it settles, well before the renderer
     // finishes its full-page shot; the probed fact reaches the loading viewport and the live
     // region while the wait continues.
-    // Live has no staged progress to report — the held browser follows the redirects itself and
-    // the chain comes back with the page — so the loading viewport shows only the elapsed time.
-    const result =
-      mode === "live"
-        ? await viewLive(target)
-        : await viewSafelyStaged(target, (progress) => {
-            if (progress.stage === "probed") {
-              probe = { redirectCount: progress.redirectCount, finalUrl: progress.finalUrl };
-              announcement = probeNarrative(probe);
-            }
-          });
-    if (mode === "live" && result.kind === "view" && "sessionContinued" in result) {
-      sessionDropped = liveStepsTaken > 0 && !result.sessionContinued;
-      liveStepsTaken += 1;
-    }
+    const result = await viewSafelyStaged(target, (progress) => {
+      if (progress.stage === "probed") {
+        probe = { redirectCount: progress.redirectCount, finalUrl: progress.finalUrl };
+        announcement = probeNarrative(probe);
+      }
+    });
     const elapsedMs = Date.now() - startedAt;
     capturing = false;
     capturingTarget = null;
@@ -150,13 +177,11 @@
         view: result.view,
         capturedAt: Date.now(),
         elapsedMs,
-        mode,
+        mode: "static" as const,
       };
       history =
         historyMode === "replace" ? replaceCurrent(history, entry) : pushCapture(history, entry);
-      announcement = sessionDropped
-        ? `Page opened for ${result.view.finalUrl} in a fresh browser. Cookies from earlier pages are gone.`
-        : `Snapshot captured for ${result.view.finalUrl}.`;
+      announcement = `Snapshot captured for ${result.view.finalUrl}.`;
       // A capture that landed on a different host makes the cached registration someone else's.
       const host = finalHost(result.view.finalUrl);
       if (registration !== null && registration.host !== host) registration = null;
@@ -166,14 +191,23 @@
   }
 
   // Switching away from Live ends the member's session: the held browser is billed for the time
-  // it is held, and nobody is walking it any more. Switching TO Live starts nothing until the first
-  // navigation — a session opened on a mode switch alone would bill for a browser showing nothing.
+  // it is held, and nobody is driving it any more. Switching TO Live starts nothing until the first
+  // address — a session opened on a mode switch alone would bill for a browser showing nothing.
   function setMode(next: "static" | "live") {
     if (capturing || next === mode) return;
-    if (mode === "live") closeLive();
+    if (mode === "live") endLive();
     mode = next;
-    liveStepsTaken = 0;
-    sessionDropped = false;
+  }
+
+  function endLive() {
+    live.close();
+    closeLive();
+  }
+
+  // After a stream stops: open a new one where the last one was, or at the address in the bar.
+  function restartLive() {
+    const target = normalizeTarget(live.location ?? query);
+    if (target !== null) live.navigate(target);
   }
 
   // Leaving the page while in Live releases the browser too. `pagehide` rather than
@@ -181,7 +215,7 @@
   // not; the unmount covers leaving for another screen inside the app.
   $effect(() => {
     const release = () => {
-      if (mode === "live") closeLive();
+      if (mode === "live") endLive();
     };
     window.addEventListener("pagehide", release);
     return () => {
@@ -193,27 +227,47 @@
   // Everything on screen for the capture being shown, in one archive. The registration record is
   // included only when it belongs to THIS capture's host — the cache survives stepping back through
   // history, and a registry answer for a different site in the export would be a wrong fact.
-  function downloadCapture() {
+  async function downloadCapture() {
+    if (mode === "live") {
+      // The remote browser is asked for the page as it stands now, screenshot included — the
+      // stream's own frames are only the visible part of it.
+      const view = await live.capture();
+      if (view === null) return;
+      await downloadCaptureArchive({
+        view: asCapturedView(view),
+        capturedAt: Date.now(),
+        elapsedMs: live.details?.elapsedMilliseconds ?? 0,
+        mode: "live",
+        registration: registrationRecordFor(view.finalUrl),
+      });
+      return;
+    }
     const current = currentCapture;
     if (current === null) return;
-    const host = finalHost(current.view.finalUrl);
-    const outcome = registration?.host === host ? registration.outcome : null;
-    const record =
-      outcome !== null &&
-      (outcome.kind === "rdap" || outcome.kind === "raw" || outcome.kind === "empty")
-        ? outcome.result
-        : null;
-    void downloadCaptureArchive({
+    await downloadCaptureArchive({
       view: current.view,
       capturedAt: current.capturedAt,
       elapsedMs: current.elapsedMs,
       mode: current.mode,
-      registration: record,
+      registration: registrationRecordFor(current.view.finalUrl),
     });
+  }
+
+  function registrationRecordFor(finalUrl: string) {
+    const host = finalHost(finalUrl);
+    const outcome = registration?.host === host ? registration.outcome : null;
+    return outcome !== null &&
+      (outcome.kind === "rdap" || outcome.kind === "raw" || outcome.kind === "empty")
+      ? outcome.result
+      : null;
   }
 
   function runCapture() {
     if (!canSubmit || normalized === null) return;
+    if (mode === "live") {
+      live.navigate(normalized);
+      return;
+    }
     void capture(normalized, "push");
   }
 
@@ -224,10 +278,18 @@
     query = url;
     const target = normalizeTarget(url);
     if (target === null) return;
+    if (mode === "live") {
+      live.navigate(target);
+      return;
+    }
     void capture(target, "push");
   }
 
   function goBack() {
+    if (mode === "live") {
+      live.history("back");
+      return;
+    }
     if (capturing || !canGoBack(history)) return;
     history = back(history);
     failure = null;
@@ -235,6 +297,10 @@
   }
 
   function goForward() {
+    if (mode === "live") {
+      live.history("forward");
+      return;
+    }
     if (capturing || !canGoForward(history)) return;
     history = forward(history);
     failure = null;
@@ -242,6 +308,10 @@
   }
 
   function refresh() {
+    if (mode === "live") {
+      live.reload();
+      return;
+    }
     const current = currentEntry(history);
     if (capturing || current === null) return;
     query = current.enteredUrl;
@@ -322,6 +392,14 @@
     {/if}
   {/snippet}
 
+  {#snippet liveScreen()}
+    <LiveScreen
+      client={live}
+      onrestart={restartLive}
+      onretrydownload={() => void downloadCapture()}
+    />
+  {/snippet}
+
   <div aria-busy={capturing} class="flex flex-col lg:min-h-0 lg:flex-1">
     <WebsiteShell
       bind:address={query}
@@ -331,19 +409,21 @@
       invalidHint={invalidInput
         ? "This is not a web address this tool can open. Enter one like https://example.com. Private, local, and internal addresses are not accepted."
         : null}
-      note={sessionDropped
-        ? "That page opened in a fresh isolated browser, so cookies from earlier pages are gone. It still never loads in your own browser."
-        : mode === "live"
-          ? "Live keeps one isolated remote browser for you between pages, for up to 15 minutes, so cookies carry over as you follow a link. Only pictures and text come back; nothing loads in your own browser."
-          : "The page opens in an isolated remote browser and comes back as a static snapshot. It never loads in your own browser."}
+      note={mode === "live"
+        ? live.freshBrowserAfterEarlier
+          ? "That page opened in a fresh isolated browser, so cookies from earlier pages are gone. It still never runs on your computer."
+          : "Never type a real password or personal details into a page you are checking. Press Escape twice to leave the screen."
+        : "The page opens in an isolated remote browser and comes back as a static snapshot. It never loads in your own browser."}
       {mode}
       onmodechange={setMode}
       ondownloadcapture={displayView === null ? undefined : downloadCapture}
-      canGoBack={canGoBack(history)}
-      canGoForward={canGoForward(history)}
-      canRefresh={currentEntry(history) !== null}
+      canGoBack={mode === "live" ? live.canGoBack : canGoBack(history)}
+      canGoForward={mode === "live" ? live.canGoForward : canGoForward(history)}
+      canRefresh={mode === "live" ? live.status === "open" : currentEntry(history) !== null}
       {probe}
-      screenshot={displayView === null ? null : screenshotSource(displayView.screenshotBase64)}
+      screenshot={mode === "live" || displayView === null
+        ? null
+        : screenshotSource(displayView.screenshotBase64)}
       {downloadFilename}
       hasCapture={displayView !== null}
       onsubmit={runCapture}
@@ -351,13 +431,20 @@
       onforward={goForward}
       onrefresh={refresh}
       problem={failure === null ? undefined : captureFailure}
+      screen={mode === "live" ? liveScreen : undefined}
     >
       {#snippet inspector()}
         <SnapshotTabs
           view={displayView}
-          {capturing}
-          capturedAt={currentCapture?.capturedAt ?? null}
-          elapsedMs={currentCapture?.elapsedMs ?? null}
+          capturing={mode === "live"
+            ? live.status === "connecting" || live.loading
+            : capturing}
+          capturedAt={mode === "live"
+            ? (live.details?.receivedAt ?? null)
+            : (currentCapture?.capturedAt ?? null)}
+          elapsedMs={mode === "live"
+            ? (live.details?.elapsedMilliseconds ?? null)
+            : (currentCapture?.elapsedMs ?? null)}
           {registration}
           onopenaddress={openAddress}
           onactivateregistration={activateRegistration}

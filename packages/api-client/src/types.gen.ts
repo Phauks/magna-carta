@@ -407,24 +407,6 @@ export type SafeBrowseLocationProbe = {
     quickActionHonoursLocation: boolean;
 };
 
-export type SafeBrowseLiveView = {
-    requestedUrl: string;
-    finalUrl: string;
-    redirectChain: Array<{
-        url: string;
-        status: number;
-        location?: string;
-    }>;
-    responseHeaders: {
-        [key: string]: string;
-    };
-    screenshotBase64: string;
-    title?: string;
-    markdown?: string;
-    links: Array<string>;
-    sessionContinued: boolean;
-};
-
 export type DecryptionInspectResponse = {
     format: 'pdf' | 'zip' | 'ooxml';
     hash: string;
@@ -9260,52 +9242,36 @@ export type SafeBrowseLocationProbeResponses = {
 
 export type SafeBrowseLocationProbeResponse = SafeBrowseLocationProbeResponses[keyof SafeBrowseLocationProbeResponses];
 
-export type SafeBrowseLiveNavigateData = {
-    body: {
-        url: string;
-    };
+export type SafeBrowseLiveStreamData = {
+    body?: never;
     path?: never;
-    query?: never;
-    url: '/api/v1/safe-browse/live/navigate';
+    query?: {
+        width?: number;
+        height?: number;
+    };
+    url: '/api/v1/safe-browse/live/stream';
 };
 
-export type SafeBrowseLiveNavigateErrors = {
-    /**
-     * The target URL resolves to a non-public address (SSRF guard rejected it)
-     */
-    400: Problem;
+export type SafeBrowseLiveStreamErrors = {
     /**
      * No valid session
      */
     401: Problem;
     /**
-     * Authenticated, but the member lacks tools:safeBrowse
+     * Authenticated, but the member lacks tools:safeBrowse, or the upgrade came from another site
      */
     403: Problem;
     /**
-     * The page did not finish rendering (type page-render-failed)
+     * The request did not ask to upgrade to a WebSocket
      */
-    422: Problem;
+    426: Problem;
     /**
      * Rate limit exceeded
      */
     429: Problem;
-    /**
-     * The remote browser is unavailable or at capacity
-     */
-    502: Problem;
 };
 
-export type SafeBrowseLiveNavigateError = SafeBrowseLiveNavigateErrors[keyof SafeBrowseLiveNavigateErrors];
-
-export type SafeBrowseLiveNavigateResponses = {
-    /**
-     * Where the browser landed
-     */
-    200: SafeBrowseLiveView;
-};
-
-export type SafeBrowseLiveNavigateResponse = SafeBrowseLiveNavigateResponses[keyof SafeBrowseLiveNavigateResponses];
+export type SafeBrowseLiveStreamError = SafeBrowseLiveStreamErrors[keyof SafeBrowseLiveStreamErrors];
 
 export type SafeBrowseLiveCloseData = {
     body?: never;

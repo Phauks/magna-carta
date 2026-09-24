@@ -18,6 +18,21 @@ export function meetingSocketUrl(meetingId: string, documentUrl: string = locati
   return socketUrl(`/api/v1/meetings/${encodeURIComponent(meetingId)}/socket`, documentUrl);
 }
 
+/**
+ * The member's live browsing stream, carrying the size of the space the remote screen will fill so
+ * its first frames arrive the right shape.
+ */
+export function safeBrowseLiveSocketUrl(
+  viewport: { width: number; height: number },
+  documentUrl: string = location.href,
+): string {
+  const parameters = new URLSearchParams({
+    width: String(Math.round(viewport.width)),
+    height: String(Math.round(viewport.height)),
+  });
+  return socketUrl(`/api/v1/safe-browse/live/stream?${parameters}`, documentUrl);
+}
+
 /** A relative contract path, resolved against the document and switched to the socket scheme. */
 function socketUrl(path: string, documentUrl: string): string {
   const url = new URL(path, documentUrl);
