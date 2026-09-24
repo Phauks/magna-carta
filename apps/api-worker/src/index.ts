@@ -54,6 +54,11 @@ export { MagnusConversation } from "./magnus/magnus-conversation.ts";
 // load actually got to. Exported so the runtime can instantiate the class named in wrangler.jsonc.
 export { DiscoveryLoadCoordinator } from "./discovery/discovery-load-coordinator.ts";
 
+// One meeting's signaling room, keyed firmId:meetingId. It brokers each participant's session with
+// the media routing service and keeps the roster; no media and nothing anybody said passes through
+// it. Exported so the runtime can instantiate the class named in wrangler.jsonc's binding.
+export { MeetingRoom } from "./meetings/meeting-room.ts";
+
 // The per-document editing session coordinator. Re-exported so wrangler can register the Durable
 // Object class named in wrangler.jsonc (durable_objects + the SQLite migration).
 export { DocumentSession } from "./editing/document-session.ts";

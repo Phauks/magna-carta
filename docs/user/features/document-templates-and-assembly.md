@@ -1,6 +1,6 @@
 # Document templates and assembly
 
-_The template catalogue, the assembly engine, and template conditions, repeats, and calculations are built. The template library, the field inspector, and the assemble dialog are authored when those screens ship; today templates are registered and documents assembled through the API._
+_The template library is the **Documents** screen in the sidebar: register a template there and add it to as many matters as you like. Template conditions, repeats, and calculations are built. The field inspector, adding a new version to an existing template, and writing templates in the browser are not on a screen yet._
 
 ## What it does
 
@@ -77,8 +77,9 @@ rather than printing the company name where a person's surname belonged.
 
 ## Registering a template
 
-Upload the Word document and give it a name. Before it is stored, we prepare it and tell you what we
-found:
+Open **Documents** in the sidebar and press **New Template**. Drop in the Word document or the
+fillable PDF — which of the two it is, is read from the file — give it a name, and register it. Before
+it is stored, we prepare it and tell you what we found:
 
 - **The blanks are checked.** A field name that does not match anything is refused with the spelling
   you typed and where in the document it appears, so you can fix it in Word and try again. A blank you
@@ -98,6 +99,24 @@ found:
 
 You can narrow a template to a matter type or an office, which limits which matters offer it. Every
 template is otherwise visible to everyone in the firm who can assemble documents.
+
+### The library
+
+The Documents screen lists every template the firm has registered on one table: its name, its
+**standing**, the practice area and office it is narrowed to, and when it was last updated. Sort and
+filter from any column's heading, as on every other list. Archived templates are off the table until
+you ask for them with **Show Archived** at the foot of the list.
+
+Standing is the column to read before you build:
+
+- **Ready** — the current version cleared its checks; the template can be added to a matter now.
+- **Being checked** — the file you uploaded has not cleared the scan yet, or was refused. Nothing can
+  be built from it until a version is clean.
+- **Archived** — withdrawn from the catalogue. It stays readable so any document it produced can still
+  be explained.
+
+Open a template to see what it binds — every merge field its current version uses, and anything it
+will print as a blank — and to add it to matters or archive it.
 
 Registering a template needs the **manage templates** permission, which owners and administrators
 have.
@@ -236,8 +255,21 @@ Templates are archived, never deleted, for the same reason.
 
 ## Assembling a document
 
-Pick a template on a matter and produce the document. It runs in the background — you get a handle to
-watch, and a moment later the finished document is in the matter's documents.
+There are two doors, and they build the same document.
+
+**From the matter.** On the matter's Files page, **New Document** offers _From a template_: pick a
+template and a format, and the document is built onto that matter.
+
+**From the library, onto several matters at once.** Open a template on the Documents screen and choose
+**Add to Matters**. Type to find each matter — by its number or its name — and add as many as you need;
+choose Word or PDF; then build. Each matter gets its own row while the documents are built, and each
+row says what happened to it: **on the matter**, **on the matter with blanks to look at** (and which
+blanks), or why it
+did not get a document. One matter being refused — because you cannot build on it, say — never stops
+the others. When a row has landed, it offers the document itself and the matter's Files page.
+
+Either way the build runs in the background, and a moment later the finished document is in the
+matter's documents.
 
 The document is always a **new** document, never a rewrite of one already there. If you need a second
 draft, assemble again.
@@ -742,6 +774,11 @@ is a report, not a template.
   signature needs, but inviting someone to sign it — the request, the consent record, and the
   certificate that goes with it — is not built yet.
 - **Writing templates in the browser** — today they are written in Word and uploaded.
+- **Uploading a new version of a template from the library.** The catalogue keeps every version and
+  moves to the newest, but the Documents screen does not yet offer the upload; today a new version is
+  added through the API.
+- **The field list on the Documents screen for a template that is still being checked** — a template
+  shows what it binds once a version has cleared its checks.
 - **Locking a filled form.** A document built from a fillable-PDF template keeps its boxes so it can
   still be corrected; making one permanent instead is a choice the firm has not made yet.
 - **A library of court forms.** Fillable-PDF templates are the forms YOUR firm supplies. We do not

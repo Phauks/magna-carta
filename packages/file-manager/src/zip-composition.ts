@@ -39,7 +39,7 @@ function folderPath(folderId: FolderId, byId: ReadonlyMap<FolderId, FolderNode>)
     segments.push(node.name);
     cursor = node.parentFolderId;
   }
-  return segments.reverse();
+  return segments.toReversed();
 }
 
 // The archive path for a file: its folder's tree path plus the file name. Files at the matter root
@@ -100,7 +100,7 @@ export function resolveZipSelection(
   const taken = new Set<string>();
   const entries = chosen
     .map((file) => ({ file, path: fileEntryPath(file.folderId, file.name, byId) }))
-    .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
+    .toSorted((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
     .map(({ file, path }) => ({
       path: disambiguate(path, taken),
       fileId: file.fileId,
@@ -122,7 +122,7 @@ export async function bundleManifestHash(
 ): Promise<string> {
   const canonical = [...entries]
     .map((entry) => `${entry.r2Key}\t${entry.path}`)
-    .sort()
+    .toSorted()
     .join("\n");
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");

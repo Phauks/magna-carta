@@ -2,10 +2,12 @@
  * The rail's render tree: which groups it draws, what each holds, how a fold works at both levels,
  * and where rows come from that the destination registry does not declare.
  *
- *   - FIVE GROUPS, each answering one question (owner's direction, 2026-09-16): Favorites (the
- *     member's own shortcuts), My Desk (what is on MY plate), Workspace (the firm's work), Money,
- *     Firm, Tools. Home and Notifications used to sit in a fourteen-row Workspace group, which put
- *     "your morning" in the same list as "the firm's evidence".
+ *   - SIX GROUPS, each answering one question (owner's direction, 2026-09-16 and 2026-09-18):
+ *     Favorites (the member's own shortcuts), My Desk (what is on MY plate), Workspace (the firm's
+ *     work), Communications (how the firm reaches people — calls, texts and meetings), Money, Firm,
+ *     Tools. Home and Notifications used to sit in a fourteen-row Workspace group, which put "your
+ *     morning" in the same list as "the firm's evidence"; Messaging sat there too until meetings
+ *     arrived beside it and the two made a group of their own.
  *   - Tools is the one group the registry does not hold the rows for: it is the tool catalog,
  *     projected (navigation/tool-sidebar.ts), so a tool added to the catalog reaches the rail with
  *     no edit to the registry — and cannot reach it twice. Favorites is the member's own.
@@ -40,15 +42,28 @@ const toolRowCount = () =>
   sidebarGroups().find((group) => group.id === "tools")?.destinations.length;
 
 describe("the groups the rail draws", () => {
-  it("declares the five platform groups in their canonical order, favorites first", () => {
+  it("declares the six platform groups in their canonical order, favorites first", () => {
     expect(DESTINATION_GROUPS.map((group) => group.id)).toEqual([
       "favorites",
       "desk",
       "work",
+      "communications",
       "money",
       "firm",
       "tools",
     ]);
+  });
+
+  it("seats every channel the firm talks through in Communications, with the meetings gated", () => {
+    // Messaging keeps its stored id ("communications") because a member's stars are filed under
+    // it; the group is the new fact. Meetings carries the join key, so a seat that cannot join a
+    // meeting sees no row for one.
+    for (const id of ["communications", "meetings"]) {
+      expect(groupOf(id), id).toBe("communications");
+    }
+    const meetings = DESTINATIONS.find((destination) => destination.id === "meetings");
+    expect(meetings?.href).toBe("/meetings");
+    expect(meetings?.permission).toBe("meetings:join");
   });
 
   it("puts the member's own surfaces on the desk and the firm's work in the workspace", () => {

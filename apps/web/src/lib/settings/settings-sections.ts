@@ -286,11 +286,14 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   },
   // Practice
   {
-    // Real routes exist (numbering-scheme read/update + preview, audited); the real page is a
-    // segment-template editor with live preview — this section reserves its home.
-    id: "matter-numbering",
-    label: "Matter Numbering",
-    href: "/settings/matter-numbering",
+    // Every number the firm issues, from the one numbering register: matter, consultation, intake,
+    // conflicts check and custody numbers are each a segment-template editor with live preview
+    // (numbering-scheme read/update + preview, audited); invoice, time entry and call numbers are
+    // stated with their fixed shape. It was "Matter Numbering" while matters were the only
+    // sequence with a screen; /settings/matter-numbering still resolves here.
+    id: "numbering",
+    label: "Numbering",
+    href: "/settings/numbering",
     group: "practice",
     scope: "firm",
     commitMode: "draft",
@@ -440,6 +443,21 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     id: "file-safety",
     label: "File Safety & Scanning",
     href: "/settings/file-safety",
+    group: "documents",
+    scope: "firm",
+    commitMode: "draft",
+    editPermissionArea: "documents",
+    shipped: true,
+  },
+  {
+    // The firm's editing policy: whether every document opened in the browser editor records its
+    // changes. Server-backed over GET/PATCH /api/v1/firm/editing-policy — the same policy the WOPI
+    // host reads on every open, so a save here reaches the next document opened. Draft mode, not
+    // instant: switching recording off is the firm deciding its documents stop carrying a record
+    // of who changed what, which is not a change anybody should make by brushing a switch.
+    id: "editing",
+    label: "Editing",
+    href: "/settings/editing",
     group: "documents",
     scope: "firm",
     commitMode: "draft",

@@ -264,11 +264,11 @@
 - id: integrations.tools.safe-browse
   name: Safe website viewer
   scope: Renders a suspect URL in an isolated remote browser and returns a static snapshot (screenshot, redirect chain, text, links).
-  status: partial
+  status: shipped
   surface: screen
   adrs: ADR-0119, ADR-0120
-  evidence: packages/safe-browse/src/capture.ts + apps/api-worker/src/routes/safe-browse.ts, with its own page in the app's tools section over apps/web/src/lib/tools/safe-browse/ (stage alpha).
-  notes: The renderer is Cloudflare Browser Rendering (env.BROWSER, quickAction) — an account entitlement plus a deploy, not a worker, so it is the one dependency in this area with nothing in the repository to point at. Unexercisable locally (Miniflare's binding has no quickAction). Queued in docs/deploy-queue.md; until it is enabled the page answers every capture with the honest renderer-unavailable state, which is why status stays partial with a screen shipped.
+  evidence: packages/safe-browse/src/capture.ts + apps/api-worker/src/routes/safe-browse.ts, with its own page in the app's tools section over apps/web/src/lib/tools/safe-browse/ (stage alpha). Verified against the deployed service 2026-09-18 — a capture returns a screenshot.
+  notes: Renderer is Cloudflare Browser Rendering (env.BROWSER, quickAction), an account entitlement rather than anything in the repository, and still unexercisable locally (Miniflare's binding has no quickAction). The entitlement was confirmed live on 2026-09-18 by the first capture that succeeded; before that every capture failed on a wait for networkidle2 that a page holding a socket never reaches, reported as a capacity outage. Interactive live browsing is designed and not built — the shell's Live toggle renders as a Soon affordance and the seam is in ADR-0119.
 
 - id: integrations.tools.metadata
   name: Metadata inspector & scrubber

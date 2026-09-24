@@ -8,7 +8,7 @@ export interface ManifestEntry {
 }
 
 export function buildContentsManifest(entries: readonly ManifestEntry[]): string {
-  const sorted = [...entries].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  const sorted = [...entries].toSorted((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   const rows = sorted.map((entry) => `${entry.path}\t${entry.sizeBytes}\t${entry.sha256}`);
   const totalBytes = sorted.reduce((sum, entry) => sum + entry.sizeBytes, 0);
   const footer = `# ${sorted.length} files, ${totalBytes} bytes`;

@@ -52,6 +52,13 @@ The sidebar is **not a hardcoded list**. It is a **registry of destinations** th
 _(Addition 2026-07-02: **Tools** joins the Firm group — the tools-area left-nav destination
 ADR-0101 assigns; the utilities are firm-wide, not matter-scoped, so Firm is its home.)_
 
+_(Addition 2026-09-18: a **Communications** group stands between Workspace and Money, holding
+Messaging and Meetings and whatever else carries a conversation with somebody outside the firm. The
+rail's live grouping is the registry in `apps/web/src/lib/navigation/destinations.ts`, as regrouped
+under the owner's rulings of 2026-09-16 and 2026-09-18 in
+[`design-corrections.md`](../conventions/design-corrections.md); the list above is the original
+sketch and is kept for the record.)_
+
 **Templates, not Documents, in the global nav.** Actual matter files live in a matter's **Documents tab** (the File Manager). The global slot is **Templates** — the firm-wide reusable-document library + document automation (engagement letters, pleadings, letterhead, forms), a cousin of the future Forms module. A global cross-matter document/library view is deferred (handled by ⌘K search until a real need appears — cheap to add to the registry later).
 
 **Intake & the triage handoff.** Intake is a reserved destination (Client intake / CRM, P6). Receptionists capture intake (the receptionist's default landing); on submit it **pushes/notifies** a supervising attorney into a triage queue; the attorney **decides** — accept (→ a _prospective_ matter per ADR-0080, or open a numbered matter), decline, or refer. Composes the Form (capture) and List/queue (triage) archetypes plus a status workflow; conflict-check ties to Phase 4; the push routes through Notifications.

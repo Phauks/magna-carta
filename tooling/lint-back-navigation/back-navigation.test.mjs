@@ -434,6 +434,8 @@ describe("declining", () => {
     expect([...STANDING_EXEMPTIONS.keys()]).toEqual([
       "/directory/[id]",
       "/shipping/[id]",
+      "/documents/[id]/edit",
+      "/documents/[id]/view",
       "/discovery/review-sets/[reviewSetId]/documents/[reviewDocumentId]",
     ]);
     for (const reason of STANDING_EXEMPTIONS.values()) {

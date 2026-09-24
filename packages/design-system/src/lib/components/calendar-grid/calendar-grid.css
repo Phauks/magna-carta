@@ -63,12 +63,17 @@
   }
   /*
    * A day. The block size is a MINIMUM — a table cell treats its block-size that way — so a month
-   * cell holds its shape empty and grows only when its entries need more. The one 96px step is the
-   * largest spacing token; a week cell wants more than that and takes it from the host instead
-   * (`h-full` on the table lets its single row fill whatever height the host gives).
+   * cell holds its shape empty and grows only when its entries need more, and a table told to fill
+   * its host (`h-full`) shares the surplus between its weeks instead.
+   *
+   * THE MINIMUM IS THE SMALLEST USEFUL DAY, not the roomiest one: the day's number, one entry under
+   * it, and the padding around both. It was the 96px step, which made six weeks taller than a
+   * laptop's work canvas before a single entry was painted, so the month scrolled on an empty
+   * September (owner, 2026-09-17). A screen with room to spare draws the roomier cell anyway,
+   * because the table fills what it is given.
    */
   .mc-calendar-grid-cell {
-    block-size: var(--mc-space-96);
+    block-size: var(--mc-space-64);
     padding-block: var(--mc-space-4);
     padding-inline: var(--mc-space-4);
     border-block-end: var(--mc-border-width-default) solid var(--mc-border-default);

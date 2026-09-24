@@ -1,0 +1,17 @@
+-- THE FIRM'S EDITING POLICY GETS AN OWNER.
+--
+-- `firm:manageEditingPolicy` gates one setting today: whether every document opened in the browser
+-- editor records its changes (`editing.record_changes`). It is on by default, because the only
+-- per-person record of who wrote which words lives inside the document as tracked changes, and a
+-- firm that wants that history has to be recording before the first edit.
+--
+-- Owner/Admin ALONE, and none of the seats that do the work. `documents:edit` reaches Attorney and
+-- Paralegal because editing is ordinary work; deciding that the firm's documents stop carrying a
+-- record of who changed what is a decision about the firm's own evidence, which is the bracket
+-- firm:manageScanPolicy sits in — what the firm's documents carry inside them.
+--
+-- The house seed shape, plain and unqualified: a migration applies once per lineage, tracked by the
+-- journal, so there is nothing for an OR IGNORE to guard against — and the fitness scan in
+-- tooling/lint-ungranted-permissions reads exactly this form to prove the permission is reachable by
+-- somebody. A seed written any other way passes SQLite and fails that scan.
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_editingPolicyOwnerAdmin0', 'role_Gw-zKO8hOHQuNv2bWokMp', 'firm:manageEditingPolicy');

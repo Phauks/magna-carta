@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "6cdc462f-f217-4139-8318-1eedd5c11cdd",
+  "id": "c1b7f892-50ba-467a-a4ff-d6529f971820",
   "prevId": "b18b3f3a-6a7e-4af8-880e-df985f448d03",
   "tables": {
     "account_balance": {
@@ -9204,6 +9204,13 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "save_kind": {
+          "name": "save_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -9319,6 +9326,52 @@
           "value": "\"file_version\".\"size_bytes\" IS NULL OR \"file_version\".\"size_bytes\" >= 0"
         }
       }
+    },
+    "file_version_participant": {
+      "name": "file_version_participant",
+      "columns": {
+        "version_id": {
+          "name": "version_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "member_user_id": {
+          "name": "member_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "file_version_participant_version_id_file_version_id_fk": {
+          "name": "file_version_participant_version_id_file_version_id_fk",
+          "tableFrom": "file_version_participant",
+          "tableTo": "file_version",
+          "columnsFrom": [
+            "version_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "file_version_participant_version_id_member_user_id_pk": {
+          "columns": [
+            "version_id",
+            "member_user_id"
+          ],
+          "name": "file_version_participant_version_id_member_user_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
     },
     "firm_account_role": {
       "name": "firm_account_role",
@@ -10983,59 +11036,6 @@
           "columns": [
             "category",
             "principal_ref"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "integration_credential": {
-      "name": "integration_credential",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "credential_ref": {
-          "name": "credential_ref",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "ciphertext": {
-          "name": "ciphertext",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "integration_credential_credential_ref_unique": {
-          "name": "integration_credential_credential_ref_unique",
-          "columns": [
-            "credential_ref"
           ],
           "isUnique": true
         }

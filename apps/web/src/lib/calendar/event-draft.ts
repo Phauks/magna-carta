@@ -27,6 +27,7 @@ import { isCivilDate } from "./calendar-window.ts";
 import { shortfall, type Shortfall } from "./shortfall.ts";
 import { isWallClockTime, optionalText } from "./draft-text.ts";
 import { isResolvableTimeZone } from "./time-zone-options.ts";
+import { PARTICIPANT_KIND_WORDS } from "./calendar-vocabulary.ts";
 
 /** One person on the draft, with the name the form shows beside the handle it will send. */
 export interface ParticipantDraft {
@@ -105,6 +106,104 @@ export const EVENT_FIELDS = {
   title: "title",
   conferenceUrl: "conferenceUrl",
 } as const;
+
+/**
+ * Whether a draft's timing reads as ALL DAY: a day with no hour on either end. What the record
+ * stores for all day is an empty time — a filing has no hour — so the form's All Day control is a
+ * reading of the times rather than a column of its own, and choosing it clears them.
+ */
+export function readsAsAllDay(draft: EventTimingDraft): boolean {
+  return draft.startsOn !== null && draft.startsAtTime === "" && draft.endsAtTime === "";
+}
+
+/** The timing with its hours cleared, which is what choosing All Day means. */
+export function asAllDay(draft: EventTimingDraft): EventTimingDraft {
+  return { ...draft, startsAtTime: "", endsAtTime: "" };
+}
+
+/**
+ * WHO AN EVENT BELONGS TO, which is the record it writes. A matter writes a matter event; the firm
+ * and a staff member both write a firm event, because a person's own appointment is a firm event
+ * with only that person on it — the `participants` audience already means exactly that — and a
+ * third table for one would put two records on the calendar that nothing could tell apart. The
+ * staff arm exists so that a reader can put something on ONE colleague's calendar without first
+ * working out that "the firm, audience the people listed, participant: them" is how that is said
+ * (owner, 2026-09-18).
+ */
+export type EventOwner = "matter" | "firm" | "staff";
+
+export const EVENT_OWNER_OPTIONS: readonly { value: EventOwner; label: string }[] = [
+  { value: "matter", label: "A matter" },
+  { value: "firm", label: "The firm" },
+  { value: "staff", label: "A staff member" },
+];
+
+export function isEventOwner(value: string): value is EventOwner {
+  return EVENT_OWNER_OPTIONS.some((option) => option.value === value);
+}
+
+/**
+ * The list with a member on it, once and first: a staff member's own event lists them whether or
+ * not the reader also picked them among the participants, and never lists them twice.
+ */
+export function withMemberListed(
+  participants: readonly ParticipantDraft[],
+  userId: string,
+  displayName: string,
+): ParticipantDraft[] {
+  const member = memberParticipant(userId, displayName);
+  return [member, ...participants.filter((participant) => participant.key !== member.key)];
+}
+
+/**
+ * WHERE A PARTICIPANT CAME FROM, in the vocabulary's words: a colleague from the roster is Staff, a
+ * client or opposing counsel from the Directory is Directory, and a judge or a witness named once
+ * is Other. The chips are bundled under these so a reader can tell which is which (owner,
+ * 2026-09-18); the order is the picker's own, and the words are `PARTICIPANT_KIND_WORDS` so the
+ * picker, the bundles and the record pane cannot call one kind two things.
+ */
+export const PARTICIPANT_SOURCES: readonly { kind: ParticipantKind; label: string }[] = (
+  ["member", "entity", "external"] as const
+).map((kind) => ({ kind, label: PARTICIPANT_KIND_WORDS[kind] }));
+
+export interface ParticipantBundle {
+  readonly kind: ParticipantKind;
+  readonly label: string;
+  readonly participants: readonly ParticipantDraft[];
+}
+
+/** The participants bundled by source, in source order; a source with nobody on it is left out. */
+export function participantsBySource(
+  participants: readonly ParticipantDraft[],
+): ParticipantBundle[] {
+  return PARTICIPANT_SOURCES.map((source) => ({
+    kind: source.kind,
+    label: source.label,
+    participants: participants.filter((participant) => participant.participantKind === source.kind),
+  })).filter((bundle) => bundle.participants.length > 0);
+}
+
+/**
+ * THE FORM'S TABS, and which one each answer is on. The event form asks about a matter, a title,
+ * a type, two dates, two times, a zone, a repeat, a location, a court reference, a link, a
+ * description and a list of people — one column of that scrolled beside a calendar, and the owner
+ * asked for the left side in tabs so each group of answers has a place of its own (2026-09-18).
+ */
+export type EventFormTab = "details" | "when" | "where" | "who";
+
+export const EVENT_FORM_TABS: readonly { value: EventFormTab; label: string }[] = [
+  { value: "details", label: "Details" },
+  { value: "when", label: "When" },
+  { value: "where", label: "Where" },
+  { value: "who", label: "Who" },
+];
+
+/** The tab a shortfall's field is on, so a refused save can open the tab that still needs an answer. */
+export function eventFormTabOf(field: string): EventFormTab {
+  if (field === EVENT_FIELDS.conferenceUrl) return "where";
+  if (Object.values(TIMING_FIELDS).some((timingField) => timingField === field)) return "when";
+  return "details";
+}
 
 /** The shortfalls in the timing every event shares, in the order a person meets them. */
 export function timingShortfalls(draft: EventTimingDraft): Shortfall[] {

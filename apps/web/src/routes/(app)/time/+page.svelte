@@ -41,7 +41,6 @@
   import CreateControl from "@magna-carta/design-system/create-control";
   import { DateRangePicker } from "@magna-carta/design-system/date-range-picker";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import { page } from "$app/state";
@@ -61,9 +60,9 @@
     chargeAmount,
     durationParts,
     firmTimeColumns,
-    personInitials,
     timekeeperOf,
   } from "$lib/time/time-columns.ts";
+  import { personInitials } from "@magna-carta/design-system/formatters";
   import { ledgerCurrency, periodTotals } from "$lib/time/time-figures.ts";
   import { matterDisplay } from "$lib/time/time-sheet-model.ts";
   import { listTimeEntriesInPeriod, type TimePeriodQuery } from "$lib/time/time-operations.ts";
@@ -386,7 +385,6 @@
       <ScreenSearch
         bind:value={searchText}
         label="Search the firm's time"
-        placeholder={placeholderOf("Search the firm's time")}
         searchOn="pause"
         fieldClass="w-2xs sm:w-xs"
         onsearch={(next) => {

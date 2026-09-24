@@ -122,6 +122,8 @@ import type {
   MatterTaskExternalLinkId,
   MatterTaskId,
   MatterTypeId,
+  MeetingAttendanceId,
+  MeetingId,
   MemberLocationId,
   MemberRoleId,
   NarrativeTemplateId,
@@ -612,23 +614,27 @@ export const documentType = sqliteTable(
   ],
 );
 
-// The matter-number template: an ordered array of segments stored as validated JSON. One active
-// scheme per firm is enforced in the write path; superseded schemes are retained so a historical
-// number still explains how it was rendered.
+// A numbering template: an ordered array of segments stored as validated JSON. One active scheme
+// per firm PER PURPOSE is enforced in the write path; superseded schemes are retained so a
+// historical number still explains how it was rendered.
 export const numberingScheme = sqliteTable(
   "numbering_scheme",
   {
     id: text("id").primaryKey().$type<NumberingSchemeId>(), // numberingScheme_ handle
     segments: text("segments").notNull(), // JSON; shape validated by numberingSchemeSchema
-    // Which sequence this template renders. A firm numbers three different things and must be able
-    // to shape them independently: the permanent matter number, the tentative number a consultation
-    // carries before anyone knows whether it will become a matter, and the number an intake wears
-    // from the moment the enquiry is written down. One active scheme per purpose; a firm that has
-    // configured no consultation or intake scheme falls back to the built-in default, so neither is
-    // ever unnumbered while somebody gets round to the settings screen. Only the matter purpose
+    // Which sequence this template renders — one value per purpose on the firm-wide numbering
+    // register (@magna-carta/sequence-numbering/purposes) that takes a scheme: the permanent matter
+    // number, the tentative number a consultation carries, the number an intake wears from the
+    // moment the enquiry is written down, the number a conflicts check is opened under, and the
+    // number a custody packet is labelled with. One active scheme per purpose; a firm that has
+    // configured nothing for a purpose falls back to the register's built-in default, so nothing
+    // is ever unnumbered while somebody gets round to the settings screen. Only the matter purpose
     // refuses to default, because a matter number is the firm's own file spine and there is no
-    // defensible shape to invent for one.
-    purpose: text("purpose", { enum: ["matter", "consultation", "intake"] })
+    // defensible shape to invent for one. Widening this enum is the whole of admitting a new
+    // purpose here: there is no CHECK on the column (below), so no migration rewrites the table.
+    purpose: text("purpose", {
+      enum: ["matter", "consultation", "intake", "conflicts_check", "custody_packet"],
+    })
       .notNull()
       .default("matter"),
     active: integer("active").notNull().default(1),
@@ -1081,6 +1087,11 @@ export const fileVersion = sqliteTable(
     // where a document's date came from has an answer. Null for a version that arrived some other
     // way (a live-edit save, an assembled document, a version older than the column).
     sourceModifiedAt: text("source_modified_at"),
+    // What kind of save cut this version, for a version the browser editor cut from the working
+    // copy: the member's own Save (`explicit`), the editor's periodic autosave (`autosave`), the save
+    // made as the last view leaves (`exit`), or the idle reap's cut (`reap`). Null for a version that
+    // arrived by upload, check-in or restore. History folds the autosaves and names the rest.
+    saveKind: text("save_kind", { enum: ["explicit", "autosave", "exit", "reap"] }),
   },
   (table) => [
     uniqueIndex("file_version_r2_key_unique_index").on(table.r2Key),
@@ -1129,6 +1140,23 @@ export const fileVersion = sqliteTable(
 // file, held by one member against a base version. The row tracks the lifecycle (active -> stale ->
 // released, or reconciling while a divergent check-in is resolved). divergence is detected by
 // comparing the file's current_version_id against base_version_id at check-in time.
+
+// Who was in the editing session when a version was cut from the working copy — every member with
+// a view open, editor or reader, by identifier. The version's `uploaded_by` names the one member whose
+// save cut it; this names everyone who could have written the words in it. Not a foreign key to the
+// member row, on the same terms as `uploaded_by`: the fact outlives the member.
+export const fileVersionParticipant = sqliteTable(
+  "file_version_participant",
+  {
+    versionId: text("version_id")
+      .notNull()
+      .$type<FileVersionId>()
+      .references(() => fileVersion.id),
+    memberUserId: text("member_user_id").notNull().$type<UserId>(),
+  },
+  (table) => [primaryKey({ columns: [table.versionId, table.memberUserId] })],
+);
+
 export const documentCheckout = sqliteTable(
   "document_checkout",
   {
@@ -2766,8 +2794,11 @@ export const conflictsNumberedCheck = sqliteTable(
   "conflicts_numbered_check",
   {
     id: text("id").primaryKey().$type<ConflictsCheckId>(),
-    // The firm's own sequence, drawn once and never re-drawn: 1, 2, 3. The rendered form is stored
-    // beside it so the log lists and searches the number a person actually says.
+    // The counter value the draw consumed, under the scheme's scope, and the rendered number a
+    // person actually says — stored beside it so the log lists and searches that. Drawn through
+    // the firm's conflicts check numbering scheme (the conflicts_check_number_counter below), so the
+    // sequence restarts wherever the scheme's scoping parts say it does and is unique only together
+    // with the scope; the rendered number is what is unique on its own.
     checkSequence: integer("check_sequence").notNull(),
     checkNumber: text("check_number").notNull(),
     // Where the check is FILED. Null for the pre-engagement screen — a check run on a name given
@@ -2785,7 +2816,6 @@ export const conflictsNumberedCheck = sqliteTable(
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
-    uniqueIndex("conflicts_numbered_check_sequence_unique_index").on(table.checkSequence),
     uniqueIndex("conflicts_numbered_check_number_unique_index").on(table.checkNumber),
     // A matter's own checks, newest first, and the firm-wide log in the same order.
     index("conflicts_numbered_check_matter_created_index").on(
@@ -2796,6 +2826,37 @@ export const conflictsNumberedCheck = sqliteTable(
     index("conflicts_numbered_check_created_id_index").on(table.createdAt, table.id),
     check("conflicts_numbered_check_sequence_check", sql`${table.checkSequence} > 0`),
     check("conflicts_numbered_check_number_check", sql`length(${table.checkNumber}) > 0`),
+  ],
+);
+
+// The conflicts check number counter, one row per {firm, scope_key} — the same ensure-row +
+// guarded-increment shape matter_number_counter carries, for the same reason: concurrent draws must
+// yield distinct, sequential numbers with no interactive transaction available. The check number
+// used to be MAX(check_sequence) + 1 under a unique index; that gave the firm a shape it could not
+// change, and a firm-wide four-digit run that every intake, party and automatic re-check drew from.
+export const conflictsCheckNumberCounter = sqliteTable("conflicts_check_number_counter", {
+  scopeKey: text("scope_key").primaryKey(),
+  nextValue: integer("next_value").notNull(),
+});
+
+// One row per counter value a draw consumed. This composite primary key — not the unique index on the
+// rendered check_number string — is the load-bearing backstop on the draw race, for the reason
+// matter_number_allocation gives: a scheme may render different strings from the same counter value,
+// so only a claim on the VALUE catches two draws that observed the same counter.
+export const conflictsCheckNumberAllocation = sqliteTable(
+  "conflicts_check_number_allocation",
+  {
+    scopeKey: text("scope_key").notNull(),
+    drawnValue: integer("drawn_value").notNull(),
+    checkId: text("check_id")
+      .notNull()
+      .$type<ConflictsCheckId>()
+      .references(() => conflictsNumberedCheck.id),
+    allocatedAt: text("allocated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.scopeKey, table.drawnValue] }),
+    index("conflicts_check_number_allocation_check_index").on(table.checkId),
   ],
 );
 
@@ -7735,6 +7796,153 @@ export const calendarEventLink = sqliteTable(
     check(
       "calendar_event_link_continuance_matter_check",
       sql`${table.kind} <> 'continuance_of' OR (${table.fromMatterEventId} IS NOT NULL AND ${table.toMatterEventId} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// The room a calendar event is held in, when it is held here. A meeting BELONGS TO an event and
+// carries nothing of its own: no title, no time, no participant list, because each of those is
+// already the event's and a second copy would be a second answer to the same question. Read the
+// title and the window through the join; what this row adds is the three facts the event cannot
+// supply — that somebody started it, when the first person actually arrived, and when it ended.
+//
+// Authorization is likewise the event's: a matter event is reachable when the member may see the
+// matter, a firm event is firm-visible, and nothing here re-states either rule. That is the whole
+// reason the table splits its parent across two nullable columns rather than inventing a shared
+// event identity — matter_event and firm_event are separate tables with separate visibility, and a
+// column that pointed at "an event" would have to lose one of the two.
+//
+// Nothing anybody said is stored, here or anywhere: media is routed between browsers and never
+// reaches this platform's storage.
+export const meeting = sqliteTable(
+  "meeting",
+  {
+    id: text("id").primaryKey().$type<MeetingId>(), // meeting_ handle
+    // Which of the two parent tables the row hangs from, stored rather than inferred from which
+    // column is filled: a read that has to test two columns to know what it is looking at is a read
+    // every caller writes slightly differently.
+    eventKind: text("event_kind", { enum: ["matter", "firm"] }).notNull(),
+    matterEventId: text("matter_event_id")
+      .$type<MatterEventId>()
+      .references(() => matterEvent.id),
+    firmEventId: text("firm_event_id")
+      .$type<FirmEventId>()
+      .references(() => firmEvent.id),
+    // `scheduled` is a room nobody has walked into yet — the row exists because somebody pressed
+    // Start, which is not the same as somebody being in it. `live` is set by the FIRST join rather
+    // than by the creation, so a host who starts a meeting and is then called away leaves a record
+    // saying exactly that. `ended` is terminal: a meeting that has ended is not restarted, because
+    // the attendance rows under it describe one gathering and a second gathering is a second room.
+    status: text("status", { enum: ["scheduled", "live", "ended"] })
+      .notNull()
+      .default("scheduled"),
+    // SOUND ALONE, OR SOUND AND PICTURES. An audio call is a first-class kind of meeting rather than
+    // a video meeting nobody turned a camera on in: it is chosen at Start and never changed, because
+    // the people already in the room agreed to one thing and a medium that could be widened
+    // mid-gathering would be a camera switched on for everybody by somebody else's click. Defaulted
+    // to `video` so every row that predates the column reads as what it was.
+    medium: text("medium", { enum: ["video", "audio"] })
+      .notNull()
+      .default("video"),
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    // When the first person actually arrived, which is not when the row was created and not when the
+    // event was scheduled for. Null until somebody joins.
+    startedAt: text("started_at"), // ISO-8601 instant
+    endedAt: text("ended_at"), // ISO-8601 instant
+    endedByUserId: text("ended_by_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // ONE MEETING PER EVENT, held by the database rather than by the create path. Creating a meeting
+    // is idempotent — two members pressing Start in the same second must end up in the same room,
+    // not in two rooms neither of them can see the other in — and an idempotency that lives only in
+    // a read-then-write is an idempotency that loses the race it exists to settle. Partial on each
+    // column, because exactly one of the two is filled on any row and a plain unique index over a
+    // column that is null on half the table constrains nothing useful.
+    uniqueIndex("meeting_matter_event_unique_index")
+      .on(table.matterEventId)
+      .where(sql`${table.matterEventId} IS NOT NULL`),
+    uniqueIndex("meeting_firm_event_unique_index")
+      .on(table.firmEventId)
+      .where(sql`${table.firmEventId} IS NOT NULL`),
+    check("meeting_event_kind_check", sql`${table.eventKind} IN ('matter', 'firm')`),
+    check("meeting_status_check", sql`${table.status} IN ('scheduled', 'live', 'ended')`),
+    check("meeting_medium_check", sql`${table.medium} IN ('video', 'audio')`),
+    // EXACTLY ONE PARENT, AND THE KIND SAYS WHICH. Both halves in one check on purpose: a row with
+    // two parents is unreadable, and a row whose kind names the column it did not fill is worse —
+    // it reads cleanly and answers the wrong table. The matter_event_participant shape check is the
+    // precedent for the form.
+    check(
+      "meeting_event_shape_check",
+      sql`(${table.eventKind} = 'matter' AND ${table.matterEventId} IS NOT NULL AND ${table.firmEventId} IS NULL)
+        OR (${table.eventKind} = 'firm' AND ${table.firmEventId} IS NOT NULL AND ${table.matterEventId} IS NULL)`,
+    ),
+    // A meeting that has ended says who ended it and when, or neither. Half of that pair is a record
+    // nobody can act on: an end instant with no actor cannot be questioned, and an actor with no
+    // instant cannot be ordered against anything else that happened.
+    check(
+      "meeting_ended_shape_check",
+      sql`(${table.endedAt} IS NULL AND ${table.endedByUserId} IS NULL)
+        OR (${table.endedAt} IS NOT NULL AND ${table.endedByUserId} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// One person's stay in one room: when they arrived and when they left. A ROW PER STAY, never a flag
+// per person — somebody whose connection drops and who dials back in was in the room twice, and a
+// record that collapsed the two would say they were present through a gap they were absent for.
+// That is also what makes the roster countable: who is in the room right now is the rows whose
+// left_at is null, which is a fact about the table rather than a number somebody maintains.
+//
+// The stay is what the record is FOR. Nothing about the media is kept — no track names, no session
+// handles, no bitrate; the signaling state that carries those lives in the room's own transient
+// storage and is deleted when the room empties.
+export const meetingAttendance = sqliteTable(
+  "meeting_attendance",
+  {
+    id: text("id").primaryKey().$type<MeetingAttendanceId>(), // meetingAttendance_ handle
+    meetingId: text("meeting_id")
+      .notNull()
+      .$type<MeetingId>()
+      .references(() => meeting.id),
+    userId: text("user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    joinedAt: text("joined_at").notNull(), // ISO-8601 instant
+    // Null while the person is still in the room. Ending the meeting closes every open row at one
+    // instant, so a member who never pressed Leave still has a left_at rather than a stay that runs
+    // forever.
+    leftAt: text("left_at"), // ISO-8601 instant
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // "Was this member in this meeting, and is their stay still open" — the read the join path makes
+    // before it opens another row, keyed on the member first so it also answers the leave path.
+    index("meeting_attendance_meeting_user_index").on(table.meetingId, table.userId),
+    // The roster and the participant count: the open rows of one meeting, filtered before anything
+    // is read off them.
+    index("meeting_attendance_meeting_left_at_index").on(table.meetingId, table.leftAt),
+    // AT MOST ONE OPEN STAY PER MEMBER PER MEETING. The join path reads for an existing open stay
+    // and returns it rather than opening a second, which is right and is a round trip early: a
+    // double-clicked button opens two joins that both read nothing and both insert. Two open rows
+    // for one person are two seats against a room that holds twelve, two tiles for one face, and a
+    // leave that closes one of them and leaves the other running forever. Partial on `left_at IS
+    // NULL`, because the CLOSED rows are the record and a member who genuinely left and came back
+    // must have as many of those as they had stays.
+    uniqueIndex("meeting_attendance_open_stay_unique_index")
+      .on(table.meetingId, table.userId)
+      .where(sql`${table.leftAt} IS NULL`),
+    check(
+      "meeting_attendance_span_check",
+      sql`${table.leftAt} IS NULL OR ${table.leftAt} >= ${table.joinedAt}`,
     ),
   ],
 );

@@ -36,7 +36,6 @@
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { page } from "$app/state";
   import { goto, replaceState } from "$app/navigation";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -252,7 +251,6 @@
       bind:value={searchText}
       bind:expanded={searchOpen}
       label="Search these documents"
-      placeholder={placeholderOf("Search these documents")}
       searchOn="pause"
       fieldClass="w-2xs sm:w-xs"
       class="ms-auto"

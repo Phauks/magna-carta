@@ -371,6 +371,21 @@ export type SafeWebsiteView = {
     links: Array<string>;
 };
 
+export type SafeBrowseSessionProbe = {
+    supported: boolean;
+    steps: Array<{
+        name: string;
+        ok: boolean;
+        detail?: string;
+    }>;
+    sessionsBefore: number;
+    maxConcurrentSessions: number | null;
+    allowedBrowserAcquisitions: number | null;
+    sessionReused: boolean;
+    cdpAttached: boolean;
+    elapsedMilliseconds: number;
+};
+
 export type DecryptionInspectResponse = {
     format: 'pdf' | 'zip' | 'ooxml';
     hash: string;
@@ -1688,10 +1703,24 @@ export type MemberLocationsRequest = {
     }>;
 };
 
-export type NumberingSchemeResponse = {
+export type NumberingSchemesResponse = {
+    purposes: Array<NumberingListedPurpose>;
+    sample: NumberingSampleContext;
+};
+
+export type NumberingListedPurpose = {
+    purpose: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication';
+    title: string;
+    label: string;
+    subject: string;
+    subjects: string;
+    drawnWhen: string;
+    formulation: 'scheme' | 'fixed';
+    segmentKinds: Array<'literal' | 'counter' | 'year' | 'date_opened' | 'location_code' | 'matter_type_code' | 'client_code' | 'staff_initials' | 'client_name'> | null;
     segments: Array<NumberSegment> | null;
-    purpose: 'matter' | 'consultation';
-    usingDefault: boolean;
+    usingDefault: boolean | null;
+    fixedShape: string | null;
+    example: string | null;
 };
 
 export type NumberSegment = {
@@ -1725,9 +1754,24 @@ export type NumberSegment = {
     scoping?: boolean;
 };
 
+export type NumberingSampleContext = {
+    openedDate: string;
+    locationCode: string;
+    matterTypeCode: string;
+    clientCode: string;
+    staffInitials: string;
+    clientName: string;
+};
+
+export type NumberingSchemeResponse = {
+    segments: Array<NumberSegment> | null;
+    purpose: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet';
+    usingDefault: boolean;
+};
+
 export type NumberingScheme = {
     segments: Array<NumberSegment>;
-    purpose?: 'matter' | 'consultation' | 'intake';
+    purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet';
 };
 
 export type NumberingPreviewResponse = {
@@ -1737,6 +1781,7 @@ export type NumberingPreviewResponse = {
 
 export type NumberingPreviewRequest = {
     segments: Array<NumberSegment>;
+    purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet';
     counterValue?: number;
     context?: {
         openedDate?: string;
@@ -1816,6 +1861,11 @@ export type FileVersionItem = {
     committedAt: string | null;
     uploadedBy: string | null;
     uploadedByName: string | null;
+    saveKind: 'explicit' | 'autosave' | 'exit' | 'reap' | null;
+    participants: Array<{
+        userId: string;
+        name: string | null;
+    }>;
     scanVerdict: 'unscanned' | 'clean' | 'flagged' | null;
     scanEngineVersion: string | null;
     scanDetail: string | null;
@@ -1961,6 +2011,7 @@ export type SessionLaunchResponse = {
     accessToken: string;
     accessTokenTtl: number;
     capability: 'edit' | 'view';
+    recordsChanges: boolean;
 };
 
 export type EditOpenProgressResponse = {
@@ -2101,6 +2152,14 @@ export type PatchScanPolicyRequest = {
     };
     flaggedTreatment?: 'block' | 'informed-access' | 'allow-and-flag';
     stepUpReauthOnFlagged?: boolean;
+};
+
+export type EditingPolicyResponse = {
+    recordChanges: boolean;
+};
+
+export type PatchEditingPolicyRequest = {
+    recordChanges?: boolean;
 };
 
 export type BundleStatus = {
@@ -2363,9 +2422,13 @@ export type DirectoryEntityListingPage = {
     data: Array<DirectoryEntityListing>;
     nextCursor: string | null;
     /**
-     * How many records the firm holds under these filters — every page of the walk, not the rows on this one.
+     * How many records the firm holds under these filters — every page of the walk when the directory is being listed, and the number of records answering when it is being searched, because a ranked answer's size is the answer's and not the book's.
      */
     total: number;
+    /**
+     * True only where a ranked answer (`search`) was cut short: the firm holds more matches than were returned, so narrowing the query reaches the rest. False on every page of the plain index, which is walkable to its end by cursor and never cut.
+     */
+    capped: boolean;
 };
 
 export type DirectoryEntityListing = {
@@ -3691,6 +3754,68 @@ export type UpdateCommunicationRequest = {
     durationSeconds?: number | null;
     body?: string | null;
     summary?: string | null;
+};
+
+export type StartedMeeting = {
+    id: string;
+    created: boolean;
+};
+
+export type StartMeetingRequest = {
+    eventKind: 'matter' | 'firm';
+    eventId: string;
+    medium?: 'video' | 'audio';
+};
+
+export type MeetingSummaryPage = {
+    data: Array<MeetingSummary>;
+    nextCursor: string | null;
+};
+
+export type MeetingSummary = {
+    id: string;
+    eventKind: 'matter' | 'firm';
+    eventId: string;
+    matterId: string | null;
+    title: string;
+    startsOn: string;
+    startsAtTime: string | null;
+    endsAtTime: string | null;
+    timeZone: string;
+    status: 'scheduled' | 'live' | 'ended';
+    startedAt: string | null;
+    endedAt: string | null;
+    medium: 'video' | 'audio';
+    liveCount: number;
+    configured: boolean;
+};
+
+export type JoinedMeeting = {
+    participantId: string;
+    displayName: string;
+    iceServers: Array<MeetingIceServer>;
+};
+
+export type MeetingIceServer = {
+    urls: string | Array<string>;
+    username?: string;
+    credential?: string;
+};
+
+export type MeetingAcknowledged = {
+    ok: true;
+};
+
+export type MeetingAttendancePage = {
+    data: Array<MeetingAttendanceEntry>;
+    nextCursor: string | null;
+};
+
+export type MeetingAttendanceEntry = {
+    id: string;
+    userId: string;
+    joinedAt: string;
+    leftAt: string | null;
 };
 
 export type MatterSearchAnswer = {
@@ -5918,6 +6043,16 @@ export type TrustAccountListing = {
     openedOn: string;
     closedAt: string | null;
     timeZone: string;
+};
+
+export type TrustAccountOpening = {
+    name: string;
+    locationId: string;
+    bankName?: string | null;
+    accountNumberLastFour?: string | null;
+    iolta?: boolean;
+    openedOn: string;
+    currency: 'USD';
 };
 
 export type TrustPendingDisbursementRequestsResponse = {
@@ -8883,6 +9018,10 @@ export type SafeBrowsePostErrors = {
      */
     403: Problem;
     /**
+     * The isolated browser reached the address but the page did not finish rendering (type page-render-failed) — or the request body failed validation (type validation)
+     */
+    422: Problem;
+    /**
      * Rate limit exceeded
      */
     429: Problem;
@@ -8926,6 +9065,10 @@ export type SafeBrowseStreamErrors = {
      */
     403: Problem;
     /**
+     * The isolated browser reached the address but the page did not finish rendering (type page-render-failed) — or the request body failed validation (type validation)
+     */
+    422: Problem;
+    /**
      * Rate limit exceeded
      */
     429: Problem;
@@ -8941,6 +9084,39 @@ export type SafeBrowseStreamResponses = {
 };
 
 export type SafeBrowseStreamResponse = SafeBrowseStreamResponses[keyof SafeBrowseStreamResponses];
+
+export type SafeBrowseSessionProbeData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/safe-browse/session-probe';
+};
+
+export type SafeBrowseSessionProbeErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:safeBrowse
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SafeBrowseSessionProbeError = SafeBrowseSessionProbeErrors[keyof SafeBrowseSessionProbeErrors];
+
+export type SafeBrowseSessionProbeResponses = {
+    /**
+     * The probe ran; the report says how far it got
+     */
+    200: SafeBrowseSessionProbe;
+};
+
+export type SafeBrowseSessionProbeResponse = SafeBrowseSessionProbeResponses[keyof SafeBrowseSessionProbeResponses];
 
 export type DecryptionInspectData = {
     body: {
@@ -14475,11 +14651,48 @@ export type LocationsAssignMemberResponses = {
 
 export type LocationsAssignMemberResponse = LocationsAssignMemberResponses[keyof LocationsAssignMemberResponses];
 
+export type NumberingListData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/numbering-schemes';
+};
+
+export type NumberingListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks matters:viewNumbering
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NumberingListError = NumberingListErrors[keyof NumberingListErrors];
+
+export type NumberingListResponses = {
+    /**
+     * Every purpose on the register, and the sample the examples render against
+     */
+    200: NumberingSchemesResponse;
+};
+
+export type NumberingListResponse = NumberingListResponses[keyof NumberingListResponses];
+
 export type NumberingGetData = {
     body?: never;
     path?: never;
     query?: {
-        purpose?: 'matter' | 'consultation' | 'intake';
+        purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet';
     };
     url: '/api/v1/numbering-scheme';
 };
@@ -14490,7 +14703,7 @@ export type NumberingGetErrors = {
      */
     401: Problem;
     /**
-     * The session member lacks matters:manageNumbering
+     * The session member lacks matters:viewNumbering
      */
     403: Problem;
     /**
@@ -14546,7 +14759,7 @@ export type NumberingSetErrors = {
      */
     409: Problem;
     /**
-     * The scheme is invalid (not exactly one counter), or the Idempotency-Key was reused
+     * The scheme is invalid (not exactly one counter, or a part this purpose cannot use), or the Idempotency-Key was reused
      */
     422: Problem;
     /**
@@ -15929,6 +16142,95 @@ export type ScanPolicyScoreHistogramResponses = {
 
 export type ScanPolicyScoreHistogramResponse = ScanPolicyScoreHistogramResponses[keyof ScanPolicyScoreHistogramResponses];
 
+export type EditingPolicyGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/editing-policy';
+};
+
+export type EditingPolicyGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageEditingPolicy
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EditingPolicyGetError = EditingPolicyGetErrors[keyof EditingPolicyGetErrors];
+
+export type EditingPolicyGetResponses = {
+    /**
+     * The firm's editing policy, resolved with its defaults
+     */
+    200: EditingPolicyResponse;
+};
+
+export type EditingPolicyGetResponse = EditingPolicyGetResponses[keyof EditingPolicyGetResponses];
+
+export type EditingPolicyUpdateData = {
+    body: PatchEditingPolicyRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/editing-policy';
+};
+
+export type EditingPolicyUpdateErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageEditingPolicy
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type EditingPolicyUpdateError = EditingPolicyUpdateErrors[keyof EditingPolicyUpdateErrors];
+
+export type EditingPolicyUpdateResponses = {
+    /**
+     * The firm's editing policy after the change
+     */
+    200: EditingPolicyResponse;
+};
+
+export type EditingPolicyUpdateResponse = EditingPolicyUpdateResponses[keyof EditingPolicyUpdateResponses];
+
 export type DownloadsBundleStatusData = {
     body?: never;
     path: {
@@ -16388,6 +16690,10 @@ export type DirectoryListEntitiesData = {
          * Narrows to one side of the directory. Omitted, both are listed together.
          */
         kind?: 'person' | 'organization';
+        /**
+         * A name to rank the directory against — every name the firm has recorded is matched, former names included, and a misspelling still finds the record. The corpus matches three-character windows, so a shorter query answers with nothing rather than with the whole book. Omitted, the directory is listed in name order.
+         */
+        search?: string;
     };
     url: '/api/v1/directory/entities';
 };
@@ -16411,7 +16717,7 @@ export type DirectoryListEntitiesError = DirectoryListEntitiesErrors[keyof Direc
 
 export type DirectoryListEntitiesResponses = {
     /**
-     * A page of the directory in name order, with the size of the whole record
+     * A page of the directory in name order, with the size of the whole record — or, under `search`, the ranked matches as the same rows
      */
     200: DirectoryEntityListingPage;
 };
@@ -21171,6 +21477,485 @@ export type CommunicationsSetDispositionResponses = {
 };
 
 export type CommunicationsSetDispositionResponse = CommunicationsSetDispositionResponses[keyof CommunicationsSetDispositionResponses];
+
+export type MeetingsListData = {
+    body?: never;
+    path?: never;
+    query: {
+        cursor?: string;
+        scope: 'live' | 'upcoming' | 'recent';
+        today?: string;
+    };
+    url: '/api/v1/meetings';
+};
+
+export type MeetingsListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The upcoming scope was asked for without the caller's own day
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsListError = MeetingsListErrors[keyof MeetingsListErrors];
+
+export type MeetingsListResponses = {
+    /**
+     * One page of meetings in this scope
+     */
+    200: MeetingSummaryPage;
+};
+
+export type MeetingsListResponse = MeetingsListResponses[keyof MeetingsListResponses];
+
+export type MeetingsStartData = {
+    body: StartMeetingRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/meetings';
+};
+
+export type MeetingsStartErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the room is full, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+    /**
+     * This deployment cannot route a meeting's media
+     */
+    503: Problem;
+};
+
+export type MeetingsStartError = MeetingsStartErrors[keyof MeetingsStartErrors];
+
+export type MeetingsStartResponses = {
+    /**
+     * The event already had a meeting
+     */
+    200: StartedMeeting;
+    /**
+     * The meeting was started
+     */
+    201: StartedMeeting;
+};
+
+export type MeetingsStartResponse = MeetingsStartResponses[keyof MeetingsStartResponses];
+
+export type MeetingsGetData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}';
+};
+
+export type MeetingsGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsGetError = MeetingsGetErrors[keyof MeetingsGetErrors];
+
+export type MeetingsGetResponses = {
+    /**
+     * The meeting
+     */
+    200: MeetingSummary;
+};
+
+export type MeetingsGetResponse = MeetingsGetResponses[keyof MeetingsGetResponses];
+
+export type MeetingsGetForEventData = {
+    body?: never;
+    path: {
+        eventId: string;
+    };
+    query?: never;
+    url: '/api/v1/events/{eventId}/meeting';
+};
+
+export type MeetingsGetForEventErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsGetForEventError = MeetingsGetForEventErrors[keyof MeetingsGetForEventErrors];
+
+export type MeetingsGetForEventResponses = {
+    /**
+     * The event's meeting
+     */
+    200: MeetingSummary;
+};
+
+export type MeetingsGetForEventResponse = MeetingsGetForEventResponses[keyof MeetingsGetForEventResponses];
+
+export type MeetingsGetForFirmEventData = {
+    body?: never;
+    path: {
+        firmEventId: string;
+    };
+    query?: never;
+    url: '/api/v1/firm-events/{firmEventId}/meeting';
+};
+
+export type MeetingsGetForFirmEventErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsGetForFirmEventError = MeetingsGetForFirmEventErrors[keyof MeetingsGetForFirmEventErrors];
+
+export type MeetingsGetForFirmEventResponses = {
+    /**
+     * The firm event's meeting
+     */
+    200: MeetingSummary;
+};
+
+export type MeetingsGetForFirmEventResponse = MeetingsGetForFirmEventResponses[keyof MeetingsGetForFirmEventResponses];
+
+export type MeetingsJoinData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/join';
+};
+
+export type MeetingsJoinErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the room is full, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+    /**
+     * This deployment cannot route a meeting's media
+     */
+    503: Problem;
+};
+
+export type MeetingsJoinError = MeetingsJoinErrors[keyof MeetingsJoinErrors];
+
+export type MeetingsJoinResponses = {
+    /**
+     * The caller is in the meeting
+     */
+    200: JoinedMeeting;
+};
+
+export type MeetingsJoinResponse = MeetingsJoinResponses[keyof MeetingsJoinResponses];
+
+export type MeetingsLeaveData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/leave';
+};
+
+export type MeetingsLeaveErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the room is full, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+    /**
+     * This deployment cannot route a meeting's media
+     */
+    503: Problem;
+};
+
+export type MeetingsLeaveError = MeetingsLeaveErrors[keyof MeetingsLeaveErrors];
+
+export type MeetingsLeaveResponses = {
+    /**
+     * The caller has left
+     */
+    200: MeetingAcknowledged;
+};
+
+export type MeetingsLeaveResponse = MeetingsLeaveResponses[keyof MeetingsLeaveResponses];
+
+export type MeetingsEndData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/end';
+};
+
+export type MeetingsEndErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the room is full, or a request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+    /**
+     * This deployment cannot route a meeting's media
+     */
+    503: Problem;
+};
+
+export type MeetingsEndError = MeetingsEndErrors[keyof MeetingsEndErrors];
+
+export type MeetingsEndResponses = {
+    /**
+     * The meeting has ended
+     */
+    200: MeetingAcknowledged;
+};
+
+export type MeetingsEndResponse = MeetingsEndResponses[keyof MeetingsEndResponses];
+
+export type MeetingsAttendanceData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/meetings/{meetingId}/attendance';
+};
+
+export type MeetingsAttendanceErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsAttendanceError = MeetingsAttendanceErrors[keyof MeetingsAttendanceErrors];
+
+export type MeetingsAttendanceResponses = {
+    /**
+     * One page of this meeting's stays
+     */
+    200: MeetingAttendancePage;
+};
+
+export type MeetingsAttendanceResponse = MeetingsAttendanceResponses[keyof MeetingsAttendanceResponses];
+
+export type MeetingsSocketData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/{meetingId}/socket';
+};
+
+export type MeetingsSocketErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, or the caller has not joined it
+     */
+    409: Problem;
+    /**
+     * The request did not ask to upgrade to a WebSocket
+     */
+    426: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+    /**
+     * This deployment cannot route a meeting's media
+     */
+    503: Problem;
+};
+
+export type MeetingsSocketError = MeetingsSocketErrors[keyof MeetingsSocketErrors];
 
 export type MatterSearchSearchData = {
     body?: never;
@@ -30789,6 +31574,58 @@ export type TrustListTrustAccountsResponses = {
 
 export type TrustListTrustAccountsResponse = TrustListTrustAccountsResponses[keyof TrustListTrustAccountsResponses];
 
+export type TrustOpenAccountData = {
+    body: TrustAccountOpening;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/accounts';
+};
+
+export type TrustOpenAccountErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the movement exceeds the client ledger's available balance, or the disbursement request has already been decided
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustOpenAccountError = TrustOpenAccountErrors[keyof TrustOpenAccountErrors];
+
+export type TrustOpenAccountResponses = {
+    /**
+     * The trust account is open
+     */
+    201: TrustAccountListing;
+};
+
+export type TrustOpenAccountResponse = TrustOpenAccountResponses[keyof TrustOpenAccountResponses];
+
 export type TrustReadAuthorizationPolicyData = {
     body?: never;
     path?: never;
@@ -37052,6 +37889,7 @@ export type TemplatesListData = {
         cursor?: string;
         status?: 'active' | 'archived';
         matterTypeId?: string;
+        search?: string;
     };
     url: '/api/v1/templates';
 };

@@ -31,10 +31,8 @@
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { toast } from "@magna-carta/design-system/toast";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import {
@@ -59,7 +57,6 @@
     DOWNLOAD_REGISTER_INITIAL_SORT,
     isTakeable,
   } from "$lib/export/download-columns.ts";
-  import { NO_DOWNLOADS } from "$lib/transfers/transfers.ts";
 
   const list = new PagedList<ShelfItem>("Your downloads could not be read.");
   const items = $derived(list.items);
@@ -209,15 +206,6 @@
   }
 
   const selectedCount = $derived(grid.selectedRows.length);
-  /*
-   * A genuinely empty register, which is not the same as a search that found nothing: the grid says
-   * "No Results" for the latter and offers the way back, and saying "No Downloads" over a narrowed
-   * register would tell a member their record is empty when it is only their term that matched
-   * nothing.
-   */
-  const emptyRegister = $derived(
-    items !== null && items.length === 0 && appliedSearch.trim() === "",
-  );
 </script>
 
 <svelte:head>
@@ -305,7 +293,6 @@
       <ScreenSearch
         bind:value={searchText}
         label="Search your downloads"
-        placeholder={placeholderOf("Search your downloads")}
         searchOn="pause"
         fieldClass="w-2xs sm:w-xs"
         onsearch={(next) => {
@@ -323,9 +310,12 @@
       fallback={list.failureMessage ?? undefined}
       onRetry={reread}
     />
-  {:else if emptyRegister}
-    <EmptyState title={NO_DOWNLOADS} />
   {:else}
+    <!-- The grid stands whether or not anything has been downloaded: its header row is the shape a
+         member's downloads will take, and its own empty body says "No Results" — one wording for an
+         empty register and for a term that matched nothing, since the grid offers the way back
+         either way. A sentence on the canvas where the table will be is the shape the
+         table-behind-absence rule refuses. -->
     <DataTable.Grid
       {grid}
       {cell}

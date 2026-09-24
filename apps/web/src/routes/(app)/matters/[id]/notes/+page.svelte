@@ -255,7 +255,6 @@
       <ScreenSearch
         bind:value={searchTerm}
         label="Search this matter's notes"
-        placeholder={placeholderOf("Search this matter's notes")}
         searchOn="pause"
         disabled={isSample}
         fieldClass="w-2xs sm:w-xs"

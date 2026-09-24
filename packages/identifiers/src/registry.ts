@@ -317,6 +317,14 @@ export const ENTITY_PREFIXES = {
   firmResource: "firmResource",
   firmResourceBooking: "firmResourceBooking",
   calendarEventLink: "calendarEventLink",
+  // Meetings — the room a calendar event is held in when it is held in this product rather than in
+  // somebody else's. A `meeting` belongs to exactly one event, matter or firm, and carries no title,
+  // time or participant list of its own: those are the event's, so a meeting handle names the room
+  // and nothing more. A `meetingAttendance` is one person's presence in it, opened when they join
+  // and closed when they leave — a row per stay rather than a flag per person, because somebody who
+  // drops off and dials back in was in the room twice and the record should say so.
+  meeting: "meeting",
+  meetingAttendance: "meetingAttendance",
   // The matter asset register — what a client or an estate owns, recorded against one matter. A
   // `matterAsset` is one matter's assertion about one thing owned; a `matterAssetType` is the
   // per-firm catalog under the platform class the asset carries. A `matterAssetValuation` is one

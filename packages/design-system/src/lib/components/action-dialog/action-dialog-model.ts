@@ -112,16 +112,3 @@ const WIDTH_CLASSES: Record<ActionDialogWidth, string> = {
 export function widthClass(width: ActionDialogWidth, { withContext = false } = {}): string {
   return WIDTH_CLASSES[withContext ? "record" : width];
 }
-
-/**
- * The sentence the discard question asks about an unfinished panel.
- *
- * Here rather than in the shell's markup so the wording is one string a reader can find and a test
- * can pin. It describes what the reader was doing rather than naming the panel, because a panel's
- * own title read back as a noun ("Open a Packet") is not what anybody thinks they were in the
- * middle of. It also says plainly that nothing has happened yet — the reader's fear at this moment
- * is that dismissing has already half-done something.
- */
-export const DISCARD_SENTENCE =
-  "This has entries that have not been saved. Leaving now throws them away; nothing has been " +
-  "changed yet, so everything else stays exactly as it was.";

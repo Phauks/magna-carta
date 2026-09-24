@@ -27,7 +27,15 @@ import matterPhysicalFileOfficeSql from "@magna-carta/database/drizzle/per-firm/
 import intakeNumberSql from "@magna-carta/database/drizzle/per-firm/20260914T191528_intake-number.sql";
 import eventRecurrenceSql from "@magna-carta/database/drizzle/per-firm/20260916T000000_event-recurrence.sql";
 import downloadRegisterAdmitsEveryDownloadSql from "@magna-carta/database/drizzle/per-firm/20260916T120000_download-register-admits-every-download.sql";
-import integrationCredentialsHaveTheirOwnGateSql from "@magna-carta/database/drizzle/per-firm/20260918T190721_integration-credentials-have-their-own-gate.sql";
+import versionSaveKindAndParticipantsSql from "@magna-carta/database/drizzle/per-firm/20260918T181809_version-save-kind-and-participants.sql";
+import seedEditingPolicyPermissionSql from "@magna-carta/database/drizzle/per-firm/20260918T190812_seed-editing-policy-permission.sql";
+import conflictsCheckNumberingSchemeSql from "@magna-carta/database/drizzle/per-firm/20260918T195508_conflicts-check-numbering-scheme.sql";
+import seedViewNumberingSql from "@magna-carta/database/drizzle/per-firm/20260918T213000_seed-view-numbering.sql";
+import meetingsHangFromACalendarEventSql from "@magna-carta/database/drizzle/per-firm/20260919T001019_meetings-hang-from-a-calendar-event.sql";
+import seedMeetingsPermissionsSql from "@magna-carta/database/drizzle/per-firm/20260919T001020_seed-meetings-permissions.sql";
+import oneOpenStayPerMemberSql from "@magna-carta/database/drizzle/per-firm/20260919T001021_one-open-stay-per-member.sql";
+import aMeetingHasAMediumSql from "@magna-carta/database/drizzle/per-firm/20260919T001022_a-meeting-has-a-medium.sql";
+import integrationCredentialsHaveTheirOwnGateSql from "@magna-carta/database/drizzle/per-firm/20260924T165911_integration-credentials-have-their-own-gate.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -50,7 +58,15 @@ export function perFirmMigrations(): Migration[] {
     "20260916T000000_event-recurrence": eventRecurrenceSql,
     "20260916T120000_download-register-admits-every-download":
       downloadRegisterAdmitsEveryDownloadSql,
-    "20260918T190721_integration-credentials-have-their-own-gate":
+    "20260918T181809_version-save-kind-and-participants": versionSaveKindAndParticipantsSql,
+    "20260918T190812_seed-editing-policy-permission": seedEditingPolicyPermissionSql,
+    "20260918T195508_conflicts-check-numbering-scheme": conflictsCheckNumberingSchemeSql,
+    "20260918T213000_seed-view-numbering": seedViewNumberingSql,
+    "20260919T001019_meetings-hang-from-a-calendar-event": meetingsHangFromACalendarEventSql,
+    "20260919T001020_seed-meetings-permissions": seedMeetingsPermissionsSql,
+    "20260919T001021_one-open-stay-per-member": oneOpenStayPerMemberSql,
+    "20260919T001022_a-meeting-has-a-medium": aMeetingHasAMediumSql,
+    "20260924T165911_integration-credentials-have-their-own-gate":
       integrationCredentialsHaveTheirOwnGateSql,
   });
 }

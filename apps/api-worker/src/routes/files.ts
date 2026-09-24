@@ -161,6 +161,13 @@ const FileVersionItem = z
     // Who uploaded this version, on the same terms as FileSummary's pair.
     uploadedBy: z.string().nullable(),
     uploadedByName: z.string().nullable(),
+    // What kind of save cut this version from the browser editor's working copy: the member's own
+    // Save, the editor's periodic autosave, the save made as the last view left, or the idle reap.
+    // Null for a version that arrived by upload, check-in or restore.
+    saveKind: z.enum(["explicit", "autosave", "exit", "reap"]).nullable(),
+    // Everyone in the editing session when the version was cut, the author included; a member
+    // whose row is gone keeps their identifier and loses only the name.
+    participants: z.array(z.object({ userId: z.string(), name: z.string().nullable() })),
     // The version's standing safety verdict, the engine that reached it, and the engine's own
     // detail. Null verdict: the engine-less launch state, read as "not scanned".
     scanVerdict: z.enum(["unscanned", "clean", "flagged"]).nullable(),
@@ -1269,6 +1276,11 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
             sniffedContentType: version.sniffedContentType,
             contentSha256: version.contentSha256,
             committedAt: version.committedAt,
+            saveKind: version.saveKind,
+            participants: version.participants.map((participant) => ({
+              userId: participant.userId,
+              name: participant.name,
+            })),
             uploadedBy: version.uploadedBy,
             uploadedByName: version.uploadedByName,
             scanVerdict: version.scanVerdict,

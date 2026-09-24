@@ -138,6 +138,24 @@ export function problemGuidance(problem: SafeBrowseProblem): ProblemGuidance {
   // rolling out, which is the exact misdiagnosis this tool shipped once already.
   if (problem.status === 404) return base;
 
+  // The page itself did not finish rendering. Neither the member's address nor our service is at
+  // fault, so neither of the answers below fits: one would send them to change an address that was
+  // accepted and visited, the other would have them quote an Error ID for something support cannot
+  // fix. The server has already retried with everything expensive turned off by the time this
+  // arrives, so there is nothing left for a button to do.
+  if (problem.type === "page-render-failed") {
+    return {
+      ...base,
+      tone: "warning",
+      title: "That page could not be rendered",
+      message:
+        "The isolated browser reached the address but the page did not finish loading. It may be " +
+        "very slow, very large, or broken. The redirect chain and response headers below are still " +
+        "what the address answered.",
+      remedy: { kind: "retry" },
+    };
+  }
+
   if (problem.status === 502) {
     return {
       ...base,
@@ -179,8 +197,10 @@ export function problemGuidance(problem: SafeBrowseProblem): ProblemGuidance {
         message: "You have run several captures in a short time. Wait a moment, then try again.",
       };
     default:
-      // 400 (invalid/blocked target) and 422 (the body failed validation) — both are input faults,
-      // and neither is fixed by pressing anything on this screen.
+      // 400 (invalid/blocked target) and a 422 that is NOT page-render-failed (the body failed
+      // validation) — both are input faults, and neither is fixed by pressing anything on this
+      // screen. The render failure is caught above precisely because it wears the same 422 and is
+      // not an input fault at all.
       return {
         ...base,
         tone: "warning",

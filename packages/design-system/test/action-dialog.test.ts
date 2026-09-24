@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  DISCARD_SENTENCE,
   DISMISS_LABEL,
   LEAVE_LABEL,
   traitsOf,
@@ -153,12 +152,5 @@ describe("the guard every exit runs through", () => {
     expect(guard.release()).toBe("closeSurface");
     guard.request("leaveEditing");
     expect(guard.release()).toBe("leaveEditing");
-  });
-});
-
-describe("the question's own words", () => {
-  it("says plainly that nothing has happened yet", () => {
-    // The reader's fear at this moment is that dismissing has already half-done something.
-    expect(DISCARD_SENTENCE).toContain("nothing has been changed yet");
   });
 });

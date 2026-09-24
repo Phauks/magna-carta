@@ -17,12 +17,17 @@
  * THE PURPOSE CARRIES THE WIDTH. It is the line that says why client money moved, so it takes the
  * flexible column and everything narrow and fixed sits around it.
  *
- * RECORDED BY AND AUTHORIZED BY READ AS USER IDENTIFIERS, because that is what the ledger serves.
- * The column is real and the value is served; what waits is the name behind it, and the hover
- * says so rather than the cell pretending the identifier is a name.
+ * RECORDED BY AND AUTHORIZED BY CARRY NAMES, NOT HANDLES. The ledger serves a user identifier and
+ * the firm's roster is what turns it into a name, so the roster is passed in the way the currency
+ * is and the resolution happens in the COLUMN's own value — not in the cell alone. A column whose
+ * value is the identifier sorts by the identifier, offers the identifier in its set filter and puts
+ * the identifier on the clipboard, however the cell dresses it; the reader then meets a handle
+ * everywhere except in the one place they were looking.
  */
 import type { GridColumn } from "@magna-carta/design-system/data-table";
 import { formatInstant } from "@magna-carta/design-system/formatters";
+import type { FirmMemberSummary } from "$lib/members/members-api.ts";
+import { memberDisplay } from "./trust-member-names.ts";
 import type { TrustMovementRecord } from "./trust-api.ts";
 import {
   TRUST_MOVEMENT_KINDS,
@@ -64,16 +69,29 @@ function amountOnSide(
   return direction(movement, ownTrustLedgerNodeId) === side ? movement.amountMinor / 100 : null;
 }
 
+/** Who released a movement, as a name — or the fact that a deposit takes nobody. */
+function authorizerText(
+  movement: TrustMovementRecord,
+  members: readonly FirmMemberSummary[] | null,
+): string {
+  return movement.authorizedBy === null
+    ? authorizedByText(movement)
+    : memberDisplay(movement.authorizedBy, members).text;
+}
+
 /**
  * The ledger's columns, in the order the design puts them.
  *
  * `currency` follows the records rather than being assumed, and `ownTrustLedgerNodeId` is the
  * node the reader is standing on: the ledger read names it, and it is what turns a transfer into
  * In or Out. Null until the read exists, which is also when there are no movements to turn.
+ * `members` is the firm's roster, null while it is still being read, and it is what the two
+ * person columns resolve their identifiers through.
  */
 export function trustLedgerColumns(
   currency: string,
   ownTrustLedgerNodeId: string | null,
+  members: readonly FirmMemberSummary[] | null,
 ): readonly GridColumn<TrustMovementRecord>[] {
   return [
     {
@@ -143,14 +161,16 @@ export function trustLedgerColumns(
       label: "Recorded By",
       type: "text",
       filter: "set",
-      value: (movement) => movement.recordedBy,
+      value: (movement) => memberDisplay(movement.recordedBy, members).text,
+      text: (movement) => memberDisplay(movement.recordedBy, members).text,
     },
     {
       id: TRUST_COLUMN_IDENTIFIERS.authorizedBy,
       label: "Authorized By",
       type: "text",
       filter: "set",
-      value: (movement) => authorizedByText(movement),
+      value: (movement) => authorizerText(movement, members),
+      text: (movement) => authorizerText(movement, members),
     },
     {
       // Hidden by default: the day the money moved is the Date column, and a column of timestamps

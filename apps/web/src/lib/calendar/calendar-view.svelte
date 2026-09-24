@@ -55,6 +55,7 @@
   import { entryId, recordKeyOf } from "./calendar-entries.ts";
   import { describeReadFailure, readFailureKey, readFailureTitle } from "./calendar-reads.ts";
   import CalendarRail from "./calendar-rail.svelte";
+  import CalendarMenu from "./calendar-menu.svelte";
   import CalendarMonthPicker from "./calendar-month-picker.svelte";
   import {
     calendarLabel,
@@ -89,6 +90,7 @@
     limit = null,
     search = "",
     rail = false,
+    calendarMenu = false,
     onCreate,
     header,
     class: className,
@@ -128,6 +130,13 @@
      * true; a matter's section and an embedded card have one calendar each and pass nothing.
      */
     rail?: boolean;
+    /**
+     * Whether a Calendars menu — the rail's folders and rows as a dropdown — is drawn over the
+     * grid. For a calendar with no room for a rail that still has to answer "who is busy":
+     * the day being booked beside a record form. It reads and writes the same selection the rail
+     * does, so the two never disagree.
+     */
+    calendarMenu?: boolean;
     /**
      * A double-click landed on an empty day or hour: the civil day, and the minute past midnight
      * where a day grid named one. The host opens its own record form on it — this component owns
@@ -323,6 +332,22 @@
    */
   const railStands = $derived(rail && controller.firmSide);
 
+  /*
+   * ONE SCROLL REGION UNDER THE ACTION ROW, and which element it is depends on the grid.
+   *
+   * A month, a week and a day are TABLES: they draw their whole shape and scroll nothing of their
+   * own, so the wrapper around them is the scroll region. The agenda is a scrolling child by
+   * design — a named, focusable region a keyboard can reach when its rows have scrolled past — so
+   * there the wrapper stands aside and the agenda is the region. Two nested scrollers is what the
+   * owner met on a laptop (2026-09-17: "has multiple scrollbars"), and a region inside a region
+   * offers a reader two bars for one list with no way to tell which one moves what.
+   */
+  const gridRegionClasses = $derived(
+    view === "agenda"
+      ? "flex min-h-0 flex-1 flex-col"
+      : "mc-scrollbar min-h-0 flex-1 overflow-y-auto",
+  );
+
 </script>
 
 <!--
@@ -332,12 +357,21 @@
   everywhere else — and the calendar inside them is the same calendar.
 -->
 {#snippet calendar(frameClass: string)}
-<div class="flex min-h-0 flex-col gap-12 {frameClass}">
+<div class="flex min-h-0 flex-col gap-8 {frameClass}">
   <!-- The action row: the view switch and the window navigation, over the grid they move. One
        place, both arrangements — a row a header could claim was a row two arrangements could each
        draw. -->
   {#if toolbar}
     <CalendarToolbar {controller} {viewSwitch} />
+  {/if}
+
+  <!-- Where there is no rail and no toolbar but the reader still has to choose whose calendars
+       they are looking at: the menu, on its own short row over the grid. Firm side only, like the
+       rail: a matter's calendar has one calendar and nothing to choose. -->
+  {#if calendarMenu && !toolbar && controller.firmSide}
+    <div class="flex items-center">
+      <CalendarMenu {controller} />
+    </div>
   {/if}
 
   {#each controller.failures as failed (readFailureKey(failed))}
@@ -349,9 +383,15 @@
     />
   {/each}
 
-  <div class="mc-scrollbar min-h-0 flex-1 overflow-y-auto">
+  <div class={gridRegionClasses}>
       {#if view === "month"}
+        <!-- THE MONTH FILLS THE HEIGHT IT IS GIVEN. Its cells carry a minimum rather than a fixed
+             height, so six weeks share whatever the column has left and the frame comes to rest on
+             the bottom edge; only when that minimum wins — a short screen, or a month with full
+             days — does the region above scroll. A month that was always six times its cell
+             minimum tall scrolled on every laptop with nothing on it. -->
         <CalendarGrid.Month
+          class="h-full"
           entries={painted}
           label={gridLabel}
           anchor={controller.anchor}
@@ -472,7 +512,10 @@
     {#snippet navigationFooter()}
       <CalendarMonthPicker {controller} />
     {/snippet}
-    <div class="flex min-h-0 flex-1 flex-col gap-16 p-24">
+    <!-- The `p-24` is the canvas inset the layout cancelled, put back where a scrollbar then sits
+         at the true edge. Nothing else spaces this column: what is inside it is one stack, and the
+         stack sets its own rhythm. -->
+    <div class="flex min-h-0 flex-1 flex-col p-24">
       {@render calendar("flex-1")}
     </div>
   </NavigationLayout>

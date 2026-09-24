@@ -32,8 +32,11 @@
     guard: CloseGuard;
     /** The heading. Defaulted, because the question is the same question wherever it is asked. */
     title?: string;
-    /** The one line naming what would be lost, in the surface's own words. */
-    description: string;
+    /**
+     * The one line naming what would be lost, in the surface's own words — or nothing, where the
+     * heading already says it all. A form being filled asks with no line under the question.
+     */
+    description?: string;
     /** Carry out the gesture the guard was holding. Called only when the reader chooses to discard. */
     onDiscard: () => void;
   } = $props();
@@ -52,7 +55,9 @@
 >
   <AlertDialog.Content data-modal-shell="discard-question">
     <AlertDialog.Title>{title}</AlertDialog.Title>
-    <AlertDialog.Description>{description}</AlertDialog.Description>
+    {#if description !== undefined}
+      <AlertDialog.Description>{description}</AlertDialog.Description>
+    {/if}
     <!-- The row is layout, so it rides utilities rather than a recipe of its own. The panel is
          already a flex column with its own gap; the extra top margin is what sets this question's
          answer apart from the sentence above it, and it is carried over from the record window's

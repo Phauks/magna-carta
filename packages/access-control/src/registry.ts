@@ -21,6 +21,10 @@ export const PERMISSIONS = [
   "firm:scanFile", // run a one-off, matter-less malware-scan diagnostic — seeded to every default role
   "firm:manageSecrets", // read/write the encrypted per-firm secret store (an audited decrypt on read)
   "firm:manageScanPolicy", // read and update the firm's malware scan-policy settings
+  // Whether every document opened in the browser editor records its changes. The firm's act, on
+  // the firm:manageScanPolicy reasoning: it decides what the firm's documents carry inside them
+  // for their whole life, which is not a member's preference. Owner/Admin only by seed.
+  "firm:manageEditingPolicy", // read and update the firm's editing policy: whether documents record their changes
   "firm:manageReleaseChannel", // set the firm's release channel between {stable, beta}; alpha is platform-only
   // The firm's notification POLICY, which is a different act from a member's own preferences. The
   // in-app floor decides what every member of the firm must go on hearing whatever they switch off;
@@ -68,7 +72,11 @@ export const PERMISSIONS = [
   "matters:edit", // edit matter fields (title/description/type/location/attorney/client)
   "matters:renumber", // assign a manual/court/legacy number
   "matters:manageTypes", // create/deactivate matter types
-  "matters:manageNumbering", // edit the firm numbering scheme
+  "matters:manageNumbering", // edit the firm's numbering schemes
+  // Seeded to EVERY default role, Read-only included: how the firm's numbers are shaped is a fact
+  // every member reads off every record, so seeing the register is not a privilege — changing it
+  // is, and that stays matters:manageNumbering.
+  "matters:viewNumbering", // read the firm's numbering register: every sequence, and what is in force
   // Directory — persons, organizations, and their sensitive typed identifiers.
   "directory:edit", // create/edit directory entities, names, identifiers, edges, categories, merges, and matter-party links
   "directory:viewSensitiveIdentifiers", // decrypt and read an entity's protected identifier (SSN/EIN/DL/account/DOB) — audited
@@ -186,6 +194,21 @@ export const PERMISSIONS = [
   "communications:read", // read the firm's calls and texts, and one matter's own
   "communications:log", // log a call or a message by hand, file one onto a matter, unfile one
   "communications:reviewUnrouted", // read and work the queue of calls and texts that belong to no matter yet
+  // Meetings — the room a calendar event is held in when it is held in this product. Two keys,
+  // because being in a meeting and deciding that one happens are different capabilities: a firm that
+  // wants everybody able to attend and only its practitioners able to convene says so by granting
+  // one and withholding the other.
+  //
+  // BOTH BIND resource: "firm", and the reason is the one thing to read before copying this pattern
+  // onto a matter-rooted subsystem. A meeting hangs from a calendar event, and half the calendar's
+  // events are FIRM events — a staff meeting, a training session, an office closure — which have no
+  // matter at all. A matter cannot be the tenancy root of a record that need not have one, so the
+  // firm is, exactly as it is for communications:* and custody:*. What that binding decides is which
+  // root the chokepoint resolves, never what a member may reach: a meeting on a matter event is
+  // still read through the visible-matter predicate, so a walled matter's meeting is unreachable
+  // whoever holds these keys.
+  "meetings:join", // join a meeting on an event the member may see, and read who was in the room
+  "meetings:host", // start a meeting on such an event, and end one
   // Document automation — the firm's assembly-template catalogue and the act of assembling a document
   // onto a matter. The catalogue is firm-level and carries no matter data, so templates:* binds
   // resource: "firm"; an assembly is matter-rooted like every other document operation, so

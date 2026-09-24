@@ -116,6 +116,11 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // chain-of-custody a firm can be asked to account for, and removing the row would break the
   // version lineage the current-version pointer walks.
   { table: "file_version", subjectKey: "uploaded_by", action: "pseudonymize-keep" },
+  // Who was in the editing session when a version was cut, on the same terms as uploaded_by: the
+  // reference outlives the member row by design (no foreign key to member), and the row is
+  // chain-of-custody — that SOMEBODY was in the document at this time — so it is pseudonymized,
+  // never deleted.
+  { table: "file_version_participant", subjectKey: "member_user_id", action: "pseudonymize-keep" },
   { table: "entity_merge", subjectKey: "subordinate_id", action: "pseudonymize-keep" },
   // The conflicts log — append-only compliance records whose RAISE(ABORT) triggers forbid deletion, so
   // the subject reference is pseudonymized in place and the row is never removed (the same discipline as
@@ -272,6 +277,31 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     subjectKey: "logged_by_user_id",
     action: "retain-under-matter",
     note: "who entered a hand-logged call, and when, is that entry's provenance — the reason a member-produced row can be weighed differently from a carrier-produced one",
+  },
+  // Meetings. A meeting is a conversation the firm had, so its retention basis is the call log's one
+  // line above: who was in the room is part of what the matter record says happened. The meeting row
+  // names two members — who convened it and who ended it — and the attendance row names one per
+  // stay. None of them is free-standing member data: each is provenance on a record of a gathering,
+  // which is the line communication.member_user_id and communication.logged_by_user_id already sit
+  // on. Nothing anybody said is stored anywhere in the subsystem, so there is no content residue to
+  // report either.
+  {
+    table: "meeting",
+    subjectKey: "created_by_user_id",
+    action: "retain-under-matter",
+    note: "who convened the meeting on a matter is part of what the record says happened",
+  },
+  {
+    table: "meeting",
+    subjectKey: "ended_by_user_id",
+    action: "retain-under-matter",
+    note: "who ended it, and when, is the fact that closes every stay under it",
+  },
+  {
+    table: "meeting_attendance",
+    subjectKey: "user_id",
+    action: "retain-under-matter",
+    note: "who was in the room and for how long is the whole of what an attendance row records",
   },
   // Document automation — the assembly record is the provenance of a document on a matter file, so it
   // is retained on the same basis as the document itself. Its structured subject is the member who
@@ -905,6 +935,10 @@ export const NO_PII_TABLES: readonly string[] = [
   // The drawn-number allocation ledger behind that counter: a scope key, the integer drawn, the matter
   // it went to, and when. Numbering bookkeeping about a matter, carrying no column about a person.
   "matter_number_allocation",
+  // The conflicts check sequence's counter and allocation ledger: the same bookkeeping about a
+  // numbered check, carrying no column about a person (the check itself is classified above).
+  "conflicts_check_number_counter",
+  "conflicts_check_number_allocation",
   // matter is matter-scoped metadata, BUT matter.client_display_name/client_code can hold a
   // prospective client's name pre-Directory-link, with no structured subject key to resolve — a known
   // residual in the same class as shipment-address JSON (handled by the residue report / a product

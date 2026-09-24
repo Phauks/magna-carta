@@ -116,7 +116,7 @@ export function browseColumns(context: FileColumnContext): GridColumn<FileManage
       id: FILE_COLUMN_IDENTIFIERS.name,
       label: "Name",
       type: "text",
-      filter: "text",
+      filter: "set",
       anchored: true,
       // A folder icon and the row's own glyph ride ahead of the text; the fit measurement has to
       // account for them or a double-click fit clips every name by the width of its icon.
@@ -255,7 +255,7 @@ export function deletedColumns(
       id: "name",
       label: "Name",
       type: "text",
-      filter: "text",
+      filter: "set",
       anchored: true,
       fitExtra: 28,
       value: (row) => displayName(row.name, hideExtensions),
@@ -329,7 +329,7 @@ export function archiveColumns(): GridColumn<ArchiveRow>[] {
       id: "name",
       label: "Name",
       type: "text",
-      filter: "text",
+      filter: "set",
       anchored: true,
       fitExtra: 28,
       value: (row) => row.name,
@@ -435,7 +435,7 @@ export function historyColumns(): GridColumn<FileHistoryEntry>[] {
       id: "subject",
       label: "File or Folder",
       type: "text",
-      filter: "text",
+      filter: "set",
       value: (row) => row.subjectName,
     },
     {
@@ -450,14 +450,14 @@ export function historyColumns(): GridColumn<FileHistoryEntry>[] {
       id: "from",
       label: "From",
       type: "text",
-      filter: "text",
+      filter: "set",
       value: (row) => row.fromText ?? "",
     },
     {
       id: "to",
       label: "To",
       type: "text",
-      filter: "text",
+      filter: "set",
       value: (row) => row.toText ?? "",
     },
     {

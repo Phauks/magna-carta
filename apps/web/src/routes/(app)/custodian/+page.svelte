@@ -34,7 +34,6 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import CreateControl from "@magna-carta/design-system/create-control";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
@@ -167,7 +166,6 @@
       <ScreenSearch
         bind:value={searchText}
         label="Search the register"
-        placeholder={placeholderOf("Search the register")}
         searchOn="pause"
         fieldClass="w-2xs sm:w-xs"
         onsearch={(next) => {

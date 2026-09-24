@@ -55,6 +55,8 @@ describe("schema conformance (fitness functions)", () => {
     //    shape as matter_number_counter and custody_number_counter.
     //  - time_entry_number_counter: the per-matter time-entry sequence, keyed by its scope (the
     //    matter id) — the same counter shape again.
+    //  - conflicts_check_number_counter: the conflicts check sequence, keyed by its scope — the same
+    //    counter shape once more, now that a check number is drawn from a scheme like a matter's.
     //  - firm_account_role: which ledger account plays each posting role. The ROLE is the identity —
     //    the row exists to answer "which account is accounts receivable", and a handle would add a
     //    lookup to every posting to find the row by the only thing anyone ever asks it by. The role
@@ -67,6 +69,7 @@ describe("schema conformance (fitness functions)", () => {
       invoice_number_counter: "scope_key",
       time_entry_number_counter: "scope_key",
       communication_number_counter: "scope_key",
+      conflicts_check_number_counter: "scope_key",
       setting: "key",
       platform_operator: "user_id",
       email_capture_route: "token",
@@ -154,7 +157,11 @@ describe("schema conformance (fitness functions)", () => {
     // it does not; the pair IS the attachment, and a handle would let one file attach to the same
     // conversation twice, which is the one state the per-file outcome the composer reports could not
     // then reconcile.
+    // file_version_participant is the many-to-many join between a version and the members who were
+    // in the editing session when it was cut — the pair (version_id, member_user_id) is the natural
+    // key, same idiom as directory_entity_category; no handle is warranted.
     const compositeKeyTables = new Set([
+      "file_version_participant",
       "ai_search_feed_object",
       "magnus_conversation_attachment",
       "storage_meter",
@@ -166,6 +173,7 @@ describe("schema conformance (fitness functions)", () => {
       "custody_number_allocation",
       "invoice_number_allocation",
       "time_entry_number_allocation",
+      "conflicts_check_number_allocation",
       "time_entry_attachment",
       "magnus_conversation_attachment",
       "invoice_matter_balance",
@@ -188,6 +196,7 @@ describe("schema conformance (fitness functions)", () => {
       "custody_number_allocation.drawn_value",
       "invoice_number_allocation.drawn_value",
       "time_entry_number_allocation.drawn_value",
+      "conflicts_check_number_allocation.drawn_value",
       "index_split_member.version",
       // A fed object's version is the same integer the file entry and the split catalog already carry;
       // spelling it as text here would let the feed row disagree with the split row about which

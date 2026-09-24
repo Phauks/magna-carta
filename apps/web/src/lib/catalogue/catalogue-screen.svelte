@@ -25,7 +25,6 @@
    */
   import EmptyState from "@magna-carta/design-system/empty-state";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import LayoutGrid from "@lucide/svelte/icons/layout-grid";
   import List from "@lucide/svelte/icons/list";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
@@ -91,7 +90,6 @@
     <ScreenSearch
       bind:value={query}
       label={searchLabel}
-      placeholder={placeholderOf(searchLabel)}
       matchSummary={searching ? matchSummary(matched, total) : undefined}
       fieldClass="w-2xs sm:w-xs"
       onsearch={(next) => {

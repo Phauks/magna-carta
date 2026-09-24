@@ -111,6 +111,7 @@
     folderKey,
     type FileManagerRow,
     folderAggregate,
+    orderFolderRowsFirst,
   } from "./file-rows.ts";
   import {
     archiveColumns,
@@ -376,6 +377,11 @@
     rows: () => rows,
     rowKey: (row) => row.key,
     itemNoun: { singular: "item", plural: "items" },
+    // Folders are their own run above the files, whatever column the reader sorted by and in
+    // whichever direction: a folder is a place and a file is a thing in it, so the boundary
+    // between them is not something a sort direction may flip. The grid hands over its own
+    // comparator, so the sort still means exactly what the header says inside each run.
+    orderRows: orderFolderRowsFirst,
     pinnedRowKeys: () => manager.pinnedKeys,
     rowMark: (row) => {
       const mark = {
@@ -1806,6 +1812,9 @@
       archiveBrowse === null ? [] : archiveLevelRows([...archiveEntriesHeld], archivePath),
     rowKey: (row) => row.path,
     itemNoun: { singular: "member", plural: "members" },
+    // An archive's own word for a place is "directory", and a listing of one is a list of places
+    // and the things in them: the same run above the same run, under the same rule as the list.
+    orderRows: orderFolderRowsFirst,
     onActivate: (row) => {
       if (row.kind === "directory") archivePath = row.path;
     },

@@ -100,15 +100,6 @@ export function chargeAmount(entry: TimeEntrySummary): number | null {
   return entry.amountMinor / 100;
 }
 
-/** The initials that ride beside a timekeeper's name — never instead of it. */
-export function personInitials(name: string): string {
-  const words = name.split(/\s+/).filter((word) => word !== "");
-  if (words.length === 0) return "";
-  const first = words[0]?.[0] ?? "";
-  const last = words.length > 1 ? (words.at(-1)?.[0] ?? "") : "";
-  return (first + last).toUpperCase();
-}
-
 /** Whose work an entry records, as the record itself captured it. */
 export function timekeeperOf(entry: TimeEntrySummary): string {
   return personName(entry.timekeeperName);
@@ -205,6 +196,9 @@ export function timeLedgerColumns(currency: string): readonly GridColumn<TimeEnt
       id: TIME_COLUMN_IDENTIFIERS.description,
       label: "Description",
       type: "text",
+      // Prose: no two entries share a narrative, so a checklist of them would be the column read
+      // twice. This is the column that keeps the contains box, and it has to say so.
+      filter: "text",
       value: (entry) => entry.narrative,
     },
     /*

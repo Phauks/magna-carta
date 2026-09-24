@@ -10,12 +10,17 @@
    * from one to the other LEAVES the parent. It therefore reports the pointer to the root menu's
    * hover controller (hover-open.ts) exactly as the parent panel does, or a hover-opened menu would
    * close under a member reaching into its submenu.
+   *
+   * A submenu that hosts a field stays open while the field's own floating layer holds focus
+   * (../context-menu/menu-field-layer.ts): a calendar or a list portaled outside the panel would
+   * otherwise read to Bits as focus leaving.
    */
   import { DropdownMenu as DropdownMenuPrimitive } from "bits-ui";
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import { floatingContentClasses, PRESENCE_SCALE_FADE } from "../../internal/floating.ts";
   import type { WithoutChild } from "../../internal/types.ts";
   import { getHoverOpenContext } from "./hover-open.ts";
+  import { keepMenuFieldLayer } from "../context-menu/menu-field-layer.ts";
 
   let {
     ref = $bindable(null),
@@ -24,6 +29,7 @@
     collisionPadding = 8,
     onpointerenter,
     onpointerleave,
+    onFocusOutside,
     ...restProps
   }: WithoutChild<DropdownMenuPrimitive.SubContentProps> = $props();
 
@@ -47,6 +53,10 @@
     onpointerleave={(event) => {
       onpointerleave?.(event);
       hoverOpen.pointerLeave(event);
+    }}
+    onFocusOutside={(event) => {
+      onFocusOutside?.(event);
+      keepMenuFieldLayer(event);
     }}
     {...restProps}
   />

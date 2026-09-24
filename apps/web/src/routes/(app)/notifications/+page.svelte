@@ -28,7 +28,6 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import {
     categoriesMatching,
     kindsMatching,
@@ -187,7 +186,6 @@
     <ScreenSearch
       bind:value={searchText}
       label="Search your notifications"
-      placeholder={placeholderOf("Search your notifications")}
       searchOn="pause"
       fieldClass="w-2xs sm:w-xs"
       onsearch={(next) => {

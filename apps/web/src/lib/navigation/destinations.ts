@@ -55,13 +55,21 @@ import Settings from "@lucide/svelte/icons/settings";
 import Vault from "@lucide/svelte/icons/vault";
 import ShieldAlert from "@lucide/svelte/icons/shield-alert";
 import MessageSquare from "@lucide/svelte/icons/message-square";
+import Video from "@lucide/svelte/icons/video";
 import ChartColumn from "@lucide/svelte/icons/chart-column";
 import ChartPie from "@lucide/svelte/icons/chart-pie";
 import Sparkles from "@lucide/svelte/icons/sparkles";
 import ListChecks from "@lucide/svelte/icons/list-checks";
 import HandCoins from "@lucide/svelte/icons/hand-coins";
 
-export type DestinationGroup = "favorites" | "desk" | "work" | "money" | "firm" | "tools";
+export type DestinationGroup =
+  | "favorites"
+  | "desk"
+  | "work"
+  | "communications"
+  | "money"
+  | "firm"
+  | "tools";
 
 export interface Destination {
   readonly id: string;
@@ -165,6 +173,11 @@ export const DESTINATION_GROUPS: ReadonlyArray<{ id: DestinationGroup; label: st
   { id: "favorites", label: "Favorites" },
   { id: "desk", label: "My Desk" },
   { id: "work", label: "Workspace" },
+  // Every channel the firm talks through, in one place (owner ruling, 2026-09-18): calls and texts
+  // today, meetings beside them, and whatever else carries a conversation — a row for each is a
+  // row a member scans past in the workspace, where the question is "what is the firm working on"
+  // rather than "how do I reach somebody".
+  { id: "communications", label: "Communications" },
   { id: "money", label: "Money" },
   { id: "firm", label: "Firm" },
   { id: "tools", label: "Tools" },
@@ -361,7 +374,7 @@ const DESTINATION_LIST = [
     href: "/messaging",
     icon: MessageSquare,
     description: "Calls and texts with clients, logged against their matters.",
-    group: "work",
+    group: "communications",
     shipped: true,
     // The log reads and records what a member writes down. Nothing is sent or received yet: the
     // carrier adapter that writes these same rows by itself, and the recording and transcript that
@@ -370,14 +383,36 @@ const DESTINATION_LIST = [
     defaultShown: true,
   },
   {
+    // Video meetings, started from a calendar event and listed here so a member can see what is
+    // live and get back into a room without finding the event first. Gated by the join key rather
+    // than shown to every seat: a member who cannot join a meeting has nothing to open here.
+    id: "meetings",
+    label: "Meetings",
+    href: "/meetings",
+    icon: Video,
+    description: "Video meetings on the firm's calendar — live now, ahead, and recently ended.",
+    group: "communications",
+    shipped: true,
+    stage: "alpha",
+    defaultShown: true,
+    permission: assertPermission("meetings:join"),
+  },
+  {
+    // The firm's template library: the documents that belong to the FIRM rather than to any one
+    // matter, each registered once and added to as many matters as need it. A matter's own files
+    // live under the matter (its Files section); what stands at the top level is the catalogue those
+    // files are built from, which is why this row and Matters do not overlap.
     id: "documents",
     label: "Documents",
     href: "/documents",
     icon: FileText,
-    description: "The firm's documents — stored, scanned, and versioned.",
+    description: "The firm's document templates, registered once and added to any matter.",
     group: "work",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    // The library reads, registers a template from a Word document or a fillable PDF, adds one to
+    // several matters at once, and archives. The field inspector and authoring in the browser are
+    // still to come.
+    stage: "alpha",
     defaultShown: true,
   },
   {
@@ -511,14 +546,26 @@ const DESTINATION_LIST = [
     defaultShown: true,
   },
   {
+    // The firm's own trust register: every account it holds, at which bank, under which office and
+    // which state's rules, with one account's work beside it. It is the read a matter's Trust
+    // section cannot give — a matter knows its own ledger, and no amount of visiting matters says
+    // what the firm holds or what is waiting on somebody's approval this morning.
+    //
+    // Alpha, not ready. It reads: the accounts, the approval queue on one of them, the bank
+    // statements and reconciliations recorded against it, the firm's bank-charge cushion, and the
+    // authorization posture that governs money leaving any client ledger. It acts: opening an
+    // account; approving, rejecting and withdrawing a waiting request; changing the posture.
+    // Recording and importing a statement, the reconciliation workbench, the three cushion forms
+    // and the unclaimed-funds file are still to come, and each renders where the design puts it,
+    // disabled, naming what it waits on.
     id: "trust",
     label: "Trust",
     href: "/trust",
     icon: Landmark,
     description: "Client money held in trust, to the penny.",
     group: "money",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    stage: "alpha",
     defaultShown: true,
   },
   // Firm — the firm about itself.

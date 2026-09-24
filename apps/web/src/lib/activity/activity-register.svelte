@@ -28,7 +28,6 @@
   import Button from "@magna-carta/design-system/button";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import FileIcon from "@magna-carta/design-system/file-icon";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import ArrowUpRight from "@lucide/svelte/icons/arrow-up-right";
@@ -303,40 +302,39 @@
     />
   {/if}
 
-  {#if isSample}
-    <EmptyState title="This is a sample matter, so nothing has happened on it." />
-  {:else}
-    <DataTable.Grid
-      {grid}
-      {cell}
-      class={recent ? undefined : "max-h-svh"}
-      density={recent ? "compact" : "comfortable"}
-      caption={recent
-        ? "The newest entries recorded on this matter"
-        : "Everything recorded on this matter, newest first"}
-      loading={entries === null}
-      placeholderCount={recent ? Math.min(limit, 4) : 8}
-    />
-    {#if !recent}
-      <DataTable.GridFooter {grid} end={footerEnd} />
-    {/if}
+  <!-- The table stands whether or not the matter has a history: a sample matter settles empty
+       rather than reading, and the grid draws its header row over its own empty body and says so
+       there. A reader meets the shape the entries will arrive in. -->
+  <DataTable.Grid
+    {grid}
+    {cell}
+    class={recent ? undefined : "max-h-svh"}
+    density={recent ? "compact" : "comfortable"}
+    caption={recent
+      ? "The newest entries recorded on this matter"
+      : "Everything recorded on this matter, newest first"}
+    loading={entries === null}
+    placeholderCount={recent ? Math.min(limit, 4) : 8}
+  />
+  {#if !recent}
+    <DataTable.GridFooter {grid} end={footerEnd} />
+  {/if}
 
-    {#if windowKey !== null}
-      {@const Host = ACTIVITY_WINDOWS[windowKey]}
-      {#if Host !== undefined}
-        <Host
-          bind:open={windowOpen}
-          recordId={windowRecordId}
-          {matterId}
-          {matterTitle}
-          onSaved={() => {
-            unattachedNames = [];
-            reloadToken += 1;
-          }}
-          onDeleted={() => (reloadToken += 1)}
-          onAttachmentsUnwritten={(names) => (unattachedNames = names)}
-        />
-      {/if}
+  {#if windowKey !== null}
+    {@const Host = ACTIVITY_WINDOWS[windowKey]}
+    {#if Host !== undefined}
+      <Host
+        bind:open={windowOpen}
+        recordId={windowRecordId}
+        {matterId}
+        {matterTitle}
+        onSaved={() => {
+          unattachedNames = [];
+          reloadToken += 1;
+        }}
+        onDeleted={() => (reloadToken += 1)}
+        onAttachmentsUnwritten={(names) => (unattachedNames = names)}
+      />
     {/if}
   {/if}
 </div>

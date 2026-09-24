@@ -5,13 +5,7 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    "./numbering/segments": "./src/numbering/segments.ts",
-    "./numbering/render": "./src/numbering/render.ts",
     "./numbering/counter-statements": "./src/numbering/counter-statements.ts",
-    "./numbering/scheme-statements": "./src/numbering/scheme-statements.ts",
-    "./numbering/scheme-service": "./src/numbering/scheme-service.ts",
-    "./numbering/consultation-scheme": "./src/numbering/consultation-scheme.ts",
-    "./numbering/intake-scheme": "./src/numbering/intake-scheme.ts",
     "./numbering/sequences": "./src/numbering/sequences.ts",
     "./matter-statements": "./src/matter-statements.ts",
     "./matter-party": "./src/matter-party.ts",
