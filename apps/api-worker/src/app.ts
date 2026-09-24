@@ -100,6 +100,7 @@ import {
   type SafeBrowseRouteDeps,
 } from "./routes/safe-browse.ts";
 import { registerSafeBrowseSessionProbeRoute } from "./routes/safe-browse-session-probe.ts";
+import { registerSafeBrowseLocationProbeRoute } from "./routes/safe-browse-location-probe.ts";
 import {
   registerSafeBrowseLiveRoutes,
   type SafeBrowseLiveRouteDeps,
@@ -663,6 +664,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerSafeBrowseRoute(app, chokepoint, options.safeBrowseDeps ?? {});
   registerSafeBrowseStreamRoute(app, chokepoint, options.safeBrowseDeps ?? {});
   registerSafeBrowseSessionProbeRoute(app, chokepoint);
+  registerSafeBrowseLocationProbeRoute(app, chokepoint);
   registerSafeBrowseLiveRoutes(app, chokepoint, options.safeBrowseLiveDeps ?? {});
   registerDecryptionRoutes(app, chokepoint);
   // Password recovery: mints a job and fans it out through the recovery coordinator Durable

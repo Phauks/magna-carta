@@ -48,6 +48,16 @@ Paste the shortened link. The **Redirects** tab shows every address it passed th
 
 Switch to **Live**, then load the link. To go to the next page, choose an address on the **Links** or **Redirects** tab — it opens in the same isolated computer, with the cookies from the page before. Back and forward show pages you already looked at, straight away and without visiting them again.
 
+**Keep a record of what you found**
+
+Select **Download Screenshot and Details** above the screenshot. It saves one ZIP file holding:
+
+- the screenshot;
+- `capture.txt` — everything on the tabs on the right, written out to read or attach to a report: the overview, every redirect, the page text, the links, and the headers;
+- `capture.json` — the same facts in a structured form, for anyone who wants to process them.
+
+The registration record is included when you have opened the **Registration** tab for that site first. Nothing in the file is live: addresses are written as plain text, not links, so opening the report later cannot take you to the site by accident.
+
 **Read the page text without images**
 
 The **Page Text** tab shows the site's readable content even when the screenshot is hard to read at small size.
@@ -65,7 +75,7 @@ The **Page Text** tab shows the site's readable content even when the screenshot
 - **Some sites block automated visitors.** A page that detects automated access may show a CAPTCHA, a blank screen, or an error page. This does not mean the link is safe — it means the site tried to hide itself. Live mode can sometimes get past a simple "confirm you are human" step.
 - **The tool does not give you a safety verdict.** You see the facts: what the page looks like, where it went, and what it links to. Deciding whether to trust or act on a site is your judgement.
 - **A page that looks like a sign-in screen is still just a picture of one.** The viewer never types anything into a page for you, and there is no way to enter a password through it. The right response to a fake sign-in page is to report the link, not to go and sign in.
-- **Nothing is saved.** Screenshots and page details are shown to you and then discarded; nothing is stored in Magna Carta. To keep evidence of how a site looked, use the download button above the screenshot.
+- **Nothing is saved.** Screenshots and page details are shown to you and then discarded; nothing is stored in Magna Carta. To keep evidence of how a site looked and what it contained, use **Download Screenshot and Details** above the screenshot.
 - **The site sees a visit.** Opening a link here does not show the sender that you opened it on your own device, but the site can tell that something visited it.
 
 ## Why this is safe

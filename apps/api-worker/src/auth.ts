@@ -26,6 +26,9 @@ const ENTITY_TYPE_BY_MODEL: Partial<Record<string, EntityType>> = {
   twoFactor: "twoFactor",
 };
 
+/** The issuer an authenticator app shows beside this account's codes. */
+export const TOTP_ISSUER = "Magna Carta";
+
 // RECOVERY CODES — the codes a member writes down and comes back to a year later, so the shape is
 // chosen for being read off paper and typed by hand rather than for looking cryptographic.
 //
@@ -439,6 +442,16 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
         await writeAuthAuditGuarded(env, { event: "password.changed", userId });
       }),
     },
-    plugins: [twoFactor({ backupCodeOptions: { customBackupCodesGenerate: recoveryCodes } })],
+    plugins: [
+      twoFactor({
+        // The name an authenticator app files this account under. Left unset, the plugin falls back
+        // to the library's own appName — "Better Auth" — so a member's phone listed the account under
+        // a name they have never heard of, beside every other service's entry, and on the day they
+        // need the code they are looking for "Magna Carta". Set here rather than as the instance-wide
+        // appName because this is the one place the name reaches a person.
+        issuer: TOTP_ISSUER,
+        backupCodeOptions: { customBackupCodesGenerate: recoveryCodes },
+      }),
+    ],
   });
 }

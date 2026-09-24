@@ -36,6 +36,11 @@ This file is a **build output**: `vp run status-build` assembles it (and [`STATU
 | 0·7b — Auth UI + deferred surfaces | [-] | [ ] | [ ] | [~] | [~] | [-] | [~] | Sign-in is one screen (email and password together) over Better Auth, with channel-aware code entry
 and real recovery-code entry. Every state renders on the developer console's screen-state page.
 
+Two-factor can now be set up, not only answered: Account · Security adds it (password, then the
+authenticator by QR code or typed key, then the recovery codes), removes it, and replaces the
+recovery codes. It was the last Soon seam on the account surface. The authenticator files the
+account under "Magna Carta", where the library's default had it under "Better Auth".
+
 The backend behind those screens now exists for three of the nine gaps the screen-state page
 registered: self-serve registration with the three-way role fork, invitation redemption against a
 code plus surname and date of birth behind one neutral refusal, and the shared attempt budget the
