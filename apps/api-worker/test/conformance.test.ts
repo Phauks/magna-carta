@@ -771,6 +771,8 @@ describe("conformance — the committed contract holds, and each rule catches a 
   it("exposes the known committed operations (so the positive assertions are not vacuous)", () => {
     const ids = [...operations(document)].map((entry) => entry.operationId).toSorted();
     expect(ids).toEqual([
+      "addressLookup.resolve",
+      "addressLookup.suggest",
       "aiDetection.detect",
       "assemblies.status",
       "assemblies.submit",

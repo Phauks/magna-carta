@@ -141,7 +141,7 @@ function lookupMeta(action: string): RouteMeta {
     surface: "app",
     authenticated: true,
     permission: "directory:edit",
-    resource: "firm",
+    resource: "directoryEntity",
     audited: false,
     idempotency: "optional",
     rateLimit: "default",
