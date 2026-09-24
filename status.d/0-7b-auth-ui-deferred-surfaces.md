@@ -11,7 +11,7 @@ load-profile: n/a
 tested: in-progress
 branch: main
 active-work:
-next: The step-up re-authentication the account surface is designed around (Better Auth's own freshness dial gates a listing and none of the writes, so it is not that mechanism), a Turnstile widget on the joining forms so the human-verification gate can be switched on (the server half exists; the owner's dashboard step is queued in docs/deploy-queue.md), the two-factor enrolment screens (now the only Soon seam left on the account surface), reset-password as one progressively-disclosed screen, a confirmation email that carries a link rather than a bare token, the Terms of Service and Privacy Policy pages the registration acknowledgements point at, and — still unbuilt server-side — passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice
+next: The step-up re-authentication the account surface is designed around (Better Auth's own freshness dial gates a listing and none of the writes, so it is not that mechanism), a Turnstile widget on the joining forms so the human-verification gate can be switched on (the server half exists; the owner's dashboard step is queued in docs/deploy-queue.md), reset-password as one progressively-disclosed screen, a confirmation email that carries a link rather than a bare token, the Terms of Service and Privacy Policy pages the registration acknowledgements point at, and — still unbuilt server-side — passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice
 link-spec:
 link-plan:
 adrs:
@@ -20,6 +20,11 @@ blocked-by:
 
 Sign-in is one screen (email and password together) over Better Auth, with channel-aware code entry
 and real recovery-code entry. Every state renders on the developer console's screen-state page.
+
+Two-factor can now be set up, not only answered: Account · Security adds it (password, then the
+authenticator by QR code or typed key, then the recovery codes), removes it, and replaces the
+recovery codes. It was the last Soon seam on the account surface. The authenticator files the
+account under "Magna Carta", where the library's default had it under "Better Auth".
 
 The backend behind those screens now exists for three of the nine gaps the screen-state page
 registered: self-serve registration with the three-way role fork, invitation redemption against a

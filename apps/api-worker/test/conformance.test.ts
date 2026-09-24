@@ -1306,6 +1306,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "roles.list",
       "safeBrowse.liveClose",
       "safeBrowse.liveNavigate",
+      "safeBrowse.locationProbe",
       "safeBrowse.post",
       "safeBrowse.sessionProbe",
       "safeBrowse.stream",

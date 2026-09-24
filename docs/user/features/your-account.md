@@ -1,6 +1,6 @@
 # Your account
 
-Your name, your photo, your email address and your password — the things that are yours rather than your firm's. **Account Settings**, reached from your initials at the top right.
+Your name, your photo, your email address, your password and two-factor sign-in — the things that are yours rather than your firm's. **Account Settings**, reached from your initials at the top right.
 
 Account Settings opens over the app with its own stripped header: the Magna Carta mark and a **Close** button, nothing else. Close (the X, top right) returns you to where you came from.
 
@@ -9,7 +9,7 @@ Account Settings opens over the app with its own stripped header: the Magna Cart
 Three pages, listed down the left:
 
 - **Profile** — your name, your photo, and the email address your account uses.
-- **Security** — your password, and two-factor sign-in when it arrives.
+- **Security** — your password, two-factor sign-in, and your recovery codes.
 - **Active Sessions** — every device signed in as you. Its own guide: [Signed-in devices](signed-in-devices.md).
 
 ## Common tasks
@@ -40,6 +40,25 @@ On **Security**, next to **Password**, select **Change**. You will be asked for 
 
 If you have never set a password — your account was activated from an emailed link — use **Forgot Password** on the sign-in screen first, and this will change it afterwards.
 
+**Turn on two-factor sign-in**
+
+Two-factor means signing in asks for a six-digit code from an authenticator app on your phone as well as your password, so a stolen password alone does not get anybody in. Any authenticator app works — Google Authenticator, Microsoft Authenticator, 1Password, Authy and the like.
+
+1. On **Security**, next to **Two-Factor**, select **Add**, and enter your password.
+2. Scan the QR code with your authenticator app. If you are reading this on the phone you want to use, or the camera will not focus, type the key shown under the code into the app instead.
+3. Enter the six-digit code the app now shows, and select **Add Two-Factor**.
+4. Keep your recovery codes. They are shown once: **Save as File** or **Copy** them into your password manager before you close the window.
+
+Nothing changes about how you sign in until step 3 succeeds. If you close the window at the QR code, your account is exactly as it was.
+
+**Get new recovery codes**
+
+Each recovery code signs you in once when you cannot reach your authenticator. If you are running low, or you have lost the list, select **Replace** next to **Recovery Codes** and enter your password. Every old code stops working at once, so a lost list becomes useless to whoever finds it.
+
+**Turn off two-factor sign-in**
+
+Select **Remove** next to **Two-Factor** and enter your password. Your authenticator entry and every recovery code stop working. If you turn it on again later, you scan a new code.
+
 **See which email address your account uses**
 
 Profile, under **Identity**. It is the address you sign in with and the one notices are sent to.
@@ -49,7 +68,10 @@ Profile, under **Identity**. It is the address you sign in with and the one noti
 - **Your email address cannot be changed here, and that is deliberate.** It is not just a contact detail: it is how you sign in, and it is what any invitation or registration still waiting for you is addressed to. Changing it safely means proving you hold the new mailbox and deciding what happens to anything addressed to the old one, which is a piece of work rather than a setting. If yours is genuinely wrong, ask your firm's administrator.
 - **Your photo and your name are not the same kind of thing.** Your name follows your account; your photo belongs to the firm you are a member of.
 - **A wrong current password is told to you as such.** If the change is refused because the current password was wrong, the message says so rather than leaving you retyping a new password that was never the problem.
-- **Two-factor sign-in is marked _Soon_** on Security and does nothing yet. It is the only thing on this surface that is still a placeholder.
+- **Your authenticator lists the account as "Magna Carta"**, with your email address beside it.
+- **"That code didn't verify"** while setting up almost always means the code changed while you were typing it. Codes change every 30 seconds: enter the one your app is showing now. If every code is refused, check your phone's clock is set automatically.
+- **Two-factor is per person, not per device.** Once it is on, every device you sign in on asks for the code, unless you ticked **Don't ask for Two-Factor on this device for 30 days** there.
+- **If you lose both your phone and your recovery codes**, your firm's administrator can reset two-factor after confirming who you are.
 - **A photo that will not upload** is usually the wrong format or too large — PNG and JPEG only, 2 MB at most. Both are refused before the upload starts, so you are told straight away.
 
 ## Related features

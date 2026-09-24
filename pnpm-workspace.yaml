@@ -58,8 +58,10 @@ catalog:
   # API / Worker (apps/api-worker)
   # 4.12.34 fixed four security defects reachable from a Worker: JSX cross-request data disclosure,
   # a whitespace-tolerant CORS origin regex (ReDoS), a Language-middleware algorithmic-complexity DoS,
-  # and response-header leakage in the proxy helper. Stay at or above it.
-  hono: 4.13.0
+  # and response-header leakage in the proxy helper. Stay at or above it. 4.13.5 fixed three more:
+  # unbounded dot-notation nesting in `parseBody()` (memory DoS on any form body), the query parser
+  # reading past a `#` fragment, and `toSSG()` writing outside its output directory.
+  hono: 4.13.5
   "@hono/zod-openapi": 1.5.1
   zod: 4.4.3
   # API contract pipeline. Hey API generates the typed client (packages/api-client) from the
@@ -142,6 +144,10 @@ catalog:
   "@internationalized/date": 3.12.3
   "@lucide/svelte": 1.28.0
   virtua: 0.49.1
+  # The QR encoder behind the design system's QrCode (an authenticator app scans the two-factor
+  # secret from it). Pure TypeScript with no dependencies, and it hands back the module matrix rather
+  # than markup, so the component draws its own SVG from design tokens.
+  uqr: 0.1.3
   # The IANA top-level-domain list (auto-published from the root zone). The single source for
   # email/URL TLD validation, shared by the design-system form story and the app's real form schemas
   # so both track the same list — never a hand-maintained set.
@@ -186,15 +192,17 @@ overrides:
   # (js-yaml, brace-expansion, esbuild). Direct/catalog carriers (better-auth, fast-xml-parser,
   # nanoid, @sveltejs/kit) are bumped at their source in the catalog above, not here.
   "brace-expansion@1": 1.1.18
-  "js-yaml@3": 3.15.1
-  "js-yaml@4": 4.3.1
+  "js-yaml@3": 3.15.2
+  "js-yaml@4": 4.3.2
   undici: 7.29.0
   # fast-uri floor is 3.1.6: below it four host-confusion / SSRF defects in URI normalization (IPv6
   # handling, repeated percent-decoding of the host, percent-encoded scheme, skipped IDN
   # canonicalization on scheme-relative references) each score CVSS 7.5, over the gate's fail
   # threshold. It reaches the tree only through ajv, whose ^3 range already admits this line.
   fast-uri: 3.1.7
-  sharp: 0.35.0
+  # sharp floor is 0.35.4: the libheif it bundles below that decodes a crafted HEIF out of bounds.
+  # Reached only through miniflare, the local Workers simulator the test pool runs on.
+  sharp: 0.35.4
   # postcss floor is 8.5.23, which stops an attacker-controlled `sourceMappingURL` reading arbitrary
   # .map files when `from` is unset. 8.5.26 is taken rather than the bare floor because it is the
   # first release to require nanoid ^3.3.17 — the postcss dependency was the ONLY thing holding a
@@ -212,5 +220,20 @@ overrides:
   # advisories: prototype pollution in `_.unset`/`_.omit` (two records) and code injection through
   # `_.template` import key names.
   lodash: 4.18.1
+  # devalue floor is 5.9.2, which stops a malformed payload exhausting the parser. It reaches the web
+  # app through svelte, @sveltejs/kit and sveltekit-superforms, all of whose ^5 ranges admit it.
+  devalue: 5.9.2
+  # joi arrives only as sveltekit-superforms' optional validator adapter. 17.13.8 closes prototype
+  # pollution through a `__proto__` language key and `rename()` targets reaching the validated
+  # object's prototype. Scoped to 17 so a future carrier on the 18 line is not dragged back.
+  "joi@17": 17.13.8
+  # Removed rather than pinned: @puppeteer/browsers 2.2.4 is what brings extract-zip, and no
+  # extract-zip release fixes its two symlink-traversal advisories (2.0.1 is the last, and affected).
+  # @cloudflare/puppeteer hard-pins that 2.2.4 for its Node launcher, which downloads and starts a
+  # local Chrome. A Worker never runs it: the package's entry point drives the Browser Rendering
+  # binding instead, and a dry-run bundle of the API worker contains none of @puppeteer/browsers.
+  # Removing the carrier takes the advisories out of the tree rather than baselining them; if the
+  # Node launcher is ever reached, the missing module fails the import loudly.
+  "@cloudflare/puppeteer>@puppeteer/browsers": "-"
 patchedDependencies:
   bits-ui@2.18.1: patches/bits-ui@2.18.1.patch
