@@ -202,7 +202,11 @@ ADR-0072, ADR-0079.) **Invariants:**
   template deriving it. That leaves one thing for finalize to hold: a bill drawn under a non-
   firm-wide scope whose scheme carries no `location_code` part is refused by name, naming the
   settings screen. Silently rendering `00042` under two letterheads, where the firm-wide run has
-  already issued `00042`, is a duplicate invoice number in a run an auditor reads end to end.
+  already issued `00042`, is a duplicate invoice number in a run an auditor reads end to end. The
+  mirror is refused too: a firm-wide bill under a scheme that DOES print the office code has no code
+  to print, and is refused as `invoice-numbering-needs-letterhead` rather than reaching the renderer
+  and failing as a server error. The web app names no letterhead today, so for it that refusal is
+  what adding the part means — never let it fall back to rendering the part empty.
 - **Hard costs credit Client Costs Advanced; soft costs credit Cost Recovery Income.** The firm is
   being repaid for money it advanced, not earning. `cost_entry.disbursement_class` already carries
   the distinction. That account runs negative until operating disbursements land — a documented open

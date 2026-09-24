@@ -56,6 +56,10 @@ A scheme is an ordered list of parts. Each part is one of:
   conflicts check or a custody packet carries none of them at the moment it is numbered. A matter
   that lacks the value a scheme needs cannot open under that scheme; the window that opens it says
   which part has no value.
+- **Office Code** on an invoice number is the one exception: it is the code of the letterhead the
+  bill is issued under. Add it only if your firm issues bills under more than one letterhead. Once
+  an invoice number prints it, every bill has to be issued under a letterhead, and a bill that
+  names none is refused with a message saying so.
 
 Where a sequence already counts within something — a time entry within its matter, an invoice
 within the letterhead it was issued on — no part restarts the count, and the column says so.

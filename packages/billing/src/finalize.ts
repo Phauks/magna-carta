@@ -21,6 +21,7 @@ import {
   planSchemeDraw,
   schemeDrawOpeningStatements,
 } from "@magna-carta/sequence-numbering/scheme-draw";
+import { NumberingRenderError } from "@magna-carta/sequence-numbering/render";
 import { readAccountRoleMap, resolveAccountRole, type AccountRoleMap } from "./account-roles.ts";
 import { BillingValidationError } from "./billing-validation.ts";
 import { aggregateMinor } from "./line-amounts.ts";
@@ -401,13 +402,30 @@ export async function finalizeInvoice(
   // two letterheads under a scheme that does not render the office code would issue the same number
   // twice. The refusal belongs at the moment the second scope is opened — here — rather than on the
   // bill that collides with it.
-  const plan = await planSchemeDraw(
-    database,
-    "invoice",
-    INVOICE_NUMBERING_TABLES,
-    { openedDate: input.issueDate, locationCode: scopeKey === "" ? undefined : scopeKey },
-    { scopeKey },
-  );
+  //
+  // The other direction has its own refusal. Once the scheme prints the office code, a bill issued
+  // under no letterhead has no code to print, and the one part the model will not do is render
+  // empty — an empty office code would make "-00042" and a letterhead's "RENO-00042" two readings of
+  // the same count. So that bill is refused by name, naming both ways out, rather than reaching the
+  // renderer and failing as though something had broken.
+  let plan: Awaited<ReturnType<typeof planSchemeDraw>>;
+  try {
+    plan = await planSchemeDraw(
+      database,
+      "invoice",
+      INVOICE_NUMBERING_TABLES,
+      { openedDate: input.issueDate, locationCode: scopeKey === "" ? undefined : scopeKey },
+      { scopeKey },
+    );
+  } catch (caught) {
+    if (scopeKey === FIRM_WIDE_NUMBER_SCOPE && caught instanceof NumberingRenderError) {
+      throw new BillingValidationError(
+        "invoice-numbering-needs-letterhead",
+        "this firm's invoice numbering prints the office code of the letterhead a bill is issued under, and this bill names no letterhead: issue it under one, or take the office code part out of the invoice numbering scheme, under Settings, Numbering",
+      );
+    }
+    throw caught;
+  }
   if (
     scopeKey !== FIRM_WIDE_NUMBER_SCOPE &&
     !plan.segments.some((segment) => segment.kind === "location_code")

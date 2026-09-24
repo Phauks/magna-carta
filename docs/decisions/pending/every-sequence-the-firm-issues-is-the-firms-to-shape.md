@@ -50,6 +50,16 @@ which is disruptive — and the alternative is worse: silently rendering `00042`
 letterheads, where the firm-wide run has already issued `00042`, is a duplicate invoice number in a
 run an auditor reads end to end.
 
+The same rule has a mirror, and it reaches further. Once the invoice scheme prints the office code,
+a bill issued under no letterhead has no code to print, and every bill the web app sends today names
+none — a letterhead is chosen only by a caller of the finalize route. So adding the part turns every
+such bill into a named refusal (`invoice-numbering-needs-letterhead`), naming both ways out: issue
+the bill under a letterhead, or take the part back out. Before that refusal existed the bill
+reached the renderer and failed as a server error, which rendering the settings page and billing
+against it found on 2026-09-24. The part stays on the invoice run's list because the firm that
+opens a second letterhead needs it first — refusing it at the save would leave that firm no order in
+which to do the two steps.
+
 The call and text counter is re-keyed by migration, from `2026-09-08` to the `2026:09:08` the three
 scoping parts derive. A counter the draw can no longer find restarts the day's count at one and
 issues a reference number the firm has already said out loud, so the rows move with the model.

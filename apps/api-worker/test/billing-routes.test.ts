@@ -443,6 +443,30 @@ describe("the billing HTTP surface", () => {
       "https://api.magnacarta.esq/problems/billing-refused",
     );
 
+    // Opening it deliberately is still not enough while the firm's invoice scheme does not render
+    // the letterhead: the new run and the firm-wide run would both issue 00001, a duplicate number
+    // in a sequence an auditor reads end to end. The refusal says where the fix is.
+    const unrendered = await post(`/api/v1/billing/invoices/${invoiceId}/finalization`, {
+      issueDate: todayInUtc(),
+      dueDate: todayInUtc(),
+      numberScopeKey: "RENO",
+      createNumberScope: true,
+    });
+    expect(unrendered.status).toBe(422);
+    const unrenderedBody = await readJson<ProblemBody>(unrendered);
+    expect(unrenderedBody.type).toBe("https://api.magnacarta.esq/problems/billing-refused");
+    expect(unrenderedBody.detail).toContain("office code");
+
+    const scheme = await put("/api/v1/numbering-scheme", {
+      purpose: "invoice",
+      segments: [
+        { kind: "location_code" },
+        { kind: "literal", text: "-" },
+        { kind: "counter", padWidth: 5, start: 1 },
+      ],
+    });
+    expect(scheme.status).toBe(200);
+
     const opened = await post(`/api/v1/billing/invoices/${invoiceId}/finalization`, {
       issueDate: todayInUtc(),
       dueDate: todayInUtc(),
@@ -451,6 +475,35 @@ describe("the billing HTTP surface", () => {
     });
     expect(opened.status).toBe(201);
     expect((await readJson<{ invoiceNumber: string }>(opened)).invoiceNumber).toBe("RENO-00001");
+
+    // And the other direction: under a scheme that prints the office code, a bill issued under no
+    // letterhead — every bill the web app sends — is a named refusal, never a server error.
+    const plainMatter = await openMatterWithClient("Acme unlettered");
+    const plainEntry = await seedBillableTime(plainMatter, 30);
+    const plainDraft = await post("/api/v1/billing/invoices", {
+      clientEntityId: ACME,
+      currency: "USD",
+    });
+    const { invoiceId: plainInvoiceId } = (await plainDraft.json()) as { invoiceId: string };
+    await post(`/api/v1/billing/invoices/${plainInvoiceId}/claims`, {
+      claims: [{ sourceKind: "time_entry", sourceId: plainEntry }],
+    });
+    const unlettered = await post(`/api/v1/billing/invoices/${plainInvoiceId}/finalization`, {
+      issueDate: todayInUtc(),
+      dueDate: todayInUtc(),
+    });
+    expect(unlettered.status).toBe(422);
+    const unletteredBody = await readJson<ProblemBody>(unlettered);
+    expect(unletteredBody.type).toBe("https://api.magnacarta.esq/problems/billing-refused");
+    expect(unletteredBody.detail).toContain("names no letterhead");
+
+    // The firm is shared by every test in this file, so its invoice numbering goes back to the
+    // five-digit count the rest of them draw under.
+    const restored = await put("/api/v1/numbering-scheme", {
+      purpose: "invoice",
+      segments: [{ kind: "counter", padWidth: 5, start: 1 }],
+    });
+    expect(restored.status).toBe(200);
   });
 
   it("replays a finalization under the same Idempotency-Key without drawing a second number", async () => {

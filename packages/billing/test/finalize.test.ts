@@ -507,6 +507,24 @@ describe("finalization — the one batch", () => {
     ).rejects.toMatchObject({ code: "unknown-number-scope" });
   });
 
+  // The mirror of the refusal above. Once the scheme prints the office code, a bill issued under
+  // no letterhead has no code to print; it is refused by name rather than reaching the renderer and
+  // failing as a server error, which is what every bill the web app sends would otherwise do the
+  // moment an administrator added the part.
+  it("refuses a bill issued under no letterhead once the invoice numbering prints the office code", async () => {
+    const fixture = await billingFixture();
+    await scopeRenderingScheme(fixture);
+    await mapAccountRoles(fixture, ["accounts_receivable", "fee_income", "client_costs_advanced"]);
+    const draft = await draftWithWork(fixture, ACME);
+    await expect(
+      finalizeInvoice(
+        fixture.database,
+        { invoiceId: draft.invoiceId, ...FINALIZE_DATES, finalizedBy: fixture.memberUserId },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "invoice-numbering-needs-letterhead" });
+  });
+
   it("gives a per-office scope its own independent sequence", async () => {
     const fixture = await billingFixture();
     await scopeRenderingScheme(fixture);
