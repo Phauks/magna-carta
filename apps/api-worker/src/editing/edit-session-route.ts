@@ -62,6 +62,17 @@ async function deriveDocumentKey(fileId: FileId): Promise<string> {
 // Where the caller's current open of a document has got to, as the host saw it. The screen watches
 // the editor come up through the frame; this is the half it cannot see — the editor's own calls back
 // to this host — so a stalled open can name the call that never came, or the answer it got.
+const OpenCallbackSchema = z.object({
+  operation: z.string(),
+  status: z.number(),
+  errorId: z.string().nullable(),
+  at: z.string(),
+});
+
+// The path on a document's origin the editor worker serves its container record on. MUST match
+// CONTAINER_STATUS_PATH in apps/edit-worker/src/container-phases.ts.
+const CONTAINER_STATUS_PATH = "/magna-carta/status";
+
 const EditOpenProgressResponse = z
   .object({
     // When this member's launch was answered; null when no launch of this document is on record for
@@ -72,16 +83,62 @@ const EditOpenProgressResponse = z
     // When the editor asked the host for the document's bytes (GetFile answered 2xx), or null.
     getFileAt: z.string().nullable(),
     // The most recent call the editor made and what it was told, refusals included, or null.
-    lastCallback: z
+    lastCallback: OpenCallbackSchema.nullable(),
+    // Every call the editor made in this open, oldest first, so the screen can show the editor's
+    // side of the open as a log.
+    callbacks: z.array(OpenCallbackSchema),
+    // What the editor's container has been doing, as the editor worker saw it: asked for, started,
+    // listening, the page served, stopped, an error. Null when the editor worker is not bound (every
+    // test environment) or did not answer in time; the record is a diagnostic, never a gate.
+    container: z
       .object({
-        operation: z.string(),
-        status: z.number(),
-        errorId: z.string().nullable(),
-        at: z.string(),
+        events: z.array(
+          z.object({
+            phase: z.enum(["requested", "started", "listening", "served", "stopped", "error"]),
+            at: z.string(),
+            detail: z.string().nullable(),
+          }),
+        ),
       })
       .nullable(),
   })
   .openapi("EditOpenProgressResponse");
+
+type ContainerRecord = z.infer<typeof EditOpenProgressResponse>["container"];
+
+/** How long the progress read waits on the editor worker before answering without its record. */
+const CONTAINER_STATUS_BUDGET_MILLISECONDS = 1500;
+
+// The container's record, read from the editor worker over the service binding at the document's
+// own origin (the same host the browser loads the editor from). A worker that is not bound, does
+// not answer in time, or answers anything but the record yields null: the screen then shows the
+// host's and the page's side of the open, which is what it showed before this existed.
+async function readContainerRecord(env: Bindings, fileId: FileId): Promise<ContainerRecord> {
+  const service = env.EDIT_SERVICE;
+  if (service === undefined) return null;
+  try {
+    const key = await deriveDocumentKey(fileId);
+    const response = await service.fetch(
+      `https://${key}.${userContentDomain(env)}${CONTAINER_STATUS_PATH}`,
+      { signal: AbortSignal.timeout(CONTAINER_STATUS_BUDGET_MILLISECONDS) },
+    );
+    if (!response.ok) return null;
+    const parsed = ContainerStatusAnswer.safeParse(await response.json());
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+const ContainerStatusAnswer = z.object({
+  events: z.array(
+    z.object({
+      phase: z.enum(["requested", "started", "listening", "served", "stopped", "error"]),
+      at: z.string(),
+      detail: z.string().nullable(),
+    }),
+  ),
+});
 
 const SessionLaunchResponse = z
   .object({
@@ -449,13 +506,18 @@ export function registerDocumentEditingRoutes(
       const file = await getFileWithCurrentCleanVersion(firmContext.firmDatabase, fileId);
       if (file === undefined || file.deletedAt !== null) return launchProblem(c, "not-found");
 
-      const progress = await documentSessionStub(c.env, fileId).openProgressOf(memberId);
+      const [progress, container] = await Promise.all([
+        documentSessionStub(c.env, fileId).openProgressOf(memberId),
+        readContainerRecord(c.env, fileId),
+      ]);
       return c.json(
-        progress ?? {
-          launchedAt: null,
-          checkFileInfoAt: null,
-          getFileAt: null,
-          lastCallback: null,
+        {
+          launchedAt: progress?.launchedAt ?? null,
+          checkFileInfoAt: progress?.checkFileInfoAt ?? null,
+          getFileAt: progress?.getFileAt ?? null,
+          lastCallback: progress?.lastCallback ?? null,
+          callbacks: [...(progress?.callbacks ?? [])],
+          container,
         },
         200,
       );

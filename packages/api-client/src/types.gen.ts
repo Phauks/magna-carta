@@ -2035,6 +2035,19 @@ export type EditOpenProgressResponse = {
         errorId: string | null;
         at: string;
     } | null;
+    callbacks: Array<{
+        operation: string;
+        status: number;
+        errorId: string | null;
+        at: string;
+    }>;
+    container: {
+        events: Array<{
+            phase: 'requested' | 'started' | 'listening' | 'served' | 'stopped' | 'error';
+            at: string;
+            detail: string | null;
+        }>;
+    } | null;
 };
 
 export type CheckoutResponse = {
@@ -6054,6 +6067,16 @@ export type TrustAccountListing = {
     openedOn: string;
     closedAt: string | null;
     timeZone: string;
+};
+
+export type TrustAccountOpening = {
+    name: string;
+    locationId: string;
+    bankName?: string | null;
+    accountNumberLastFour?: string | null;
+    iolta?: boolean;
+    openedOn: string;
+    currency: 'USD';
 };
 
 export type TrustPendingDisbursementRequestsResponse = {
@@ -31532,6 +31555,58 @@ export type TrustListTrustAccountsResponses = {
 };
 
 export type TrustListTrustAccountsResponse = TrustListTrustAccountsResponses[keyof TrustListTrustAccountsResponses];
+
+export type TrustOpenAccountData = {
+    body: TrustAccountOpening;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/accounts';
+};
+
+export type TrustOpenAccountErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the movement exceeds the client ledger's available balance, or the disbursement request has already been decided
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustOpenAccountError = TrustOpenAccountErrors[keyof TrustOpenAccountErrors];
+
+export type TrustOpenAccountResponses = {
+    /**
+     * The trust account is open
+     */
+    201: TrustAccountListing;
+};
+
+export type TrustOpenAccountResponse = TrustOpenAccountResponses[keyof TrustOpenAccountResponses];
 
 export type TrustReadAuthorizationPolicyData = {
     body?: never;

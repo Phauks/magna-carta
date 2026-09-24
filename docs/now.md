@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 840 nodes of the feature ledger in
+is the complete register rather than a digest: all 844 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,26 +21,26 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**840 capabilities across 32 areas.** Every one of them is listed in [the register](#the-register)
-below. 144 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **696 that are units of work**, for the reason set out under [What a roll-up is
+**844 capabilities across 32 areas.** Every one of them is listed in [the register](#the-register)
+below. 145 of them are roll-up parents — a node another node sits beneath — and the totals here
+count the **699 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 326 | 47% |
+| Done | shipped | 329 | 47% |
 | Part-built | partial, in-build | 124 | 18% |
 | Ahead | designed, planned, researching, not-started | 204 | 29% |
 | Parked | deferred, cut | 42 | 6% |
-| **All units of work** | | **696** | **100%** |
+| **All units of work** | | **699** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 326 | 47% |
+| `shipped` | 329 | 47% |
 | `partial` | 124 | 18% |
 | `in-build` | 0 | 0% |
 | `designed` | 47 | 7% |
@@ -49,11 +49,11 @@ not](#what-a-roll-up-is-not).
 | `not-started` | 137 | 20% |
 | `deferred` | 38 | 5% |
 | `cut` | 4 | 0% |
-| **All statuses** | **696** | **100%** |
+| **All statuses** | **699** | **100%** |
 
 ### What a roll-up is not
 
-**144 of the 840 nodes are parents, and 112 of those parents are `partial`.** A parent's status is a
+**145 of the 844 nodes are parents, and 112 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 326 of 696 (47%). Shipped plus partial is 450 (65%).**
+**Shipped alone is 329 of 699 (47%). Shipped plus partial is 453 (65%).**
 
 The 124 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**450 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**453 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 109 | 24% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 157 | 35% |
-| No user surface by nature (`internal`) | 184 | 41% |
+| A person can open it today (`screen`) | 113 | 25% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 155 | 34% |
+| No user surface by nature (`internal`) | 185 | 41% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **450** | **100%** |
+| **Everything with something built** | **453** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -101,14 +101,14 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Communications Layer | 5 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 17 | 29% |
 | Community & Feedback Forum | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 1 | 0 | 10 | 0% |
 | Conflicts Check | 6 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 75% |
-| Core Domain — Directory, Matters & Locations | 34 | 20 | 0 | 1 | 2 | 0 | 4 | 1 | 0 | 62 | 55% |
+| Core Domain — Directory, Matters & Locations | 35 | 21 | 0 | 1 | 2 | 0 | 4 | 1 | 0 | 64 | 55% |
 | Custodian (Safe Custody) | 6 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 11 | 55% |
-| Design System, UI Consistency & Design Quality | 12 | 6 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 19 | 63% |
+| Design System, UI Consistency & Design Quality | 13 | 5 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 19 | 68% |
 | Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
 | Document Automation | 3 | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 10 | 30% |
 | Documents | 67 | 11 | 0 | 2 | 0 | 0 | 16 | 3 | 1 | 100 | 67% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
-| Financial Core | 21 | 19 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 62 | 34% |
+| Financial Core | 22 | 19 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 63 | 35% |
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
 | Integrations & Plugins | 17 | 2 | 0 | 1 | 0 | 3 | 15 | 3 | 1 | 42 | 40% |
 | Maintenance Agents | 2 | 3 | 0 | 0 | 0 | 0 | 5 | 0 | 0 | 10 | 20% |
@@ -127,7 +127,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 14 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 21 | 67% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **326** | **124** | **0** | **47** | **15** | **5** | **137** | **38** | **4** | **696** | **47%** |
+| **All areas** | **329** | **124** | **0** | **47** | **15** | **5** | **137** | **38** | **4** | **699** | **47%** |
 
 ## Where we have been
 
@@ -563,7 +563,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Core Domain — Directory, Matters & Locations
 
-[`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 62 units of work, 55% shipped. 34 done, 20 part-built, 7 ahead, 1 parked.
+[`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 64 units of work, 55% shipped. 35 done, 21 part-built, 7 ahead, 1 parked.
 
 - `directory` · `partial` · **Directory** — Single source of truth for every person and organization, modeled as a graph of entities and typed edges. _Note: Backend complete; the list, the entity window and its panes are built and owner-reviewed; edge creation, category management and the deeper edge catalog remain (docs/specs/2026-09-02-directory-linking-design.md)._
   - `directory.entities` · `partial` · **Person and Organization entities** — Distinct Person and Organization types with equal data depth; full contact core (typed emails/phones/addresses, notes) on every entity regardless of role. _Note: Backend shipped; the record opens in one window wherever it is reached (owner ruling, 2026-09-05). The organization stays thin by the owner's ruling. Postal addresses have their own section over the country-shaped AddressFields component, and both panels hold one height whichever rail section is chosen (owner ruling, 2026-09-08)._
@@ -578,6 +578,9 @@ to change a line here, edit the node in its area file and re-run the build.
     - `directory.edges.role-assignments` · `partial` · **Matter role assignments** — Entity-to-matter role links with the role on the link, not the entity; one entity can hold multiple roles in one matter. _Note: Backend shipped; the matter's Parties page adds a party from the Directory picker with a role and a capacity, and removes one. The matter's client is a party row from the moment the matter exists, written by the intake's create._
   - `directory.identifiers` · `shipped` · **Typed identifiers** — Typed identifier list (bar number, EIN/Tax ID, SSN, DOB, driver's license) used for conflicts, billing, and document generation. _Note: Typed shapes with format checks on both sides; accounts sealed with their username and secret; the dob kind removed (dates live on the person)._
     - `directory.identifiers.protected-fields` · `shipped` · **Field-level encryption and access control** — Sensitive fields (SSN, EIN, DOB, financial) structurally encrypted via the data-access protected() field type with HMAC blind index so conflicts can match without decrypting; access logged.
+  - `directory.addresses` · `shipped` · **Postal addresses** — Structured postal addresses on every directory entity, held as the international field set so a country's own shape is a presentation of the stored columns rather than a schema of its own. _Note: The field set is the international one rather than a state and a five-digit code, which is what lets a provider's structured result land later with no migration._
+    - `directory.addresses.constraints` · `shipped` · **Postal-code and administrative-area constraints** — What a well-formed postal code looks like in a country and which administrative areas it publishes, so an address form can say a code reads wrong and can offer a state. _Note: A warning and never a gate — a malformed code renders as the field's hint, so the box is never marked invalid and nothing can refuse a commit. "No published format" is a distinct answer from "wrong", and an administrative-area list is a suggestion the field still takes free text past._
+    - `directory.addresses.lookup` · `partial` · **Address autocomplete** — Offering real addresses as a person types one, and turning a chosen offer into the parts a record stores. _Note: Partial because the seam exists and the engine does not. Two candidate engines, and the owner's 2026-09-20 ruling that an address may leave the tenancy means they now compete on cost rather than on confidentiality: a self-hosted index over the open address corpora reusing crates/search-core and the R2 range-reader containers/search already runs (no per-lookup fee, but an index build and a refresh cadence), or a hosted provider (no build, a per-lookup rate). AddressLookupPort is indifferent to which wins. no-coverage is a first-class outcome because the open corpora cover countries very unevenly._
   - `directory.duplicates` · `shipped` · **Duplicate detection** — Fuzzy name + identifier matching on entry and import surfacing possible-duplicate candidates. _Note: Candidate engine shipped; the entry-time gate runs beside the New Person and New Organization entry (apps/web/src/lib/directory/duplicate-gate.svelte), permanently in view as the name is typed._
   - `directory.merge` · `partial` · **Non-destructive merge** — Merge folds a duplicate into a master, repoints every reference, archives (never deletes) the subordinate, and records survivorship plus the exact repoint list in an append-only entity_merge event. _Note: Backend shipped; merge tooling UI not built._
     - `directory.merge.unmerge` · `deferred` · **Guarded unmerge** — Reversal of a recent, still-clean merge; locked once post-merge activity accrues. _Note: Deferral-with-seam, not a retrofit; no unmerge export exists in packages/directory._
@@ -664,7 +667,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Design System, UI Consistency & Design Quality
 
-[`roadmap.d/design-system.md`](../roadmap.d/design-system.md) — 19 units of work, 63% shipped. 12 done, 6 part-built, 1 ahead, 0 parked.
+[`roadmap.d/design-system.md`](../roadmap.d/design-system.md) — 19 units of work, 68% shipped. 13 done, 5 part-built, 1 ahead, 0 parked.
 
 - `design-system` · `partial` · **Design system** — UI consistency prevented by construction (tokens, one component source, CI) and design quality set by a human foundation with an enforced review step. _Note: Foundation built and merged; close-out items open (NVDA passes, owner Storybook sign-off, first container VRT baselines, dark design pass)._
   - `design-system.tokens` · `partial` · **Design tokens** — Every color/spacing/radius/shadow/type/z/motion/breakpoint value a named DTCG token; no raw values elsewhere.
@@ -674,7 +677,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `design-system.tokens.per-firm-branding` · `partial` · **Per-firm branding generation** — Generated accessible palettes from firm anchor colors via the Culori engine. _Note: Engine built but unexposed to firms, matching the white paper's built-but-unexposed framing._
     - `design-system.tokens.tailwind-theme` · `shipped` · **Tailwind v4 token binding** — Tailwind configured via @theme to consume only generated tokens so off-scale values cannot be expressed naturally.
   - `design-system.components` · `shipped` · **Component library** — In-house @magna-carta/design-system styled directly on headless Bits UI v2 — the only primitives the app may compose. _Note: shadcn-svelte (original choice) replaced after an adversarial stress test; Bits scroll-lock CSP patch carried in patches/._
-    - `design-system.components.address-fields` · `partial` · **Country-shaped address fields** — One address form for the whole product whose field set, labels and order follow the country the address is in; the stored columns are the international field set, so changing the country re-labels and re-orders without moving a value between fields. _Note: Partial because the table is a curated shape rather than the full address-metadata corpus: it carries no postal-code patterns and no administrative-area lists, so it cannot validate a code or offer a state. A country nobody has entered yet takes the international form, which is honest rather than a guess. Adopting libaddressinput's dataset is the open question, and it is a dependency that goes stale monthly._
+    - `design-system.components.address-fields` · `shipped` · **Country-shaped address fields** — One address form for the whole product whose field set, labels and order follow the country the address is in; the stored columns are the international field set, so changing the country re-labels and re-orders without moving a value between fields. _Note: The open question the curated table left — that it could not validate a code or offer a state — is closed: the constraints are a separate package the form is HANDED, which is what kept the corpus out of a component that depends on one workspace package by design. What stays curated here is the SHAPE (which boxes, what they are called, what order), because that is a presentation choice; a country nobody has entered still takes the international form._
     - `design-system.components.storybook-catalog` · `shipped` · **Component catalog** — Storybook as the single place components are defined and reviewed; stories triple as behavior tests and axe accessibility checks. _Note: Histoire dead without Svelte 5 support, as the white paper records._
     - `design-system.components.icons` · `shipped` · **Lucide icons, no emojis** — Lucide as the only icon source; emojis banned everywhere and machine-enforced.
   - `design-system.enforcement` · `partial` · **Machine enforcement** — Lint forbids arbitrary/off-token values; catalog plus visual regression catch drift in CI.
@@ -879,7 +882,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Financial Core
 
-[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 62 units of work, 34% shipped. 21 done, 19 part-built, 19 ahead, 3 parked.
+[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 63 units of work, 35% shipped. 22 done, 19 part-built, 19 ahead, 3 parked.
 
 - `financial` · `partial` · **Financial Core** — The firm's money spine — ledger, time, trust, billing, costs, operating books
   - `financial.ledger` · `partial` · **Append-only double-entry ledger** — Single append-only double-entry ledger in D1 serving trust, billing, costs, and operating accounting. _Note: Core shipped; the operating-books extension is in build (children mix shipped and not)._
@@ -909,10 +912,11 @@ to change a line here, edit the node in its area file and re-run the build.
     - `financial.time.utilization-reports` · `not-started` · **Utilization and realization roll-ups** — Utilization and realization rolled up into the reports library.
     - `financial.time.utbms` · `shipped` · **UTBMS codes** — UTBMS task/activity codes on entries; e-billing matters require and validate codes at capture.
     - `financial.time.passive-capture` · `deferred` · **Passive/automatic time capture** — Automatic activity capture feeding a draft-approve queue. _Note: Seam only; no capture code._
-  - `financial.trust` · `partial` · **Trust accounting** — Per-client trust ledgers, jurisdiction-configurable compliance, reconciliation. _Note: The matter's Trust section renders the ledger surface (apps/web/src/lib/trust) built whole against the movement record, empty until a route lists the firm's trust accounts; nothing reads a jurisdiction requirement through the port yet. Owner flags from the 2026-08-04 analysis stay open and are refused rather than defaulted in code._
-    - `financial.trust.client-ledgers` · `partial` · **Per-client trust ledgers, no negative balance** — Per-client (per-matter) trust subledgers under a per-account roll-up, with a hard no-negative-balance invariant per client ledger. _Note: No screen reads a client ledger; the balances, holds and movement history are API-only._
-    - `financial.trust.authorization-policy` · `shipped` · **Disbursement authorization policy (per-firm)** — Who may release money leaving a client ledger, as firm configuration. Authority is a property of the person - a member holding trust:authorize releases alone, in one act; a member without it raises a request that routes to somebody who holds it, and is told who before composing anything. Every per-firm database is seeded with that posture as version 1 (off plus the authority requirement); a firm adds a ceiling above which two people are required by writing a threshold or always version, and above the ceiling the authority requirement binds whichever of the two decides (peer approval). The earned-fee application follows the same policy through the same approval queue; in-flight requests keep the policy version they were submitted under. _Note: Owner-directed. UI deferred. Flagged, not decided - whether the lone-holder exception should count trust:authorize rather than trust:manage (it would relax a firm with several managers and one authority holder), whether a posture relaxation itself takes a second person, and whether matter-to-matter reallocations fall under the policy._
-    - `financial.trust.firm-funds` · `shipped` · **Bank-charge cushion (the firm-funds carve-out)** — The one purpose the firm's own money may sit in a trust account for - bearing the institution's service charges - as a second, narrower composition door rather than a relaxation of the first. _Note: Backend only, no screen. Owner-directed and deliberately incomplete in one direction - the rule text authorizes the deposit and is silent on taking it back out, so there is no movement that withdraws surplus firm funds and none that pays a person. Refused outright on a pooled interest-bearing account, which the corpus records as exempt from the charges it would pay._
+  - `financial.trust` · `partial` · **Trust accounting** — Per-client trust ledgers, jurisdiction-configurable compliance, reconciliation. _Note: The matter's Trust section (apps/web/src/lib/trust) reads the firm's accounts, the matter's ledger and the pending requests on it, and records deposits, proposes payments out and transfers between the client's matters; the firm's Trust screen (apps/web/src/routes/(app)/trust) lists the accounts, opens one, and carries the approval queue, the statements and reconciliations as recorded, the cushion and the posture. Nothing reads a jurisdiction requirement through the port yet. Owner flags from the 2026-08-04 analysis stay open and are refused rather than defaulted in code._
+    - `financial.trust.accounts` · `shipped` · **Trust accounts (open and list)** — The firm's trust accounts, each bound to an office whose jurisdiction it inherits; opened over HTTP and listed for every surface that names one. _Note: The jurisdiction is derived from the office and never taken from the caller; an office with none recorded opens the account and every movement on it refuses until one is recorded. Closing an account has no route._
+    - `financial.trust.client-ledgers` · `partial` · **Per-client trust ledgers, no negative balance** — Per-client (per-matter) trust subledgers under a per-account roll-up, with a hard no-negative-balance invariant per client ledger. _Note: Placing and releasing a hold has no screen; the account-level balance is not served, so the firm screen states the position as unread._
+    - `financial.trust.authorization-policy` · `shipped` · **Disbursement authorization policy (per-firm)** — Who may release money leaving a client ledger, as firm configuration. Authority is a property of the person - a member holding trust:authorize releases alone, in one act; a member without it raises a request that routes to somebody who holds it, and is told who before composing anything. Every per-firm database is seeded with that posture as version 1 (off plus the authority requirement); a firm adds a ceiling above which two people are required by writing a threshold or always version, and above the ceiling the authority requirement binds whichever of the two decides (peer approval). The earned-fee application follows the same policy through the same approval queue; in-flight requests keep the policy version they were submitted under. _Note: Owner-directed. The posture is read and changed on the firm's Trust screen, and the approval queue with approve, reject and withdraw sits there and on the matter's own section. Flagged, not decided - whether the lone-holder exception should count trust:authorize rather than trust:manage (it would relax a firm with several managers and one authority holder), whether a posture relaxation itself takes a second person, and whether matter-to-matter reallocations fall under the policy._
+    - `financial.trust.firm-funds` · `shipped` · **Bank-charge cushion (the firm-funds carve-out)** — The one purpose the firm's own money may sit in a trust account for - bearing the institution's service charges - as a second, narrower composition door rather than a relaxation of the first. _Note: The cushion's position is read on the firm's Trust screen; opening, funding and recording a charge have no form yet. Owner-directed and deliberately incomplete in one direction - the rule text authorizes the deposit and is silent on taking it back out, so there is no movement that withdraws surplus firm funds and none that pays a person. Refused outright on a pooled interest-bearing account, which the corpus records as exempt from the charges it would pay._
     - `financial.trust.unclaimed-funds` · `shipped` · **Unclaimed client funds diligence file** — Finding client money that has sat unmoved, recording the diligence done to return it, and closing the file against a payment somebody already made - never moving money and never asserting an obligation. _Note: Backend only, no screen. Nothing on this path moves money - the closure takes a trust_movement that already posted and receives no amount, payee, date or method, so the manual-confirmation gate is the absence of the inputs rather than a check somebody could remove. Deliberately not an escheat feature - the researched jurisdiction exempts designated client trust accounts from the state presumption outright, so no deadline, countdown or required-by date is ever surfaced._
     - `financial.trust.no-commingling` · `shipped` · **No commingling** — Firm and client funds never commingle; fees never touch trust (processor/bank fees debit operating only).
     - `financial.trust.jurisdiction-engine` · `partial` · **Jurisdiction-configurable compliance engine** — A rules profile per state/territory parameterized where states differ (citation, retention, reconciliation cadence, firm-funds allowance, IOLTA model, advance/flat-fee treatment, overdraft reporting, electronic payments, thresholds); rule numbers never hard-coded; Nevada seeded.
@@ -1015,7 +1019,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `integrations.tools.file-type` · `shipped` · **File type verifier** — Content-based file-type identification (Magika/ONNX in the scan container) behind a verify endpoint. _Note: Backend only, and the identification engine is the scan Container's /identify — the route answers 503 until magna-carta-scan is deployed carrying it, so nobody can get an answer yet. The report builder itself was reviewed and does not over-report "unverifiable". Queued in docs/deploy-queue.md._
     - `integrations.tools.ssrf-guard` · `shipped` · **Outbound SSRF guard** — Shared validation of every user-supplied outbound target before any fetch or render; platform invariant for outbound tools.
   - `integrations.candidates` · `partial` · **Candidate integrations** — The named future integration candidates from the white paper's catalog _Note: Mostly unstarted by design; wellbeing resources shipped early_
-    - `integrations.candidates.public-records` · `researching` · **Public records / people search / skip tracing** — Built-in feature (adapter-sourced data) for service of process, asset/witness location, conflicts and intake enrichment.
+    - `integrations.candidates.public-records` · `researching` · **Public records / people search / skip tracing** — Built-in feature (adapter-sourced data) for service of process, asset/witness location, conflicts and intake enrichment. _Note: Left alone until a user asks for it (owner, 2026-09-20), which confirms rather than changes the research note's own verdict. The blocker is structural and not effort: under the driver-privacy, financial-privacy and consumer-reporting statutes the right to pull the data attaches to the END USER, so each firm is credentialed individually and a platform cannot lawfully resell the lookups from one account. Any future build is therefore per-firm bring-your-own-credential, and a search is a recorded act against a matter carrying its permissible-purpose code rather than a control beside an address field. Postal change-of-address sits outside this node and outside the same wall: it is licensed rather than credentialed, costs 1,350 to 230,000 USD and requires CASS-certified software first, so it would be bought through a licensee rather than licensed directly._
     - `integrations.candidates.document-comparison` · `not-started` · **Document comparison / proofreading / metadata scrubbing suite** — Built-in redline, proofread, and outbound-document scrubbing (Litera-class capability).
     - `integrations.candidates.transcription-dictation` · `not-started` · **Transcription & dictation** — Built-in capture tied to the telephony port: recording to text to time entries and draft notes; swappable speech engine.
     - `integrations.candidates.wellbeing-resources` · `shipped` · **Wellbeing resources directory** — Per-jurisdiction lawyer-assistance and mental-health resource registry (50 states, DC, territories, national safety net).

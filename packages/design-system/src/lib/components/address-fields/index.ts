@@ -4,7 +4,7 @@
  */
 export { default } from "./address-fields.svelte";
 export { default as AddressFields } from "./address-fields.svelte";
-export type { AddressCountry, AddressParts } from "./types.ts";
+export type { AddressAdministrativeArea, AddressCountry, AddressParts } from "./types.ts";
 export {
   addressFieldsFor,
   addressFormatFor,
