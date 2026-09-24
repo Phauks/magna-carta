@@ -41,11 +41,29 @@ const KEEP_ALIVE_MILLISECONDS = 5 * 60 * 1000;
 
 const LiveNavigateRequest = z.object({ url: z.string().min(1).max(2048) });
 
+const LiveRedirectHop = z.object({
+  url: z.string(),
+  status: z.number(),
+  location: z.string().optional(),
+});
+
+// The same fields the static capture answers with, field for field, plus one. That is a
+// requirement rather than a convenience: the viewer's inspector renders one view shape, and a
+// live answer missing the redirect chain would have to be padded with an empty one — at which
+// point the Overview tab states "answered directly" about a link that may have bounced three
+// times, which is the one fact this tool exists to get right.
 const LiveView = z
   .object({
+    requestedUrl: z.string(),
     finalUrl: z.string(),
+    redirectChain: z.array(LiveRedirectHop),
+    responseHeaders: z.record(z.string(), z.string()),
     screenshotBase64: z.string(),
     title: z.string().optional(),
+    // The page's visible text. The static capture's renderer returns markdown under this name; a
+    // held browser has no converter, so this is plain text — which the Text tab renders the same
+    // way, as escaped preformatted text.
+    markdown: z.string().optional(),
     links: z.array(z.string()),
     // Whether this navigation continued the member's session or started a new browser. The screen
     // says so: a member walking a consent flow needs to know when the cookies behind them were
@@ -179,6 +197,70 @@ async function browserForPlan(
   };
 }
 
+// Caps on what a page can make this route carry. A hostile page chooses its own size.
+const MAXIMUM_LINKS = 500;
+const MAXIMUM_TEXT_CHARACTERS = 200_000;
+
+/*
+ * Navigate a held page with the SSRF guard on every hop the BROWSER takes, not only the one the
+ * member typed.
+ *
+ * `page.goto` lets the remote browser follow server redirects on its own; guarding only the typed
+ * address before calling it would leave every redirect unchecked, and a held session is exactly
+ * where that matters — a hostile page has a whole session to send the browser somewhere it should
+ * not go. So interception is switched on for the duration of the navigation and every navigation
+ * request, in any frame, is resolved through `assertPublicTarget` before it is allowed to leave.
+ *
+ * A refused hop in a sub-frame blocks that frame and nothing else: an iframe pointing inward does
+ * not make the page unviewable. A refused hop in the MAIN frame fails the navigation with the same
+ * generic refusal the typed address would have drawn.
+ *
+ * What this does not guard, stated rather than implied: sub-resources (images, scripts, fetches)
+ * are not resolved one by one — a page makes hundreds, and a lookup each would make every
+ * navigation slow. That is the same line the static capture's renderer draws, and the browser
+ * doing the fetching runs in the rendering service's network, not this platform's.
+ *
+ * Interception is switched OFF again before the caller disconnects. Left on, any request the page
+ * made between navigations would pause waiting for a handler that no longer exists.
+ */
+async function navigateGuarded(
+  page: Awaited<ReturnType<Browser["newPage"]>>,
+  href: string,
+): Promise<{ response: Awaited<ReturnType<typeof page.goto>> }> {
+  let refusal: SsrfRejection | null = null;
+  const mainFrame = page.mainFrame();
+
+  const onRequest = (request: Parameters<Parameters<typeof page.on<"request">>[1]>[0]): void => {
+    if (!request.isNavigationRequest()) {
+      void request.continue().catch(() => {});
+      return;
+    }
+    void assertPublicTarget(request.url()).then(
+      () => request.continue().catch(() => {}),
+      (error: unknown) => {
+        if (error instanceof SsrfRejection && request.frame() === mainFrame) refusal = error;
+        void request.abort("blockedbyclient").catch(() => {});
+      },
+    );
+  };
+
+  await page.setRequestInterception(true);
+  page.on("request", onRequest);
+  try {
+    const response = await page.goto(href, { waitUntil: "load", timeout: 30_000 });
+    if (refusal !== null) throw refusal;
+    return { response };
+  } catch (error) {
+    // An aborted main-frame hop surfaces from goto as a network error; the refusal recorded above
+    // is the real reason and is what the caller must see.
+    if (refusal !== null) throw refusal;
+    throw error;
+  } finally {
+    page.off("request", onRequest);
+    await page.setRequestInterception(false).catch(() => {});
+  }
+}
+
 export function registerSafeBrowseLiveRoutes(
   app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
   chokepoint: Chokepoint,
@@ -188,8 +270,9 @@ export function registerSafeBrowseLiveRoutes(
     async (c) => {
       const { url } = c.req.valid("json");
 
-      // EVERY navigation, before anything outbound. The member's typed address and the page's own
-      // redirect target are the same class of input here, and this is the only place that holds.
+      // The typed address first, before anything outbound, so a private target never costs a
+      // browser acquisition. Every hop after it — each redirect the browser follows — is guarded
+      // again inside navigateGuarded, which is where the per-hop half of the rule lives.
       let target: Awaited<ReturnType<typeof assertPublicTarget>>;
       try {
         target = await assertPublicTarget(url);
@@ -222,21 +305,54 @@ export function registerSafeBrowseLiveRoutes(
 
         const pages = await browser.pages();
         const page = pages[0] ?? (await browser.newPage());
-        await page.goto(target.url.href, { waitUntil: "load", timeout: 30_000 });
+        const { response } = await navigateGuarded(page, target.url.href);
+        // A short, bounded settle for client-rendered content. It never fails the navigation: a
+        // page that never goes quiet is shot as it stands rather than refused.
+        await page.waitForNetworkIdle({ idleTime: 500, timeout: 3_000 }).catch(() => {});
 
-        const [screenshot, title, links] = await Promise.all([
-          page.screenshot({ encoding: "base64" }) as Promise<string>,
+        const [screenshot, title, links, text] = await Promise.all([
+          page.screenshot({ encoding: "base64", fullPage: true }) as Promise<string>,
           page.title().catch(() => undefined),
           page
             // The callback is serialized and runs inside the remote page, not in this Worker, so it
             // cannot name a DOM type this build has no lib for; the shape is asserted structurally.
-            // Capped because a link farm should not be able to make the response unbounded.
-            .$$eval("a[href]", (anchors) =>
-              anchors.map((anchor) => (anchor as unknown as { href: string }).href).slice(0, 500),
+            .$$eval(
+              "a[href]",
+              (anchors, maximum) =>
+                anchors
+                  .map((anchor) => (anchor as unknown as { href: string }).href)
+                  .slice(0, maximum),
+              MAXIMUM_LINKS,
             )
             .catch(() => [] as string[]),
+          page
+            .evaluate(
+              (maximum) =>
+                String(
+                  (globalThis as unknown as { document?: { body?: { innerText?: string } } })
+                    .document?.body?.innerText ?? "",
+                ).slice(0, maximum),
+              MAXIMUM_TEXT_CHARACTERS,
+            )
+            .catch(() => undefined),
         ]);
         const finalUrl = page.url();
+
+        // The chain the browser actually followed: every hop that redirected, then the answer it
+        // settled on. Read off the navigation itself rather than probed separately, so it is the
+        // chain this session walked — cookies and all — and not a cookieless re-fetch's guess.
+        const redirectChain = [
+          ...(response?.request().redirectChain() ?? []).map((hop) => {
+            const hopResponse = hop.response();
+            const location = hopResponse?.headers()["location"];
+            return {
+              url: hop.url(),
+              status: hopResponse?.status() ?? 0,
+              ...(location !== undefined && { location }),
+            };
+          }),
+          ...(response !== null ? [{ url: response.url(), status: response.status() }] : []),
+        ];
 
         await stub.write({
           sessionId: browser.sessionId(),
@@ -252,9 +368,13 @@ export function registerSafeBrowseLiveRoutes(
 
         return c.json(
           {
+            requestedUrl: url,
             finalUrl,
+            redirectChain,
+            responseHeaders: response?.headers() ?? {},
             screenshotBase64: screenshot,
             ...(title !== undefined && { title }),
+            ...(text !== undefined && text !== "" && { markdown: text }),
             links,
             sessionContinued: sessionContinued(acquired.plan),
           },
