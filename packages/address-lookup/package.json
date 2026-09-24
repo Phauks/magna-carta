@@ -5,12 +5,14 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    "./port": "./src/port.ts"
+    "./port": "./src/port.ts",
+    "./smarty": "./src/smarty.ts"
   },
   "scripts": {
     "test": "vp test run"
   },
   "devDependencies": {
+    "@magna-carta/address-formats": "workspace:*",
     "@magna-carta/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "vitest": "catalog:"

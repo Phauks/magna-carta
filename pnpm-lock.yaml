@@ -995,6 +995,9 @@ importers:
 
   packages/address-lookup:
     devDependencies:
+      '@magna-carta/address-formats':
+        specifier: workspace:*
+        version: link:../address-formats
       '@magna-carta/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig

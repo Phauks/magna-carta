@@ -1,8 +1,10 @@
 # @magna-carta/address-lookup — local notes
 
-The **address autocomplete seam**: the port a surface asks "what addresses match what this person has
-typed" through, and the deferred implementation that answers honestly until an engine exists. Pure
-package — one file, no dependencies, no network, no `env`, no UI. The engine itself is not built.
+The **address autocomplete port and its engine**: the port a surface asks "what addresses match what
+this person has typed" through, the deferred implementation that answers honestly while no engine is
+provisioned, and the Smarty adapter that is the engine once it is. Pure package — no runtime
+dependencies, no `env`, no UI; the adapter's `fetch` is injected, and the Worker decides which port a
+request gets.
 
 **Why a port with no engine behind it.** A surface written against `deferredAddressLookupPort()`
 degrades to exactly today's behaviour — the person types the address themselves — with no branch at
@@ -12,8 +14,12 @@ same reason.
 
 ## Key files / entry points
 
-- `src/port.ts` — the whole package: `AddressLookupPort`, its inputs and typed outcomes, the smart
-  constructors, and `deferredAddressLookupPort()`
+- `src/port.ts` — `AddressLookupPort`, its inputs and typed outcomes, the smart constructors, and
+  `deferredAddressLookupPort()`
+- `src/smarty.ts` — `smartyAddressLookupPort(credentials, fetch)`: US Autocomplete Pro for the United
+  States, International Autocomplete everywhere else
+- `src/country-alpha-three.ts` — alpha-2 to alpha-3, because the international service alone asks for
+  the longer code
 
 ## Invariants that apply here
 
@@ -39,8 +45,8 @@ same reason.
 
 ## Dependencies & contracts
 
-- None. Deliberately: this is the seam, and a seam that dragged a dependency in would be a decision
-  rather than a shape.
+- No runtime dependencies. `@magna-carta/address-formats` is a DEV dependency only, for the test that
+  holds the alpha-3 table against every country the address form publishes a format for.
 - The postal-code and administrative-area **constraints** are a different package with a different
   job — `@magna-carta/address-formats`, which needs no engine and ships today. Lookup offers
   addresses; formats says what a well-formed one looks like. Neither imports the other.
@@ -58,3 +64,25 @@ same reason.
   next index build is free to change, and a `resolve` of an id the engine no longer knows answers
   `{ ok: true, parts: undefined }` — the offer expired, nothing went wrong, ask again. That is
   deliberately not a failure.
+
+## The Smarty adapter
+
+- **Chosen on storage terms, and that is the constraint to keep.** The address a person picks is
+  written into a permanent record. Of the large autocomplete services, one lets a customer store only
+  its own place identifier and another treats every result as temporary; Smarty lets the firm keep the
+  data, including after cancelling. A replacement provider that forbids storing results is not a
+  drop-in, however good its coverage.
+- **The credentials ride in the query string**, which is how Smarty authenticates server-side calls.
+  So the request URL carries the secret AND the client's address, and it is never quoted — not in a
+  failure's `detail`, not in a log. A failure carries a fixed sentence and at most the status code.
+- **`prefer_geolocation=none` on every US call.** The default biases answers toward the caller's IP,
+  and the caller is a Worker in an edge data centre.
+- **Thirty-two characters is the service's ceiling on `search`.** The query is a prefix, so the first
+  thirty-two are still the right question.
+- **An offer's identifier can hold an address** (a US address carries its own parts, so resolving it
+  costs nothing and reaches nobody). It is therefore opaque, travels only in request bodies, and is
+  untrusted on the way back: a shape the adapter did not mint answers `expired`, and only the known
+  string parts survive a decode.
+- **International is two steps, and only the second is charged.** A search returns lines of text and
+  identifiers; the parts arrive when somebody chooses one. That is why an international suggestion's
+  `parts` holds only the country.
