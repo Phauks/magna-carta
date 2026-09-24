@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { createAuthMiddleware, isAPIError } from "better-auth/api";
 import { twoFactor } from "better-auth/plugins";
 import { drizzle } from "drizzle-orm/d1";
 import { insertAuthAuditStatement } from "@magna-carta/data-access/auth-audit-statements";
@@ -280,6 +281,25 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
       },
     },
     advanced: {
+      // WHERE THE CLIENT'S ADDRESS IS READ FROM, stated because the library's default is wrong on
+      // this runtime in two separate ways and the failure is silent.
+      //
+      // Better Auth defaults to `x-forwarded-for` alone, and — with no trusted-proxy list — refuses
+      // any value carrying more than one hop, because the leftmost token of a forwarded chain is
+      // whatever the client claimed. Cloudflare sends exactly such a chain. So every session this
+      // deployment recorded stored an EMPTY address, and the signed-in-devices screen had no
+      // address to show on any row: the screen looked like it was withholding a fact it had, and
+      // it never had one.
+      //
+      // `cf-connecting-ip` is the header to read here. The Workers runtime sets it on every
+      // request from the connection it terminated, as a single address, and it cannot be spoofed by
+      // a client because Cloudflare overwrites whatever arrived under that name. `x-forwarded-for`
+      // stays behind it as the fallback for a non-Cloudflare front door (a local `wrangler dev`
+      // reached directly sends neither, which is the one case that still records nothing).
+      //
+      // The address is what a member reads to recognise their own laptop on the devices screen
+      // (apps/web/src/lib/account/active-sessions.ts). Nothing authorizes on it.
+      ipAddress: { ipAddressHeaders: ["cf-connecting-ip", "x-forwarded-for"] },
       // Cookies stay at Better Auth's HOST-ONLY default (crossSubDomainCookies off => the session
       // cookie carries no Domain attribute, so it is scoped to the exact host that set it). Do NOT
       // enable cross-subdomain cookies: every user belongs to exactly one firm, and firms get branded
@@ -390,6 +410,34 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
           },
         },
       },
+    },
+    // THE ONE AUDIT EVENT THAT HAS NOWHERE ELSE TO BE WRITTEN: password.changed.
+    //
+    // Every other event above rides a databaseHook, because the act it records is a row appearing or
+    // going. A password CHANGE is neither — it rewrites the `password` column of an existing
+    // credential account, and 1.6.22 reaches that through `internalAdapter.updateAccount`, which
+    // passes NO endpoint context to the account hooks (verified against the pinned source). So an
+    // account-update hook could see that a password moved and could not say which door it came
+    // through, and a reset — which has its own event, from onPasswordReset — would be filed twice.
+    //
+    // The endpoint hook is where the door has a name. `hooks.after` runs once per request with the
+    // path and the resolved session in hand, so the event is written for exactly the requests that
+    // changed a password and for no others.
+    //
+    // TWO GUARDS, BOTH LOAD-BEARING. An after hook runs on FAILED requests too — the dispatcher
+    // assigns the thrown APIError to `returned` and then runs the after hooks over it — so a wrong
+    // current password would otherwise file a change that never happened, which is the worst
+    // possible entry in a security trail. And the session may be absent (the endpoint refused
+    // before its own middleware resolved one), in which case there is no subject to file against
+    // and nothing is written rather than a row naming nobody.
+    hooks: {
+      after: createAuthMiddleware(async (ctx) => {
+        if (ctx.path !== "/change-password") return;
+        if (isAPIError(ctx.context.returned)) return;
+        const userId = ctx.context.session?.user.id;
+        if (userId === undefined) return;
+        await writeAuthAuditGuarded(env, { event: "password.changed", userId });
+      }),
     },
     plugins: [twoFactor({ backupCodeOptions: { customBackupCodesGenerate: recoveryCodes } })],
   });

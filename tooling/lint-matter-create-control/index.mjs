@@ -12,7 +12,7 @@
  * sections has quietly taken the control's job back. This gate makes that impossible rather than
  * merely unlikely.
  *
- * Two questions, both refused when unanswered:
+ * Three questions, each refused when unanswered:
  *
  *   1. THE MATTER REGISTRY ANSWERS FOR EVERY SECTION. Each entry in sections.ts declares
  *      `createNoun`: the noun the control offers ("Fee" reads as New Fee), or `CREATE_SEVERAL_KINDS`
@@ -22,7 +22,15 @@
  *      create-label.ts so the two cannot drift. The registry checks the same rules when it loads;
  *      this runs them over the source before anything is built.
  *
- *   2. NO RIVAL CREATE BUTTON ON A SCREEN THAT CARRIES THE CONTROL. Starting from every route under
+ *   2. EVERY NOUN WRITTEN IN MARKUP ANSWERS THE SAME GRAMMAR. The registry above covers the matter
+ *      sections, which declare their nouns as data; a top-level screen writes `noun="…"` on the
+ *      component itself, and until 2026-09-18 nothing read those at all. `assertCreateNoun` throws
+ *      on a bad one, and it throws WHILE THE SCREEN RENDERS — so the whole page becomes the crash
+ *      screen, for everyone, on every visit. That is what happened to the template library: it
+ *      shipped `noun="Template"` against a budget of seven, and /documents was a crash from the
+ *      moment it deployed. The refusal was always loud; nothing was listening early enough.
+ *
+ *   3. NO RIVAL CREATE BUTTON ON A SCREEN THAT CARRIES THE CONTROL. Starting from every route under
  *      matters/[id] and from the docket, the directory and the custody register, and following each
  *      `.svelte` import a screen renders, a `<Button>` or `<DropdownMenu.Trigger>` that wears the
  *      plus glyph (`<Plus`), or whose label reads as a create verb ("New …", "Record a …", "Log
@@ -32,10 +40,11 @@
  *      screen's record. The design system's own component is the one holder of the glyph, and it is
  *      not under the walked roots.
  *
- * What this does not catch, said plainly: a button assembled at runtime, a glyph other than Plus
- * used to mean "create", a create verb the list above does not name, or a screen not named as a
- * root. The design-corrections ledger and review answer those; this answers what can be read from
- * source.
+ * What this does not catch, said plainly: a noun computed at runtime rather than written as a
+ * literal (`noun={something}` is counted and skipped, and the component still refuses it on
+ * render), a button assembled at runtime, a glyph other than Plus used to mean "create", a create
+ * verb the list above does not name, or a screen not named as a root. The design-corrections
+ * ledger and review answer those; this answers what can be read from source.
  *
  * Usage: node tooling/lint-matter-create-control/index.mjs
  */
@@ -127,12 +136,13 @@ for (const section of sections) {
     failures.push(
       `${SECTIONS}: section "${section.slug}" names create noun "${section.noun}" ` +
         `(${section.noun.length} characters); the control's fixed width holds ${budget}. Choose a ` +
-        "shorter noun rather than widening the control.",
+        "shorter noun: the width is one token shared by every screen, so widening it to fit one " +
+        "label widens the control everywhere.",
     );
   }
 }
 
-// --- 2. no rival on a section ------------------------------------------------------------------------
+// --- 2. every noun written in markup -----------------------------------------------------------
 
 function svelteFilesUnder(directory) {
   const found = [];
@@ -143,6 +153,90 @@ function svelteFilesUnder(directory) {
   }
   return found;
 }
+
+/**
+ * Source with its comments blanked, so prose about a button is never read as one. Blanked rather
+ * than removed — every newline is kept — so a line reported below is the line in the file.
+ */
+function withoutComments(text) {
+  const blank = (comment) => comment.replaceAll(/[^\n]/gu, " ");
+  return text
+    .replaceAll(/<!--[\s\S]*?-->/gu, blank)
+    .replaceAll(/\/\*[\s\S]*?\*\//gu, blank)
+    .replaceAll(/^\s*\/\/.*$/gmu, blank);
+}
+
+/**
+ * The open tag that starts at `index`, up to the `>` that ends it.
+ *
+ * Scanned rather than matched, because the obvious `/<CreateControl[^>]*>/` stops inside
+ * `onpress={() => …}` — an arrow is a `>` — and would read half a tag as the whole of it. Quotes
+ * and brace depth are tracked so only a `>` at the top level of the tag ends it.
+ */
+function openTagAt(source, index) {
+  let depth = 0;
+  let quote = null;
+  for (let at = index; at < source.length; at += 1) {
+    const character = source[at];
+    if (quote !== null) {
+      if (character === quote) quote = null;
+    } else if (character === '"' || character === "'") {
+      quote = character;
+    } else if (character === "{") {
+      depth += 1;
+    } else if (character === "}") {
+      depth -= 1;
+    } else if (character === ">" && depth === 0) {
+      return source.slice(index, at + 1);
+    }
+  }
+  return null;
+}
+
+const webScreens = existsSync(WEB_SOURCE) ? svelteFilesUnder(WEB_SOURCE) : [];
+if (webScreens.length === 0) {
+  failures.push(
+    `${relative(ROOT, WEB_SOURCE)}: no .svelte files found. The parse broke; fix this gate.`,
+  );
+}
+let literalNouns = 0;
+let computedNouns = 0;
+for (const path of webScreens) {
+  const source = withoutComments(readFileSync(path, "utf8"));
+  const relativePath = relative(ROOT, path).replaceAll("\\", "/");
+  for (const opening of source.matchAll(/<CreateControl\b/gu)) {
+    const tag = openTagAt(source, opening.index);
+    if (tag === null) continue;
+    const line = source.slice(0, opening.index).split("\n").length;
+    const noun = /\bnoun=(?:"([^"]*)"|\{)/u.exec(tag);
+    // No `noun` at all, or `noun={null}`, is the bare "New" — a screen whose menu names the kinds.
+    if (noun === null) continue;
+    if (noun[1] === undefined) {
+      computedNouns += 1;
+      continue;
+    }
+    literalNouns += 1;
+    const written = noun[1];
+    if (!/^[A-Z][a-z]+$/u.test(written)) {
+      failures.push(
+        `${relativePath}:${line}: the create control names "${written}", which is not one ` +
+          'capitalised word. The control reads "New <Noun>" and nothing else; a phrase or a ' +
+          "plural does not fit that grammar. CreateControl throws on this while the screen " +
+          "renders, which takes the whole page down rather than the button.",
+      );
+    } else if (written.length > budget) {
+      failures.push(
+        `${relativePath}:${line}: the create control names "${written}" (${written.length} ` +
+          `characters); the control's fixed width holds ${budget}. Choose a shorter noun: the ` +
+          "width is one token shared by every screen, so widening it to fit one label widens the " +
+          "control everywhere. CreateControl throws on this while the screen renders, which takes " +
+          "the whole page down rather than the button.",
+      );
+    }
+  }
+}
+
+// --- 3. no rival on a section ------------------------------------------------------------------------
 
 /** Every `.svelte` module a file imports, resolved to a path, or skipped when it is not ours. */
 function renderedImports(path, text) {
@@ -156,18 +250,6 @@ function renderedImports(path, text) {
     if (existsSync(target)) imports.push(target);
   }
   return imports;
-}
-
-/**
- * Source with its comments blanked, so prose about a button is never read as one. Blanked rather
- * than removed — every newline is kept — so a line reported below is the line in the file.
- */
-function withoutComments(text) {
-  const blank = (comment) => comment.replaceAll(/[^\n]/gu, " ");
-  return text
-    .replaceAll(/<!--[\s\S]*?-->/gu, blank)
-    .replaceAll(/\/\*[\s\S]*?\*\//gu, blank)
-    .replaceAll(/^\s*\/\/.*$/gmu, blank);
 }
 
 const CREATE_VERB = /^\s*(?:New\b|Record an?\b|Log Time\b|Write Note\b|Draft Bill\b)/u;
@@ -243,8 +325,10 @@ if (failures.length > 0) {
 const naming = sections.filter((section) => !section.severalKinds && section.noun !== null).length;
 const severalKinds = sections.filter((section) => section.severalKinds).length;
 const declining = sections.length - naming - severalKinds;
+const computedNote = computedNouns === 0 ? "" : ` (${computedNouns} computed, checked on render)`;
 console.log(
   `Matter create control: every one of ${sections.length} section(s) answered — ${naming} naming ` +
-    `a noun, ${severalKinds} offering several kinds, ${declining} declining with a reason — and no ` +
-    `rival create button across ${walked} screen(s) that carry the control.`,
+    `a noun, ${severalKinds} offering several kinds, ${declining} declining with a reason — ` +
+    `${literalNouns} noun(s) written in markup fit the ${budget}-character width` +
+    `${computedNote}, and no rival create button across ${walked} screen(s) that carry the control.`,
 );

@@ -1,8 +1,7 @@
 # The firm's trust accounts
 
-_The accounts, the approval queue and the firm's policy are in daily use. Recording and importing
-bank statements, working a reconciliation, funding the bank-charge cushion and the unclaimed-funds
-file are still to come, and each control says so where it stands._
+_The accounts, each account's position, the approval queue, bank statements and reconciliations,
+the bank-charge cushion, the unclaimed-funds file and the firm's policy are in daily use._
 
 ## What it does
 
@@ -44,20 +43,80 @@ Approval is checked again at the moment it is given: if the ledger no longer has
 available, the approval is refused rather than posted. What counts as "may decide it" is your
 firm's policy ([trust money-out approvals](../admin/trust-disbursement-approvals.md)).
 
-## What is recorded for an account
+## Where an account stands
 
-- **Statements** — each period of the account as the bank reported it, with its opening and closing
-  balances and where it came from (entered by a member, or imported from a file).
-- **Reconciliations** — each reconciliation opened against a statement, who opened and closed it,
-  and for a closed one whether the period balanced, with the three totals the firm attested to and
-  what did not tie out. A closed reconciliation states what was true when it was closed, not what
-  is true now.
-- **Firm funds** — the bank-charge cushion, when the firm has opened one on this account: the firm's
-  own money, kept in the trust account for the single purpose of bearing the bank's service charges
-  so that a charge is never borne by client money. Its balance and every top-up and charge are
-  listed.
-- **Position** — the account's current balance is not stated on this screen yet. The
-  [trust compliance report](trust-compliance-report.md) states it for any period.
+**Position** states the account as it is today, worked out from every recorded entry at the moment
+of asking: the bank's **book balance**, what the **client ledgers** come to, what is under
+**hold**, the **firm funds** in the bank-charge cushion, how many matter ledgers the account
+carries, and how many payments are waiting. The book balance and the client total are the same
+two figures a reconciliation proves against, computed the same way.
+
+## Bank statements
+
+A statement is one period of the account as the bank reported it: its opening and closing
+balances and every line the bank posted. It is the only thing the platform learns from outside
+itself, which is why a bank fee, a returned deposit or a forged check exists nowhere until a
+statement arrives.
+
+- **Record Statement** enters one by hand: the period, the two balances, a reference, and the
+  lines with their dates, directions, amounts and descriptions. The form totals the lines as you
+  go and warns when they do not reach the closing balance you typed; it records the statement all
+  the same, because the difference is what a reconciliation exists to find.
+- **Import Statement** reads a file your bank exported. Press **Preview** and the screen shows
+  what it found: which column it read each fact from, every row it could read and what it would
+  become, every row it could not and why, and the totals. Nothing is stored by the preview. Press
+  **Import Statement** to record exactly what the preview showed; if the file changed in between,
+  the import is refused rather than stored.
+
+Each statement offers **Reconcile**, which opens a reconciliation on it.
+
+## Reconciling a statement
+
+A reconciliation has its own screen, reached from **Reconcile** on a statement or from any
+reconciliation in the account's list.
+
+- **The proof** stands at the top: the statement's closing balance, adjusted for deposits and
+  payments the firm recorded that have not reached the bank, against the bank's book balance and
+  the client ledgers' total. It says whether the three tie out, and if not, which leg disagrees and
+  by how much.
+- **The two sides** beneath it: the statement's lines nobody has accounted for on one side, and
+  the firm's recorded items no line has cleared on the other. Select one of each and press
+  **Match** to record that they are the same event. Suggested pairings are marked with the reasons
+  they are candidates (the same amount, the same day, the same reference). Nothing is ever matched
+  for you: a wrong automatic match would be a wrong statement about client money, so every match
+  is a person's.
+- **Matches** lists every match recorded, and **Withdraw** takes one back. A withdrawn match stays
+  on the record, marked as withdrawn; the item is outstanding again.
+- **Close Reconciliation** freezes the proof as it stands. A period that did not balance closes as
+  readily as one that did, recording exactly that. A closed reconciliation shows what the firm
+  attested to beside what is true now, because the ledger may have moved since; the two are never
+  presented as the same figure. A correction is a new reconciliation that supersedes the old.
+
+## The bank-charge cushion
+
+**Firm funds** is the one place the firm's own money may sit in a trust account, for the single
+purpose of bearing the bank's service charges so that a charge is never borne by client money.
+**Open Cushion** turns it on for an account (a pooled interest-bearing account refuses it, because
+the rules exempt those accounts from the charges the cushion would pay); **Fund Cushion** puts the
+firm's money in; **Record Bank Charge** records the institution taking a charge out of it. A charge
+larger than the cushion is refused with the remedy named: fund the cushion, then record the charge.
+These three need the firm-funds right, which is narrower than the right to move client money.
+
+## Unclaimed funds
+
+**Unclaimed Funds** finds client money that has sat unmoved. Choose a day, and the section lists
+every ledger on the account that still holds money and has had no movement since then, with the
+earliest receipt still on it and the last activity. There is no default period: which periods
+matter differs by jurisdiction, and the firm may have been in touch with the client in ways the
+platform never saw, so the comparison is yours to ask for.
+
+- **Open Review** opens a diligence file over one ledger, recording what you saw when you opened
+  it. It moves no money.
+- **Record Contact Attempt** records each attempt to reach the owner as it is made: the channel,
+  the day, the address or number actually used, and what came of it.
+- **Close Review** ends the round with its outcome. Closing as **distributed to owner** names a
+  payment that already went out through the ordinary approved path; the closure itself takes no
+  amount, no payee and no method, and moves nothing.
 
 ## The firm's policy
 

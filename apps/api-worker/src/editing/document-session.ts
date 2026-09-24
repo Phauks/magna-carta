@@ -47,7 +47,14 @@ export interface OpenProgress {
   readonly checkFileInfoAt: string | null;
   readonly getFileAt: string | null;
   readonly lastCallback: OpenCallback | null;
+  // Every callback of this open, oldest first, capped: the screen shows the editor's side of the
+  // open as a log, not only its last line. A record written before this field existed reads as
+  // an empty list.
+  readonly callbacks: readonly OpenCallback[];
 }
+
+/** How many callbacks one open keeps. An open is four or five; the rest is room for a long session. */
+const MAX_OPEN_CALLBACKS = 30;
 
 export interface DocumentSessionState {
   readonly participants: Readonly<Record<string, ParticipantCapability>>;
@@ -187,7 +194,13 @@ export class DocumentSession extends DurableObject<Bindings> {
       ...state,
       opens: {
         ...state.opens,
-        [memberId]: { launchedAt, checkFileInfoAt: null, getFileAt: null, lastCallback: null },
+        [memberId]: {
+          launchedAt,
+          checkFileInfoAt: null,
+          getFileAt: null,
+          lastCallback: null,
+          callbacks: [],
+        },
       },
     });
   }
@@ -204,7 +217,9 @@ export class DocumentSession extends DurableObject<Bindings> {
       checkFileInfoAt: null,
       getFileAt: null,
       lastCallback: null,
+      callbacks: [],
     };
+    const callbacks = [...(open.callbacks ?? []), callback].slice(-MAX_OPEN_CALLBACKS);
     const answered = callback.status >= 200 && callback.status < 300;
     // A callback is the editor alive on this document, whatever it asked: a lock refresh or a
     // CheckFileInfo from a member who has typed nothing is still a live session, and reaping it
@@ -224,6 +239,7 @@ export class DocumentSession extends DurableObject<Bindings> {
           getFileAt:
             answered && callback.operation === "wopi:get-file" ? callback.at : open.getFileAt,
           lastCallback: callback,
+          callbacks,
         },
       },
     });
@@ -231,7 +247,8 @@ export class DocumentSession extends DurableObject<Bindings> {
 
   // The member's current open, or null when this document has recorded no launch for them.
   async openProgressOf(memberId: string): Promise<OpenProgress | null> {
-    return (await this.load()).opens[memberId] ?? null;
+    const open = (await this.load()).opens[memberId];
+    return open === undefined ? null : { ...open, callbacks: open.callbacks ?? [] };
   }
 
   // Takes (or replaces) the document's single WOPI lock — the WOPI lock-family handlers persist the

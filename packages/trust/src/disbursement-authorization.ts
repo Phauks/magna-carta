@@ -2,6 +2,7 @@ import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
+  MatterId,
   TrustAccountId,
   TrustAuthorizationPolicyId,
   TrustDisbursementDecisionId,
@@ -45,6 +46,7 @@ import type {
   TrustDisbursementMethod,
   TrustDisbursementRequestKind,
   TrustDisbursementRequestSnapshot,
+  TrustPendingDisbursementRequestSnapshot,
 } from "./types.ts";
 
 // Authorization for money leaving a client ledger, under the FIRM'S OWN POLICY
@@ -343,6 +345,11 @@ interface TrustDisbursementRequestRow {
   kind: TrustDisbursementRequestKind;
   operating_description: string | null;
   policy_id: string | null;
+  // Only the queue read joins the matter beside the request; every other read of this row leaves
+  // these absent, which is why they are optional rather than nullable columns.
+  matter_id?: string | null;
+  matter_number?: string | null;
+  matter_title?: string | null;
   decision_id?: string | null;
   decision?: TrustDisbursementDecisionKind | null;
   decided_by?: string | null;
@@ -409,16 +416,31 @@ export async function loadTrustDisbursementRequest(
   return toRequestSnapshot(row);
 }
 
-// Everything awaiting a decision on one trust account — the queue an approver works from.
+function toPendingRequestSnapshot(
+  row: TrustDisbursementRequestRow,
+): TrustPendingDisbursementRequestSnapshot {
+  const request = toRequestSnapshot(row);
+  return {
+    ...request,
+    matterId: (row.matter_id as MatterId | null) ?? null,
+    matterNumber: row.matter_number ?? null,
+    matterTitle: row.matter_title ?? null,
+  };
+}
+
+// Everything awaiting a decision on one trust account — the queue an approver works from, with the
+// matter each request would take money from. The matter arrives on the same statement rather than
+// through a read per row: a queue of forty requests must not be forty round trips, and an approver
+// who cannot see whose ledger is being paid out is deciding on a payee and an amount alone.
 export async function readPendingTrustDisbursementRequests(
   database: SqlDatabase,
   trustAccountId: TrustAccountId,
-): Promise<readonly TrustDisbursementRequestSnapshot[]> {
+): Promise<readonly TrustPendingDisbursementRequestSnapshot[]> {
   const { results } = await selectPendingTrustDisbursementRequestsStatement(
     database,
     trustAccountId,
   ).all<TrustDisbursementRequestRow>();
-  return results.map(toRequestSnapshot);
+  return results.map(toPendingRequestSnapshot);
 }
 
 export async function loadPendingTrustDisbursementRequest(

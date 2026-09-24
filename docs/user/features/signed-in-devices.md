@@ -14,6 +14,8 @@ A session appears here from the moment somebody signs in as you and disappears w
 
 **What the list does not show is a "last used" time.** Magna Carta only knows when a session started, not the last minute it was active, and a stamp that looked like the second while meaning the first would be worse than none — you would clear a row that was in use, or leave one that was.
 
+A row occasionally has no address on it. That means the sign-in genuinely arrived without one, not that anything is being withheld.
+
 ## Common tasks
 
 **See who is signed in as you**
@@ -36,8 +38,8 @@ Not from this page — Account Settings has its own stripped header, with only t
 
 ## Tips and edge cases
 
-- **A device you sign out here can take up to five minutes to be turned away.** It stops being able to sign in again immediately, but a request already on its way may still be answered for a few minutes. This is normal and the screen says so.
-- **If you think somebody else has your account, reset your password as well.** Signing their device out is only half of it — a password they know lets them start a new session a moment later. Use **Forgot Password** on the sign-in screen: it emails you a reset link. (The **Password** row under **Account → Security** is not working yet, which is why the reset is the route to take.)
+- **A device you sign out here can take up to five minutes to be turned away.** It stops being able to sign in again immediately, but a request already on its way may still be answered for a few minutes. This is normal.
+- **If you think somebody else has your account, change your password as well.** Signing their device out is only half of it — a password they know lets them start a new session a moment later. **Account → Security → Password → Change** does both at once: it replaces the password and, with **Sign out my other devices** ticked, ends every other session in the same step, so there is no gap for them to change it back in. See [Your account](your-account.md).
 - **One person, several rows, is ordinary.** Your office computer, your laptop and your phone are three sessions, and signing in again on the same computer after a session expired makes a new row rather than reusing the old one.
 - **An iPad usually shows as "Safari on macOS".** Recent iPads describe themselves to websites exactly as a Mac does, and Magna Carta would rather name the device vaguely than name it wrongly on a screen you are using to spot a stranger. Read the row alongside when it signed in and from where.
 - **An address you do not recognise is worth a second look, not a panic.** Mobile networks and office connections change the address a session signed in from, so an unfamiliar one is not proof of anything on its own. Read it alongside the device and the time.
@@ -46,4 +48,4 @@ Not from this page — Account Settings has its own stripped header, with only t
 ## Related features
 
 - [Signing in and out](signing-in.md) — the sign-in steps, staying signed in, and ending the session you are on.
-- **Account → Security** is where your password and authenticator settings will live; both rows are marked _Soon_ and do nothing yet. To change your password today, use **Forgot Password** on the sign-in screen.
+- [Your account](your-account.md) — your name, your photo, your email address, and changing your password.

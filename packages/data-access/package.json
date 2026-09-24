@@ -9,6 +9,7 @@
     "./idempotency-decision": "./src/idempotency-decision.ts",
     "./idempotency-statements": "./src/idempotency-statements.ts",
     "./member-statements": "./src/member-statements.ts",
+    "./member-photo-statements": "./src/member-photo-statements.ts",
     "./email-filing-statements": "./src/email-filing-statements.ts",
     "./email-auto-file-statements": "./src/email-auto-file-statements.ts",
     "./email-capture-route-statements": "./src/email-capture-route-statements.ts",

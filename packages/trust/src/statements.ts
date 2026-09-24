@@ -51,6 +51,10 @@ import type {
 export const TRUST_ACCOUNT_TABLE = "trust_account";
 // The office a trust account belongs to; read here only for the listing's time zone column.
 const LOCATION_TABLE = "location";
+// The matter a client ledger belongs to, read here only for the number and title a person reads a
+// queued request by. Nothing in this package decides anything from a matter row — the money facts
+// come from the trust tables, and this join is a caption.
+const MATTER_TABLE = "matter";
 export const TRUST_LEDGER_NODE_TABLE = "trust_ledger_node";
 export const TRUST_HOLD_TABLE = "trust_hold";
 export const TRUST_TRANSFER_TABLE = "trust_transfer";
@@ -525,16 +529,43 @@ export function selectTrustDisbursementRequestStatement(
     .bind(requestId);
 }
 
-// The approval queue for one trust account: every request no decision names, oldest first. The
-// anti-join is the same derivation the hold model uses for "still active", so there is one way to
-// ask what is outstanding rather than a status column and a query that can disagree.
+// A request is PENDING when no decision names it — status derived from the absence of a row, the
+// same derivation the hold model uses for "still active". Written once, as a predicate over a
+// request alias, because the queue a member works from and the count an account's position reports
+// have to mean the same thing: two spellings of the anti-join would each answer plausibly, and the
+// day they disagreed nothing would say so.
+export function pendingTrustDisbursementRequestPredicate(requestAlias: string): string {
+  return `NOT EXISTS (SELECT 1 FROM ${TRUST_DISBURSEMENT_DECISION_TABLE} d WHERE d.request_id = ${requestAlias}.id)`;
+}
+
+// The approval queue for one trust account: every request no decision names, oldest first.
+//
+// The matter is joined through the request's own node rather than carried on the request row, and it
+// is a CAPTION: an approver reading a payee and an amount cannot tell whose money it is without the
+// matter it would leave, and one join over the queue is the alternative to a read per row. A request
+// filed against a node that is not a matter leaf comes back with all three matter columns null,
+// which is the honest answer rather than an omitted row.
 export function selectPendingTrustDisbursementRequestsStatement(
   database: SqlDatabase,
   trustAccountId: TrustAccountId,
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT ${DISBURSEMENT_REQUEST_COLUMNS} FROM ${TRUST_DISBURSEMENT_REQUEST_TABLE} r WHERE r.trust_account_id = ?1 AND NOT EXISTS (SELECT 1 FROM ${TRUST_DISBURSEMENT_DECISION_TABLE} d WHERE d.request_id = r.id) ORDER BY r.requested_at, r.id`,
+      `SELECT ${DISBURSEMENT_REQUEST_COLUMNS}, n.matter_id AS matter_id, mt.matter_number AS matter_number, mt.title AS matter_title FROM ${TRUST_DISBURSEMENT_REQUEST_TABLE} r LEFT JOIN ${TRUST_LEDGER_NODE_TABLE} n ON n.id = r.node_id LEFT JOIN ${MATTER_TABLE} mt ON mt.id = n.matter_id WHERE r.trust_account_id = ?1 AND ${pendingTrustDisbursementRequestPredicate("r")} ORDER BY r.requested_at, r.id`,
+    )
+    .bind(trustAccountId);
+}
+
+// How many requests on one account nobody has decided yet, off the same predicate the queue is
+// derived from. A count rather than the queue itself, because a position report wants the number
+// and a member working the queue wants the rows.
+export function selectPendingTrustDisbursementRequestCountStatement(
+  database: SqlDatabase,
+  trustAccountId: TrustAccountId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT COUNT(*) AS row_count FROM ${TRUST_DISBURSEMENT_REQUEST_TABLE} r WHERE r.trust_account_id = ?1 AND ${pendingTrustDisbursementRequestPredicate("r")}`,
     )
     .bind(trustAccountId);
 }
@@ -967,6 +998,45 @@ export function selectActiveTrustReconciliationMatchesStatement(
     .bind(reconciliationId, limit);
 }
 
+// EVERY ASSERTION ONE RECONCILIATION HOLDS, withdrawn ones included, oldest first — with the bank
+// line and the recorded item each one pairs, so a reader sees what was asserted rather than two
+// identifiers to go and look up.
+//
+// A withdrawal is its own row naming the assertion it releases, so the withdrawal rows are excluded
+// from the list and LEFT-joined onto the assertions instead: one row per pairing somebody made, and
+// the withdrawal reads as what became of it. That somebody asserted a pairing and took it back is
+// part of the record, which is why a withdrawn match is listed rather than filtered out.
+//
+// `bank_delta_minor` is a scalar subquery over the account's bank leaf rather than a join and a
+// GROUP BY, so the movement and transfer joins beside it cannot multiply the rows it sums. Its shape
+// is the outstanding read's, deliberately: the item a member cleared and the item the proof would
+// have adjusted by are described the same way.
+export function selectTrustReconciliationMatchesStatement(
+  database: SqlDatabase,
+  reconciliationId: TrustReconciliationId,
+  bankLedgerAccountId: LedgerAccountId,
+  limit: number = MAX_TRUST_RECONCILIATION_ROWS,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT x.id, x.reconciliation_id, x.statement_line_id, x.entry_id, x.matched_by, x.matched_at,
+         w.id AS unmatched_by_match_id, w.matched_by AS withdrawn_by, w.matched_at AS withdrawn_at,
+         l.id AS line_id, l.statement_id AS line_statement_id, l.posted_on AS line_posted_on, l.direction AS line_direction, l.amount_minor AS line_amount_minor, l.description AS line_description, l.reference AS line_reference, l.counterparty_name AS line_counterparty_name, l.source_row_number AS line_source_row_number,
+         e.effective_date AS effective_date, e.description AS description,
+         (SELECT COALESCE(SUM(CASE WHEN bl.direction = 'debit' THEN bl.amount_minor ELSE -bl.amount_minor END), 0) FROM ${LEDGER_LINE_TABLE} bl WHERE bl.entry_id = e.id AND bl.account_id = ?2) AS bank_delta_minor,
+         m.id AS movement_id, m.kind AS movement_kind, m.reference AS reference, m.counterparty_name AS counterparty_name, t.id AS transfer_id
+       FROM ${TRUST_RECONCILIATION_MATCH_TABLE} x
+       LEFT JOIN ${TRUST_RECONCILIATION_MATCH_TABLE} w ON w.unmatches_match_id = x.id
+       JOIN ${TRUST_BANK_STATEMENT_LINE_TABLE} l ON l.id = x.statement_line_id
+       JOIN ${LEDGER_ENTRY_TABLE} e ON e.id = x.entry_id
+       LEFT JOIN ${TRUST_MOVEMENT_TABLE} m ON m.entry_id = e.id
+       LEFT JOIN ${TRUST_TRANSFER_TABLE} t ON t.trust_entry_id = e.id
+       WHERE x.reconciliation_id = ?1 AND x.unmatches_match_id IS NULL
+       ORDER BY x.matched_at, x.id LIMIT ?3`,
+    )
+    .bind(reconciliationId, bankLedgerAccountId, limit);
+}
+
 // The statement lines this reconciliation has not tied to anything. Scoped to THIS reconciliation —
 // unlike the outstanding-item read, which asks whether an item has reached any statement at all —
 // because the proof is about one period and a line's fate in some other reconciliation says nothing
@@ -1051,6 +1121,36 @@ export function selectOutstandingTrustBankItemsStatement(
       `SELECT e.id AS entry_id, e.effective_date AS effective_date, e.description AS description, SUM(CASE WHEN l.direction = 'debit' THEN l.amount_minor ELSE -l.amount_minor END) AS bank_delta_minor, m.id AS movement_id, m.kind AS movement_kind, m.reference AS reference, m.counterparty_name AS counterparty_name, t.id AS transfer_id FROM ${LEDGER_ENTRY_TABLE} e JOIN ${LEDGER_LINE_TABLE} l ON l.entry_id = e.id LEFT JOIN ${TRUST_MOVEMENT_TABLE} m ON m.entry_id = e.id LEFT JOIN ${TRUST_TRANSFER_TABLE} t ON t.trust_entry_id = e.id WHERE l.account_id = ?1 AND e.effective_date <= ?2 AND NOT EXISTS (SELECT 1 FROM ${TRUST_RECONCILIATION_MATCH_TABLE} x WHERE x.entry_id = e.id AND ${bindingTrustReconciliationMatchPredicate("x")}) GROUP BY e.id, e.effective_date, e.description, m.id, m.kind, m.reference, m.counterparty_name, t.id ORDER BY e.effective_date, e.id LIMIT ?3`,
     )
     .bind(bankLedgerAccountId, asOfDate, limit);
+}
+
+// WHAT IS UNDER HOLD ACROSS ONE ACCOUNT: every active disputed-funds hold on every node beneath it,
+// summed. The per-node question is selectTrustAvailableBalanceStatement's; this is the same
+// definition of "still held" asked of a whole account, so the two cannot disagree about what is
+// spoken for. Not an as-of figure: a hold is a present claim on money, with no effective date to
+// compute one from.
+export function selectTrustAccountHeldTotalStatement(
+  database: SqlDatabase,
+  trustAccountId: TrustAccountId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT COALESCE(SUM(h.amount_minor), 0) AS total_minor FROM ${TRUST_HOLD_TABLE} h JOIN ${TRUST_LEDGER_NODE_TABLE} n ON n.id = h.node_id WHERE n.trust_account_id = ?1 AND ${activeTrustHoldPredicate("h")}`,
+    )
+    .bind(trustAccountId);
+}
+
+// How many client ledgers one account carries. Every matter leaf counts, including the ones sitting
+// at zero: a ledger that has been paid out is still a ledger the firm keeps records for, and a count
+// that dropped it would tell a firm it has fewer than it does.
+export function selectTrustMatterLedgerCountStatement(
+  database: SqlDatabase,
+  trustAccountId: TrustAccountId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT COUNT(*) AS row_count FROM ${TRUST_LEDGER_NODE_TABLE} WHERE trust_account_id = ?1 AND kind = 'matter'`,
+    )
+    .bind(trustAccountId);
 }
 
 // ---- the bank-charge carve-out: the firm's own money in a trust account ----
@@ -1635,6 +1735,21 @@ export function selectTrustAccountIdentityStatement(
   return database
     .prepare(
       `SELECT id, name, location_id, jurisdiction, bank_name, account_number_last_four, currency, iolta, status, opened_on, closed_at, bank_ledger_account_id, client_liability_account_id FROM ${TRUST_ACCOUNT_TABLE} WHERE id = ?1`,
+    )
+    .bind(trustAccountId);
+}
+
+// The holding office's zone for ONE account, for the caller that has an account identifier and no
+// listing in hand: a figure asked for "as at today" resolves that day in the office's own zone, not
+// the server's. A LEFT JOIN, so the absence of rows means the account is unknown rather than its
+// office being unreadable; a null zone falls back in the one place the platform resolves a zone.
+export function selectTrustAccountTimeZoneStatement(
+  database: SqlDatabase,
+  trustAccountId: TrustAccountId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT l.time_zone AS location_time_zone FROM ${TRUST_ACCOUNT_TABLE} a LEFT JOIN ${LOCATION_TABLE} l ON l.id = a.location_id WHERE a.id = ?1`,
     )
     .bind(trustAccountId);
 }

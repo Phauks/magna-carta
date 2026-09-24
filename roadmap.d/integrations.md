@@ -270,6 +270,15 @@
   evidence: packages/safe-browse/src/capture.ts + apps/api-worker/src/routes/safe-browse.ts, with its own page in the app's tools section over apps/web/src/lib/tools/safe-browse/ (stage alpha). Verified against the deployed service 2026-09-18 — a capture returns a screenshot.
   notes: Renderer is Cloudflare Browser Rendering (env.BROWSER, quickAction), an account entitlement rather than anything in the repository, and still unexercisable locally (Miniflare's binding has no quickAction). The entitlement was confirmed live on 2026-09-18 by the first capture that succeeded; before that every capture failed on a wait for networkidle2 that a page holding a socket never reaches, reported as a capacity outage. Interactive live browsing is designed and not built — the shell's Live toggle renders as a Soon affordance and the seam is in ADR-0119.
 
+- id: integrations.tools.safe-browse-live
+  name: Safe website viewer — Live mode
+  scope: One held isolated browser per member, walked page to page so a link's cookie-gated steps can be followed; every navigation hop SSRF-guarded.
+  status: partial
+  surface: screen
+  spec: docs/specs/2026-09-20-interactive-browsing-design.md
+  evidence: apps/api-worker/src/routes/safe-browse-live.ts + apps/api-worker/src/safe-browse/safe-browse-session.ts, driven by the viewer's Live toggle. Platform capability measured by the session probe 2026-09-20 (session reuse and CDP available, 200 concurrent sessions).
+  notes: Partial until a live navigation is confirmed against the deployed service, on the same rule the static capture's node followed — the probe proved the platform, not this route. Miniflare has no browser binding, so the route's navigation path has no automated test. Pixel streaming is decided against for now, not built.
+
 - id: integrations.tools.metadata
   name: Metadata inspector & scrubber
   scope: Inspect and strip metadata from OOXML and JPEG/PNG/TIFF images; stateless.
@@ -319,6 +328,7 @@
   scope: Built-in feature (adapter-sourced data) for service of process, asset/witness location, conflicts and intake enrichment.
   status: researching
   evidence: docs/research/public-records-landscape.md; no code.
+  notes: Left alone until a user asks for it (owner, 2026-09-20), which confirms rather than changes the research note's own verdict. The blocker is structural and not effort: under the driver-privacy, financial-privacy and consumer-reporting statutes the right to pull the data attaches to the END USER, so each firm is credentialed individually and a platform cannot lawfully resell the lookups from one account. Any future build is therefore per-firm bring-your-own-credential, and a search is a recorded act against a matter carrying its permissible-purpose code rather than a control beside an address field. Postal change-of-address sits outside this node and outside the same wall: it is licensed rather than credentialed, costs 1,350 to 230,000 USD and requires CASS-certified software first, so it would be bought through a licensee rather than licensed directly.
 
 - id: integrations.candidates.document-comparison
   name: Document comparison / proofreading / metadata scrubbing suite

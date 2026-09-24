@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "f008118d-fdb8-4998-88e1-a43206bbfd53",
+  "id": "a3bb30fe-006c-4da5-8977-448957b68d1a",
   "prevId": "3f433895-5116-48db-9f2b-90d344b900b5",
   "tables": {
     "account_balance": {
@@ -11130,59 +11130,6 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "integration_credential": {
-      "name": "integration_credential",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "credential_ref": {
-          "name": "credential_ref",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "ciphertext": {
-          "name": "ciphertext",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "integration_credential_credential_ref_unique": {
-          "name": "integration_credential_credential_ref_unique",
-          "columns": [
-            "credential_ref"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "invoice": {
       "name": "invoice",
       "columns": {
@@ -18681,6 +18628,102 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
+    },
+    "member_photo": {
+      "name": "member_photo",
+      "columns": {
+        "member_user_id": {
+          "name": "member_user_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sha256": {
+          "name": "sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "object_key": {
+          "name": "object_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "content_type": {
+          "name": "content_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "size_bytes": {
+          "name": "size_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "width_pixels": {
+          "name": "width_pixels",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "height_pixels": {
+          "name": "height_pixels",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "member_photo_member_user_id_member_user_id_fk": {
+          "name": "member_photo_member_user_id_member_user_id_fk",
+          "tableFrom": "member_photo",
+          "tableTo": "member",
+          "columnsFrom": [
+            "member_user_id"
+          ],
+          "columnsTo": [
+            "user_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "member_photo_size_check": {
+          "name": "member_photo_size_check",
+          "value": "\"member_photo\".\"size_bytes\" > 0"
+        },
+        "member_photo_pixels_check": {
+          "name": "member_photo_pixels_check",
+          "value": "\"member_photo\".\"width_pixels\" > 0 AND \"member_photo\".\"height_pixels\" > 0"
+        }
+      }
     },
     "member_professional_profile": {
       "name": "member_professional_profile",

@@ -215,6 +215,17 @@ export interface TrustDisbursementRequestSnapshot {
   readonly decision: TrustDisbursementDecisionSnapshot | null;
 }
 
+// A request as the approval QUEUE serves it: the request itself, plus the matter whose ledger the
+// money would leave. The matter is a caption an approver decides by — a payee and an amount do not
+// say whose money is being paid out — and it is resolved from the request's own node rather than
+// stated anywhere, so it can never name a matter the ledger does not belong to. All three are null
+// on a request filed against a node that is not a matter leaf.
+export interface TrustPendingDisbursementRequestSnapshot extends TrustDisbursementRequestSnapshot {
+  readonly matterId: MatterId | null;
+  readonly matterNumber: string | null;
+  readonly matterTitle: string | null;
+}
+
 export interface TrustDisbursementDecisionSnapshot {
   readonly id: TrustDisbursementDecisionId;
   readonly decision: TrustDisbursementDecisionKind;
@@ -287,6 +298,27 @@ export interface TrustFirmFundsPosition {
   readonly ledgerAccountId: LedgerAccountId;
   readonly balanceMinor: number;
   readonly currency: string;
+}
+
+// WHERE ONE TRUST ACCOUNT STANDS as of a civil day: what the bank leaf's own book says, what the
+// client ledgers under it come to, what is under hold, the firm's own cushion where the account has
+// one, how many client ledgers it carries and how many payments out are waiting on a decision.
+//
+// The three money legs are the reconciliation's own, computed from dated ledger rows rather than
+// from any stored balance, so the figure a person reads on an account and the figure a period
+// attests to come from one computation. `firmFundsMinor` is null — not zero — on an account that
+// never opened the bank-charge carve-out: the cushion is a thing a firm opts into, and a zero would
+// say it is open and empty.
+export interface TrustAccountPosition {
+  readonly trustAccountId: TrustAccountId;
+  readonly currency: string;
+  readonly asOfDate: string;
+  readonly bookBalanceMinor: number;
+  readonly clientLedgerTotalMinor: number;
+  readonly heldMinor: number;
+  readonly firmFundsMinor: number | null;
+  readonly matterLedgerCount: number;
+  readonly pendingRequestCount: number;
 }
 
 // ---- unclaimed and dormant client funds ----
@@ -515,6 +547,23 @@ export interface TrustReconciliationSnapshot {
   readonly frozenProof: TrustFrozenProof | null;
   readonly supersedesReconciliationId: TrustReconciliationId | null;
   readonly note: string | null;
+}
+
+// One assertion that a bank line and a recorded entry are the same event, with both ends beside it
+// and whatever became of it. Withdrawn is a fact about the assertion rather than a reason to omit
+// it: that somebody paired these two and then took it back is part of what the period records.
+export interface TrustReconciliationMatchRecord {
+  readonly id: TrustReconciliationMatchId;
+  readonly statementLineId: TrustBankStatementLineId;
+  readonly entryId: LedgerEntryId;
+  readonly matchedBy: UserId;
+  readonly matchedAt: string;
+  // Null while the assertion stands. Taken from the row that withdrew it, which is an append rather
+  // than an edit, so these two are the withdrawal's own author and instant.
+  readonly withdrawnBy: UserId | null;
+  readonly withdrawnAt: string | null;
+  readonly line: TrustBankStatementLineSnapshot;
+  readonly item: TrustBankItem;
 }
 
 export interface TrustReconciliationMatchSnapshot {

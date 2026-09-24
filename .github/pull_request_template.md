@@ -36,7 +36,7 @@ Language: docs/conventions/documentation-style.md. Definition of done: docs/conv
 - [ ] Decision recorded: `docs/decisions/pending/<slug>.md` (never the Decision-Log register itself)
 - [ ] User docs: `docs/user/` guide, in-app help, and admin docs where firm-owner behaviour changed
 - [ ] Changelog fragment: `changelog.d/<slug>.md` with `category` and `audience` (never `CHANGELOG.md` itself)
-- [ ] Feature ledger: `roadmap.d/` node status flipped, `vp run register-build` run, `docs/now.md` committed
+- [ ] Feature ledger: `roadmap.d/` node status flipped (the register `docs/now.md` renders on `main`, never on the branch)
 - [ ] `ROADMAP.md` reflects the new status
 - [ ] Slice status: `status.d/<slice>.md` edited, `vp run status-build` run, `STATUS.md` and `STATUS.json` committed
 - [ ] Active-work note at `docs/active-work/<branch>.md`, retired **in this pull request** with `vp run retire-note <branch> --with-merge` (the worktree and branch are cleared locally afterwards)

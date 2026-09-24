@@ -162,8 +162,8 @@
   --mc-radius-md: 7px;
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
-  /* The one create control in the matter header, fixed at the width its longest label needs ("New Packet" plus the plus glyph, a menu chevron and the button's own padding). Fixed rather than fitted so the control never changes width as the reader moves between sections: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. */
-  --mc-size-create-control: 136px;
+  /* The one create control, fixed at the width its longest label needs ("New Template" plus the plus glyph and the button's own padding, measured in the reading face at the small size). Fixed rather than fitted so the control never changes width as the reader moves between screens: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. It was 136px while "New Message" was the longest label; the template library needed one character more than that held, and the budget in create-label.ts moves with this value. */
+  --mc-size-create-control: 140px;
   /* The least of the screen that shows around a windowed modal on every side. A panel that touches the edge stops reading as a panel over the application and starts reading as a page the application was replaced by, with the panel's own rounded corners cut off against the screen. The gutter is what a panel's caps are measured inside: a panel's width cap and its content decide how big it opens, and this decides how big it can ever be on the screen it is on, so on a laptop a long record scrolls inside a window with air around it rather than running from the top of the screen to the bottom. Fixed rather than a share of the screen because a share swells on a large monitor, where the width caps already leave room, and shrinks on a small one, where the air is needed most (owner ruling 2026-09-03, over a proportional gutter). Expanding drops it: filling the screen is that gesture. */
   --mc-size-modal-gutter: 32px;
   --mc-size-popover: 224px;
@@ -449,8 +449,8 @@
   --mc-radius-md: 7px;
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
-  /* The one create control in the matter header, fixed at the width its longest label needs ("New Packet" plus the plus glyph, a menu chevron and the button's own padding). Fixed rather than fitted so the control never changes width as the reader moves between sections: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. */
-  --mc-size-create-control: 136px;
+  /* The one create control, fixed at the width its longest label needs ("New Template" plus the plus glyph and the button's own padding, measured in the reading face at the small size). Fixed rather than fitted so the control never changes width as the reader moves between screens: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. It was 136px while "New Message" was the longest label; the template library needed one character more than that held, and the budget in create-label.ts moves with this value. */
+  --mc-size-create-control: 140px;
   /* The least of the screen that shows around a windowed modal on every side. A panel that touches the edge stops reading as a panel over the application and starts reading as a page the application was replaced by, with the panel's own rounded corners cut off against the screen. The gutter is what a panel's caps are measured inside: a panel's width cap and its content decide how big it opens, and this decides how big it can ever be on the screen it is on, so on a laptop a long record scrolls inside a window with air around it rather than running from the top of the screen to the bottom. Fixed rather than a share of the screen because a share swells on a large monitor, where the width caps already leave room, and shrinks on a small one, where the air is needed most (owner ruling 2026-09-03, over a proportional gutter). Expanding drops it: filling the screen is that gesture. */
   --mc-size-modal-gutter: 32px;
   --mc-size-popover: 224px;
@@ -736,8 +736,8 @@
   --mc-radius-md: 7px;
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
-  /* The one create control in the matter header, fixed at the width its longest label needs ("New Packet" plus the plus glyph, a menu chevron and the button's own padding). Fixed rather than fitted so the control never changes width as the reader moves between sections: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. */
-  --mc-size-create-control: 136px;
+  /* The one create control, fixed at the width its longest label needs ("New Template" plus the plus glyph and the button's own padding, measured in the reading face at the small size). Fixed rather than fitted so the control never changes width as the reader moves between screens: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. It was 136px while "New Message" was the longest label; the template library needed one character more than that held, and the budget in create-label.ts moves with this value. */
+  --mc-size-create-control: 140px;
   /* The least of the screen that shows around a windowed modal on every side. A panel that touches the edge stops reading as a panel over the application and starts reading as a page the application was replaced by, with the panel's own rounded corners cut off against the screen. The gutter is what a panel's caps are measured inside: a panel's width cap and its content decide how big it opens, and this decides how big it can ever be on the screen it is on, so on a laptop a long record scrolls inside a window with air around it rather than running from the top of the screen to the bottom. Fixed rather than a share of the screen because a share swells on a large monitor, where the width caps already leave room, and shrinks on a small one, where the air is needed most (owner ruling 2026-09-03, over a proportional gutter). Expanding drops it: filling the screen is that gesture. */
   --mc-size-modal-gutter: 32px;
   --mc-size-popover: 224px;
@@ -1023,8 +1023,8 @@
   --mc-radius-md: 7px;
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
-  /* The one create control in the matter header, fixed at the width its longest label needs ("New Packet" plus the plus glyph, a menu chevron and the button's own padding). Fixed rather than fitted so the control never changes width as the reader moves between sections: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. */
-  --mc-size-create-control: 136px;
+  /* The one create control, fixed at the width its longest label needs ("New Template" plus the plus glyph and the button's own padding, measured in the reading face at the small size). Fixed rather than fitted so the control never changes width as the reader moves between screens: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. It was 136px while "New Message" was the longest label; the template library needed one character more than that held, and the budget in create-label.ts moves with this value. */
+  --mc-size-create-control: 140px;
   /* The least of the screen that shows around a windowed modal on every side. A panel that touches the edge stops reading as a panel over the application and starts reading as a page the application was replaced by, with the panel's own rounded corners cut off against the screen. The gutter is what a panel's caps are measured inside: a panel's width cap and its content decide how big it opens, and this decides how big it can ever be on the screen it is on, so on a laptop a long record scrolls inside a window with air around it rather than running from the top of the screen to the bottom. Fixed rather than a share of the screen because a share swells on a large monitor, where the width caps already leave room, and shrinks on a small one, where the air is needed most (owner ruling 2026-09-03, over a proportional gutter). Expanding drops it: filling the screen is that gesture. */
   --mc-size-modal-gutter: 32px;
   --mc-size-popover: 224px;
@@ -1310,8 +1310,8 @@
   --mc-radius-md: 7px;
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
-  /* The one create control in the matter header, fixed at the width its longest label needs ("New Packet" plus the plus glyph, a menu chevron and the button's own padding). Fixed rather than fitted so the control never changes width as the reader moves between sections: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. */
-  --mc-size-create-control: 136px;
+  /* The one create control, fixed at the width its longest label needs ("New Template" plus the plus glyph and the button's own padding, measured in the reading face at the small size). Fixed rather than fitted so the control never changes width as the reader moves between screens: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. It was 136px while "New Message" was the longest label; the template library needed one character more than that held, and the budget in create-label.ts moves with this value. */
+  --mc-size-create-control: 140px;
   /* The least of the screen that shows around a windowed modal on every side. A panel that touches the edge stops reading as a panel over the application and starts reading as a page the application was replaced by, with the panel's own rounded corners cut off against the screen. The gutter is what a panel's caps are measured inside: a panel's width cap and its content decide how big it opens, and this decides how big it can ever be on the screen it is on, so on a laptop a long record scrolls inside a window with air around it rather than running from the top of the screen to the bottom. Fixed rather than a share of the screen because a share swells on a large monitor, where the width caps already leave room, and shrinks on a small one, where the air is needed most (owner ruling 2026-09-03, over a proportional gutter). Expanding drops it: filling the screen is that gesture. */
   --mc-size-modal-gutter: 32px;
   --mc-size-popover: 224px;
@@ -1597,8 +1597,8 @@
   --mc-radius-md: 7px;
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
-  /* The one create control in the matter header, fixed at the width its longest label needs ("New Packet" plus the plus glyph, a menu chevron and the button's own padding). Fixed rather than fitted so the control never changes width as the reader moves between sections: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. */
-  --mc-size-create-control: 136px;
+  /* The one create control, fixed at the width its longest label needs ("New Template" plus the plus glyph and the button's own padding, measured in the reading face at the small size). Fixed rather than fitted so the control never changes width as the reader moves between screens: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. It was 136px while "New Message" was the longest label; the template library needed one character more than that held, and the budget in create-label.ts moves with this value. */
+  --mc-size-create-control: 140px;
   /* The least of the screen that shows around a windowed modal on every side. A panel that touches the edge stops reading as a panel over the application and starts reading as a page the application was replaced by, with the panel's own rounded corners cut off against the screen. The gutter is what a panel's caps are measured inside: a panel's width cap and its content decide how big it opens, and this decides how big it can ever be on the screen it is on, so on a laptop a long record scrolls inside a window with air around it rather than running from the top of the screen to the bottom. Fixed rather than a share of the screen because a share swells on a large monitor, where the width caps already leave room, and shrinks on a small one, where the air is needed most (owner ruling 2026-09-03, over a proportional gutter). Expanding drops it: filling the screen is that gesture. */
   --mc-size-modal-gutter: 32px;
   --mc-size-popover: 224px;
@@ -1884,8 +1884,8 @@
   --mc-radius-md: 7px;
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
-  /* The one create control in the matter header, fixed at the width its longest label needs ("New Packet" plus the plus glyph, a menu chevron and the button's own padding). Fixed rather than fitted so the control never changes width as the reader moves between sections: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. */
-  --mc-size-create-control: 136px;
+  /* The one create control, fixed at the width its longest label needs ("New Template" plus the plus glyph and the button's own padding, measured in the reading face at the small size). Fixed rather than fitted so the control never changes width as the reader moves between screens: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. It was 136px while "New Message" was the longest label; the template library needed one character more than that held, and the budget in create-label.ts moves with this value. */
+  --mc-size-create-control: 140px;
   /* The least of the screen that shows around a windowed modal on every side. A panel that touches the edge stops reading as a panel over the application and starts reading as a page the application was replaced by, with the panel's own rounded corners cut off against the screen. The gutter is what a panel's caps are measured inside: a panel's width cap and its content decide how big it opens, and this decides how big it can ever be on the screen it is on, so on a laptop a long record scrolls inside a window with air around it rather than running from the top of the screen to the bottom. Fixed rather than a share of the screen because a share swells on a large monitor, where the width caps already leave room, and shrinks on a small one, where the air is needed most (owner ruling 2026-09-03, over a proportional gutter). Expanding drops it: filling the screen is that gesture. */
   --mc-size-modal-gutter: 32px;
   --mc-size-popover: 224px;
@@ -2171,8 +2171,8 @@
   --mc-radius-md: 7px;
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
-  /* The one create control in the matter header, fixed at the width its longest label needs ("New Packet" plus the plus glyph, a menu chevron and the button's own padding). Fixed rather than fitted so the control never changes width as the reader moves between sections: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. */
-  --mc-size-create-control: 136px;
+  /* The one create control, fixed at the width its longest label needs ("New Template" plus the plus glyph and the button's own padding, measured in the reading face at the small size). Fixed rather than fitted so the control never changes width as the reader moves between screens: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. It was 136px while "New Message" was the longest label; the template library needed one character more than that held, and the budget in create-label.ts moves with this value. */
+  --mc-size-create-control: 140px;
   /* The least of the screen that shows around a windowed modal on every side. A panel that touches the edge stops reading as a panel over the application and starts reading as a page the application was replaced by, with the panel's own rounded corners cut off against the screen. The gutter is what a panel's caps are measured inside: a panel's width cap and its content decide how big it opens, and this decides how big it can ever be on the screen it is on, so on a laptop a long record scrolls inside a window with air around it rather than running from the top of the screen to the bottom. Fixed rather than a share of the screen because a share swells on a large monitor, where the width caps already leave room, and shrinks on a small one, where the air is needed most (owner ruling 2026-09-03, over a proportional gutter). Expanding drops it: filling the screen is that gesture. */
   --mc-size-modal-gutter: 32px;
   --mc-size-popover: 224px;
@@ -2458,8 +2458,8 @@
   --mc-radius-md: 7px;
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
-  /* The one create control in the matter header, fixed at the width its longest label needs ("New Packet" plus the plus glyph, a menu chevron and the button's own padding). Fixed rather than fitted so the control never changes width as the reader moves between sections: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. */
-  --mc-size-create-control: 136px;
+  /* The one create control, fixed at the width its longest label needs ("New Template" plus the plus glyph and the button's own padding, measured in the reading face at the small size). Fixed rather than fitted so the control never changes width as the reader moves between screens: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. It was 136px while "New Message" was the longest label; the template library needed one character more than that held, and the budget in create-label.ts moves with this value. */
+  --mc-size-create-control: 140px;
   /* The least of the screen that shows around a windowed modal on every side. A panel that touches the edge stops reading as a panel over the application and starts reading as a page the application was replaced by, with the panel's own rounded corners cut off against the screen. The gutter is what a panel's caps are measured inside: a panel's width cap and its content decide how big it opens, and this decides how big it can ever be on the screen it is on, so on a laptop a long record scrolls inside a window with air around it rather than running from the top of the screen to the bottom. Fixed rather than a share of the screen because a share swells on a large monitor, where the width caps already leave room, and shrinks on a small one, where the air is needed most (owner ruling 2026-09-03, over a proportional gutter). Expanding drops it: filling the screen is that gesture. */
   --mc-size-modal-gutter: 32px;
   --mc-size-popover: 224px;
@@ -2745,8 +2745,8 @@
   --mc-radius-md: 7px;
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
-  /* The one create control in the matter header, fixed at the width its longest label needs ("New Packet" plus the plus glyph, a menu chevron and the button's own padding). Fixed rather than fitted so the control never changes width as the reader moves between sections: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. */
-  --mc-size-create-control: 136px;
+  /* The one create control, fixed at the width its longest label needs ("New Template" plus the plus glyph and the button's own padding, measured in the reading face at the small size). Fixed rather than fitted so the control never changes width as the reader moves between screens: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. It was 136px while "New Message" was the longest label; the template library needed one character more than that held, and the budget in create-label.ts moves with this value. */
+  --mc-size-create-control: 140px;
   /* The least of the screen that shows around a windowed modal on every side. A panel that touches the edge stops reading as a panel over the application and starts reading as a page the application was replaced by, with the panel's own rounded corners cut off against the screen. The gutter is what a panel's caps are measured inside: a panel's width cap and its content decide how big it opens, and this decides how big it can ever be on the screen it is on, so on a laptop a long record scrolls inside a window with air around it rather than running from the top of the screen to the bottom. Fixed rather than a share of the screen because a share swells on a large monitor, where the width caps already leave room, and shrinks on a small one, where the air is needed most (owner ruling 2026-09-03, over a proportional gutter). Expanding drops it: filling the screen is that gesture. */
   --mc-size-modal-gutter: 32px;
   --mc-size-popover: 224px;
@@ -3032,8 +3032,8 @@
   --mc-radius-md: 7px;
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
-  /* The one create control in the matter header, fixed at the width its longest label needs ("New Packet" plus the plus glyph, a menu chevron and the button's own padding). Fixed rather than fitted so the control never changes width as the reader moves between sections: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. */
-  --mc-size-create-control: 136px;
+  /* The one create control, fixed at the width its longest label needs ("New Template" plus the plus glyph and the button's own padding, measured in the reading face at the small size). Fixed rather than fitted so the control never changes width as the reader moves between screens: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. It was 136px while "New Message" was the longest label; the template library needed one character more than that held, and the budget in create-label.ts moves with this value. */
+  --mc-size-create-control: 140px;
   /* The least of the screen that shows around a windowed modal on every side. A panel that touches the edge stops reading as a panel over the application and starts reading as a page the application was replaced by, with the panel's own rounded corners cut off against the screen. The gutter is what a panel's caps are measured inside: a panel's width cap and its content decide how big it opens, and this decides how big it can ever be on the screen it is on, so on a laptop a long record scrolls inside a window with air around it rather than running from the top of the screen to the bottom. Fixed rather than a share of the screen because a share swells on a large monitor, where the width caps already leave room, and shrinks on a small one, where the air is needed most (owner ruling 2026-09-03, over a proportional gutter). Expanding drops it: filling the screen is that gesture. */
   --mc-size-modal-gutter: 32px;
   --mc-size-popover: 224px;
@@ -3319,8 +3319,8 @@
   --mc-radius-md: 7px;
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
-  /* The one create control in the matter header, fixed at the width its longest label needs ("New Packet" plus the plus glyph, a menu chevron and the button's own padding). Fixed rather than fitted so the control never changes width as the reader moves between sections: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. */
-  --mc-size-create-control: 136px;
+  /* The one create control, fixed at the width its longest label needs ("New Template" plus the plus glyph and the button's own padding, measured in the reading face at the small size). Fixed rather than fitted so the control never changes width as the reader moves between screens: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. It was 136px while "New Message" was the longest label; the template library needed one character more than that held, and the budget in create-label.ts moves with this value. */
+  --mc-size-create-control: 140px;
   /* The least of the screen that shows around a windowed modal on every side. A panel that touches the edge stops reading as a panel over the application and starts reading as a page the application was replaced by, with the panel's own rounded corners cut off against the screen. The gutter is what a panel's caps are measured inside: a panel's width cap and its content decide how big it opens, and this decides how big it can ever be on the screen it is on, so on a laptop a long record scrolls inside a window with air around it rather than running from the top of the screen to the bottom. Fixed rather than a share of the screen because a share swells on a large monitor, where the width caps already leave room, and shrinks on a small one, where the air is needed most (owner ruling 2026-09-03, over a proportional gutter). Expanding drops it: filling the screen is that gesture. */
   --mc-size-modal-gutter: 32px;
   --mc-size-popover: 224px;

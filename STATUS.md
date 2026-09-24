@@ -67,13 +67,51 @@ unanswered request.
 `Account → Active Sessions` is a new section beside Profile and Security — the first account surface
 that is a live list rather than a seam — over Better Auth's own list and revoke routes: a row per
 device with the one being read on marked and left without a button, per-device sign-out, and
-`Sign out everywhere else`. It states the five-minute revocation lag rather than leaving it to be
-discovered, and refuses to state a "last used" time the record cannot support. Two findings came out
+`Sign out everywhere else`. It refuses to state a "last used" time the record cannot support. It
+also opened with a notice about the five-minute revocation lag, which came off in the pass below —
+the remedy that notice pointed at is a control now. Two findings came out
 of building it: the library's session-freshness default would have 403ed the listing for any session
 older than a day (the exact one the screen exists to manage), so `freshAge` is off with the
 reasoning recorded at the config; and the audit trail's new `logout` / `session.revoked` events are
 decided by the ENDPOINT a session was deleted under, because expiry sweeps and the two-factor
-session rotation delete rows through the same hook and neither is somebody leaving. |
+session rotation delete rows through the same hook and neither is somebody leaving.
+
+The account surface then took the owner's pass of 2026-09-18, which turned three of its remaining
+seams into controls and took the explanations off the rest.
+
+Its **small text is gone** — the muted descriptor under each row's name and the one-line meta under
+each page's heading. A firm SETTING earns a descriptor because a firm-wide choice has consequences
+its name cannot state; "Prefix" does not, and a surface whose every heading is followed by a sentence
+explaining the heading reads as a manual. `SettingDefinition.description` is optional now and the
+account masthead lost the prop outright.
+
+A member's **picture** is built: `member_photo` in the FIRM's database keyed by the member, bytes in
+the firm's bucket under their own hash, written object-first on the brand-image precedent, and a
+plate on Profile where choosing a file is the whole act. It is firm data rather than account data —
+a name follows a person between accounts and a photograph is what this firm's colleagues see beside
+this person's work — and it is registered in the PII registry as a hard-delete at the subject, with
+the note that the row is the only thing naming the object.
+
+**Security changes a password in place**, against the standing password rather than an emailed
+token, ending every other device in the same request when asked to — which is what the removed
+revocation-lag notice was telling people to go and find. `password.changed` joins the auth audit
+through the endpoint after-hook, because `updateAccount` passes no context to the account hooks and
+the endpoint is the only place the door has a name; the hook guards on the returned value, since an
+after-hook runs over failed requests too.
+
+**Identity states the account's email address** and offers no way to change it, which is a recorded
+decision rather than an unfinished seam: the address is the sign-in identity AND the key the joining
+surface resolves a person by, so a pending invitation is addressed to it and a change would strand
+one silently. It is engraved rather than shown as a disabled box, and Profile now claims no Soon
+badge at all — which the seam guard asserts, having been rewritten around the named seam rows
+(Two-Factor) rather than around whole pages.
+
+Two defects went with them. The **prefix/suffix field took one honorific and refused a second**: it
+narrowed the list against the part of the line after the last comma, which at rest is the entry just
+chosen, so the list offered exactly the one already held. And **no device row had ever shown an
+address** — the deployment read `x-forwarded-for`, whose multi-hop form the library declines to
+trust, where Cloudflare sends `cf-connecting-ip`; a row that genuinely carries none now leaves the
+clause out rather than captioning its own absence. |
 
 ## Phase 1 — Core domain (firm + matters)
 
@@ -774,7 +812,9 @@ Slice set firmed up in the [phase-3 slice map](docs/specs/2026-06-21-phase-3-fin
 
 **Unclaimed client funds** (owner flag T16) ship as a read and an evidence trail, and deliberately not as an escheat feature: the primary-source research found designated client trust accounts exempt from Nevada's unclaimed-property presumption outright, with the one onward destination the rules name being permissive rather than compelled, so there is no deadline to count down to and no screen says otherwise. Dormancy is a comparison made at read time against a window **the reader states** — no stored flag, no sweep, no default period — mirroring the calendar's overdue posture and for the same reason: a firm may have been in contact with the client this morning in a way the platform never saw. The read reports the earliest receipt still on the ledger separately from the last activity, because the rules' clocks run from receipt of the property. Each locate attempt is recorded when it is made, with the address or number actually used, in an append-only file that carries one open review per client ledger. **Every money movement takes a person, and the gate is the absence of the inputs**: closing a review as a distribution names a disbursement that already posted through the ordinary authorized path, and the closing composer receives no amount, payee, date, or method, so there is nothing it could assemble into a ledger entry — it writes one row and moves nothing. The remittance packet, the jurisdiction type-fit repair, the separate non-trust holder regime, and the routes and interface are written into the slice's spec rather than half-built.
 
-**The first production round of the interface** puts trust in front of a member for the first time, in two places. The matter's Trust section, built whole a fortnight earlier against the movement record and standing empty for want of an account, now reads the firm's trust accounts, chooses one (the only open account, else the one remembered on the device, else the first open one alphabetically), reads the matter's ledger against it, and treats the read's 404 as the fact it is — no ledger until the first deposit — rather than as a failure. Its three writes are dialogs: a deposit, a payment out proposed under the firm's posture (released at once, or pending with the eligible approvers named on the screen), and a transfer to another of the client's matters; pending requests on the matter show in the notices band with withdraw for the proposer and approve or reject for anybody else. The sidebar's Trust row lights over a firm screen: the accounts register as the list, the selected account's record beside it — the approval queue with the same verbs, the statements and reconciliations as recorded with each closed proof's figures, the bank-charge cushion or the fact that none is open, and the firm's authorization posture with its change behind `trust:authorize`. One route was added because nothing had ever opened a trust account over HTTP: `POST /api/v1/trust/accounts`, `trust:manage`, idempotency required, deriving the jurisdiction from the office and refusing to take one. Named on the screen rather than half-built: the reconciliation workbench, statement entry and import, the cushion's forms, the unclaimed-funds file, and the matter behind a queued request, which the queue serves only as a ledger node. |
+**The first production round of the interface** puts trust in front of a member for the first time, in two places. The matter's Trust section, built whole a fortnight earlier against the movement record and standing empty for want of an account, now reads the firm's trust accounts, chooses one (the only open account, else the one remembered on the device, else the first open one alphabetically), reads the matter's ledger against it, and treats the read's 404 as the fact it is — no ledger until the first deposit — rather than as a failure. Its three writes are dialogs: a deposit, a payment out proposed under the firm's posture (released at once, or pending with the eligible approvers named on the screen), and a transfer to another of the client's matters; pending requests on the matter show in the notices band with withdraw for the proposer and approve or reject for anybody else. The sidebar's Trust row lights over a firm screen: the accounts register as the list, the selected account's record beside it — the approval queue with the same verbs, the statements and reconciliations as recorded with each closed proof's figures, the bank-charge cushion or the fact that none is open, and the firm's authorization posture with its change behind `trust:authorize`. One route was added because nothing had ever opened a trust account over HTTP: `POST /api/v1/trust/accounts`, `trust:manage`, idempotency required, deriving the jurisdiction from the office and refusing to take one. Named on the screen rather than half-built: the reconciliation workbench, statement entry and import, the cushion's forms, the unclaimed-funds file, and the matter behind a queued request, which the queue serves only as a ledger node.
+
+**The second production round** closes every seam the first named as Soon. The reconciliation workbench: a statement is recorded by hand with its lines, or imported from a file through a preview that stores nothing until a confirmation quotes its fingerprint back; a reconciliation opens on a statement and takes its own screen under Trust, where the three-way proof stands first, the unmatched statement lines sit beside the outstanding recorded items with the candidate pairings and their reasons marked, a person records each match and may take it back, and closing freezes the proof balanced or not — a closed reconciliation shows what the firm attested to beside what is true now, never one as the other. The bank-charge cushion's three acts become forms behind `trust:firmFunds`. The unclaimed-funds file becomes a section of the account's record: dormant balances read against a day the reader states with no default, the review opened on the observation as served, each contact attempt recorded as made, and the round closed against a disbursement that already posted. On the backend, an account's position is one read computed from dated rows through the same leg computation the proof uses, a reconciliation's matches are readable with their withdrawals, and each queued request carries the matter it would pay from by number and title. |
 | 3·3 — Costs & expenses (disbursements) | [x] Opus 4.8 | [x] Opus 4.8 | [x] Opus 4.8 | [x] Opus 4.8 | [~] Opus 5 | [x] Opus 4.8 | [x] Opus 4.8 | `@magna-carta/costs` + `@magna-carta/billing-core` (shared WIP lifecycle); first per-firm queue consumer; recoverable-charge seam. cost→A/R + LEDES → 3·4.
 
 **Costs becomes a place you can go, which took a listing shape it did not have.** `GET /api/v1/costs` answered one matter entire and returned an empty list for anything else, so Costs was absent from the sidebar's Money group entirely while the matter's own Money group carried it — the two disagreed about what Money holds, for a structural reason rather than an oversight. The listing now also takes a `from`/`to` span of incurred dates across every matter, narrowable to one matter, one status and to billable or not, cursor-paged over the same statement the per-matter shape walks so a cost reads back identically whichever found it. The unnarrowed range had no index whose leading column was the date, so `cost_entry` gained one, exactly as `time_entry` did for its own span.

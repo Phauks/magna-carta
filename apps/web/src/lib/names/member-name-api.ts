@@ -7,9 +7,17 @@
  * (`renderPersonName` in @magna-carta/directory/person-name) — one renderer, two callers, never a
  * second answer to what somebody is called.
  *
- * Mirrors the `me.name` and `me.setName` operations in apps/api-worker/openapi/openapi.json.
+ * THROUGH THE GENERATED CLIENT, which is what this module is FOR now that the operations exist in
+ * it: the two calls below are `meName` and `meSetName` from @magna-carta/api-client, generated from
+ * the committed contract snapshot and diff-gated against it, so a change to either operation's
+ * shape breaks this file at compile time rather than at a member's screen. What is left here is the
+ * thing the generated client deliberately does not do — the generated factories throw, and every
+ * failure surface in this app renders a `Failure` record rather than catching — so each call is
+ * turned back into the three-outcome `ApiOutcome` the profile page already renders from.
  */
-import { requestJson, type ApiOutcome } from "$lib/api/request.ts";
+import { meName, meSetName } from "@magna-carta/api-client";
+import { outcomeOf } from "$lib/api/api-client.ts";
+import type { ApiOutcome } from "$lib/api/request.ts";
 
 /** The five parts, each null where the person has not stated it. */
 export interface MemberNameParts {
@@ -35,17 +43,24 @@ export interface MemberName {
 /** The permission the write names. Seeded to every default role: one's own name is not a privilege. */
 export const EDIT_OWN_PROFILE_PERMISSION = "firm:editOwnProfile";
 
-export function readMemberName(fetchImpl: typeof fetch): Promise<ApiOutcome<MemberName>> {
-  return requestJson(fetchImpl, "/api/v1/me/name");
+export async function readMemberName(): Promise<ApiOutcome<MemberName>> {
+  try {
+    const { data } = await meName({ throwOnError: true });
+    return { kind: "ok", value: data };
+  } catch (error) {
+    return outcomeOf(error);
+  }
 }
 
 /**
  * Writes the whole set of parts. Refused by the server when every one of them is empty — a person
  * always has a name, and clearing it would leave every record they touched unnamed.
  */
-export function writeMemberName(
-  fetchImpl: typeof fetch,
-  parts: MemberNameParts,
-): Promise<ApiOutcome<MemberName>> {
-  return requestJson(fetchImpl, "/api/v1/me/name", { method: "PUT", body: parts });
+export async function writeMemberName(parts: MemberNameParts): Promise<ApiOutcome<MemberName>> {
+  try {
+    const { data } = await meSetName({ body: parts, throwOnError: true });
+    return { kind: "ok", value: data };
+  } catch (error) {
+    return outcomeOf(error);
+  }
 }

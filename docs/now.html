@@ -102,29 +102,29 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <div class="wrap">
 <header style="display:flex;flex-direction:column;gap:13px">
   <p class="eyebrow">Magna Carta &middot; feature ledger</p>
-  <h1>841 things, and where every one of them stands</h1>
+  <h1>847 things, and where every one of them stands</h1>
   <p class="lede">Every node in <code>roadmap.d/</code>, at its real status — not banded, not curated, not
   summarised. This is the build instrument: what is done, what is moving, what has not been started.</p>
 </header>
 
 <section style="display:flex;flex-direction:column;gap:16px">
   <div class="band">
-    <div class="k g"><span>Shipped</span><b>328</b><em>The artifact exists on main</em></div>
-    <div class="k y"><span>Part-built</span><b>124</b><em>124 partial &middot; 0 in build</em></div>
+    <div class="k g"><span>Shipped</span><b>331</b><em>The artifact exists on main</em></div>
+    <div class="k y"><span>Part-built</span><b>125</b><em>125 partial &middot; 0 in build</em></div>
     <div class="k n"><span>Ahead of us</span><b>204</b><em>137 not started &middot; 67 specified</em></div>
-    <div class="k"><span>Parked</span><b>41</b><em>37 deferred &middot; 4 cut</em></div>
+    <div class="k"><span>Parked</span><b>42</b><em>38 deferred &middot; 4 cut</em></div>
   </div>
-  <div class="meter" role="img" aria-label="328 shipped, 124 part-built, 204 ahead, 41 parked, of 697">
-    <i style="flex:328;background:var(--done)"></i>
-    <i style="flex:124;background:var(--part)"></i>
+  <div class="meter" role="img" aria-label="331 shipped, 125 part-built, 204 ahead, 42 parked, of 702">
+    <i style="flex:331;background:var(--done)"></i>
+    <i style="flex:125;background:var(--part)"></i>
     <i style="flex:0;background:var(--live)"></i>
     <i style="flex:67;background:var(--plan)"></i>
     <i style="flex:137;background:var(--todo-b)"></i>
-    <i style="flex:41;background:var(--park-b)"></i>
+    <i style="flex:42;background:var(--park-b)"></i>
   </div>
-  <p class="legend"><span><i class="sw" style="background:var(--done)"></i><b>328</b> Shipped</span><span><i class="sw" style="background:var(--part)"></i><b>124</b> Partial</span><span><i class="sw" style="background:var(--live)"></i><b>0</b> In build</span><span><i class="sw" style="background:var(--plan)"></i><b>47</b> Designed</span><span><i class="sw" style="background:var(--plan)"></i><b>15</b> Planned</span><span><i class="sw" style="background:var(--plan)"></i><b>5</b> Researching</span><span><i class="sw" style="background:var(--todo)"></i><b>137</b> Not started</span><span><i class="sw" style="background:var(--park)"></i><b>37</b> Deferred</span><span><i class="sw" style="background:var(--park)"></i><b>4</b> Cut</span></p>
-  <p style="color:var(--soft);font-size:13.5px;max-width:70ch">Counted over the 697
-  nodes that are units of work. The other 144 are roll-up parents
+  <p class="legend"><span><i class="sw" style="background:var(--done)"></i><b>331</b> Shipped</span><span><i class="sw" style="background:var(--part)"></i><b>125</b> Partial</span><span><i class="sw" style="background:var(--live)"></i><b>0</b> In build</span><span><i class="sw" style="background:var(--plan)"></i><b>47</b> Designed</span><span><i class="sw" style="background:var(--plan)"></i><b>15</b> Planned</span><span><i class="sw" style="background:var(--plan)"></i><b>5</b> Researching</span><span><i class="sw" style="background:var(--todo)"></i><b>137</b> Not started</span><span><i class="sw" style="background:var(--park)"></i><b>38</b> Deferred</span><span><i class="sw" style="background:var(--park)"></i><b>4</b> Cut</span></p>
+  <p style="color:var(--soft);font-size:13.5px;max-width:70ch">Counted over the 702
+  nodes that are units of work. The other 145 are roll-up parents
   &mdash; a node another node sits beneath &mdash; and a parent goes <em>partial</em> the moment its
   children stop agreeing, so counting them here would add the same work twice under a status nobody
   chose. Every node, parents included, is listed further down.</p>
@@ -133,25 +133,25 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <section class="callout">
   <h2>Read &ldquo;Partial&rdquo; carefully</h2>
   <p>It is the single most misleading number here, and it is the third largest.
-  <strong>124 units of work are partial</strong> — delivered in part, and not finished.
+  <strong>125 units of work are partial</strong> — delivered in part, and not finished.
   Counting those as progress is honest; counting them as done is not. A further
   112 roll-up parents are also partial and are deliberately not counted: a parent is
   partial by definition once its children disagree, so it reports its subtree rather than any work of
   its own.</p>
-  <p style="color:var(--soft)">Shipped plus partial is 452 of 697
+  <p style="color:var(--soft)">Shipped plus partial is 456 of 702
   (65%). Shipped alone is 47%. Which of the
   two a reader wants is usually really a question about reach, which is the band below.</p>
 </section>
 
 <section style="display:flex;flex-direction:column;gap:14px">
   <h2>Built, and can anybody reach it</h2>
-  <p class="lede">452 units of work have something built behind them. Whether a person
+  <p class="lede">456 units of work have something built behind them. Whether a person
   can reach one is a separate fact from how complete it is, and no status holds it: a backend nobody
   can open and a screen somebody uses every day are both shipped. The ledger records it separately.</p>
   <div class="band">
-    <div class="k g"><span>Reachable</span><b>113</b><em>A person can open it in the application today.</em></div>
+    <div class="k g"><span>Reachable</span><b>116</b><em>A person can open it in the application today.</em></div>
     <div class="k y"><span>Waiting on a screen</span><b>155</b><em>It works. Nobody can get to it, because its interface is not built.</em></div>
-    <div class="k b"><span>Under the floor</span><b>184</b><em>A port, a table, a queue. Finished without a screen, and always will be.</em></div>
+    <div class="k b"><span>Under the floor</span><b>185</b><em>A port, a table, a queue. Finished without a screen, and always will be.</em></div>
   </div>
   <p style="color:var(--soft);font-size:13.5px;max-width:70ch">Every one of them is classified. The middle figure is the interface debt stated directly rather than guessed at from
   <em>partial</em>: work that is engineered, paid for, and unreachable.</p>
@@ -161,8 +161,8 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
   <h2>By area</h2>
   <div class="scroll"><table>
     <thead><tr><th scope="col" style="text-align:left">Area</th><th scope="col">Shipped</th><th scope="col">Partial</th><th scope="col">In build</th><th scope="col">Designed</th><th scope="col">Planned</th><th scope="col">Researching</th><th scope="col">Not started</th><th scope="col">Deferred</th><th scope="col">Cut</th><th scope="col">Total</th><th scope="col">Shipped</th></tr></thead>
-    <tbody><tr><th scope="row"><a href="#area-ai.md">AI &amp; Inference</a></th><td>18</td><td>5</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td>3</td><td>3</td><td class="zero">·</td><td class="tot">30</td><td class="bar"><span style="--p:60%"></span><em>60%</em></td></tr><tr><th scope="row"><a href="#area-auth.md">Authentication, Access Control &amp; Encryption</a></th><td>13</td><td>5</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>5</td><td>3</td><td class="zero">·</td><td class="tot">26</td><td class="bar"><span style="--p:50%"></span><em>50%</em></td></tr><tr><th scope="row"><a href="#area-calendar.md">Calendar and Rules-Based Docketing</a></th><td>14</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td>4</td><td class="zero">·</td><td class="zero">·</td><td class="tot">21</td><td class="bar"><span style="--p:67%"></span><em>67%</em></td></tr><tr><th scope="row"><a href="#area-communications.md">Communications Layer</a></th><td>5</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>11</td><td>1</td><td class="zero">·</td><td class="tot">17</td><td class="bar"><span style="--p:29%"></span><em>29%</em></td></tr><tr><th scope="row"><a href="#area-community.md">Community &amp; Feedback Forum</a></th><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>9</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td class="tot">10</td><td class="bar"><span style="--p:0%"></span><em>0%</em></td></tr><tr><th scope="row"><a href="#area-conflicts.md">Conflicts Check</a></th><td>6</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="tot">8</td><td class="bar"><span style="--p:75%"></span><em>75%</em></td></tr><tr><th scope="row"><a href="#area-core-domain.md">Core Domain — Directory, Matters &amp; Locations</a></th><td>34</td><td>20</td><td class="zero">·</td><td>1</td><td>2</td><td class="zero">·</td><td>4</td><td>1</td><td class="zero">·</td><td class="tot">62</td><td class="bar"><span style="--p:55%"></span><em>55%</em></td></tr><tr><th scope="row"><a href="#area-custodian.md">Custodian (Safe Custody)</a></th><td>6</td><td>5</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="tot">11</td><td class="bar"><span style="--p:55%"></span><em>55%</em></td></tr><tr><th scope="row"><a href="#area-design-system.md">Design System, UI Consistency &amp; Design Quality</a></th><td>12</td><td>6</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td class="zero">·</td><td class="tot">19</td><td class="bar"><span style="--p:63%"></span><em>63%</em></td></tr><tr><th scope="row"><a href="#area-discovery.md">Discovery (e-discovery)</a></th><td>8</td><td>8</td><td class="zero">·</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td>2</td><td>2</td><td class="zero">·</td><td class="tot">22</td><td class="bar"><span style="--p:36%"></span><em>36%</em></td></tr><tr><th scope="row"><a href="#area-document-automation.md">Document Automation</a></th><td>3</td><td>7</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="tot">10</td><td class="bar"><span style="--p:30%"></span><em>30%</em></td></tr><tr><th scope="row"><a href="#area-documents.md">Documents</a></th><td>67</td><td>11</td><td class="zero">·</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td>16</td><td>3</td><td>1</td><td class="tot">100</td><td class="bar"><span style="--p:67%"></span><em>67%</em></td></tr><tr><th scope="row"><a href="#area-exhibits.md">Exhibits and Exhibit Lists</a></th><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>7</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td class="tot">8</td><td class="bar"><span style="--p:0%"></span><em>0%</em></td></tr><tr><th scope="row"><a href="#area-financial.md">Financial Core</a></th><td>22</td><td>19</td><td class="zero">·</td><td>11</td><td class="zero">·</td><td class="zero">·</td><td>8</td><td>3</td><td class="zero">·</td><td class="tot">63</td><td class="bar"><span style="--p:35%"></span><em>35%</em></td></tr><tr><th scope="row"><a href="#area-intake.md">Client Intake / CRM</a></th><td>2</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>4</td><td class="zero">·</td><td class="zero">·</td><td class="tot">8</td><td class="bar"><span style="--p:25%"></span><em>25%</em></td></tr><tr><th scope="row"><a href="#area-integrations.md">Integrations &amp; Plugins</a></th><td>18</td><td>2</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td>3</td><td>15</td><td>2</td><td>1</td><td class="tot">42</td><td class="bar"><span style="--p:43%"></span><em>43%</em></td></tr><tr><th scope="row"><a href="#area-maintenance-agents.md">Maintenance Agents</a></th><td>2</td><td>3</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>5</td><td class="zero">·</td><td class="zero">·</td><td class="tot">10</td><td class="bar"><span style="--p:20%"></span><em>20%</em></td></tr><tr><th scope="row"><a href="#area-meetings.md">Meetings</a></th><td>6</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td class="zero">·</td><td>4</td><td class="zero">·</td><td class="zero">·</td><td class="tot">11</td><td class="bar"><span style="--p:55%"></span><em>55%</em></td></tr><tr><th scope="row"><a href="#area-notes.md">Matter Notes and Activity</a></th><td>7</td><td class="zero">·</td><td class="zero">·</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td>2</td><td class="zero">·</td><td>1</td><td class="tot">12</td><td class="bar"><span style="--p:58%"></span><em>58%</em></td></tr><tr><th scope="row"><a href="#area-notifications.md">Notifications</a></th><td>4</td><td>6</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td>3</td><td class="zero">·</td><td class="tot">14</td><td class="bar"><span style="--p:29%"></span><em>29%</em></td></tr><tr><th scope="row"><a href="#area-observability.md">Observability &amp; Diagnostics</a></th><td>14</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>4</td><td>2</td><td class="zero">·</td><td class="tot">20</td><td class="bar"><span style="--p:70%"></span><em>70%</em></td></tr><tr><th scope="row"><a href="#area-payments.md">Payments</a></th><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>6</td><td class="zero">·</td><td class="zero">·</td><td>3</td><td class="zero">·</td><td class="zero">·</td><td class="tot">9</td><td class="bar"><span style="--p:0%"></span><em>0%</em></td></tr><tr><th scope="row"><a href="#area-performance.md">Performance &amp; Concurrency</a></th><td>6</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td>2</td><td class="zero">·</td><td class="tot">11</td><td class="bar"><span style="--p:55%"></span><em>55%</em></td></tr><tr><th scope="row"><a href="#area-platform.md">Platform — Delivery, Architecture, Tenancy &amp; Data Conventions</a></th><td>33</td><td>7</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td class="zero">·</td><td>20</td><td>6</td><td>1</td><td class="tot">68</td><td class="bar"><span style="--p:49%"></span><em>49%</em></td></tr><tr><th scope="row"><a href="#area-portal.md">Client Portal</a></th><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>13</td><td>1</td><td class="zero">·</td><td class="tot">14</td><td class="bar"><span style="--p:0%"></span><em>0%</em></td></tr><tr><th scope="row"><a href="#area-product-updates.md">Product Updates &amp; User-Facing Documentation</a></th><td>2</td><td>4</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>8</td><td class="zero">·</td><td class="zero">·</td><td class="tot">14</td><td class="bar"><span style="--p:14%"></span><em>14%</em></td></tr><tr><th scope="row"><a href="#area-release-channels.md">Release Channels</a></th><td>7</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="tot">8</td><td class="bar"><span style="--p:88%"></span><em>88%</em></td></tr><tr><th scope="row"><a href="#area-reports.md">Reports</a></th><td>2</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td>5</td><td class="zero">·</td><td class="zero">·</td><td>2</td><td class="zero">·</td><td class="tot">11</td><td class="bar"><span style="--p:18%"></span><em>18%</em></td></tr><tr><th scope="row"><a href="#area-self-serve.md">Self-Serve Provisioning and Entitlements</a></th><td>1</td><td class="zero">·</td><td class="zero">·</td><td>6</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="tot">7</td><td class="bar"><span style="--p:14%"></span><em>14%</em></td></tr><tr><th scope="row"><a href="#area-settings.md">Settings &amp; Configuration</a></th><td>14</td><td>4</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>3</td><td class="zero">·</td><td class="zero">·</td><td class="tot">21</td><td class="bar"><span style="--p:67%"></span><em>67%</em></td></tr><tr><th scope="row"><a href="#area-tasks.md">Tasks and Workflows / Matter Plans</a></th><td>2</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="tot">4</td><td class="bar"><span style="--p:50%"></span><em>50%</em></td></tr><tr><th scope="row"><a href="#area-translation.md">Translation Services</a></th><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>5</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td class="tot">6</td><td class="bar"><span style="--p:0%"></span><em>0%</em></td></tr></tbody>
-    <tfoot><tr><th scope="row" style="text-align:left">All areas</th><td>328</td><td>124</td><td>0</td><td>47</td><td>15</td><td>5</td><td>137</td><td>37</td><td>4</td><td class="tot">697</td><td>47%</td></tr></tfoot>
+    <tbody><tr><th scope="row"><a href="#area-ai.md">AI &amp; Inference</a></th><td>18</td><td>5</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td>3</td><td>3</td><td class="zero">·</td><td class="tot">30</td><td class="bar"><span style="--p:60%"></span><em>60%</em></td></tr><tr><th scope="row"><a href="#area-auth.md">Authentication, Access Control &amp; Encryption</a></th><td>15</td><td>5</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>5</td><td>3</td><td class="zero">·</td><td class="tot">28</td><td class="bar"><span style="--p:54%"></span><em>54%</em></td></tr><tr><th scope="row"><a href="#area-calendar.md">Calendar and Rules-Based Docketing</a></th><td>14</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td>4</td><td class="zero">·</td><td class="zero">·</td><td class="tot">21</td><td class="bar"><span style="--p:67%"></span><em>67%</em></td></tr><tr><th scope="row"><a href="#area-communications.md">Communications Layer</a></th><td>5</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>11</td><td>1</td><td class="zero">·</td><td class="tot">17</td><td class="bar"><span style="--p:29%"></span><em>29%</em></td></tr><tr><th scope="row"><a href="#area-community.md">Community &amp; Feedback Forum</a></th><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>9</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td class="tot">10</td><td class="bar"><span style="--p:0%"></span><em>0%</em></td></tr><tr><th scope="row"><a href="#area-conflicts.md">Conflicts Check</a></th><td>6</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="tot">8</td><td class="bar"><span style="--p:75%"></span><em>75%</em></td></tr><tr><th scope="row"><a href="#area-core-domain.md">Core Domain — Directory, Matters &amp; Locations</a></th><td>35</td><td>21</td><td class="zero">·</td><td>1</td><td>2</td><td class="zero">·</td><td>4</td><td>1</td><td class="zero">·</td><td class="tot">64</td><td class="bar"><span style="--p:55%"></span><em>55%</em></td></tr><tr><th scope="row"><a href="#area-custodian.md">Custodian (Safe Custody)</a></th><td>6</td><td>5</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="tot">11</td><td class="bar"><span style="--p:55%"></span><em>55%</em></td></tr><tr><th scope="row"><a href="#area-design-system.md">Design System, UI Consistency &amp; Design Quality</a></th><td>13</td><td>5</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td class="zero">·</td><td class="tot">19</td><td class="bar"><span style="--p:68%"></span><em>68%</em></td></tr><tr><th scope="row"><a href="#area-discovery.md">Discovery (e-discovery)</a></th><td>8</td><td>8</td><td class="zero">·</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td>2</td><td>2</td><td class="zero">·</td><td class="tot">22</td><td class="bar"><span style="--p:36%"></span><em>36%</em></td></tr><tr><th scope="row"><a href="#area-document-automation.md">Document Automation</a></th><td>3</td><td>7</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="tot">10</td><td class="bar"><span style="--p:30%"></span><em>30%</em></td></tr><tr><th scope="row"><a href="#area-documents.md">Documents</a></th><td>67</td><td>11</td><td class="zero">·</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td>16</td><td>3</td><td>1</td><td class="tot">100</td><td class="bar"><span style="--p:67%"></span><em>67%</em></td></tr><tr><th scope="row"><a href="#area-exhibits.md">Exhibits and Exhibit Lists</a></th><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>7</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td class="tot">8</td><td class="bar"><span style="--p:0%"></span><em>0%</em></td></tr><tr><th scope="row"><a href="#area-financial.md">Financial Core</a></th><td>22</td><td>19</td><td class="zero">·</td><td>11</td><td class="zero">·</td><td class="zero">·</td><td>8</td><td>3</td><td class="zero">·</td><td class="tot">63</td><td class="bar"><span style="--p:35%"></span><em>35%</em></td></tr><tr><th scope="row"><a href="#area-intake.md">Client Intake / CRM</a></th><td>2</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>4</td><td class="zero">·</td><td class="zero">·</td><td class="tot">8</td><td class="bar"><span style="--p:25%"></span><em>25%</em></td></tr><tr><th scope="row"><a href="#area-integrations.md">Integrations &amp; Plugins</a></th><td>17</td><td>3</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td>3</td><td>15</td><td>3</td><td>1</td><td class="tot">43</td><td class="bar"><span style="--p:40%"></span><em>40%</em></td></tr><tr><th scope="row"><a href="#area-maintenance-agents.md">Maintenance Agents</a></th><td>2</td><td>3</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>5</td><td class="zero">·</td><td class="zero">·</td><td class="tot">10</td><td class="bar"><span style="--p:20%"></span><em>20%</em></td></tr><tr><th scope="row"><a href="#area-meetings.md">Meetings</a></th><td>6</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td class="zero">·</td><td>4</td><td class="zero">·</td><td class="zero">·</td><td class="tot">11</td><td class="bar"><span style="--p:55%"></span><em>55%</em></td></tr><tr><th scope="row"><a href="#area-notes.md">Matter Notes and Activity</a></th><td>7</td><td class="zero">·</td><td class="zero">·</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td>2</td><td class="zero">·</td><td>1</td><td class="tot">12</td><td class="bar"><span style="--p:58%"></span><em>58%</em></td></tr><tr><th scope="row"><a href="#area-notifications.md">Notifications</a></th><td>4</td><td>6</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td>3</td><td class="zero">·</td><td class="tot">14</td><td class="bar"><span style="--p:29%"></span><em>29%</em></td></tr><tr><th scope="row"><a href="#area-observability.md">Observability &amp; Diagnostics</a></th><td>14</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>4</td><td>2</td><td class="zero">·</td><td class="tot">20</td><td class="bar"><span style="--p:70%"></span><em>70%</em></td></tr><tr><th scope="row"><a href="#area-payments.md">Payments</a></th><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>6</td><td class="zero">·</td><td class="zero">·</td><td>3</td><td class="zero">·</td><td class="zero">·</td><td class="tot">9</td><td class="bar"><span style="--p:0%"></span><em>0%</em></td></tr><tr><th scope="row"><a href="#area-performance.md">Performance &amp; Concurrency</a></th><td>6</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td>2</td><td class="zero">·</td><td class="tot">11</td><td class="bar"><span style="--p:55%"></span><em>55%</em></td></tr><tr><th scope="row"><a href="#area-platform.md">Platform — Delivery, Architecture, Tenancy &amp; Data Conventions</a></th><td>33</td><td>7</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td class="zero">·</td><td>20</td><td>6</td><td>1</td><td class="tot">68</td><td class="bar"><span style="--p:49%"></span><em>49%</em></td></tr><tr><th scope="row"><a href="#area-portal.md">Client Portal</a></th><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>13</td><td>1</td><td class="zero">·</td><td class="tot">14</td><td class="bar"><span style="--p:0%"></span><em>0%</em></td></tr><tr><th scope="row"><a href="#area-product-updates.md">Product Updates &amp; User-Facing Documentation</a></th><td>2</td><td>4</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>8</td><td class="zero">·</td><td class="zero">·</td><td class="tot">14</td><td class="bar"><span style="--p:14%"></span><em>14%</em></td></tr><tr><th scope="row"><a href="#area-release-channels.md">Release Channels</a></th><td>7</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="tot">8</td><td class="bar"><span style="--p:88%"></span><em>88%</em></td></tr><tr><th scope="row"><a href="#area-reports.md">Reports</a></th><td>2</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td>5</td><td class="zero">·</td><td class="zero">·</td><td>2</td><td class="zero">·</td><td class="tot">11</td><td class="bar"><span style="--p:18%"></span><em>18%</em></td></tr><tr><th scope="row"><a href="#area-self-serve.md">Self-Serve Provisioning and Entitlements</a></th><td>1</td><td class="zero">·</td><td class="zero">·</td><td>6</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="tot">7</td><td class="bar"><span style="--p:14%"></span><em>14%</em></td></tr><tr><th scope="row"><a href="#area-settings.md">Settings &amp; Configuration</a></th><td>14</td><td>4</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>3</td><td class="zero">·</td><td class="zero">·</td><td class="tot">21</td><td class="bar"><span style="--p:67%"></span><em>67%</em></td></tr><tr><th scope="row"><a href="#area-tasks.md">Tasks and Workflows / Matter Plans</a></th><td>2</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="tot">4</td><td class="bar"><span style="--p:50%"></span><em>50%</em></td></tr><tr><th scope="row"><a href="#area-translation.md">Translation Services</a></th><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>5</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td class="tot">6</td><td class="bar"><span style="--p:0%"></span><em>0%</em></td></tr></tbody>
+    <tfoot><tr><th scope="row" style="text-align:left">All areas</th><td>331</td><td>125</td><td>0</td><td>47</td><td>15</td><td>5</td><td>137</td><td>38</td><td>4</td><td class="tot">702</td><td>47%</td></tr></tfoot>
   </table></div>
 </section>
 
@@ -177,13 +177,13 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 
 <section style="display:flex;flex-direction:column;gap:6px">
   <h2>Every node</h2>
-  <p class="lede">All 841, in ledger order, indented by depth. Filter by status or search the
+  <p class="lede">All 847, in ledger order, indented by depth. Filter by status or search the
   names, ids and scope text.</p>
   <div class="controls">
-    <button class="f" data-s="shipped" aria-pressed="false">Shipped <b>347</b></button><button class="f" data-s="partial" aria-pressed="false">Partial <b>236</b></button><button class="f" data-s="in-build" aria-pressed="false">In build <b>0</b></button><button class="f" data-s="designed" aria-pressed="false">Designed <b>53</b></button><button class="f" data-s="planned" aria-pressed="false">Planned <b>16</b></button><button class="f" data-s="researching" aria-pressed="false">Researching <b>6</b></button><button class="f" data-s="not-started" aria-pressed="false">Not started <b>142</b></button><button class="f" data-s="deferred" aria-pressed="false">Deferred <b>37</b></button><button class="f" data-s="cut" aria-pressed="false">Cut <b>4</b></button>
+    <button class="f" data-s="shipped" aria-pressed="false">Shipped <b>351</b></button><button class="f" data-s="partial" aria-pressed="false">Partial <b>237</b></button><button class="f" data-s="in-build" aria-pressed="false">In build <b>0</b></button><button class="f" data-s="designed" aria-pressed="false">Designed <b>53</b></button><button class="f" data-s="planned" aria-pressed="false">Planned <b>16</b></button><button class="f" data-s="researching" aria-pressed="false">Researching <b>6</b></button><button class="f" data-s="not-started" aria-pressed="false">Not started <b>142</b></button><button class="f" data-s="deferred" aria-pressed="false">Deferred <b>38</b></button><button class="f" data-s="cut" aria-pressed="false">Cut <b>4</b></button>
     <button class="f" id="clear" aria-pressed="true">All</button>
     <input id="q" type="search" placeholder="Search names, ids, scope" aria-label="Search the register">
-    <span id="hits">841 shown</span>
+    <span id="hits">847 shown</span>
   </div>
 <section class="area" id="area-ai.md">
 <h3>AI &amp; Inference <span class="ac">18 of 30 shipped</span></h3>
@@ -374,7 +374,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 </li></ol>
 </section>
 <section class="area" id="area-auth.md">
-<h3>Authentication, Access Control &amp; Encryption <span class="ac">13 of 26 shipped</span></h3>
+<h3>Authentication, Access Control &amp; Encryption <span class="ac">15 of 28 shipped</span></h3>
 <ol class="nodes"><li class="n d0" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Authentication, access control and encryption</span>
@@ -398,7 +398,19 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Login and 2FA UI</span>
 <code>auth.first-party-login.auth-ui</code>
 <p>The login/2FA surface over the auth backend — the design system's first consumer.</p>
-<p class="note">Sign-in shipped, so has signing out (and signing another device out), and so are the joining screens — apps/web/src/routes/register (the role fork), register/firm, register/confirm and register/invitation each call startRegistration, confirmRegistration or redeemInvitation against the real endpoints. The two-factor ENROLMENT screens are still missing, which is the half of auth.two-factor.totp nobody can reach: a code is verified at sign-in and no screen sets one up. Passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice remain server-side gaps. Human verification is no longer one of them — the server side exists (auth.hardening.human-verification); what the sign-in surface's Turnstile slot still lacks is a widget that mints a token, which is UI.</p>
+<p class="note">The ACCOUNT surface is now three built pages and one seam — Profile states and edits the member's name in its parts, sets and removes their photograph (auth.first-party-login.member-photo), and states the account's email address without offering to change it (the reason is a pending decision, not a gap); Security changes the password in place and ends the other devices with it (auth.first-party-login.password-change); Active Sessions is the live list. Two-Factor is the one Soon seam left on it, and apps/web/test/account-seams.test.ts holds that. Sign-in shipped, so has signing out (and signing another device out), and so are the joining screens — apps/web/src/routes/register (the role fork), register/firm, register/confirm and register/invitation each call startRegistration, confirmRegistration or redeemInvitation against the real endpoints. The two-factor ENROLMENT screens are still missing, which is the half of auth.two-factor.totp nobody can reach: a code is verified at sign-in and no screen sets one up. Passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice remain server-side gaps. Human verification is no longer one of them — the server side exists (auth.hardening.human-verification); what the sign-in surface's Turnstile slot still lacks is a widget that mints a token, which is UI.</p>
+</li><li class="n d2" data-s="shipped">
+<span class="chip done">Shipped</span>
+<span class="nm">In-account password change</span>
+<code>auth.first-party-login.password-change</code>
+<p>Changing the password you already have, in place — against the standing password rather than an emailed token, ending every other signed-in device in the same request when asked to.</p>
+<p class="note">It is what replaced the signed-in-devices screen's standing notice, which told a member who feared their account was held by somebody else to go and find the reset on the sign-in screen. Sign-out-elsewhere is offered and defaulted on, because asking the two questions separately leaves a gap an intruder changes the password back through.</p>
+</li><li class="n d2" data-s="shipped">
+<span class="chip done">Shipped</span>
+<span class="nm">Member photograph</span>
+<code>auth.first-party-login.member-photo</code>
+<p>A member's own picture — set, replaced and removed from their profile; stored in the firm's own database and bucket, content-addressed.</p>
+<p class="note">FIRM data rather than account data, which is the recorded decision: a name follows a person between accounts, a photograph is what this firm's colleagues see beside this person's work and is already firm-keyed by its storage. Keyed by the member rather than by the bytes, unlike the firm's brand images, because two members may legitimately hold the same image.</p>
 </li><li class="n d1" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Second factors</span>
@@ -951,7 +963,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 </li></ol>
 </section>
 <section class="area" id="area-core-domain.md">
-<h3>Core Domain — Directory, Matters &amp; Locations <span class="ac">34 of 62 shipped</span></h3>
+<h3>Core Domain — Directory, Matters &amp; Locations <span class="ac">35 of 64 shipped</span></h3>
 <ol class="nodes"><li class="n d0" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Directory</span>
@@ -1030,6 +1042,24 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Field-level encryption and access control</span>
 <code>directory.identifiers.protected-fields</code>
 <p>Sensitive fields (SSN, EIN, DOB, financial) structurally encrypted via the data-access protected() field type with HMAC blind index so conflicts can match without decrypting; access logged.</p>
+</li><li class="n d1" data-s="shipped">
+<span class="chip done">Shipped</span>
+<span class="nm">Postal addresses</span>
+<code>directory.addresses</code>
+<p>Structured postal addresses on every directory entity, held as the international field set so a country's own shape is a presentation of the stored columns rather than a schema of its own.</p>
+<p class="note">The field set is the international one rather than a state and a five-digit code, which is what lets a provider's structured result land later with no migration.</p>
+</li><li class="n d2" data-s="shipped">
+<span class="chip done">Shipped</span>
+<span class="nm">Postal-code and administrative-area constraints</span>
+<code>directory.addresses.constraints</code>
+<p>What a well-formed postal code looks like in a country and which administrative areas it publishes, so an address form can say a code reads wrong and can offer a state.</p>
+<p class="note">A warning and never a gate — a malformed code renders as the field's hint, so the box is never marked invalid and nothing can refuse a commit. "No published format" is a distinct answer from "wrong", and an administrative-area list is a suggestion the field still takes free text past.</p>
+</li><li class="n d2" data-s="partial">
+<span class="chip part">Partial</span>
+<span class="nm">Address autocomplete</span>
+<code>directory.addresses.lookup</code>
+<p>Offering real addresses as a person types one, and turning a chosen offer into the parts a record stores.</p>
+<p class="note">Partial because the seam exists and the engine does not. Two candidate engines, and the owner's 2026-09-20 ruling that an address may leave the tenancy means they now compete on cost rather than on confidentiality: a self-hosted index over the open address corpora reusing crates/search-core and the R2 range-reader containers/search already runs (no per-lookup fee, but an index build and a refresh cadence), or a hosted provider (no build, a per-lookup rate). AddressLookupPort is indifferent to which wins. no-coverage is a first-class outcome because the open corpora cover countries very unevenly.</p>
 </li><li class="n d1" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Duplicate detection</span>
@@ -1492,7 +1522,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 </li></ol>
 </section>
 <section class="area" id="area-design-system.md">
-<h3>Design System, UI Consistency &amp; Design Quality <span class="ac">12 of 19 shipped</span></h3>
+<h3>Design System, UI Consistency &amp; Design Quality <span class="ac">13 of 19 shipped</span></h3>
 <ol class="nodes"><li class="n d0" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Design system</span>
@@ -1536,12 +1566,12 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <code>design-system.components</code>
 <p>In-house @magna-carta/design-system styled directly on headless Bits UI v2 — the only primitives the app may compose.</p>
 <p class="note">shadcn-svelte (original choice) replaced after an adversarial stress test; Bits scroll-lock CSP patch carried in patches/.</p>
-</li><li class="n d2" data-s="partial">
-<span class="chip part">Partial</span>
+</li><li class="n d2" data-s="shipped">
+<span class="chip done">Shipped</span>
 <span class="nm">Country-shaped address fields</span>
 <code>design-system.components.address-fields</code>
 <p>One address form for the whole product whose field set, labels and order follow the country the address is in; the stored columns are the international field set, so changing the country re-labels and re-orders without moving a value between fields.</p>
-<p class="note">Partial because the table is a curated shape rather than the full address-metadata corpus: it carries no postal-code patterns and no administrative-area lists, so it cannot validate a code or offer a state. A country nobody has entered yet takes the international form, which is honest rather than a guess. Adopting libaddressinput's dataset is the open question, and it is a dependency that goes stale monthly.</p>
+<p class="note">The open question the curated table left — that it could not validate a code or offer a state — is closed: the constraints are a separate package the form is HANDED, which is what kept the corpus out of a component that depends on one workspace package by design. What stays curated here is the SHAPE (which boxes, what they are called, what order), because that is a presentation choice; a country nobody has entered still takes the international form.</p>
 </li><li class="n d2" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Component catalog</span>
@@ -3076,7 +3106,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 </li></ol>
 </section>
 <section class="area" id="area-integrations.md">
-<h3>Integrations &amp; Plugins <span class="ac">18 of 42 shipped</span></h3>
+<h3>Integrations &amp; Plugins <span class="ac">17 of 43 shipped</span></h3>
 <ol class="nodes"><li class="n d0" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Plugin / add-on system</span>
@@ -3093,7 +3123,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Connection &amp; credential model</span>
 <code>integrations.port-framework.connections-credentials</code>
 <p>Per-functionality connection persistence and credential storage for adapters; API-key credential kind; OAuth lifecycle.</p>
-<p class="note">OAuth connection flow deferred to the first OAuth adapter, gated on Google CASA / Microsoft verification. The per-firm credential read is BUILT — a credential lives in its own per-firm integration_credential table, sealed under the firm key and decrypted through the protected-field chokepoint under integrations:useConnection. It is deliberately not firm_secret: a protected column carries one declaration and that declaration's permission is the gate, so sharing the column would have meant gating a member buying postage on firm:manageSecrets, which is read access to everything the firm has sealed.</p>
+<p class="note">OAuth connection flow deferred to the first OAuth adapter, gated on Google CASA / Microsoft verification. The per-firm credential READ is still unbuilt and now says so — unbuiltCredentialStore resolves to the credential-store-not-implemented dispatch outcome instead of throwing.</p>
 </li><li class="n d1" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Manifest-driven registration</span>
@@ -3161,7 +3191,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">EasyPost adapter &amp; firm routes</span>
 <code>integrations.shipping.easypost-adapter</code>
 <p>Draft shipment, rate-shop, buy label (PDF copied to firm storage), track, refund; idempotent purchase; shipment/label/tracking tables.</p>
-<p class="note">Connect, rate-shop, purchase, track and refund all operate as of 2026-09-18 — the credential read that made all five answer 501 is built, and the end-to-end test drives the real store rather than a fake. What remains before a firm can buy real postage is commercial, not engineering: the EasyPost Forge contract that makes per-firm child users and centralized billing possible. Between 2026-08-15 and this change the five answered 501 from the credential-store-not-implemented dispatch outcome, and before 2026-08-15 they answered 500.</p>
+<p class="note">The firm-secret credential read is still an unbuilt seam (firmSecretStoreNotYetAvailable), so no postage account can be connected and no label can be rated or bought — but the seam now REFUSES rather than throws. Connect, rate-shop, purchase, track and refund answer 501 not-implemented from the credential-store-not-implemented dispatch outcome; before 2026-08-15 all five answered 500. Draft creation succeeds by design (a draft needs no carrier). Verified 2026-08-15, docs/research/2026-08-15-tools-reality-check.md.</p>
 </li><li class="n d2" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Certified mail</span>
@@ -3177,12 +3207,11 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Postage cost-recovery seam</span>
 <code>integrations.shipping.cost-recovery</code>
 <p>shipment.purchased event recording postage against the matter for cost recovery.</p>
-</li><li class="n d2" data-s="shipped">
-<span class="chip done">Shipped</span>
+</li><li class="n d2" data-s="deferred">
+<span class="chip park">Deferred</span>
 <span class="nm">Shipping UI</span>
 <code>integrations.shipping.ui</code>
 <p>Firm-facing surface for drafting, buying, and tracking shipments.</p>
-<p class="note">Four surfaces. The register is the product's grid over declared columns, so one set of rows answers both "where is the letter I sent" and "what has this firm spent on postage". A shipment opens in a record window OVER the register rather than on a page of its own, on the directory's ruling that a record opened in place needs no way back; /shipping/[id] survives as its address and redirects into it, and is registered as declining a back affordance for the same reason the directory's is. The buy flow is a stepped wizard because its middle is a live carrier call rather than a form, and postage and the service fee are separate lines at the confirm step. The postage account is a settings page under the integrations group — the first section that group has ever held — because connecting an account is an administrative act with a different audience from buying a label.</p>
 </li><li class="n d1" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Tools area</span>
@@ -3252,6 +3281,12 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <code>integrations.tools.safe-browse</code>
 <p>Renders a suspect URL in an isolated remote browser and returns a static snapshot (screenshot, redirect chain, text, links).</p>
 <p class="note">Renderer is Cloudflare Browser Rendering (env.BROWSER, quickAction), an account entitlement rather than anything in the repository, and still unexercisable locally (Miniflare's binding has no quickAction). The entitlement was confirmed live on 2026-09-18 by the first capture that succeeded; before that every capture failed on a wait for networkidle2 that a page holding a socket never reaches, reported as a capacity outage. Interactive live browsing is designed and not built — the shell's Live toggle renders as a Soon affordance and the seam is in ADR-0119.</p>
+</li><li class="n d2" data-s="partial">
+<span class="chip part">Partial</span>
+<span class="nm">Safe website viewer — Live mode</span>
+<code>integrations.tools.safe-browse-live</code>
+<p>One held isolated browser per member, walked page to page so a link's cookie-gated steps can be followed; every navigation hop SSRF-guarded.</p>
+<p class="note">Partial until a live navigation is confirmed against the deployed service, on the same rule the static capture's node followed — the probe proved the platform, not this route. Miniflare has no browser binding, so the route's navigation path has no automated test. Pixel streaming is decided against for now, not built.</p>
 </li><li class="n d2" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Metadata inspector &amp; scrubber</span>
@@ -3286,6 +3321,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Public records / people search / skip tracing</span>
 <code>integrations.candidates.public-records</code>
 <p>Built-in feature (adapter-sourced data) for service of process, asset/witness location, conflicts and intake enrichment.</p>
+<p class="note">Left alone until a user asks for it (owner, 2026-09-20), which confirms rather than changes the research note's own verdict. The blocker is structural and not effort: under the driver-privacy, financial-privacy and consumer-reporting statutes the right to pull the data attaches to the END USER, so each firm is credentialed individually and a platform cannot lawfully resell the lookups from one account. Any future build is therefore per-firm bring-your-own-credential, and a search is a recorded act against a matter carrying its permissible-purpose code rather than a control beside an address field. Postal change-of-address sits outside this node and outside the same wall: it is licensed rather than credentialed, costs 1,350 to 230,000 USD and requires CASS-certified software first, so it would be bought through a licensee rather than licensed directly.</p>
 </li><li class="n d2" data-s="not-started">
 <span class="chip todo">Not started</span>
 <span class="nm">Document comparison / proofreading / metadata scrubbing suite</span>
