@@ -75,6 +75,7 @@
     "./progress": "./src/lib/components/progress/index.ts",
     "./progress-steps": "./src/lib/components/progress-steps/index.ts",
     "./record-reference": "./src/lib/components/record-reference/index.ts",
+    "./qr-code": "./src/lib/components/qr-code/index.ts",
     "./radio-group": "./src/lib/components/radio-group/index.ts",
     "./record-attachments": "./src/lib/components/record-attachments/index.ts",
     "./record-parties": "./src/lib/components/record-parties/index.ts",
@@ -136,6 +137,7 @@
     "svelte-sonner": "catalog:",
     "sveltekit-superforms": "catalog:",
     "tailwind-merge": "catalog:",
+    "uqr": "catalog:",
     "virtua": "catalog:"
   },
   "devDependencies": {

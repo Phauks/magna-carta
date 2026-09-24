@@ -144,6 +144,10 @@ catalog:
   "@internationalized/date": 3.12.3
   "@lucide/svelte": 1.28.0
   virtua: 0.49.1
+  # The QR encoder behind the design system's QrCode (an authenticator app scans the two-factor
+  # secret from it). Pure TypeScript with no dependencies, and it hands back the module matrix rather
+  # than markup, so the component draws its own SVG from design tokens.
+  uqr: 0.1.3
   # The IANA top-level-domain list (auto-published from the root zone). The single source for
   # email/URL TLD validation, shared by the design-system form story and the app's real form schemas
   # so both track the same list — never a hand-maintained set.

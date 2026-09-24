@@ -149,8 +149,8 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
   can reach one is a separate fact from how complete it is, and no status holds it: a backend nobody
   can open and a screen somebody uses every day are both shipped. The ledger records it separately.</p>
   <div class="band">
-    <div class="k g"><span>Reachable</span><b>115</b><em>A person can open it in the application today.</em></div>
-    <div class="k y"><span>Waiting on a screen</span><b>155</b><em>It works. Nobody can get to it, because its interface is not built.</em></div>
+    <div class="k g"><span>Reachable</span><b>116</b><em>A person can open it in the application today.</em></div>
+    <div class="k y"><span>Waiting on a screen</span><b>154</b><em>It works. Nobody can get to it, because its interface is not built.</em></div>
     <div class="k b"><span>Under the floor</span><b>185</b><em>A port, a table, a queue. Finished without a screen, and always will be.</em></div>
   </div>
   <p style="color:var(--soft);font-size:13.5px;max-width:70ch">Every one of them is classified. The middle figure is the interface debt stated directly rather than guessed at from
@@ -398,7 +398,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Login and 2FA UI</span>
 <code>auth.first-party-login.auth-ui</code>
 <p>The login/2FA surface over the auth backend — the design system's first consumer.</p>
-<p class="note">The ACCOUNT surface is now three built pages and one seam — Profile states and edits the member's name in its parts, sets and removes their photograph (auth.first-party-login.member-photo), and states the account's email address without offering to change it (the reason is a pending decision, not a gap); Security changes the password in place and ends the other devices with it (auth.first-party-login.password-change); Active Sessions is the live list. Two-Factor is the one Soon seam left on it, and apps/web/test/account-seams.test.ts holds that. Sign-in shipped, so has signing out (and signing another device out), and so are the joining screens — apps/web/src/routes/register (the role fork), register/firm, register/confirm and register/invitation each call startRegistration, confirmRegistration or redeemInvitation against the real endpoints. The two-factor ENROLMENT screens are still missing, which is the half of auth.two-factor.totp nobody can reach: a code is verified at sign-in and no screen sets one up. Passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice remain server-side gaps. Human verification is no longer one of them — the server side exists (auth.hardening.human-verification); what the sign-in surface's Turnstile slot still lacks is a widget that mints a token, which is UI.</p>
+<p class="note">The ACCOUNT surface is three built pages and no seams — Profile states and edits the member's name in its parts, sets and removes their photograph (auth.first-party-login.member-photo), and states the account's email address without offering to change it (the reason is a pending decision, not a gap); Security changes the password in place and ends the other devices with it (auth.first-party-login.password-change), and adds, removes and re-issues the codes for two-factor (auth.two-factor.totp); Active Sessions is the live list. apps/web/test/account-seams.test.ts now holds the other direction — no account page claims a seam it no longer has. Sign-in shipped, so has signing out (and signing another device out), and so are the joining screens — apps/web/src/routes/register (the role fork), register/firm, register/confirm and register/invitation each call startRegistration, confirmRegistration or redeemInvitation against the real endpoints. Passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice remain server-side gaps. Human verification is no longer one of them — the server side exists (auth.hardening.human-verification); what the sign-in surface's Turnstile slot still lacks is a widget that mints a token, which is UI.</p>
 </li><li class="n d2" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">In-account password change</span>
@@ -421,6 +421,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">TOTP</span>
 <code>auth.two-factor.totp</code>
 <p>TOTP enrollment and login with transition-exact audit events.</p>
+<p class="note">The code screen at sign-in shipped first, and for a while nobody could reach it — no screen set a secret up. Adding is offered only while two-factor is off, because the pinned plugin's enable called on an enrolled account swaps the working secret without asking for a code.</p>
 </li><li class="n d2" data-s="not-started">
 <span class="chip todo">Not started</span>
 <span class="nm">Passkeys / WebAuthn</span>
