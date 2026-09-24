@@ -59,8 +59,8 @@ Every task's requirements implicitly include this section.
 
 **`apps/worker/`** (extend)
 
-- `src/routes/files/ai-detection.ts` — `POST /api/v1/ai-detection/detect` through the chokepoint; consent gate; adapter construction (Pangram when the key is set, deferred otherwise); metering write; problem mapping.
-- `src/app.ts` — import + call `registerAiDetectionRoutes`; add `PANGRAM_API_KEY?: string` + `PANGRAM_BASE_URL?: string` to `Bindings`.
+- `src/http/routes/files/ai-detection.ts` — `POST /api/v1/ai-detection/detect` through the chokepoint; consent gate; adapter construction (Pangram when the key is set, deferred otherwise); metering write; problem mapping.
+- `src/http/app.ts` — import + call `registerAiDetectionRoutes`; add `PANGRAM_API_KEY?: string` + `PANGRAM_BASE_URL?: string` to `Bindings`.
 - `wrangler.jsonc` / `.dev.vars` (or the test var seam) — declare the binding.
 - `test/ai-detection-route.test.ts`, `test/seed-tools-ai-text-detection.test.ts` — new tests.
 - OpenAPI snapshot + generated client — regenerated.

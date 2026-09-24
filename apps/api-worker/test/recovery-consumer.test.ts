@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { recoveryQueue } from "../src/recovery/recovery-consumer.ts";
+import { recoveryQueue } from "../src/background/recovery/recovery-consumer.ts";
 import type { Bindings } from "../src/bindings.ts";
 import type {
   RecoveryJobState,

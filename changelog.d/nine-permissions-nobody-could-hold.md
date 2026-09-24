@@ -41,7 +41,7 @@ matches `shipping:manage` at Owner/Admin, because every operation behind that ti
 
 **The other three are correct and were established rather than assumed.** `firm:provision` and
 `support:mintSession` sit on `surface: "public"` routes whose session, authn and RBAC steps the
-chokepoint skips by design (`apps/api-worker/src/chokepoint/chokepoint.ts`), so their permission is
+chokepoint skips by design (`apps/api-worker/src/http/chokepoint/chokepoint.ts`), so their permission is
 nominal metadata beside a header-token guard. `diagnostics:overview` is carried by a diagnostic
 support session through `resolveSupportPermissions`, never by a firm role, and seeding it would hand
 every member the help-desk view the tier exists to keep separate.

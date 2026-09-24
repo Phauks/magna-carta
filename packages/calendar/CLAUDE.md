@@ -218,7 +218,7 @@ pairs every key here with an `ActivityContribution` beside the owning subsystem'
   the same registry matter-search names its capabilities from). It depends on no other domain
   package: every source reads its rows by table name, which the schema-name-sync fitness test pins
   to `@magna-carta/database`.
-- The route layer (`apps/api-worker/src/routes/calendar/calendar.ts`) hands every service the firm-scoped database,
+- The route layer (`apps/api-worker/src/http/routes/calendar/calendar.ts`) hands every service the firm-scoped database,
   the real clock, a crypto random source, and the authenticated actor — none of which is client input.
 
 ## Gotchas

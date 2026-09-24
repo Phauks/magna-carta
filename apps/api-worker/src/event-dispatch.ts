@@ -17,25 +17,29 @@
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { setServiceIdentity } from "@magna-carta/telemetry/service-identity";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
-import { createApp } from "./app.ts";
+import { createApp } from "./http/app.ts";
 import type { Bindings } from "./bindings.ts";
-import { documentAssemblyQueue } from "./assemblies/assembly-consumer.ts";
+import { documentAssemblyQueue } from "./background/assemblies/assembly-consumer.ts";
 import type { DocumentAssemblyMessage } from "./assemblies/assembly-types.ts";
-import { runTemplateOrphanSweep } from "./assemblies/template-orphan-sweep.ts";
-import { conversionQueue } from "./conversions/conversion-consumer.ts";
+import { runTemplateOrphanSweep } from "./background/assemblies/template-orphan-sweep.ts";
+import { conversionQueue } from "./background/conversions/conversion-consumer.ts";
 import type { ConversionMessage } from "./conversions/conversion-types.ts";
-import { perFirmQueue, type PerFirmQueueMessage } from "./costs/recoverable-charge-consumer.ts";
-import { bundleBuildQueue } from "./downloads/bundle-consumer.ts";
+import {
+  perFirmQueue,
+  type PerFirmQueueMessage,
+} from "./background/costs/recoverable-charge-consumer.ts";
+import { bundleBuildQueue } from "./background/downloads/bundle-consumer.ts";
 import type { BundleBuildMessage } from "./downloads/bundle-types.ts";
-import { emailsCaptureQueue, type EmailsCaptureMessage } from "./emails/capture-consumer.ts";
-import { ingestQueue, type R2EventMessage } from "./files/ingest-consumer.ts";
-import { inferenceQueue, type InferenceJob } from "./inference/inference-consumer.ts";
-import { magnusQueue } from "./magnus/magnus-consumer.ts";
+import { emailsCaptureQueue } from "./background/emails/capture-consumer.ts";
+import type { EmailsCaptureMessage } from "./emails/capture-types.ts";
+import { ingestQueue, type R2EventMessage } from "./background/files/ingest-consumer.ts";
+import { inferenceQueue, type InferenceJob } from "./background/inference/inference-consumer.ts";
+import { magnusQueue } from "./background/magnus/magnus-consumer.ts";
 import type { MagnusTurnJob } from "./magnus/magnus-types.ts";
-import { runIdleCheckoutSweep } from "./editing/idle-checkout-sweep.ts";
-import { runTieringSweep } from "./editing/tiering-sweep.ts";
-import { runDimensionBackfillSweep } from "./files/dimension-backfill-sweep.ts";
-import { recoveryQueue } from "./recovery/recovery-consumer.ts";
+import { runIdleCheckoutSweep } from "./background/editing/idle-checkout-sweep.ts";
+import { runTieringSweep } from "./background/editing/tiering-sweep.ts";
+import { runDimensionBackfillSweep } from "./background/files/dimension-backfill-sweep.ts";
+import { recoveryQueue } from "./background/recovery/recovery-consumer.ts";
 import type { RecoveryShardMessage } from "./recovery/recovery-types.ts";
 import {
   runConflictsRecheckSweep,
@@ -45,16 +49,16 @@ import {
   runScheduledSweep,
   runStatusSnapshot,
   runStorageReconciliation,
-} from "./scheduled.ts";
-import { runDownloadShelfRetentionSweep } from "./downloads/shelf-retention-sweep.ts";
-import { runReextractionSweep } from "./search/reextraction-sweep.ts";
-import { discoveryProcessQueue } from "./discovery/process-consumer.ts";
+} from "./background/scheduled.ts";
+import { runDownloadShelfRetentionSweep } from "./background/downloads/shelf-retention-sweep.ts";
+import { runReextractionSweep } from "./background/search/reextraction-sweep.ts";
+import { discoveryProcessQueue } from "./background/discovery/process-consumer.ts";
 import type { DiscoveryLaneMessage } from "./discovery/discovery-process-types.ts";
-import { searchIndexQueue } from "./search/index-consumer.ts";
-import { searchCompactionQueue } from "./search/compaction-consumer.ts";
+import { searchIndexQueue } from "./background/search/index-consumer.ts";
+import { searchCompactionQueue } from "./background/search/compaction-consumer.ts";
 import type { SearchCompactionMessage } from "./search/compaction-types.ts";
-import { runSearchCompactionSweep } from "./search/compaction-sweep.ts";
-import { runNaturalLanguageKeepAliveSweep } from "./search/natural-language-keep-alive.ts";
+import { runSearchCompactionSweep } from "./background/search/compaction-sweep.ts";
+import { runNaturalLanguageKeepAliveSweep } from "./background/search/natural-language-keep-alive.ts";
 import type { SearchIndexMessage } from "./search/index-types.ts";
 
 // Announced here rather than in index.ts, which is held to a startup CPU budget this package's

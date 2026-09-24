@@ -9,18 +9,18 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FileId, FileVersionId, MatterId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
 import type { Bindings } from "../bindings.ts";
-import type { Chokepoint } from "../chokepoint/chokepoint.ts";
+import type { Chokepoint } from "../http/chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
   requireChokepointFirmId,
   requireChokepointUserId,
-} from "../chokepoint/context-accessors.ts";
-import type { AppVariables } from "../chokepoint/ports.ts";
-import { chokepointMiddleware } from "../chokepoint/register.ts";
+} from "../http/chokepoint/context-accessors.ts";
+import type { AppVariables } from "../http/chokepoint/ports.ts";
+import { chokepointMiddleware } from "../http/chokepoint/register.ts";
 import type { ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
-import { identifierPathParam } from "../contracts/common.ts";
-import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
-import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+import { identifierPathParam } from "../http/contracts/common.ts";
+import { Problem, problemJson, type ProblemResponse } from "../http/contracts/problem.ts";
+import { defineOpenAPIRoute, type RouteMeta } from "../http/contracts/route-meta.ts";
 import { documentSessionStub } from "./document-session.ts";
 import { mintEditToken, type EditCapability } from "./wopi-token.ts";
 

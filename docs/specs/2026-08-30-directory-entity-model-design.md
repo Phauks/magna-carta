@@ -3,7 +3,7 @@
 **Date:** 2026-08-30 · **Status:** Owner-reviewed; Phase A built. The open questions of §7 are
 **answered** — the owner's rulings are recorded there and every section they change has been rewritten
 to match, so this document no longer asks anything · **Subsystem:** Directory
-(`packages/directory`, `apps/api-worker/src/routes/directory/directory.ts`, the thirteen `directory_*` tables
+(`packages/directory`, `apps/api-worker/src/http/routes/directory/directory.ts`, the thirteen `directory_*` tables
 in `packages/database/src/per-firm-schema.ts`) · **Primary consumer:** the conflicts checker
 (`packages/conflicts`), which is why most of this data exists at all.
 
@@ -68,7 +68,7 @@ not a change to the sealing.
 
 ### 1.4 The headline finding — the contact tables are unreachable
 
-`apps/api-worker/src/routes/directory/directory.ts` mounts twenty-five route definitions. **Not one of them
+`apps/api-worker/src/http/routes/directory/directory.ts` mounts twenty-five route definitions. **Not one of them
 touches email, phone, fax or address.** Grepping the whole repository for the three tables finds
 them in the schema, in the migrations, in the erasure registry
 (`packages/data-access/src/pii-registry.ts`, where all three are `hard-delete` on subject erasure),

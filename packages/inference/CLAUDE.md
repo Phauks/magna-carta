@@ -76,7 +76,7 @@ the firm-scoped read result as injected parameters.
   platform forward never edits this file. A firm that has explicitly chosen keeps its choice: that
   selection is a decision about its own confidential content, and silently re-pointing it because the
   platform default moved would override that decision without telling anyone. **The firm chooses on
-  its AI settings screen** (`apps/api-worker/src/routes/firm/firm-ai-settings.ts`), from `reasoningEntries()`;
+  its AI settings screen** (`apps/api-worker/src/http/routes/firm/firm-ai-settings.ts`), from `reasoningEntries()`;
   "the platform's current model" is the ABSENCE of a row (the route deletes it), so the two postures
   never convert into each other by a dropdown press. **No runtime source lists models**: neither the
   Workers AI binding nor the AI Gateway REST API enumerates them, and a list that did could not carry

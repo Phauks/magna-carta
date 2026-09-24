@@ -1,6 +1,6 @@
 import { shippingManifest } from "@magna-carta/shipping/manifest";
 import { createEasyPostAdapter } from "@magna-carta/shipping/easypost";
-import { registerShippingRoutes } from "../routes/communications/shipping.ts";
+import { registerShippingRoutes } from "../http/routes/communications/shipping.ts";
 import type { WorkerPlugin } from "./registry.ts";
 
 export const shippingPlugin: WorkerPlugin = {

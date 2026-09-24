@@ -101,25 +101,25 @@ only the path to us:
 
 Frontend, under `apps/web/`:
 
-| File                                                     | Role                                                   |
-| -------------------------------------------------------- | ------------------------------------------------------ |
-| `src/routes/(app)/tools/network-speed-test/+page.svelte` | The tool page — masthead, run surface, results         |
-| `src/lib/tools/speed-test/speed-test-engine.svelte.ts`   | Rune store wrapping the engine's lifecycle + results   |
-| `src/lib/tools/speed-test/speed-test-format.ts`          | Pure formatting (bps → Mbps, ms, ratios) — unit-tested |
-| `src/lib/tools/speed-test/connection-probe.ts`           | Fetches the connection route; N samples → median RTT   |
-| `src/lib/tools/speed-test/metric-tile.svelte`            | One headline metric (label, value, unit)               |
-| `src/lib/tools/speed-test/bandwidth-chart.svelte`        | Single-series bar chart over the scaling buckets       |
-| `src/lib/tools/speed-test/latency-chart.svelte`          | Single-series point chart (one latency phase)          |
-| `src/lib/maturity/maturity.ts`                           | `hasSurface(stage)` — the one home for the rule        |
-| `src/lib/tools/tool-tile.svelte`, `tool-row.svelte`      | Consume `hasSurface`, replacing the `=== "ready"` test |
-| `src/lib/tools/tool-presentation.ts`                     | `network-speed-test` → stage `alpha`, new descriptor   |
+| File                                                          | Role                                                   |
+| ------------------------------------------------------------- | ------------------------------------------------------ |
+| `src/http/routes/(app)/tools/network-speed-test/+page.svelte` | The tool page — masthead, run surface, results         |
+| `src/lib/tools/speed-test/speed-test-engine.svelte.ts`        | Rune store wrapping the engine's lifecycle + results   |
+| `src/lib/tools/speed-test/speed-test-format.ts`               | Pure formatting (bps → Mbps, ms, ratios) — unit-tested |
+| `src/lib/tools/speed-test/connection-probe.ts`                | Fetches the connection route; N samples → median RTT   |
+| `src/lib/tools/speed-test/metric-tile.svelte`                 | One headline metric (label, value, unit)               |
+| `src/lib/tools/speed-test/bandwidth-chart.svelte`             | Single-series bar chart over the scaling buckets       |
+| `src/lib/tools/speed-test/latency-chart.svelte`               | Single-series point chart (one latency phase)          |
+| `src/lib/maturity/maturity.ts`                                | `hasSurface(stage)` — the one home for the rule        |
+| `src/lib/tools/tool-tile.svelte`, `tool-row.svelte`           | Consume `hasSurface`, replacing the `=== "ready"` test |
+| `src/lib/tools/tool-presentation.ts`                          | `network-speed-test` → stage `alpha`, new descriptor   |
 
 Backend, under `apps/worker/`:
 
-| File                                   | Role                                            |
-| -------------------------------------- | ----------------------------------------------- |
-| `src/routes/tools/tools-connection.ts` | The connection route (pattern: `firm-usage.ts`) |
-| `src/app.ts`                           | One registration line                           |
+| File                                        | Role                                            |
+| ------------------------------------------- | ----------------------------------------------- |
+| `src/http/routes/tools/tools-connection.ts` | The connection route (pattern: `firm-usage.ts`) |
+| `src/http/app.ts`                           | One registration line                           |
 
 **Contract obligations.** A new route changes the emitted OpenAPI document, so
 `apps/worker/test/contracts/openapi-snapshot.test.ts` must be updated and the typed API

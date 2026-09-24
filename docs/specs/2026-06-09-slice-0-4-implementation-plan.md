@@ -249,7 +249,7 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
 
 (Exact option paths verified against the pinned version's docs at build — decided #2's sync test is the tripwire.)
 
-- [ ] Mount in `src/app.ts`: `app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw))` with one lazily-created instance per request env.
+- [ ] Mount in `src/http/app.ts`: `app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw))` with one lazily-created instance per request env.
 - [ ] **Schema-sync fitness test:** construct `createAuth` against a Miniflare-migrated control-plane D1 and run a representative call (`auth.api.getSession` with no cookie) — a missing/mismatched column throws here, not in production.
 - [ ] Integration tests (Miniflare): public signup → 4xx `SIGNUP_DISABLED`; seeded user (direct INSERT of user+account with a password hashed via better-auth's exported hasher — or via the activation flow once Task 11 lands; keep this test minimal: signup-blocked + session-null) .
 - [ ] `vp test` green; commit `feat(worker): mount better-auth on control-plane D1 — invitation-only, usr_ handles`.
@@ -262,13 +262,13 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
 
 ### Task 10: Session context + `GET /v1/me`
 
-- [ ] `src/session-context.ts`: `resolveSession(auth, c)` → `{ userId, firmId } | null` from `auth.api.getSession({ headers })`; null → RFC 9457 401 problem (api.md shape). This is the chokepoint's first link (spec §7) — a plain function used by handlers, not yet a global middleware.
+- [ ] `src/http/session-context.ts`: `resolveSession(auth, c)` → `{ userId, firmId } | null` from `auth.api.getSession({ headers })`; null → RFC 9457 401 problem (api.md shape). This is the chokepoint's first link (spec §7) — a plain function used by handlers, not yet a global middleware.
 - [ ] `src/firm-binding-resolver.ts`: `resolveFirmDatabase(env, databaseIdentifier)` — dev: lookup table `{ DB_FIRM_POOL_1: env.DB_FIRM_POOL_1, … }`; unknown id → null (→ 404 path).
-- [ ] `src/routes/session/me.ts`: `createRoute` GET `/api/v1/me` (`x-mc-*` metadata + native `operationId: "me.get"` — the spike finding), handler: resolveSession → firm row (registry) → member permission reads (Task 6) → `effectivePermissions` → `{ user, firm: { id, name }, permissions: [...] }`.
+- [ ] `src/http/routes/session/me.ts`: `createRoute` GET `/api/v1/me` (`x-mc-*` metadata + native `operationId: "me.get"` — the spike finding), handler: resolveSession → firm row (registry) → member permission reads (Task 6) → `effectivePermissions` → `{ user, firm: { id, name }, permissions: [...] }`.
 - [ ] Integration tests: no cookie → 401 problem+json; logged-in user → firm + permissions include the role seeds; a user whose firm row is missing/foreign → 404 (cross-firm reserve, ADR-0052).
 - [ ] Commit `feat(worker): resolveSession + GET /v1/me with effective permissions`.
 
-### Task 11: Invite endpoint (`src/routes/session/members.ts`)
+### Task 11: Invite endpoint (`src/http/routes/session/members.ts`)
 
 - [ ] **Build-time verification step (decided #6):** confirm password-reset works for a user row with no credential account on the pinned version (write the failing/passing integration test first — it decides the path). Path A (expected): direct-insert. Path B (fallback): admin plugin `createUser` + separate outbox enqueue. Record the landed path as an ADR-0073 amendment in Task 15. The rest of this task assumes Path A.
 - [ ] `POST /api/v1/members` (`operationId: "members.invite"`, `idempotency: required`, `audited`): resolveSession → require `firm:manageMembers` (via Task 10's permission reads + `effectivePermissions`; lacking → 403 problem) → `runIdempotentEffect` against **control-plane** D1 composing: user INSERT (usr\_ handle, email, name, `firm_id`, unverified), outbox row `member.provision` `{ userId, firmId, displayName, roleName: null }`, `auth_audit` `member.invited` — one batch → then `auth.api.requestPasswordReset` (the activation email through the port).
@@ -294,10 +294,10 @@ Dev adapter: claims the next pool binding not present in any firm row (query inj
 - [ ] Integration (Miniflare): provision → firm `active` with pool binding claimed, per-firm DB migrated to head (mirror column matches), owner outbox row present; wrong admin key → 401 problem.
 - [ ] Commit `feat(worker): firm provisioning — resumable orchestration behind the resource-provider port`.
 
-### Task 13: Outbox consumer + cron wiring (`src/member-provision-consumer.ts`, `src/scheduled.ts`)
+### Task 13: Outbox consumer + cron wiring (`src/background/member-provision-consumer.ts`, `src/background/scheduled.ts`)
 
 - [ ] Consumer: for a `member.provision` message — resolve firm binding → batch `[insertMember (ON CONFLICT DO NOTHING), assignRole if roleName (resolve seeded role id by name)]`. Unknown firm/binding → throw (relay increments attempts → dead-letter at max).
-- [ ] `src/scheduled.ts`: `runScheduledSweep(env)` — control-plane `sweepOutbox` with publisher = the consumer map (`member.provision` → direct invoke, decided #11); per-firm sweep over `active` firms publishing to `env.QUEUE`; `purgeExpiredIdempotencyRecords` on control-plane + each firm DB. Wire `scheduled` in `src/index.ts`; add `triggers.crons: ["*/5 * * * *"]` + the pool bindings + `vars` to `wrangler.jsonc` (and the Miniflare config in `vitest.config.ts`).
+- [ ] `src/background/scheduled.ts`: `runScheduledSweep(env)` — control-plane `sweepOutbox` with publisher = the consumer map (`member.provision` → direct invoke, decided #11); per-firm sweep over `active` firms publishing to `env.QUEUE`; `purgeExpiredIdempotencyRecords` on control-plane + each firm DB. Wire `scheduled` in `src/index.ts`; add `triggers.crons: ["*/5 * * * *"]` + the pool bindings + `vars` to `wrangler.jsonc` (and the Miniflare config in `vitest.config.ts`).
 - [ ] Wire the `databaseHooks` audit writes left pending in Task 8 (login.success; twoFactor-enabled and reset hooks as the pinned version exposes them — decided #10).
 - [ ] Integration: invite (Task 11) → run `runScheduledSweep` → member row + role exist in the firm DB; re-run sweep → no duplicates; reconciliation query (users with no member row) returns empty; a poisoned message dead-letters after max attempts.
 - [ ] Commit `feat(worker): member-provision consumer + cron relay/TTL wiring (closes the 0·2 deferral)`.

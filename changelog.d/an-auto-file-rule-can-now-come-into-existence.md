@@ -8,7 +8,7 @@ capture core and the evidence gatherer all shipped without the one thing that ma
 delegation: something that delegates. Nothing in the product created a rule — `createEmailAutoFileRule`
 had exactly one caller in the repository and it was a test — so every unrouted capture paid two
 indexed lookups, matched nothing, and returned `NO_AUTO_FILE_RULE_MATCHED`. Eight routes in
-`apps/api-worker/src/routes/email/auto-file-rules.ts` close that: create from a filing, set the promotion
+`apps/api-worker/src/http/routes/email/auto-file-rules.ts` close that: create from a filing, set the promotion
 posture, suspend, resume, revoke, the matter's rules, one message's decision history, and the firm's
 thirty-day review.
 

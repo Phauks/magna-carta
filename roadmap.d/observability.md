@@ -25,7 +25,7 @@
   scope: Per-request correlation ID on every event and problem response; Error ID minted at capture joining a user-visible failure to its server trace.
   status: shipped
   surface: internal
-  evidence: packages/telemetry/src/ids.ts (correlation*/error* handles) wired through apps/api-worker/src/telemetry-middleware.ts.
+  evidence: packages/telemetry/src/ids.ts (correlation*/error* handles) wired through apps/api-worker/src/http/telemetry-middleware.ts.
 
 - id: observability.operational-telemetry
   name: Always-on operational telemetry
@@ -59,7 +59,7 @@
   scope: Client-side ring of recent actions/IDs (never field content) attached to reports.
   status: shipped
   surface: internal
-  evidence: apps/web/src/lib/diagnostics/breadcrumbs.ts — a fixed-capacity in-memory ring whose entries are already the shape apps/api-worker/src/routes/platform/incidents.ts accepts, with no slot for a payload, email addresses replaced and every field capped at the route's own limits. apps/web/test/failure-trace.test.ts pins the redaction.
+  evidence: apps/web/src/lib/diagnostics/breadcrumbs.ts — a fixed-capacity in-memory ring whose entries are already the shape apps/api-worker/src/http/routes/platform/incidents.ts accepts, with no slot for a payload, email addresses replaced and every field capped at the route's own limits. apps/web/test/failure-trace.test.ts pins the redaction.
 
 - id: observability.client-reporter.report-a-problem
   name: Report a problem affordance
@@ -88,7 +88,7 @@
   scope: POST incidents route writing a bounded, redacted-by-construction firm-scoped row; description sealed under the firm key with an audited decrypt permission.
   status: shipped
   surface: awaiting-screen
-  evidence: apps/api-worker/src/routes/platform/incidents.ts (protected-field write, incidents:viewDescription gate, incident.created event).
+  evidence: apps/api-worker/src/http/routes/platform/incidents.ts (protected-field write, incidents:viewDescription gate, incident.created event).
 
 - id: observability.incidents.screenshot
   name: Opt-in redactable screenshot

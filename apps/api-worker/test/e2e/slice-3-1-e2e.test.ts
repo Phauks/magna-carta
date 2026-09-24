@@ -1,6 +1,6 @@
 import { env, listDurableObjectIds, runInDurableObject, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
-import { runScheduledSweep } from "../../src/scheduled.ts";
+import { runScheduledSweep } from "../../src/background/scheduled.ts";
 import type { LiveTimerDurableObject } from "../../src/timer/live-timer-durable-object.ts";
 import type { TimerState } from "../../src/timer/timer-runtime.ts";
 import { firmDatabaseFor } from "../../src/firm-database/firm-database-proxy.ts";

@@ -30,15 +30,15 @@
 **New `apps/worker/`:**
 
 - `src/downloads/bundle-coordinator.ts` — `BundleBuildCoordinator extends DurableObject` (the state machine + alarm).
-- `src/downloads/bundle-consumer.ts` — the `bundle-build` queue consumer (R2→zip→R2).
+- `src/background/downloads/bundle-consumer.ts` — the `bundle-build` queue consumer (R2→zip→R2).
 - `src/downloads/bundle-types.ts` — the shared `BundleJobState`, `BundleBuildMessage`, and the DO RPC interface.
-- `src/routes/files/bundle-status.ts` — `GET /api/v1/downloads/bundles/{manifestHash}`.
+- `src/http/routes/files/bundle-status.ts` — `GET /api/v1/downloads/bundles/{manifestHash}`.
 
 **Modified `apps/worker/`:**
 
-- `src/routes/files/downloads.ts` — threshold routing to the DO; `202` with the job handle.
+- `src/http/routes/files/downloads.ts` — threshold routing to the DO; `202` with the job handle.
 - `src/index.ts` — export `BundleBuildCoordinator`; bind the `bundle-build` consumer; register the status route.
-- `src/app.ts` — add `BUNDLE_COORDINATOR: DurableObjectNamespace` and `BUNDLE_BUILD` queue to `Bindings`.
+- `src/http/app.ts` — add `BUNDLE_COORDINATOR: DurableObjectNamespace` and `BUNDLE_BUILD` queue to `Bindings`.
 - `wrangler.jsonc` — the DO binding + `new_sqlite_classes` migration, the `bundle-build` producer + consumer, and (deploy runbook) the `bundles/` lifecycle rule.
 
 ---

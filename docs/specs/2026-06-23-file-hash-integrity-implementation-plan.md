@@ -40,8 +40,8 @@
 **Worker (`apps/worker/`):**
 
 - `src/file-integrity/worker-sink.ts` — the real `crypto.DigestStream`-backed `DigestSink` factory + `toHex`.
-- `src/routes/files/file-integrity.ts` — the `hash` and `verify` routes + `registerFileIntegrityRoutes`.
-- `src/app.ts` — register the routes (one line).
+- `src/http/routes/files/file-integrity.ts` — the `hash` and `verify` routes + `registerFileIntegrityRoutes`.
+- `src/http/app.ts` — register the routes (one line).
 - `test/file-integrity.test.ts` — Workers-pool route tests.
 
 **File-manager (`packages/file-manager/`):**

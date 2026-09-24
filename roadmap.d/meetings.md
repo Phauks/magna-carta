@@ -9,7 +9,7 @@
   scope: In-app video conferencing — a meeting started from a calendar event, media browser-to-Cloudflare Realtime SFU, signaling through a per-meeting Durable Object, attendance recorded on the event.
   status: partial
   spec: docs/specs/2026-09-18-meetings-design.md
-  evidence: Slice 1 built and reviewed — packages/meetings, apps/api-worker/src/meetings, apps/api-worker/src/routes/communications/meetings.ts, apps/web/src/lib/meetings, apps/web/src/routes/(app)/meetings (the Meetings page and the room), and a Communications group in the sidebar; guests, recording, dial-in and larger rooms are ahead.
+  evidence: Slice 1 built and reviewed — packages/meetings, apps/api-worker/src/meetings, apps/api-worker/src/http/routes/communications/meetings.ts, apps/web/src/lib/meetings, apps/web/src/routes/(app)/meetings (the Meetings page and the room), and a Communications group in the sidebar; guests, recording, dial-in and larger rooms are ahead.
   audience: public
   public-summary: Meet your colleagues by video from the calendar, share a screen, and keep a record of who attended — without a separate conferencing subscription.
   notes: The owner's ruling of 2026-09-18 — bundled into the product so a firm runs fewer tools; a Zoom/Teams port may exist later, never as the default.
@@ -36,7 +36,7 @@
   status: shipped
   surface: internal
   spec: docs/specs/2026-09-18-meetings-design.md
-  evidence: apps/api-worker/src/routes/communications/meetings.ts; the two keys in packages/access-control/src/registry.ts.
+  evidence: apps/api-worker/src/http/routes/communications/meetings.ts; the two keys in packages/access-control/src/registry.ts.
 
 - id: meetings.screen
   name: Meeting screen

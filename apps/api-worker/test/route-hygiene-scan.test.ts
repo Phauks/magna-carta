@@ -8,16 +8,16 @@ import { describe, expect, it } from "vitest";
 // 1. NO ROUTE MODULE CONSTRUCTS `OpenAPIHono` ITSELF. `defaultHook` — the hook that turns a zod
 //    validation failure into the 422 problem document — is per instance, so a router built at a
 //    second site would silently answer a malformed request with the library's default body while the
-//    contract goes on declaring the 422. src/routes/domain-app.ts is the one constructor.
+//    contract goes on declaring the 422. src/http/routes/domain-app.ts is the one constructor.
 // 2. EVERY `app.openapi(` REGISTRATION CARRIES THE CHOKEPOINT. `chokepointMiddleware` is where the
 //    registration-time meta assertion runs (a route without meta, or naming an unregistered
 //    permission, throws at startup) and where the enforcement chain is composed. A registration that
 //    passes its own middleware array instead is a route with per-handler auth discipline, which is
 //    the thing the chokepoint exists to make impossible. A genuine exception — none exists today —
 //    carries an inline `fitness:allow-no-chokepoint` marker with its reason on the line above.
-// 3. A DOMAIN MODULE NEVER IMPORTS ANOTHER DOMAIN'S FILES. A route module under src/routes/<domain>/
+// 3. A DOMAIN MODULE NEVER IMPORTS ANOTHER DOMAIN'S FILES. A route module under src/http/routes/<domain>/
 //    reaching into a sibling domain's directory is two domains fused by an import; what they share
-//    goes under src/routes/shared/ instead, which is the one sibling directory any module may reach.
+//    goes under src/http/routes/shared/ instead, which is the one sibling directory any module may reach.
 //
 // The worker's tests run inside the workerd pool, whose node:fs cannot read the host source tree, so
 // the sources are pulled in as raw text at build time. import.meta.glob is a Vite build-time macro: it
@@ -31,7 +31,7 @@ declare global {
   }
 }
 
-const ROUTE_SOURCES = import.meta.glob("../src/routes/**/*.ts", {
+const ROUTE_SOURCES = import.meta.glob("../src/http/routes/**/*.ts", {
   query: "?raw",
   import: "default",
   eager: true,
@@ -49,7 +49,7 @@ const ALLOW_MARKER = "fitness:allow-no-chokepoint";
 const MARKER_LOOKBEHIND = 200;
 
 function routeFileName(modulePath: string): string {
-  return modulePath.replace(/^.*\/src\/routes\//, "");
+  return modulePath.replace(/^.*\/src\/http\/routes\//, "");
 }
 
 export function directConstructions(sources: Record<string, string>): string[] {
@@ -59,7 +59,7 @@ export function directConstructions(sources: Record<string, string>): string[] {
     if (file === CONSTRUCTOR_MODULE) continue;
     if (/\bnew OpenAPIHono\b/.test(source)) {
       findings.push(
-        `${file} constructs OpenAPIHono directly — build the router with createDomainApp() from src/routes/domain-app.ts`,
+        `${file} constructs OpenAPIHono directly — build the router with createDomainApp() from src/http/routes/domain-app.ts`,
       );
     }
   }
@@ -85,7 +85,7 @@ export function registrationsWithoutChokepoint(sources: Record<string, string>):
       if (lookbehind.includes(ALLOW_MARKER)) continue;
       const line = source.slice(0, match.index).split("\n").length;
       findings.push(
-        `${file}:${line} registers a route without chokepointMiddleware — pass \`middleware: chokepointMiddleware(chokepoint, route)\` (src/chokepoint/register.ts)`,
+        `${file}:${line} registers a route without chokepointMiddleware — pass \`middleware: chokepointMiddleware(chokepoint, route)\` (src/http/chokepoint/register.ts)`,
       );
     }
   }
@@ -106,7 +106,7 @@ export function crossDomainImports(sources: Record<string, string>): string[] {
       const target = match[1];
       if (target === domain || target === "shared") continue;
       findings.push(
-        `${file} imports from the ${target} domain — move what they share under src/routes/shared/`,
+        `${file} imports from the ${target} domain — move what they share under src/http/routes/shared/`,
       );
     }
   }
@@ -134,9 +134,9 @@ describe("route hygiene (src/routes)", () => {
 
   it("catches each shape in a fixture, so a passing scan is a scan that looked", () => {
     const fixtures = {
-      "../src/routes/probe/index.ts":
+      "../src/http/routes/probe/index.ts":
         'import { OpenAPIHono } from "@hono/zod-openapi";\nimport { registerOther } from "../other/index.ts";\nconst app = new OpenAPIHono();\napp.openapi(\n  { ...route, middleware: [] },\n  async (c) => c.json({}),\n);\n',
-      "../src/routes/probe/allowed.ts":
+      "../src/http/routes/probe/allowed.ts":
         "// fitness:allow-no-chokepoint — a self-test fixture\napp.openapi(\n  { ...route },\n  async (c) => c.json({}),\n);\n",
     };
     expect(directConstructions(fixtures)).toHaveLength(1);

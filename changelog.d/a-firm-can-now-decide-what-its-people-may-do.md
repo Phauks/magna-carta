@@ -7,7 +7,7 @@ audience: public
 
 The gap was not a missing screen: `POST /api/v1/members` sent `roleName: null`, and no endpoint could assign one afterwards. A firm could create people it could then not empower.
 
-Two refusals sit in the routes rather than the screen. Self-administration is refused outright (403), and a firm keeps somebody who can administer it — which, given the first rule, falls out by construction (the actor holds `firm:manageMembers` and is never the subject), so the explicit check is a backstop against two administrators demoting each other at once. `apps/api-worker/src/routes/session/member-administration.ts` says which is which.
+Two refusals sit in the routes rather than the screen. Self-administration is refused outright (403), and a firm keeps somebody who can administer it — which, given the first rule, falls out by construction (the actor holds `firm:manageMembers` and is never the subject), so the explicit check is a backstop against two administrators demoting each other at once. `apps/api-worker/src/http/routes/session/member-administration.ts` says which is which.
 
 `apps/web/src/lib/settings/settings-permissions.ts` stops being a constant: each settings area maps to the registry key that governs it and the answer comes from the shared session reader, so every firm page's posture is the signed-in member's real capability. `apps/web/src/lib/members/permission-language.ts` says a key in the firm's words by deriving the phrase from the key, rather than transcribing two hundred sentences that would go stale.
 

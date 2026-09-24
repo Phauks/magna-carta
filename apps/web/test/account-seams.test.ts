@@ -16,8 +16,8 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const PAGES = [
-  "src/routes/account/profile/+page.svelte",
-  "src/routes/account/security/+page.svelte",
+  "src/http/routes/account/profile/+page.svelte",
+  "src/http/routes/account/security/+page.svelte",
 ];
 
 function read(relativePath: string): string {

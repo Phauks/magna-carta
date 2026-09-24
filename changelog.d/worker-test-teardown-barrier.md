@@ -14,7 +14,7 @@ closed and reject as `EnvironmentTeardownError: Closing rpc while "resolve" was 
 promise nobody holds. Whether the runner promoted that to a failure depended on how far the sweep
 happened to get, so it presented as a flake that unrelated changes appeared to cause or cure.
 
-Fire-and-forget work now goes through `trackBackgroundWork` (`apps/api-worker/src/background.ts`), which
+Fire-and-forget work now goes through `trackBackgroundWork` (`apps/api-worker/src/http/deferred-work.ts`), which
 accounts for it, and a global `afterEach` barrier waits for the worker to go quiet after every test.
 The barrier reads the worker's own counters, and its test asserts it can still see work being
 started — a barrier that quietly stopped observing anything would drain instantly and pass forever.

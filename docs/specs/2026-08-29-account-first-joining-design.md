@@ -282,7 +282,7 @@ between an anonymous caller and a `user` row. That raises its importance without
 mechanism: an unconfirmed registration still creates no account, and a confirmation still requires
 possession of the mailbox.
 
-Human verification (`apps/api-worker/src/human-verification/`) already guards this endpoint on the
+Human verification (`apps/api-worker/src/http/human-verification/`) already guards this endpoint on the
 server and is **dormant**, because no `TURNSTILE_SECRET_KEY` is provisioned and nothing in the
 browser mints a token. That was survivable when the IP-keyed limit was one of two controls in front
 of a row-and-an-email. It is still survivable now — the cost per confirmed account is one row — but
@@ -449,8 +449,8 @@ deletion, and it is a deletion of two files rather than an unpicking.
 
 ## Sources
 
-Read against the tree on 2026-08-29: `apps/api-worker/src/routes/session/registrations.ts`,
+Read against the tree on 2026-08-29: `apps/api-worker/src/http/routes/session/registrations.ts`,
 `routes/session/invitations.ts`, `routes/session/me.ts`, `src/auth.ts`, `src/firm-provisioner.ts`,
-`src/firm-provision-consumer.ts`, `src/chokepoint/chokepoint.ts`, `src/contracts/route-meta.ts`,
+`src/background/firm-provision-consumer.ts`, `src/http/chokepoint/chokepoint.ts`, `src/http/contracts/route-meta.ts`,
 `packages/database/src/control-plane-schema.ts`, and the joining surface under
 `apps/web/src/routes/register/` and `apps/web/src/lib/auth/`.

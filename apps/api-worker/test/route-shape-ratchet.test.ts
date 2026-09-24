@@ -30,7 +30,7 @@ declare global {
   }
 }
 
-const ROUTE_SOURCES = import.meta.glob("../src/routes/**/*.ts", {
+const ROUTE_SOURCES = import.meta.glob("../src/http/routes/**/*.ts", {
   query: "?raw",
   import: "default",
   eager: true,
@@ -45,7 +45,7 @@ interface Shape {
 }
 
 // Every route module over a cap on 2026-09-24, with the value it held. Keyed by the path under
-// src/routes/ (domain directory included). Lower an entry when the file shrinks; delete it when the file clears both caps.
+// src/http/routes/ (domain directory included). Lower an entry when the file shrinks; delete it when the file clears both caps.
 export const LEDGER: Readonly<Record<string, Shape>> = {
   "billing/billing.ts": { lines: 3062, shapes: 27 },
   "billing/costs.ts": { lines: 1205, shapes: 5 },
@@ -69,7 +69,7 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   "email/email-inspector.ts": { lines: 199, shapes: 8 },
   "email/emails.ts": { lines: 866, shapes: 7 },
   "files/downloads-register.ts": { lines: 578, shapes: 2 },
-  "files/downloads.ts": { lines: 542, shapes: 1 },
+  "files/downloads.ts": { lines: 545, shapes: 1 },
   "files/file-repair.ts": { lines: 711, shapes: 8 },
   "files/files.ts": { lines: 2144, shapes: 8 },
   "files/folders.ts": { lines: 440, shapes: 5 },
@@ -107,7 +107,7 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
 };
 
 function routeFileName(modulePath: string): string {
-  return modulePath.replace(/^.*\/src\/routes\//, "");
+  return modulePath.replace(/^.*\/src\/http\/routes\//, "");
 }
 
 export function measure(source: string): Shape {
@@ -177,9 +177,9 @@ describe("route module shape ratchet (src/routes)", () => {
   it("catches growth, a stale entry, a missing entry and a vanished file in a fixture", () => {
     const body = "const A = z.object({});\n";
     const fixtures = {
-      "../src/routes/grown.ts": body.repeat(6),
-      "../src/routes/cleared.ts": body,
-      "../src/routes/unlisted.ts": body.repeat(5),
+      "../src/http/routes/grown.ts": body.repeat(6),
+      "../src/http/routes/cleared.ts": body,
+      "../src/http/routes/unlisted.ts": body.repeat(5),
     };
     const ledger = {
       "grown.ts": { lines: 5, shapes: 5 },

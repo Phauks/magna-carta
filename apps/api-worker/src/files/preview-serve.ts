@@ -1,6 +1,6 @@
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import type { Bindings } from "../bindings.ts";
-import type { AppVariables } from "../chokepoint/ports.ts";
+import type { AppVariables } from "../http/chokepoint/ports.ts";
 import { buildSafeDeliveryHeaders } from "./preview-headers.ts";
 import { resolveFirmBucket } from "./firm-bucket.ts";
 import { verifyPreviewDeliveryToken } from "./preview-token.ts";

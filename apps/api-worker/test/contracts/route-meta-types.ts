@@ -4,7 +4,7 @@
 // operation-description rule made a compile error instead of a CI lint failure) and that the
 // permission field only admits registry-checked keys.
 import { OpenAPIHono, z } from "@hono/zod-openapi";
-import { defineOpenAPIRoute, type RouteMeta } from "../../src/contracts/route-meta";
+import { defineOpenAPIRoute, type RouteMeta } from "../../src/http/contracts/route-meta";
 
 const meta: RouteMeta = {
   operationId: "matters.list",

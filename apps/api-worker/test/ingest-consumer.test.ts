@@ -14,7 +14,7 @@ import {
   firmDatabaseFor as resolveFirmDatabaseProxy,
   type ProxyBatchDatabase,
 } from "../src/firm-database/firm-database-proxy.ts";
-import { handleIngestMessage } from "../src/files/ingest-consumer.ts";
+import { handleIngestMessage } from "../src/background/files/ingest-consumer.ts";
 import { resolveScanPort } from "../src/files/scan-port-binding.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 

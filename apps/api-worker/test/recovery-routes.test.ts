@@ -6,7 +6,7 @@
 // test would need a binding that does not exist yet. buildOpenAPIDocument() calls createApp() with
 // no bindings — registration alone never touches env.
 import { describe, expect, it } from "vitest";
-import { buildOpenAPIDocument } from "../src/app.ts";
+import { buildOpenAPIDocument } from "../src/http/app.ts";
 
 describe("registerRecoveryRoutes", () => {
   const document = buildOpenAPIDocument();

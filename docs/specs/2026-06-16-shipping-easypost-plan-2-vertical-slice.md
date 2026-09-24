@@ -20,8 +20,8 @@
 **Modified `packages/database/`:** `src/per-firm-schema.ts` (+3 tables), generated `drizzle/per-firm/0007_*.sql`.
 **Modified `packages/shipping/`:** `src/canonical.ts` (+ optional `idempotencyKey` on `BuyLabelRequest`), `src/easypost/adapter.ts` (send `Idempotency-Key`).
 **New `packages/data-access/`:** `src/shipment-statements.ts`, `src/shipment-service.ts`; tests `test/shipment-service.test.ts`.
-**New `apps/worker/`:** `src/shipping/secret-store.ts` (the `firm_secret` `CredentialStore` seam + injection), `src/shipping/registry.ts` (per-request registry builder), `src/routes/communications/shipping.ts` (connection + shipment routes); test `test/shipping-e2e.test.ts`.
-**Modified `apps/worker/`:** `src/app.ts` (register routes + thread shipping deps), `src/access-control` registry (a `shipping:manage` permission — follow the existing permission-registry pattern).
+**New `apps/worker/`:** `src/shipping/secret-store.ts` (the `firm_secret` `CredentialStore` seam + injection), `src/shipping/registry.ts` (per-request registry builder), `src/http/routes/communications/shipping.ts` (connection + shipment routes); test `test/shipping-e2e.test.ts`.
+**Modified `apps/worker/`:** `src/http/app.ts` (register routes + thread shipping deps), `src/access-control` registry (a `shipping:manage` permission — follow the existing permission-registry pattern).
 **Modified `packages/fixtures/`:** `src/load-profile/shipping-measurements.ts` + generation hook + smoke list.
 
 ---

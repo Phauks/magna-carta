@@ -6,7 +6,7 @@ import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Context } from "hono";
 import type { Bindings } from "../bindings.ts";
 import { resolveFirmBucketForFirmId } from "../files/firm-bucket.ts";
-import type { AppVariables } from "../chokepoint/ports.ts";
+import type { AppVariables } from "../http/chokepoint/ports.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import { documentSessionStub } from "./document-session.ts";
 import { wopiGuard, WopiGuardError, type FirmDatabaseResolver } from "./wopi-guard.ts";

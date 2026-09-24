@@ -86,7 +86,7 @@ try {
       "Vite SSR environment is not runnable — cannot load the worker app for emission.",
     );
   }
-  const app = (await ssr.runner.import("./src/app.ts")) as typeof import("../src/app.ts");
+  const app = (await ssr.runner.import("./src/app.ts")) as typeof import("../src/http/app.ts");
   mkdirSync(fileURLToPath(new URL("../openapi/", import.meta.url)), { recursive: true });
   writeFileSync(outputPath, app.serializeOpenAPIDocument());
   console.log(`Wrote OpenAPI snapshot: ${outputPath}`);

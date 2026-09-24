@@ -7,8 +7,8 @@
 // the wall — the sign-in ladder is the surface that made that a real problem — so `limit` and
 // `remaining` are part of the verdict rather than something the chokepoint reconstructs.
 import { describe, expect, it } from "vitest";
-import { BUCKETS, createInMemoryRateLimiter } from "../../src/chokepoint/rate-limiter";
-import { ATTEMPT_LIMIT } from "../../src/auth-attempt-budget";
+import { BUCKETS, createInMemoryRateLimiter } from "../../src/http/chokepoint/rate-limiter";
+import { ATTEMPT_LIMIT } from "../../src/http/auth-attempt-budget";
 
 // A controllable epoch-milliseconds clock, matching the repo's injected-function precedent
 // (packages/data-access commitEffectBatch takes `now: () => string`; here the limiter needs

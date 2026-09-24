@@ -12,7 +12,7 @@ client's telephone number.
 
 This change adds `contact-phone.ts`, `contact-address.ts`, `contact-points.ts`, `contact-preference.ts`,
 `phone-number.ts` and `postal-address.ts` to `packages/directory`, lifts `contact-email.ts` to a general
-write path, mounts thirteen routes on `apps/api-worker/src/routes/directory/directory.ts`, and adds the Contact
+write path, mounts thirteen routes on `apps/api-worker/src/http/routes/directory/directory.ts`, and adds the Contact
 and Dates panes to the record screen. One additive migration
 (`20260830T120000_directory-contact-points.sql`) carries every column: the plan had been to reach the
 tables first and add columns after, and that was reversed deliberately, because each of the owner's

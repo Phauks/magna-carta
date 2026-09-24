@@ -15,7 +15,7 @@ transcription over the voice half.
 
 **Email is refused from the row on purpose, and the refusal is argued rather than assumed.** The case
 for folding it in is real: captured mail that routes to no matter lands unrouted today —
-`apps/api-worker/src/emails/capture-consumer.ts` says so outright — and **no screen anywhere in the
+`apps/api-worker/src/background/emails/capture-consumer.ts` says so outright — and **no screen anywhere in the
 product shows those**, so mail is being captured into a place nobody can look at. It loses anyway,
 twice. Email already has a home the platform deliberately does not replace: the whole posture is
 _file from the mailbox into the matter_ — the add-in's pane, the forward/CC capture address, the

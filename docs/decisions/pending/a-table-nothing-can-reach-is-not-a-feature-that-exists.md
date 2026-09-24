@@ -14,7 +14,7 @@ schema since the baseline migration. They are temporal, soft-deleted, indexed on
 erasure registry as hard-delete on subject erasure. They look, in the schema file, like a finished
 subsystem.
 
-`apps/api-worker/src/routes/directory/directory.ts` mounts twenty-five route definitions and **not one of them
+`apps/api-worker/src/http/routes/directory/directory.ts` mounts twenty-five route definitions and **not one of them
 touches email, phone, fax or address.** `directory_email` has a complete write path in
 `contact-email.ts` — insert with a normalized match key, update, soft delete, primary demotion — built
 for inbound email capture and reachable only from it. `directory_phone` and `directory_address` have

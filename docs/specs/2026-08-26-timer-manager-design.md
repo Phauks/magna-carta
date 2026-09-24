@@ -42,7 +42,7 @@ The timesheet design recorded "the chip never grows review affordances (no entry
 
 ## 2. Current state (as built)
 
-**The server timer** (`apps/api-worker/src/routes/timekeeping/timer.ts`, `src/timer/live-timer-durable-object.ts`):
+**The server timer** (`apps/api-worker/src/http/routes/timekeeping/timer.ts`, `src/timer/live-timer-durable-object.ts`):
 
 - One Durable Object per `firmId:userId`; the DO stores **exactly one run** — a single JSON blob `{ liveRunId, startedAt, pausedIntervals, matterId?, narrative?, utbmsTaskCodeId?, lastActivityAt, status }`.
 - Operations: `start` (mints a `live_run_id`), `pause`, `resume`, `bind` (matter required only at commit), `read` (client computes elapsed from `startedAt` — the DO never ticks), `stop-commit` (two-phase, idempotent on the run id; commits a **draft** `time_entry` with `source: "timer"`), `discard`. An abandoned-timer alarm flags a run left ≥ 10 h; resolution is keep / trim / discard.

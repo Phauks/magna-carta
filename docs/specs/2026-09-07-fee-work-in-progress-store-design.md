@@ -101,7 +101,7 @@ sees exactly one error type at the 422/409 boundary. `FeeValidationError` mirror
 
 ## 4. The routes
 
-`apps/api-worker/src/routes/timekeeping/fees.ts`, taking the shape `costs.ts` arrived at:
+`apps/api-worker/src/http/routes/timekeeping/fees.ts`, taking the shape `costs.ts` arrived at:
 
 - **One statement, three shapes.** The per-matter listing, the `from`/`to` firm-wide span, and the
   single-entry read share `LIST_COLUMNS` / `LIST_FROM` / `LIST_ORDER`. The costs route learned this

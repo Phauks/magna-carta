@@ -4,8 +4,8 @@ import type { FirmId } from "@magna-carta/identifiers/types";
 import type { BrowserRenderer, RedirectProbe } from "@magna-carta/safe-browse/types";
 import { RendererFailure } from "@magna-carta/safe-browse";
 import { SsrfRejection } from "@magna-carta/integrations/safe-target";
-import { createApp } from "../src/app.ts";
-import { createBrowserRenderer } from "../src/routes/tools/safe-browse.ts";
+import { createApp } from "../src/http/app.ts";
+import { createBrowserRenderer } from "../src/http/routes/tools/safe-browse.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,

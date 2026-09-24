@@ -57,7 +57,7 @@ packages/api-client/                        # Hey API output (committed .gen.ts)
 - [ ] Catalog: `@hey-api/openapi-ts`, `@stoplight/spectral-cli`, `@stoplight/prism-cli` (exact latest; `npm view <pkg> version`). `apps/worker` devDeps: spectral + prism + hey-api (`catalog:`). Scaffold `packages/api-client` (package.json `@magna-carta/api-client`, exports the generated index, devDeps `@tanstack/svelte-query: catalog:` — add to catalog — and `typescript` via tsconfig package; `.gen.ts` files land in Task 11).
 - [ ] `vp install`; commit `chore(worker,api-client): contract-pipeline tool pins + api-client scaffold`.
 
-### Task 2: Problem-type registry + problem module (`src/contracts/problem-types.ts`, `problem.ts`)
+### Task 2: Problem-type registry + problem module (`src/http/contracts/problem-types.ts`, `problem.ts`)
 
 TDD. Tests: `problemType("validation")` returns the full URI; unknown key is a compile error (negative-compile assertion); `Problem` schema accepts the RFC 9457 shape incl. `errorId`/`errors[]`; `problemJson(c, { type: "not-found", status: 404, title, detail? })` sets `application/problem+json`, generates an `errorId` (`err_` prefix — add `error → err` to the identifiers prefix registry if 0·4 has not already), and includes `instance` from the request path; the `defaultHook` maps a zod failure to the 422 shape with field-level `errors[]` (port the spike's hook from `test/support/api-contract-spike-app.ts` into production code — the spike file keeps its own copy, it guards the library not our module).
 
@@ -80,11 +80,11 @@ export function problemType(key: ProblemTypeKey): string {
 
 Commit `feat(worker): RFC 9457 problem module + type-URI registry`.
 
-### Task 3: Pagination + common fragments (`src/contracts/pagination.ts`, `common.ts`)
+### Task 3: Pagination + common fragments (`src/http/contracts/pagination.ts`, `common.ts`)
 
 TDD. `paginated(itemSchema)` returns the `{ data, nextCursor: string | null }` envelope (the spike's helper, productionized, with `.openapi(name)` registration left to the caller); `cursorQuery` zod fragment (`cursor` optional opaque string — never offset, spec §5); `common.ts`: the lowercase `idempotency-key` header fragment and shared path-param helpers. Tests: envelope shape, cursor optionality, header key is lowercase (library gotcha, spec §2). Commit `feat(worker): pagination envelope + shared contract fragments`.
 
-### Task 4: `RouteMeta` + `defineOpenAPIRoute` (`src/contracts/route-meta.ts`)
+### Task 4: `RouteMeta` + `defineOpenAPIRoute` (`src/http/contracts/route-meta.ts`)
 
 TDD — this is the centrepiece type:
 
@@ -108,13 +108,13 @@ export interface RouteMeta {
 
 `defineOpenAPIRoute(meta, routeConfig)` returns the `createRoute` result with: native `operationId` = `meta.operationId`, `tags` defaulted from the namespace, `description` required (compile error if absent), every meta field spread as `x-mc-<field>`, and the meta object attached for the chokepoint (exported `routeMetaOf(route)` accessor — a `WeakMap`, not a magic property). `defineOpenAPIRoute` must also mark the `idempotency-key` header parameter `required: true` in the emitted document when `meta.idempotency === "required"`: the shared `idempotencyKeyHeader` fragment is optional at the schema layer because presence enforcement belongs to the chokepoint, and without this flip the generated client types the header optional on routes that demand it and Prism mocks won't model the requirement. Note also that the chokepoint runs before route validation once Task 7 lands, so the fragment's "would preempt" comment becomes historical at that point. Tests: emitted operation carries native + x-mc fields; tags default; missing description rejected at type level; `routeMetaOf` round-trips. Commit `feat(worker): RouteMeta + defineOpenAPIRoute — metadata emitted natively and as x-mc extensions`.
 
-### Task 5: Rate-limiter seam (`src/chokepoint/rate-limiter.ts`)
+### Task 5: Rate-limiter seam (`src/http/chokepoint/rate-limiter.ts`)
 
 TDD. `interface RateLimiter { check(bucket: RateLimitBucket, key: string): { allowed: boolean; retryAfterSeconds?: number } }`; `BUCKETS: Record<RateLimitBucket, { limit: number; windowSeconds: number }>` (`default` 100/60s, `auth` 10/60s, `expensive` 10/60s — generous, values are the deferred seam); in-memory sliding window with injectable clock. Tests: under-limit allows; over-limit denies with retry-after; window slides; buckets isolated per key. The per-isolate limitation is a documented code comment + api.md note (Task 14). Commit `feat(worker): named rate-limit buckets behind a RateLimiter seam`.
 
 **Amendment (decided during the Task 5 review):** `RateLimiter.check` returns `RateLimitVerdict | Promise<RateLimitVerdict>`, not the sync-only shape above — the future distributed adapter (Durable Objects or KV) must await I/O, and a sync-only seam would force a breaking interface change at adapter time. The in-memory implementation stays synchronous (`InMemoryRateLimiter` narrows the return back to the plain verdict); the Task 7 chokepoint always `await`s the result, which is free on a plain value.
 
-### Task 6: Dev-only response validator (`src/chokepoint/response-validator.ts`)
+### Task 6: Dev-only response validator (`src/http/chokepoint/response-validator.ts`)
 
 TDD. Wraps the handler response when `env.ENVIRONMENT === "development"`: parses the JSON body against the route's declared response schema for that status (resolved at registration time — the route definition is closed over by per-route middleware, per the Task 7 keying constraint; never looked up from the matched route). Divergence throws with the zod issues (caught in tests; surfaces loudly in `wrangler dev`). Production (`ENVIRONMENT` unset/other) is a pass-through — test asserts zero body reads. Commit `feat(worker): dev-only response/contract divergence validator`.
 
@@ -127,14 +127,14 @@ TDD. Wraps the handler response when `env.ENVIRONMENT === "development"`: parses
 - **Migrate the data-access idempotency middleware to `problemJson` (Task 8).** `@magna-carta/data-access`'s Hono idempotency middleware still replies with bare `{ error: "…" }` JSON; the `idempotency-key-missing`/`-conflict`/`-fingerprint-mismatch` problem types exist to replace those — migrate so the one-error-shape claim holds.
 - **Posture note for `api.md` (Task 14):** record "no secret-bearing field is validated through the body/query/header validators that feed `defaultHook`" — `defaultHook` reflects `issue.message` into `errors[].detail`, so a future secret-bearing schema field could leak its value back to the caller on a validation failure.
 
-### Task 7: The chokepoint middleware (`src/chokepoint/chokepoint.ts`)
+### Task 7: The chokepoint middleware (`src/http/chokepoint/chokepoint.ts`)
 
 TDD with fakes (fake session resolver, permission reads, limiter). The §3.4 **fixed order** — resolve session→firm → authn (`401` problem if `meta.authenticated` and no session) → RBAC (`404` problem if the resource’s firm context is absent/foreign — ADR-0052; `403` problem + `requestAccess: true` if visible-but-denied) → idempotency (apply the 0·4/0·2 Hono idempotency middleware when `meta.idempotency === "required"`) → rate-limit (`429` problem + `Retry-After` header) → handler. Resolves meta at registration time from the route bundles via `routeMetaOf` — app.ts iterating the bundles, or per-route middleware closing over the meta. The WeakMap key is the exact `defineOpenAPIRoute` return object; it does **not** survive into the library registry (`app.openapi()` rest-destructures the route, so the openAPIRegistry stores a shallow copy) or into Hono's request-time `matchedRoutes`, so meta can never be looked up from the matched route. A registered `/api/v1` route **without** meta throws at startup (registration-time assertion, not per-request). **Amendment (recorded at the pre-pause review, 2026-06-12):** the 403 `requestAccess: true` reply requires an extension channel `problem.ts` does not yet have — `ProblemOptions`/the `Problem` schema are closed to the RFC 9457 fields + `errorId`/`errors[]`. Task 7 adds the extension seam to `problem.ts` (an optional, typed extensions field — not an open passthrough) together with its chokepoint consumer; Task 8 declares the extended 403 response schema. This is planned work, not scope drift. Tests: each gate in isolation; the order itself (a request failing authn never touches the limiter — fakes record invocation order); `surface: "public"` routes skip cookie/CSRF assumptions. Commit `feat(worker): ADR-0067 chokepoint — ordered tenancy/authn/RBAC/idempotency/rate-limit enforcement`.
 
-### Task 8: Migrate routes onto the pipeline (`src/routes/*`, `src/app.ts`)
+### Task 8: Migrate routes onto the pipeline (`src/http/routes/*`, `src/http/app.ts`)
 
 - [ ] Rewrite `health`, `firms`, `members`, `me` as `defineOpenAPIRoute` bundles with full meta (per the 0·4 plan's table; `firms.provision` = the decided-#5 public allow-list exception). **Delete** the 0·4 in-handler permission checks — the chokepoint now owns them.
-- [ ] `src/app.ts`: compose route modules into the `/api/v1` root (`as const` discipline, spec §2), install `defaultHook`, chokepoint, response validator; `doc31` config gains `servers` (decided #12), `info.description`, `info.contact`.
+- [ ] `src/http/app.ts`: compose route modules into the `/api/v1` root (`as const` discipline, spec §2), install `defaultHook`, chokepoint, response validator; `doc31` config gains `servers` (decided #12), `info.description`, `info.contact`.
 - [ ] Integration tests (Miniflare, building on 0·4's fixtures): logged-out `/v1/me` → 401 problem; member without `firm:manageMembers` → 403 + `requestAccess`; foreign-firm context → 404; `POST /v1/members` without `Idempotency-Key` → 400 problem (`idempotency-key-missing`); hammering an `auth`-bucket route → 429 + `Retry-After`.
 - [ ] Commit `feat(worker): all routes through defineOpenAPIRoute + the chokepoint (per-handler checks deleted)`.
 

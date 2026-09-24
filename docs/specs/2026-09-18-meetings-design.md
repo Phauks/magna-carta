@@ -160,13 +160,13 @@ base `https://rtc.live.cloudflare.com/v1/apps/{appId}`, bearer `REALTIME_SFU_APP
 Every upstream body is parsed defensively; an upstream failure is reported to the client as
 `refused` with reason `sfu-unavailable` and never echoes the upstream body, which may name the app id.
 
-Bindings, beside the existing Realtime TURN pair in `apps/api-worker/src/app.ts`:
+Bindings, beside the existing Realtime TURN pair in `apps/api-worker/src/http/app.ts`:
 `REALTIME_SFU_APP_ID?`, `REALTIME_SFU_APP_SECRET?`. Absent, the create and join routes answer 503
 "Meetings are not configured" and the calendar shows no Start button (the tools-turn-credentials
 precedent). The TURN pair, when present, mints ICE servers at join; when absent the client uses
 `stun:stun.cloudflare.com:3478` only.
 
-## 7. Routes (OpenAPI, chokepoint, `apps/api-worker/src/routes/communications/meetings.ts`)
+## 7. Routes (OpenAPI, chokepoint, `apps/api-worker/src/http/routes/communications/meetings.ts`)
 
 | method | path                                        | permission      | does                                                                               |
 | ------ | ------------------------------------------- | --------------- | ---------------------------------------------------------------------------------- |
@@ -260,7 +260,7 @@ somebody forgot to turn a camera on in.
   `toggleMicrophone()`, `toggleCamera()`, `leave()`, exposing `participants`, `localStream`,
   `remoteStreams`, `state` (`idle | joining | live | ended | failed`). One `RTCPeerConnection`, tracks
   named `${participantId}:${kind}`; screen share is a second local video track, `kind: "screen"`.
-- `src/routes/(app)/meetings/[id]/+page.svelte` (+ `+page.ts` loading the summary through the
+- `src/http/routes/(app)/meetings/[id]/+page.svelte` (+ `+page.ts` loading the summary through the
   generated client) — a tile grid (one tile per remote stream, the local preview pinned), a control
   bar (microphone, camera, share screen, leave; End meeting for a member holding `meetings:host`), a
   roster rail. Design-system components only; Lucide icons; no raw CSS.

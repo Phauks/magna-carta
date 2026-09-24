@@ -70,11 +70,11 @@
 **Modified `apps/worker/`**:
 
 - `src/control-plane-migrations.ts` — register `0005`.
-- `src/app.ts` — `STATUS_KV` binding on `Bindings`; `platformOperatorUserId` on `AppVariables`; register the new route group.
-- `src/routes/platform/platform-operator-guard.ts` — the guard middleware.
-- `src/routes/platform/platform-status.ts` — the operator write routes.
+- `src/http/app.ts` — `STATUS_KV` binding on `Bindings`; `platformOperatorUserId` on `AppVariables`; register the new route group.
+- `src/http/routes/platform/platform-operator-guard.ts` — the guard middleware.
+- `src/http/routes/platform/platform-status.ts` — the operator write routes.
 - `src/status/derived-snapshot.ts` — the cron builder (probe + poll → `status:derived`).
-- `src/scheduled.ts` — call the derived-snapshot builder; `src/index.ts` — cron branch.
+- `src/background/scheduled.ts` — call the derived-snapshot builder; `src/index.ts` — cron branch.
 - `wrangler.jsonc` — `STATUS_KV` binding + a cron trigger.
 - `test/*` — guard, routes, cron integration tests; `conformance.test.ts` operation-list edit.
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildOpenAPIDocument, createApp } from "../src/app.ts";
-import { createDomainApp } from "../src/routes/domain-app.ts";
+import { buildOpenAPIDocument, createApp } from "../src/http/app.ts";
+import { createDomainApp } from "../src/http/routes/domain-app.ts";
 
 // Fitness function (the live-dispatch-table pattern, the twin of worker-first-routing-scan.ts):
 // every operation the contract publishes resolves, through Hono's own router, to the route that

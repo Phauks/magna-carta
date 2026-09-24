@@ -2,7 +2,7 @@
  * The problem document, as the app reads it — the one home for what a failed call means.
  *
  * THIS FILE EXISTS BECAUSE THE APP USED TO THROW AWAY MOST OF WHAT THE SERVER SAID. The contract
- * publishes twelve fields on an RFC 9457 problem (apps/api-worker/src/contracts/problem.ts); four of
+ * publishes twelve fields on an RFC 9457 problem (apps/api-worker/src/http/contracts/problem.ts); four of
  * them were being read and the rest were parsed off the response and dropped. Two of the dropped
  * ones name the member's next step — `requestAccess` says they may ask for access, `stepUpRequired`
  * says a fresh sign-in would work — so a screen that cannot see them turns a solvable situation into

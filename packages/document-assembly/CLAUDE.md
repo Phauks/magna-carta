@@ -3,8 +3,8 @@
 Pure TypeScript engine for **document automation**: prepare an uploaded `.docx` into a registrable
 template version, and merge a registered template against a matter into a filed document. No D1
 binding, no Hono, no `env`, no Svelte, no network — the caller hands in a firm-scoped database handle
-and gets typed results back. Consumed by `apps/api-worker/src/routes/documents/templates.ts`,
-`apps/api-worker/src/routes/documents/assemblies.ts`, and `apps/api-worker/src/assemblies/assembly-consumer.ts`.
+and gets typed results back. Consumed by `apps/api-worker/src/http/routes/documents/templates.ts`,
+`apps/api-worker/src/http/routes/documents/assemblies.ts`, and `apps/api-worker/src/background/assemblies/assembly-consumer.ts`.
 Design: `docs/specs/2026-08-04-document-automation-design.md`.
 
 ## Shape
@@ -110,7 +110,7 @@ templates_ below.
 - **The merge emits a word-processing package and nothing else.** `document_assembly.output_format`
   (`src/assembly-statements.ts`) records what a JOB was asked to produce, not what this package
   produced: a `pdf` job carries these bytes across the office-suite conversion edge in
-  `apps/api-worker/src/assemblies/assembly-consumer.ts` before filing them. No renderer, no page model,
+  `apps/api-worker/src/background/assemblies/assembly-consumer.ts` before filing them. No renderer, no page model,
   and no second opinion about layout belongs in here — that is the whole reason the engine can be
   pure TypeScript over OOXML.
 - **`buildXml` writes the XML declaration; the parser drops the source one** (`ignoreDeclaration`).
@@ -410,7 +410,7 @@ from that one sentence.
 - **`sensitivity: protected` is the ROUTING decision, not a label.** A protected entry resolves through
   `src/protected-bindings.ts` and nothing else, and that module holds no ciphertext column name, derives
   no key, and decrypts nothing. The plaintext arrives from `ResolutionInput.readProtectedIdentifier`, a
-  seam the caller wires to the protected-field chokepoint (`apps/api-worker/src/assemblies/assembly-consumer.ts`
+  seam the caller wires to the protected-field chokepoint (`apps/api-worker/src/background/assemblies/assembly-consumer.ts`
   → `@magna-carta/directory`'s `readIdentifier` → `readProtected`): permission gate, decrypt-audit row
   committed BEFORE any plaintext, AAD-bound decrypt — inseparable and in that order. Adding a merge
   field that reads an encrypted column any other way is the one change this subsystem must never take.

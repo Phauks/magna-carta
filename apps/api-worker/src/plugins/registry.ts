@@ -9,8 +9,8 @@ import {
 } from "@magna-carta/integrations/registry";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import type { Bindings } from "../bindings.ts";
-import type { Chokepoint } from "../chokepoint/chokepoint.ts";
-import type { AppVariables } from "../chokepoint/ports.ts";
+import type { Chokepoint } from "../http/chokepoint/chokepoint.ts";
+import type { AppVariables } from "../http/chokepoint/ports.ts";
 import type { PluginRuntime } from "./runtime.ts";
 import { parcelsManifest } from "@magna-carta/government-links/manifest";
 import { propertyLinksManifest } from "@magna-carta/property-links/manifest";

@@ -74,7 +74,7 @@ deleted, because the position was really taken.
 - Depends on `@magna-carta/data-access`, `@magna-carta/database`, `@magna-carta/identifiers`, and
   `@magna-carta/calendar` — the last for the visible-matter predicate ALONE, which is where that seam
   lives (`packages/notifications` depends on it for the same reason and nothing else).
-- The route layer (`apps/api-worker/src/routes/notes-and-tasks/notes.ts`) hands the service the firm-scoped database,
+- The route layer (`apps/api-worker/src/http/routes/notes-and-tasks/notes.ts`) hands the service the firm-scoped database,
   the real clock, a crypto random source, and the authenticated actor — none of which is client input.
 - **The timeline source is not here.** A note joins the federated read as one declared entry in
   `packages/calendar/src/sources/all.ts`, keyed `matterNote`, which reads `matter_note` by table name.

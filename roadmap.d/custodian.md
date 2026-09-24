@@ -11,7 +11,7 @@
   slices: 4-2-custodian
   adrs: ADR-0014
   spec: docs/specs/2026-08-04-custodian-design.md
-  evidence: packages/custodian + thirty-eight routes in apps/api-worker/src/routes/custody/custody.ts, over thirteen per-firm tables. The matter section registry reserves a "custodian" slug (apps/web/src/lib/matters/sections.ts) with nothing behind it yet.
+  evidence: packages/custodian + thirty-eight routes in apps/api-worker/src/http/routes/custody/custody.ts, over thirteen per-firm tables. The matter section registry reserves a "custodian" slug (apps/web/src/lib/matters/sections.ts) with nothing behind it yet.
   audience: public
   public-name: Safe custody register
   public-summary: Record every original will, deed and physical item the firm holds, where it is kept, and who has it now.

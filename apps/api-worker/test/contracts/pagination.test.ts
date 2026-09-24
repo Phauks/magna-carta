@@ -1,7 +1,7 @@
 // The cursor-paginated list envelope and cursor query fragment.
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { describe, expect, it } from "vitest";
-import { cursorQuery, paginated } from "../../src/contracts/pagination";
+import { cursorQuery, paginated } from "../../src/http/contracts/pagination";
 
 const Widget = z.object({ id: z.string(), label: z.string() });
 

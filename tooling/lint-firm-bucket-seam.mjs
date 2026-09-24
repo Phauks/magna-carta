@@ -53,11 +53,11 @@ const PLATFORM_SCOPED = new Map([
       "bucket name it is given",
   ],
   [
-    "apps/api-worker/src/routes/developer/dev-r2-upload.ts",
+    "apps/api-worker/src/http/routes/developer/dev-r2-upload.ts",
     "the development upload leg's staged parts, same staging prefix, never reachable in production",
   ],
   [
-    "apps/api-worker/src/routes/developer/dev-seed.ts",
+    "apps/api-worker/src/http/routes/developer/dev-seed.ts",
     "the development seeder, which writes into the bound bucket a local environment resolves every " +
       "firm to anyway",
   ],

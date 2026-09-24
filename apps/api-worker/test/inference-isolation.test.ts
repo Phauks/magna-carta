@@ -14,7 +14,7 @@ import {
   handleInferenceJob,
   inferenceQueue,
   type InferenceJob,
-} from "../src/inference/inference-consumer.ts";
+} from "../src/background/inference/inference-consumer.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { seedFirm } from "./support/test-auth.ts";
 

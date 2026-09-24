@@ -41,13 +41,13 @@ export type Bindings = {
   // only calls it at build time (POST /build) and surfaces any absence as a build failure.
   BUNDLE_SERVICE?: Fetcher;
   // The off-hot-path AI inference dispatch queue: an inference request is enqueued here and the consumer
-  // (src/inference/inference-consumer.ts) reaches the model binding, so a single firm cannot starve the shared
+  // (src/background/inference/inference-consumer.ts) reaches the model binding, so a single firm cannot starve the shared
   // gateway cap synchronously on the request path. Distinct from QUEUE (jobs) and FILES_INGEST.
   INFERENCE: Queue;
   // The email-capture queue: both entrances (the forward/CC Email Worker and the authenticated
   // file-to-matter API) enqueue a pointer to the staged raw MIME; the emails-capture consumer runs the
   // parse/dedup/thread-link/attachment work off the request path.
-  EMAILS_CAPTURE: Queue<import("./emails/capture-consumer.ts").EmailsCaptureMessage>;
+  EMAILS_CAPTURE: Queue<import("./emails/capture-types.ts").EmailsCaptureMessage>;
   // The conversion-job coordinator: keyed firmId:jobId, single-flights one conversion per job.
   CONVERSION_JOB: DurableObjectNamespace<
     import("./conversions/conversion-coordinator.ts").ConversionJob

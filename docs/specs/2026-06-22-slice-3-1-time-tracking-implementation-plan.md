@@ -81,15 +81,15 @@ Every file created or modified, with its one responsibility.
 
 - `src/timer/live-timer-durable-object.ts` (new) — the `LiveTimerDurableObject` class (start/pause/resume/bind/read/stopAndCommit/discard + the abandoned alarm).
 - `src/timer/timer-runtime.ts` (new) — the pure timer state machine + elapsed math the DO and its tests share.
-- `src/routes/timekeeping/time-entries.ts` (new) — the time-entry routes.
-- `src/routes/timekeeping/timer.ts` (new) — the timer proxy routes to the DO + stop-commit through the chokepoint.
-- `src/routes/timekeeping/rate-cards.ts` (new) — rate-card/rate CRUD + `reRateUnbilledDrafts`.
-- `src/routes/timekeeping/utbms-codes.ts` (new) — list/enable/disable.
-- `src/routes/timekeeping/non-billable-categories.ts` (new) — CRUD.
-- `src/routes/notes-and-tasks/my-day.ts` (new) — the visibility read.
+- `src/http/routes/timekeeping/time-entries.ts` (new) — the time-entry routes.
+- `src/http/routes/timekeeping/timer.ts` (new) — the timer proxy routes to the DO + stop-commit through the chokepoint.
+- `src/http/routes/timekeeping/rate-cards.ts` (new) — rate-card/rate CRUD + `reRateUnbilledDrafts`.
+- `src/http/routes/timekeeping/utbms-codes.ts` (new) — list/enable/disable.
+- `src/http/routes/timekeeping/non-billable-categories.ts` (new) — CRUD.
+- `src/http/routes/notes-and-tasks/my-day.ts` (new) — the visibility read.
 - `src/timekeeping/narrative-inference.ts` (new) — the gated AI call-site over `InferencePort.generateStream` + the `InferenceJob` idempotency-key structure + the pre-call consent/dedup-check design.
-- `src/inference/inference-consumer.ts` (modified) — add the `InferenceJob.idempotencyKey` field + the two dedup guards' design (pre-call read + same-batch record).
-- `src/app.ts` — register the six route groups; add `DURABLE_TIMER` to `Bindings`.
+- `src/background/inference/inference-consumer.ts` (modified) — add the `InferenceJob.idempotencyKey` field + the two dedup guards' design (pre-call read + same-batch record).
+- `src/http/app.ts` — register the six route groups; add `DURABLE_TIMER` to `Bindings`.
 - `src/index.ts` — export the `LiveTimerDurableObject` class.
 - `wrangler.jsonc` — add the `durable_objects` binding + the DO migration tag.
 - `openapi/openapi.json` — regenerated snapshot.

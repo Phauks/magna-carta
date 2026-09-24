@@ -249,7 +249,7 @@ export function describeProbeLatency(latencyMilliseconds: number | null): string
 
 /**
  * Where a probe stops being quick and starts being a warning. The API races every probe against a
- * fixed timeout (apps/api-worker/src/routes/platform/meta-versions.ts); two thirds of the way there is a
+ * fixed timeout (apps/api-worker/src/http/routes/platform/meta-versions.ts); two thirds of the way there is a
  * Worker that is answering but is closer to the timeout than to healthy, which is the one fact a
  * reader could act on before the row flips to "Unreachable" on its own.
  */

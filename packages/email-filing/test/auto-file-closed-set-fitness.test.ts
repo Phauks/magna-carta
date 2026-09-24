@@ -32,7 +32,7 @@ const schemaSource = sliceBetween(
   "// -----",
 );
 const dataAccessSource = sourceOf("../../data-access/src/email-auto-file-statements.ts");
-const routeSource = sourceOf("../../../apps/api-worker/src/routes/email/auto-file-rules.ts");
+const routeSource = sourceOf("../../../apps/api-worker/src/http/routes/email/auto-file-rules.ts");
 
 // Pull a quoted string list out of a source file by a locating substring, so the sweep reads the real
 // declarations rather than a copy of them kept up to date by hand.

@@ -5,7 +5,7 @@
 how a template is registered from the browser, and how one template is added to several matters at
 once.
 
-**Rendered at:** `src/routes/(app)/documents`. **Contract:** the `templates.*` and `assemblies.*`
+**Rendered at:** `src/http/routes/(app)/documents`. **Contract:** the `templates.*` and `assemblies.*`
 operations, reached only through `@magna-carta/api-client` (see `$lib/api/CLAUDE.md`).
 
 ## Key files / entry points

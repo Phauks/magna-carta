@@ -42,7 +42,7 @@
 
 - **The coolwsd container is NOT here.** Per ADR `container-subsystems-extract-to-dedicated-workers`, it lives in a dedicated `magna-carta-edit` worker (no egress, no R2/D1 creds, one per document). The editor (browser iframe) loads it and it calls _back_ into this worker's `/wopi/*` surface — the container is the caller, never invoked from here.
 - Calls: `@magna-carta/file-manager` (version model, checkout/reconcile, tiering statements), the `DocumentSession` DO binding, R2 (`env.R2`), and the firm database via `firmDatabaseFor(env.FIRM_DATABASE, firmId)` (`firm-database/firm-database-proxy.ts`).
-- The returning check-in routes the `@magna-carta/file-manager` quarantine ingest (`apps/api-worker/src/files/ingest-consumer.ts`). **Editing consumes that pipeline; it does not reach into it.** The pipeline core (`packages/file-manager/src/ingest-core.ts`) belongs to the ingest area and is edited from there, with its own tests — so a check-in that needs different ingest behaviour is an ingest change made in the ingest area, never a tweak to the core from here. Editing owns the call site and the check-in semantics around it; ingest owns what the pipeline does.
+- The returning check-in routes the `@magna-carta/file-manager` quarantine ingest (`apps/api-worker/src/background/files/ingest-consumer.ts`). **Editing consumes that pipeline; it does not reach into it.** The pipeline core (`packages/file-manager/src/ingest-core.ts`) belongs to the ingest area and is edited from there, with its own tests — so a check-in that needs different ingest behaviour is an ingest change made in the ingest area, never a tweak to the core from here. Editing owns the call site and the check-in semantics around it; ingest owns what the pipeline does.
 
 ## Gotchas
 

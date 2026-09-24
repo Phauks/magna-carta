@@ -2,7 +2,7 @@
 worktree: C:/dev/magna-carta-worktrees/claude/loving-wozniak-4tk0x6
 area: The header's Build Information panel — one diagnosis format shared with the issue reporter, a reusable panel section, probe latency, deep links to the commit and to each Worker in the Cloudflare dashboard, an environment badge, and a diagnostic-action registry the command palette renders
 status: building
-touches: apps/web/src/lib/versions/, apps/web/src/lib/diagnostics/, apps/web/src/lib/developer/, apps/web/src/lib/components/command-palette.svelte, apps/web/src/lib/components/bug-report-dialog.svelte, apps/web/test/, apps/web/e2e/, apps/api-worker/src/routes/platform/meta-versions.ts, apps/api-worker/openapi/openapi.json, packages/api-client/src/
+touches: apps/web/src/lib/versions/, apps/web/src/lib/diagnostics/, apps/web/src/lib/developer/, apps/web/src/lib/components/command-palette.svelte, apps/web/src/lib/components/bug-report-dialog.svelte, apps/web/test/, apps/web/e2e/, apps/api-worker/src/http/routes/platform/meta-versions.ts, apps/api-worker/openapi/openapi.json, packages/api-client/src/
 ---
 
 Reworks the Build Information panel behind the header chip. The copy control now reports the whole

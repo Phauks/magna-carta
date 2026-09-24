@@ -3,7 +3,7 @@ import type { FirmId } from "@magna-carta/identifiers/types";
 import type { CertificateOfCompletion } from "@magna-carta/signing";
 import type { SealPort, SealRequest, SealResponse } from "@magna-carta/signing/port";
 import { beforeAll, describe, expect, it } from "vitest";
-import { createApp } from "../src/app.ts";
+import { createApp } from "../src/http/app.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {

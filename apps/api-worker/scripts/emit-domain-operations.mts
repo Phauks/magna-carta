@@ -1,4 +1,4 @@
-// Emits each domain module's committed operation list (src/routes/<domain>/operations.ts): the
+// Emits each domain module's committed operation list (src/http/routes/<domain>/operations.ts): the
 // operation ids the module registers when mounted alone, sorted. The conformance suite holds every
 // module to its list, and the whole-document assertion is the sum of them — so a route added from any
 // branch is a diff in its own domain's file, never an edit to one 600-line list.
@@ -62,7 +62,7 @@ try {
   if (!isRunnableDevEnvironment(ssr)) {
     throw new Error("Vite SSR environment is not runnable — cannot load the worker app.");
   }
-  const app = (await ssr.runner.import("./src/app.ts")) as typeof import("../src/app.ts");
+  const app = (await ssr.runner.import("./src/app.ts")) as typeof import("../src/http/app.ts");
   let total = 0;
   for (const [domain, document] of app.buildDomainOpenAPIDocuments()) {
     const ids: string[] = [];

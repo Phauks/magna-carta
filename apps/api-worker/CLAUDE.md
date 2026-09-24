@@ -24,34 +24,42 @@ routes requests through the chokepoint into those packages.
   built lazily on the first request), `runScheduledPass` (Cron → sweep router), and `routeQueueBatch`
   (routes each batch by `batch.queue` name to its consumer). A new consumer, sweep, or route joins
   this module's graph.
-- `src/app.ts` — `createApp()`: the composition root. Builds the chokepoint once over the real ports
+- `src/http/app.ts` — `createApp()`: the composition root. Builds the chokepoint once over the real ports
   and registers every route through it. It no longer holds the env shape or the auth instance —
   those have modules of their own so the background side can import them without importing the app.
+- **Two sides, one seam.** `src/http/` is the HTTP side: the app, the chokepoint, the contracts
+  helpers, the middleware and the route tree. `src/background/` is the background side: the queue
+  consumers and the Cron sweeps, each under its subsystem's name (`background/files/ingest-consumer.ts`),
+  with `background/scheduled.ts` as the sweep router. Everything else under `src/` is shared
+  machinery both sides reach — the bindings, the Durable Objects, the subsystem directories, the
+  provisioners. `src/event-dispatch.ts` is the one module that reaches both sides, because it is the
+  event router. The seam is held by `test/http-background-boundary-scan.test.ts`; the one deliberate
+  door from the HTTP side to a sweep is `src/http/request-path-sweep.ts`, outside the route tree.
 - `src/bindings.ts` — the `Bindings` env shape, the no-barrel single home for the env type, imported by
   both sides of the Worker. `src/auth-instance.ts` holds the per-env Better Auth instance and its
   counted email port; `src/worker-logger.ts` the per-env Workers logger.
-- `src/routes/domain-app.ts` — `createDomainApp()`, the ONE constructor for a router here (the root
+- `src/http/routes/domain-app.ts` — `createDomainApp()`, the ONE constructor for a router here (the root
   app and every domain sub-app). The 422 default hook is per instance, so a router built anywhere
   else would answer a validation failure with the library default; `test/route-hygiene-scan.test.ts`
-  refuses a direct construction under `src/routes/`.
+  refuses a direct construction under `src/http/routes/`.
 - The shape of the route tree is held by four fitness tests, not by review: `test/route-table.test.ts`
   (every published operation resolves through Hono's router to its own route, so a literal path a
   pattern shadows fails by name), `test/route-hygiene-scan.test.ts` (one constructor, every
   registration through the chokepoint, no cross-domain import), `test/route-shape-ratchet.test.ts` (a
   line cap and an inline-shape cap per route module, with a ledger of today's offenders that only
-  shrinks), and `test/http-background-boundary-scan.test.ts` (a consumer or sweep imports neither
-  Hono nor the app; a route imports no consumer or sweep beyond the named crossings). The design they
+  shrinks), and `test/http-background-boundary-scan.test.ts` (nothing under `src/background/` imports
+  Hono or `src/http/`; nothing under `src/http/routes/` imports `src/background/`). The design they
   hold is `docs/specs/2026-09-18-api-worker-domain-modules-design.md`.
-- `src/chokepoint/` — the ordered enforcement middleware + its ports; `defineOpenAPIRoute` carries each
+- `src/http/chokepoint/` — the ordered enforcement middleware + its ports; `defineOpenAPIRoute` carries each
   route's `RouteMeta`, and `chokepointMiddleware` enforces it. No per-handler auth discipline.
-- `src/routes/<domain>/` — one directory per domain, each a sub-app: `index.ts` exports
+- `src/http/routes/<domain>/` — one directory per domain, each a sub-app: `index.ts` exports
   `mount<Domain>(app, chokepoint, deps)`, which builds its router through `createDomainApp`, registers
   the domain's route files in the order Hono must match them, and mounts at the root;
   `operations.ts` is the committed list of operation ids the module registers (regenerate with
   `pnpm --filter @magna-carta/api-worker run emit-domain-operations`; the conformance suite mounts
   each module alone and holds it to its list); a `CLAUDE.md` beside them carries that surface's own
-  rules. `src/routes/manifest.ts` is the ordered list app.ts iterates, and the only place a domain is
-  named. `src/routes/shared/` holds what two domains share (the platform-admin guard, the image
+  rules. `src/http/routes/manifest.ts` is the ordered list app.ts iterates, and the only place a domain is
+  named. `src/http/routes/shared/` holds what two domains share (the platform-admin guard, the image
   helpers, the member-provision topic) — a domain module never imports another domain's directory.
   Two route families stay in app.ts by design: the token-guarded hosts (`/wopi/*`,
   `/search-objects/*`) and the cookieless preview serve, which are outside the chokepoint and whose
@@ -102,11 +110,11 @@ routes requests through the chokepoint into those packages.
 
 ## Per-surface rules live beside their module
 
-The rules that bind one surface are in that domain's own note: `src/routes/firm/CLAUDE.md` (the
-scan-policy settings, the release-channel doors and the flag catalog), `src/routes/files/CLAUDE.md`
-(upload readiness), `src/routes/notifications/CLAUDE.md` (the two tiers and their permissions),
-`src/routes/session/CLAUDE.md` (human verification on the anonymous writes), and
-`src/routes/timekeeping/CLAUDE.md` (the two time-entry guards). This note keeps what binds the whole
+The rules that bind one surface are in that domain's own note: `src/http/routes/firm/CLAUDE.md` (the
+scan-policy settings, the release-channel doors and the flag catalog), `src/http/routes/files/CLAUDE.md`
+(upload readiness), `src/http/routes/notifications/CLAUDE.md` (the two tiers and their permissions),
+`src/http/routes/session/CLAUDE.md` (human verification on the anonymous writes), and
+`src/http/routes/timekeeping/CLAUDE.md` (the two time-entry guards). This note keeps what binds the whole
 Worker.
 
 ## Local rules
@@ -252,7 +260,7 @@ operate correctly (upload, submit → 202, poll → `engine-not-implemented` fai
 
 ## Document assembly — the PDF arm reuses the conversion edge, it does not own one
 
-`src/assemblies/assembly-consumer.ts` files a word-processing package by default. A job whose
+`src/background/assemblies/assembly-consumer.ts` files a word-processing package by default. A job whose
 `outputFormat` is `pdf` hands the **merged** bytes to `runConversion("docx", "pdf", …)` with
 `resolveEnginePort(env)` — the registry's own edge in `packages/conversion/src/registry.ts`, executed
 by whichever service that resolver names for the `libreoffice` engine. Rules for this arm:
@@ -408,7 +416,7 @@ by the discovery processing consumer once a document is `processed`. Local rules
 - Tests run in `@cloudflare/vitest-pool-workers` (Miniflare) with real bindings from `wrangler.jsonc`; a
   DO test uses `runInDurableObject`. R2 `put` of an unknown-length stream stores nothing — confirmed
   against Miniflare — which is why the bundle build uses multipart.
-- **Fire-and-forget work goes through `src/background.ts`** — `runInBackground` from a handler,
+- **Fire-and-forget work goes through `src/http/deferred-work.ts`** — `runInBackground` from a handler,
   `trackBackgroundWork` where the promise is handed to `waitUntil` directly. A path that skips it is
   invisible to the test harness's teardown barrier and will eventually fail a run in a file that
   passed; the rule and the reasoning are in

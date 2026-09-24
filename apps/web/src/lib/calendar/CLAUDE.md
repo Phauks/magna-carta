@@ -4,7 +4,7 @@
 a view needs, the projection from the calendar's record shapes to the entries the design system's
 `CalendarGrid` paints, the window an entry opens in, and the forms that record an event, a deadline
 and a firm event. The backend it consumes is `packages/calendar` behind
-`apps/api-worker/src/routes/calendar/calendar.ts`; nothing here adds a route.
+`apps/api-worker/src/http/routes/calendar/calendar.ts`; nothing here adds a route.
 
 **White paper:** _Calendar and rules-based docketing_ — [`docs/Magna-Carta-White-Paper.md`](../../../../../docs/Magna-Carta-White-Paper.md).
 **Spec:** [`docs/specs/2026-09-02-calendar-interface-design.md`](../../../../../docs/specs/2026-09-02-calendar-interface-design.md)

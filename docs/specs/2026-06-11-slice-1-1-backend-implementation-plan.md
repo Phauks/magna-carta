@@ -318,7 +318,7 @@ export interface R2Presigner {
 
 ### Task 14: Ingest consumer + bucket notifications (`apps/worker`)
 
-- [ ] `src/files/ingest-consumer.ts` — `queue()` handler for `files-ingest`: parse the R2 event (decided #9 shape) → bucket→firm via registry → version row by `r2_key`; not found or not `pending` → ack (idempotent no-op); else `env`-bucket `get()` → `runIngest` → `commitVersion` or `quarantineVersion` (Task 10) — each an idempotent effect batch. Throw on transient failures (queue retry → DLQ at max, the 0·2 relay discipline).
+- [ ] `src/background/files/ingest-consumer.ts` — `queue()` handler for `files-ingest`: parse the R2 event (decided #9 shape) → bucket→firm via registry → version row by `r2_key`; not found or not `pending` → ack (idempotent no-op); else `env`-bucket `get()` → `runIngest` → `commitVersion` or `quarantineVersion` (Task 10) — each an idempotent effect batch. Throw on transient failures (queue retry → DLQ at max, the 0·2 relay discipline).
 - [ ] `firm-resource-provider.ts`: `configureBucketNotifications(firmId)` — REST `PUT /accounts/{account}/event_notifications/r2/{bucket}/configuration/queues/{queueId}` (verify exact API at build) with rule `{ actions: ["PutObject","CompleteMultipartUpload"], prefix: "files/" }`; dev adapter records-and-no-ops. Idempotently re-runnable; wired into the provisioning orchestration after `createBucket`.
 - [ ] Integration: synthetic event for a pending version → clean + visible + metered + outbox event; replayed event → no double commit/meter; type-lie upload → quarantined + invisible + alert outbox row; event for unknown key → acked.
 - [ ] Commit `feat(worker): files-ingest queue consumer + provisioning bucket-notification rule (ADR-0081)`.

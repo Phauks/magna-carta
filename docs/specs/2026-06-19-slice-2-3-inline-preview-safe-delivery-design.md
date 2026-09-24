@@ -24,7 +24,7 @@ This spec is the implementation-grade design for slice 2·3 ([`ROADMAP.md`](../.
 
 **The spine of the slice** is `security.md` _Untrusted file handling_ threat #3 ([`docs/conventions/security.md`](../conventions/security.md)): a malicious SVG/HTML/scripted-PDF executes script in the _viewer's_ browser; server-side sandboxing cannot touch it, so the defense lives entirely in **where** the bytes are served, **what element consumes them**, and **what headers** frame them.
 
-**Preserved, not reinvented:** the per-file download ([`apps/worker/src/routes/files/files.ts`](../../apps/api-worker/src/routes/files/files.ts)) and bulk download ([`apps/worker/src/routes/files/downloads.ts`](../../apps/api-worker/src/routes/files/downloads.ts)) already mint a 300-second presigned R2 GET (`presignerForEnv` → `presignGet`) and 302-redirect the client straight to the R2 S3 host. Bytes already bypass the cookie context. 2·3 keeps that for the **download** case and adds a **preview** case on top.
+**Preserved, not reinvented:** the per-file download ([`apps/worker/src/routes/files/files.ts`](../../apps/api-worker/src/http/routes/files/files.ts)) and bulk download ([`apps/worker/src/routes/files/downloads.ts`](../../apps/api-worker/src/http/routes/files/downloads.ts)) already mint a 300-second presigned R2 GET (`presignerForEnv` → `presignGet`) and 302-redirect the client straight to the R2 S3 host. Bytes already bypass the cookie context. 2·3 keeps that for the **download** case and adds a **preview** case on top.
 
 ---
 
@@ -49,7 +49,7 @@ The `<iframe sandbox>` (bare `sandbox`, **never** `allow-scripts`) remains the *
 
 ### 3.1 One Worker, two hostnames — not a second deployment
 
-The cookieless `files.*` host is realized as the **existing `magna-carta` Worker answering a second custom-domain route**, branching on the request hostname into a dedicated cookieless handler that shares nothing with the `/api/v1` chokepoint stack — not a second independently-deployed Worker. The isolation that matters is the **browser origin boundary** (cookieless host + the response headers), a hostname + response-header property, not a deployment property; both shapes give the browser the identical cross-origin boundary. The existing Worker already holds the R2 binding ([`apps/worker/src/app.ts`](../../apps/api-worker/src/app.ts), `wrangler.jsonc`); a separate Worker would duplicate the R2 binding + the `R2_S3_*`/`AUTH_SECRET` secret set for no isolation gain. One deploy, one CI path, one secrets gate.
+The cookieless `files.*` host is realized as the **existing `magna-carta` Worker answering a second custom-domain route**, branching on the request hostname into a dedicated cookieless handler that shares nothing with the `/api/v1` chokepoint stack — not a second independently-deployed Worker. The isolation that matters is the **browser origin boundary** (cookieless host + the response headers), a hostname + response-header property, not a deployment property; both shapes give the browser the identical cross-origin boundary. The existing Worker already holds the R2 binding ([`apps/worker/src/app.ts`](../../apps/api-worker/src/http/app.ts), `wrangler.jsonc`); a separate Worker would duplicate the R2 binding + the `R2_S3_*`/`AUTH_SECRET` secret set for no isolation gain. One deploy, one CI path, one secrets gate.
 
 Cookielessness is structural: this Worker sets **no cookies of its own** (sessions are Better Auth's, carried on the app origin); a request to `files.magnacarta.esq` simply does not carry `app.magnacarta.esq` cookies (different host).
 

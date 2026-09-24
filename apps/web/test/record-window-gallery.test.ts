@@ -30,7 +30,7 @@ function sourceOf(relativePath: string): string {
   return readFileSync(join(import.meta.dirname, "..", relativePath), "utf8");
 }
 
-const PAGE = sourceOf("src/routes/developer-console/record-window/+page.svelte");
+const PAGE = sourceOf("src/http/routes/developer-console/record-window/+page.svelte");
 const SHEET_MODULE = sourceOf("src/lib/developer/record-window-sheet.ts");
 const FIXTURES_MODULE = sourceOf("src/lib/developer/record-window-fixtures.ts");
 

@@ -27,7 +27,7 @@ import { WINDOW_MAX_TURNS } from "@magna-carta/magnus/window";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import type { Bindings } from "../src/bindings.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
-import { handleMagnusTurnJob, magnusQueue } from "../src/magnus/magnus-consumer.ts";
+import { handleMagnusTurnJob, magnusQueue } from "../src/background/magnus/magnus-consumer.ts";
 import type { MagnusTurnJob } from "../src/magnus/magnus-types.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { seedFirm } from "./support/test-auth.ts";

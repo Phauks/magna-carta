@@ -28,7 +28,7 @@
 **New `packages/parcels/`:** `src/manifest.ts`; export added.
 **New `packages/property-links/`:** `src/manifest.ts`; export added.
 **New `apps/worker/`:** `src/plugins/runtime.ts` (`PluginRuntime` + builder), `src/plugins/registry.ts` (`WorkerPlugin` type, the `workerPlugins` index, `listManifests`, `buildIntegrationRegistry`), `src/plugins/shipping-plugin.ts` (binds shipping manifest + routes + adapter); tests `test/plugins/registry.test.ts`, `test/plugins/manifest-fitness.test.ts`.
-**Modified `apps/worker/`:** `src/app.ts` (mount loop; drop shipping special-casing), `src/routes/communications/shipping.ts` (`ShippingRouteDeps` → `PluginRuntime`; `buildShippingRegistry` → `buildIntegrationRegistry`), `src/index.ts` (drop the shipping option), regenerated `openapi/openapi.json`; **deleted** `src/shipping/registry.ts` (generalized into `plugins/registry.ts`).
+**Modified `apps/worker/`:** `src/http/app.ts` (mount loop; drop shipping special-casing), `src/http/routes/communications/shipping.ts` (`ShippingRouteDeps` → `PluginRuntime`; `buildShippingRegistry` → `buildIntegrationRegistry`), `src/index.ts` (drop the shipping option), regenerated `openapi/openapi.json`; **deleted** `src/shipping/registry.ts` (generalized into `plugins/registry.ts`).
 **Modified `packages/api-client/`:** regenerated client (routes byte-identical).
 **Modified docs:** `docs/Decision-Log.md` (two ADRs), `docs/Magna-Carta-White-Paper.md` (Plugin/Add-on system), `STATUS.md`, `ROADMAP.md`, `CHANGELOG.md`.
 
