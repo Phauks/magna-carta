@@ -240,6 +240,51 @@ export const member = sqliteTable("member", {
   createdAt: text("created_at").notNull(), // ISO-8601 instant
 });
 
+// THE MEMBER'S OWN PICTURE — what a colleague recognises them by across the product.
+//
+// A SEPARATE TABLE RATHER THAN COLUMNS ON `member`, on the firm_brand_image reasoning: a picture is
+// seven facts about some bytes, and seven nullable columns on the row every permission read joins
+// against would be carried by every one of those reads to answer a question none of them asks.
+// One row per member at most — the member's own user id IS the key — so "no picture" is the
+// absence of a row rather than a row full of nulls.
+//
+// THE BYTES LIVE IN THE FIRM'S BUCKET, under their own hash, and this row carries what a screen
+// needs to draw them. `sha256` is not the key here, unlike the firm's marks: two members may
+// legitimately hold the same bytes (the same photographer's placeholder, a firm's own silhouette),
+// and keying on content would make one member's upload silently become the other's row.
+//
+// WHY THE FIRM'S DATABASE AND NOT THE ACCOUNT'S. A member's own name is an ACCOUNT fact and lives
+// on the control-plane user row (apps/api-worker/src/routes/me-name.ts says why). A picture is not
+// the same kind of fact: it is what this firm's colleagues see beside this person's work, it is
+// stored in this firm's bucket under this firm's key, and a person who leaves takes their name to
+// their next account and leaves the firm's roster photograph behind. Better Auth's `user.image`
+// column exists and is deliberately unused — it holds a URL, and a URL to a firm-scoped object
+// read through a session is not a thing the control plane can resolve.
+export const memberPhoto = sqliteTable(
+  "member_photo",
+  {
+    memberUserId: text("member_user_id")
+      .primaryKey()
+      .$type<UserId>()
+      .references(() => member.userId),
+    // The SHA-256 of the bytes, which is also what the object is keyed by. Not the primary key;
+    // see above.
+    sha256: text("sha256").notNull(),
+    objectKey: text("object_key").notNull(),
+    contentType: text("content_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    // The intrinsic size, so a surface can reserve the space before the bytes arrive.
+    widthPixels: integer("width_pixels").notNull(),
+    heightPixels: integer("height_pixels").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    check("member_photo_size_check", sql`${table.sizeBytes} > 0`),
+    check("member_photo_pixels_check", sql`${table.widthPixels} > 0 AND ${table.heightPixels} > 0`),
+  ],
+);
+
 // A named bundle of permissions. Five defaults are seeded by migration — the seeded handles are
 // committed literals; see drizzle/per-firm/0002_member-rbac.sql.
 export const role = sqliteTable("role", {
@@ -1095,6 +1140,16 @@ export const fileVersion = sqliteTable(
     // made as the last view leaves (`exit`), or the idle reap's cut (`reap`). Null for a version that
     // arrived by upload, check-in or restore. History folds the autosaves and names the rest.
     saveKind: text("save_kind", { enum: ["explicit", "autosave", "exit", "reap"] }),
+    // The copy of this version that leaves the platform, for a word-processing version the editor
+    // cut: the stored bytes keep every tracked change, and a download, a bundle or any other copy
+    // produced for outside the firm is served from a copy with all changes accepted. `pending` from
+    // the cut until the copy is written, `ready` with the copy's key and size (the version's own key
+    // when it recorded nothing), `unavailable` when the document is past what the accept pass can
+    // hold. Null for a version that needs no copy: an upload, a check-in, a restore, or a document
+    // in a format that records no changes.
+    exportCopyState: text("export_copy_state", { enum: ["pending", "ready", "unavailable"] }),
+    exportR2Key: text("export_r2_key"),
+    exportSizeBytes: integer("export_size_bytes"),
   },
   (table) => [
     uniqueIndex("file_version_r2_key_unique_index").on(table.r2Key),

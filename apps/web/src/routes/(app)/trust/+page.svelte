@@ -21,11 +21,11 @@
    * THE ACCOUNT RIDES THE ADDRESS, so a partner who wants a colleague to look at one account's
    * queue sends the link rather than the instruction to go find it.
    *
-   * WHAT THIS SCREEN CANNOT DO YET. No route states an account's balance as it stands today, and
-   * none lists movements across the firm, so the panel says where the figure would be rather than
-   * computing one from what it can reach. Reconciling a period, recording or importing a statement
-   * and the three cushion forms render disabled with what each waits on. The register of those is
-   * $lib/trust/firm-trust-gaps.ts.
+   * WHAT A READER MAY DO IS DECIDED HERE, ONCE, AND HANDED DOWN. Three capabilities govern this
+   * screen's acts — managing accounts and statements, acting on the firm's own cushion, and
+   * changing the authorization posture — and each is read off the session in one place, as the
+   * sentence a refused control carries. A section that worked out its own refusal would be a
+   * second answer to the same question, and the two would drift.
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import * as DataTable from "@magna-carta/design-system/data-table";
@@ -264,10 +264,18 @@
     withdrawOpen = verb === "withdraw";
   }
 
-  /** After any decision the queue is read again: what is waiting is the server's answer, not ours. */
+  /**
+   * After any decision the queue is read again: what is waiting is the server's answer, not ours.
+   *
+   * The position goes with it, because an approval posts a movement — the book balance, the client
+   * ledgers and the count of what is waiting all move on the same gesture, and a panel where one
+   * figure changed and the others did not is a panel that disagrees with itself.
+   */
   function decided(): void {
     decidingRequest = null;
-    if (selectedAccountId !== null) trust.reloadQueue(fetch, selectedAccountId);
+    if (selectedAccountId === null) return;
+    trust.reloadQueue(fetch, selectedAccountId);
+    trust.reloadPosition(fetch, selectedAccountId);
   }
 
   // ---- the firm's posture ---------------------------------------------------------------------------
@@ -278,6 +286,36 @@
     if (permissions === null) return "Reading your session.";
     if (!permissions.includes(TRUST_PERMISSIONS.authorize)) {
       return permissionRefusal("Changing the firm's authorization posture", TRUST_PERMISSIONS.authorize);
+    }
+    return undefined;
+  });
+
+  // ---- what else this reader may do ----------------------------------------------------------------
+
+  /**
+   * Recording and importing a statement, opening a reconciliation over one, and every act on a
+   * diligence file over a quiet client ledger.
+   *
+   * ONE CAPABILITY, SO ONE SENTENCE. The acts differ and the permission does not, and a section
+   * that worked out its own wording would leave one control on this panel saying something
+   * different from the five beside it about the same account.
+   */
+  const manageRefusal = $derived.by((): string | undefined => {
+    if (permissions === null) return "Reading your session.";
+    if (!permissions.includes(TRUST_PERMISSIONS.manage)) {
+      return permissionRefusal(
+        "Recording a statement, a reconciliation or a diligence file",
+        TRUST_PERMISSIONS.manage,
+      );
+    }
+    return undefined;
+  });
+
+  /** Opening the bank-charge cushion, funding it, and recording a charge against it. */
+  const firmFundsRefusal = $derived.by((): string | undefined => {
+    if (permissions === null) return "Reading your session.";
+    if (!permissions.includes(TRUST_PERMISSIONS.firmFunds)) {
+      return permissionRefusal("Acting on the bank-charge cushion", TRUST_PERMISSIONS.firmFunds);
     }
     return undefined;
   });
@@ -366,6 +404,8 @@
     {officeName}
     {money}
     {currency}
+    {manageRefusal}
+    {firmFundsRefusal}
     {postureRefusal}
     onLetGo={() => selectAccount(null)}
     onDecide={decide}
@@ -422,10 +462,12 @@
 
 <FirmOpenAccountDialog bind:open={openAccountOpen} onOpened={accountOpened} />
 
+<!-- The queue serves the matter behind each request, so the panel deciding it names that matter by
+     the number somebody would read back down a telephone rather than showing none. -->
 <ApproveRequestDialog
   bind:open={approveOpen}
   request={decidingRequest}
-  matterNumber={null}
+  matterNumber={decidingRequest?.matterNumber ?? null}
   {money}
   requestedByName={decidingRequest === null
     ? ""
@@ -437,7 +479,7 @@
 <RejectRequestDialog
   bind:open={rejectOpen}
   request={decidingRequest}
-  matterNumber={null}
+  matterNumber={decidingRequest?.matterNumber ?? null}
   {money}
   {submissionKey}
   onRejected={decided}

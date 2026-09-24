@@ -24,13 +24,22 @@ describe("the create label grammar", () => {
   });
 
   it("takes one capitalised word within the budget and nothing else", () => {
-    for (const noun of ["Fee", "Cost", "File", "Matter", "Packet", "Party"]) {
+    for (const noun of ["Fee", "Cost", "File", "Matter", "Packet", "Party", "Template"]) {
       expect(() => assertCreateNoun(noun)).not.toThrow();
       expect(noun.length).toBeLessThanOrEqual(CREATE_NOUN_MAX_LENGTH);
     }
     expect(() => assertCreateNoun("New Folder")).toThrow(/one capitalised word/u);
     expect(() => assertCreateNoun("matter")).toThrow(/one capitalised word/u);
-    expect(() => assertCreateNoun("Deadline")).toThrow(/fixed width holds 7/u);
+    // Nine characters is the first length the measured width cannot hold.
+    expect(() => assertCreateNoun("Agreement")).toThrow(/fixed width holds 8/u);
+  });
+
+  it("refuses the noun rather than letting a screen widen the control for itself", () => {
+    // The refusal names the shared token, because the tempting fix is the wrong one: the width is
+    // one value on every screen, and a screen that stretched it for its own label would move the
+    // control on all of them. The budget moved once, for "New Template", and moved the token with
+    // it — that is a measurement, not a screen opting out.
+    expect(() => assertCreateNoun("Correspondence")).toThrow(/one token shared by every screen/u);
   });
 });
 

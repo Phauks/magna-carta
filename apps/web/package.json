@@ -27,6 +27,7 @@
     "@magna-carta/government-links": "workspace:*",
     "@magna-carta/meeting-protocol": "workspace:*",
     "@magna-carta/merge-field-catalog-contract": "workspace:*",
+    "@magna-carta/money": "workspace:*",
     "@magna-carta/pdf": "workspace:*",
     "@magna-carta/tools": "workspace:*",
     "@noble/hashes": "catalog:",

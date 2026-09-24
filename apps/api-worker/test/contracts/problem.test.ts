@@ -63,6 +63,7 @@ describe("problem-type URI registry", () => {
         "human-verification-required",
         "upload-not-allowed",
         "malware-flagged",
+        "export-copies-pending",
         "unsupported-conversion",
         "not-an-archive",
         "archive-unreadable",

@@ -3,9 +3,23 @@
    * Account · Profile — the member's identity within Magna Carta.
    *
    * THE NAME IS LIVE. It is read from and written to the account's own record: five parts, and the
-   * one line they read as. Email and avatar are still honest Soon seams — both are credential-shaped
-   * changes (an address change has to prove the new mailbox; an avatar needs a store that does not
-   * exist), and neither is what a person comes to this page to fix.
+   * one line they read as.
+   *
+   * THE PICTURE IS LIVE TOO, and lives on its own plate
+   * ($lib/account/components/member-photo-plate.svelte): the bytes go to the firm's bucket and the
+   * row to the firm's roster, which is where a colleague reads it from.
+   *
+   * THE EMAIL ADDRESS IS STATED AND NOT EDITED, which is a decision rather than an unfinished seam,
+   * and it is worth reading before somebody 'finishes' it. The address is the account's SIGN-IN
+   * IDENTITY and the key the joining surface resolves a person by: a pending registration, an
+   * invitation, and the firm-provision message that makes somebody a member are all addressed to it
+   * (apps/api-worker/src/routes/me.ts reads the joining state from the address, and
+   * routes/invitations.ts matches on it). Changing it is therefore not one field write — it is a
+   * proof of the new mailbox, a decision about what happens to anything still addressed to the old
+   * one, and a moment where the person cannot sign in with either. None of that is hard; all of it
+   * has to be designed, and until it is, a disabled box beside a Soon badge would be claiming the
+   * work is nearly done. The address is shown because a member needs to know which one their
+   * account is, which is the question they actually come here with.
    *
    * A NAME IS PARTS, NOT A STRING. The parts are what letterhead, a pleading's signature block and
    * every generated document print, and what a roster sorts by. A single string cannot be sorted by
@@ -24,14 +38,16 @@
    * vocabulary — so the Name plate carries its own Save and Discard, the matter-numbering editor's
    * precedent.
    */
-  import * as Avatar from "@magna-carta/design-system/avatar";
-  import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import Input from "@magna-carta/design-system/input";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { renderPersonName, splitNameForReview } from "@magna-carta/directory/person-name";
+  import { createQuery } from "@tanstack/svelte-query";
+  import { meGetOptions } from "@magna-carta/api-client";
+  import { SESSION_STABLE } from "$lib/api/screen-data.ts";
   import type { Failure } from "$lib/api/request.ts";
   import AccountMasthead from "$lib/account/components/account-masthead.svelte";
+  import MemberPhotoPlate from "$lib/account/components/member-photo-plate.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import HonorificField from "$lib/names/honorific-field.svelte";
@@ -47,59 +63,48 @@
 
   // Page-local definitions: rendering through SettingsRow keeps the shared table grid. The
   // kind/defaultValue fields are inert here (the control snippet renders instead).
-  function nameField(part: string, label: string, description: string): SettingDefinition {
+  //
+  // NONE OF THEM STATES A DESCRIPTOR (owner correction, 2026-09-18). "Prefix" and "Last Name" say
+  // what they are, and a muted line under each explaining that your last name is your family name
+  // is the small text that made this surface read as a manual. Where a row genuinely needs to be
+  // told something — the ordering of the prefix line, say — the place for it is the control, not a
+  // sentence every reader passes over forever. See SettingDefinition.description.
+  function nameField(part: string, label: string): SettingDefinition {
     return {
       id: `account.profile.name.${part}`,
       sectionId: "account-profile",
       label,
-      description,
       kind: "text",
       defaultValue: "",
       sensitivity: "open",
     };
   }
 
-  const PREFIX_DEFINITION = nameField(
-    "prefix",
-    "Prefix",
-    "How you are addressed. Several is fine: Hon., Dr. Optional.",
-  );
-  const FIRST_NAME_DEFINITION = nameField("first", "First Name", "Your given name.");
-  const MIDDLE_NAME_DEFINITION = nameField(
-    "middle",
-    "Middle Name",
-    "Your middle name or initial, as it appears on filings. Optional.",
-  );
-  const LAST_NAME_DEFINITION = nameField(
-    "last",
-    "Last Name",
-    "Your family name — what your colleagues are sorted by.",
-  );
-  const SUFFIX_DEFINITION = nameField(
-    "suffix",
-    "Suffix",
-    "What follows your name. Several is fine: III, Esq. Optional.",
-  );
+  const PREFIX_DEFINITION = nameField("prefix", "Prefix");
+  const FIRST_NAME_DEFINITION = nameField("first", "First Name");
+  const MIDDLE_NAME_DEFINITION = nameField("middle", "Middle Name");
+  const LAST_NAME_DEFINITION = nameField("last", "Last Name");
+  const SUFFIX_DEFINITION = nameField("suffix", "Suffix");
 
   const EMAIL_DEFINITION: SettingDefinition = {
     id: "account.profile.email",
     sectionId: "account-profile",
     label: "Email",
-    description: "The address you sign in with and receive notices at.",
     kind: "text",
     defaultValue: "",
     sensitivity: "open",
   };
 
-  const AVATAR_DEFINITION: SettingDefinition = {
-    id: "account.profile.avatar",
-    sectionId: "account-profile",
-    label: "Avatar",
-    description: "The picture that represents you to your firm.",
-    kind: "text",
-    defaultValue: "",
-    sensitivity: "open",
-  };
+  /*
+   * Who is signed in, for the address and for the initials the picture falls back to.
+   *
+   * The (app) layout performs this same read on every navigation at the session-stable ceiling, and
+   * the account surface renders in the Secure Shell rather than under that layout — so this is a
+   * real read here rather than a cache hit, and it is cached at the same ceiling so that moving
+   * between account pages does not repeat it.
+   */
+  const sessionRead = createQuery(() => ({ ...meGetOptions(), staleTime: SESSION_STABLE }));
+  const account = $derived(sessionRead.data ?? null);
 
   // ---- the name, read and edited ---------------------------------------------------------------
 
@@ -158,7 +163,7 @@
   async function load(): Promise<void> {
     readFailure = null;
     rereading = true;
-    const outcome = await readMemberName(fetch);
+    const outcome = await readMemberName();
     rereading = false;
     if (outcome.kind !== "ok") {
       readFailure = outcome.failure;
@@ -193,7 +198,7 @@
     if (preview === "") return;
     saveFailure = null;
     saving = true;
-    const outcome = await writeMemberName(fetch, {
+    const outcome = await writeMemberName({
       prefix: draft.prefix.trim() === "" ? null : draft.prefix.trim(),
       given: draft.given.trim() === "" ? null : draft.given.trim(),
       middle: draft.middle.trim() === "" ? null : draft.middle.trim(),
@@ -218,7 +223,7 @@
   <title>Profile · Account · Magna Carta</title>
 </svelte:head>
 
-<AccountMasthead title="Profile" meta="Your identity within Magna Carta." />
+<AccountMasthead title="Profile" />
 
 <div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
@@ -313,25 +318,16 @@
       </LoadingRegion>
     </SettingsPlate>
 
-    <SettingsPlate heading="Identity">
-      <SettingsRow definition={EMAIL_DEFINITION}>
-        {#snippet control()}
-          <Badge variant="neutral">Soon</Badge>
-          <Input disabled placeholder="—" aria-label="Email (arrives with authentication)" />
-        {/snippet}
-      </SettingsRow>
+    <MemberPhotoPlate displayName={name?.displayName ?? account?.user.name ?? ""} />
 
-      <SettingsRow definition={AVATAR_DEFINITION}>
-        {#snippet control()}
-          <Badge variant="neutral">Soon</Badge>
-          <Avatar.Root>
-            <Avatar.Fallback>MC</Avatar.Fallback>
-          </Avatar.Root>
-          <Button variant="secondary" disabled aria-label="Change avatar (arrives with authentication)"
-            >Change…</Button
-          >
-        {/snippet}
-      </SettingsRow>
+    <SettingsPlate heading="Identity">
+      <!-- Engraved, not a disabled box: a dead control reads as broken and invites fiddling, where
+           a plainly stated value reads as what it is — a fact this member can see and cannot
+           change from here. The reasoning for the cannot is in this file's header. -->
+      <SettingsRow
+        definition={EMAIL_DEFINITION}
+        value={account?.user.email ?? "—"}
+      />
     </SettingsPlate>
   </div>
 </div>

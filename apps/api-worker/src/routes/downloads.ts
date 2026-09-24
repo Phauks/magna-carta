@@ -44,6 +44,11 @@ import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
 import { selectBundleLane } from "../downloads/bundle-lane.ts";
 import { bundleContainerAdapter } from "../downloads/bundle-container-adapter.ts";
+import {
+  ExportCopiesNotReadyError,
+  resolveExportEntries,
+  type ExportedEntries,
+} from "../exports/export-object.ts";
 
 // Bulk download. A {matterId, folderIds?, fileIds?} selection resolves to the matter's clean CURRENT
 // versions at request time (version-pinned: a later upload never changes what this archive holds). A
@@ -129,6 +134,12 @@ const zipDownloadRoute = defineOpenAPIRoute(zipDownloadMeta, {
     },
     404: {
       description: "The firm is unreachable, the member is deactivated, or the selection is empty",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    409: {
+      description:
+        "The selection holds documents whose copies for outside the platform (every tracked change " +
+        "accepted) are still being made. Retry shortly; the same request answers once they exist.",
       content: { "application/problem+json": { schema: Problem } },
     },
     422: {
@@ -232,7 +243,7 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
         listFoldersByMatter(firm.firmDatabase, matterId),
         listCleanCurrentVersionsByMatter(firm.firmDatabase, matterId),
       ]);
-      const resolved = resolveZipSelection(
+      const selected = resolveZipSelection(
         {
           folderIds: request.folderIds as readonly FolderId[] | undefined,
           fileIds: request.fileIds as readonly FileId[] | undefined,
@@ -241,7 +252,7 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
         cleanFiles,
       );
 
-      if (resolved.entries.length === 0) {
+      if (selected.entries.length === 0) {
         return problemJson(c, {
           type: "not-found",
           title: "Nothing to download",
@@ -249,6 +260,35 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
           detail: "The selection resolved to no downloadable files.",
         });
       }
+
+      // Every lane below reads each entry's key, and the key must be the version's EXPORT object: a
+      // word-processing version the editor cut keeps its tracked changes, and the copy that leaves
+      // is the one with every change accepted (../exports/export-object.ts). Swapped in here, once,
+      // so the redirect, the inline stream, the async build and the container lanes cannot differ.
+      let exported: ExportedEntries;
+      try {
+        exported = await resolveExportEntries(
+          firm.firmDatabase,
+          firmBucket.bucket,
+          selected.entries,
+          () => new Date().toISOString(),
+        );
+      } catch (caught) {
+        if (!(caught instanceof ExportCopiesNotReadyError)) throw caught;
+        return problemJson(c, {
+          type: "export-copies-pending",
+          title: "Documents are still being prepared",
+          status: 409,
+          detail:
+            `${caught.pendingCount} documents saved a moment ago are still being prepared for ` +
+            "download. Try again shortly.",
+        });
+      }
+      const resolved = {
+        entries: exported.entries,
+        fileCount: selected.fileCount,
+        totalBytes: exported.totalBytes,
+      };
 
       // The live thresholds drive the plain lane's inline-vs-async decision; both are also recorded in
       // the audit metadata for every lane, so they are read once here regardless of lane.
@@ -287,6 +327,12 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
                   liveMaxFileCount,
                   liveMaxTotalBytes,
                   delivery,
+                  // How the documents that record changes went out: from an accepted copy, or with
+                  // their marks because no copy could be made. Absent when the selection holds none.
+                  ...(exported.acceptedCopies + exported.unavailableCopies > 0 && {
+                    acceptedCopies: exported.acceptedCopies,
+                    unavailableCopies: exported.unavailableCopies,
+                  }),
                   // Options flags: absent when no options were supplied (legacy path).
                   ...(options !== undefined && {
                     format: options.format,

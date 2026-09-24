@@ -33,6 +33,10 @@ export const PROBLEM_TYPES = {
   // A download of a version a re-scan flagged as malware (HTTP 409). Informed access: the file is not
   // hidden, but the raw download is gated until the member acknowledges the risk (acknowledgeMalware).
   "malware-flagged": "malware-flagged",
+  // A bulk download of documents whose export copies are still being made (HTTP 409): more
+  // versions the editor cut in the last moments than the request path will accept the changes of
+  // on the spot. The copies are on the queue; the same request answers once they land.
+  "export-copies-pending": "export-copies-pending",
   // An unsupported format conversion (HTTP 422): the requested from→to format pair has no path in
   // the conversion graph — either the format is unknown or no engine covers the pair. DISTINCT from
   // `validation` (request-shape) — the request is well-formed; the registry has no path.

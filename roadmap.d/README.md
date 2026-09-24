@@ -6,7 +6,7 @@
 
 ## Maintenance rules
 
-- **Docs-in-commit:** a PR that ships or advances a feature flips its node's `status` (and `evidence`) in the same commit — the same definition-of-done rule as changelog fragments.
+- **Docs-in-commit:** a PR that ships or advances a feature flips its node's `status` (and `evidence`) in the same commit — the same definition-of-done rule as changelog fragments. The flip is the whole change: the rendered register is never committed on a branch (below).
 - **Fragments persist** (like `status.d/`, unlike `changelog.d/`): nodes are never consumed, only updated. Ids are **stable forever** — never renumbered, never reused; a renamed feature keeps its id.
 - **Append new capabilities as new nodes** — the ledger grows over time; a promise that will not be kept is flipped to `cut` with a note, not deleted.
 - One file per area keeps parallel branches from colliding; two streams rarely ship into the same area at once.
@@ -77,12 +77,19 @@ things that are genuinely finished without a screen and always will be.
 
 [`docs/now.md`](../docs/now.md) and [`docs/now.html`](../docs/now.html) — **the build register**, as a
 document and as a self-contained page — are rendered from this ledger by `vp run register-build` and
-are never hand-edited: every node, at its real status, with the counts over the whole set.
+are never hand-edited: every node, at its real status, with the counts over the whole set. **They are
+rendered on `main`, never on a branch**: the per-merge assembly workflow renders them when a merge
+lands, and the weekly docs-sync routine is the fallback while that workflow has no minutes. A branch
+edits the ledger and stops — `vp run register-build` refuses to write off the trunk (`--preview`
+shows the render without committing it), and `pnpm run lint:roadmap` fails a branch that carries
+the rendered files. They used to be rendered on every branch that flipped a node, and every two such
+branches then rewrote the same whole document and conflicted on it.
 [`docs/decisions-open.html`](../docs/decisions-open.html) — **the decision desk** — is rendered by the
 same command from the `awaiting-owner` nodes: every question the program is waiting on, gathered with
 somewhere to write the answer and a block to paste the answers back. `pnpm run lint:roadmap` fails
-when any of the three differs from a fresh render, so a capability that ships moves in the register
-on the `status` flip alone, and a question that is settled leaves the desk when its key does. What
+on `main` (and with `--rendered`, anywhere) when any of the three differs from a fresh render, so a
+capability that ships moves in the register on the `status` flip alone, and a question that is
+settled leaves the desk when its key does. What
 each rendering is for:
 [`docs/conventions/documentation.md`](../docs/conventions/documentation.md). Design:
 [`docs/specs/2026-08-13-public-roadmap-design.md`](../docs/specs/2026-08-13-public-roadmap-design.md).

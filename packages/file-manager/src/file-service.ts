@@ -759,11 +759,10 @@ export interface CommitEditedVersionInput {
   readonly participants: readonly UserId[];
 }
 
-export interface CommittedEditedVersion {
-  readonly skipped: boolean;
-  readonly versionId: FileVersionId | null; // null when skipped
-  readonly effect: EffectWrite;
-}
+export type CommittedEditedVersion =
+  // The bytes match the latest version: nothing was cut and the effect is empty.
+  | { readonly skipped: true; readonly versionId: null; readonly effect: EffectWrite }
+  | { readonly skipped: false; readonly versionId: FileVersionId; readonly effect: EffectWrite };
 
 // Cuts an immutable version from the live `current` working object (the in-app editing path; there is
 // no upload session). A server-side R2 copy moves `current`'s bytes into the new version's opaque key,
@@ -1267,6 +1266,11 @@ export async function softDeleteFile(
 export interface VersionObjectToDestroy {
   readonly versionId: FileVersionId;
   readonly r2Key: string;
+  /**
+   * The version's export copy (every change accepted), when it has one of its own. Derived from the
+   * version's bytes and named by no other row, so it goes wherever the version's object goes.
+   */
+  readonly exportR2Key: string | null;
 }
 
 export interface VersionObjectRetained extends VersionObjectToDestroy {
@@ -1315,6 +1319,7 @@ export async function purgeableVersionObjects(
     id: FileVersionId;
     r2_key: string;
     content_sha256: string | null;
+    export_r2_key: string | null;
   }>();
   const destroy: VersionObjectToDestroy[] = [];
   const retained: VersionObjectRetained[] = [];
@@ -1325,8 +1330,17 @@ export async function purgeableVersionObjects(
       r2Key: version.r2_key,
     }).all<{ held_by: number }>();
     const heldBy = results[0]?.held_by ?? 0;
-    if (heldBy > 0) retained.push({ versionId: version.id, r2Key: version.r2_key, heldBy });
-    else destroy.push({ versionId: version.id, r2Key: version.r2_key });
+    // A copy recorded at the version's own key is the version's bytes themselves (nothing was
+    // recorded in them), not a second object.
+    const exportR2Key =
+      version.export_r2_key === null || version.export_r2_key === version.r2_key
+        ? null
+        : version.export_r2_key;
+    if (heldBy > 0) {
+      retained.push({ versionId: version.id, r2Key: version.r2_key, exportR2Key, heldBy });
+    } else {
+      destroy.push({ versionId: version.id, r2Key: version.r2_key, exportR2Key });
+    }
   }
   return { destroy, retained };
 }

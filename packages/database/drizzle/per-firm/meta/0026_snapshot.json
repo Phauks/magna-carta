@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "45bb012e-d67e-40d0-a329-b889ee7f7157",
-  "prevId": "0098f0e5-2b60-43cd-a8d9-787fe9dffb64",
+  "id": "45f5421b-b6f7-46b1-9907-55574f03a660",
+  "prevId": "a3bb30fe-006c-4da5-8977-448957b68d1a",
   "tables": {
     "account_balance": {
       "name": "account_balance",
@@ -9296,6 +9296,27 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "export_copy_state": {
+          "name": "export_copy_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "export_r2_key": {
+          "name": "export_r2_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "export_size_bytes": {
+          "name": "export_size_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -18264,20 +18285,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "locked_at": {
-          "name": "locked_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "locked_by_user_id": {
-          "name": "locked_by_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -18363,19 +18370,6 @@
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
-        },
-        "meeting_locked_by_user_id_member_user_id_fk": {
-          "name": "meeting_locked_by_user_id_member_user_id_fk",
-          "tableFrom": "meeting",
-          "tableTo": "member",
-          "columnsFrom": [
-            "locked_by_user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -18400,10 +18394,6 @@
         "meeting_ended_shape_check": {
           "name": "meeting_ended_shape_check",
           "value": "(\"meeting\".\"ended_at\" IS NULL AND \"meeting\".\"ended_by_user_id\" IS NULL)\n        OR (\"meeting\".\"ended_at\" IS NOT NULL AND \"meeting\".\"ended_by_user_id\" IS NOT NULL)"
-        },
-        "meeting_locked_shape_check": {
-          "name": "meeting_locked_shape_check",
-          "value": "(\"meeting\".\"locked_at\" IS NULL) = (\"meeting\".\"locked_by_user_id\" IS NULL)"
         }
       }
     },
@@ -18440,13 +18430,6 @@
         },
         "left_at": {
           "name": "left_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "ended_reason": {
-          "name": "ended_reason",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -18528,305 +18511,6 @@
         "meeting_attendance_span_check": {
           "name": "meeting_attendance_span_check",
           "value": "\"meeting_attendance\".\"left_at\" IS NULL OR \"meeting_attendance\".\"left_at\" >= \"meeting_attendance\".\"joined_at\""
-        },
-        "meeting_attendance_ended_reason_check": {
-          "name": "meeting_attendance_ended_reason_check",
-          "value": "\"meeting_attendance\".\"ended_reason\" IS NULL\n        OR (\"meeting_attendance\".\"left_at\" IS NOT NULL\n          AND \"meeting_attendance\".\"ended_reason\" IN ('left', 'socket-lost', 'removed', 'denied'))"
-        }
-      }
-    },
-    "meeting_host": {
-      "name": "meeting_host",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "meeting_id": {
-          "name": "meeting_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "role": {
-          "name": "role",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "granted_by_user_id": {
-          "name": "granted_by_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "granted_at": {
-          "name": "granted_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "revoked_at": {
-          "name": "revoked_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "revoked_by_user_id": {
-          "name": "revoked_by_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "meeting_host_live_host_unique_index": {
-          "name": "meeting_host_live_host_unique_index",
-          "columns": [
-            "meeting_id"
-          ],
-          "isUnique": true,
-          "where": "\"meeting_host\".\"role\" = 'host' AND \"meeting_host\".\"revoked_at\" IS NULL"
-        },
-        "meeting_host_live_grant_unique_index": {
-          "name": "meeting_host_live_grant_unique_index",
-          "columns": [
-            "meeting_id",
-            "user_id"
-          ],
-          "isUnique": true,
-          "where": "\"meeting_host\".\"revoked_at\" IS NULL"
-        },
-        "meeting_host_meeting_revoked_index": {
-          "name": "meeting_host_meeting_revoked_index",
-          "columns": [
-            "meeting_id",
-            "revoked_at"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "meeting_host_meeting_id_meeting_id_fk": {
-          "name": "meeting_host_meeting_id_meeting_id_fk",
-          "tableFrom": "meeting_host",
-          "tableTo": "meeting",
-          "columnsFrom": [
-            "meeting_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "meeting_host_user_id_member_user_id_fk": {
-          "name": "meeting_host_user_id_member_user_id_fk",
-          "tableFrom": "meeting_host",
-          "tableTo": "member",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "meeting_host_granted_by_user_id_member_user_id_fk": {
-          "name": "meeting_host_granted_by_user_id_member_user_id_fk",
-          "tableFrom": "meeting_host",
-          "tableTo": "member",
-          "columnsFrom": [
-            "granted_by_user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "meeting_host_revoked_by_user_id_member_user_id_fk": {
-          "name": "meeting_host_revoked_by_user_id_member_user_id_fk",
-          "tableFrom": "meeting_host",
-          "tableTo": "member",
-          "columnsFrom": [
-            "revoked_by_user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "meeting_host_role_check": {
-          "name": "meeting_host_role_check",
-          "value": "\"meeting_host\".\"role\" IN ('host', 'co-host')"
-        },
-        "meeting_host_revoked_shape_check": {
-          "name": "meeting_host_revoked_shape_check",
-          "value": "(\"meeting_host\".\"revoked_at\" IS NULL) = (\"meeting_host\".\"revoked_by_user_id\" IS NULL)"
-        }
-      }
-    },
-    "meeting_message": {
-      "name": "meeting_message",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "meeting_id": {
-          "name": "meeting_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "participant_kind": {
-          "name": "participant_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "participant_id": {
-          "name": "participant_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "sent_at": {
-          "name": "sent_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "body": {
-          "name": "body",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "redacted_at": {
-          "name": "redacted_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "redacted_by_user_id": {
-          "name": "redacted_by_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "meeting_message_meeting_sent_index": {
-          "name": "meeting_message_meeting_sent_index",
-          "columns": [
-            "meeting_id",
-            "sent_at",
-            "id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "meeting_message_meeting_id_meeting_id_fk": {
-          "name": "meeting_message_meeting_id_meeting_id_fk",
-          "tableFrom": "meeting_message",
-          "tableTo": "meeting",
-          "columnsFrom": [
-            "meeting_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "meeting_message_redacted_by_user_id_member_user_id_fk": {
-          "name": "meeting_message_redacted_by_user_id_member_user_id_fk",
-          "tableFrom": "meeting_message",
-          "tableTo": "member",
-          "columnsFrom": [
-            "redacted_by_user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "meeting_message_redaction_shape_check": {
-          "name": "meeting_message_redaction_shape_check",
-          "value": "(\"meeting_message\".\"redacted_at\" IS NULL AND \"meeting_message\".\"redacted_by_user_id\" IS NULL)\n        OR (\"meeting_message\".\"redacted_at\" IS NOT NULL AND \"meeting_message\".\"redacted_by_user_id\" IS NOT NULL)"
-        },
-        "meeting_message_redacted_body_check": {
-          "name": "meeting_message_redacted_body_check",
-          "value": "(\"meeting_message\".\"redacted_at\" IS NULL AND length(\"meeting_message\".\"body\") > 0)\n        OR (\"meeting_message\".\"redacted_at\" IS NOT NULL AND length(\"meeting_message\".\"body\") = 0)"
-        },
-        "meeting_message_body_length_check": {
-          "name": "meeting_message_body_length_check",
-          "value": "length(\"meeting_message\".\"body\") <= 4000"
-        },
-        "meeting_message_participant_kind_check": {
-          "name": "meeting_message_participant_kind_check",
-          "value": "\"meeting_message\".\"participant_kind\" IN ('member', 'guest')"
         }
       }
     },
@@ -18965,6 +18649,102 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
+    },
+    "member_photo": {
+      "name": "member_photo",
+      "columns": {
+        "member_user_id": {
+          "name": "member_user_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sha256": {
+          "name": "sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "object_key": {
+          "name": "object_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "content_type": {
+          "name": "content_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "size_bytes": {
+          "name": "size_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "width_pixels": {
+          "name": "width_pixels",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "height_pixels": {
+          "name": "height_pixels",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "member_photo_member_user_id_member_user_id_fk": {
+          "name": "member_photo_member_user_id_member_user_id_fk",
+          "tableFrom": "member_photo",
+          "tableTo": "member",
+          "columnsFrom": [
+            "member_user_id"
+          ],
+          "columnsTo": [
+            "user_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "member_photo_size_check": {
+          "name": "member_photo_size_check",
+          "value": "\"member_photo\".\"size_bytes\" > 0"
+        },
+        "member_photo_pixels_check": {
+          "name": "member_photo_pixels_check",
+          "value": "\"member_photo\".\"width_pixels\" > 0 AND \"member_photo\".\"height_pixels\" > 0"
+        }
+      }
     },
     "member_professional_profile": {
       "name": "member_professional_profile",

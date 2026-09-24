@@ -50,6 +50,10 @@ export type MatterScopedObjectClass =
   // The single mutable working copy of a document with an editing session open. NOT a version:
   // nobody has saved it, and it is overwritten on every keystroke batch.
   | "working-copy"
+  // A version's export copy: the same document with every tracked change accepted, produced once
+  // when the editor cuts the version and served wherever a copy leaves the platform. DERIVED from
+  // the version's own bytes and rebuildable from them; it belongs to the version's matter.
+  | "export-copy"
   // A purchased carrier label, when the shipment it belongs to names a matter.
   | "shipping-label"
   // The frozen list of review documents one bulk coding act executed against, resolved once at
@@ -102,7 +106,11 @@ export type FirmScopedObjectClass =
   | "shipping-label"
   // A tabular export on a member's shelf: the stored DOCUMENT a later download renders into a
   // format. Its figures may span matters and the shelf is the member's, so it belongs to none.
-  | "export-snapshot";
+  | "export-snapshot"
+  // A member's own picture, as their colleagues see them. It belongs to the firm's roster rather
+  // than to any matter, and stays firm-scoped for the same reason the member row does: it is what
+  // THIS firm shows beside this person's work.
+  | "member-photo";
 
 // Classes a reader of these objects may encounter one day and which NOTHING in this platform writes
 // today. They are named here so the vocabulary is closed rather than open-ended, and so a filter that
@@ -114,6 +122,7 @@ export type ObjectClass = MatterScopedObjectClass | FirmScopedObjectClass | Rese
 export const MATTER_SCOPED_OBJECT_CLASSES: readonly MatterScopedObjectClass[] = [
   "working-document",
   "working-copy",
+  "export-copy",
   "shipping-label",
   "review-coding-selection",
   "search-split",
@@ -131,6 +140,7 @@ export const FIRM_SCOPED_OBJECT_CLASSES: readonly FirmScopedObjectClass[] = [
   "email-staging",
   "shipping-label",
   "export-snapshot",
+  "member-photo",
 ];
 
 export const RESERVED_OBJECT_CLASSES: readonly ReservedObjectClass[] = [
