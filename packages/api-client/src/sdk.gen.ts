@@ -5366,7 +5366,7 @@ export const supportSessionsRedeem = <ThrowOnError extends boolean = false>(opti
 export const supportDiagnosticsOverview = <ThrowOnError extends boolean = false>(options?: Options<SupportDiagnosticsOverviewData, ThrowOnError>): RequestResult<SupportDiagnosticsOverviewResponses, SupportDiagnosticsOverviewErrors, ThrowOnError> => (options?.client ?? client).get<SupportDiagnosticsOverviewResponses, SupportDiagnosticsOverviewErrors, ThrowOnError>({ url: '/api/v1/support/diagnostics/overview', ...options });
 
 /**
- * Disconnects the firm's EasyPost postage account. Shipping operations stop until the account is connected again.
+ * Disconnects the firm's EasyPost postage account and clears its stored key. Shipping operations stop until the account is connected again. An administrative act: it requires firm:manageSecrets, not shipping:manage.
  */
 export const shippingDisconnectCarrier = <ThrowOnError extends boolean = false>(options: Options<ShippingDisconnectCarrierData, ThrowOnError>): RequestResult<ShippingDisconnectCarrierResponses, ShippingDisconnectCarrierErrors, ThrowOnError> => (options.client ?? client).delete<ShippingDisconnectCarrierResponses, ShippingDisconnectCarrierErrors, ThrowOnError>({ url: '/api/v1/integrations/shipping/connection', ...options });
 
@@ -5376,7 +5376,7 @@ export const shippingDisconnectCarrier = <ThrowOnError extends boolean = false>(
 export const shippingReadConnection = <ThrowOnError extends boolean = false>(options?: Options<ShippingReadConnectionData, ThrowOnError>): RequestResult<ShippingReadConnectionResponses, ShippingReadConnectionErrors, ThrowOnError> => (options?.client ?? client).get<ShippingReadConnectionResponses, ShippingReadConnectionErrors, ThrowOnError>({ url: '/api/v1/integrations/shipping/connection', ...options });
 
 /**
- * Connects the firm's EasyPost postage account by storing its API key as a firm secret.
+ * Connects the firm's EasyPost postage account, or replaces its key. The key is stored encrypted and is never returned by any route. An administrative act: it requires firm:manageSecrets, not shipping:manage.
  */
 export const shippingConnect = <ThrowOnError extends boolean = false>(options: Options<ShippingConnectData, ThrowOnError>): RequestResult<ShippingConnectResponses, ShippingConnectErrors, ThrowOnError> => (options.client ?? client).post<ShippingConnectResponses, ShippingConnectErrors, ThrowOnError>({
     url: '/api/v1/integrations/shipping/connection',

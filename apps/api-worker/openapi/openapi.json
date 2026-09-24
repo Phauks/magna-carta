@@ -36777,11 +36777,6 @@
           },
           "remoteRateId": {
             "type": "string"
-          },
-          "serviceFeeMinor": {
-            "type": "integer",
-            "minimum": 0,
-            "default": 0
           }
         },
         "required": [
@@ -109775,7 +109770,7 @@
     },
     "/api/v1/integrations/shipping/connection": {
       "post": {
-        "description": "Connects the firm's EasyPost postage account by storing its API key as a firm secret.",
+        "description": "Connects the firm's EasyPost postage account, or replaces its key. The key is stored encrypted and is never returned by any route. An administrative act: it requires firm:manageSecrets, not shipping:manage.",
         "operationId": "shipping.connect",
         "tags": [
           "shipping"
@@ -109783,7 +109778,7 @@
         "x-mc-operationId": "shipping.connect",
         "x-mc-surface": "app",
         "x-mc-authenticated": true,
-        "x-mc-permission": "shipping:manage",
+        "x-mc-permission": "firm:manageSecrets",
         "x-mc-resource": "firm",
         "x-mc-audited": true,
         "x-mc-idempotency": "required",
@@ -109908,7 +109903,7 @@
         }
       },
       "delete": {
-        "description": "Disconnects the firm's EasyPost postage account. Shipping operations stop until the account is connected again.",
+        "description": "Disconnects the firm's EasyPost postage account and clears its stored key. Shipping operations stop until the account is connected again. An administrative act: it requires firm:manageSecrets, not shipping:manage.",
         "operationId": "shipping.disconnectCarrier",
         "tags": [
           "shipping"
@@ -109916,7 +109911,7 @@
         "x-mc-operationId": "shipping.disconnectCarrier",
         "x-mc-surface": "app",
         "x-mc-authenticated": true,
-        "x-mc-permission": "shipping:manage",
+        "x-mc-permission": "firm:manageSecrets",
         "x-mc-resource": "firm",
         "x-mc-audited": true,
         "x-mc-idempotency": "required",

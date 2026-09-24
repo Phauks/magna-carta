@@ -58,12 +58,25 @@ import { deleteIntegrationCredentialStatement } from "@magna-carta/data-access/i
 import type { PluginRuntime } from "../plugins/runtime.ts";
 
 // Shipping & postage: connect the firm's EasyPost postage account, then create/rate/buy/track/refund
-// shipments. The API key is stored as a firm secret (never logged); the live carrier calls run
-// through the resolved ShippingPort. Every route requires shipping:manage. The PluginRuntime is
-// injected so production swaps the real firm_secret store and tests inject a fake EasyPost.
+// shipments. The API key is sealed under the firm key in the integration credential store (never
+// logged, never returned); the live carrier calls run through the resolved ShippingPort, whose
+// credential read carries the integrations:useConnection gate. The PluginRuntime is injected so tests
+// can put a fake EasyPost behind the real store.
+//
+// TWO PERMISSIONS, AND WHICH ROUTES TAKE WHICH. Everything a member does with shipments — drafting,
+// listing, reading, and (with integrations:useConnection) rating, buying, tracking and voiding — takes
+// shipping:manage. WRITING the credential does not: connecting and disconnecting the account take
+// ADMINISTER. The store does no permission check of its own on a write (it defers to the route), so
+// the route is the only gate there is, and it has to be the administrative one. With shipping:manage
+// on it, any member who could draft a shipment could swap the firm's key for one on an account they
+// control — after which every shipment an administrator buys, with its clients' names and
+// addresses, is sent to that account — or disconnect the firm's postage outright.
 
 type ShippingApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 const MANAGE = "shipping:manage" as const;
+// The same key the Settings › Postage Account page is editable under (apps/web/src/lib/settings/
+// settings-permissions.ts), so the page and the server agree on who may change the account.
+const ADMINISTER = "firm:manageSecrets" as const;
 
 // Where a firm's postage credential is addressed. A firm has at most one postage connection, so the
 // ref is derived from the firm rather than minted — which is what makes a reconnect a rotation in
@@ -114,12 +127,15 @@ const errorResponses = {
   },
 } as const;
 
-function writeMeta(operationId: string): RouteMeta {
+function writeMeta(
+  operationId: string,
+  permission: typeof MANAGE | typeof ADMINISTER = MANAGE,
+): RouteMeta {
   return {
     operationId,
     surface: "app",
     authenticated: true,
-    permission: MANAGE,
+    permission,
     resource: "firm",
     audited: true,
     idempotency: "required",
@@ -183,11 +199,11 @@ const RatesResponse = z
   .object({ remoteShipmentId: z.string(), rates: z.array(RateSchema) })
   .openapi("ShipmentRates");
 
-const connectRoute = defineOpenAPIRoute(writeMeta("shipping.connect"), {
+const connectRoute = defineOpenAPIRoute(writeMeta("shipping.connect", ADMINISTER), {
   method: "post",
   path: "/api/v1/integrations/shipping/connection",
   description:
-    "Connects the firm's EasyPost postage account by storing its API key as a firm secret.",
+    "Connects the firm's EasyPost postage account, or replaces its key. The key is stored encrypted and is never returned by any route. An administrative act: it requires firm:manageSecrets, not shipping:manage.",
   request: {
     headers: idempotencyKeyHeader,
     body: { content: { "application/json": { schema: ConnectRequest } }, required: true },
@@ -207,14 +223,14 @@ const connectRoute = defineOpenAPIRoute(writeMeta("shipping.connect"), {
 
 const disconnectCarrierRoute = defineOpenAPIRoute(
   {
-    ...writeMeta("shipping.disconnectCarrier"),
+    ...writeMeta("shipping.disconnectCarrier", ADMINISTER),
     reversal: { kind: "inverse", by: "shipping.connect" },
   },
   {
     method: "delete",
     path: "/api/v1/integrations/shipping/connection",
     description:
-      "Disconnects the firm's EasyPost postage account. Shipping operations stop until the account is connected again.",
+      "Disconnects the firm's EasyPost postage account and clears its stored key. Shipping operations stop until the account is connected again. An administrative act: it requires firm:manageSecrets, not shipping:manage.",
     request: { headers: idempotencyKeyHeader },
     responses: {
       200: {
@@ -285,11 +301,21 @@ const rateRoute = defineOpenAPIRoute(
   },
 );
 
+// The platform's own fee on a label, in the shipment's currency's minor units. It is the SERVER's
+// number, never the caller's. It used to arrive on the purchase request, and a fee with a positive
+// value becomes a billable charge on the shipment's matter when the firm recovers the shipping service
+// fee — so a member who could buy a label could put a charge of any size on a client's bill, without
+// the costs:track permission every other cost entry needs. The platform charges nothing per label
+// today; when it does, the amount is decided here (or read from the firm's plan), not sent in.
+const SERVICE_FEE_MINOR = 0;
+
+// Deliberately no fee field. A caller that still sends one has it stripped by the schema and ignored,
+// which is what the purchase test pins, rather than refused: an old client in a browser tab should
+// still be able to buy the label it was already looking at.
 const PurchaseRequest = z
   .object({
     remoteShipmentId: z.string(),
     remoteRateId: z.string(),
-    serviceFeeMinor: z.number().int().nonnegative().default(0),
   })
   .openapi("PurchaseRequest");
 const PurchaseAck = z
@@ -919,7 +945,7 @@ export function registerShippingRoutes(
               labelFormat: label.labelFormat,
               r2Key,
               postageCostMinor: label.costMinor,
-              serviceFeeMinor: body.serviceFeeMinor,
+              serviceFeeMinor: SERVICE_FEE_MINOR,
               currency: label.currency,
             },
             { clock: { now }, actorUserId: userId },
