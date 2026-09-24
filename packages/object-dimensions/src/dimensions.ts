@@ -50,6 +50,10 @@ export type MatterScopedObjectClass =
   // The single mutable working copy of a document with an editing session open. NOT a version:
   // nobody has saved it, and it is overwritten on every keystroke batch.
   | "working-copy"
+  // A version's export copy: the same document with every tracked change accepted, produced once
+  // when the editor cuts the version and served wherever a copy leaves the platform. DERIVED from
+  // the version's own bytes and rebuildable from them; it belongs to the version's matter.
+  | "export-copy"
   // A purchased carrier label, when the shipment it belongs to names a matter.
   | "shipping-label"
   // The frozen list of review documents one bulk coding act executed against, resolved once at
@@ -114,6 +118,7 @@ export type ObjectClass = MatterScopedObjectClass | FirmScopedObjectClass | Rese
 export const MATTER_SCOPED_OBJECT_CLASSES: readonly MatterScopedObjectClass[] = [
   "working-document",
   "working-copy",
+  "export-copy",
   "shipping-label",
   "review-coding-selection",
   "search-split",

@@ -1,9 +1,9 @@
 # Document history — every save, who was there, and who wrote which words
 
 **Status:** Layers 1 and 2 built (every save a version with its kind, the fold, participants per
-version), and 3.2 built (the firm policy, recording forced on by the host, the marks hidden on open);
-3.4 and the accept-on-export step are design, the one decision (section 3.3) taken: accept on
-export. The owner asked on 2026-09-17 for history that matches
+version), 3.2 built (the firm policy, recording forced on by the host, the marks hidden on open),
+and the accept-on-export step built (2026-09-24: the export copy, every download lane served from
+it); 3.4 is design, the one decision (section 3.3) taken: accept on export. The owner asked on 2026-09-17 for history that matches
 what Google Docs shows: every state of the document, grouped in a timeline, and each change
 attributed to the person who made it, with the noise handled by grouping rather than by keeping
 less.
@@ -126,6 +126,30 @@ redline. Two answers; the owner chose the first on 2026-09-18 (decision fragment
 
 Recorded as a pending decision (`docs/decisions/pending/tracked-changes-are-accepted-on-export-never-in-storage.md`).
 
+**Built 2026-09-24, with one change to the means.** The decision named the conversion container
+as what accepts the changes; the copy is produced instead by an XML rewrite of the package in
+TypeScript (`acceptTrackedChanges` in `@magna-carta/document-assembly`), off the request path. The
+office suite's headless save cannot accept changes without a macro, and re-rendering the document
+would be a second answer to what it looks like — fonts, spacing, field results — where the copy
+must be the member's document with the marks resolved and nothing else changed. The rewrite is
+mechanical over the revision elements of WordprocessingML: insertions keep their content, deletions
+go, a deleted paragraph mark joins the paragraph to the next (keeping the following mark, as Word
+does), deleted rows and cells go, property-change records go, range markers go.
+
+The copy is made once per version the editor cuts (`export_copy_state`, `export_r2_key`,
+`export_size_bytes` on `file_version`), stored beside the version, and every download lane is
+served from it: the per-file redirect and every lane of the bulk download. A copy not yet made at
+the moment of a download is made on the spot; a document past the pass's caps is recorded
+`unavailable` and downloads as stored, with the audit saying so — the one case chosen over refusing
+a member their own document. The enumeration of outbound paths, what is deliberately not one, and
+what must join the list when built, is kept in `apps/api-worker/src/editing/CLAUDE.md`.
+
+Scope: versions the editor cut, in `.docx`. An uploaded document is served as it arrived — the
+platform recorded nothing in it, and a redlined document from the other side is downloaded with
+their redlines, which is what a member forwarding it expects. A document the editor cut from such
+an upload has the other side's marks accepted along with the firm's own on the way out; that is the
+decision's consequence, and the stored version keeps both.
+
 ### 3.4 Reading the marks into history
 
 At every version cut, the host reads the version's change marks — author, time, kind, the text
@@ -170,5 +194,5 @@ pretending.
 1. `save_kind` on the version, the autosave cut, and the folded history — layer 1.
 2. Participants per version — layer 2.
 3. The firm policy and recording-on-load — 3.2.
-4. The owner's answer to 3.3, recorded; accept-on-export in the conversion container.
+4. The owner's answer to 3.3, recorded; accept-on-export — built 2026-09-24, as an XML rewrite.
 5. The mark reader in the document core, the change rows, the per-author summary and diff — 3.4.

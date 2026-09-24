@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 844 nodes of the feature ledger in
+is the complete register rather than a digest: all 845 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,26 +21,26 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**844 capabilities across 32 areas.** Every one of them is listed in [the register](#the-register)
+**845 capabilities across 32 areas.** Every one of them is listed in [the register](#the-register)
 below. 145 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **699 that are units of work**, for the reason set out under [What a roll-up is
+count the **700 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 329 | 47% |
+| Done | shipped | 330 | 47% |
 | Part-built | partial, in-build | 124 | 18% |
 | Ahead | designed, planned, researching, not-started | 204 | 29% |
 | Parked | deferred, cut | 42 | 6% |
-| **All units of work** | | **699** | **100%** |
+| **All units of work** | | **700** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 329 | 47% |
+| `shipped` | 330 | 47% |
 | `partial` | 124 | 18% |
 | `in-build` | 0 | 0% |
 | `designed` | 47 | 7% |
@@ -49,11 +49,11 @@ not](#what-a-roll-up-is-not).
 | `not-started` | 137 | 20% |
 | `deferred` | 38 | 5% |
 | `cut` | 4 | 0% |
-| **All statuses** | **699** | **100%** |
+| **All statuses** | **700** | **100%** |
 
 ### What a roll-up is not
 
-**145 of the 844 nodes are parents, and 112 of those parents are `partial`.** A parent's status is a
+**145 of the 845 nodes are parents, and 112 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 329 of 699 (47%). Shipped plus partial is 453 (65%).**
+**Shipped alone is 330 of 700 (47%). Shipped plus partial is 454 (65%).**
 
 The 124 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,7 +74,7 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**453 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**454 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
@@ -83,9 +83,9 @@ ledger records it separately, in `surface:`.
 | --- | ---: | ---: |
 | A person can open it today (`screen`) | 113 | 25% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 155 | 34% |
-| No user surface by nature (`internal`) | 185 | 41% |
+| No user surface by nature (`internal`) | 186 | 41% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **453** | **100%** |
+| **Everything with something built** | **454** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -106,7 +106,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Design System, UI Consistency & Design Quality | 13 | 5 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 19 | 68% |
 | Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
 | Document Automation | 3 | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 10 | 30% |
-| Documents | 67 | 11 | 0 | 2 | 0 | 0 | 16 | 3 | 1 | 100 | 67% |
+| Documents | 68 | 11 | 0 | 2 | 0 | 0 | 16 | 3 | 1 | 101 | 67% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
 | Financial Core | 22 | 19 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 63 | 35% |
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
@@ -127,7 +127,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 14 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 21 | 67% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **329** | **124** | **0** | **47** | **15** | **5** | **137** | **38** | **4** | **699** | **47%** |
+| **All areas** | **330** | **124** | **0** | **47** | **15** | **5** | **137** | **38** | **4** | **700** | **47%** |
 
 ## Where we have been
 
@@ -745,7 +745,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Documents
 
-[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 100 units of work, 67% shipped. 67 done, 11 part-built, 18 ahead, 4 parked.
+[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 101 units of work, 67% shipped. 68 done, 11 part-built, 18 ahead, 4 parked.
 
 - `documents` · `partial` · **Documents** — Matter document storage and tooling — file manager, upload/ingest, malware scanning, editing, versioning/tiering, preview, conversion, PDF services, e-signature, bundling, OCR, repair, decryption, metadata, integrity, type verification, email parsing. _Note: Backend/engine depth far ahead of user-facing surfaces; web file surface in flight._
   - `documents.file-manager` · `partial` · **File Manager** — Navigation over the matter's versioned R2 files — folders, document types, drag/drop, bulk download, content hashing, storage metering. _Note: Backend shipped; user-facing surface is the file-surface-web stream._
@@ -779,6 +779,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.editing.collabora-host` · `shipped` · **Collabora container host** — One container per open document, spun up on demand by a Durable Object and reaped when idle, in a dedicated edit worker.
     - `documents.editing.wopi-host` · `shipped` · **WOPI host & version-cut policy** — WOPI callbacks with autosave-aware version cutting (explicit save and session close cut versions; autosaves overwrite current) and timestamp-guarded current overwrite.
     - `documents.editing.checkout` · `shipped` · **Offline checkout / check-in** — Optimistic checkout with check-in reconciliation and an active-to-stale-to-released idle-checkout sweep on cron.
+    - `documents.editing.export-copy` · `shipped` · **Accepted copies on the way out** — Every copy of a .docx version the editor cut that leaves the platform — the per-file download and every lane of the bulk download — is served from a copy with all tracked changes accepted, produced off the request path when the version is cut; the stored version keeps every mark for history to read.
     - `documents.editing.editor-ui` · `partial` · **Editor UI** — In-app surface that opens a document in the Collabora frame, and the in-app plain-text editor beside it. _Note: The office frame fills only where magna-carta-edit is deployed; the text editor saves a new version everywhere. Spreadsheets and presentations still open their preview._
     - `documents.editing.native-editor` · `cut` · **Native CRDT editor** — A second, lightweight Yjs/CRDT working-doc editor alongside Collabora.
   - `documents.versioning` · `partial` · **Versioning & storage tiering** — App-managed immutable version objects (not R2 native versioning) with per-version storage class and lifecycle.

@@ -1091,6 +1091,16 @@ export const fileVersion = sqliteTable(
     // made as the last view leaves (`exit`), or the idle reap's cut (`reap`). Null for a version that
     // arrived by upload, check-in or restore. History folds the autosaves and names the rest.
     saveKind: text("save_kind", { enum: ["explicit", "autosave", "exit", "reap"] }),
+    // The copy of this version that leaves the platform, for a word-processing version the editor
+    // cut: the stored bytes keep every tracked change, and a download, a bundle or any other copy
+    // produced for outside the firm is served from a copy with all changes accepted. `pending` from
+    // the cut until the copy is written, `ready` with the copy's key and size (the version's own key
+    // when it recorded nothing), `unavailable` when the document is past what the accept pass can
+    // hold. Null for a version that needs no copy: an upload, a check-in, a restore, or a document
+    // in a format that records no changes.
+    exportCopyState: text("export_copy_state", { enum: ["pending", "ready", "unavailable"] }),
+    exportR2Key: text("export_r2_key"),
+    exportSizeBytes: integer("export_size_bytes"),
   },
   (table) => [
     uniqueIndex("file_version_r2_key_unique_index").on(table.r2Key),
