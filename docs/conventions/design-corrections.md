@@ -2357,7 +2357,9 @@ above. What is local:
 - **The Directory's control reads the bare "New"** and opens its person-or-organization menu; the
   "New person" empty-state button is gone.
 - **The width is a token, 136px**, sized to "New Packet" with the glyph, the chevron and the
-  button's padding; the noun budget is seven characters.
+  button's padding; the noun budget is seven characters. _(Re-measured on 2026-09-18: 140px and
+  eight characters, so "New Template" fits. The token is the fact; these numbers are what it held
+  then.)_
 - **The registry's declared slug is checked against the address**: a page claiming the control for
   a section it is not on is refused loudly, as is a second claimant on one screen.
 
@@ -3306,3 +3308,35 @@ uploading and adding a profile image", "identity should show the associated emai
   it, and the seam guard now asserts that a page with no seam claims no badge. Generalizes: **a Soon
   badge is a promise about the near term. On a row nobody intends to build soon it teaches a reader
   that the badge means less than it does.**
+
+### 2026-09-18 — the create control's width is re-measured, not worked around
+
+The owner, on /documents answering with the crash screen: what the report said was `status: 500` and
+"Something went wrong", and what had actually happened was that `CreateControl` refuses a noun longer
+than its fixed width holds, `noun="Template"` was eight characters against a budget of seven, and
+the refusal is a `throw` raised while the screen renders. The render boundary did its job — the page
+became the failure screen with an Error ID — which is precisely why the defect read as a server
+problem for a day. Offered the bare "New", a shorter noun, or a wider control, the owner took the
+width.
+
+- **The one width is re-measurable; a screen's own width is not.** `size.create-control` is 140px
+  (was 136px) and `CREATE_NOUN_MAX_LENGTH` is eight (was seven), so "New Template" fits and every
+  create control in the product moves together. The property the fixed width protects is that the
+  control is the same size on every screen, so the search beside it never shifts — that property
+  survives a re-measurement and would not survive one screen stretching the control for its own
+  label. The refusal now says so in place of "choose a shorter noun", which was advice with nowhere
+  to go: the template library's record is a template, and the domain has no shorter word for it.
+- **The budget is a measurement, and it is written down as one.** In the reading face at the small
+  size "New Template" sets 81.6px; a 140px control leaves 80px of label after the padding, the glyph
+  and its gap. Eight characters fit with a little over two points to spare and nine do not. A
+  menu-bearing control spends a further 20px on its chevron and no eight-character noun survives it
+  — which costs nothing, because a menu reads the bare "New" and names the kinds on its items.
+- **A design-system assertion that throws during render is a whole-screen outage, so it is checked
+  before it renders.** `pnpm run lint:matter-create-control` read create nouns out of the matter
+  section registry, where they are declared as data, and read nothing at all out of a top-level
+  screen's markup — which is where this one was written. It reads both now, names the file and line,
+  and says what a bad noun costs. Beside it, `apps/web/test/documents-library-screen.test.ts` mounts
+  the screen under the real root layout and fails on a render-time throw of any kind, not only this
+  one. Generalizes: **a component that refuses its own props by throwing needs a gate that reads the
+  props from source**, because review does not catch a label that is one character too long and the
+  type-checker sees a string.

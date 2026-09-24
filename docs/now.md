@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 846 nodes of the feature ledger in
+is the complete register rather than a digest: all 847 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,9 +21,9 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**846 capabilities across 32 areas.** Every one of them is listed in [the register](#the-register)
+**847 capabilities across 32 areas.** Every one of them is listed in [the register](#the-register)
 below. 145 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **701 that are units of work**, for the reason set out under [What a roll-up is
+count the **702 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
@@ -31,17 +31,17 @@ not](#what-a-roll-up-is-not).
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
 | Done | shipped | 331 | 47% |
-| Part-built | partial, in-build | 124 | 18% |
+| Part-built | partial, in-build | 125 | 18% |
 | Ahead | designed, planned, researching, not-started | 204 | 29% |
 | Parked | deferred, cut | 42 | 6% |
-| **All units of work** | | **701** | **100%** |
+| **All units of work** | | **702** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
 | `shipped` | 331 | 47% |
-| `partial` | 124 | 18% |
+| `partial` | 125 | 18% |
 | `in-build` | 0 | 0% |
 | `designed` | 47 | 7% |
 | `planned` | 15 | 2% |
@@ -49,11 +49,11 @@ not](#what-a-roll-up-is-not).
 | `not-started` | 137 | 19% |
 | `deferred` | 38 | 5% |
 | `cut` | 4 | 1% |
-| **All statuses** | **701** | **100%** |
+| **All statuses** | **702** | **100%** |
 
 ### What a roll-up is not
 
-**145 of the 846 nodes are parents, and 112 of those parents are `partial`.** A parent's status is a
+**145 of the 847 nodes are parents, and 112 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 331 of 701 (47%). Shipped plus partial is 455 (65%).**
+**Shipped alone is 331 of 702 (47%). Shipped plus partial is 456 (65%).**
 
-The 124 units between those two numbers are work that is engineered and paid for and is not
+The 125 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**455 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**456 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 115 | 25% |
+| A person can open it today (`screen`) | 116 | 25% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 155 | 34% |
 | No user surface by nature (`internal`) | 185 | 41% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **455** | **100%** |
+| **Everything with something built** | **456** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -110,7 +110,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
 | Financial Core | 22 | 19 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 63 | 35% |
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
-| Integrations & Plugins | 17 | 2 | 0 | 1 | 0 | 3 | 15 | 3 | 1 | 42 | 40% |
+| Integrations & Plugins | 17 | 3 | 0 | 1 | 0 | 3 | 15 | 3 | 1 | 43 | 40% |
 | Maintenance Agents | 2 | 3 | 0 | 0 | 0 | 0 | 5 | 0 | 0 | 10 | 20% |
 | Meetings | 6 | 0 | 0 | 1 | 0 | 0 | 4 | 0 | 0 | 11 | 55% |
 | Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 12 | 58% |
@@ -127,7 +127,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 14 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 21 | 67% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **331** | **124** | **0** | **47** | **15** | **5** | **137** | **38** | **4** | **701** | **47%** |
+| **All areas** | **331** | **125** | **0** | **47** | **15** | **5** | **137** | **38** | **4** | **702** | **47%** |
 
 ## Where we have been
 
@@ -982,7 +982,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Integrations & Plugins
 
-[`roadmap.d/integrations.md`](../roadmap.d/integrations.md) — 42 units of work, 40% shipped. 17 done, 2 part-built, 19 ahead, 4 parked.
+[`roadmap.d/integrations.md`](../roadmap.d/integrations.md) — 43 units of work, 40% shipped. 17 done, 3 part-built, 19 ahead, 4 parked.
 
 - `integrations` · `partial` · **Plugin / add-on system** — Ports-and-adapters integration framework, manifest-driven registration, first-party adapters, the Tools catalog, and the future third-party marketplace. _Note: First-party only today; C seam to a marketplace documented, not built._
   - `integrations.port-framework` · `shipped` · **Integration port framework** — Typed category ports with vendor adapters behind them; canonical types, manifest, registry, dispatch, problem mapping.
@@ -1016,6 +1016,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `integrations.tools.property-links` · `shipped` · **Property external links** — Zillow/Redfin/Maps/Realtor deep-links for a Location; pure link helper, not a plugin. _Note: County-assessor provider has landed (src/providers/county-assessor.ts), so five providers resolve. Redfin/Maps/assessor links verified live 2026-08-15; Zillow and Realtor.com answer bot mitigation to a non-browser client and stay unverified. On a partial address the Zillow/Redfin/Maps links silently drop state and ZIP — the UI must require the structured address. docs/research/2026-08-15-tools-reality-check.md._
     - `integrations.tools.whois` · `shipped` · **WHOIS lookup** — Public domain/IP registration lookup, RDAP-first with legacy port-43 fallback for ccTLDs; firm-internal security hygiene. _Note: Report enrichment in flight on branch whois-report-enrichment. Verified against public record for six targets 2026-08-15; a registry with neither RDAP nor a port-43 host (234 of 1,438 TLDs) now answers 501 rather than 500. The port-43 socket has no read deadline and that path stays unverified. docs/research/2026-08-15-tools-reality-check.md._
     - `integrations.tools.safe-browse` · `shipped` · **Safe website viewer** — Renders a suspect URL in an isolated remote browser and returns a static snapshot (screenshot, redirect chain, text, links). _Note: Renderer is Cloudflare Browser Rendering (env.BROWSER, quickAction), an account entitlement rather than anything in the repository, and still unexercisable locally (Miniflare's binding has no quickAction). The entitlement was confirmed live on 2026-09-18 by the first capture that succeeded; before that every capture failed on a wait for networkidle2 that a page holding a socket never reaches, reported as a capacity outage. Interactive live browsing is designed and not built — the shell's Live toggle renders as a Soon affordance and the seam is in ADR-0119._
+    - `integrations.tools.safe-browse-live` · `partial` · **Safe website viewer — Live mode** — One held isolated browser per member, walked page to page so a link's cookie-gated steps can be followed; every navigation hop SSRF-guarded. _Note: Partial until a live navigation is confirmed against the deployed service, on the same rule the static capture's node followed — the probe proved the platform, not this route. Miniflare has no browser binding, so the route's navigation path has no automated test. Pixel streaming is decided against for now, not built._
     - `integrations.tools.metadata` · `shipped` · **Metadata inspector & scrubber** — Inspect and strip metadata from OOXML and JPEG/PNG/TIFF images; stateless. _Note: HEIC/PDF and a Container engine deferred; backend only, no screen yet. Verified end to end 2026-08-15 — inspect found a docx's author/company, scrub removed both and left the body text intact (docs/research/2026-08-15-tools-reality-check.md)._
     - `integrations.tools.file-integrity` · `shipped` · **File hash & integrity** — Five-algorithm streaming hash, ingest-baseline compare, integrity receipt; introduced the file context tag. _Note: Backend only — no screen yet. All five digests verified byte-identical to md5sum/sha1sum/sha256sum on 2026-08-15 (docs/research/2026-08-15-tools-reality-check.md)._
     - `integrations.tools.file-type` · `shipped` · **File type verifier** — Content-based file-type identification (Magika/ONNX in the scan container) behind a verify endpoint. _Note: Backend only, and the identification engine is the scan Container's /identify — the route answers 503 until magna-carta-scan is deployed carrying it, so nobody can get an answer yet. The report builder itself was reviewed and does not over-report "unverifiable". Queued in docs/deploy-queue.md._
