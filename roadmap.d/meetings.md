@@ -257,9 +257,8 @@
 - id: meetings.end-to-end-encryption
   name: End-to-end encryption
   scope: Media the routing service cannot read — keys agreed between browsers, frames encrypted before they leave.
-  status: designed
-  spec: docs/research/2026-09-24-meetings-end-to-end-encryption.md
-  evidence: No code; researched 2026-09-24 — the routing service forwards SFrame-encrypted frames intact on Cloudflare's own precedent, VP8 only, keys per sender sent to each participant encrypted to that participant alone so the room relays ciphertext, replaced when anybody leaves, a cap of fifty until MLS, WebCrypto only. Recording, transcription, captions, the summary, dial-in and everything on the WebSocket adapter stop working while it is on.
+  status: not-started
+  evidence: No code; researched 2026-09-24 in docs/research/2026-09-24-meetings-end-to-end-encryption.md (research, not yet a design) — the routing service forwards SFrame-encrypted frames intact on Cloudflare's own precedent, VP8 only, keys per sender sent to each participant encrypted to that participant alone so the room relays ciphertext, replaced when anybody leaves, a cap of fifty until MLS, WebCrypto only. Recording, transcription, captions, the summary, dial-in and everything on the WebSocket adapter stop working while it is on.
   awaiting-owner: Build it as an opt-in fixed at the meeting's start after recording and dial-in exist and after the two experiments (simulcast layer switching with encrypted frames, and the key-replacement cost at fifty), or defer; whether a firm may forbid it; the honest threat model — it does not protect against a malicious deploy of our own JavaScript, and an active malicious room could swap keys unless participants compare a security code.
 
 - id: meetings.usage-reporting
