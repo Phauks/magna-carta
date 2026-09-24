@@ -87,7 +87,7 @@
     // TURNSTILE_SECRET_KEY is set — from then on a missing or bad solution is refused either way.
     "HUMAN_VERIFICATION_POSTURE": "fail-open",
     // The switch that selects the Cloudflare Email Service adapter over the logging one
-    // (src/http/app.ts emailAdapterForEnv). magnacarta.esq is onboarded for Email Sending, and the send
+    // (src/auth-instance.ts emailAdapterForEnv). magnacarta.esq is onboarded for Email Sending, and the send
     // paths are guarded now: a refusal answers a retryable 503 carrying an Error ID rather than
     // failing its route, and the sends Better Auth owns are caught at the port and counted. While
     // Email Sending is in beta a destination may still need verifying in the account before it will
