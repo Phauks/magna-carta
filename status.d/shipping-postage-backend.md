@@ -10,7 +10,7 @@ ui: done by="Opus 5"
 load-profile: done
 tested: done by="Opus 5"
 branch: claude/tender-curie-4ddymh
-active-work: docs/active-work/claude/tender-curie-4ddymh.md
+active-work:
 next:
 link-spec:
 link-plan:
