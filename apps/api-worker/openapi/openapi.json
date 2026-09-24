@@ -8420,13 +8420,88 @@
               "errorId",
               "at"
             ]
+          },
+          "callbacks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "operation": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "number"
+                },
+                "errorId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "at": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "operation",
+                "status",
+                "errorId",
+                "at"
+              ]
+            }
+          },
+          "container": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "events": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "phase": {
+                      "type": "string",
+                      "enum": [
+                        "requested",
+                        "started",
+                        "listening",
+                        "served",
+                        "stopped",
+                        "error"
+                      ]
+                    },
+                    "at": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "phase",
+                    "at",
+                    "detail"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "events"
+            ]
           }
         },
         "required": [
           "launchedAt",
           "checkFileInfoAt",
           "getFileAt",
-          "lastCallback"
+          "lastCallback",
+          "callbacks",
+          "container"
         ]
       },
       "CheckoutResponse": {

@@ -16,8 +16,12 @@
  * flex line lets the host's cell be ordered first, which puts the back button where a way back
  * belongs. In the editor's dark theme its own icons are separate light drawings; the host's icon is
  * one drawing, so it is inverted there, which is the editor's own device for the images it cannot
- * redraw. A rule that does not match (a future editor renaming its classes) leaves the button
- * where the editor put it, coloured as the editor drew it: nothing here can break the editor.
+ * redraw. And the bar draws no words at all (its builder switches labels off for every button and
+ * keeps the text as the tooltip), so the matter's number the host sends as the button's label is
+ * drawn beside the icon from that tooltip attribute, cut to a fixed width with an ellipsis; the
+ * editor's own tooltip shows the whole number on hover. A rule that does not match (a future
+ * editor renaming its classes) leaves the button where the editor put it, coloured and worded as
+ * the editor drew it: nothing here can break the editor.
  *
  * Only the editor page gains the link; assets, refusals and the WebSocket upgrade are handed back
  * exactly as the container answered them (editor-branding.ts says why the upgrade check comes
@@ -35,6 +39,16 @@ export const EDITOR_STYLESHEET_PATH = "/magna-carta/editor.css";
 /** The class the editor puts on every button a host inserts, on the shortcuts bar. */
 const HOST_BUTTON_CLASS = "integrator-shortcut";
 
+/**
+ * How much of the matter's number shows beside the arrow before the ellipsis. Twelve characters
+ * fits the firm's numbering shapes ("2026-CV-0012") and keeps the bar's own buttons in reach;
+ * the whole number is one hover away.
+ */
+export const BACK_LABEL_CHARACTERS = 12;
+
+/** The attribute the editor keeps a bar button's words in, since it draws no label there. */
+const TOOLTIP_ATTRIBUTE = "data-cooltip";
+
 export const EDITOR_STYLESHEET = `/* Magna Carta: the platform's presence on the editor's bar. */
 .notebookbar-shortcuts-bar > table > tbody > tr {
   display: flex;
@@ -46,8 +60,41 @@ export const EDITOR_STYLESHEET = `/* Magna Carta: the platform's presence on the
 html[data-theme='dark'] .notebookbar-shortcuts-bar .${HOST_BUTTON_CLASS} img {
   filter: invert(0.9);
 }
+.notebookbar-shortcuts-bar .${HOST_BUTTON_CLASS} {
+  display: flex;
+  align-items: center;
+}
+.notebookbar-shortcuts-bar .${HOST_BUTTON_CLASS}::after {
+  content: attr(${TOOLTIP_ATTRIBUTE});
+  display: inline-block;
+  max-inline-size: ${String(BACK_LABEL_CHARACTERS)}ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-inline-end: 4px;
+  font-size: 12px;
+  line-height: 1;
+}
 #magna-carta-build {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   margin-block-start: 1em;
+}
+#magna-carta-build .mc-about-label {
+  font-weight: bold;
+}
+#magna-carta-build .mc-about-row {
+  display: flex;
+  gap: 8px;
+}
+#magna-carta-build .mc-about-key {
+  min-inline-size: 7em;
+  opacity: 0.75;
+}
+#magna-carta-build a {
+  color: inherit;
+  text-decoration: underline;
 }
 `;
 

@@ -15,9 +15,11 @@
  * of six boxes that go from empty to checked tells a member nothing about what the wait IS, so
  * the screen streams the open instead — each stage that finishes becomes a line saying what just
  * happened and when, and the stage under way says what is happening and why it takes the time it
- * takes. The timings and the host's last answer sit behind one control for whoever wants them.
- * That is `openFeed` here (drawn through ProgressSteps, with the stamps as notes) and `openRows`;
- * `openSteps` remains the whole sequence as a step list, for a surface that wants it that way.
+ * takes, with each stage's own duration as its stamp. Behind one control sits the open's LOG: what
+ * the editor's container, the host and the page each did, in the order it happened (`openLog`),
+ * which is different in kind from the stages and is where a slow or stuck open is explained. That
+ * is `openFeed` here (drawn through ProgressSteps, with the stamps as notes) and `openLogRows`;
+ * `openRows` is the stage timings for a report, and `openSteps` the whole sequence as a step list.
  *
  * TWO SOURCES FEED THE MARKS, AND THEY ARRIVE OUT OF ORDER. The frame's own messages and the
  * iframe's load event are immediate; the host's record of the editor's callbacks (CheckFileInfo,
@@ -34,7 +36,7 @@
  */
 import type { FailureDetailRow } from "@magna-carta/design-system/failure-details";
 import type { ProgressStep } from "@magna-carta/design-system/progress-steps";
-import type { EditOpenProgress } from "./document-api.ts";
+import type { ContainerEventRecord, EditOpenProgress, OpenCallbackRecord } from "./document-api.ts";
 
 export type OpenStage = "session" | "editor" | "frame" | "information" | "bytes" | "shown";
 
@@ -51,28 +53,28 @@ export const OPEN_STAGES: readonly {
 }[] = [
   {
     id: "session",
-    label: "Opening an editing session",
-    doing: "Opening an editing session for this document.",
-    done: "Editing session opened.",
+    label: "Opening your session",
+    doing: "Opening your editing session.",
+    done: "Session opened.",
   },
   {
     id: "editor",
     label: "Starting the editor",
     doing:
-      "Starting the editor. Each document runs its own editor, which starts when the document is first opened and is most of the wait.",
+      "Starting the editor. Each document runs its own, started fresh for its first open, which is most of the wait.",
     done: "Editor started.",
   },
   {
     id: "frame",
     label: "Loading the editor",
-    doing: "Loading the editor's page into the tab.",
+    doing: "Loading the editor's page.",
     done: "Editor loaded.",
   },
   {
     id: "information",
-    label: "Asking the host about the document",
-    doing: "The editor is asking about the document: its name, its size, who you are.",
-    done: "The editor was told about the document.",
+    label: "Reading the document's details",
+    doing: "The editor is reading the document's details.",
+    done: "Details read.",
   },
   {
     id: "bytes",
@@ -82,7 +84,7 @@ export const OPEN_STAGES: readonly {
   },
   {
     id: "shown",
-    label: "Showing the document",
+    label: "Laying out the document",
     doing: "Laying the document out on the page.",
     done: "Document shown.",
   },
@@ -98,6 +100,10 @@ export interface OpenMarks {
   readonly bytesAt: Date | null;
   readonly shownAt: Date | null;
   readonly lastCallback: EditOpenProgress["lastCallback"];
+  /** Every call the editor made to the host in this open, as the last poll reported them. */
+  readonly callbacks: readonly OpenCallbackRecord[];
+  /** What the editor's container has been doing, as the last poll reported it. */
+  readonly containerEvents: readonly ContainerEventRecord[];
 }
 
 /**
@@ -133,6 +139,8 @@ export function freshMarks(startedAt: Date = new Date()): OpenMarks {
     bytesAt: null,
     shownAt: null,
     lastCallback: null,
+    callbacks: [],
+    containerEvents: [],
   };
 }
 
@@ -219,12 +227,15 @@ export function openSteps(
   });
 }
 
-/** One line of the streamed open: what happened or is happening, and when, from the start. */
+/** One line of the streamed open: what happened or is happening, and how long that stage took. */
 export interface OpenFeedLine {
   readonly stage: OpenStage;
   readonly status: "done" | "active" | "failed";
   readonly text: string;
-  /** Seconds from the start of the open, as the line shows them: "0.4 s", "31.0 s". */
+  /**
+   * How long THIS stage took, or has taken so far: "27.7 s" against the stage before it, never
+   * against the start of the open. A stage's own time is the answer to "which part is slow".
+   */
   readonly at: string;
 }
 
@@ -253,7 +264,7 @@ function feedStamp(milliseconds: number): string {
  * the stages still to come — those are the timings, behind the details control — so the feed only
  * ever grows, one line per thing that actually happened. The stopped line carries the stage's
  * name and not the sentence: the notice beneath the feed says what went wrong, once, with the way
- * out beside it.
+ * out beside it. Each line's stamp is the stage's OWN duration, measured from the stage before.
  */
 export function openFeed(
   marks: OpenMarks,
@@ -262,6 +273,7 @@ export function openFeed(
 ): OpenFeedLine[] {
   const lines: OpenFeedLine[] = [];
   const current = currentStage(marks);
+  let previousAt = marks.startedAt;
   for (const stage of OPEN_STAGES) {
     if (stageDone(marks, stage.id)) {
       // A stage the poll never marked but a later signal proved is stamped with the later mark: it
@@ -271,8 +283,9 @@ export function openFeed(
         stage: stage.id,
         status: "done",
         text: stage.done,
-        at: feedStamp(at.getTime() - marks.startedAt.getTime()),
+        at: feedStamp(at.getTime() - previousAt.getTime()),
       });
+      previousAt = at;
       continue;
     }
     if (stage.id === failedStage) {
@@ -280,7 +293,7 @@ export function openFeed(
         stage: stage.id,
         status: "failed",
         text: stage.label,
-        at: feedStamp(now.getTime() - marks.startedAt.getTime()),
+        at: feedStamp(now.getTime() - previousAt.getTime()),
       });
       break;
     }
@@ -289,7 +302,7 @@ export function openFeed(
         stage: stage.id,
         status: "active",
         text: stage.doing,
-        at: feedStamp(now.getTime() - marks.startedAt.getTime()),
+        at: feedStamp(now.getTime() - previousAt.getTime()),
       });
     }
     break;
@@ -416,9 +429,82 @@ export function openRows(marks: OpenMarks, now: Date): FailureDetailRow[] {
   return rows;
 }
 
-/** The same facts as one plain-text block, one line per row, for a report. */
+/** One line of the open's log: something that happened, on whichever side, and when. */
+export interface OpenLogLine {
+  readonly at: Date;
+  readonly text: string;
+  readonly failed: boolean;
+}
+
+const CONTAINER_PHASE_WORDS: Record<ContainerEventRecord["phase"], string> = {
+  requested: "The editor's container was asked for",
+  started: "The editor's container is running",
+  listening: "The editor is answering on its port",
+  served: "The editor's page was served",
+  stopped: "The editor's container stopped",
+  error: "The editor's container reported an error",
+};
+
+const CALLBACK_WORDS: Readonly<Record<string, string>> = {
+  "wopi:check-file-info": "The editor asked for the document's details",
+  "wopi:get-file": "The editor asked for the document's contents",
+  "wopi:lock": "The editor took the document's lock",
+  "wopi:put-file": "The editor saved the document",
+};
+
+function callbackLine(callback: OpenCallbackRecord): OpenLogLine {
+  const words = CALLBACK_WORDS[callback.operation] ?? `The editor called ${callback.operation}`;
+  const refused = callback.status >= 400;
+  const answer = refused
+    ? `refused ${String(callback.status)}${callback.errorId === null ? "" : ` (Error ID ${callback.errorId})`}`
+    : `answered ${String(callback.status)}`;
+  return { at: new Date(callback.at), text: `${words}: ${answer}`, failed: refused };
+}
+
+function containerLine(event: ContainerEventRecord): OpenLogLine {
+  const failed = event.phase === "error";
+  const detail = event.detail === null ? "" : ` (${event.detail})`;
+  return { at: new Date(event.at), text: `${CONTAINER_PHASE_WORDS[event.phase]}${detail}`, failed };
+}
+
+/**
+ * Everything that happened in this open, from every side that reports, in the order it happened:
+ * the container's phases as the editor worker saw them, the editor's calls to the host and what
+ * each was told, and the page's own moments (the launch answered, the editor's page loaded, the
+ * editor ready, the document on screen). This is what the details show while the open runs, and it
+ * is different in kind from the feed above it: the feed is the six stages, this is what was
+ * actually going on inside them, which is where a slow or stuck open is explained.
+ *
+ * Three clocks meet here (the browser's, the host's, the editor worker's), so the order is by each
+ * line's own instant and the stamps are offsets from the start of the open on the browser's clock;
+ * a line from another clock can read a moment early or late, which is the truth of it.
+ */
+export function openLog(marks: OpenMarks): OpenLogLine[] {
+  const lines: OpenLogLine[] = [];
+  const own: readonly [Date | null, string][] = [
+    [marks.sessionAt, "The host opened your session"],
+    [marks.editorAt, "The editor's page loaded in the browser"],
+    [marks.frameAt, "The editor reported itself ready"],
+    [marks.shownAt, "The document is on screen"],
+  ];
+  for (const [at, text] of own) if (at !== null) lines.push({ at, text, failed: false });
+  for (const event of marks.containerEvents) lines.push(containerLine(event));
+  for (const callback of marks.callbacks) lines.push(callbackLine(callback));
+  return lines.sort((left, right) => left.at.getTime() - right.at.getTime());
+}
+
+/** The log as FailureDetails rows: the offset from the start as the label, the line as the value. */
+export function openLogRows(marks: OpenMarks): FailureDetailRow[] {
+  return openLog(marks).map((line) => ({
+    label: `${(Math.max(0, line.at.getTime() - marks.startedAt.getTime()) / 1000).toFixed(1)} s`,
+    value: line.text,
+    mono: false,
+  }));
+}
+
+/** The same facts as one plain-text block, one line per row, for a report: the stages, then the log. */
 export function openTrace(marks: OpenMarks, now: Date): string {
-  return openRows(marks, now)
+  return [...openRows(marks, now), ...openLogRows(marks)]
     .map((row) => `${row.label}: ${row.value}`)
     .join("\n");
 }

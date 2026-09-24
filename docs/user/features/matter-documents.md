@@ -269,7 +269,8 @@ Double-click a row, press Enter on it, or choose **Open** from its right-click m
 The tab the editor opens in is its own: leave it open while you go back to the file list, and open
 several documents at once. The editor fills that tab. To return to the matter's files, use the
 first button on the editor's bar, the arrow with the matter's number beside it (or the word
-"Matter", for a matter that has no number yet). It saves first and then takes you back with the
+"Matter", for a matter that has no number yet). A long number is cut short with an ellipsis;
+resting the pointer on the button shows the whole of it. It saves first and then takes you back with the
 document selected; closing the document from the editor's own menu does the same.
 
 The editor's **Help › About** names the editor's own versions and, beneath them, the Magna Carta
@@ -453,9 +454,12 @@ While the document opens, the screen tells the open as it happens: each stage ap
 finishes, with the moment it did, and the stage under way says what it is doing and why it takes
 the time it takes. A bar fills over the half minute an open usually takes, and says so; past that
 it says the open is running long, and after forty-five seconds it offers **Retry**. A first open
-takes most of that half minute, because the editor starts for that document on demand. **Show
-details** opens the full sequence with its timings. If the open stops, the screen says at which
-stage, and the details beneath the message are what to send to support.
+takes most of that half minute, because the editor starts for that document on demand. Each
+stage's time is its own, so the slow one is the one with the big number. **Show details** opens
+the log of what actually happened, in order and on every side: the editor's container being asked
+for, running and answering; the editor asking for the document's details and its contents and
+what it was told; the page loading and the document appearing. If the open stops, the screen says
+at which stage, and the details beneath the message are what to send to support.
 
 If a colleague holds the document under an exclusive lock, your tab opens **read-only** and says
 so at the top. You can read along, including their live changes, but cannot take the lock from

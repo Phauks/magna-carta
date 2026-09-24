@@ -29,6 +29,12 @@ export const ABOUT_INFO_SELECTOR = "#about-dialog-info-container";
 /** The id of the block, for the stylesheet and for anyone reading the page. */
 export const BUILD_BLOCK_ID = "magna-carta-build";
 
+/**
+ * Where a commit is read. The repository is the platform's own and public to its members, so the
+ * build's hash links to the commit it names, which is what an owner reading the dialog wants next.
+ */
+export const REPOSITORY_URL = "https://github.com/Phauks/magna-carta";
+
 function escapeHtml(text: string): string {
   return text
     .replaceAll("&", "&amp;")
@@ -43,21 +49,51 @@ function readableInstant(iso: string): string {
   return match === null ? iso : `${match[1]} ${match[2]} UTC`;
 }
 
-/** The block's lines: what build, when it was committed, when it was built. */
-export function buildLines(identity: BuildIdentity): readonly string[] {
-  if (isDevelopmentBuildIdentity(identity)) return ["Magna Carta: development build"];
-  const lines = [`Magna Carta build ${identity.commit}`];
-  if (identity.commitTime !== null) lines.push(`Committed ${readableInstant(identity.commitTime)}`);
-  if (identity.buildTime !== null) lines.push(`Built ${readableInstant(identity.buildTime)}`);
-  return lines;
+/** One row of the block: a label, its value, and where the value leads when it leads anywhere. */
+export interface BuildRow {
+  readonly label: string;
+  readonly value: string;
+  readonly href?: string;
 }
 
-/** The block as HTML, in the dialog's own row class so it takes the dialog's type and spacing. */
+/** The block's rows: which build, when it was committed, when it was built. */
+export function buildRows(identity: BuildIdentity): readonly BuildRow[] {
+  if (isDevelopmentBuildIdentity(identity)) {
+    return [{ label: "Build", value: "development build" }];
+  }
+  const rows: BuildRow[] = [
+    {
+      label: "Build",
+      value: identity.commit,
+      href: `${REPOSITORY_URL}/commit/${encodeURIComponent(identity.commit)}`,
+    },
+  ];
+  if (identity.commitTime !== null) {
+    rows.push({ label: "Committed", value: readableInstant(identity.commitTime) });
+  }
+  if (identity.buildTime !== null) {
+    rows.push({ label: "Built", value: readableInstant(identity.buildTime) });
+  }
+  return rows;
+}
+
+/**
+ * The block as HTML: a heading in the dialog's own label voice, then one line per row with the
+ * label and the value in their own cells, so the rows read as a small table rather than running
+ * together. A value that leads somewhere is a link opening in a new tab; the dialog's page is the
+ * document's, and leaving it is not what a member opening About meant.
+ */
 export function buildBlockHtml(identity: BuildIdentity): string {
-  const rows = buildLines(identity)
-    .map((line) => `<div dir="ltr">${escapeHtml(line)}</div>`)
+  const rows = buildRows(identity)
+    .map((row) => {
+      const value =
+        row.href === undefined
+          ? `<span>${escapeHtml(row.value)}</span>`
+          : `<a href="${escapeHtml(row.href)}" target="_blank" rel="noreferrer">${escapeHtml(row.value)}</a>`;
+      return `<div class="mc-about-row"><span class="mc-about-key">${escapeHtml(row.label)}</span>${value}</div>`;
+    })
     .join("");
-  return `<div id="${BUILD_BLOCK_ID}" class="about-dialog-info-div">${rows}</div>`;
+  return `<div id="${BUILD_BLOCK_ID}" dir="ltr"><div class="mc-about-label">Magna Carta</div>${rows}</div>`;
 }
 
 /** The one element edit: the block, appended after the editor's own version rows. */
