@@ -162,6 +162,12 @@ export function attemptLadderKey(c: Context): string {
 // serves them at. Everything else under the base path — session reads, sign-out, requesting a reset
 // link, the two-factor enrolment calls a signed-in member makes — is NOT a credential attempt and
 // must not spend the budget: charging a session read would lock out a tab left open on the app.
+//
+// `/change-password` PRESENTS a credential and is deliberately absent, which is worth saying so the
+// omission is not read as an oversight. The ladder is keyed on the client address, so a member
+// mistyping their standing password a dozen times would lock their whole office out of SIGNING IN —
+// and it would buy nothing, because reaching that endpoint at all requires the session an attacker
+// would have to hold already. The guessing this budget exists to stop happens at the front door.
 const CREDENTIAL_ATTEMPT_SUFFIXES: readonly string[] = [
   "/sign-in/email",
   "/two-factor/verify-totp",

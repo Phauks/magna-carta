@@ -1,8 +1,14 @@
 /*
  * The signed-in-devices reading (src/lib/account/active-sessions.ts) — pure data, node, no browser.
  * What is pinned here is the judgement rather than the layout: which device a user agent names,
- * which row is this one, what order they come in, and that the screen's honesty note keeps saying
- * the thing that makes it worth having.
+ * which row is this one, and what order they come in.
+ *
+ * THE SCREEN'S TWO STANDING SENTENCES USED TO BE PINNED HERE and are deliberately gone with them
+ * (owner correction, 2026-09-18): the revocation-lag notice and the "Address not recorded" caption
+ * both explained our own plumbing to every reader on every visit. What replaced the first is a
+ * control — Account -> Security changes a password in place — and what replaced the second is the
+ * deployment reading the header Cloudflare actually sends. A caption for a fact the row does not
+ * carry is now an absent clause, which the row-shape cases below pin as a null.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -10,10 +16,8 @@ import {
   canEndIndividualSessions,
   describeDevice,
   otherDeviceRows,
-  REVOCATION_LAG_NOTE,
   signedOutElsewhereMessage,
   UNKNOWN_DEVICE,
-  UNRECORDED_ADDRESS,
   type ActiveSessionRecord,
 } from "../src/lib/account/active-sessions.ts";
 
@@ -94,10 +98,19 @@ describe("the rows the screen renders", () => {
     expect(rows.some((row) => row.isCurrent)).toBe(false);
   });
 
-  it("carries an absent address through as null for the screen to name", () => {
+  // Null rather than a sentence: the screen leaves the clause out entirely, so what the row owes it
+  // is the absence itself. An empty string counts as absent — a recorded address that is no address
+  // would otherwise render as a stray separator with nothing after it.
+  it("carries an absent address through as null for the screen to leave out", () => {
     expect(activeSessionRows([session({ ipAddress: null })], null)[0]?.ipAddress).toBeNull();
     expect(activeSessionRows([session({ ipAddress: "" })], null)[0]?.ipAddress).toBeNull();
-    expect(UNRECORDED_ADDRESS).not.toBe("");
+    expect(activeSessionRows([session({ ipAddress: undefined })], null)[0]?.ipAddress).toBeNull();
+  });
+
+  it("carries a recorded address through as it arrived", () => {
+    expect(activeSessionRows([session({ ipAddress: "203.0.113.7" })], null)[0]?.ipAddress).toBe(
+      "203.0.113.7",
+    );
   });
 
   it("does not mutate the list it was given", () => {
@@ -144,20 +157,5 @@ describe("what the screen says", () => {
     const message = signedOutElsewhereMessage(null);
     expect(message).toBe("Signed out of your other devices.");
     expect(message).not.toMatch(/\d/);
-  });
-
-  // The lag note is the sentence this screen exists to not leave out: a revoked device keeps
-  // working for up to the cookie cache's five minutes, and the remedy is a password reset.
-  it("names both the delay and the remedy in the lag note", () => {
-    expect(REVOCATION_LAG_NOTE).toContain("five minutes");
-    expect(REVOCATION_LAG_NOTE).toContain("password");
-  });
-
-  // The remedy has to be a door that opens. Account -> Security's password row is still a disabled
-  // Soon seam, so the note names the sign-in screen's reset — the one that works today. If this
-  // ever points back at a change-password control, the control has to exist first.
-  it("points at the password reset that works, not the in-account seam", () => {
-    expect(REVOCATION_LAG_NOTE).toContain("Forgot Password");
-    expect(REVOCATION_LAG_NOTE).not.toContain("Security");
   });
 });

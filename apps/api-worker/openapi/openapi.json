@@ -3665,6 +3665,64 @@
           "suffix"
         ]
       },
+      "MemberPhotoResponse": {
+        "type": "object",
+        "properties": {
+          "photo": {
+            "$ref": "#/components/schemas/MemberPhoto"
+          }
+        },
+        "required": [
+          "photo"
+        ]
+      },
+      "MemberPhoto": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "sha256": {
+            "type": "string",
+            "description": "The SHA-256 of the bytes, which keys the object."
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer"
+          },
+          "widthPixels": {
+            "type": "integer"
+          },
+          "heightPixels": {
+            "type": "integer"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sha256",
+          "contentType",
+          "sizeBytes",
+          "widthPixels",
+          "heightPixels",
+          "updatedAt"
+        ]
+      },
+      "SetMemberPhotoRequest": {
+        "type": "object",
+        "properties": {
+          "imageBase64": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "imageBase64"
+        ]
+      },
       "SetReleaseChannelResponse": {
         "type": "object",
         "properties": {
@@ -44244,6 +44302,307 @@
           },
           "422": {
             "description": "The request body is invalid, or every part is empty",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/photo": {
+      "get": {
+        "description": "The session member's own picture, as facts about it — what the bytes are, how large they are, and when they were set. Null where they hold none. The bytes themselves are a separate read.",
+        "operationId": "me.photo",
+        "tags": [
+          "me"
+        ],
+        "x-mc-operationId": "me.photo",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "me"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The member's picture, or null",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberPhotoResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the session member is deactivated, or there is no picture",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "description": "Sets the session member's own picture, replacing whatever they held. The bytes are read to decide what they are — a PNG or a JPEG, and nothing else — so nothing can be stored that a screen will later refuse to draw.",
+        "operationId": "me.setPhoto",
+        "tags": [
+          "me"
+        ],
+        "x-mc-operationId": "me.setPhoto",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:editOwnProfile",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "me"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMemberPhotoRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The member's picture after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberPhotoResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:editOwnProfile",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the session member is deactivated, or there is no picture",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The bytes are not a readable PNG or JPEG, or are larger than the image ceiling",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Removes the session member's own picture. A member who holds none is answered the same way: the act says what is true afterwards, not what was true before.",
+        "operationId": "me.removePhoto",
+        "tags": [
+          "me"
+        ],
+        "x-mc-operationId": "me.removePhoto",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:editOwnProfile",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "me.setPhoto"
+        },
+        "x-mc-tags": [
+          "me"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The member holds no picture",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberPhotoResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:editOwnProfile",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the session member is deactivated, or there is no picture",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/photo/content": {
+      "get": {
+        "description": "The bytes of the session member's own picture, in the type they were sniffed to be when they were stored. Rides the session like every other read and is never publicly addressable.",
+        "operationId": "me.photoContent",
+        "tags": [
+          "me"
+        ],
+        "x-mc-operationId": "me.photoContent",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "me"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The image",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the session member is deactivated, or there is no picture",
             "content": {
               "application/problem+json": {
                 "schema": {

@@ -102,7 +102,11 @@ export type FirmScopedObjectClass =
   | "shipping-label"
   // A tabular export on a member's shelf: the stored DOCUMENT a later download renders into a
   // format. Its figures may span matters and the shelf is the member's, so it belongs to none.
-  | "export-snapshot";
+  | "export-snapshot"
+  // A member's own picture, as their colleagues see them. It belongs to the firm's roster rather
+  // than to any matter, and stays firm-scoped for the same reason the member row does: it is what
+  // THIS firm shows beside this person's work.
+  | "member-photo";
 
 // Classes a reader of these objects may encounter one day and which NOTHING in this platform writes
 // today. They are named here so the vocabulary is closed rather than open-ended, and so a filter that
@@ -131,6 +135,7 @@ export const FIRM_SCOPED_OBJECT_CLASSES: readonly FirmScopedObjectClass[] = [
   "email-staging",
   "shipping-label",
   "export-snapshot",
+  "member-photo",
 ];
 
 export const RESERVED_OBJECT_CLASSES: readonly ReservedObjectClass[] = [
