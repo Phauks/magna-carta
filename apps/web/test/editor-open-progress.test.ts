@@ -7,6 +7,8 @@ import {
   OPEN_STAGES,
   feedSteps,
   openFeed,
+  openLog,
+  openLogRows,
   openPace,
   openRows,
   openSteps,
@@ -137,12 +139,12 @@ describe("openSteps", () => {
 
   it("carries each stage's own words", () => {
     expect(openSteps(freshMarks(STARTED_AT), null).map((step) => step.label)).toEqual([
-      "Opening an editing session",
+      "Opening your session",
       "Starting the editor",
       "Loading the editor",
-      "Asking the host about the document",
+      "Reading the document's details",
       "Fetching the document",
-      "Showing the document",
+      "Laying out the document",
     ]);
   });
 
@@ -159,7 +161,7 @@ describe("openSteps", () => {
       "pending",
     ]);
     expect(steps[3]).toEqual({
-      label: "Asking the host about the document",
+      label: "Reading the document's details",
       status: "failed",
       failure: "The editor came up but never asked the host about the document.",
     });
@@ -216,12 +218,12 @@ describe("openRows and openTrace", () => {
   it("give the seconds to each mark, how long the stopped stage was waited for, and the rest", () => {
     const rows = openRows(stalled, stalledAt);
     expect(rows.map((row) => [row.label, row.value])).toEqual([
-      ["Opening an editing session", "0.4 seconds"],
+      ["Opening your session", "0.4 seconds"],
       ["Starting the editor", "28.1 seconds"],
       ["Loading the editor", "29.6 seconds"],
-      ["Asking the host about the document", "not reached after 90 seconds"],
+      ["Reading the document's details", "not reached after 90 seconds"],
       ["Fetching the document", "not reached"],
-      ["Showing the document", "not reached"],
+      ["Laying out the document", "not reached"],
       ["Last answer from the host", "none"],
       ["Error ID", "None issued"],
     ]);
@@ -264,31 +266,86 @@ describe("openRows and openTrace", () => {
     }
   });
 
-  it("write the trace as the rows, one line each", () => {
+  it("write the trace as the stage rows and then the log, one line each", () => {
     const trace = openTrace(stalled, stalledAt);
     expect(trace.split("\n")).toEqual(
-      openRows(stalled, stalledAt).map((row) => `${row.label}: ${row.value}`),
+      [...openRows(stalled, stalledAt), ...openLogRows(stalled)].map(
+        (row) => `${row.label}: ${row.value}`,
+      ),
     );
-    expect(trace).toContain("Asking the host about the document: not reached after 90 seconds");
+    expect(trace).toContain("Reading the document's details: not reached after 90 seconds");
+    expect(trace).toContain("29.6 s: The editor reported itself ready");
+  });
+});
+
+describe("openLog", () => {
+  const sides: OpenMarks = {
+    ...reached("frame"),
+    containerEvents: [
+      { phase: "requested", at: at(0.5).toISOString(), detail: null },
+      { phase: "started", at: at(0.9).toISOString(), detail: null },
+      { phase: "listening", at: at(26.9).toISOString(), detail: null },
+      { phase: "served", at: at(27.4).toISOString(), detail: null },
+    ],
+    callbacks: [
+      { operation: "wopi:check-file-info", status: 200, errorId: null, at: at(30.2).toISOString() },
+      { operation: "wopi:get-file", status: 404, errorId: "error_01J8", at: at(31).toISOString() },
+    ],
+  };
+
+  it("tells what every side did, in the order it happened", () => {
+    expect(openLog(sides).map((line) => line.text)).toEqual([
+      "The host opened your session",
+      "The editor's container was asked for",
+      "The editor's container is running",
+      "The editor is answering on its port",
+      "The editor's page was served",
+      "The editor's page loaded in the browser",
+      "The editor reported itself ready",
+      "The editor asked for the document's details: answered 200",
+      "The editor asked for the document's contents: refused 404 (Error ID error_01J8)",
+    ]);
+  });
+
+  it("marks a refusal and a container error as failures, and nothing else", () => {
+    const failed = openLog({
+      ...sides,
+      containerEvents: [
+        ...sides.containerEvents,
+        { phase: "error", at: at(40).toISOString(), detail: "could not start" },
+      ],
+    }).filter((line) => line.failed);
+    expect(failed.map((line) => line.text)).toEqual([
+      "The editor asked for the document's contents: refused 404 (Error ID error_01J8)",
+      "The editor's container reported an error (could not start)",
+    ]);
+  });
+
+  it("renders as rows stamped with the offset from the start of the open", () => {
+    const rows = openLogRows(sides);
+    expect(rows[0]).toEqual({ label: "0.4 s", value: "The host opened your session", mono: false });
+    expect(rows.at(-1)?.label).toBe("31.0 s");
+  });
+
+  it("is empty for an open nothing has happened in yet", () => {
+    expect(openLog(freshMarks(STARTED_AT))).toEqual([]);
   });
 });
 
 describe("openFeed", () => {
-  it("streams each finished stage as the line it left, then what is happening now", () => {
+  it("streams each finished stage as the line it left, then what is happening now, each with its own duration", () => {
+    // The stamps are each stage's own time, measured from the stage before: the editor's start
+    // took 27.7 seconds (from 0.4 to 28.1), not "28.1 seconds since the open began".
     const lines = openFeed(reached("frame"), at(31));
     expect(lines.map((line) => [line.status, line.text, line.at])).toEqual([
-      ["done", "Editing session opened.", "0.4 s"],
-      ["done", "Editor started.", "28.1 s"],
-      ["done", "Editor loaded.", "29.6 s"],
-      [
-        "active",
-        "The editor is asking about the document: its name, its size, who you are.",
-        "31.0 s",
-      ],
+      ["done", "Session opened.", "0.4 s"],
+      ["done", "Editor started.", "27.7 s"],
+      ["done", "Editor loaded.", "1.5 s"],
+      ["active", "The editor is reading the document's details.", "1.4 s"],
     ]);
     // As ProgressSteps draws it: the words as the label, the stamp as the note.
     expect(feedSteps(lines)[0]).toEqual({
-      label: "Editing session opened.",
+      label: "Session opened.",
       status: "done",
       note: "0.4 s",
     });
@@ -307,7 +364,8 @@ describe("openFeed", () => {
     // happened no later than the frame's mark, and a line without a time is a line without a fact.
     const frameOnly = marked(marked(freshMarks(STARTED_AT), "session", at(0.4)), "frame", at(29.6));
     const lines = openFeed(frameOnly, at(30));
-    expect(lines[1]).toMatchObject({ stage: "editor", status: "done", at: "29.6 s" });
+    expect(lines[1]).toMatchObject({ stage: "editor", status: "done", at: "29.2 s" });
+    expect(lines[2]).toMatchObject({ stage: "frame", status: "done", at: "0.0 s" });
   });
 
   it("ends on the stopped stage's name once the open has been called off, never the sentence", () => {
@@ -316,8 +374,8 @@ describe("openFeed", () => {
     expect(lines.at(-1)).toEqual({
       stage: "information",
       status: "failed",
-      text: "Asking the host about the document",
-      at: "90.0 s",
+      text: "Reading the document's details",
+      at: "60.4 s",
     });
     expect(lines.some((line) => line.status === "active")).toBe(false);
   });
