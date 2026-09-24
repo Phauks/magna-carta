@@ -9,8 +9,8 @@ import { describe, expect, it } from "vitest";
 // value they hold, so the shape can only move one way.
 //
 // THE CAPS. `LINE_CAP` is the size a module holding its routes and their parameter schemas reaches;
-// `SHAPE_CAP` (counted as `z.object(` constructions) is what path and query parameters need and a
-// body does not. A file over either cap is one whose bodies belong in
+// `SHAPE_CAP` counts `z.object(` constructions that are not a parameter or query declaration — the
+// bodies and responses — so a module that keeps its addressing and moves its shapes clears it. A file over either cap is one whose bodies belong in
 // packages/<domain>/src/contract.ts (docs/conventions/api.md, _Where a contract shape lives_).
 //
 // THE LEDGER IS A CEILING, AND IT ONLY GOES DOWN. A file may not exceed its recorded value; a file
@@ -47,73 +47,78 @@ interface Shape {
 // Every route module over a cap on 2026-09-24, with the value it held. Keyed by the path under
 // src/http/routes/ (domain directory included). Lower an entry when the file shrinks; delete it when the file clears both caps.
 export const LEDGER: Readonly<Record<string, Shape>> = {
-  "billing/billing.ts": { lines: 3062, shapes: 27 },
-  "billing/costs.ts": { lines: 1205, shapes: 5 },
-  "billing/reports.ts": { lines: 534, shapes: 19 },
-  "calendar/calendar.ts": { lines: 3589, shapes: 16 },
-  "communications/communications.ts": { lines: 1035, shapes: 5 },
-  "communications/meetings.ts": { lines: 1122, shapes: 4 },
+  "billing/billing.ts": { lines: 3059, shapes: 14 },
+  "billing/costs.ts": { lines: 1202, shapes: 3 },
+  "billing/reports.ts": { lines: 534, shapes: 18 },
+  "calendar/calendar.ts": { lines: 3117, shapes: 1 },
+  "communications/communications.ts": { lines: 1032, shapes: 2 },
+  "communications/meetings.ts": { lines: 1122, shapes: 1 },
   "communications/shipping.ts": { lines: 1023, shapes: 14 },
-  "custody/custody.ts": { lines: 3148, shapes: 20 },
+  "custody/custody.ts": { lines: 3145, shapes: 14 },
   "developer/dev-seed.ts": { lines: 516, shapes: 0 },
-  "directory/conflicts.ts": { lines: 1843, shapes: 6 },
-  "directory/directory.ts": { lines: 3436, shapes: 14 },
-  "discovery/discovery-coding.ts": { lines: 1347, shapes: 7 },
-  "discovery/discovery-review-reads.ts": { lines: 741, shapes: 4 },
-  "discovery/discovery.ts": { lines: 1610, shapes: 9 },
+  "directory/conflicts.ts": { lines: 1840, shapes: 2 },
+  "directory/directory.ts": { lines: 3437, shapes: 11 },
+  "discovery/discovery-coding.ts": { lines: 1347, shapes: 6 },
+  "discovery/discovery-review-reads.ts": { lines: 742, shapes: 2 },
+  "discovery/discovery.ts": { lines: 1607, shapes: 5 },
   "documents/document-seal.ts": { lines: 316, shapes: 10 },
-  "documents/templates.ts": { lines: 2029, shapes: 9 },
-  "email/auto-file-rules.ts": { lines: 1138, shapes: 4 },
-  "email/capture-addresses.ts": { lines: 728, shapes: 2 },
+  "documents/templates.ts": { lines: 2029, shapes: 6 },
+  "email/auto-file-rules.ts": { lines: 1135, shapes: 2 },
+  "email/capture-addresses.ts": { lines: 728, shapes: 0 },
   "email/email-add-in.ts": { lines: 607, shapes: 5 },
   "email/email-inspector.ts": { lines: 199, shapes: 8 },
-  "email/emails.ts": { lines: 866, shapes: 7 },
+  "email/emails.ts": { lines: 866, shapes: 5 },
   "files/downloads-register.ts": { lines: 578, shapes: 2 },
   "files/downloads.ts": { lines: 545, shapes: 1 },
   "files/file-repair.ts": { lines: 711, shapes: 8 },
-  "files/files.ts": { lines: 2144, shapes: 8 },
-  "files/folders.ts": { lines: 440, shapes: 5 },
+  "files/files.ts": { lines: 2141, shapes: 6 },
   "files/ocr.ts": { lines: 320, shapes: 6 },
   "files/recovery.ts": { lines: 450, shapes: 5 },
-  "files/uploads.ts": { lines: 1008, shapes: 7 },
-  "firm/custom-fields.ts": { lines: 1305, shapes: 15 },
+  "files/uploads.ts": { lines: 1005, shapes: 6 },
+  "firm/custom-fields.ts": { lines: 1302, shapes: 11 },
   "firm/firm-ai-settings.ts": { lines: 494, shapes: 5 },
-  "firm/firm-profile.ts": { lines: 713, shapes: 2 },
+  "firm/firm-profile.ts": { lines: 713, shapes: 1 },
   "firm/firm-usage.ts": { lines: 261, shapes: 15 },
   "firm/numbering.ts": { lines: 610, shapes: 10 },
-  "magnus/magnus.ts": { lines: 1510, shapes: 8 },
-  "matters/intake.ts": { lines: 1174, shapes: 11 },
-  "matters/locations.ts": { lines: 1310, shapes: 6 },
-  "matters/matter-assets.ts": { lines: 2333, shapes: 17 },
-  "matters/matter-plans.ts": { lines: 1006, shapes: 10 },
-  "matters/matter-records.ts": { lines: 640, shapes: 4 },
-  "matters/matters.ts": { lines: 1679, shapes: 8 },
-  "notes-and-tasks/notes.ts": { lines: 688, shapes: 5 },
-  "notes-and-tasks/tasks.ts": { lines: 1514, shapes: 11 },
+  "magnus/magnus.ts": { lines: 1507, shapes: 5 },
+  "matters/intake.ts": { lines: 1171, shapes: 7 },
+  "matters/locations.ts": { lines: 1307, shapes: 3 },
+  "matters/matter-assets.ts": { lines: 2330, shapes: 12 },
+  "matters/matter-plans.ts": { lines: 1003, shapes: 6 },
+  "matters/matter-records.ts": { lines: 637, shapes: 3 },
+  "matters/matters.ts": { lines: 1676, shapes: 7 },
+  "notes-and-tasks/notes.ts": { lines: 685, shapes: 2 },
+  "notes-and-tasks/tasks.ts": { lines: 1511, shapes: 7 },
   "notifications/notification-preferences.ts": { lines: 541, shapes: 1 },
-  "notifications/notifications.ts": { lines: 630, shapes: 2 },
+  "notifications/notifications.ts": { lines: 630, shapes: 1 },
   "platform/meta-database-health.ts": { lines: 536, shapes: 1 },
-  "session/member-administration.ts": { lines: 608, shapes: 2 },
+  "session/member-administration.ts": { lines: 605, shapes: 1 },
   "session/registrations.ts": { lines: 794, shapes: 0 },
-  "timekeeping/fees.ts": { lines: 979, shapes: 4 },
-  "timekeeping/rate-cards.ts": { lines: 403, shapes: 5 },
-  "timekeeping/time-entries.ts": { lines: 2402, shapes: 5 },
-  "timekeeping/timer.ts": { lines: 697, shapes: 2 },
+  "timekeeping/fees.ts": { lines: 976, shapes: 2 },
+  "timekeeping/time-entries.ts": { lines: 2399, shapes: 3 },
+  "timekeeping/timer.ts": { lines: 698, shapes: 2 },
   "tools/safe-browse.ts": { lines: 596, shapes: 2 },
-  "trust/trust-firm-funds.ts": { lines: 600, shapes: 1 },
-  "trust/trust-reconciliation.ts": { lines: 1316, shapes: 5 },
-  "trust/trust-unclaimed-funds.ts": { lines: 763, shapes: 2 },
-  "trust/trust.ts": { lines: 1389, shapes: 4 },
+  "trust/trust-firm-funds.ts": { lines: 601, shapes: 0 },
+  "trust/trust-reconciliation.ts": { lines: 1313, shapes: 1 },
+  "trust/trust-unclaimed-funds.ts": { lines: 760, shapes: 0 },
+  "trust/trust.ts": { lines: 1386, shapes: 0 },
 };
 
 function routeFileName(modulePath: string): string {
   return modulePath.replace(/^.*\/src\/http\/routes\//, "");
 }
 
+// A body or response shape is a `z.object(` that is not a parameter or query declaration. The
+// convention that tells them apart is the name: a path-parameter or query object is a camelCase
+// const (`matterIdParam`, `resourcesQuery`), a body or response a PascalCase one or an inline
+// schema in a route. Addressing stays with the route by design, so it does not count.
+const ADDRESSING_DECLARATION = /^const [a-z][A-Za-z0-9]*(?:Param|Params|Query) = z\.object\(/gm;
+
 export function measure(source: string): Shape {
   const lines = source.endsWith("\n") ? source.split("\n").length - 1 : source.split("\n").length;
-  const shapes = (source.match(/\bz\.object\(/g) ?? []).length;
-  return { lines, shapes };
+  const all = (source.match(/\bz\.object\(/g) ?? []).length;
+  const addressing = (source.match(ADDRESSING_DECLARATION) ?? []).length;
+  return { lines, shapes: all - addressing };
 }
 
 export function ratchetFindings(

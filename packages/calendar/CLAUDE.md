@@ -17,6 +17,12 @@ ADR-0059, ADR-0068, ADR-0051.)
 
 ## Key files / entry points
 
+- `src/contract.ts` — **what the calendar's API accepts and returns**, as plain zod: every request
+  body and response shape, each named with `.meta({ id })`, which the contract emitter reads as the
+  component name. The route module in `apps/api-worker` declares routes over these and restates no
+  field; path and query parameters stay with the routes (addressing, not shape). Rule and reasoning:
+  `docs/conventions/api.md` (_Where a contract shape lives_). A change here changes the committed
+  contract — re-emit the snapshot and the client in the same commit.
 - `src/types.ts` — the closed vocabularies, the window and page caps, and the two shapes a source's
   time column can have
 - `src/validation.ts` — every refusal as a code the route maps to a problem type, plus the window and

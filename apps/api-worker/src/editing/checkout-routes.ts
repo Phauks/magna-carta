@@ -31,7 +31,8 @@ import {
 } from "../http/chokepoint/context-accessors.ts";
 import type { AppVariables } from "../http/chokepoint/ports.ts";
 import { chokepointMiddleware } from "../http/chokepoint/register.ts";
-import { identifierField, identifierPathParam } from "../http/contracts/common.ts";
+import { identifierPathParam } from "../http/contracts/common.ts";
+import { identifierField } from "@magna-carta/identifiers/field";
 import { Problem, problemJson } from "../http/contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../http/contracts/route-meta.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";

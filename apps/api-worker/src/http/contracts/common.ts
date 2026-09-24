@@ -1,9 +1,10 @@
 // Shared contract fragments used across route modules: the idempotency-key header and
-// identifier-typed path params.
+// identifier-typed path params. The body-field twin, identifierField, lives in
+// @magna-carta/identifiers/field so a domain package's contract module can declare it too.
 import { z } from "@hono/zod-openapi";
 import type { EntityType } from "@magna-carta/identifiers/registry";
 import type { Identifier } from "@magna-carta/identifiers/types";
-import { identifierPattern } from "@magna-carta/identifiers/validate";
+import { identifierField } from "@magna-carta/identifiers/field";
 
 // The Idempotency-Key request-header fragment, for `request.headers` on mutating routes.
 // The key MUST stay lowercase: @hono/zod-openapi matches header schema keys case-sensitively
@@ -29,16 +30,7 @@ export function identifierPathParam<T extends EntityType>(
   type: T,
   name: string,
 ): z.ZodType<Identifier<T>, string> {
-  return z
-    .string()
-    .regex(identifierPattern(type))
-    .openapi({ param: { name, in: "path" } }) as unknown as z.ZodType<Identifier<T>, string>;
-}
-
-// A request-BODY field carrying an identifier-typed handle: the same well-formed-handle pattern check
-// as identifierPathParam, branded to the entity's identifier so a handler can pass it straight to a
-// domain service that demands the branded type — without the path-param `.openapi({ param })` (a body
-// field is not a path parameter). Emits as a plain constrained string (the brand is compile-time only).
-export function identifierField<T extends EntityType>(type: T): z.ZodType<Identifier<T>, string> {
-  return z.string().regex(identifierPattern(type)) as unknown as z.ZodType<Identifier<T>, string>;
+  return (identifierField(type) as unknown as z.ZodString).openapi({
+    param: { name, in: "path" },
+  }) as unknown as z.ZodType<Identifier<T>, string>;
 }

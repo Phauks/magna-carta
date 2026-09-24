@@ -20,7 +20,7 @@ import {
 } from "../../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
-import { identifierField } from "../../contracts/common.ts";
+import { identifierField } from "@magna-carta/identifiers/field";
 import { Problem, problemJson } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
 import { createWorkerDigestSink } from "../../../file-integrity/worker-sink.ts";

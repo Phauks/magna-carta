@@ -3,7 +3,7 @@ import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
 import { targetDailyHoursDefinition } from "@magna-carta/timekeeping/settings";
 import { readMyDay } from "@magna-carta/timekeeping/my-day";
-import { identifierField } from "../../contracts/common.ts";
+import { identifierField } from "@magna-carta/identifiers/field";
 import type { UserId } from "@magna-carta/identifiers/types";
 import type { Bindings } from "../../../bindings.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";

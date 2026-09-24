@@ -13,7 +13,7 @@ import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { requireChokepointFirmContext } from "../../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
-import { identifierField } from "../../contracts/common.ts";
+import { identifierField } from "@magna-carta/identifiers/field";
 import { Problem, problemJson, type ProblemResponse } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
 import { readTrustComplianceReportPolicy } from "../../../reporting/trust-compliance-report-policy.ts";

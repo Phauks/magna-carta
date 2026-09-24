@@ -62,7 +62,7 @@ try {
   if (!isRunnableDevEnvironment(ssr)) {
     throw new Error("Vite SSR environment is not runnable — cannot load the worker app.");
   }
-  const app = (await ssr.runner.import("./src/app.ts")) as typeof import("../src/http/app.ts");
+  const app = (await ssr.runner.import("./src/http/app.ts")) as typeof import("../src/http/app.ts");
   let total = 0;
   for (const [domain, document] of app.buildDomainOpenAPIDocuments()) {
     const ids: string[] = [];
@@ -82,7 +82,7 @@ ${ids.map((id) => `  ${JSON.stringify(id)},`).join("\n")}
 ];
 `;
     writeFileSync(
-      fileURLToPath(new URL(`../src/routes/${domain}/operations.ts`, import.meta.url)),
+      fileURLToPath(new URL(`../src/http/routes/${domain}/operations.ts`, import.meta.url)),
       body,
     );
     console.log(`${domain}: ${ids.length} operation(s)`);

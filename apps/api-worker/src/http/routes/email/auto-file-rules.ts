@@ -37,12 +37,9 @@ import {
 } from "../../chokepoint/context-accessors.ts";
 import type { AppVariables, FirmContext } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
-import {
-  idempotencyKeyHeader,
-  identifierField,
-  identifierPathParam,
-} from "../../contracts/common.ts";
-import { capped } from "../../contracts/pagination.ts";
+import { idempotencyKeyHeader, identifierPathParam } from "../../contracts/common.ts";
+import { identifierField } from "@magna-carta/identifiers/field";
+import { capped } from "@magna-carta/data-access/pagination-contract";
 import { Problem, problemJson, type ProblemResponse } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
 import { readAutoFileDirectFilingPermitted } from "../../../emails/auto-file-policy.ts";

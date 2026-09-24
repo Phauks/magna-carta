@@ -39,11 +39,8 @@ import {
 } from "../../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
-import {
-  idempotencyKeyHeader,
-  identifierField,
-  identifierPathParam,
-} from "../../contracts/common.ts";
+import { idempotencyKeyHeader, identifierPathParam } from "../../contracts/common.ts";
+import { identifierField } from "@magna-carta/identifiers/field";
 import { Problem, problemJson, type ProblemResponse } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
 import { resolveFirmBucket } from "../../../files/firm-bucket.ts";

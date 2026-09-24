@@ -43,7 +43,7 @@ import {
   decodeCursor,
   encodeCursor,
 } from "@magna-carta/data-access/cursor-pagination";
-import { cursorQuery, paginated } from "../../contracts/pagination.ts";
+import { cursorQuery, paginated } from "@magna-carta/data-access/pagination-contract";
 import {
   parseCheckInputs,
   parseCheckScope,
@@ -71,11 +71,8 @@ import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statement
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
 import type { ConflictsCheckId } from "@magna-carta/identifiers/types";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
-import {
-  identifierField,
-  identifierPathParam,
-  idempotencyKeyHeader,
-} from "../../contracts/common.ts";
+import { identifierPathParam, idempotencyKeyHeader } from "../../contracts/common.ts";
+import { identifierField } from "@magna-carta/identifiers/field";
 import type { Context } from "hono";
 import type { Bindings } from "../../../bindings.ts";
 import { runInBackground } from "../../deferred-work.ts";

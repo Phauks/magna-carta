@@ -27,12 +27,9 @@ import {
 } from "../../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
-import {
-  idempotencyKeyHeader,
-  identifierField,
-  identifierPathParam,
-} from "../../contracts/common.ts";
-import { cursorQuery, paginated } from "../../contracts/pagination.ts";
+import { idempotencyKeyHeader, identifierPathParam } from "../../contracts/common.ts";
+import { identifierField } from "@magna-carta/identifiers/field";
+import { cursorQuery, paginated } from "@magna-carta/data-access/pagination-contract";
 import { Problem, problemJson, type ProblemResponse } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../../idempotency-conflict-problems.ts";

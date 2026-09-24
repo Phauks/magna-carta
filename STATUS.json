@@ -2663,14 +2663,14 @@
       },
       "branch": "claude/adoring-ride-fe94q5",
       "activeWork": "docs/active-work/claude/adoring-ride-fe94q5.md",
-      "next": "Owner review of the firm and files groupings, then step 4 (contract shapes to the domain packages, largest files first)",
+      "next": "Step 4 continues one domain per pull request (directory, custody, billing next); owner review of the firm and files groupings before their turn",
       "links": {
         "spec": "docs/specs/2026-09-18-api-worker-domain-modules-design.md",
         "plan": null,
         "adrs": []
       },
       "blockedBy": [],
-      "notes": "The worker's 99 flat route files become about twenty domain modules behind a manifest; contract shapes move to the domain packages; an HTTP-versus-background seam and four fitness tests hold the shape. Design proposed 2026-09-18; step 1 (the foundations and the four fitness tests) built 2026-09-19; step 2 (the domain directories, the manifest, the per-domain operation lists) built 2026-09-20; step 3 (the http/ and background/ split, boundary enforced) built 2026-09-24; the migration plan is section 10 of the spec."
+      "notes": "The worker's 99 flat route files become about twenty domain modules behind a manifest; contract shapes move to the domain packages; an HTTP-versus-background seam and four fitness tests hold the shape. Design proposed 2026-09-18; step 1 (the foundations and the four fitness tests) built 2026-09-19; step 2 (the domain directories, the manifest, the per-domain operation lists) built 2026-09-20; step 3 (the http/ and background/ split, boundary enforced) built 2026-09-24; step 4 begun the same day with the calendar contract moved to its package; the migration plan is section 10 of the spec."
     },
     {
       "slice": "3·1 — Time tracking + WIP + rate engine",

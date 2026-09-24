@@ -27,7 +27,7 @@ import {
   NOTIFICATION_RECIPIENT_STATES,
   type NotificationRecipientState,
 } from "@magna-carta/notifications/types";
-import { identifierField } from "../../contracts/common.ts";
+import { identifierField } from "@magna-carta/identifiers/field";
 import type { Bindings } from "../../../bindings.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
 import {
@@ -36,7 +36,7 @@ import {
 } from "../../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
-import { paginated } from "../../contracts/pagination.ts";
+import { paginated } from "@magna-carta/data-access/pagination-contract";
 import { Problem, problemJson } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
 

@@ -100,8 +100,9 @@ import {
   type DirectoryIdempotencyContext,
 } from "@magna-carta/directory/run-directory-effect";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
-import { identifierField, idempotencyKeyHeader } from "../../contracts/common.ts";
-import { cursorQuery, paginated } from "../../contracts/pagination.ts";
+import { idempotencyKeyHeader } from "../../contracts/common.ts";
+import { identifierField } from "@magna-carta/identifiers/field";
+import { cursorQuery, paginated } from "@magna-carta/data-access/pagination-contract";
 import type {
   DirectoryOrganizationId,
   DirectoryPersonId,

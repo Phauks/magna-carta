@@ -99,12 +99,9 @@ import {
 } from "../../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
-import {
-  identifierField,
-  identifierPathParam,
-  idempotencyKeyHeader,
-} from "../../contracts/common.ts";
-import { capped, cursorQuery, paginated } from "../../contracts/pagination.ts";
+import { identifierPathParam, idempotencyKeyHeader } from "../../contracts/common.ts";
+import { identifierField } from "@magna-carta/identifiers/field";
+import { capped, cursorQuery, paginated } from "@magna-carta/data-access/pagination-contract";
 import { Problem, problemJson, type ProblemResponse } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
 
