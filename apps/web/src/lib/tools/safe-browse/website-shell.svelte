@@ -70,6 +70,7 @@
   import Check from "@lucide/svelte/icons/check";
   import Copy from "@lucide/svelte/icons/copy";
   import Download from "@lucide/svelte/icons/download";
+  import FolderDown from "@lucide/svelte/icons/folder-down";
   import Maximize2 from "@lucide/svelte/icons/maximize-2";
   import RotateCw from "@lucide/svelte/icons/rotate-cw";
 
@@ -89,6 +90,7 @@
     hasCapture = false,
     mode = "static",
     onmodechange,
+    ondownloadcapture,
     onsubmit,
     onback,
     onforward,
@@ -134,6 +136,8 @@
     mode?: "static" | "live";
     /** The member chose the other mode. Disabled while a capture runs, so a result never lands in a mode it was not asked in. */
     onmodechange?: (mode: "static" | "live") => void;
+    /** Save the screenshot and every fact the panel shows as one archive. Absent while there is none. */
+    ondownloadcapture?: () => void;
     /** Starts a capture of the entered address; the shell has already prevented the submit. */
     onsubmit?: () => void;
     onback?: () => void;
@@ -305,6 +309,19 @@
           onclick={downloadScreenshot}
         >
           <Download class="size-16" aria-hidden="true" />
+        </Button>
+        <!-- Everything the capture found, not only the picture: the screenshot plus every fact the
+             panel shows, in one archive. Beside the image download because a member reaching for
+             one is usually deciding whether they need the other. -->
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Download Screenshot and Details"
+          title="Download the screenshot and everything in the panel as one file"
+          disabled={!hasCapture || ondownloadcapture === undefined}
+          onclick={() => ondownloadcapture?.()}
+        >
+          <FolderDown class="size-16" aria-hidden="true" />
         </Button>
         <Button
           variant="ghost"

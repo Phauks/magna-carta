@@ -386,6 +386,27 @@ export type SafeBrowseSessionProbe = {
     elapsedMilliseconds: number;
 };
 
+export type SafeBrowseLocationProbe = {
+    requestedCountry: string;
+    sessionDefault: {
+        country: string | null;
+        dataCenter: string | null;
+        failure?: string;
+    };
+    sessionRequested: {
+        country: string | null;
+        dataCenter: string | null;
+        failure?: string;
+    };
+    quickActionRequested: {
+        country: string | null;
+        dataCenter: string | null;
+        failure?: string;
+    };
+    sessionHonoursLocation: boolean;
+    quickActionHonoursLocation: boolean;
+};
+
 export type SafeBrowseLiveView = {
     requestedUrl: string;
     finalUrl: string;
@@ -9157,6 +9178,45 @@ export type SafeBrowseSessionProbeResponses = {
 };
 
 export type SafeBrowseSessionProbeResponse = SafeBrowseSessionProbeResponses[keyof SafeBrowseSessionProbeResponses];
+
+export type SafeBrowseLocationProbeData = {
+    body?: never;
+    path?: never;
+    query?: {
+        country?: string;
+    };
+    url: '/api/v1/safe-browse/location-probe';
+};
+
+export type SafeBrowseLocationProbeErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:safeBrowse
+     */
+    403: Problem;
+    /**
+     * The country is not a two-letter upper-case code
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SafeBrowseLocationProbeError = SafeBrowseLocationProbeErrors[keyof SafeBrowseLocationProbeErrors];
+
+export type SafeBrowseLocationProbeResponses = {
+    /**
+     * The probe ran; each observation says what a website saw, or why it could not
+     */
+    200: SafeBrowseLocationProbe;
+};
+
+export type SafeBrowseLocationProbeResponse = SafeBrowseLocationProbeResponses[keyof SafeBrowseLocationProbeResponses];
 
 export type SafeBrowseLiveNavigateData = {
     body: {
