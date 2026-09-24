@@ -11464,6 +11464,249 @@
           }
         }
       },
+      "AddressSuggestionsResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "suggestions"
+                ]
+              },
+              "suggestions": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AddressSuggestion"
+                }
+              }
+            },
+            "required": [
+              "outcome",
+              "suggestions"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "no-coverage"
+                ]
+              }
+            },
+            "required": [
+              "outcome"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "unavailable"
+                ]
+              }
+            },
+            "required": [
+              "outcome"
+            ]
+          }
+        ],
+        "description": "`suggestions` may be empty, which means the country is covered and nothing matched. `no-coverage` means the service holds no addresses for that country, which is not the same thing and must not be shown as though it were. `unavailable` means no address service is provisioned: a person types the address themselves, exactly as before."
+      },
+      "AddressSuggestion": {
+        "type": "object",
+        "properties": {
+          "suggestionId": {
+            "type": "string",
+            "description": "Opaque. Meaningful only to the resolution operation, short-lived, and able to carry an address — so it is sent back in a request body, never a URL."
+          },
+          "label": {
+            "type": "string",
+            "description": "The whole offer on one line, for a list."
+          },
+          "parts": {
+            "$ref": "#/components/schemas/AddressLookupParts"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "address",
+              "group"
+            ],
+            "description": "A group is a building whose units share one street line. It is not an address a record can hold: resolving it answers the addresses inside it."
+          },
+          "count": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "For a group, how many addresses it holds."
+          }
+        },
+        "required": [
+          "suggestionId",
+          "label",
+          "parts",
+          "kind"
+        ]
+      },
+      "AddressLookupParts": {
+        "type": "object",
+        "properties": {
+          "street": {
+            "type": "string"
+          },
+          "streetTwo": {
+            "type": "string"
+          },
+          "dependentLocality": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "postal": {
+            "type": "string"
+          },
+          "sortingCode": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string",
+            "description": "ISO 3166-1 alpha-2."
+          }
+        },
+        "description": "An address as the parts a record stores, named for their position in an address rather than for what any one country calls them."
+      },
+      "AddressSuggestionsRequest": {
+        "type": "object",
+        "properties": {
+          "country": {
+            "type": "string",
+            "pattern": "^[A-Za-z]{2}$",
+            "description": "ISO 3166-1 alpha-2: the country the address is in."
+          },
+          "query": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "What has been typed so far."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          }
+        },
+        "required": [
+          "country",
+          "query"
+        ]
+      },
+      "AddressResolutionResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "address"
+                ]
+              },
+              "parts": {
+                "$ref": "#/components/schemas/AddressLookupParts"
+              }
+            },
+            "required": [
+              "outcome",
+              "parts"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "group"
+                ]
+              },
+              "suggestions": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AddressSuggestion"
+                }
+              }
+            },
+            "required": [
+              "outcome",
+              "suggestions"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "expired"
+                ]
+              }
+            },
+            "required": [
+              "outcome"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "no-coverage"
+                ]
+              }
+            },
+            "required": [
+              "outcome"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "unavailable"
+                ]
+              }
+            },
+            "required": [
+              "outcome"
+            ]
+          }
+        ],
+        "description": "`address` is the parts a record stores. `group` is the addresses inside a group, offered in turn. `expired` is an offer the service no longer knows — nothing went wrong, and the caller asks again."
+      },
+      "AddressResolutionRequest": {
+        "type": "object",
+        "properties": {
+          "suggestionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          }
+        },
+        "required": [
+          "suggestionId"
+        ]
+      },
       "OpenedConflictsCheckResponse": {
         "type": "object",
         "properties": {
@@ -59416,6 +59659,214 @@
           },
           "429": {
             "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/address-lookup/suggestions": {
+      "post": {
+        "description": "Offers real addresses for what has been typed so far, in the country the address is in. A read-shaped POST: it reads and writes nothing, and takes a body rather than a query string because what it is sent is a client's address.",
+        "operationId": "addressLookup.suggest",
+        "tags": [
+          "addressLookup"
+        ],
+        "x-mc-operationId": "addressLookup.suggest",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "directory:edit",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "addressLookup"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddressSuggestionsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The offers, or why there are none",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddressSuggestionsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks directory:edit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body failed validation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The address service did not answer, or refused. Transient and retryable; the address can always be typed by hand.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/address-lookup/resolutions": {
+      "post": {
+        "description": "Turns a chosen offer into the parts a record stores, or opens a group into the addresses inside it. A read-shaped POST, for the same reason as the suggestions operation.",
+        "operationId": "addressLookup.resolve",
+        "tags": [
+          "addressLookup"
+        ],
+        "x-mc-operationId": "addressLookup.resolve",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "directory:edit",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "addressLookup"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddressResolutionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What the chosen offer comes to",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddressResolutionResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks directory:edit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body failed validation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The address service did not answer, or refused. Transient and retryable; the address can always be typed by hand.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -109495,6 +109946,9 @@
   },
   "webhooks": {},
   "tags": [
+    {
+      "name": "addressLookup"
+    },
     {
       "name": "aiDetection"
     },

@@ -91,6 +91,7 @@ import { registerDownloadRegisterRoutes } from "./routes/downloads-register.ts";
 import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
 import { registerReportExportRoutes } from "./routes/report-exports.ts";
 import { registerToolsConnectionRoute } from "./routes/tools-connection.ts";
+import { registerAddressLookupRoutes } from "./routes/address-lookup.ts";
 import { registerToolsTurnCredentialsRoute } from "./routes/tools-turn-credentials.ts";
 import { registerWhoisRoute, type WhoisRouteDeps } from "./routes/whois.ts";
 import {
@@ -437,6 +438,15 @@ export type Bindings = {
   // Deliberately NOT in wrangler.jsonc's secrets.required: listing it would make every deploy fail
   // until a credential nobody has provisioned exists. Never logged, never echoed to a caller.
   TURNSTILE_SECRET_KEY?: string;
+  // The Smarty key pair behind address autocomplete (address-lookup/address-lookup-engine.ts).
+  // Optional, and ABSENT IS THE SHIPPED STATE: with either missing, every request gets the deferred
+  // port and the address form behaves exactly as it did before autocomplete existed. Production sets
+  // both with `wrangler secret put SMARTY_AUTH_ID` and `wrangler secret put SMARTY_AUTH_TOKEN`, and
+  // doing so is what switches suggestions on — and starts the provider's meter. Deliberately NOT in
+  // wrangler.jsonc's secrets.required, for the same reason as the Turnstile key. Never logged, never
+  // echoed to a caller: Smarty takes them in the query string, so the adapter never quotes a URL.
+  SMARTY_AUTH_ID?: string;
+  SMARTY_AUTH_TOKEN?: string;
   // What a protected anonymous endpoint does when no verifier is provisioned: "fail-open" (the
   // default — serve, unprotected, and count it) or "fail-closed" (refuse). Public deployment
   // configuration, not a secret: bound via wrangler.jsonc vars. An unset or unrecognized value takes
@@ -812,6 +822,9 @@ export function createApp(options: CreateAppOptions = {}) {
   // Slice 1·3: the directory (persons/organizations, names, sensitive identifiers, edges,
   // categories, search, merge, matter-party link) — composed through the same chokepoint.
   registerDirectoryRoutes(app, chokepoint);
+  // Address autocomplete: offers for what has been typed, and a chosen offer resolved into parts.
+  // Dormant until the Smarty key pair is provisioned.
+  registerAddressLookupRoutes(app, chokepoint);
   // The conflicts-of-interest check surface: run a check against the directory corpus, read a
   // completed check back with its hits, and record a reviewer's disposition of a hit.
   registerConflictsRoutes(app, chokepoint);

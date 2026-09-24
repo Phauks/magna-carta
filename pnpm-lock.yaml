@@ -263,6 +263,9 @@ importers:
       '@magna-carta/access-control':
         specifier: workspace:*
         version: link:../../packages/access-control
+      '@magna-carta/address-lookup':
+        specifier: workspace:*
+        version: link:../../packages/address-lookup
       '@magna-carta/ai-detection':
         specifier: workspace:*
         version: link:../../packages/ai-detection

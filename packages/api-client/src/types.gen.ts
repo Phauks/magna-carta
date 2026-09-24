@@ -2857,6 +2857,88 @@ export type SetDirectoryPersonLifeDatesRequest = {
     deceased?: boolean;
 };
 
+/**
+ * `suggestions` may be empty, which means the country is covered and nothing matched. `no-coverage` means the service holds no addresses for that country, which is not the same thing and must not be shown as though it were. `unavailable` means no address service is provisioned: a person types the address themselves, exactly as before.
+ */
+export type AddressSuggestionsResponse = {
+    outcome: 'suggestions';
+    suggestions: Array<AddressSuggestion>;
+} | {
+    outcome: 'no-coverage';
+} | {
+    outcome: 'unavailable';
+};
+
+export type AddressSuggestion = {
+    /**
+     * Opaque. Meaningful only to the resolution operation, short-lived, and able to carry an address — so it is sent back in a request body, never a URL.
+     */
+    suggestionId: string;
+    /**
+     * The whole offer on one line, for a list.
+     */
+    label: string;
+    parts: AddressLookupParts;
+    /**
+     * A group is a building whose units share one street line. It is not an address a record can hold: resolving it answers the addresses inside it.
+     */
+    kind: 'address' | 'group';
+    /**
+     * For a group, how many addresses it holds.
+     */
+    count?: number;
+};
+
+/**
+ * An address as the parts a record stores, named for their position in an address rather than for what any one country calls them.
+ */
+export type AddressLookupParts = {
+    street?: string;
+    streetTwo?: string;
+    dependentLocality?: string;
+    city?: string;
+    region?: string;
+    postal?: string;
+    sortingCode?: string;
+    /**
+     * ISO 3166-1 alpha-2.
+     */
+    country?: string;
+};
+
+export type AddressSuggestionsRequest = {
+    /**
+     * ISO 3166-1 alpha-2: the country the address is in.
+     */
+    country: string;
+    /**
+     * What has been typed so far.
+     */
+    query: string;
+    limit?: number;
+};
+
+/**
+ * `address` is the parts a record stores. `group` is the addresses inside a group, offered in turn. `expired` is an offer the service no longer knows — nothing went wrong, and the caller asks again.
+ */
+export type AddressResolutionResponse = {
+    outcome: 'address';
+    parts: AddressLookupParts;
+} | {
+    outcome: 'group';
+    suggestions: Array<AddressSuggestion>;
+} | {
+    outcome: 'expired';
+} | {
+    outcome: 'no-coverage';
+} | {
+    outcome: 'unavailable';
+};
+
+export type AddressResolutionRequest = {
+    suggestionId: string;
+};
+
 export type OpenedConflictsCheckResponse = {
     id: string;
     checkNumber: string;
@@ -18121,6 +18203,96 @@ export type DirectorySetPersonLifeDatesResponses = {
 };
 
 export type DirectorySetPersonLifeDatesResponse = DirectorySetPersonLifeDatesResponses[keyof DirectorySetPersonLifeDatesResponses];
+
+export type AddressLookupSuggestData = {
+    body: AddressSuggestionsRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/address-lookup/suggestions';
+};
+
+export type AddressLookupSuggestErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks directory:edit
+     */
+    403: Problem;
+    /**
+     * Not found
+     */
+    404: Problem;
+    /**
+     * The request body failed validation
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The address service did not answer, or refused. Transient and retryable; the address can always be typed by hand.
+     */
+    502: Problem;
+};
+
+export type AddressLookupSuggestError = AddressLookupSuggestErrors[keyof AddressLookupSuggestErrors];
+
+export type AddressLookupSuggestResponses = {
+    /**
+     * The offers, or why there are none
+     */
+    200: AddressSuggestionsResponse;
+};
+
+export type AddressLookupSuggestResponse = AddressLookupSuggestResponses[keyof AddressLookupSuggestResponses];
+
+export type AddressLookupResolveData = {
+    body: AddressResolutionRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/address-lookup/resolutions';
+};
+
+export type AddressLookupResolveErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks directory:edit
+     */
+    403: Problem;
+    /**
+     * Not found
+     */
+    404: Problem;
+    /**
+     * The request body failed validation
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The address service did not answer, or refused. Transient and retryable; the address can always be typed by hand.
+     */
+    502: Problem;
+};
+
+export type AddressLookupResolveError = AddressLookupResolveErrors[keyof AddressLookupResolveErrors];
+
+export type AddressLookupResolveResponses = {
+    /**
+     * What the chosen offer comes to
+     */
+    200: AddressResolutionResponse;
+};
+
+export type AddressLookupResolveResponse = AddressLookupResolveResponses[keyof AddressLookupResolveResponses];
 
 export type ConflictsListChecksData = {
     body?: never;

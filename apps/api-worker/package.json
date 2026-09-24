@@ -17,6 +17,7 @@
     "@cloudflare/puppeteer": "catalog:",
     "@hono/zod-openapi": "catalog:",
     "@magna-carta/access-control": "workspace:*",
+    "@magna-carta/address-lookup": "workspace:*",
     "@magna-carta/ai-detection": "workspace:*",
     "@magna-carta/billing": "workspace:*",
     "@magna-carta/billing-core": "workspace:*",
