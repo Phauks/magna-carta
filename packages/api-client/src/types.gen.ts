@@ -882,6 +882,26 @@ export type SetMemberNameRequest = {
     suffix: string | null;
 };
 
+export type MemberPhotoResponse = {
+    photo: MemberPhoto;
+};
+
+export type MemberPhoto = {
+    /**
+     * The SHA-256 of the bytes, which keys the object.
+     */
+    sha256: string;
+    contentType: string;
+    sizeBytes: number;
+    widthPixels: number;
+    heightPixels: number;
+    updatedAt: string;
+} | null;
+
+export type SetMemberPhotoRequest = {
+    imageBase64: string;
+};
+
 export type SetReleaseChannelResponse = {
     channel: 'stable' | 'beta';
 };
@@ -11576,6 +11596,150 @@ export type MeSetNameResponses = {
 };
 
 export type MeSetNameResponse = MeSetNameResponses[keyof MeSetNameResponses];
+
+export type MeRemovePhotoData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/photo';
+};
+
+export type MeRemovePhotoErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:editOwnProfile
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the session member is deactivated, or there is no picture
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeRemovePhotoError = MeRemovePhotoErrors[keyof MeRemovePhotoErrors];
+
+export type MeRemovePhotoResponses = {
+    /**
+     * The member holds no picture
+     */
+    200: MemberPhotoResponse;
+};
+
+export type MeRemovePhotoResponse = MeRemovePhotoResponses[keyof MeRemovePhotoResponses];
+
+export type MePhotoData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/photo';
+};
+
+export type MePhotoErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the session member is deactivated, or there is no picture
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MePhotoError = MePhotoErrors[keyof MePhotoErrors];
+
+export type MePhotoResponses = {
+    /**
+     * The member's picture, or null
+     */
+    200: MemberPhotoResponse;
+};
+
+export type MePhotoResponse = MePhotoResponses[keyof MePhotoResponses];
+
+export type MeSetPhotoData = {
+    body: SetMemberPhotoRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/photo';
+};
+
+export type MeSetPhotoErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:editOwnProfile
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the session member is deactivated, or there is no picture
+     */
+    404: Problem;
+    /**
+     * The bytes are not a readable PNG or JPEG, or are larger than the image ceiling
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeSetPhotoError = MeSetPhotoErrors[keyof MeSetPhotoErrors];
+
+export type MeSetPhotoResponses = {
+    /**
+     * The member's picture after the write
+     */
+    200: MemberPhotoResponse;
+};
+
+export type MeSetPhotoResponse = MeSetPhotoResponses[keyof MeSetPhotoResponses];
+
+export type MePhotoContentData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/photo/content';
+};
+
+export type MePhotoContentErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the session member is deactivated, or there is no picture
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MePhotoContentError = MePhotoContentErrors[keyof MePhotoContentErrors];
+
+export type MePhotoContentResponses = {
+    /**
+     * The image
+     */
+    200: string;
+};
+
+export type MePhotoContentResponse = MePhotoContentResponses[keyof MePhotoContentResponses];
 
 export type FirmSetReleaseChannelData = {
     body: SetReleaseChannelRequest;
