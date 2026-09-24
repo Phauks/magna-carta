@@ -47,6 +47,7 @@ const CHOKEPOINT_FILES = new Set(
     "packages/data-access/src/protected-fields.ts",
     "packages/data-access/src/protected-field-registry.ts",
     "packages/data-access/src/secret-statements.ts",
+    "packages/data-access/src/integration-credential-statements.ts",
     "packages/database/src/per-firm-schema.ts",
     "packages/database/src/protected-columns.ts",
   ].map(normalizeRelative),

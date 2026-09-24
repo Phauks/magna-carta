@@ -42,6 +42,7 @@ export type ErrorId = Identifier<"error">;
 export type CorrelationId = Identifier<"correlation">;
 export type IncidentId = Identifier<"incident">;
 export type IntegrationConnectionId = Identifier<"integrationConnection">;
+export type IntegrationCredentialId = Identifier<"integrationCredential">;
 export type LocationId = Identifier<"location">;
 export type LocationAddressId = Identifier<"locationAddress">;
 export type MemberLocationId = Identifier<"memberLocation">;

@@ -81,7 +81,7 @@ import { registerLocationsRoutes } from "./routes/locations.ts";
 import { fetchHttpClient } from "@magna-carta/integrations/http";
 import { workerPlugins } from "./plugins/registry.ts";
 import type { PluginRuntime } from "./plugins/runtime.ts";
-import { firmSecretStoreNotYetAvailable } from "./plugins/secret-store.ts";
+import { integrationCredentialStoreForFirm } from "./plugins/credential-store.ts";
 import { registerMatterTypesRoutes } from "./routes/matter-types.ts";
 import { registerMattersRoutes } from "./routes/matters.ts";
 import { registerMatterRecordsRoutes } from "./routes/matter-records.ts";
@@ -944,7 +944,8 @@ export function createApp(options: CreateAppOptions = {}) {
   // in tests.
   const pluginRuntime: PluginRuntime = {
     httpClient: options.pluginRuntime?.httpClient ?? fetchHttpClient(),
-    secretStoreForFirm: options.pluginRuntime?.secretStoreForFirm ?? firmSecretStoreNotYetAvailable,
+    credentialStoreForFirm:
+      options.pluginRuntime?.credentialStoreForFirm ?? integrationCredentialStoreForFirm,
   };
   // Plugins mount from the registry — the core names no plugin. Each registers through the chokepoint.
   for (const plugin of workerPlugins) plugin.registerRoutes?.(app, chokepoint, pluginRuntime);

@@ -36724,6 +36724,199 @@
           "remoteRateId"
         ]
       },
+      "ShipmentListResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ShipmentListItem"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "ShipmentListItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "matterRef": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "recipientName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "carrier": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "service": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "trackingCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "postageCostMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "serviceFeeMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "matterRef",
+          "status",
+          "recipientName",
+          "carrier",
+          "service",
+          "trackingCode",
+          "postageCostMinor",
+          "serviceFeeMinor",
+          "currency",
+          "createdAt"
+        ]
+      },
+      "ShipmentDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "matterRef": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "fromAddress": {},
+          "toAddress": {},
+          "parcel": {},
+          "options": {},
+          "carrier": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "service": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "trackingCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "postageCostMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "serviceFeeMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hasLabel": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "matterRef",
+          "status",
+          "carrier",
+          "service",
+          "trackingCode",
+          "postageCostMinor",
+          "serviceFeeMinor",
+          "currency",
+          "hasLabel"
+        ]
+      },
+      "ShippingConnectionState": {
+        "type": "object",
+        "properties": {
+          "connected": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "adapterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "connected",
+          "status",
+          "adapterId"
+        ]
+      },
       "TrackingResponse": {
         "type": "object",
         "properties": {
@@ -109613,7 +109806,7 @@
             }
           },
           "501": {
-            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+            "description": "This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -109721,6 +109914,78 @@
           },
           "422": {
             "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "Whether the firm has a postage account connected, and its health.",
+        "operationId": "shipping.readConnection",
+        "tags": [
+          "shipping"
+        ],
+        "x-mc-operationId": "shipping.readConnection",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "shipping:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "shipping"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "Connection state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShippingConnectionState"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks shipping:manage",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the shipment is unknown",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -109865,6 +110130,108 @@
             }
           }
         }
+      },
+      "get": {
+        "description": "The firm's shipments, newest first.",
+        "operationId": "shipping.listShipments",
+        "tags": [
+          "shipping"
+        ],
+        "x-mc-operationId": "shipping.listShipments",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "shipping:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "shipping"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "required": false,
+            "name": "pageSize",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shipments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShipmentListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks shipping:manage",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the shipment is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/shipments/{id}/rates": {
@@ -109969,7 +110336,7 @@
             }
           },
           "501": {
-            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+            "description": "This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -110122,7 +110489,7 @@
             }
           },
           "501": {
-            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+            "description": "This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -110133,6 +110500,90 @@
           },
           "502": {
             "description": "The postage provider rejected the request or is unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shipments/{id}": {
+      "get": {
+        "description": "One shipment: addresses, package, options, carrier and costs.",
+        "operationId": "shipping.readShipment",
+        "tags": [
+          "shipping"
+        ],
+        "x-mc-operationId": "shipping.readShipment",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "shipping:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "shipping"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shipment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShipmentDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks shipping:manage",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the shipment is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -110330,7 +110781,7 @@
             }
           },
           "501": {
-            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+            "description": "This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -110473,7 +110924,7 @@
             }
           },
           "501": {
-            "description": "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+            "description": "This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run",
             "content": {
               "application/problem+json": {
                 "schema": {

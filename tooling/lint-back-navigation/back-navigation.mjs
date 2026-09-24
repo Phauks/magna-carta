@@ -70,6 +70,10 @@ export const STANDING_EXEMPTIONS = new Map([
     "a directory record has no screen: this is its former address, whose loader redirects to the directory with that record's window open, so nothing renders here",
   ],
   [
+    "/shipping/[id]",
+    "a shipment has no screen: this is its former address, whose loader redirects to the register with that shipment's window open, so nothing renders here",
+  ],
+  [
     "/documents/[id]/edit",
     "a document is the matter's, and the editor's header already carries the way back to that matter's Files page (matterFilesBack); the library at /documents above this path holds TEMPLATES, which a document never is, so a Back to Documents would land a reader on a catalogue the document is not in",
   ],
