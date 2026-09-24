@@ -47,6 +47,9 @@ Plain language, task-oriented — same pattern as the end-user guides ([`../READ
 - [Editing](editing.md) — whether every document opened in the browser editor records its changes:
   what recording does and does not change for the member typing, where the marks are seen, what
   switching it off means, and who can.
+- [Connecting your postage account](postage-account.md) — the firm's own carrier account, under
+  Settings › Integrations: connecting it, reading its health, why the key is never shown again and
+  can only be replaced, disconnecting, and the two permissions a member needs to spend postage.
 - [The beta branch](beta-branch.md) — running the build ahead of the released one: what joining
   asks you to accept, why cancelling leaves the switch off, stepping back, and the alpha channel the
   platform sets.
