@@ -159,7 +159,7 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
 <div class="wrap">
 <header style="display:flex;flex-direction:column;gap:13px">
   <p class="eyebrow">Magna Carta &middot; decisions</p>
-  <h1>67 questions the build is waiting on you to answer</h1>
+  <h1>73 questions the build is waiting on you to answer</h1>
   <p class="lede">Every one of these was recorded where the work stopped, by whoever stopped. They
   are gathered here with the answer boxes, sorted by what leaving them open actually costs. Write
   as much or as little as you want; a sentence is usually enough, and &ldquo;not yet&rdquo; is an
@@ -168,8 +168,8 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
   Nothing leaves this page on its own &mdash; when you are done, <strong>Copy the answers</strong>
   at the bottom and paste them into the conversation, and they get applied from there.</p>
   <div class="band" style="margin-top:8px">
-    <div class="k "><span>Open questions</span><b>67</b><em>Every one is on this page.</em></div>
-    <div class="k n"><span>Holding a build</span><b>32</b><em>Nothing is written behind these.</em></div>
+    <div class="k "><span>Open questions</span><b>73</b><em>Every one is on this page.</em></div>
+    <div class="k n"><span>Holding a build</span><b>38</b><em>Nothing is written behind these.</em></div>
     <div class="k y"><span>Not holding a build</span><b>35</b><em>Mostly built already; some are parked.</em></div>
     <div class="k g"><span>Answered here</span><b data-answered-count="">0</b><em>Saved in this browser until you copy them out.</em></div>
   </div>
@@ -178,14 +178,14 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
 
 <section class="controls" aria-label="Filters">
   <label class="field"><span>Area</span>
-    <select data-filter-area=""><option value="">All areas</option><option value="ai.md">AI &amp; Inference (2)</option><option value="auth.md">Authentication, Access Control &amp; Encryption (1)</option><option value="communications.md">Communications Layer (1)</option><option value="community.md">Community &amp; Feedback Forum (1)</option><option value="conflicts.md">Conflicts Check (1)</option><option value="core-domain.md">Core Domain — Directory, Matters &amp; Locations (5)</option><option value="custodian.md">Custodian (Safe Custody) (1)</option><option value="discovery.md">Discovery (e-discovery) (3)</option><option value="document-automation.md">Document Automation (3)</option><option value="documents.md">Documents (2)</option><option value="exhibits.md">Exhibits and Exhibit Lists (5)</option><option value="financial.md">Financial Core (12)</option><option value="intake.md">Client Intake / CRM (3)</option><option value="meetings.md">Meetings (3)</option><option value="notes.md">Matter Notes and Activity (2)</option><option value="notifications.md">Notifications (1)</option><option value="payments.md">Payments (6)</option><option value="product-updates.md">Product Updates &amp; User-Facing Documentation (1)</option><option value="reports.md">Reports (1)</option><option value="self-serve.md">Self-Serve Provisioning and Entitlements (5)</option><option value="tasks.md">Tasks and Workflows / Matter Plans (2)</option><option value="translation.md">Translation Services (6)</option></select></label>
+    <select data-filter-area=""><option value="">All areas</option><option value="ai.md">AI &amp; Inference (2)</option><option value="auth.md">Authentication, Access Control &amp; Encryption (1)</option><option value="communications.md">Communications Layer (1)</option><option value="community.md">Community &amp; Feedback Forum (1)</option><option value="conflicts.md">Conflicts Check (1)</option><option value="core-domain.md">Core Domain — Directory, Matters &amp; Locations (5)</option><option value="custodian.md">Custodian (Safe Custody) (1)</option><option value="discovery.md">Discovery (e-discovery) (3)</option><option value="document-automation.md">Document Automation (3)</option><option value="documents.md">Documents (2)</option><option value="exhibits.md">Exhibits and Exhibit Lists (5)</option><option value="financial.md">Financial Core (12)</option><option value="intake.md">Client Intake / CRM (3)</option><option value="meetings.md">Meetings (9)</option><option value="notes.md">Matter Notes and Activity (2)</option><option value="notifications.md">Notifications (1)</option><option value="payments.md">Payments (6)</option><option value="product-updates.md">Product Updates &amp; User-Facing Documentation (1)</option><option value="reports.md">Reports (1)</option><option value="self-serve.md">Self-Serve Provisioning and Entitlements (5)</option><option value="tasks.md">Tasks and Workflows / Matter Plans (2)</option><option value="translation.md">Translation Services (6)</option></select></label>
   <label class="toggle"><input type="checkbox" data-filter-unanswered="">
     <span>Only what I have not answered</span></label>
   <p class="count" data-visible-count="" role="status"></p>
 </section>
 
 <section class="group" data-group="blocking">
-  <h2>Nothing is built behind these <span class="ac">32</span></h2>
+  <h2>Nothing is built behind these <span class="ac">38</span></h2>
   <p class="lede">An answer here decides what gets written next. Until one lands, the work has no shape to take — so these are the questions that cost time by staying open.</p>
   <div class="cards">
     <article class="card" data-node="ai.consent" data-name="Client-consent model" data-area="ai.md">
@@ -342,6 +342,17 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
         <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
       <p class="saved" data-saved="" aria-live="polite"></p>
     </article>
+    <article class="card" data-node="meetings.whiteboard" data-name="Whiteboard and annotation" data-area="meetings.md">
+      <div class="chips"><span class="chip plan">Designed</span><span class="chip todo">Not built</span><code>meetings.whiteboard</code></div>
+      <h3>Whiteboard and annotation</h3>
+      <p class="q">Erased marks are not kept — the filed board is the board as it stands, unlike chat which keeps a redacted row; the alternative of filing the operation log too is in the design. Non-Latin text is a replacement mark in the PDF and exact in the SVG.</p>
+      <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
+      <p class="scope">A shared drawing surface, and annotation over a shared screen.</p>
+      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
+      <label class="answer"><span>Your answer</span>
+        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
+      <p class="saved" data-saved="" aria-live="polite"></p>
+    </article>
     <article class="card" data-node="meetings.backgrounds-and-noise" data-name="Backgrounds and noise suppression" data-area="meetings.md">
       <div class="chips"><span class="chip plan">Designed</span><span class="chip todo">Not built</span><code>meetings.backgrounds-and-noise</code></div>
       <h3>Backgrounds and noise suppression</h3>
@@ -353,12 +364,67 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
         <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
       <p class="saved" data-saved="" aria-live="polite"></p>
     </article>
+    <article class="card" data-node="meetings.webinars" data-name="Webinars" data-area="meetings.md">
+      <div class="chips"><span class="chip plan">Designed</span><span class="chip todo">Not built</span><code>meetings.webinars</code></div>
+      <h3>Webinars</h3>
+      <p class="q">How a public registrant, who is deliberately not a Directory entity, is anchored for a data-erasure request — the design deletes registrant addresses thirty days after the meeting and keeps a hash; and the per-application ceiling to ask Cloudflare about before the one-thousand attendee limit moves.</p>
+      <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
+      <p class="scope">A meeting where a few present and many watch — registration, view-only attendees, a panel — for a firm's seminars and client briefings.</p>
+      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
+      <label class="answer"><span>Your answer</span>
+        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
+      <p class="saved" data-saved="" aria-live="polite"></p>
+    </article>
+    <article class="card" data-node="meetings.live-streaming" data-name="Live streaming" data-area="meetings.md">
+      <div class="chips"><span class="chip plan">Designed</span><span class="chip todo">Not built</span><code>meetings.live-streaming</code></div>
+      <h3>Live streaming</h3>
+      <p class="q">Streaming to a third-party destination (RTMP or SRT) is the same decision as video recording — RealtimeKit, or a C/C++ codec in a container — and is deferred to the owner; broadcasting an ordinary meeting is not built because it would leave no record of who watched.</p>
+      <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
+      <p class="scope">A meeting broadcast to a streaming destination.</p>
+      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
+      <label class="answer"><span>Your answer</span>
+        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
+      <p class="saved" data-saved="" aria-live="polite"></p>
+    </article>
     <article class="card" data-node="meetings.personal-room" data-name="A member's standing room" data-area="meetings.md">
       <div class="chips"><span class="chip todo">Not started</span><span class="chip todo">Not built</span><code>meetings.personal-room</code></div>
       <h3>A member's standing room</h3>
       <p class="q">Does a standing room fit a record that hangs every meeting from a calendar event, or does every meeting stay an event so the matter file stays complete?</p>
       <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
       <p class="scope">A room a member always has, joined by a stable link, not tied to a calendar event.</p>
+      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
+      <label class="answer"><span>Your answer</span>
+        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
+      <p class="saved" data-saved="" aria-live="polite"></p>
+    </article>
+    <article class="card" data-node="meetings.end-to-end-encryption" data-name="End-to-end encryption" data-area="meetings.md">
+      <div class="chips"><span class="chip plan">Designed</span><span class="chip todo">Not built</span><code>meetings.end-to-end-encryption</code></div>
+      <h3>End-to-end encryption</h3>
+      <p class="q">Build it as an opt-in fixed at the meeting's start after recording and dial-in exist and after the two experiments (simulcast layer switching with encrypted frames, and the key-replacement cost at fifty), or defer; whether a firm may forbid it; the honest threat model — it does not protect against a malicious deploy of our own JavaScript, and an active malicious room could swap keys unless participants compare a security code.</p>
+      <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
+      <p class="scope">Media the routing service cannot read — keys agreed between browsers, frames encrypted before they leave.</p>
+      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
+      <label class="answer"><span>Your answer</span>
+        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
+      <p class="saved" data-saved="" aria-live="polite"></p>
+    </article>
+    <article class="card" data-node="meetings.usage-reporting" data-name="Meetings usage and quality" data-area="meetings.md">
+      <div class="chips"><span class="chip plan">Designed</span><span class="chip todo">Not built</span><code>meetings.usage-reporting</code></div>
+      <h3>Meetings usage and quality</h3>
+      <p class="q">The per-room connection tally makes the guide's sentence that nothing about a member's connection is recorded true per person but not per room; sign off on that wording change, or the tally is dropped and quality comes only from dropped connections in the attendance record.</p>
+      <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
+      <p class="scope">How much the firm meets, by member and matter, and how the connections held up — in Reports and Firm Usage.</p>
+      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
+      <label class="answer"><span>Your answer</span>
+        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
+      <p class="saved" data-saved="" aria-live="polite"></p>
+    </article>
+    <article class="card" data-node="meetings.dial-in" data-name="Dial-in by phone" data-area="meetings.md">
+      <div class="chips"><span class="chip plan">Designed</span><span class="chip todo">Not built</span><code>meetings.dial-in</code></div>
+      <h3>Dial-in by phone</h3>
+      <p class="q">Whose carrier account (platform-managed or per firm); whether to build the bridge now or wait for Cloudflare's own phone gateway into Realtime, which is drafted but not generally available; if the adapter goes away a container bridge needs an Opus codec, a young pure-Rust one or libopus under consent; whether a member's PIN skips the lobby when the lobby is off; local or toll-free numbers and how many per firm.</p>
+      <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
+      <p class="scope">A PSTN leg into a meeting through the telephony port.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
         <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>

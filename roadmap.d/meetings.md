@@ -157,8 +157,10 @@
 - id: meetings.breakout-rooms
   name: Breakout rooms
   scope: A host splits the room into smaller rooms and brings them back; each is a room of its own under the same meeting.
-  status: not-started
-  evidence: No code; one meeting is one room.
+  status: designed
+  spec: docs/specs/2026-09-24-meetings-breakout-rooms-design.md
+  evidence: No code; designed 2026-09-24 — each breakout is a MeetingRoom of its own keyed under the meeting, routes call only the main room which forwards, a move keeps the browser's session and closes tracks across the boundary, placement is a table closed with the stay, assignment is always a host's explicit list, chat stays one transcript carrying the breakout it was said in.
+  notes: Sequenced after the guest slice lands, because both touch the stay-closing paths, the socket route and the room modules. Recording inside a breakout is deferred to the recording node with two requirements stated in the design.
 
 - id: meetings.polls
   name: Polls and questions
@@ -171,8 +173,10 @@
 - id: meetings.whiteboard
   name: Whiteboard and annotation
   scope: A shared drawing surface, and annotation over a shared screen.
-  status: not-started
-  evidence: No code; a collaborative surface is a second subsystem, sequenced last among the in-meeting tools.
+  status: designed
+  spec: docs/specs/2026-09-24-meetings-whiteboard-and-annotation-design.md
+  evidence: No code; designed 2026-09-24 — an append-only log of typed operations the room numbers, coordinates on a fixed board, chunked room storage under the one-list-per-frame rule, four client and three room frames inside the existing budget, filed as an SVG from a typed builder and a pure-Rust PDF page through the upload pipeline, annotation placed relative to the shared picture and composed only in each browser, a Canvas surface in the design system rather than tldraw or Excalidraw.
+  awaiting-owner: Erased marks are not kept — the filed board is the board as it stands, unlike chat which keeps a redacted row; the alternative of filing the operation log too is in the design. Non-Latin text is a replacement mark in the PDF and exact in the SVG.
 
 - id: meetings.transcription
   name: Live captions and transcript
@@ -202,14 +206,18 @@
 - id: meetings.webinars
   name: Webinars
   scope: A meeting where a few present and many watch — registration, view-only attendees, a panel — for a firm's seminars and client briefings.
-  status: not-started
-  evidence: No code; every participant can publish today.
+  status: designed
+  spec: docs/specs/2026-09-24-meetings-webinars-and-live-streaming-design.md
+  evidence: No code; designed 2026-09-24 — a meeting with a webinar child row, a panel of up to fifty in the room, attendees as a third kind of stay served by sharded audience Durable Objects of one hundred each with no roster, no chat and no reactions, registration by member, Directory entity or public registrant on a signed page behind human verification, and a new meetings:openRegistration permission for Owner and Admin.
+  awaiting-owner: How a public registrant, who is deliberately not a Directory entity, is anchored for a data-erasure request — the design deletes registrant addresses thirty days after the meeting and keeps a hash; and the per-application ceiling to ask Cloudflare about before the one-thousand attendee limit moves.
 
 - id: meetings.live-streaming
   name: Live streaming
   scope: A meeting broadcast to a streaming destination.
-  status: not-started
-  evidence: No code.
+  status: designed
+  spec: docs/specs/2026-09-24-meetings-webinars-and-live-streaming-design.md
+  evidence: No code; designed 2026-09-24 — recommended only as a webinar overflow lane of up to two thousand viewers through Cloudflare Stream's WHIP ingest of one host browser's uncomposed track with the panel's audio mixed in that browser, viewers on signed WHEP links who still hold an attendance socket; third-party destinations need composition and encoding with no memory-safe path.
+  awaiting-owner: Streaming to a third-party destination (RTMP or SRT) is the same decision as video recording — RealtimeKit, or a C/C++ codec in a container — and is deferred to the owner; broadcasting an ordinary meeting is not built because it would leave no record of who watched.
 
 - id: meetings.scheduling
   name: Scheduling
@@ -235,8 +243,9 @@
 - id: meetings.scheduling.booking-pages
   name: Booking pages
   scope: A member's booking page a client picks a time on, creating the event and its meeting or call the same way a member's own scheduling does.
-  status: not-started
-  evidence: No code.
+  status: designed
+  spec: docs/specs/2026-09-24-meetings-scheduling-and-booking-pages-design.md
+  evidence: No code; designed 2026-09-24 — a public page at a signed address, a visitor proves their mailbox before becoming anybody, a held slot for fifteen minutes, a Directory person matched or created needing review with Keep, Merge or Discard, a firm event titled with the page heading, the slot computation as a pure function over instants, and a booking lane beside the guest lane at the chokepoint. What a visitor holds is an appointment in code, because booking already means a resource held for an event.
 
 - id: meetings.personal-room
   name: A member's standing room
@@ -248,20 +257,26 @@
 - id: meetings.end-to-end-encryption
   name: End-to-end encryption
   scope: Media the routing service cannot read — keys agreed between browsers, frames encrypted before they leave.
-  status: not-started
-  evidence: No code; media is encrypted hop by hop today (DTLS-SRTP to and from the routing service). Insertable streams and a key exchange are the mechanism; recording and transcription cannot coexist with it.
+  status: designed
+  spec: docs/research/2026-09-24-meetings-end-to-end-encryption.md
+  evidence: No code; researched 2026-09-24 — the routing service forwards SFrame-encrypted frames intact on Cloudflare's own precedent, VP8 only, keys per sender sent to each participant encrypted to that participant alone so the room relays ciphertext, replaced when anybody leaves, a cap of fifty until MLS, WebCrypto only. Recording, transcription, captions, the summary, dial-in and everything on the WebSocket adapter stop working while it is on.
+  awaiting-owner: Build it as an opt-in fixed at the meeting's start after recording and dial-in exist and after the two experiments (simulcast layer switching with encrypted frames, and the key-replacement cost at fifty), or defer; whether a firm may forbid it; the honest threat model — it does not protect against a malicious deploy of our own JavaScript, and an active malicious room could swap keys unless participants compare a security code.
 
 - id: meetings.usage-reporting
   name: Meetings usage and quality
   scope: How much the firm meets, by member and matter, and how the connections held up — in Reports and Firm Usage.
-  status: not-started
-  evidence: No code; attendance rows exist, no report reads them.
+  status: designed
+  spec: docs/specs/2026-09-24-meetings-usage-reporting-design.md
+  evidence: No code; designed 2026-09-24 — minutes from the attendance rows as the firm's own record with no rollup table, in-room time from admission, days in the firm's default office zone with a stay split at midnight, quality from dropped-connection stays and a per-room connection tally with no person on any row and hidden under five people, the existing reports:operational key, a report at reports/meetings-usage and a Firm Usage section.
+  awaiting-owner: The per-room connection tally makes the guide's sentence that nothing about a member's connection is recorded true per person but not per room; sign off on that wording change, or the tally is dropped and quality comes only from dropped connections in the attendance record.
 
 - id: meetings.dial-in
   name: Dial-in by phone
   scope: A PSTN leg into a meeting through the telephony port.
-  status: not-started
-  evidence: No code; blocked on the communications layer's voice port, which has no adapter yet.
+  status: designed
+  spec: docs/specs/2026-09-24-meetings-dial-in-design.md
+  evidence: No code; designed 2026-09-24 — Telnyx terminates the call and streams uncompressed audio over its media WebSocket, a MeetingPhoneBridge Durable Object per call joins it to the meeting through the routing service's WebSocket adapter in both directions and mixes up to four recent speakers for the caller in TypeScript, a twelve-digit per-meeting PIN stored as a keyed hash, every caller waits at the door, a phone stay is a member or guest stay with a channel column, and a TelephonyPort in a new @magna-carta/telephony package. No container and no C/C++.
+  awaiting-owner: Whose carrier account (platform-managed or per firm); whether to build the bridge now or wait for Cloudflare's own phone gateway into Realtime, which is drafted but not generally available; if the adapter goes away a container bridge needs an Opus codec, a young pure-Rust one or libopus under consent; whether a member's PIN skips the lobby when the lobby is off; local or toll-free numbers and how many per firm.
 
 - id: meetings.external-provider-port
   name: Conferencing port (Zoom, Teams)

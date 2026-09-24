@@ -43,10 +43,10 @@ not](#what-a-roll-up-is-not).
 | `shipped` | 336 | 47% |
 | `partial` | 125 | 17% |
 | `in-build` | 1 | 0% |
-| `designed` | 51 | 7% |
+| `designed` | 59 | 8% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
-| `not-started` | 143 | 20% |
+| `not-started` | 135 | 19% |
 | `deferred` | 38 | 5% |
 | `cut` | 4 | 1% |
 | **All statuses** | **718** | **100%** |
@@ -112,7 +112,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
 | Integrations & Plugins | 17 | 2 | 0 | 1 | 0 | 3 | 15 | 3 | 1 | 42 | 40% |
 | Maintenance Agents | 2 | 3 | 0 | 0 | 0 | 0 | 5 | 0 | 0 | 10 | 20% |
-| Meetings | 13 | 1 | 1 | 5 | 0 | 0 | 10 | 0 | 0 | 30 | 43% |
+| Meetings | 13 | 1 | 1 | 13 | 0 | 0 | 2 | 0 | 0 | 30 | 43% |
 | Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 12 | 58% |
 | Notifications | 4 | 6 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 14 | 29% |
 | Observability & Diagnostics | 14 | 0 | 0 | 0 | 0 | 0 | 4 | 2 | 0 | 20 | 70% |
@@ -127,7 +127,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 14 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 21 | 67% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **336** | **125** | **1** | **51** | **15** | **5** | **143** | **38** | **4** | **718** | **47%** |
+| **All areas** | **336** | **125** | **1** | **59** | **15** | **5** | **135** | **38** | **4** | **718** | **47%** |
 
 ## Where we have been
 
@@ -240,7 +240,7 @@ one.
 
 ## Waiting on you
 
-**32 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
+**38 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
 
 - **Client-consent model** (`ai.consent`) — **Not built.** Whether client consent for AI is taken once in the engagement letter or per matter. No AI feature reaches a client's data until this is settled.
 - **Feedback board** (`community.board`) — **Not built.** Two calls, both on the open pull request. Whether to ratify a named exception to the firm-scoped data rule, since a shared board is cross-firm by definition; and how a signed-in member's session reaches the community host, which is a different origin from the application.
@@ -256,8 +256,14 @@ one.
 - **Financial statements** (`financial.ledger.operating-gl.financial-statements`) — **Not built.** Are trust accounts on the firm's balance sheet? Correct accounting includes them — the firm holds an asset and an equal liability — and some accountants present a firm balance sheet without them; the recommendation is to include them in labelled sections that must net to zero, and to refuse the statement when they do not, because omitting them hides the one relationship an examiner checks. Also whether a derived cash-basis view is in scope here at all, which it is recommended not to be: the book is accrual and cannot be otherwise, and a cash view is not a tax basis and must never be presented as one. And who is seeded the capability to read statements, where a bookkeeper reads them and posts nothing. General ledger design, flags G16, G2 and G14.
 - **Public intake forms** (`intake.public-forms`) — **Not built.** Two things stand in front of an anonymous form. Whether it accepts attachments — the value is real (the contract, the letter they were served) and so is the surface, since it is an unidentified stranger writing into the untrusted-ingest and malware-scan pipeline at the firm's quarantine and storage cost. And whether Turnstile is switched on first: the verifier is built but dormant, and every unprotected pass is counted as unenforced rather than blocked, so a public form shipped ahead of the activation would ship in front of a bot control that is not actually running. Client intake design flags J3 and J11.
 - **Recording** (`meetings.recording`) — **Not built.** Is audio alone the right record for a law firm, or is video needed — and if it is, is it worth moving meetings onto RealtimeKit to get it managed rather than taking a C/C++ codec dependency?
+- **Whiteboard and annotation** (`meetings.whiteboard`) — **Not built.** Erased marks are not kept — the filed board is the board as it stands, unlike chat which keeps a redacted row; the alternative of filing the operation log too is in the design. Non-Latin text is a replacement mark in the PDF and exact in the SVG.
 - **Backgrounds and noise suppression** (`meetings.backgrounds-and-noise`) — **Not built.** Asked only if both memory-safe segmentation runtimes miss the frame budget. Every off-the-shelf way of blurring a background in a browser — MediaPipe, ONNX Runtime Web, Transformers.js, the TensorFlow.js wasm backend — is C++ compiled to WebAssembly, which golden rule 14 says needs explicit consent. Do we adopt MediaPipe for background blur alone if the Rust and the TypeScript-and-WebGL paths both fall short, or ship without background blur and keep the audio effects, which need no such dependency? Media effects design, flag M1.
+- **Webinars** (`meetings.webinars`) — **Not built.** How a public registrant, who is deliberately not a Directory entity, is anchored for a data-erasure request — the design deletes registrant addresses thirty days after the meeting and keeps a hash; and the per-application ceiling to ask Cloudflare about before the one-thousand attendee limit moves.
+- **Live streaming** (`meetings.live-streaming`) — **Not built.** Streaming to a third-party destination (RTMP or SRT) is the same decision as video recording — RealtimeKit, or a C/C++ codec in a container — and is deferred to the owner; broadcasting an ordinary meeting is not built because it would leave no record of who watched.
 - **A member's standing room** (`meetings.personal-room`) — **Not built.** Does a standing room fit a record that hangs every meeting from a calendar event, or does every meeting stay an event so the matter file stays complete?
+- **End-to-end encryption** (`meetings.end-to-end-encryption`) — **Not built.** Build it as an opt-in fixed at the meeting's start after recording and dial-in exist and after the two experiments (simulcast layer switching with encrypted frames, and the key-replacement cost at fifty), or defer; whether a firm may forbid it; the honest threat model — it does not protect against a malicious deploy of our own JavaScript, and an active malicious room could swap keys unless participants compare a security code.
+- **Meetings usage and quality** (`meetings.usage-reporting`) — **Not built.** The per-room connection tally makes the guide's sentence that nothing about a member's connection is recorded true per person but not per room; sign off on that wording change, or the tally is dropped and quality comes only from dropped connections in the attendance record.
+- **Dial-in by phone** (`meetings.dial-in`) — **Not built.** Whose carrier account (platform-managed or per firm); whether to build the bridge now or wait for Cloudflare's own phone gateway into Realtime, which is drafted but not generally available; if the adapter goes away a container bridge needs an Opus codec, a young pure-Rust one or libopus under consent; whether a member's PIN skips the lobby when the lobby is off; local or toll-free numbers and how many per firm.
 - **Firm-wide note search** (`notes.search.firm-wide`) — **Not built.** Neither existing index can take notes as it stands, and which one grows to fit is an owner call. The natural-language feed reserves work-product as a class its writer must never produce, and a note is exactly that; the keyword index takes a file or a review document fed from R2 objects, and a note is a database row. The third option is a note-only index. The snippet question is already answered (no snippet, notes design flag W6).
 - **Payments port** (`payments.port`) — **Not built.** Can both deposit destinations live inside one connection's credential payload, or must the registry's one-connection-per-category resolution widen? Payments design flag K9.
 - **Manually recorded receipt** (`payments.manual-receipt`) — **Not built.** Does this ship as the first payments slice, ahead of any processor work? Payments design flag K1.
@@ -361,10 +367,18 @@ Decisions about a capability only. Account-side steps that no session can perfor
 - `financial.billing.automations.replenishment` · **Evergreen below-floor replenishment** — A scheduled comparison of each retainer matter's available trust balance against the agreement's floor, raising the replenishment ask the firm can act on.
 - `integrations.ports.email-calendar` · **Email / calendar adapter** — First planned credentialed vendor port: email filing and calendar sync into matters.
 - `meetings.recording` · **Recording** — Server-side capture of a meeting into the matter file through the untrusted-file pipeline into R2; every participant is told "Recording in progress" when it starts and on arrival, audibly and on screen, and a recording mark stays on every screen for as long as it runs.
+- `meetings.breakout-rooms` · **Breakout rooms** — A host splits the room into smaller rooms and brings them back; each is a room of its own under the same meeting.
 - `meetings.polls` · **Polls and questions** — A host asks the room a question and sees the answers; a question queue the host works through.
+- `meetings.whiteboard` · **Whiteboard and annotation** — A shared drawing surface, and annotation over a shared screen.
 - `meetings.transcription` · **Live captions and transcript** — Captions during the meeting and a transcript afterwards, in the meeting's language and translated, behind the same consent gate as recording.
 - `meetings.summary` · **Meeting summary** — A summary and action items after a meeting, filed to the event with the meeting's own visibility, written from the transcript through the one model seam the assistant uses.
 - `meetings.backgrounds-and-noise` · **Backgrounds and noise suppression** — A blurred or replaced background and microphone noise suppression, both in the browser, on the local track before it is published.
+- `meetings.webinars` · **Webinars** — A meeting where a few present and many watch — registration, view-only attendees, a panel — for a firm's seminars and client briefings.
+- `meetings.live-streaming` · **Live streaming** — A meeting broadcast to a streaming destination.
+- `meetings.scheduling.booking-pages` · **Booking pages** — A member's booking page a client picks a time on, creating the event and its meeting or call the same way a member's own scheduling does.
+- `meetings.end-to-end-encryption` · **End-to-end encryption** — Media the routing service cannot read — keys agreed between browsers, frames encrypted before they leave.
+- `meetings.usage-reporting` · **Meetings usage and quality** — How much the firm meets, by member and matter, and how the connections held up — in Reports and Firm Usage.
+- `meetings.dial-in` · **Dial-in by phone** — A PSTN leg into a meeting through the telephony port.
 - `notes.search.firm-wide` · **Firm-wide note search** — Searching every matter's notes from one place, under the same visibility predicate the timeline composes, with no snippet.
 - `notes.entity-note` · **Notes on a Directory entity** — The same primitive keyed to a Directory entity, read on the entity's own surface.
 - `payments` · **Payments** — Payment acceptance as a swappable-adapter port, ACH-default with card fallback, structured so processor fees never touch trust.
@@ -1076,21 +1090,21 @@ to change a line here, edit the node in its area file and re-run the build.
   - `meetings.diagnostics` · `partial` · **Diagnosability** — A per-meeting structured event stream through the standard telemetry pipeline correlated by firm, meeting and stay; the browser's own connection sample reported to the room and kept only as the latest; an operator's inspect call into one live room behind the platform-operator guard; and a load harness that drives three hundred fake clients against the room so the fan-out cost is a number. _Note: The harness falsified a design claim on its first run — every deferred presence transition armed the alarm through the full reconciliation, two roster-wide reads on the frame a large room sends most, measured at 1.2 storage lists per frame against a design that claims one. Arming for the known deadline instead took the same pass to 0.4._
   - `meetings.reactions` · `shipped` · **Raise hand and reactions** — A raised hand the host sees in order, and a small closed set of reactions, relayed as presence rather than stored. _Note: Unverified in a browser: the rise animation, the hand mark on tile and roster, the counts strip and the reduced-motion fallback have only been rendered under the test DOM. A lowered hand does not tell the member who lowered it (no hands-lowered frame; hands travel on roster deltas) — an open call for the owner._
   - `meetings.chat` · `shipped` · **In-meeting chat** — Text between participants during a meeting, kept on the record as the meeting's first stored content — filed under the event with the attendance. _Note: The owner's ruling of 2026-09-20 — chat is kept on the record. The meeting therefore stores content for the first time, which means the chat rows carry the same redaction, retention and PII treatment as a filed email, and the audit row still carries identifiers only. The route is the record and the room stores nothing about a message; a browser that misses a frame is caught up by the read. Open — the transcript is readable by any member who can see the matter event, including one who never joined the meeting and one added to the matter afterwards; posting needs an open stay but reading inherits the event's visibility. Whether the read should narrow to the people who were in the room is an owner question recorded in the amendments of docs/specs/2026-09-20-meetings-host-controls-and-waiting-room-design.md._
-  - `meetings.breakout-rooms` · `not-started` · **Breakout rooms** — A host splits the room into smaller rooms and brings them back; each is a room of its own under the same meeting.
+  - `meetings.breakout-rooms` · `designed` · **Breakout rooms** — A host splits the room into smaller rooms and brings them back; each is a room of its own under the same meeting. _Note: Sequenced after the guest slice lands, because both touch the stay-closing paths, the socket route and the room modules. Recording inside a breakout is deferred to the recording node with two requirements stated in the design._
   - `meetings.polls` · `designed` · **Polls and questions** — A host asks the room a question and sees the answers; a question queue the host works through. _Note: The meeting's second stored content after chat, so the poll question, the option labels and a question's body carry a filed message's retention, redaction and personal-data treatment, and no audit row ever carries which option was chosen._
-  - `meetings.whiteboard` · `not-started` · **Whiteboard and annotation** — A shared drawing surface, and annotation over a shared screen.
+  - `meetings.whiteboard` · `designed` · **Whiteboard and annotation** — A shared drawing surface, and annotation over a shared screen.
   - `meetings.transcription` · `designed` · **Live captions and transcript** — Captions during the meeting and a transcript afterwards, in the meeting's language and translated, behind the same consent gate as recording. _Note: Sequenced with recording, under the same announcement-and-indicator consent mechanism the owner ruled for recording on 2026-09-20 — captions are announced as recording is. Speaker attribution comes from the track name rather than diarization, so the transcript names people instead of numbering them._
   - `meetings.summary` · `designed` · **Meeting summary** — A summary and action items after a meeting, filed to the event with the meeting's own visibility, written from the transcript through the one model seam the assistant uses. _Note: Written through InferencePort rather than as an assistant conversation, so a privileged transcript is never copied into a conversation history; it runs on the on-Cloudflare model path by default and reaches a frontier model only where the firm's AI-processing eligibility allows._
   - `meetings.backgrounds-and-noise` · `designed` · **Backgrounds and noise suppression** — A blurred or replaced background and microphone noise suppression, both in the browser, on the local track before it is published. _Note: The noise-suppression half raises no such question: nnnoiseless is RNNoise's network in safe Rust, on the same Rust-to-WASM precedent the PDF, decryption, email and seven-zip cores already take._
-  - `meetings.webinars` · `not-started` · **Webinars** — A meeting where a few present and many watch — registration, view-only attendees, a panel — for a firm's seminars and client briefings.
-  - `meetings.live-streaming` · `not-started` · **Live streaming** — A meeting broadcast to a streaming destination.
+  - `meetings.webinars` · `designed` · **Webinars** — A meeting where a few present and many watch — registration, view-only attendees, a panel — for a firm's seminars and client briefings.
+  - `meetings.live-streaming` · `designed` · **Live streaming** — A meeting broadcast to a streaming destination.
   - `meetings.scheduling` · `partial` · **Scheduling** — A member schedules a meeting or call from the product — picks the people (members and Directory contacts), the time and the medium, and the event and its meeting are created with invitations sent; availability read from the calendar; confirmation and reminders. _Note: High priority by the owner's direction of 2026-09-20 — sequenced directly behind host controls and the waiting room. Staff schedule as well as clients (2026-09-20)._
     - `meetings.scheduling.from-the-calendar` · `shipped` · **Scheduling from the event form** — A Meeting choice on the one event form (None, Video meeting, Audio call) that writes the meeting row as the event is saved, invites the member participants through the notifications subsystem, reads each colleague's conflicting entries for the chosen hour, and adds New Meeting to the Meetings page. _Note: Firm events raise no invitation yet — notification_event.subject_kind is a SQLite CHECK with no firmEvent value, and widening it rebuilds a table notification_recipient points at. Reminders and Directory-guest invitations are the remaining halves._
-    - `meetings.scheduling.booking-pages` · `not-started` · **Booking pages** — A member's booking page a client picks a time on, creating the event and its meeting or call the same way a member's own scheduling does.
+    - `meetings.scheduling.booking-pages` · `designed` · **Booking pages** — A member's booking page a client picks a time on, creating the event and its meeting or call the same way a member's own scheduling does.
   - `meetings.personal-room` · `not-started` · **A member's standing room** — A room a member always has, joined by a stable link, not tied to a calendar event.
-  - `meetings.end-to-end-encryption` · `not-started` · **End-to-end encryption** — Media the routing service cannot read — keys agreed between browsers, frames encrypted before they leave.
-  - `meetings.usage-reporting` · `not-started` · **Meetings usage and quality** — How much the firm meets, by member and matter, and how the connections held up — in Reports and Firm Usage.
-  - `meetings.dial-in` · `not-started` · **Dial-in by phone** — A PSTN leg into a meeting through the telephony port.
+  - `meetings.end-to-end-encryption` · `designed` · **End-to-end encryption** — Media the routing service cannot read — keys agreed between browsers, frames encrypted before they leave.
+  - `meetings.usage-reporting` · `designed` · **Meetings usage and quality** — How much the firm meets, by member and matter, and how the connections held up — in Reports and Firm Usage.
+  - `meetings.dial-in` · `designed` · **Dial-in by phone** — A PSTN leg into a meeting through the telephony port.
   - `meetings.external-provider-port` · `not-started` · **Conferencing port (Zoom, Teams)** — A ConferencingPort under packages/integrations whose adapter places a vendor's meeting link on a calendar event, for firms that keep a vendor.
 
 ### Matter Notes and Activity
