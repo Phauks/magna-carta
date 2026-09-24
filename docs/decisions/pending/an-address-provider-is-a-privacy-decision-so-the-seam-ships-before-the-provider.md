@@ -1,6 +1,6 @@
 ---
 slug: an-address-provider-is-a-privacy-decision-so-the-seam-ships-before-the-provider
-status: Proposed — owner decision required
+status: Superseded — 2026-09-20, by the owner authorising the disclosure
 area: Directory
 date: 2026-08-30
 summary: "The owner asked what a mapping or geocoding provider would buy an address record. It would buy four separable things: deliverability validation, normalization to a canonical postal form, geocoding to coordinates, and a map view. Each is worth a different amount and each carries the same cost, which is that a client's home address leaves the firm's tenancy for a third party — a privacy decision the owner makes explicitly, not a dependency an agent adds. So this pass ships the seam and no provider: the address model is already the international field set with a normalized duplicate key, and a provider result would land in the verification columns that already exist. The recommendation, if one is adopted, is Google's Address Validation API at 17 USD per thousand for coverage plus Smarty for a United States-only firm; the USPS API is free and, since its January 2026 rate limit of sixty lookups an hour and its ban on list validation, is not a platform dependency. Self-hosting Nominatim or Pelias keeps every address inside the tenancy and is the only option with no privacy question at all, at the cost of an operational surface this platform does not otherwise have. libpostal is C and has no pure-Rust port, so golden rule 14 applies to the normalization half."

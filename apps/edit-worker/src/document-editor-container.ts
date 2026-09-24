@@ -1,6 +1,17 @@
-import { Container } from "@cloudflare/containers";
+import { Container, type StopParams } from "@cloudflare/containers";
+import {
+  CONTAINER_EVENTS_KEY,
+  detailOf,
+  hasPhase,
+  withEvent,
+  type ContainerEvent,
+  type ContainerPhase,
+} from "./container-phases.ts";
 import { forwardWopiCallback } from "./document-routing.ts";
 import type { Bindings } from "./index.ts";
+
+/** The editor page itself, whose arrival is the moment the browser can begin. */
+const EDITOR_PAGE_PATH = "/browser/dist/cool.html";
 
 // The fixed internal host coolwsd is configured (Dockerfile) to use as its WOPI host. It never resolves
 // on the public internet — outboundByHost below intercepts it and forwards to the app worker. Naming it
@@ -51,5 +62,60 @@ export class DocumentEditorContainer extends Container<Bindings> {
       [WOPI_HOST]: (request: Request, env: Bindings) =>
         forwardWopiCallback(request, env.APP_WORKER),
     };
+  }
+
+  // WHAT THE CONTAINER HAS BEEN DOING, for the screen that is waiting on it (container-phases.ts).
+  // Each request records the phases it passes: asked for when the container is not up, listening
+  // once its port answers, served when the editor page itself goes out; the runtime's own hooks
+  // record started, stopped and an error. The list lives in storage, not on this instance.
+  override async fetch(request: Request): Promise<Response> {
+    if (!this.ctx.container?.running) await this.notePhase("requested");
+    // The library's fetch starts the container and waits for the port on its own; doing it here
+    // first changes nothing about that wait and puts the moment the port answered on record.
+    await this.startAndWaitForPorts();
+    await this.notePhaseOnce("listening");
+    const response = await super.fetch(request);
+    if (response.ok && new URL(request.url).pathname === EDITOR_PAGE_PATH) {
+      await this.notePhaseOnce("served");
+    }
+    return response;
+  }
+
+  override async onStart(): Promise<void> {
+    await this.notePhase("started");
+  }
+
+  override async onStop(params: StopParams): Promise<void> {
+    await this.notePhase("stopped", `exit code ${String(params.exitCode)}, ${params.reason}`);
+  }
+
+  override onError(error: unknown): unknown {
+    // Recorded and rethrown: the record is a diagnostic, and the library's own handling (the
+    // request failing, the diagnostics boundary minting an Error ID) must not change.
+    void this.notePhase("error", detailOf(error));
+    throw error;
+  }
+
+  /** The container's record, read by the app worker's progress route over the service binding. */
+  async status(): Promise<{ events: readonly ContainerEvent[] }> {
+    return { events: await this.events() };
+  }
+
+  private async events(): Promise<readonly ContainerEvent[]> {
+    return (await this.ctx.storage.get<readonly ContainerEvent[]>(CONTAINER_EVENTS_KEY)) ?? [];
+  }
+
+  private async notePhase(phase: ContainerPhase, detail: string | null = null): Promise<void> {
+    const events = withEvent(await this.events(), {
+      phase,
+      at: new Date().toISOString(),
+      detail,
+    });
+    await this.ctx.storage.put(CONTAINER_EVENTS_KEY, events);
+  }
+
+  private async notePhaseOnce(phase: ContainerPhase): Promise<void> {
+    if (hasPhase(await this.events(), phase)) return;
+    await this.notePhase(phase);
   }
 }

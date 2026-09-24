@@ -64,6 +64,7 @@
     marked,
     OPEN_PROGRESS_POLL_MILLISECONDS,
     openFeed,
+    openLogRows,
     openPace,
     openRows,
     openTrace,
@@ -273,7 +274,12 @@
         untrack(() => {
           if (record.checkFileInfoAt !== null) reach("information");
           if (record.getFileAt !== null) reach("bytes");
-          marks = { ...marks, lastCallback: record.lastCallback };
+          marks = {
+            ...marks,
+            lastCallback: record.lastCallback,
+            callbacks: record.callbacks,
+            containerEvents: record.container?.events ?? [],
+          };
           if (refusal(marks) !== null) {
             stopOpening();
             return;
@@ -403,7 +409,9 @@
                  the editor's, and the rows say which stage, how long, and what the host answered. -->
             <DocumentOpeningProgress
               feed={openFeed(marks, failedAt, failedStage)}
-              rows={failedStage === "session" ? undefined : openRows(marks, failedAt)}
+              rows={failedStage === "session"
+                ? undefined
+                : [...openRows(marks, failedAt), ...openLogRows(marks)]}
               trace={failedStage === "session" ? undefined : () => openTrace(marks, failedAt)}
               stopped
             >
@@ -429,7 +437,7 @@
               pace={openPace(marks.startedAt, now)}
               {stalled}
               onRetry={open}
-              rows={openRows(marks, now)}
+              rows={openLogRows(marks)}
               trace={() => openTrace(marks, new Date())}
             />
           {/if}

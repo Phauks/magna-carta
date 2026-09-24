@@ -2,6 +2,7 @@ import { getContainer } from "@cloudflare/containers";
 import { isVersionRequest, versionResponse } from "@magna-carta/build-identity/version-route";
 import { setServiceIdentity } from "@magna-carta/telemetry/service-identity";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
+import { isStatusRequest, statusResponse } from "./container-phases.ts";
 import { withEditorDiagnostics } from "./diagnostics.ts";
 import { DocumentEditorContainer } from "./document-editor-container.ts";
 import { documentKeyFromHost } from "./document-routing.ts";
@@ -73,6 +74,12 @@ export default {
       request,
       { logger: createWorkersLogger(env.TELEMETRY), now: () => new Date().toISOString() },
       async () => {
+        // What the container has been doing, for the screen waiting on it: read off the object's
+        // storage, never from the container, so a container still starting answers at once. The
+        // app worker's progress route reads it over the service binding (container-phases.ts).
+        if (isStatusRequest(request)) {
+          return statusResponse((await getContainer(env.DOCUMENT_EDITOR, key).status()).events);
+        }
         // Forwards the request verbatim, including the WebSocket upgrade, to the per-document
         // container. coolwsd's own WOPI callbacks do NOT pass through here — they leave the container
         // via outboundByHost straight to the app worker.

@@ -1,0 +1,25 @@
+{
+  "name": "@magna-carta/address-formats",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./types": "./src/types.ts",
+    "./postal-code": "./src/postal-code.ts",
+    "./administrative-areas": "./src/administrative-areas.ts"
+  },
+  "scripts": {
+    "test": "vp test run",
+    "build:data": "tsx scripts/build-data.mts",
+    "verify:data": "tsx scripts/build-data.mts --check",
+    "fetch:corpus": "tsx scripts/fetch-corpus.mts"
+  },
+  "devDependencies": {
+    "@magna-carta/civil-time": "workspace:*",
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "tsx": "^4.23.1",
+    "vitest": "catalog:"
+  }
+}

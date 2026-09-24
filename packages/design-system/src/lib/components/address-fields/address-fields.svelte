@@ -48,11 +48,13 @@
   import LabelledField from "../labelled-field/index.ts";
   import { placeholderOf } from "../../formatters/placeholder.ts";
   import { addressFormatFor, type AddressFieldKey } from "./address-format.ts";
-  import type { AddressCountry, AddressParts } from "./types.ts";
+  import type { AddressAdministrativeArea, AddressCountry, AddressParts } from "./types.ts";
 
   let {
     value = $bindable(),
     countries,
+    administrativeAreas = [],
+    postalCodeNote,
     disabled = false,
     /** The refusal to show on the first line, where the caller has one. */
     error,
@@ -61,6 +63,24 @@
     value: AddressParts;
     /** What the country field offers. A country with no known form takes the international one. */
     countries: readonly AddressCountry[];
+    /**
+     * The administrative areas to OFFER in the region box — states, provinces, prefectures,
+     * counties. Suggestions, never a closed set: the box still takes anything typed into it. An
+     * empty list (the default) leaves the box as plain free text, which is the right answer for
+     * every country that publishes no list.
+     */
+    administrativeAreas?: readonly AddressAdministrativeArea[];
+    /**
+     * Asked whether the postal code reads like one for the country it is in. Returning a string
+     * shows it under the box; returning null says nothing.
+     *
+     * A NOTE, NEVER A REFUSAL. It renders as the field's hint rather than its error, so the box is
+     * never marked invalid and nothing here can stop a commit — a code can match its country's
+     * published format perfectly and reach nobody, and a new development can carry one no published
+     * format knows yet. Whether a malformed code matters at all is the caller's rule, beside its
+     * own commit.
+     */
+    postalCodeNote?: (country: string | undefined, value: string) => string | null;
     disabled?: boolean;
     error?: string;
   } = $props();
@@ -126,6 +146,29 @@
   function templateFor(spans: readonly number[]): string {
     return spans.map((span) => `minmax(0, ${String(span)}fr)`).join(" ");
   }
+
+  /**
+   * The note under the postal box, asked fresh as the code is typed. `undefined` rather than null,
+   * because that is what LabelledField takes to mean "no hint".
+   */
+  const postalNote = $derived(postalCodeNote?.(value.country, value.postal ?? "") ?? undefined);
+
+  /**
+   * The region box's suggestion list, offered through a native datalist.
+   *
+   * A DATALIST AND NOT A COMBOBOX, because the region box is NOT a closed choice. The standing rule
+   * that every closed choice is a combobox is about choices with a known, complete set of answers;
+   * this one has neither. Addresses exist in places a published list does not carry — a territory
+   * in dispute, a region renamed last month, a military post — and a record entered before any list
+   * existed already holds whatever somebody typed. A datalist offers the list and keeps the typing,
+   * which is exactly the semantics required; a combobox would settle the box back onto a listed
+   * value on close and silently destroy the other kind of answer.
+   *
+   * Honest limit: a datalist filters on the option's VALUE, which is the stored code ("CA"), so
+   * typing a state's full name may narrow to nothing in some browsers. Nothing is lost when it does
+   * — the typed text stands — and storing the code is what an envelope prints.
+   */
+  const areaListIdentifier = $props.id();
 </script>
 
 <div class="flex flex-col gap-12">
@@ -192,11 +235,18 @@
   {#each format.lines as line, index (index)}
     <div class="grid gap-8" style="grid-template-columns: {templateFor(line.map((field) => field.span ?? 1))}">
       {#each line as field (field.key)}
-        <LabelledField label={field.label} error={index === 0 && field.key === "street" ? error : undefined}>
+        <LabelledField
+          label={field.label}
+          hint={field.key === "postal" ? postalNote : undefined}
+          error={index === 0 && field.key === "street" ? error : undefined}
+        >
           {#snippet children({ props })}
             <Input
               {...props}
               autocomplete="off"
+              list={field.key === "region" && administrativeAreas.length > 0
+                ? areaListIdentifier
+                : undefined}
               value={value[field.key] ?? ""}
               {disabled}
               placeholder={placeholderOf(field.label)}
@@ -207,6 +257,14 @@
       {/each}
     </div>
   {/each}
+
+  {#if administrativeAreas.length > 0}
+    <datalist id={areaListIdentifier}>
+      {#each administrativeAreas as area (area.code)}
+        <option value={area.code} label={area.name}></option>
+      {/each}
+    </datalist>
+  {/if}
 
   {#if heldButNotShown.length > 0}
     <p class="text-xs text-text-muted">

@@ -52,7 +52,10 @@
     stalled?: boolean;
     /** How to ask again. Shown beside the stalled sentence; a stopped open's notice carries its own. */
     onRetry?: () => void;
-    /** The timings so far and the host's last answer: the details, behind the control. */
+    /**
+     * The open's log so far (what the container, the host and the page each did, in order), or on a
+     * stop the stage timings followed by that log: the details, behind the control.
+     */
     rows?: readonly FailureDetailRow[];
     /** The same facts as one block for a report, re-read at the press. */
     trace?: string | (() => string);
