@@ -1,6 +1,7 @@
 /*
- * The judgments the firm's Trust screen makes. Three of them are worth a test, and each for a
- * reason that has consequences for a client's money rather than for a layout.
+ * The judgments the firm's Trust screen makes, and the bodies its cushion panels compose. Each one
+ * asserted here is worth a test for a reason that has consequences for a client's money rather than
+ * for a layout.
  *
  *   - THE POSTURE SENTENCE IS THE FIRM'S OWN RULE, READ BACK. It is assembled from three fields,
  *     and a reader who has to assemble them has been handed a puzzle instead of an answer. Both
@@ -14,9 +15,18 @@
  *   - A RECONCILIATION KNOWS ITS STATEMENT BY IDENTIFIER AND A READER KNOWS IT BY ITS PERIOD. The
  *     two reads are independent, so the join can come up empty, and an empty join is a fact rather
  *     than a failure: the row says so instead of printing a handle at somebody.
+ *   - A ZERO AND AN ABSENCE ARE DIFFERENT FACTS ABOUT A TRUST ACCOUNT. Five of the position's
+ *     figures are always answerable and read as money or as a count; the firm's own cushion is
+ *     absent on an account that never opened one, and printing it as nothing would say the firm
+ *     keeps money there that it does not.
+ *   - A CUSHION REQUEST IS REFUSED ON THIS SIDE WHERE IT CANNOT SUCCEED, AND ONLY THERE. The
+ *     fields the panels can judge are judged here, with the sentence a reader gets; the one
+ *     refusal that is NOT here is the charge that exceeds the cushion, which is the server's
+ *     because the balance moves under the reader.
  */
 import { describe, expect, it } from "vitest";
 import type {
+  TrustAccountPosition,
   TrustAuthorizationPolicyVersion,
   TrustBankStatement,
   TrustPendingRequest,
@@ -24,13 +34,22 @@ import type {
 } from "../src/lib/trust/trust-api.ts";
 import {
   accountsMatching,
+  positionReading,
   postureSentence,
   postureVersionText,
   queueInOrder,
   reconciliationRows,
   requestActions,
+  requestMatterText,
   statementsInOrder,
 } from "../src/lib/trust/firm-trust-model.ts";
+import {
+  DEFAULT_CUSHION_NODE_NAME,
+  readTrustBankChargeRequest,
+  readTrustCushionDepositRequest,
+  readTrustCushionOpening,
+} from "../src/lib/trust/firm-cushion-requests.ts";
+import { trustMoneyText } from "../src/lib/trust/firm-trust-vocabulary.ts";
 import type { TrustAccountListing } from "../src/lib/trust/trust-api.ts";
 
 function version(
@@ -63,9 +82,30 @@ function request(overrides: Partial<TrustPendingRequest> = {}): TrustPendingRequ
     effectiveDate: "2026-09-10",
     requestedBy: "user_one",
     requestedAt: "2026-09-10T15:00:00.000Z",
+    matterId: "matter_harper",
+    matterNumber: "2026-00417",
+    matterTitle: "Harper sale",
     ...overrides,
   };
 }
+
+function position(overrides: Partial<TrustAccountPosition> = {}): TrustAccountPosition {
+  return {
+    trustAccountId: "trustAccount_one",
+    currency: "USD",
+    asOfDate: "2026-09-19",
+    bookBalanceMinor: 1_250_00,
+    clientLedgerTotalMinor: 1_200_00,
+    heldMinor: 300_00,
+    firmFundsMinor: 50_00,
+    matterLedgerCount: 12,
+    pendingRequestCount: 2,
+    ...overrides,
+  };
+}
+
+/** The screen's own money wording, so the figures are asserted as a reader reads them. */
+const money = (amountMinor: number): string => trustMoneyText(amountMinor, "USD");
 
 function statement(overrides: Partial<TrustBankStatement> = {}): TrustBankStatement {
   return {
@@ -261,5 +301,195 @@ describe("narrowing the roster in the browser", () => {
   it("answers with the whole roster where nothing was typed", () => {
     const roster = [account()];
     expect(accountsMatching(roster, "   ")).toEqual(roster);
+  });
+});
+
+describe("what an account holds today", () => {
+  it("reads the five figures every account can answer, in reading order", () => {
+    const reading = positionReading(position(), money);
+    expect(reading.figures).toEqual([
+      { label: "Book Balance", text: "$1,250.00" },
+      { label: "Client Ledgers", text: "$1,200.00" },
+      { label: "Held", text: "$300.00" },
+      { label: "Matter Ledgers", text: "12" },
+      { label: "Awaiting", text: "2" },
+    ]);
+    expect(reading.asOfDate).toBe("2026-09-19");
+  });
+
+  it("states a figure of nothing rather than leaving it empty: a zero is an answer", () => {
+    const reading = positionReading(
+      position({ bookBalanceMinor: 0, clientLedgerTotalMinor: 0, heldMinor: 0 }),
+      money,
+    );
+    expect(reading.figures.map((figure) => figure.text)).toEqual([
+      "$0.00",
+      "$0.00",
+      "$0.00",
+      "12",
+      "2",
+    ]);
+  });
+
+  it("carries the cushion where one is open", () => {
+    expect(positionReading(position(), money).firmFundsText).toBe("$50.00");
+  });
+
+  it("answers with no cushion figure at all where the carve-out was never opened", () => {
+    // A balance of nothing would say the firm keeps its own money there. It does not: there is no
+    // carve-out on this account, which the section states in the row rather than as a zero.
+    expect(positionReading(position({ firmFundsMinor: null }), money).firmFundsText).toBeNull();
+  });
+
+  it("states a cushion the firm has drawn down to nothing, which is not the same as none", () => {
+    expect(positionReading(position({ firmFundsMinor: 0 }), money).firmFundsText).toBe("$0.00");
+  });
+});
+
+describe("the matter behind a queued request", () => {
+  it("reads as the number first, then the title", () => {
+    expect(requestMatterText(request())).toBe("2026-00417 · Harper sale");
+  });
+
+  it("reads as whichever of the two the queue served", () => {
+    expect(requestMatterText(request({ matterTitle: null }))).toBe("2026-00417");
+    expect(requestMatterText(request({ matterNumber: null }))).toBe("Harper sale");
+  });
+
+  it("still names something to press where the queue served neither", () => {
+    // The row is the way through to the matter's own ledger, so it keeps a label rather than
+    // printing the ledger node's handle at somebody.
+    expect(requestMatterText(request({ matterNumber: null, matterTitle: null }))).toBe(
+      "The matter",
+    );
+  });
+});
+
+describe("opening the bank-charge cushion", () => {
+  it("sends the account and the name the firm gave the carve-out", () => {
+    const reading = readTrustCushionOpening({
+      trustAccountId: "trustAccount_one",
+      nodeName: DEFAULT_CUSHION_NODE_NAME,
+    });
+    expect(reading).toEqual({
+      kind: "request",
+      request: { trustAccountId: "trustAccount_one", nodeName: "Bank-charge cushion" },
+    });
+  });
+
+  it("refuses a name cleared to nothing, and trims what is left", () => {
+    expect(
+      readTrustCushionOpening({ trustAccountId: "trustAccount_one", nodeName: "   " }),
+    ).toEqual({
+      kind: "refused",
+      reason: "Name the cushion, so the ledger reads as something.",
+    });
+    const reading = readTrustCushionOpening({
+      trustAccountId: "trustAccount_one",
+      nodeName: "  Charges  ",
+    });
+    expect(reading.kind === "request" && reading.request.nodeName).toBe("Charges");
+  });
+
+  it("refuses when no account has been chosen", () => {
+    expect(readTrustCushionOpening({ trustAccountId: "", nodeName: "Charges" })).toEqual({
+      kind: "refused",
+      reason: "Choose the account the cushion is opened on.",
+    });
+  });
+});
+
+describe("the firm's own money going into the cushion", () => {
+  const entry = {
+    trustAccountId: "trustAccount_one",
+    amountText: "250.00",
+    effectiveDate: "2026-09-19",
+    method: "wire" as const,
+    reference: " WIRE-4417 ",
+    description: "  Quarterly top-up  ",
+  };
+
+  it("sends whole cents, the day, the method and the trimmed line", () => {
+    expect(readTrustCushionDepositRequest(entry)).toEqual({
+      kind: "request",
+      request: {
+        trustAccountId: "trustAccount_one",
+        amountMinor: 25_000,
+        currency: "USD",
+        effectiveDate: "2026-09-19",
+        description: "Quarterly top-up",
+        reference: "WIRE-4417",
+        method: "wire",
+      },
+    });
+  });
+
+  it("sends no reference at all where the box was left empty", () => {
+    const reading = readTrustCushionDepositRequest({ ...entry, reference: "  " });
+    expect(reading.kind === "request" && reading.request.reference).toBeNull();
+  });
+
+  it("refuses an amount of nothing, which moves nothing", () => {
+    expect(readTrustCushionDepositRequest({ ...entry, amountText: "0" })).toEqual({
+      kind: "refused",
+      reason: "An amount of nothing moves nothing. Enter what moved.",
+    });
+  });
+
+  it("refuses an empty amount, an unanswered day and an unwritten line, each in its own words", () => {
+    expect(readTrustCushionDepositRequest({ ...entry, amountText: "" })).toEqual({
+      kind: "refused",
+      reason: "Say how much money moved.",
+    });
+    expect(readTrustCushionDepositRequest({ ...entry, effectiveDate: "" })).toEqual({
+      kind: "refused",
+      reason: "Say which day the money reached the account.",
+    });
+    expect(readTrustCushionDepositRequest({ ...entry, description: " " })).toEqual({
+      kind: "refused",
+      reason: "Say why the firm's own money is going in.",
+    });
+  });
+});
+
+describe("a service charge the institution took", () => {
+  const entry = {
+    trustAccountId: "trustAccount_one",
+    amountText: "12.50",
+    effectiveDate: "2026-09-19",
+    reference: "",
+    description: "Monthly account fee",
+  };
+
+  it("sends whole cents, the day and the line, and no method at all", () => {
+    expect(readTrustBankChargeRequest(entry)).toEqual({
+      kind: "request",
+      request: {
+        trustAccountId: "trustAccount_one",
+        amountMinor: 1_250,
+        currency: "USD",
+        effectiveDate: "2026-09-19",
+        description: "Monthly account fee",
+        reference: null,
+      },
+    });
+  });
+
+  it("refuses an unanswered day and an unwritten line in the charge's own words", () => {
+    expect(readTrustBankChargeRequest({ ...entry, effectiveDate: "" })).toEqual({
+      kind: "refused",
+      reason: "Say which day the institution took the charge.",
+    });
+    expect(readTrustBankChargeRequest({ ...entry, description: "" })).toEqual({
+      kind: "refused",
+      reason: "Say what the institution charged for.",
+    });
+  });
+
+  it("does not refuse a charge larger than the cushion: that is the server's, with the remedy", () => {
+    // The cushion moves under the reader, so a ceiling worked out here would refuse a charge the
+    // account can bear or admit one it cannot. The panel prints the server's own words instead.
+    const reading = readTrustBankChargeRequest({ ...entry, amountText: "9000000" });
+    expect(reading.kind).toBe("request");
   });
 });

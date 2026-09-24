@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 844 nodes of the feature ledger in
+is the complete register rather than a digest: all 847 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,39 +21,39 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**844 capabilities across 32 areas.** Every one of them is listed in [the register](#the-register)
+**847 capabilities across 32 areas.** Every one of them is listed in [the register](#the-register)
 below. 145 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **699 that are units of work**, for the reason set out under [What a roll-up is
+count the **702 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 330 | 47% |
-| Part-built | partial, in-build | 123 | 18% |
+| Done | shipped | 331 | 47% |
+| Part-built | partial, in-build | 125 | 18% |
 | Ahead | designed, planned, researching, not-started | 204 | 29% |
 | Parked | deferred, cut | 42 | 6% |
-| **All units of work** | | **699** | **100%** |
+| **All units of work** | | **702** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 330 | 47% |
-| `partial` | 123 | 18% |
+| `shipped` | 331 | 47% |
+| `partial` | 125 | 18% |
 | `in-build` | 0 | 0% |
 | `designed` | 47 | 7% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
-| `not-started` | 137 | 20% |
+| `not-started` | 137 | 19% |
 | `deferred` | 38 | 5% |
-| `cut` | 4 | 0% |
-| **All statuses** | **699** | **100%** |
+| `cut` | 4 | 1% |
+| **All statuses** | **702** | **100%** |
 
 ### What a roll-up is not
 
-**145 of the 844 nodes are parents, and 112 of those parents are `partial`.** A parent's status is a
+**145 of the 847 nodes are parents, and 112 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 330 of 699 (47%). Shipped plus partial is 453 (65%).**
+**Shipped alone is 331 of 702 (47%). Shipped plus partial is 456 (65%).**
 
-The 123 units between those two numbers are work that is engineered and paid for and is not
+The 125 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**453 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**456 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 114 | 25% |
+| A person can open it today (`screen`) | 116 | 25% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 155 | 34% |
-| No user surface by nature (`internal`) | 184 | 41% |
+| No user surface by nature (`internal`) | 185 | 41% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **453** | **100%** |
+| **Everything with something built** | **456** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -96,12 +96,12 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Area | `shipped` | `partial` | `in-build` | `designed` | `planned` | `researching` | `not-started` | `deferred` | `cut` | Total | Shipped |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | AI & Inference | 18 | 5 | 0 | 0 | 0 | 1 | 3 | 3 | 0 | 30 | 60% |
-| Authentication, Access Control & Encryption | 13 | 5 | 0 | 0 | 0 | 0 | 5 | 3 | 0 | 26 | 50% |
+| Authentication, Access Control & Encryption | 15 | 5 | 0 | 0 | 0 | 0 | 5 | 3 | 0 | 28 | 54% |
 | Calendar and Rules-Based Docketing | 14 | 2 | 0 | 0 | 0 | 1 | 4 | 0 | 0 | 21 | 67% |
 | Communications Layer | 5 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 17 | 29% |
 | Community & Feedback Forum | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 1 | 0 | 10 | 0% |
 | Conflicts Check | 6 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 75% |
-| Core Domain — Directory, Matters & Locations | 36 | 20 | 0 | 1 | 2 | 0 | 4 | 1 | 0 | 64 | 56% |
+| Core Domain — Directory, Matters & Locations | 35 | 21 | 0 | 1 | 2 | 0 | 4 | 1 | 0 | 64 | 55% |
 | Custodian (Safe Custody) | 6 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 11 | 55% |
 | Design System, UI Consistency & Design Quality | 13 | 5 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 19 | 68% |
 | Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
@@ -110,7 +110,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
 | Financial Core | 22 | 19 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 63 | 35% |
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
-| Integrations & Plugins | 17 | 2 | 0 | 1 | 0 | 3 | 15 | 3 | 1 | 42 | 40% |
+| Integrations & Plugins | 17 | 3 | 0 | 1 | 0 | 3 | 15 | 3 | 1 | 43 | 40% |
 | Maintenance Agents | 2 | 3 | 0 | 0 | 0 | 0 | 5 | 0 | 0 | 10 | 20% |
 | Meetings | 6 | 0 | 0 | 1 | 0 | 0 | 4 | 0 | 0 | 11 | 55% |
 | Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 12 | 58% |
@@ -127,7 +127,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 14 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 21 | 67% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **330** | **123** | **0** | **47** | **15** | **5** | **137** | **38** | **4** | **699** | **47%** |
+| **All areas** | **331** | **125** | **0** | **47** | **15** | **5** | **137** | **38** | **4** | **702** | **47%** |
 
 ## Where we have been
 
@@ -272,14 +272,13 @@ one.
 - **Translation provenance record** (`translation.provenance-record`) — **Not built.** Whether this artifact is offered at all. It is one word away from a certificate of translation accuracy, which is a named person's signed attestation that no machine can hold either half of — and a document reciting an engine and a date under a heading like that will be filed by somebody as though it were one. Recommended yes, in the constrained form: refusing to build it does not remove the risk, it moves it into a document somebody writes in a word processor with no constrained vocabulary, no fitness function and no statement of what it is not. Translation design flag T2.
 - **Translation engines and consent gates** (`translation.engines`) — **Not built.** Which engine is the default and whether third-party translation vendors are adopted. Recommended: the on-platform model as the default, behind the feature gate alone rather than the third-party-processing gate, because it sends content to no third party and requiring that gate would deny the on-platform route to exactly the most conservative firms; the frontier route behind all three gates; and the dedicated translation vendors refused for now, since they buy quality the frontier route already delivers while adding a fourth data processor to the privilege chain and a credential lifecycle nobody has built. A yes to a vendor means building the credentialed adapter that is currently a deferred seam. Translation design flag T1.
 
-**36 are not holding a build still.** Nobody is waiting on these to start writing something: most have code behind them already, and the parked ones are set aside by an earlier decision that an answer would revisit.
+**35 are not holding a build still.** Nobody is waiting on these to start writing something: most have code behind them already, and the parked ones are set aside by an earlier decision that an answer would revisit.
 
 - **Embedding pin held open until the first index** (`ai.inference.embedding-pin-window`) — **Built; no screen by nature.** Which embedding model the first index is built with. The pin is unchangeable once vectors exist, so this is decided before the first one is written, not after.
 - **Authentication, access control and encryption** (`auth`) — **A group of capabilities.** The unified-identity design proposes fifteen settings and two of them are commitments rather than knobs. Whether a firm may weaken a platform security default for its own members — the design says no, on the ground that a floor which can be written down is not a floor, and a no means some firm will one day be told it cannot have what it asks for. And whether the platform may administer an account recovery at all: the design permits it only for a sole Owner locked out, two-person, on a full hold, audited, with the billing contact notified — the alternative is that a solo practitioner who loses their factors loses the firm. The other thirteen are windows, caps and enrolment grace periods that ship configurable with the recommended value. Unified identity design, flags F5 and F8.
 - **Auto-file rules** (`communications.email.filing.auto-file-rules`) — **Built; no screen yet.** Whether a correspondent rule may ask to FILE outright when it was authored from a typed address rather than learned from a filing. The design wants a rule to inherit an authorizing act a person actually performed, and a directly-authored rule has none — its audit terminates in a configuration screen. Built permissive because the design also names the abstract editor, and the exposure is narrow (an unattended firing still needs the firm ceiling raised, the member's own matter access re-checked at every fire, and an intact-original capture with a passing signature on a matching domain, so a correspondent rule can never fire on the forward or catch-all path at all). The question is whether promotion `file` should additionally require created_from_email_message_id.
 - **Conflicts Check** (`conflicts`) — **A group of capabilities.** Two of the deepening design's calls still decide what the platform asserts about a firm's ethical position rather than how it is coded. Whether an imputed conflict follows a lateral hire, and whether a screen cures it, which decides whether the personnel trigger produces a conflict or a screening prompt and whether screening is modelled at all. And whether a matter may refuse to open over undisposed tier-1 hits, or only advise loudly — a hard block is the platform making an ethics judgement, and no block means a firm can open a file over an unanswered exact-identifier match. Conflicts deepening design, flags F2 and F11. A third, whether the balanced band searches former, maiden and alias names, no longer blocks anything: ConflictsPolicy.balancedNameRoles in packages/conflicts/src/settings.ts ships the design's recommended answer as a firm setting recorded verbatim on every check row, so answering it either way is a settings edit rather than a release (flag F1).
 - **Pronouns on a person** (`directory.pronouns`) — **Built and reachable.** Whether a separate gender field is ever added to a Directory person. It is deliberately not built; pronouns are owner-entered and never inferred.
-- **Address autocomplete** (`directory.addresses.lookup`) — **Built and reachable.** Open a Smarty account with US and International Address Autocomplete and set SMARTY_AUTH_ID and SMARTY_AUTH_TOKEN on the API Worker — the one step between this and a live feature, and the start of a per-lookup bill (runbook, operations.md section 19).
 - **Matters** (`matters`) — **A group of capabilities.** The platform carries no note, comment or timeline entity on any record, and one design now asks whether to build one. Is the note primitive built at all, and as a platform slice belonging to every matter and every Directory entity rather than to whichever subsystem needs it first? If no, intake's prospect timeline stays derived-only and cannot hold "she is thinking about it", the matter detail keeps promising a Notes section it will not have, tasks land on an activity stream nobody owns, and every subsystem that needs somewhere to write a sentence grows its own note column. If yes, it comes before tasks and before intake. Notes and activity design flag W1, raised by the client intake design as J6.
 - **Consultations** (`matters.lifecycle.consultations`) — **Built; no screen yet.** May a fee agreement be recorded against an intake or a consultation, before the firm has agreed to act? The billing engine would accept one today — nothing in the arrangement model asks whether the matter is numbered. The question is whether a firm should be able to agree a fee on a file it has not taken, which is a professional-conduct call rather than an engineering one. Client intake design flag J7.
 - **Consolidated matter search** (`matters.search`) — **A group of capabilities.** Four standing recommendations the build proceeded under, each reversible and none of them reaching the registry or the route — M3 whether a hit may show a snippet within a matter, M5 the new search:matter permission and its broad seeding, M6 that "include deleted" stays per source rather than one global toggle, M7 that a source withheld for want of a permission says so rather than reading as empty. M1, M2 and M4 are settled.
@@ -438,12 +437,14 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Authentication, Access Control & Encryption
 
-[`roadmap.d/auth.md`](../roadmap.d/auth.md) — 26 units of work, 50% shipped. 13 done, 5 part-built, 5 ahead, 3 parked.
+[`roadmap.d/auth.md`](../roadmap.d/auth.md) — 28 units of work, 54% shipped. 15 done, 5 part-built, 5 ahead, 3 parked.
 
 - `auth` · `partial` · **Authentication, access control and encryption** — First-party Better Auth login, trusted-insider RBAC, and narrowly-scoped structural application-level encryption.
   - `auth.first-party-login` · `shipped` · **First-party login** — Better Auth on control-plane D1 (Drizzle adapter), firm = organization, exactly one organization per user; role/profile mirrored to the per-firm member row. _Note: API-only to date; the login/2FA UI is the 0-7b slice (branch active)._
     - `auth.first-party-login.invitation-only` · `shipped` · **Invitation-only membership** — Nobody adds themselves to an existing firm; Better Auth's own signup stays structurally off, and joining a firm goes through invitation redemption with an email-verified flip. _Note: Founding a NEW firm is now self-serve (ADR-0280) — that is the one anonymous write, two-staged behind an emailed link. Membership of an existing firm remains invitation-only, which is what this node covers._
-    - `auth.first-party-login.auth-ui` · `partial` · **Login and 2FA UI** — The login/2FA surface over the auth backend — the design system's first consumer. _Note: Sign-in shipped, so has signing out (and signing another device out), and so are the joining screens — apps/web/src/routes/register (the role fork), register/firm, register/confirm and register/invitation each call startRegistration, confirmRegistration or redeemInvitation against the real endpoints. The two-factor ENROLMENT screens are still missing, which is the half of auth.two-factor.totp nobody can reach: a code is verified at sign-in and no screen sets one up. Passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice remain server-side gaps. Human verification is no longer one of them — the server side exists (auth.hardening.human-verification); what the sign-in surface's Turnstile slot still lacks is a widget that mints a token, which is UI._
+    - `auth.first-party-login.auth-ui` · `partial` · **Login and 2FA UI** — The login/2FA surface over the auth backend — the design system's first consumer. _Note: The ACCOUNT surface is now three built pages and one seam — Profile states and edits the member's name in its parts, sets and removes their photograph (auth.first-party-login.member-photo), and states the account's email address without offering to change it (the reason is a pending decision, not a gap); Security changes the password in place and ends the other devices with it (auth.first-party-login.password-change); Active Sessions is the live list. Two-Factor is the one Soon seam left on it, and apps/web/test/account-seams.test.ts holds that. Sign-in shipped, so has signing out (and signing another device out), and so are the joining screens — apps/web/src/routes/register (the role fork), register/firm, register/confirm and register/invitation each call startRegistration, confirmRegistration or redeemInvitation against the real endpoints. The two-factor ENROLMENT screens are still missing, which is the half of auth.two-factor.totp nobody can reach: a code is verified at sign-in and no screen sets one up. Passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice remain server-side gaps. Human verification is no longer one of them — the server side exists (auth.hardening.human-verification); what the sign-in surface's Turnstile slot still lacks is a widget that mints a token, which is UI._
+    - `auth.first-party-login.password-change` · `shipped` · **In-account password change** — Changing the password you already have, in place — against the standing password rather than an emailed token, ending every other signed-in device in the same request when asked to. _Note: It is what replaced the signed-in-devices screen's standing notice, which told a member who feared their account was held by somebody else to go and find the reset on the sign-in screen. Sign-out-elsewhere is offered and defaulted on, because asking the two questions separately leaves a gap an intruder changes the password back through._
+    - `auth.first-party-login.member-photo` · `shipped` · **Member photograph** — A member's own picture — set, replaced and removed from their profile; stored in the firm's own database and bucket, content-addressed. _Note: FIRM data rather than account data, which is the recorded decision: a name follows a person between accounts, a photograph is what this firm's colleagues see beside this person's work and is already firm-keyed by its storage. Keyed by the member rather than by the bytes, unlike the firm's brand images, because two members may legitimately hold the same image._
   - `auth.two-factor` · `partial` · **Second factors** — Passkeys/WebAuthn and TOTP primary; email codes and SMS secondary/recovery only.
     - `auth.two-factor.totp` · `shipped` · **TOTP** — TOTP enrollment and login with transition-exact audit events.
     - `auth.two-factor.passkeys` · `not-started` · **Passkeys / WebAuthn** — Passkey server plugin, enrollment UI, virtual-authenticator test coverage. _Note: Deferred from the auth backend slice because WebAuthn needs a browser; scheduled into the auth-UI slice._
@@ -564,7 +565,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Core Domain — Directory, Matters & Locations
 
-[`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 64 units of work, 56% shipped. 36 done, 20 part-built, 7 ahead, 1 parked.
+[`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 64 units of work, 55% shipped. 35 done, 21 part-built, 7 ahead, 1 parked.
 
 - `directory` · `partial` · **Directory** — Single source of truth for every person and organization, modeled as a graph of entities and typed edges. _Note: Backend complete; the list, the entity window and its panes are built and owner-reviewed; edge creation, category management and the deeper edge catalog remain (docs/specs/2026-09-02-directory-linking-design.md)._
   - `directory.entities` · `partial` · **Person and Organization entities** — Distinct Person and Organization types with equal data depth; full contact core (typed emails/phones/addresses, notes) on every entity regardless of role. _Note: Backend shipped; the record opens in one window wherever it is reached (owner ruling, 2026-09-05). The organization stays thin by the owner's ruling. Postal addresses have their own section over the country-shaped AddressFields component, and both panels hold one height whichever rail section is chosen (owner ruling, 2026-09-08)._
@@ -581,7 +582,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `directory.identifiers.protected-fields` · `shipped` · **Field-level encryption and access control** — Sensitive fields (SSN, EIN, DOB, financial) structurally encrypted via the data-access protected() field type with HMAC blind index so conflicts can match without decrypting; access logged.
   - `directory.addresses` · `shipped` · **Postal addresses** — Structured postal addresses on every directory entity, held as the international field set so a country's own shape is a presentation of the stored columns rather than a schema of its own. _Note: The field set is the international one rather than a state and a five-digit code, which is what lets a provider's structured result land later with no migration._
     - `directory.addresses.constraints` · `shipped` · **Postal-code and administrative-area constraints** — What a well-formed postal code looks like in a country and which administrative areas it publishes, so an address form can say a code reads wrong and can offer a state. _Note: A warning and never a gate — a malformed code renders as the field's hint, so the box is never marked invalid and nothing can refuse a commit. "No published format" is a distinct answer from "wrong", and an administrative-area list is a suggestion the field still takes free text past._
-    - `directory.addresses.lookup` · `shipped` · **Address autocomplete** — Offering real addresses as a person types one, and turning a chosen offer into the parts a record stores. _Note: Dormant until provisioned: with no key pair every answer is unavailable and the street box stays a plain text box. The provider was chosen on storage terms — the firm may keep what it looked up — which the two largest alternatives forbid. A suggestion is not a deliverability check._
+    - `directory.addresses.lookup` · `partial` · **Address autocomplete** — Offering real addresses as a person types one, and turning a chosen offer into the parts a record stores. _Note: Partial because the seam exists and the engine does not. Two candidate engines, and the owner's 2026-09-20 ruling that an address may leave the tenancy means they now compete on cost rather than on confidentiality: a self-hosted index over the open address corpora reusing crates/search-core and the R2 range-reader containers/search already runs (no per-lookup fee, but an index build and a refresh cadence), or a hosted provider (no build, a per-lookup rate). AddressLookupPort is indifferent to which wins. no-coverage is a first-class outcome because the open corpora cover countries very unevenly._
   - `directory.duplicates` · `shipped` · **Duplicate detection** — Fuzzy name + identifier matching on entry and import surfacing possible-duplicate candidates. _Note: Candidate engine shipped; the entry-time gate runs beside the New Person and New Organization entry (apps/web/src/lib/directory/duplicate-gate.svelte), permanently in view as the name is typed._
   - `directory.merge` · `partial` · **Non-destructive merge** — Merge folds a duplicate into a master, repoints every reference, archives (never deletes) the subordinate, and records survivorship plus the exact repoint list in an append-only entity_merge event. _Note: Backend shipped; merge tooling UI not built._
     - `directory.merge.unmerge` · `deferred` · **Guarded unmerge** — Reversal of a recent, still-clean merge; locked once post-merge activity accrues. _Note: Deferral-with-seam, not a retrofit; no unmerge export exists in packages/directory._
@@ -981,7 +982,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Integrations & Plugins
 
-[`roadmap.d/integrations.md`](../roadmap.d/integrations.md) — 42 units of work, 40% shipped. 17 done, 2 part-built, 19 ahead, 4 parked.
+[`roadmap.d/integrations.md`](../roadmap.d/integrations.md) — 43 units of work, 40% shipped. 17 done, 3 part-built, 19 ahead, 4 parked.
 
 - `integrations` · `partial` · **Plugin / add-on system** — Ports-and-adapters integration framework, manifest-driven registration, first-party adapters, the Tools catalog, and the future third-party marketplace. _Note: First-party only today; C seam to a marketplace documented, not built._
   - `integrations.port-framework` · `shipped` · **Integration port framework** — Typed category ports with vendor adapters behind them; canonical types, manifest, registry, dispatch, problem mapping.
@@ -1015,6 +1016,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `integrations.tools.property-links` · `shipped` · **Property external links** — Zillow/Redfin/Maps/Realtor deep-links for a Location; pure link helper, not a plugin. _Note: County-assessor provider has landed (src/providers/county-assessor.ts), so five providers resolve. Redfin/Maps/assessor links verified live 2026-08-15; Zillow and Realtor.com answer bot mitigation to a non-browser client and stay unverified. On a partial address the Zillow/Redfin/Maps links silently drop state and ZIP — the UI must require the structured address. docs/research/2026-08-15-tools-reality-check.md._
     - `integrations.tools.whois` · `shipped` · **WHOIS lookup** — Public domain/IP registration lookup, RDAP-first with legacy port-43 fallback for ccTLDs; firm-internal security hygiene. _Note: Report enrichment in flight on branch whois-report-enrichment. Verified against public record for six targets 2026-08-15; a registry with neither RDAP nor a port-43 host (234 of 1,438 TLDs) now answers 501 rather than 500. The port-43 socket has no read deadline and that path stays unverified. docs/research/2026-08-15-tools-reality-check.md._
     - `integrations.tools.safe-browse` · `shipped` · **Safe website viewer** — Renders a suspect URL in an isolated remote browser and returns a static snapshot (screenshot, redirect chain, text, links). _Note: Renderer is Cloudflare Browser Rendering (env.BROWSER, quickAction), an account entitlement rather than anything in the repository, and still unexercisable locally (Miniflare's binding has no quickAction). The entitlement was confirmed live on 2026-09-18 by the first capture that succeeded; before that every capture failed on a wait for networkidle2 that a page holding a socket never reaches, reported as a capacity outage. Interactive live browsing is designed and not built — the shell's Live toggle renders as a Soon affordance and the seam is in ADR-0119._
+    - `integrations.tools.safe-browse-live` · `partial` · **Safe website viewer — Live mode** — One held isolated browser per member, walked page to page so a link's cookie-gated steps can be followed; every navigation hop SSRF-guarded. _Note: Partial until a live navigation is confirmed against the deployed service, on the same rule the static capture's node followed — the probe proved the platform, not this route. Miniflare has no browser binding, so the route's navigation path has no automated test. Pixel streaming is decided against for now, not built._
     - `integrations.tools.metadata` · `shipped` · **Metadata inspector & scrubber** — Inspect and strip metadata from OOXML and JPEG/PNG/TIFF images; stateless. _Note: HEIC/PDF and a Container engine deferred; backend only, no screen yet. Verified end to end 2026-08-15 — inspect found a docx's author/company, scrub removed both and left the body text intact (docs/research/2026-08-15-tools-reality-check.md)._
     - `integrations.tools.file-integrity` · `shipped` · **File hash & integrity** — Five-algorithm streaming hash, ingest-baseline compare, integrity receipt; introduced the file context tag. _Note: Backend only — no screen yet. All five digests verified byte-identical to md5sum/sha1sum/sha256sum on 2026-08-15 (docs/research/2026-08-15-tools-reality-check.md)._
     - `integrations.tools.file-type` · `shipped` · **File type verifier** — Content-based file-type identification (Magika/ONNX in the scan container) behind a verify endpoint. _Note: Backend only, and the identification engine is the scan Container's /identify — the route answers 503 until magna-carta-scan is deployed carrying it, so nobody can get an answer yet. The report builder itself was reviewed and does not over-report "unverifiable". Queued in docs/deploy-queue.md._

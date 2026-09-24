@@ -6,14 +6,12 @@ import type {
   TrustMovementId,
   TrustTransferId,
 } from "@magna-carta/identifiers/types";
+import { readTrustAccountMoneyLegs } from "./account-position.ts";
 import { loadTrustAccount } from "./account-tree.ts";
 import { readTrustBankStatement } from "./bank-statements.ts";
 import {
   MAX_TRUST_RECONCILIATION_ROWS,
   selectOutstandingTrustBankItemsStatement,
-  selectTrustBookBalanceAsOfStatement,
-  selectTrustClientLedgerTotalAsOfStatement,
-  selectTrustFirmFundsTotalAsOfStatement,
   selectUnmatchedTrustBankStatementLinesStatement,
 } from "./statements.ts";
 import { TrustValidationError } from "./trust-validation.ts";
@@ -49,11 +47,6 @@ import type {
 // A PROOF THAT DOES NOT BALANCE IS REPORTED, NEVER FORCED. It names which leg disagrees and by how
 // much. There is no plug figure, no rounding to agreement, and no "unreconciled difference" line
 // that quietly absorbs the gap: the whole value of the exercise is the number that will not go away.
-
-interface TotalRow {
-  balance_minor?: number;
-  total_minor?: number;
-}
 
 interface OutstandingItemRow {
   entry_id: string;
@@ -172,35 +165,34 @@ export async function computeTrustThreeWayProof(
   const statement = await readTrustBankStatement(database, reconciliation.statementId);
   const asOfDate = statement.periodEnd;
 
-  // Five reads, none of them per-row: the three as-of totals, the outstanding items, and the lines
-  // this reconciliation has not accounted for. The last one carries its own truncation refusal, so
-  // both lists the proof is derived from are known to be whole before any figure is computed.
-  const [bookRows, clientRows, firmFundsRows, itemRows, unmatchedStatementLines] =
-    await Promise.all([
-      selectTrustBookBalanceAsOfStatement(database, account.bankLedgerAccountId, asOfDate).all<
-        Required<Pick<TotalRow, "balance_minor">>
-      >(),
-      selectTrustClientLedgerTotalAsOfStatement(database, account.id, asOfDate).all<
-        Required<Pick<TotalRow, "total_minor">>
-      >(),
-      selectTrustFirmFundsTotalAsOfStatement(database, account.id, asOfDate).all<
-        Required<Pick<TotalRow, "total_minor">>
-      >(),
-      selectOutstandingTrustBankItemsStatement(
-        database,
-        account.bankLedgerAccountId,
-        asOfDate,
-      ).all<OutstandingItemRow>(),
-      readUnmatchedTrustBankStatementLines(database, reconciliation),
-    ]);
+  // Three reads, none of them per-row: where the account stands as of the period end, the
+  // outstanding items, and the lines this reconciliation has not accounted for. The last one carries
+  // its own truncation refusal, so both lists the proof is derived from are known to be whole before
+  // any figure is computed.
+  //
+  // The money legs come from readTrustAccountMoneyLegs rather than from three reads spelled out
+  // here, so the figures a person sees on the account and the figures a close freezes for the period
+  // are one computation. The account's present facts (holds, counts) are not a period's proof and
+  // are not read here.
+  const [position, itemRows, unmatchedStatementLines] = await Promise.all([
+    readTrustAccountMoneyLegs(database, account, asOfDate),
+    selectOutstandingTrustBankItemsStatement(
+      database,
+      account.bankLedgerAccountId,
+      asOfDate,
+    ).all<OutstandingItemRow>(),
+    readUnmatchedTrustBankStatementLines(database, reconciliation),
+  ]);
 
   assertOutstandingItemsComplete(itemRows.results.length, asOfDate);
 
-  const bookBalanceMinor = bookRows.results[0]?.balance_minor ?? 0;
-  const clientLedgerTotalMinor = clientRows.results[0]?.total_minor ?? 0;
+  const bookBalanceMinor = position.bookBalanceMinor;
+  const clientLedgerTotalMinor = position.clientLedgerTotalMinor;
   // Zero on every account that has not opened the bank-charge carve-out, which is most of them —
   // so the arithmetic below is identical for both kinds of account rather than branching on one.
-  const firmFundsMinor = firmFundsRows.results[0]?.total_minor ?? 0;
+  // The position reports the absence of a cushion as null; a proof has no use for that distinction,
+  // because an account with no cushion holds none of the firm's money.
+  const firmFundsMinor = position.firmFundsMinor ?? 0;
   const items = itemRows.results.map(toBankItem);
 
   // An item that moved nothing across the bank cannot be in transit in either direction. It reaches

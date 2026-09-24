@@ -31,10 +31,47 @@
    * nobody picked would mint a firm-wide category, so it must be a deliberate act; here there is
    * nothing to mint — the field is free text and what somebody typed is already a legitimate
    * answer. Losing it on close would be the control eating a name.
+   *
+   * WHERE THE JUDGEMENT LIVES. What the line holds, which part of it is being typed, what the list
+   * should offer and what the line becomes after a pick are all in ./honorific-line.ts — pure, and
+   * walked step by step by apps/web/test/honorific-line.test.ts. This file owns the primitive, the
+   * markup, and the two pieces of state the module cannot see: whether the field's text is
+   * keystrokes, and how many picks have been taken.
+   *
+   * ============================================================================================
+   * HOLDING SEVERAL ON A PRIMITIVE THAT HOLDS ONE. Both pieces of state exist because the listbox
+   * underneath is a SINGLE-selection combobox and this control is not one. The owner's report is
+   * what they cost when either is missing: "the dropdown says it allows for multiple selections,
+   * but once I select one, I cannot select another until it is removed."
+   *
+   *   `typing` — whether the text in the field is somebody's keystrokes or a settled line. The list
+   *   narrows against the part after the last comma, which while somebody types is the word they
+   *   are typing and at rest is the honorific they last chose. Without the distinction, a settled
+   *   "Hon." filters the list down to "Hon." itself and every other suggestion is unreachable until
+   *   that one is cleared — precisely the defect reported. A settled line narrows nothing.
+   *
+   *   `picks` — a sequence number carried in each row's VALUE. The primitive holds one value and
+   *   treats a click on the row already holding it as a DESELECT: it reports the empty string,
+   *   which names no row, so the act cannot be carried out and the click is dead. (The primitive
+   *   also closes the list on every pick, so a person picks, reopens, and picks again — which is
+   *   why a settled line must not narrow, and why the row it holds is the one they are most likely
+   *   to click next.) Re-keying every row on every pick means the value the primitive is holding is
+   *   never the value of any row on screen, so every click is a fresh selection reported as the row
+   *   it actually was. The entry is recovered from the part after the first colon; the composed
+   *   value is never stored and never shown.
+   * ============================================================================================
    */
   import * as Combobox from "@magna-carta/design-system/combobox";
   import type { LabelledFieldControlProperties } from "@magna-carta/design-system/labelled-field";
   import { honorificSuggestions } from "@magna-carta/directory/honorifics";
+  import {
+    isHeld,
+    lineWithPick,
+    settledLine,
+    suggestionsMatching,
+    tokensOf,
+    typedPart,
+  } from "./honorific-line.ts";
 
   let {
     part,
@@ -60,14 +97,6 @@
   const name = $derived(fieldName ?? (part === "prefix" ? "Prefix" : "Suffix"));
   const suggestions = $derived(honorificSuggestions(part));
 
-  /** The line as a list. A comma is the separator because it is how the line is written anyway. */
-  function tokensOf(line: string): string[] {
-    return line
-      .split(",")
-      .map((token) => token.trim())
-      .filter((token) => token !== "");
-  }
-
   /*
    * What is typed. It tracks `value` while the list is closed and is the person's own text while
    * they are typing — the two are the same thing at rest, and the separation exists so that
@@ -75,44 +104,43 @@
    */
   let query = $state(value);
   let open = $state(false);
+  /** Whether the field's text is keystrokes rather than a settled line — see the header. */
+  let typing = $state(false);
+  /** How many picks this field has taken. Re-keys the rows; see the header. */
+  let picks = $state(0);
 
   // The value settling from elsewhere (a record loading, a form resetting) re-seeds the text; a
   // person's own typing does not, because `query` is what they are typing.
   $effect(() => {
-    if (!open) query = value;
+    if (!open) {
+      query = value;
+      typing = false;
+    }
   });
 
   const held = $derived(tokensOf(query));
-
-  /** The part after the last comma — the one being typed, and what the list filters against. */
-  const pending = $derived((query.split(",").at(-1) ?? "").trim());
-
-  const matching = $derived.by(() => {
-    const typed = pending.toLowerCase();
-    if (typed === "") return suggestions;
-    return suggestions.filter((entry) => entry.toLowerCase().includes(typed));
-  });
+  const pending = $derived(typedPart(query, typing));
+  const matching = $derived(suggestionsMatching(suggestions, pending));
 
   /** Whether what is being typed already IS a suggestion, in which case the add row is noise. */
   const pendingIsSuggested = $derived(
     pending === "" || suggestions.some((entry) => entry.toLowerCase() === pending.toLowerCase()),
   );
 
-  function settle(tokens: readonly string[]): void {
-    const line = tokens.join(", ");
-    value = line;
-    query = line;
+  /** A row's value for this round of picks. Never stored, never shown — see the header. */
+  function rowValue(entry: string): string {
+    return `${picks}:${entry}`;
   }
 
-  /** Appends, or takes back off — matched without regard to case, so one is never held twice. */
-  function toggle(entry: string): void {
-    const alreadyHeld = held.some((token) => token.toLowerCase() === entry.toLowerCase());
-    if (alreadyHeld) {
-      settle(held.filter((token) => token.toLowerCase() !== entry.toLowerCase()));
-      return;
-    }
-    // The part being typed is what the pick answers, so it is replaced rather than kept beside it.
-    settle([...held.slice(0, pending === "" ? held.length : held.length - 1), entry]);
+  /** The entry a reported row value names. Split at the FIRST colon, so an entry may carry one. */
+  function entryOf(reported: string): string {
+    return reported.slice(reported.indexOf(":") + 1);
+  }
+
+  function settle(line: string): void {
+    value = line;
+    query = line;
+    typing = false;
   }
 
   function pick(chosen: string | undefined): void {
@@ -120,37 +148,49 @@
     // The add row carries a reserved value rather than the text: what it means here is "keep the
     // part I am typing", which is already the last token of the line.
     if (Combobox.isAddOption(chosen)) {
-      settle(held);
+      settle(settledLine(query));
+      picks += 1;
       return;
     }
-    toggle(chosen);
+    // The primitive reports the empty string when it clears its own held value. The rows are
+    // re-keyed on every pick precisely so that never names an act — so it is bookkeeping, and
+    // treating it as one would append an empty token and leave a dangling comma in a stored name.
+    if (chosen === "") return;
+    settle(lineWithPick(query, pending, entryOf(chosen)));
+    picks += 1;
   }
 </script>
 
 <Combobox.Root
   type="single"
   {disabled}
-  items={matching.map((entry) => ({ value: entry, label: entry }))}
+  items={matching.map((entry) => ({ value: rowValue(entry), label: entry }))}
   inputValue={query}
   onValueChange={pick}
   onOpenChange={(listboxOpen) => {
     open = listboxOpen;
     // Settling on the typed line, not on the last pick — see the departure noted above.
-    if (!listboxOpen) settle(tokensOf(query));
+    if (!listboxOpen) settle(settledLine(query));
   }}
 >
   <Combobox.Input
     {...inputProps}
     fieldName={name}
     {disabled}
-    oninput={(event) => (query = event.currentTarget.value)}
+    oninput={(event) => {
+      query = event.currentTarget.value;
+      typing = true;
+    }}
   />
   <Combobox.Content>
     {#each matching as entry (entry)}
-      {@const isHeld = held.some((token) => token.toLowerCase() === entry.toLowerCase())}
       <!-- A held entry reads as held and takes itself back off when chosen, so the list is both
-           the picker and the record of what the line carries. -->
-      <Combobox.Item value={entry} label={isHeld ? `${entry} (remove)` : entry} />
+           the picker and the record of what the line carries. The row's TEXT says so; its `label`
+           stays the bare entry, because the primitive writes the chosen row's label into the field
+           and "(remove)" is a sentence about the row, not part of anybody's name. -->
+      <Combobox.Item value={rowValue(entry)} label={entry}>
+        {isHeld(held, entry) ? `${entry} (remove)` : entry}
+      </Combobox.Item>
     {/each}
     {#if !pendingIsSuggested}
       <Combobox.AddOption fieldName={name} query={pending} />

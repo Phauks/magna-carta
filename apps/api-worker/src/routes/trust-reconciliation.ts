@@ -27,6 +27,7 @@ import {
 import {
   closeTrustReconciliation,
   openTrustReconciliation,
+  readTrustReconciliationMatches,
   readTrustReconciliations,
   readTrustThreeWayProof,
 } from "@magna-carta/trust/reconciliation";
@@ -351,6 +352,28 @@ const SuggestionsResponse = z
   })
   .openapi("TrustMatchSuggestionsResponse");
 
+// One assertion that a line and a recorded entry are the same event, with both ends beside it and
+// whatever became of it. A withdrawn match is served exactly as a standing one, carrying who took it
+// back and when: that somebody asserted a pairing and then withdrew it is part of what the period
+// records, and a list that dropped it would leave nothing saying the assertion was ever made.
+const ReconciliationMatch = z
+  .object({
+    id: z.string(),
+    statementLineId: z.string(),
+    ledgerEntryId: z.string(),
+    recordedBy: z.string(),
+    recordedAt: z.string(),
+    withdrawnBy: z.string().nullable(),
+    withdrawnAt: z.string().nullable(),
+    line: StatementLineRecord,
+    item: BankItem,
+  })
+  .openapi("TrustReconciliationMatch");
+
+const ReconciliationMatchesResponse = z
+  .object({ matches: z.array(ReconciliationMatch) })
+  .openapi("TrustReconciliationMatchesResponse");
+
 const RecordMatchRequest = z
   .object({
     statementLineId: identifierField("trustBankStatementLine"),
@@ -656,6 +679,25 @@ const suggestionsRoute = defineOpenAPIRoute(readMeta("trust.reconciliationSugges
     200: {
       description: "What is unaccounted for, and what might pair with what",
       content: { "application/json": { schema: SuggestionsResponse } },
+    },
+    401: readErrorResponses[401],
+    403: readErrorResponses[403],
+    404: readErrorResponses[404],
+    422: readErrorResponses[422],
+    429: readErrorResponses[429],
+  },
+});
+
+const reconciliationMatchesRoute = defineOpenAPIRoute(readMeta("trust.reconciliationMatches"), {
+  method: "get",
+  path: "/api/v1/trust/reconciliations/{reconciliationId}/matches",
+  description:
+    "Returns every match recorded on one reconciliation, oldest first, each with the statement line and the recorded item it pairs — the record of what members asserted about this period. Withdrawn matches are listed too, carrying who took the assertion back and when: a withdrawal is appended rather than deleted, and the list a person reads must show that the pairing was once made. What is still unaccounted for is a different question, answered by the suggestions read beside this one.",
+  request: { params: reconciliationParam },
+  responses: {
+    200: {
+      description: "The matches recorded on the reconciliation",
+      content: { "application/json": { schema: ReconciliationMatchesResponse } },
     },
     401: readErrorResponses[401],
     403: readErrorResponses[403],
@@ -1155,6 +1197,27 @@ export function registerTrustReconciliationRoutes(
     },
   );
 
+  // GET /api/v1/trust/reconciliations/{reconciliationId}/matches — what people asserted, and what
+  // became of each assertion
+  app.openapi(
+    {
+      ...reconciliationMatchesRoute,
+      middleware: chokepointMiddleware(chokepoint, reconciliationMatchesRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { reconciliationId } = c.req.valid("param");
+      return readOrProblem(c, async () => ({
+        matches: (
+          await readTrustReconciliationMatches(
+            firm.firmDatabase,
+            reconciliationId as TrustReconciliationId,
+          )
+        ).map(toMatchRecord),
+      }));
+    },
+  );
+
   // POST /api/v1/trust/reconciliations/{reconciliationId}/matches — a person's assertion
   app.openapi(
     { ...recordMatchRoute, middleware: chokepointMiddleware(chokepoint, recordMatchRoute) },
@@ -1239,6 +1302,7 @@ export function registerTrustReconciliationRoutes(
 }
 
 type LineSnapshot = Awaited<ReturnType<typeof readTrustBankStatementLines>>[number];
+type MatchSnapshot = Awaited<ReturnType<typeof readTrustReconciliationMatches>>[number];
 type ReconciliationSnapshot = Awaited<ReturnType<typeof readTrustReconciliations>>[number];
 type ProofSnapshot = Awaited<ReturnType<typeof readTrustThreeWayProof>>["proof"];
 type BankItemSnapshot = ProofSnapshot["outstandingDeposits"][number];
@@ -1267,6 +1331,22 @@ function toBankItemRecord(item: BankItemSnapshot): z.infer<typeof BankItem> {
     trustTransferId: item.transferId,
     reference: item.reference,
     counterpartyName: item.counterpartyName,
+  };
+}
+
+function toMatchRecord(match: MatchSnapshot): z.infer<typeof ReconciliationMatch> {
+  return {
+    id: match.id,
+    statementLineId: match.statementLineId,
+    // The book side is a LEDGER ENTRY, not a movement, for the reason the match itself is recorded
+    // that way: an earned-fee transfer out of trust posts a bank-affecting entry and no movement.
+    ledgerEntryId: match.entryId,
+    recordedBy: match.matchedBy,
+    recordedAt: match.matchedAt,
+    withdrawnBy: match.withdrawnBy,
+    withdrawnAt: match.withdrawnAt,
+    line: toLineRecord(match.line),
+    item: toBankItemRecord(match.item),
   };
 }
 

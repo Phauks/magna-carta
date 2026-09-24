@@ -386,6 +386,24 @@ export type SafeBrowseSessionProbe = {
     elapsedMilliseconds: number;
 };
 
+export type SafeBrowseLiveView = {
+    requestedUrl: string;
+    finalUrl: string;
+    redirectChain: Array<{
+        url: string;
+        status: number;
+        location?: string;
+    }>;
+    responseHeaders: {
+        [key: string]: string;
+    };
+    screenshotBase64: string;
+    title?: string;
+    markdown?: string;
+    links: Array<string>;
+    sessionContinued: boolean;
+};
+
 export type DecryptionInspectResponse = {
     format: 'pdf' | 'zip' | 'ooxml';
     hash: string;
@@ -880,6 +898,26 @@ export type SetMemberNameRequest = {
      * What follows the name, as the whole line — "III, Esq." is one person's suffix.
      */
     suffix: string | null;
+};
+
+export type MemberPhotoResponse = {
+    photo: MemberPhoto;
+};
+
+export type MemberPhoto = {
+    /**
+     * The SHA-256 of the bytes, which keys the object.
+     */
+    sha256: string;
+    contentType: string;
+    sizeBytes: number;
+    widthPixels: number;
+    heightPixels: number;
+    updatedAt: string;
+} | null;
+
+export type SetMemberPhotoRequest = {
+    imageBase64: string;
 };
 
 export type SetReleaseChannelResponse = {
@@ -6150,6 +6188,18 @@ export type TrustAccountOpening = {
     currency: 'USD';
 };
 
+export type TrustAccountPosition = {
+    trustAccountId: string;
+    currency: string;
+    asOfDate: string;
+    bookBalanceMinor: number;
+    clientLedgerTotalMinor: number;
+    heldMinor: number;
+    firmFundsMinor: number | null;
+    matterLedgerCount: number;
+    pendingRequestCount: number;
+};
+
 export type TrustPendingDisbursementRequestsResponse = {
     requests: Array<TrustPendingDisbursementRequest>;
 };
@@ -6168,6 +6218,9 @@ export type TrustPendingDisbursementRequest = {
     effectiveDate: string;
     requestedBy: string;
     requestedAt: string;
+    matterId: string | null;
+    matterNumber: string | null;
+    matterTitle: string | null;
 };
 
 export type TrustAuthorizationPolicyResponse = {
@@ -6435,6 +6488,22 @@ export type TrustMatchSuggestion = {
     ledgerEntryId: string;
     signals: Array<'amount-equal' | 'same-day' | 'within-window' | 'reference-equal' | 'counterparty-similar'>;
     dayGap: number;
+};
+
+export type TrustReconciliationMatchesResponse = {
+    matches: Array<TrustReconciliationMatch>;
+};
+
+export type TrustReconciliationMatch = {
+    id: string;
+    statementLineId: string;
+    ledgerEntryId: string;
+    recordedBy: string;
+    recordedAt: string;
+    withdrawnBy: string | null;
+    withdrawnAt: string | null;
+    line: TrustBankStatementLineRecord;
+    item: TrustBankItem;
 };
 
 export type TrustReconciliationMatchAck = {
@@ -9171,6 +9240,82 @@ export type SafeBrowseSessionProbeResponses = {
 
 export type SafeBrowseSessionProbeResponse = SafeBrowseSessionProbeResponses[keyof SafeBrowseSessionProbeResponses];
 
+export type SafeBrowseLiveNavigateData = {
+    body: {
+        url: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/safe-browse/live/navigate';
+};
+
+export type SafeBrowseLiveNavigateErrors = {
+    /**
+     * The target URL resolves to a non-public address (SSRF guard rejected it)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:safeBrowse
+     */
+    403: Problem;
+    /**
+     * The page did not finish rendering (type page-render-failed)
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The remote browser is unavailable or at capacity
+     */
+    502: Problem;
+};
+
+export type SafeBrowseLiveNavigateError = SafeBrowseLiveNavigateErrors[keyof SafeBrowseLiveNavigateErrors];
+
+export type SafeBrowseLiveNavigateResponses = {
+    /**
+     * Where the browser landed
+     */
+    200: SafeBrowseLiveView;
+};
+
+export type SafeBrowseLiveNavigateResponse = SafeBrowseLiveNavigateResponses[keyof SafeBrowseLiveNavigateResponses];
+
+export type SafeBrowseLiveCloseData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/safe-browse/live/close';
+};
+
+export type SafeBrowseLiveCloseErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:safeBrowse
+     */
+    403: Problem;
+};
+
+export type SafeBrowseLiveCloseError = SafeBrowseLiveCloseErrors[keyof SafeBrowseLiveCloseErrors];
+
+export type SafeBrowseLiveCloseResponses = {
+    /**
+     * The session is ended
+     */
+    204: void;
+};
+
+export type SafeBrowseLiveCloseResponse = SafeBrowseLiveCloseResponses[keyof SafeBrowseLiveCloseResponses];
+
 export type DecryptionInspectData = {
     body: {
         fileBase64: string;
@@ -11627,6 +11772,150 @@ export type MeSetNameResponses = {
 };
 
 export type MeSetNameResponse = MeSetNameResponses[keyof MeSetNameResponses];
+
+export type MeRemovePhotoData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/photo';
+};
+
+export type MeRemovePhotoErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:editOwnProfile
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the session member is deactivated, or there is no picture
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeRemovePhotoError = MeRemovePhotoErrors[keyof MeRemovePhotoErrors];
+
+export type MeRemovePhotoResponses = {
+    /**
+     * The member holds no picture
+     */
+    200: MemberPhotoResponse;
+};
+
+export type MeRemovePhotoResponse = MeRemovePhotoResponses[keyof MeRemovePhotoResponses];
+
+export type MePhotoData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/photo';
+};
+
+export type MePhotoErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the session member is deactivated, or there is no picture
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MePhotoError = MePhotoErrors[keyof MePhotoErrors];
+
+export type MePhotoResponses = {
+    /**
+     * The member's picture, or null
+     */
+    200: MemberPhotoResponse;
+};
+
+export type MePhotoResponse = MePhotoResponses[keyof MePhotoResponses];
+
+export type MeSetPhotoData = {
+    body: SetMemberPhotoRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/photo';
+};
+
+export type MeSetPhotoErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:editOwnProfile
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the session member is deactivated, or there is no picture
+     */
+    404: Problem;
+    /**
+     * The bytes are not a readable PNG or JPEG, or are larger than the image ceiling
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeSetPhotoError = MeSetPhotoErrors[keyof MeSetPhotoErrors];
+
+export type MeSetPhotoResponses = {
+    /**
+     * The member's picture after the write
+     */
+    200: MemberPhotoResponse;
+};
+
+export type MeSetPhotoResponse = MeSetPhotoResponses[keyof MeSetPhotoResponses];
+
+export type MePhotoContentData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/photo/content';
+};
+
+export type MePhotoContentErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the session member is deactivated, or there is no picture
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MePhotoContentError = MePhotoContentErrors[keyof MePhotoContentErrors];
+
+export type MePhotoContentResponses = {
+    /**
+     * The image
+     */
+    200: string;
+};
+
+export type MePhotoContentResponse = MePhotoContentResponses[keyof MePhotoContentResponses];
 
 export type FirmSetReleaseChannelData = {
     body: SetReleaseChannelRequest;
@@ -31769,6 +32058,49 @@ export type TrustOpenAccountResponses = {
 
 export type TrustOpenAccountResponse = TrustOpenAccountResponses[keyof TrustOpenAccountResponses];
 
+export type TrustAccountPositionData = {
+    body?: never;
+    path: {
+        trustAccountId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/accounts/{trustAccountId}/position';
+};
+
+export type TrustAccountPositionErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the trust rules refuse the movement, the account's jurisdiction cannot be resolved, or this member may not make this decision about this disbursement request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustAccountPositionError = TrustAccountPositionErrors[keyof TrustAccountPositionErrors];
+
+export type TrustAccountPositionResponses = {
+    /**
+     * The account's position as of today in its office's zone
+     */
+    200: TrustAccountPosition;
+};
+
+export type TrustAccountPositionResponse = TrustAccountPositionResponses[keyof TrustAccountPositionResponses];
+
 export type TrustReadAuthorizationPolicyData = {
     body?: never;
     path?: never;
@@ -32377,6 +32709,49 @@ export type TrustReconciliationSuggestionsResponses = {
 };
 
 export type TrustReconciliationSuggestionsResponse = TrustReconciliationSuggestionsResponses[keyof TrustReconciliationSuggestionsResponses];
+
+export type TrustReconciliationMatchesData = {
+    body?: never;
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/reconciliations/{reconciliationId}/matches';
+};
+
+export type TrustReconciliationMatchesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account, statement, reconciliation, or match is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustReconciliationMatchesError = TrustReconciliationMatchesErrors[keyof TrustReconciliationMatchesErrors];
+
+export type TrustReconciliationMatchesResponses = {
+    /**
+     * The matches recorded on the reconciliation
+     */
+    200: TrustReconciliationMatchesResponse;
+};
+
+export type TrustReconciliationMatchesResponse2 = TrustReconciliationMatchesResponses[keyof TrustReconciliationMatchesResponses];
 
 export type TrustRecordReconciliationMatchData = {
     body: TrustRecordMatchRequest;

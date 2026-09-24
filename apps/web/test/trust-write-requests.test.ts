@@ -274,6 +274,9 @@ function pendingRequest(id: string, node: string): TrustPendingRequest {
     effectiveDate: "2026-09-18",
     requestedBy: "user_avery",
     requestedAt: "2026-09-18T15:04:00.000Z",
+    matterId: "matter_pemberton",
+    matterNumber: "2026-00398",
+    matterTitle: "Estate of Harold Pemberton",
   };
 }
 
