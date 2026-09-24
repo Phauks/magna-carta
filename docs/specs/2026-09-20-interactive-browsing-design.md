@@ -36,9 +36,17 @@ apps/web  ──POST /api/v1/safe-browse/live/navigate {url}──▶  chokepoin
 
 ## 4. The guard, which is the point
 
-`assertPublicTarget` runs on **every** navigation, not only the address the member typed. A held session differs from a one-shot capture precisely in that a hostile page has a whole session to redirect the browser somewhere it should not go — at a private address, a link-local metadata endpoint, an internal host. The guard belongs inside the navigate path so that no caller can forget it, and the redirect-following probe the static capture already uses re-guards each hop for the same reason.
+`assertPublicTarget` runs on **every navigation the browser makes**, not only the address the member typed. A held session differs from a one-shot capture precisely in that a hostile page has a whole session to redirect the browser somewhere it should not go — a private address, a link-local metadata endpoint, an internal host.
 
-The route's failure answers are the ones the capture already has, unchanged: a refused target is the generic 400 that never echoes the address back; a page that will not render is `page-render-failed`; a service that cannot serve is the transient 502.
+**Built as request interception, because guarding the typed address alone is not per-hop.** The first build checked the typed address and then called `page.goto`, which lets the remote browser follow server redirects on its own — so every redirect went unchecked while the decision record said otherwise. It was caught while wiring the screen. Interception is now on for the duration of each navigation and every navigation request, in any frame, is resolved through the guard before it may leave:
+
+- a refused hop in the **main frame** fails the navigation with the capture's generic 400, which never echoes the address;
+- a refused hop in a **sub-frame** blocks that frame alone — an iframe pointing inward does not make the page unviewable;
+- **sub-resources** (images, scripts, fetches) are not resolved one by one. A page makes hundreds, and a lookup each would make every navigation slow. That is the same line the static capture's renderer draws, and the browser doing the fetching runs in the rendering service's network, not this platform's.
+
+Interception is switched off before the Worker disconnects; left on, anything the page requested between navigations would pause waiting for a handler that no longer exists.
+
+The route's other failure answers are the capture's, unchanged: a page that will not render is `page-render-failed`; a service that cannot serve is the transient 502.
 
 ## 5. Lifecycle
 
@@ -53,7 +61,11 @@ The route's failure answers are the ones the capture already has, unchanged: a r
 
 ## 6. What the screen does
 
-The shell already has everything: an address bar, back/forward over capture history, the inspector tabs, and a Static | Live segmented control rendered as a Soon affordance. Live mode switches which endpoint the address bar calls and nothing else — the view shape is identical, so the screenshot pane and every tab render unchanged. Back/forward in Live mode navigates the session rather than replaying stored captures.
+The shell already had everything: an address bar, back/forward over capture history, the inspector tabs, and a Static | Live segmented control that rendered as a Soon affordance. Live switches which endpoint the address bar calls. **The live answer carries the capture's fields one for one** — redirect chain, response headers, page text, links — with the chain read off the navigation the session actually made, so the inspector renders it unchanged. An earlier build returned a narrower shape, which would have meant padding the redirect chain with nothing and letting the Overview tab claim "answered directly" about a link that may have bounced three times.
+
+**Back and forward replay stored screenshots in both modes**, instantly and without visiting again — they are a history of pictures, each stamped with when it was taken. They do not move the remote browser. Following a link from the tabs, or entering an address, navigates the session forward from wherever it actually is.
+
+The page owns the mode, because leaving Live ends a billed session: switching back to Static closes it, and leaving the page while in Live releases it through `sendBeacon` on `pagehide`. When a later live step comes back in a fresh browser — the service reaped an idle one, or it passed its age ceiling — the address bar says the cookies from earlier pages are gone.
 
 ## 7. Testing
 

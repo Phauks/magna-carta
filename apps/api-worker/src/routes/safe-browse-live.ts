@@ -8,7 +8,8 @@
  *
  * WHAT IS IDENTICAL TO THE CAPTURE, and must stay that way: what crosses back. A base64 screenshot
  * and structured text, never HTML, never live markup. The member's browser gains nothing new to
- * execute, so the property ADR-0119 called the strongest safety argument survives the feature.
+ * execute — so even if the remote browser were compromised, only an image and text could reach
+ * the member, which is the strongest safety argument the static capture has and survives this.
  *
  * THE GUARD IS THE POINT. `assertPublicTarget` runs on EVERY navigation, not only the address a
  * member types. A held session differs from a one-shot capture precisely in that a hostile page has
