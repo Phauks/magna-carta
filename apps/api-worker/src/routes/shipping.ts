@@ -10,6 +10,7 @@ import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-eff
 import {
   claimShipmentPurchaseStatement,
   insertTrackingEventStatement,
+  listShipmentsStatement,
   markShipmentRatedStatement,
   releaseShipmentPurchaseClaimStatement,
   selectShipmentLabelsStatement,
@@ -21,7 +22,12 @@ import {
   recordRefund,
 } from "@magna-carta/data-access/shipment-service";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { IntegrationConnectionId, MatterId, ShipmentId } from "@magna-carta/identifiers/types";
+import type {
+  FirmId,
+  IntegrationConnectionId,
+  MatterId,
+  ShipmentId,
+} from "@magna-carta/identifiers/types";
 import type { Dispatch } from "@magna-carta/integrations/dispatch";
 import {
   firmScopedObjectDimensions,
@@ -47,6 +53,8 @@ import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
 import { buildIntegrationRegistry } from "../plugins/registry.ts";
+import { protectedReadContext } from "../protected-read-context.ts";
+import { deleteIntegrationCredentialStatement } from "@magna-carta/data-access/integration-credential-statements";
 import type { PluginRuntime } from "../plugins/runtime.ts";
 
 // Shipping & postage: connect the firm's EasyPost postage account, then create/rate/buy/track/refund
@@ -56,6 +64,13 @@ import type { PluginRuntime } from "../plugins/runtime.ts";
 
 type ShippingApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 const MANAGE = "shipping:manage" as const;
+
+// Where a firm's postage credential is addressed. A firm has at most one postage connection, so the
+// ref is derived from the firm rather than minted — which is what makes a reconnect a rotation in
+// place and lets the disconnect find the credential it has to clear.
+function credentialRefForFirm(firmId: FirmId): string {
+  return `integration:shipping:${firmId}`;
+}
 
 const errorResponses = {
   400: {
@@ -90,7 +105,7 @@ const errorResponses = {
   },
   501: {
     description:
-      "The per-firm postage credential read is not built yet, so no account can be connected and no carrier operation can run",
+      "This deployment cannot read stored integration credentials, so no account can be connected and no carrier operation can run",
     content: { "application/problem+json": { schema: Problem } },
   },
   502: {
@@ -318,6 +333,151 @@ const TrackingResponse = z
   .openapi("TrackingResponse");
 const RefundAck = z.object({ id: z.string(), status: z.string() }).openapi("RefundAck");
 
+// --- Reads: the register, one shipment, and whether an account is connected ---
+
+const ShipmentListItem = z
+  .object({
+    id: z.string(),
+    matterRef: z.string().nullable(),
+    status: z.string(),
+    // The recipient's name only. A register row names who a parcel went to; the rest of the address
+    // is read when one shipment is opened, so a list of a firm's mail does not carry every
+    // recipient's street address to the browser.
+    recipientName: z.string().nullable(),
+    carrier: z.string().nullable(),
+    service: z.string().nullable(),
+    trackingCode: z.string().nullable(),
+    postageCostMinor: z.number().int().nullable(),
+    serviceFeeMinor: z.number().int().nullable(),
+    currency: z.string().nullable(),
+    createdAt: z.string(),
+  })
+  .openapi("ShipmentListItem");
+
+const ShipmentListResponse = z
+  .object({ data: z.array(ShipmentListItem), nextCursor: z.string().nullable() })
+  .openapi("ShipmentListResponse");
+
+const ShipmentDetail = z
+  .object({
+    id: z.string(),
+    matterRef: z.string().nullable(),
+    status: z.string(),
+    fromAddress: z.unknown(),
+    toAddress: z.unknown(),
+    parcel: z.unknown(),
+    options: z.unknown(),
+    carrier: z.string().nullable(),
+    service: z.string().nullable(),
+    trackingCode: z.string().nullable(),
+    postageCostMinor: z.number().int().nullable(),
+    serviceFeeMinor: z.number().int().nullable(),
+    currency: z.string().nullable(),
+    hasLabel: z.boolean(),
+  })
+  .openapi("ShipmentDetail");
+
+const ShippingConnectionState = z
+  .object({
+    connected: z.boolean(),
+    // The connection's health as the framework records it, or null when nothing is connected. A
+    // surface needs the difference: "no account" sends a member to connect one, "needs_reauth" sends
+    // them to re-enter a key, and reporting either as the other wastes the trip.
+    status: z.string().nullable(),
+    adapterId: z.string().nullable(),
+  })
+  .openapi("ShippingConnectionState");
+
+// The register's cursor, opaque to the caller and cheap to read: the last row's (created_at, id),
+// which is exactly the keyset the statement pages on. Base64url so it survives a query string
+// unescaped, and parsed defensively — a malformed cursor is a caller's problem to be told about,
+// never a silent first page (which would look like the register had reset).
+function encodeShipmentCursor(cursor: { createdAt: string; id: string }): string {
+  return btoa(JSON.stringify(cursor)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+}
+
+function decodeShipmentCursor(raw: string): { createdAt: string; id: string } | null {
+  try {
+    const padded = raw.replaceAll("-", "+").replaceAll("_", "/");
+    const parsed: unknown = JSON.parse(atob(padded));
+    if (typeof parsed !== "object" || parsed === null) return null;
+    const { createdAt, id } = parsed as Record<string, unknown>;
+    if (typeof createdAt !== "string" || typeof id !== "string") return null;
+    return { createdAt, id };
+  } catch {
+    return null;
+  }
+}
+
+const SHIPMENT_PAGE_SIZE_DEFAULT = 50;
+const SHIPMENT_PAGE_SIZE_MAX = 200;
+
+function readMeta(operationId: string): RouteMeta {
+  return {
+    operationId,
+    surface: "app",
+    authenticated: true,
+    permission: MANAGE,
+    resource: "firm",
+    audited: false,
+    idempotency: "optional",
+    rateLimit: "default",
+  };
+}
+
+const listShipmentsRoute = defineOpenAPIRoute(readMeta("shipping.listShipments"), {
+  method: "get",
+  path: "/api/v1/shipments",
+  description: "The firm's shipments, newest first.",
+  request: {
+    query: z.object({
+      cursor: z.string().optional(),
+      pageSize: z.coerce.number().int().min(1).max(SHIPMENT_PAGE_SIZE_MAX).optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Shipments",
+      content: { "application/json": { schema: ShipmentListResponse } },
+    },
+    401: errorResponses[401],
+    403: errorResponses[403],
+    404: errorResponses[404],
+    422: errorResponses[422],
+    429: errorResponses[429],
+  },
+});
+
+const readShipmentRoute = defineOpenAPIRoute(readMeta("shipping.readShipment"), {
+  method: "get",
+  path: "/api/v1/shipments/{id}",
+  description: "One shipment: addresses, package, options, carrier and costs.",
+  request: { params: z.object({ id: z.string() }) },
+  responses: {
+    200: { description: "Shipment", content: { "application/json": { schema: ShipmentDetail } } },
+    401: errorResponses[401],
+    403: errorResponses[403],
+    404: errorResponses[404],
+    429: errorResponses[429],
+  },
+});
+
+const readConnectionRoute = defineOpenAPIRoute(readMeta("shipping.readConnection"), {
+  method: "get",
+  path: "/api/v1/integrations/shipping/connection",
+  description: "Whether the firm has a postage account connected, and its health.",
+  responses: {
+    200: {
+      description: "Connection state",
+      content: { "application/json": { schema: ShippingConnectionState } },
+    },
+    401: errorResponses[401],
+    403: errorResponses[403],
+    404: errorResponses[404],
+    429: errorResponses[429],
+  },
+});
+
 // GET label PDF — streamed from per-firm R2.
 const labelRoute = defineOpenAPIRoute(
   {
@@ -418,18 +578,13 @@ export function registerShippingRoutes(
       const idempotency = requireChokepointIdempotency(c);
       const { apiKey } = c.req.valid("json");
       const now = () => new Date().toISOString();
-      // Refuse BEFORE anything is written. Connecting is the first thing a member does, so it is
-      // the first thing that has to answer honestly: with no per-firm credential read there is
-      // nowhere to put the key, and recording a connection row over a key that was never stored
-      // would leave the firm believing it had connected an account it had not.
-      const secrets = runtime.secretStoreForFirm(firm.firmDatabase);
-      if (secrets === null) return credentialReadNotImplementedProblem(c);
+      const credentials = runtime.credentialStoreForFirm(protectedReadContext(c));
       const descriptor = createEasyPostAdapter({ http: runtime.httpClient }).descriptor;
 
-      // A firm has at most one postage connection, so the connection row and its secret are both
+      // A firm has at most one postage connection, so the connection row and its credential are both
       // addressed by (category, firm) rather than by a freshly minted id. That makes a reconnect a
       // rotation in place: the new key overwrites the old one at the same ref instead of leaving the
-      // revoked key sitting in the secret store under an orphaned reference.
+      // revoked key sitting in the credential store under an orphaned reference.
       const existing = await selectConnectionStatement(
         firm.firmDatabase,
         "shipping",
@@ -439,9 +594,15 @@ export function registerShippingRoutes(
         existing === null
           ? newIdentifier("integrationConnection")
           : (existing.id as IntegrationConnectionId);
-      const credentialRef = `integration:shipping:${firmId}`;
-      // Store the secret first (idempotent by ref), then commit the connection row in the effect batch.
-      await secrets.putSecret(credentialRef, JSON.stringify({ kind: "apiKey", apiKey }));
+      const credentialRef = credentialRefForFirm(firmId);
+      // Store the credential first (idempotent by ref), then commit the connection row in the effect
+      // batch. This order is deliberate: a connection row over a key that was never stored would
+      // leave the firm believing it had connected an account it had not, while a stored credential
+      // with no connection row is inert — nothing resolves it, and the next connect overwrites it.
+      // fitness:allow-no-dimensions — not a bucket write at all: this is the integration
+      // CredentialStore, whose `put` seals a credential into the per-firm integration_credential
+      // table. Nothing reaches object storage here, so there are no object dimensions to carry.
+      await credentials.put(credentialRef, { kind: "apiKey", apiKey });
 
       const result = await runIdempotentEffect({
         database: firm.firmDatabase,
@@ -515,10 +676,15 @@ export function registerShippingRoutes(
         effect: async () => ({
           // Deleting the row is what actually severs the integration: resolution reads the
           // connection first, so with no row every shipping operation answers not-connected. The
-          // stored credential is left addressed by (category, firm) — a later reconnect overwrites
-          // that same entry rather than accumulating a second one.
+          // credential goes with it, in the same batch — a member who disconnects an account has
+          // usually just revoked the key at the provider, and a revoked bearer secret that outlives
+          // the only row pointing at it is sealed material nothing can reach and nothing will clear.
+          // A reconnect writes a fresh one at the same ref.
           write: {
-            statements: [deleteConnectionStatement(firm.firmDatabase, connectionId)],
+            statements: [
+              deleteConnectionStatement(firm.firmDatabase, connectionId),
+              deleteIntegrationCredentialStatement(firm.firmDatabase, credentialRefForFirm(firmId)),
+            ],
             outboxMessages: [],
           },
           responseCode: 200,
@@ -581,7 +747,7 @@ export function registerShippingRoutes(
       const firm = requireChokepointFirmContext(c);
       const firmId = requireChokepointFirmId(c);
       const id = c.req.valid("param").id as ShipmentId;
-      const registry = buildIntegrationRegistry(firm.firmDatabase, runtime);
+      const registry = buildIntegrationRegistry(protectedReadContext(c), runtime);
       const resolved = await registry.resolve<ShippingPort>("shipping", { firmId });
       if (!resolved.ok) return shippingDispatchProblem(c, resolved);
       const { results } = await selectShipmentStatement(firm.firmDatabase, id).all<{
@@ -639,7 +805,7 @@ export function registerShippingRoutes(
       const id = c.req.valid("param").id as ShipmentId;
       const body = c.req.valid("json");
       const now = () => new Date().toISOString();
-      const registry = buildIntegrationRegistry(firm.firmDatabase, runtime);
+      const registry = buildIntegrationRegistry(protectedReadContext(c), runtime);
       const resolved = await registry.resolve<ShippingPort>("shipping", { firmId });
       if (!resolved.ok) return shippingDispatchProblem(c, resolved);
 
@@ -795,6 +961,130 @@ export function registerShippingRoutes(
     },
   );
 
+  // GET /api/v1/shipments — the register
+  app.openapi(
+    { ...listShipmentsRoute, middleware: chokepointMiddleware(chokepoint, listShipmentsRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { cursor: rawCursor, pageSize } = c.req.valid("query");
+      const cursor = rawCursor === undefined ? null : decodeShipmentCursor(rawCursor);
+      if (rawCursor !== undefined && cursor === null) {
+        return problemJson(c, {
+          type: "validation",
+          title: "Unprocessable",
+          status: 422,
+          detail: "The cursor is not one this register issued.",
+        });
+      }
+      const limit = pageSize ?? SHIPMENT_PAGE_SIZE_DEFAULT;
+      // One more than asked for, so whether another page exists is answered by the read itself
+      // rather than by a second count query that could disagree with it.
+      const { results } = await listShipmentsStatement(firm.firmDatabase, {
+        limit: limit + 1,
+        cursor,
+      }).all<ShipmentListRow>();
+      const page = results.slice(0, limit);
+      const last = page.at(-1);
+      const nextCursor =
+        results.length > limit && last !== undefined
+          ? encodeShipmentCursor({ createdAt: last.created_at, id: last.id })
+          : null;
+      return c.json(
+        {
+          data: page.map((row) => ({
+            id: row.id,
+            matterRef: row.matter_ref,
+            status: row.status,
+            recipientName: recipientNameOf(row.to_address),
+            carrier: row.carrier,
+            service: row.service,
+            trackingCode: row.tracking_code,
+            postageCostMinor: row.postage_cost_minor,
+            serviceFeeMinor: row.service_fee_minor,
+            currency: row.currency,
+            createdAt: row.created_at,
+          })),
+          nextCursor,
+        },
+        200,
+      );
+    },
+  );
+
+  // GET /api/v1/shipments/{id} — one shipment, for the window the register opens
+  app.openapi(
+    { ...readShipmentRoute, middleware: chokepointMiddleware(chokepoint, readShipmentRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const id = c.req.valid("param").id as ShipmentId;
+      const { results } = await selectShipmentStatement(firm.firmDatabase, id).all<{
+        id: string;
+        matter_ref: string | null;
+        status: string;
+        from_address: string;
+        to_address: string;
+        parcel: string;
+        options: string;
+        carrier: string | null;
+        service: string | null;
+        tracking_code: string | null;
+        label_ref: string | null;
+        postage_cost_minor: number | null;
+        service_fee_minor: number | null;
+        currency: string | null;
+      }>();
+      const row = results[0];
+      // The read is scoped to THIS firm's own database, so an unknown id and another firm's id are
+      // the same answer here — which is the point: a 404 discloses nothing about whether it exists.
+      if (row === undefined) return notFoundProblem(c);
+      return c.json(
+        {
+          id: row.id,
+          matterRef: row.matter_ref,
+          status: row.status,
+          fromAddress: parseStoredJson(row.from_address),
+          toAddress: parseStoredJson(row.to_address),
+          parcel: parseStoredJson(row.parcel),
+          options: parseStoredJson(row.options),
+          carrier: row.carrier,
+          service: row.service,
+          trackingCode: row.tracking_code,
+          postageCostMinor: row.postage_cost_minor,
+          serviceFeeMinor: row.service_fee_minor,
+          currency: row.currency,
+          // Whether a label can be fetched, rather than the storage key it lives at. The key is
+          // server-recorded and stays server-side; a surface only needs to know whether to offer it.
+          hasLabel: row.label_ref !== null,
+        },
+        200,
+      );
+    },
+  );
+
+  // GET /api/v1/integrations/shipping/connection — is an account connected, and is it healthy
+  app.openapi(
+    { ...readConnectionRoute, middleware: chokepointMiddleware(chokepoint, readConnectionRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const firmId = requireChokepointFirmId(c);
+      const connection = await selectConnectionStatement(
+        firm.firmDatabase,
+        "shipping",
+        firmId,
+      ).first<{ status: string; adapter_id: string }>();
+      // Nothing about the credential is read here, and nothing about it is returned. Whether an
+      // account is connected is not a secret; the key it was connected with is.
+      return c.json(
+        {
+          connected: connection !== null,
+          status: connection?.status ?? null,
+          adapterId: connection?.adapter_id ?? null,
+        },
+        200,
+      );
+    },
+  );
+
   // GET /api/v1/shipments/{id}/label — stream the label PDF from per-firm R2
   app.openapi(
     { ...labelRoute, middleware: chokepointMiddleware(chokepoint, labelRoute) },
@@ -837,7 +1127,7 @@ export function registerShippingRoutes(
       }>();
       const shipmentRow = results[0];
       if (shipmentRow?.tracking_code == null) return notFoundProblem(c);
-      const registry = buildIntegrationRegistry(firm.firmDatabase, runtime);
+      const registry = buildIntegrationRegistry(protectedReadContext(c), runtime);
       const resolved = await registry.resolve<ShippingPort>("shipping", { firmId });
       if (!resolved.ok) return shippingDispatchProblem(c, resolved);
       const tracked = await resolved.value.port.getTracking(shipmentRow.tracking_code);
@@ -891,7 +1181,7 @@ export function registerShippingRoutes(
       }>();
       const remote = results[0]?.remote_shipment_id;
       if (remote == null) return notFoundProblem(c);
-      const registry = buildIntegrationRegistry(firm.firmDatabase, runtime);
+      const registry = buildIntegrationRegistry(protectedReadContext(c), runtime);
       const resolved = await registry.resolve<ShippingPort>("shipping", { firmId });
       if (!resolved.ok) return shippingDispatchProblem(c, resolved);
       const refunded = await resolved.value.port.refundLabel(remote);
@@ -926,8 +1216,7 @@ export function registerShippingRoutes(
 // purchased and nothing was billed. `auth`, `validation`, and `rate_limit` are all rejections the
 // provider made before doing any work; `not-connected`, `capability-unsupported` and
 // `credential-store-not-implemented` never reached it at all — the last of those cannot even
-// resolve a port, so the claim is always handed back and the draft stays buyable once the seam
-// exists. `upstream` (a provider 5xx) and `network` (no answer at all) are the indeterminate
+// resolve a port, so the claim is always handed back and the draft stays buyable. `upstream` (a provider 5xx) and `network` (no answer at all) are the indeterminate
 // ones — the purchase may well have succeeded on the far side — and must be treated as spent.
 function purchaseDefinitelyNotCharged(
   dispatch: Extract<Dispatch<unknown>, { ok: false }>,
@@ -944,36 +1233,53 @@ class ShippingDispatchError extends Error {
   }
 }
 
-// The per-firm credential read is a seam this deployment has not built. No postage account can be
-// connected, so nothing can be rated, bought, tracked or refunded either. Answered by name rather
-// than as a 500: nobody in the firm can act on it, and the "connect your account" wording next door
-// would send a member at the one door that is shut. Nothing is charged and nothing is written.
-function credentialReadNotImplementedProblem(c: Context): ProblemResponse<501> {
+// The integration framework can report that a deployment has no credential store at all. This worker
+// always builds one (plugins/credential-store.ts), so the outcome is not reachable from here — but it
+// is a member of the Dispatch union the framework returns, and a mapping that silently fell through
+// to a 500 would turn a stated condition into an Error ID. Answered by name: nobody in the firm can
+// act on it, and the "connect your account" wording next door would send a member at a door that is
+// not the shut one. Nothing is charged and nothing is written.
+function credentialStoreUnavailableProblem(c: Context): ProblemResponse<501> {
   return problemJson(c, {
     type: "not-implemented",
-    title: "Postage accounts cannot be connected yet",
+    title: "Postage is unavailable in this deployment",
     status: 501,
     detail:
-      "Storing and reading a firm's postage credentials is not wired yet, so no carrier account can be connected and no label can be rated or bought. Drafting a shipment still works, and nothing has been charged.",
+      "This deployment cannot read stored integration credentials, so no carrier account can be connected and no label can be rated or bought. Drafting a shipment still works, and nothing has been charged.",
   });
 }
 
 // Maps a non-ok shipping Dispatch onto the worker's problem taxonomy. not-connected → 409 (the firm
-// must connect/reconnect its account); credential-store-not-implemented → 501 (nobody can connect
-// one yet); capability-unsupported → 422; an adapter-error maps by its category — a transient
+// must connect/reconnect its account); credential-store-not-implemented → 501 (the deployment has no
+// credential store); credential-forbidden → 403 (this member may not decrypt it);
+// capability-unsupported → 422; an adapter-error maps by its category — a transient
 // provider failure (auth/upstream/network) is a 502 the firm did not cause, rate_limit is 429, and a
 // provider validation rejection is 422.
 function shippingDispatchProblem(
   c: Context,
   dispatch: Extract<Dispatch<unknown>, { ok: false }>,
 ):
+  | ProblemResponse<403>
   | ProblemResponse<409>
   | ProblemResponse<422>
   | ProblemResponse<429>
   | ProblemResponse<501>
   | ProblemResponse<502> {
   if (dispatch.reason === "credential-store-not-implemented") {
-    return credentialReadNotImplementedProblem(c);
+    return credentialStoreUnavailableProblem(c);
+  }
+  // The firm HAS a postage account; this member may not have its credential decrypted. Said as a
+  // permission answer rather than "not connected", which would send them — or the administrator they
+  // ask — looking for a connection fault that does not exist. The remedy is a grant.
+  if (dispatch.reason === "credential-forbidden") {
+    return problemJson(c, {
+      type: "permission-denied",
+      title: "Forbidden",
+      status: 403,
+      detail:
+        "Your role may create shipments but may not use the firm's stored postage credential. An administrator can grant integrations:useConnection.",
+      requestAccess: true,
+    });
   }
   if (dispatch.reason === "not-connected") {
     return problemJson(c, {
@@ -1020,4 +1326,39 @@ function notFoundProblem(c: Context): ProblemResponse<404> {
     status: 404,
     detail: "No such shipment in this firm.",
   });
+}
+
+// The shape listShipmentsStatement projects. Declared here beside its only reader rather than in
+// data-access, because it describes this route's projection rather than the table.
+interface ShipmentListRow {
+  readonly id: string;
+  readonly matter_ref: string | null;
+  readonly status: string;
+  readonly to_address: string;
+  readonly carrier: string | null;
+  readonly service: string | null;
+  readonly tracking_code: string | null;
+  readonly postage_cost_minor: number | null;
+  readonly service_fee_minor: number | null;
+  readonly currency: string | null;
+  readonly created_at: string;
+}
+
+// A stored address/parcel/options column, back to the object it was written from. These are written
+// by this worker through JSON.stringify and never by a caller, so a parse failure is a corrupted row
+// rather than untrusted input — returned as null so one damaged shipment renders as a shipment with
+// a missing part, instead of failing the whole read.
+function parseStoredJson(raw: string): unknown {
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function recipientNameOf(storedToAddress: string): string | null {
+  const parsed = parseStoredJson(storedToAddress);
+  if (typeof parsed !== "object" || parsed === null) return null;
+  const { name } = parsed as Record<string, unknown>;
+  return typeof name === "string" ? name : null;
 }

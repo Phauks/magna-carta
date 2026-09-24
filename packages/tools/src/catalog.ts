@@ -99,7 +99,12 @@ export const CATALOG: readonly ToolManifest[] = [
     permission: assertPermission("tools:shipping"),
     contextTags: ["address"],
     backing: { kind: "integration", category: "shipping" },
-    matterContext: "none",
+    // A shipment MAY belong to a matter and often does not — a firm posts to a bank, an insurer, a
+    // supplier with nothing to bill. Optional rather than none because the matter is what makes the
+    // postage recoverable: a shipment with no matter emits no cost at all (the recoverable-charge
+    // adapter treats a null matter as firm-administrative), so leaving this at none would mean no
+    // firm ever bills postage back, with the whole recovery path built and unable to fire.
+    matterContext: "optional",
   },
   // Files — a file that belongs to no matter.
   {

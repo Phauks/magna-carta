@@ -681,6 +681,32 @@ merges lands. The other switches: `--plan` prints what would run and why, and ru
 not one is an error rather than a silent no-op. A dimension skipped by a flag is named in the summary,
 so the pull request can say why.
 
+**Every step runs under a time budget, and a step that exceeds it is its own outcome.**
+A check that never returns is indistinguishable from a slow machine — no error, no exit code, no file
+named — and that ambiguity is expensive out of all proportion to its causes. A single character in one
+seventy-line source file (a raw U+FFFD in a used, `u`-flagged regex, which the linter's analysis never
+terminates on) made the `lint` dimension unrunnable in September 2026. It was diagnosed five separate
+times as container uptime, and the gate of record could not be run end to end for six days, while every
+`pnpm check:scoped` in between passed — because the scoped check lints the diff and nothing had touched
+that file since it landed. The character was a one-line fix; finding it was the whole cost.
+
+So each step is given a budget ([`tooling/gate/budget.mjs`](../../tooling/gate/budget.mjs)), and one
+that exceeds it is **killed and reported as `NO END`** — never folded into `FAILED`, because "found
+problems" and "never finished" call for different next moves, and a dimension that did not finish
+reached no verdict at all. The budgets are per **step** rather than per dimension (the step is what
+hangs and what can be named) and are set well past the slowest honest run, because what they exist to
+catch does not terminate at all — any finite budget detects it, and the only way the mechanism can do
+harm is by firing on real work. `MAGNA_CARTA_GATE_TIMEOUT_SCALE=2` doubles them all and `=off` removes
+them; a value it cannot parse is an error rather than a silent fallback to unscaled.
+
+The teardown is the part worth not getting wrong. The gate never holds a handle on the process doing
+the work — under `vp` sits the lint or test CLI, and under that the worker threads and the esbuild
+services — so killing the direct child orphans the rest onto init, still holding the CPU and the caches
+the next step wants. `spawnSync`'s own `timeout` does exactly that. Steps are therefore spawned to lead
+their own process group and torn down through the same bounded terminate-wait-kill-confirm ladder the
+test guard uses ([`tooling/test-single-flight/process-group.mjs`](../../tooling/test-single-flight/process-group.mjs)),
+which does not return until the group is confirmed empty and says what it had to escalate to.
+
 **What the runner gave, and what stands in for it.**
 
 - _Parallel jobs._ The workflow fanned out to a dozen runners and finished in the time of its tallest

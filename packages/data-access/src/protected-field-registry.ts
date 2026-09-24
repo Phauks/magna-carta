@@ -29,6 +29,23 @@ export const firmSecretValue = protectedField({
   permission: assertPermission("firm:manageSecrets"),
 });
 
+// A connected integration's credential (the postage account's API key today), sealed under the firm
+// key and readable only with integrations:useConnection — an audited decrypt, exactly like every
+// other protected read. integration-credential-statements.ts is its reader/writer; the AAD binds each
+// value to its integration_credential row id, so a credential cannot be replayed under another ref's
+// row. No blind index: a credential is fetched by ref, never matched by value.
+//
+// Its own declaration rather than a second one on firm_secret.ciphertext, because a protected column
+// carries exactly one declaration and that declaration's permission IS the decrypt gate. Sharing the
+// column would mean sharing firm:manageSecrets, which would either refuse the member whose route
+// already authorized the act or, if granted to them, hand over every other secret the firm holds.
+export const integrationCredentialValue = protectedField({
+  table: "integration_credential",
+  column: "ciphertext",
+  purpose: "secrets",
+  permission: assertPermission("integrations:useConnection"),
+});
+
 // A directory entity's typed identifier value (SSN, EIN, driver's license, account number, DOB, …),
 // sealed under the firm pii key and readable only with directory:viewSensitiveIdentifiers (an audited
 // decrypt). One physical column holds every identifier type; the row's identifier_type discriminator
@@ -67,6 +84,7 @@ export const matterAssetIdentifierValue = protectedField({
 export const PROTECTED_FIELD_DECLARATIONS: readonly ProtectedFieldDeclaration[] = [
   incidentDescription,
   firmSecretValue,
+  integrationCredentialValue,
   directoryIdentifierValue,
   matterAssetIdentifierValue,
 ];

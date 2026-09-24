@@ -78,6 +78,7 @@ import type {
   IncidentId,
   IndexSplitId,
   IntegrationConnectionId,
+  IntegrationCredentialId,
   InvoiceApplicationId,
   DownloadItemId,
   InvoiceDeliveryId,
@@ -1763,6 +1764,27 @@ export const integrationConnection = sqliteTable(
     ),
   ],
 );
+
+// A connected integration's credential, encrypted at rest under the firm key, addressed by the
+// `credential_ref` its integration_connection row carries. Values are ciphertext only; the
+// encrypt/decrypt and the access gate live in @magna-carta/data-access.
+//
+// WHY THIS IS NOT firm_secret. Both hold a sealed value and the shapes are nearly identical, but the
+// permission that governs reading them is not. firm_secret is the firm's own vault — reading any
+// entry means holding firm:manageSecrets, which is the right gate for an administrator and the wrong
+// one for the act this column exists for: a member buying postage is not reading a secret, the worker
+// is using a credential on their behalf, and that member holds shipping:manage rather than the keys to
+// everything the firm has sealed. A protected column carries exactly one declaration and the decrypt
+// gate is that declaration's permission, so the two acts cannot be told apart while they share a
+// column. They are separated here instead: this column is declared under integrations:useConnection,
+// and firm_secret keeps its administrator gate unweakened.
+export const integrationCredential = sqliteTable("integration_credential", {
+  id: text("id").primaryKey().$type<IntegrationCredentialId>(), // integrationCredential_ handle
+  credentialRef: text("credential_ref").notNull().unique(),
+  ciphertext: text("ciphertext").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
 
 // A typed relationship edge between two directory entities. Temporal (valid_from/valid_to); edge_type
 // is open text constrained to a non-empty value so the catalog can grow without schema migrations.
