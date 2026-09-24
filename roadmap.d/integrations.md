@@ -270,12 +270,12 @@
 
 - id: integrations.tools.safe-browse-live
   name: Safe website viewer — Live mode
-  scope: One held isolated browser per member, walked page to page so a link's cookie-gated steps can be followed; every navigation hop SSRF-guarded.
+  scope: One held isolated browser per member, streamed to their screen and driven by their pointer and keyboard, so a link's steps can be clicked through with cookies intact; every document the browser requests for the whole session SSRF-guarded.
   status: partial
   surface: screen
   spec: docs/specs/2026-09-20-interactive-browsing-design.md
-  evidence: apps/api-worker/src/routes/safe-browse-live.ts + apps/api-worker/src/safe-browse/safe-browse-session.ts, driven by the viewer's Live toggle. Platform capability measured by the session probe 2026-09-20 (session reuse and CDP available, 200 concurrent sessions).
-  notes: Partial until a live navigation is confirmed against the deployed service, on the same rule the static capture's node followed — the probe proved the platform, not this route. Miniflare has no browser binding, so the route's navigation path has no automated test. Pixel streaming is decided against for now, not built.
+  evidence: apps/api-worker/src/safe-browse/ (live-stream.ts, puppeteer-live-browser.ts, safe-browse-session.ts) + apps/api-worker/src/routes/safe-browse-live.ts + apps/web/src/lib/tools/safe-browse/live-screen.svelte. The earlier screenshot-per-step Live was confirmed against the deployed service by the owner on 2026-09-24 (a redirect chain followed in a held session).
+  notes: Partial until the streamed Live is confirmed against the deployed service — frames arriving, a click and a keystroke landing, the guard refusing an inward navigation. Miniflare has no browser binding, so the CDP adapter has no automated test; the stream's decisions around it are tested with a fake browser.
 
 - id: integrations.tools.metadata
   name: Metadata inspector & scrubber

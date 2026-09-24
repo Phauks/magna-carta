@@ -28,6 +28,7 @@
     "@magna-carta/merge-field-catalog-contract": "workspace:*",
     "@magna-carta/money": "workspace:*",
     "@magna-carta/pdf": "workspace:*",
+    "@magna-carta/safe-browse": "workspace:*",
     "@magna-carta/tools": "workspace:*",
     "@noble/hashes": "catalog:",
     "@tanstack/svelte-query": "catalog:",
