@@ -11,7 +11,7 @@ import { applyMigrations, loadMigrationsFromDisk } from "../src/node-sqlite.ts";
  * counters at the old key, apply the rest of the lineage, and require that every row moved to the
  * key the scheme's scoping parts now derive, with its value intact.
  */
-const TAG = "20260920T090000_communication-number-scope-parts";
+const TAG = "20260924T183850_communication-number-scope-parts";
 
 describe("the call and text counter re-key, over rows", () => {
   const migrations = loadMigrationsFromDisk("per-firm");

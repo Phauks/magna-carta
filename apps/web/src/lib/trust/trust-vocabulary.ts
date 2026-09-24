@@ -15,10 +15,12 @@
  * is a fact a reader must not have to infer from two user handles matching, so it is spelled out
  * on the hover of the person who released the money.
  */
-import { UNRECORDED_PERSON } from "@magna-carta/design-system/formatters";
+import { UNRECORDED_PERSON, formatDate } from "@magna-carta/design-system/formatters";
+import type { ChoiceOption } from "$lib/components/choice-picker.ts";
 import type {
   TrustAuthorizationBasis,
   TrustBankMovementMethod,
+  TrustMatterLedger,
   TrustMovementKind,
   TrustMovementMethod,
   TrustMovementRecord,
@@ -218,6 +220,70 @@ export function waitingOnApprovalSentence(count: number): string {
   return count === 1
     ? "1 payment is waiting on approval."
     : `${count} payments are waiting on approval.`;
+}
+
+// ---- a matter, named ---------------------------------------------------------------------------
+
+/**
+ * A matter as a reader says it: its number, then its title.
+ *
+ * ONE ASSEMBLY FOR EVERY TRUST SURFACE. The number leads because it is what somebody reads back
+ * down a telephone, and the title follows because it is what a reader recognises. Null where the
+ * record carries neither, so each caller states its own stand-in for a matter it cannot name rather
+ * than two files disagreeing about what an unnamed matter reads as.
+ */
+export function matterNameText(
+  matterNumber: string | null,
+  matterTitle: string | null,
+): string | null {
+  const parts = [matterNumber, matterTitle]
+    .map((part) => part?.trim() ?? "")
+    .filter((part) => part !== "");
+  return parts.length === 0 ? null : parts.join(" · ");
+}
+
+// ---- one movement, as a line -------------------------------------------------------------------
+
+/**
+ * One movement as a single line: the day it took effect, who was on the other side, how much.
+ *
+ * THIS IS WHAT A HANDLE IS NOT. A trust movement's identifier is what the platform joins on; it is
+ * not something anybody can read, check or quote, so wherever a movement is offered to be chosen or
+ * stated back as chosen, it reads as these three facts. Both the panel that picks one and the
+ * window that shows the one already attached compose it here, so the picked row and the row it
+ * lands in cannot describe the same payment differently.
+ */
+export function movementLineText(
+  movement: TrustMovementRecord,
+  ownTrustLedgerNodeId: string | null,
+  money: (amountMinor: number) => string,
+): string {
+  const payee = counterpartyText(movement, ownTrustLedgerNodeId);
+  return `${formatDate(movement.effectiveDate)} · ${payee} · ${money(movement.amountMinor)}`;
+}
+
+/**
+ * The payments out of one matter's ledger, as a closed choice.
+ *
+ * Newest first: a file being closed over a distribution attaches the payment that ended it, which
+ * is the most recent one far more often than not. The kind rides the hover rather than the label,
+ * because every row here is the same kind and a label repeating itself on every row says nothing.
+ */
+export function disbursementChoices(
+  ledger: TrustMatterLedger | null,
+  money: (amountMinor: number) => string,
+): readonly ChoiceOption[] {
+  if (ledger === null) return [];
+  return ledger.movements
+    .filter((movement) => movement.kind === "disbursement")
+    .toSorted((left, right) => right.effectiveDate.localeCompare(left.effectiveDate))
+    .map((movement) => ({
+      value: movement.id,
+      label: movementLineText(movement, ledger.trustLedgerNodeId, money),
+      aside: movement.reference ?? undefined,
+      meaning: kindSentence(movement.kind),
+      keywords: [movement.reference ?? "", movement.purpose].filter((word) => word !== ""),
+    }));
 }
 
 /** The movements a figure is allowed to count. Every movement counts: none is a draft or a void. */

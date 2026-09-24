@@ -48,7 +48,7 @@ tables record therefore names that index's table and is never written to;
 the bounded retry's `alsoRetryable`.
 
 The counter's scope keys were re-keyed by migration when the run joined the scheme model
-(`20260920T090000_communication-number-scope-parts.sql`), from `2026-09-08` to the `2026:09:08` the
+(`20260924T183850_communication-number-scope-parts.sql`), from `2026-09-08` to the `2026:09:08` the
 three scoping parts derive. A counter the draw can no longer find restarts the day's count at one
 and issues a number the firm has already said out loud, so the rows move with the model.
 

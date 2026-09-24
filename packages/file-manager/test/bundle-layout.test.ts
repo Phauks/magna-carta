@@ -9,6 +9,7 @@ const entry = (path: string, id: string, size: number): ZipEntry => ({
   versionId: `${id}-v` as FileVersionId,
   r2Key: `files/${id}/${id}-v`,
   sizeBytes: size,
+  exportCopy: { exportCopyState: null, exportR2Key: null, exportSizeBytes: null },
 });
 
 const resolved = (entries: ZipEntry[]): ResolvedZip => ({

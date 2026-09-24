@@ -3,9 +3,14 @@ import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
+  LedgerEntryId,
   TrustAccountId,
   TrustBankStatementId,
+  TrustBankStatementLineId,
+  TrustMovementId,
   TrustReconciliationId,
+  TrustReconciliationMatchId,
+  TrustTransferId,
   UserId,
 } from "@magna-carta/identifiers/types";
 import { loadTrustAccount, type TrustServiceOptions } from "./account-tree.ts";
@@ -13,13 +18,17 @@ import { readTrustBankStatement } from "./bank-statements.ts";
 import {
   closeTrustReconciliationStatement,
   insertTrustReconciliationStatement,
+  selectTrustReconciliationMatchesStatement,
   selectTrustReconciliationStatement,
   selectTrustReconciliationsForAccountStatement,
 } from "./statements.ts";
 import { computeTrustThreeWayProof } from "./three-way-proof.ts";
 import { TrustValidationError } from "./trust-validation.ts";
 import type {
+  TrustBankStatementLineDirection,
   TrustFrozenProof,
+  TrustMovementKind,
+  TrustReconciliationMatchRecord,
   TrustReconciliationSnapshot,
   TrustReconciliationStatus,
   TrustThreeWayProof,
@@ -127,6 +136,94 @@ export async function readTrustReconciliations(
     trustAccountId,
   ).all<ReconciliationRow>();
   return results.map(toSnapshot);
+}
+
+interface ReconciliationMatchRow {
+  id: string;
+  reconciliation_id: string;
+  statement_line_id: string;
+  entry_id: string;
+  matched_by: string;
+  matched_at: string;
+  unmatched_by_match_id: string | null;
+  withdrawn_by: string | null;
+  withdrawn_at: string | null;
+  line_id: string;
+  line_statement_id: string;
+  line_posted_on: string;
+  line_direction: TrustBankStatementLineDirection;
+  line_amount_minor: number;
+  line_description: string;
+  line_reference: string | null;
+  line_counterparty_name: string | null;
+  line_source_row_number: number | null;
+  effective_date: string;
+  description: string;
+  bank_delta_minor: number;
+  movement_id: string | null;
+  movement_kind: TrustMovementKind | null;
+  reference: string | null;
+  counterparty_name: string | null;
+  transfer_id: string | null;
+}
+
+function toMatchRecord(row: ReconciliationMatchRow): TrustReconciliationMatchRecord {
+  return {
+    id: row.id as TrustReconciliationMatchId,
+    statementLineId: row.statement_line_id as TrustBankStatementLineId,
+    entryId: row.entry_id as LedgerEntryId,
+    matchedBy: row.matched_by as UserId,
+    matchedAt: row.matched_at,
+    // Both come off the withdrawing row, which is an append rather than an edit — so a withdrawn
+    // match carries who took it back and when, and a standing one carries two nulls.
+    withdrawnBy: row.withdrawn_by as UserId | null,
+    withdrawnAt: row.withdrawn_at,
+    line: {
+      id: row.line_id as TrustBankStatementLineId,
+      statementId: row.line_statement_id as TrustBankStatementId,
+      postedOn: row.line_posted_on,
+      direction: row.line_direction,
+      amountMinor: row.line_amount_minor,
+      description: row.line_description,
+      reference: row.line_reference,
+      counterpartyName: row.line_counterparty_name,
+      sourceRowNumber: row.line_source_row_number,
+    },
+    item: {
+      entryId: row.entry_id as LedgerEntryId,
+      effectiveDate: row.effective_date,
+      description: row.description,
+      bankDeltaMinor: row.bank_delta_minor,
+      movementId: row.movement_id as TrustMovementId | null,
+      movementKind: row.movement_kind,
+      transferId: row.transfer_id as TrustTransferId | null,
+      reference: row.reference,
+      counterpartyName: row.counterparty_name,
+    },
+  };
+}
+
+// EVERY MATCH ONE RECONCILIATION HOLDS, oldest first, withdrawn ones included — each with the bank
+// line and the recorded item it pairs, so a reader sees the two rows somebody said were the same
+// event rather than two identifiers.
+//
+// A withdrawn match stays on this list because the record is of what people asserted, not of what
+// currently stands: the suggestion surface already answers "what is still unaccounted for", and a
+// list that dropped a withdrawal would leave nothing anywhere saying the pairing was ever made.
+export async function readTrustReconciliationMatches(
+  database: SqlDatabase,
+  reconciliationId: TrustReconciliationId,
+): Promise<readonly TrustReconciliationMatchRecord[]> {
+  const reconciliation = await readTrustReconciliation(database, reconciliationId);
+  // The account's bank leaf, because an item's signed effect on the bank is what its entry did to
+  // THAT account — the same leaf the outstanding read measures items against.
+  const account = await loadTrustAccount(database, reconciliation.trustAccountId);
+  const { results } = await selectTrustReconciliationMatchesStatement(
+    database,
+    reconciliationId,
+    account.bankLedgerAccountId,
+  ).all<ReconciliationMatchRow>();
+  return results.map(toMatchRecord);
 }
 
 export interface OpenTrustReconciliationInput {
